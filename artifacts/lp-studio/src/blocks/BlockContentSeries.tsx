@@ -347,7 +347,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
             style={{
               position: "absolute",
               inset: 0,
-              background: `linear-gradient(180deg, ${rgba(C.bg, 0.7)} 0%, ${rgba(C.bg, 0.85)} 60%, ${C.bg} 100%)`,
+              background: (() => { const o = Math.max(0, Math.min(p.heroOverlayOpacity ?? 0.7, 1)); return `linear-gradient(180deg, ${rgba(C.bg, o)} 0%, ${rgba(C.bg, Math.min(o + 0.15, 1))} 60%, ${C.bg} 100%)`; })(),
               pointerEvents: "none",
             }}
           />
@@ -1877,13 +1877,13 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
         minHeight: "100vh",
       }}
     >
-      <StickyNav p={effective} C={C} />
-      <Hero p={effective} C={C} />
-      <EpisodeLibrary p={effective} C={C} />
-      <HostsSection p={effective} C={C} />
-      <AboutSection p={effective} C={C} />
-      <FormSection p={effective} C={C} />
-      <CtaSection p={effective} C={C} />
+      {(p.showNav !== false) && <StickyNav p={effective} C={C} />}
+      {(p.showHero !== false) && <Hero p={effective} C={C} />}
+      {(p.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
+      {(p.showHosts !== false) && <HostsSection p={effective} C={C} />}
+      {(p.showAbout !== false) && <AboutSection p={effective} C={C} />}
+      {(p.showForm !== false) && <FormSection p={effective} C={C} />}
+      {(p.showCta !== false) && <CtaSection p={effective} C={C} />}
     </div>
   );
 }

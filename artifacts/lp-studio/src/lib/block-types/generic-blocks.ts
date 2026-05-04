@@ -1214,8 +1214,19 @@ export interface ContentSeriesBlockProps {
   navCtaText?: string;
   navCtaUrl?: string;
 
+  /** Section visibility toggles — all default to true when absent. */
+  showNav?: boolean;
+  showHero?: boolean;
+  showEpisodes?: boolean;
+  showHosts?: boolean;
+  showAbout?: boolean;
+  showForm?: boolean;
+  showCta?: boolean;
+
   /** Hero layout: "full-bleed" = immersive bg image, "half-bleed" = split text/image, "text-only" = no image. */
   heroLayout?: "full-bleed" | "half-bleed" | "text-only";
+  /** Overlay opacity for full-bleed hero (0–1). Controls how much the background image shows through. */
+  heroOverlayOpacity?: number;
   /** "auto" = newest episode populates hero; "manual" = hero fields are edited independently. */
   heroSourceMode?: "auto" | "manual";
   /** Hero / featured episode section. */

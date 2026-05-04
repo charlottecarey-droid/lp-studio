@@ -79,6 +79,7 @@ interface Props {
 
 export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>({
+    visibility: false,
     theme: false,
     hero: true,
     episodes: false,
@@ -261,8 +262,39 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
         </div>
       )}
 
+      {/* ── Section Visibility ─────────────────────────────────────────── */}
+      <SectionHeader label="Section Visibility" open={open.visibility} onToggle={() => toggle("visibility")} />
+      {open.visibility && (
+        <div className="space-y-1 pt-3 pb-4">
+          <p className="text-[11px] text-muted-foreground mb-2">Toggle sections on or off. Hidden sections won't render on the page.</p>
+          {([
+            ["showNav", "Navigation Bar"],
+            ["showHero", "Hero"],
+            ["showEpisodes", "Episodes"],
+            ["showHosts", "Hosts / Guests"],
+            ["showAbout", "About"],
+            ["showForm", "Form / Apply"],
+            ["showCta", "CTA Section"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => set({ [key]: !(p[key] !== false) })}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
+                p[key] !== false
+                  ? "bg-primary/10 text-foreground"
+                  : "bg-muted/30 text-muted-foreground line-through"
+              }`}
+            >
+              {p[key] !== false ? <Eye className="w-3.5 h-3.5 shrink-0" /> : <EyeOff className="w-3.5 h-3.5 shrink-0" />}
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <SectionHeader label="Hero & Nav" open={open.hero} onToggle={() => toggle("hero")} />
+      <SectionHeader label="Hero" open={open.hero} onToggle={() => toggle("hero")} />
       {open.hero && (
         <div className="space-y-3 pt-3 pb-4">
           <Field label="Hero Layout" hint="Controls how the hero image is displayed">
@@ -275,6 +307,19 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
               </SelectContent>
             </Select>
           </Field>
+          {(p.heroLayout === "full-bleed") && (
+            <div className="flex items-center gap-2">
+              <Label className="text-[11px] shrink-0">Overlay {Math.round((p.heroOverlayOpacity ?? 0.7) * 100)}%</Label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round((p.heroOverlayOpacity ?? 0.7) * 100)}
+                onChange={e => set({ heroOverlayOpacity: Number(e.target.value) / 100 })}
+                className="flex-1 h-4"
+              />
+            </div>
+          )}
           <Field label="Hero Source" hint="Auto fills hero from newest (or pinned) episode. Manual lets you edit hero fields directly.">
             <Select value={p.heroSourceMode ?? "auto"} onValueChange={(v) => set({ heroSourceMode: v as "auto" | "manual" })}>
               <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
