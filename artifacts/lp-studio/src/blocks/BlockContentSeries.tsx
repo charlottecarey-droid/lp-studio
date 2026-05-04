@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -29,6 +29,37 @@ import type {
 } from "@/lib/block-types";
 import type { FormStep, FormField } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+
+class ContentSeriesErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(err: Error, info: ErrorInfo) {
+    console.error("[ContentSeries] render error:", err, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f12", color: "#eeeae3", fontFamily: "'Inter', sans-serif", padding: "2rem" }}>
+          <div style={{ maxWidth: "32rem", textAlign: "center" }}>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", color: "#b59a6e" }}>Content Series — Render Error</h2>
+            <p style={{ fontSize: "0.85rem", color: "#7a8088", lineHeight: 1.6 }}>
+              {this.state.error?.message ?? "Unknown error"}
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const FALLBACK_THEME = {
   bg: "#0c0f12",
@@ -2073,32 +2104,39 @@ function resolveHeroFromEpisodes(p: ContentSeriesBlockProps): ContentSeriesBlock
 }
 
 export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
-  const C = useMemo(() => resolveTheme(p.theme, brand), [p.theme, brand]);
+  const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
   const base = brandDefaults(brand);
   useGoogleFonts(
-    p.theme?.displayFontFamily ?? base.displayFontFamily,
-    p.theme?.bodyFontFamily ?? base.bodyFontFamily,
+    p?.theme?.displayFontFamily ?? base.displayFontFamily,
+    p?.theme?.bodyFontFamily ?? base.bodyFontFamily,
   );
 
-  const effective = useMemo(() => resolveHeroFromEpisodes(p), [p]);
+  const safeProps = useMemo<ContentSeriesBlockProps>(() => {
+    if (!p) return { seriesType: "podcast", seriesTitle: "Untitled Series", seriesSubtitle: "", episodes: [] } as ContentSeriesBlockProps;
+    return { ...p, episodes: p.episodes ?? [], hosts: p.hosts ?? [], ctas: p.ctas ?? [], formSteps: p.formSteps ?? [] };
+  }, [p]);
+
+  const effective = useMemo(() => resolveHeroFromEpisodes(safeProps), [safeProps]);
 
   return (
-    <div
-      style={{
-        backgroundColor: C.bg,
-        color: C.fg,
-        fontFamily: C.bodyFont,
-        minHeight: "100vh",
-      }}
-    >
-      {(p.showNav !== false) && <StickyNav p={effective} C={C} />}
-      {(p.showHero !== false) && <Hero p={effective} C={C} />}
-      {(p.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
-      {(p.showHosts !== false) && <HostsSection p={effective} C={C} />}
-      {(p.showAbout !== false) && <AboutSection p={effective} C={C} />}
-      {(p.showForm !== false) && <FormSection p={effective} C={C} />}
-      {(p.showCta !== false) && <CtaSection p={effective} C={C} />}
-    </div>
+    <ContentSeriesErrorBoundary>
+      <div
+        style={{
+          backgroundColor: C.bg,
+          color: C.fg,
+          fontFamily: C.bodyFont,
+          minHeight: "100vh",
+        }}
+      >
+        {(safeProps.showNav !== false) && <StickyNav p={effective} C={C} />}
+        {(safeProps.showHero !== false) && <Hero p={effective} C={C} />}
+        {(safeProps.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
+        {(safeProps.showHosts !== false) && <HostsSection p={effective} C={C} />}
+        {(safeProps.showAbout !== false) && <AboutSection p={effective} C={C} />}
+        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} />}
+        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} />}
+      </div>
+    </ContentSeriesErrorBoundary>
   );
 }
 

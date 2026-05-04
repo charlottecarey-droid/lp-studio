@@ -290,6 +290,7 @@ export const NO_REVEAL = new Set<string>([
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero",
+  "content-series",
   "spacer",
 ]);
 
