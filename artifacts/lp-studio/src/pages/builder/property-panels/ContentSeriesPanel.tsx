@@ -490,29 +490,81 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
         </div>
       )}
 
-      {/* ── Hosts ────────────────────────────────────────────────────────── */}
-      <SectionHeader label="Hosts & Guests" open={open.hosts} onToggle={() => toggle("hosts")} />
+      {/* ── Host ─────────────────────────────────────────────────────────── */}
+      <SectionHeader label={hosts.length <= 1 ? "Host" : "Hosts & Guests"} open={open.hosts} onToggle={() => toggle("hosts")} />
       {open.hosts && (
         <div className="space-y-3 pt-3 pb-4">
-          {hosts.map((host, i) => (
-            <div key={i} className="border border-border rounded-md p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{host.name || `Host ${i + 1}`}</span>
-                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeHost(i)}>
-                  <Trash2 className="w-3 h-3" />
+          {hosts.length <= 1 && (
+            <>
+              {hosts.length === 0 && (
+                <p className="text-[11px] text-muted-foreground bg-muted/30 rounded p-2">No host configured yet. Add one below to show a "Your Host" spotlight section.</p>
+              )}
+              {hosts.length === 1 && (
+                <div className="space-y-2">
+                  <Field label="Photo">
+                    <ImagePicker value={hosts[0].photoUrl ?? ""} onChange={v => updateHost(0, { photoUrl: v || undefined })} />
+                  </Field>
+                  <Field label="Name">
+                    <Input value={hosts[0].name} onChange={e => updateHost(0, { name: e.target.value })} className="h-7 text-xs" placeholder="Dr. Eric DeVore" />
+                  </Field>
+                  <Field label="Title">
+                    <Input value={hosts[0].title} onChange={e => updateHost(0, { title: e.target.value })} className="h-7 text-xs" placeholder="CEO & Founder" />
+                  </Field>
+                  <Field label="Company">
+                    <Input value={hosts[0].company ?? ""} onChange={e => updateHost(0, { company: e.target.value })} className="h-7 text-xs" placeholder="Dandy" />
+                  </Field>
+                  <Field label="Bio">
+                    <Textarea value={hosts[0].bio ?? ""} onChange={e => updateHost(0, { bio: e.target.value })} className="text-xs min-h-[3rem]" rows={3} placeholder="A brief bio…" />
+                  </Field>
+                  <Field label="LinkedIn URL">
+                    <Input value={hosts[0].linkedinUrl ?? ""} onChange={e => updateHost(0, { linkedinUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="https://linkedin.com/in/…" />
+                  </Field>
+                  <Field label="Website URL">
+                    <Input value={hosts[0].websiteUrl ?? ""} onChange={e => updateHost(0, { websiteUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="https://…" />
+                  </Field>
+                  <Button type="button" variant="ghost" size="sm" className="h-6 text-[11px] text-destructive hover:text-destructive w-full" onClick={() => removeHost(0)}>
+                    <Trash2 className="w-3 h-3 mr-1" /> Remove Host
+                  </Button>
+                </div>
+              )}
+              {hosts.length === 0 && (
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full" onClick={addHost}>
+                  <Plus className="w-3 h-3 mr-1" /> Add Host
                 </Button>
-              </div>
-              <Input value={host.name} onChange={e => updateHost(i, { name: e.target.value })} className="h-7 text-xs" placeholder="Name" />
-              <Input value={host.title} onChange={e => updateHost(i, { title: e.target.value })} className="h-7 text-xs" placeholder="Title" />
-              <Input value={host.company ?? ""} onChange={e => updateHost(i, { company: e.target.value })} className="h-7 text-xs" placeholder="Company" />
-              <Textarea value={host.bio ?? ""} onChange={e => updateHost(i, { bio: e.target.value })} className="text-xs min-h-[3rem]" rows={2} placeholder="Bio" />
-              <ImagePicker value={host.photoUrl ?? ""} onChange={v => updateHost(i, { photoUrl: v || undefined })} />
-              <Input value={host.linkedinUrl ?? ""} onChange={e => updateHost(i, { linkedinUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="LinkedIn URL" />
-            </div>
-          ))}
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full" onClick={addHost}>
-            <Plus className="w-3 h-3 mr-1" /> Add Host
-          </Button>
+              )}
+              {hosts.length === 1 && (
+                <div className="border-t border-border pt-2 mt-1">
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full" onClick={addHost}>
+                    <Plus className="w-3 h-3 mr-1" /> Add Another (multi-host grid)
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+          {hosts.length > 1 && (
+            <>
+              {hosts.map((host, i) => (
+                <div key={i} className="border border-border rounded-md p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">{host.name || `Host ${i + 1}`}</span>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeHost(i)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <Input value={host.name} onChange={e => updateHost(i, { name: e.target.value })} className="h-7 text-xs" placeholder="Name" />
+                  <Input value={host.title} onChange={e => updateHost(i, { title: e.target.value })} className="h-7 text-xs" placeholder="Title" />
+                  <Input value={host.company ?? ""} onChange={e => updateHost(i, { company: e.target.value })} className="h-7 text-xs" placeholder="Company" />
+                  <Textarea value={host.bio ?? ""} onChange={e => updateHost(i, { bio: e.target.value })} className="text-xs min-h-[3rem]" rows={2} placeholder="Bio" />
+                  <ImagePicker value={host.photoUrl ?? ""} onChange={v => updateHost(i, { photoUrl: v || undefined })} />
+                  <Input value={host.linkedinUrl ?? ""} onChange={e => updateHost(i, { linkedinUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="LinkedIn URL" />
+                  <Input value={host.websiteUrl ?? ""} onChange={e => updateHost(i, { websiteUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="Website URL" />
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full" onClick={addHost}>
+                <Plus className="w-3 h-3 mr-1" /> Add Host
+              </Button>
+            </>
+          )}
         </div>
       )}
 

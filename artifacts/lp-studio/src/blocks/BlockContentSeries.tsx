@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Circle,
   Headphones,
+  Globe,
   Linkedin,
   Loader2,
   Mic,
@@ -1356,9 +1357,71 @@ function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
   );
 }
 
+function SingleHostSpotlight({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
+  return (
+    <section id="guests" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
+      <div style={{ maxWidth: "56rem", margin: "0 auto" }}>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem", textAlign: "center" }}>
+            Your Host
+          </motion.p>
+          <motion.div variants={fadeUp} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2rem" }}>
+            {host.photoUrl ? (
+              <img src={host.photoUrl} alt={host.name} style={{ width: "10rem", height: "10rem", borderRadius: "999px", objectFit: "cover", border: `3px solid ${C.borderDim}`, boxShadow: `0 8px 30px ${rgba(C.primary, 0.1)}` }} />
+            ) : (
+              <div style={{ width: "10rem", height: "10rem", borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: rgba(C.primary, 0.1), color: C.primary, fontFamily: C.displayFont, fontWeight: 500, fontSize: "2.5rem", border: `3px solid ${C.borderDim}` }}>
+                {initials(host.name)}
+              </div>
+            )}
+            <div style={{ textAlign: "center", maxWidth: "36rem" }}>
+              <h3 style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)", color: C.heading, letterSpacing: "-0.01em", marginBottom: "0.4rem" }}>
+                {host.name}
+              </h3>
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.9rem", color: C.muted, marginBottom: host.bio ? "1.5rem" : "0.5rem" }}>
+                {host.title}{host.company && <span style={{ color: C.mutedDim }}> · {host.company}</span>}
+              </p>
+              {host.bio && (
+                <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1rem", lineHeight: 1.75, color: C.muted }}>
+                  {host.bio}
+                </p>
+              )}
+              {(host.linkedinUrl || host.websiteUrl) && (
+                <div style={{ display: "flex", justifyContent: "center", gap: "0.75rem", marginTop: "1.5rem" }}>
+                  {host.linkedinUrl && (
+                    <motion.a href={host.linkedinUrl} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.08 }}
+                      style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "2.5rem", height: "2.5rem", borderRadius: "999px", border: `1px solid ${C.border}`, color: C.muted, textDecoration: "none", transition: "color 0.2s, border-color 0.2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.color = C.primary; e.currentTarget.style.borderColor = C.primary; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.borderColor = C.border; }}
+                    >
+                      <Linkedin size={18} />
+                    </motion.a>
+                  )}
+                  {host.websiteUrl && (
+                    <motion.a href={host.websiteUrl} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.08 }}
+                      style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "2.5rem", height: "2.5rem", borderRadius: "999px", border: `1px solid ${C.border}`, color: C.muted, textDecoration: "none", transition: "color 0.2s, border-color 0.2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.color = C.primary; e.currentTarget.style.borderColor = C.primary; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.borderColor = C.border; }}
+                    >
+                      <Globe size={18} />
+                    </motion.a>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const hosts = p.hosts ?? [];
   if (!hosts.length) return null;
+
+  if (hosts.length === 1) {
+    return <SingleHostSpotlight host={hosts[0]} C={C} />;
+  }
 
   return (
     <section id="guests" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
