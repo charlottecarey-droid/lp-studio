@@ -165,16 +165,16 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
 
   const updateFormField = (si: number, fi: number, patch: Partial<FormField>) => {
     const steps = formSteps.map((s, idx) =>
-      idx === si ? { ...s, fields: s.fields.map((f, fidx) => fidx === fi ? { ...f, ...patch } : f) } : s
+      idx === si ? { ...s, fields: (s.fields ?? []).map((f, fidx) => fidx === fi ? { ...f, ...patch } : f) } : s
     );
     set({ formSteps: steps });
   };
   const addFormField = (si: number) => {
     const newField: FormField = { id: `field_${Date.now()}`, type: "text", label: "New Field", placeholder: "", required: false };
-    set({ formSteps: formSteps.map((s, idx) => idx === si ? { ...s, fields: [...s.fields, newField] } : s) });
+    set({ formSteps: formSteps.map((s, idx) => idx === si ? { ...s, fields: [...(s.fields ?? []), newField] } : s) });
   };
   const removeFormField = (si: number, fi: number) => {
-    set({ formSteps: formSteps.map((s, idx) => idx === si ? { ...s, fields: s.fields.filter((_, fidx) => fidx !== fi) } : s) });
+    set({ formSteps: formSteps.map((s, idx) => idx === si ? { ...s, fields: (s.fields ?? []).filter((_, fidx) => fidx !== fi) } : s) });
   };
 
   return (
@@ -641,7 +641,7 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
                   </Button>
                 </div>
                 <div className="space-y-1.5 pl-2">
-                  {fStep.fields.map((field, fi) => (
+                  {(fStep.fields ?? []).map((field, fi) => (
                     <div key={fi} className="border border-border/50 rounded p-1.5 space-y-1.5">
                       <div className="flex items-center gap-1">
                         <Input value={field.label} onChange={e => updateFormField(si, fi, { label: e.target.value })} placeholder="Label" className="text-xs h-6 flex-1" />

@@ -63,7 +63,8 @@ function brandDefaults(brand?: BrandConfig): typeof FALLBACK_THEME {
   };
 }
 
-function hexToRgb(hex: string): [number, number, number] {
+function hexToRgb(hex: string | undefined | null): [number, number, number] {
+  if (!hex) return [0, 0, 0];
   const m = hex.replace("#", "").trim();
   const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
   const num = parseInt(full.slice(0, 6), 16);
@@ -938,7 +939,7 @@ const STATUS_CONFIG: Record<EpisodeStatus, { label: string; color: string; dotCo
 };
 
 function StatusBadge({ status, C }: { status: EpisodeStatus; C: ResolvedTheme }) {
-  const cfg = STATUS_CONFIG[status];
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG["on-demand"];
   return (
     <div style={{
       display: "inline-flex", alignItems: "center", gap: "0.35rem",
@@ -1850,7 +1851,7 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
                     </p>
                   )}
                   <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                    {step.fields.filter(f => f.type !== "hidden").map(field => (
+                    {(step.fields ?? []).filter(f => f.type !== "hidden").map(field => (
                       <div key={field.id}>
                         <label style={{ display: "block", fontFamily: C.bodyFont, fontSize: "0.78rem", fontWeight: 500, color: C.fg, marginBottom: "0.4rem", letterSpacing: "0.02em" }}>
                           {field.label}
