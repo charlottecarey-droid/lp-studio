@@ -157,6 +157,120 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+function extractYouTubeId(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return m?.[1] ?? null;
+}
+
+function VideoModal({ videoId, onClose, C }: { videoId: string; onClose: () => void; C: ResolvedTheme }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          backgroundColor: "rgba(0,0,0,0.85)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "2rem",
+          cursor: "pointer",
+        }}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: "960px",
+            aspectRatio: "16 / 9",
+            borderRadius: "0.75rem",
+            overflow: "hidden",
+            backgroundColor: "#000",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+            cursor: "default",
+          }}
+        >
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+            title="Video player"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+          />
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              position: "absolute", top: "0.75rem", right: "0.75rem", zIndex: 10,
+              width: "2.25rem", height: "2.25rem", borderRadius: "999px",
+              backgroundColor: "rgba(0,0,0,0.6)", border: "none",
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background-color 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.85)"; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.6)"; }}
+          >
+            <X size={16} />
+          </button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function PlayOverlay({ C, size = "md" }: { C: ResolvedTheme; size?: "sm" | "md" }) {
+  const dim = size === "sm" ? "2.25rem" : "3.5rem";
+  const iconSize = size === "sm" ? 14 : 22;
+  return (
+    <div
+      data-play-overlay
+      style={{
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.3)",
+        opacity: 0,
+        transition: "opacity 0.25s ease",
+        pointerEvents: "none",
+        zIndex: 2,
+      }}
+    >
+      <div
+        style={{
+          width: dim, height: dim, borderRadius: "999px",
+          backgroundColor: C.primary, color: C.bg,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: `0 4px 20px ${rgba(C.primary, 0.4)}`,
+        }}
+      >
+        <Play size={iconSize} fill="currentColor" />
+      </div>
+    </div>
+  );
+}
+
+function showPlayOverlay(el: HTMLElement) {
+  const overlay = el.querySelector("[data-play-overlay]") as HTMLElement | null;
+  if (overlay) overlay.style.opacity = "1";
+}
+function hidePlayOverlay(el: HTMLElement) {
+  const overlay = el.querySelector("[data-play-overlay]") as HTMLElement | null;
+  if (overlay) overlay.style.opacity = "0";
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" as const } },
@@ -905,19 +1019,31 @@ function EpisodeCard({
   C,
   defaultCta,
   isFeatured,
+  onPlayVideo,
 }: {
   episode: ContentSeriesEpisode;
   C: ResolvedTheme;
   defaultCta: string;
   isFeatured: boolean;
+  onPlayVideo?: (videoId: string) => void;
 }) {
   const ctaText = episode.ctaText ?? defaultCta;
   const date = formatDate(episode.publishDate);
   const status = episode.status ?? "on-demand";
+  const ytId = extractYouTubeId(episode.youtubeUrl);
+  const hasVideo = !!ytId;
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (hasVideo && onPlayVideo) {
+      e.preventDefault();
+      onPlayVideo(ytId!);
+    }
+  }, [hasVideo, onPlayVideo, ytId]);
 
   return (
     <motion.a
-      href={episode.ctaUrl}
+      href={hasVideo ? "#" : episode.ctaUrl}
+      onClick={handleClick}
       variants={fadeUp}
       whileHover={{ y: -6, scale: 1.005 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
@@ -930,15 +1056,18 @@ function EpisodeCard({
         overflow: "hidden",
         textDecoration: "none",
         color: "inherit",
+        cursor: "pointer",
         transition: "border-color 0.3s ease, box-shadow 0.3s ease",
       }}
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = C.primaryFaint;
         e.currentTarget.style.boxShadow = `0 18px 48px -24px ${rgba(C.primary, 0.4)}`;
+        showPlayOverlay(e.currentTarget);
       }}
       onMouseLeave={e => {
         e.currentTarget.style.borderColor = C.border;
         e.currentTarget.style.boxShadow = "none";
+        hidePlayOverlay(e.currentTarget);
       }}
     >
       <div
@@ -958,7 +1087,8 @@ function EpisodeCard({
             <Headphones size={42} strokeWidth={1.2} />
           </div>
         )}
-        <div style={{ position: "absolute", top: "0.85rem", left: "0.85rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+        {hasVideo && <PlayOverlay C={C} />}
+        <div style={{ position: "absolute", top: "0.85rem", left: "0.85rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", zIndex: 3 }}>
           {isFeatured && (
             <div style={{ padding: "0.3rem 0.7rem", backgroundColor: C.primary, color: C.bg, fontFamily: C.bodyFont, fontWeight: 600, fontSize: "0.6rem", letterSpacing: "0.18em", textTransform: "uppercase", borderRadius: "999px" }}>
               Featured
@@ -999,8 +1129,8 @@ function EpisodeCard({
         <PlatformLinks episode={episode} C={C} />
         <div style={{ marginTop: "auto" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontFamily: C.bodyFont, fontWeight: 500, fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: C.primary }}>
-            {ctaText}
-            <ArrowRight size={14} />
+            {hasVideo ? "Watch Now" : ctaText}
+            {hasVideo ? <Play size={14} fill="currentColor" /> : <ArrowRight size={14} />}
           </span>
         </div>
       </div>
@@ -1039,14 +1169,24 @@ function CarouselArrow({ direction, onClick, C, disabled }: { direction: "left" 
   );
 }
 
-function EpisodeRow({ episode, C, defaultCta }: { episode: ContentSeriesEpisode; C: ResolvedTheme; defaultCta: string }) {
+function EpisodeRow({ episode, C, defaultCta, onPlayVideo }: { episode: ContentSeriesEpisode; C: ResolvedTheme; defaultCta: string; onPlayVideo?: (videoId: string) => void }) {
   const date = formatDate(episode.publishDate);
   const ctaText = episode.ctaText ?? defaultCta;
   const status = episode.status ?? "on-demand";
+  const ytId = extractYouTubeId(episode.youtubeUrl);
+  const hasVideo = !!ytId;
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (hasVideo && onPlayVideo) {
+      e.preventDefault();
+      onPlayVideo(ytId!);
+    }
+  }, [hasVideo, onPlayVideo, ytId]);
 
   return (
     <motion.a
-      href={episode.ctaUrl}
+      href={hasVideo ? "#" : episode.ctaUrl}
+      onClick={handleClick}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -1060,18 +1200,22 @@ function EpisodeRow({ episode, C, defaultCta }: { episode: ContentSeriesEpisode;
         borderRadius: "0.75rem",
         textDecoration: "none",
         color: "inherit",
+        cursor: "pointer",
         transition: "border-color 0.25s, box-shadow 0.25s",
       }}
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = C.primaryFaint;
         e.currentTarget.style.boxShadow = `0 8px 24px -12px ${rgba(C.primary, 0.3)}`;
+        showPlayOverlay(e.currentTarget);
       }}
       onMouseLeave={e => {
         e.currentTarget.style.borderColor = C.border;
         e.currentTarget.style.boxShadow = "none";
+        hidePlayOverlay(e.currentTarget);
       }}
     >
       <div style={{
+        position: "relative",
         width: "4.5rem", height: "4.5rem", borderRadius: "0.5rem", overflow: "hidden", flexShrink: 0,
         background: episode.thumbnailUrl ? undefined : `linear-gradient(135deg, ${rgba(C.primary, 0.3)} 0%, ${C.card} 100%)`,
       }}>
@@ -1082,6 +1226,7 @@ function EpisodeRow({ episode, C, defaultCta }: { episode: ContentSeriesEpisode;
             <Headphones size={22} strokeWidth={1.2} />
           </div>
         )}
+        {hasVideo && <PlayOverlay C={C} size="sm" />}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1111,8 +1256,8 @@ function EpisodeRow({ episode, C, defaultCta }: { episode: ContentSeriesEpisode;
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
         <PlatformLinks episode={episode} C={C} />
         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontFamily: C.bodyFont, fontWeight: 500, fontSize: "0.65rem", letterSpacing: "0.16em", textTransform: "uppercase", color: C.primary, whiteSpace: "nowrap" }}>
-          {ctaText}
-          <ArrowRight size={13} />
+          {hasVideo ? "Watch" : ctaText}
+          {hasVideo ? <Play size={13} fill="currentColor" /> : <ArrowRight size={13} />}
         </span>
       </div>
     </motion.a>
@@ -1127,6 +1272,8 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
   const [carouselIdx, setCarouselIdx] = useState(0);
   const [showFullList, setShowFullList] = useState(false);
   const [listPage, setListPage] = useState(0);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const closeVideo = useCallback(() => setActiveVideoId(null), []);
 
   const episodes = useMemo(() => {
     const list = (p.episodes ?? []).filter(ep => !ep.hidden);
@@ -1196,7 +1343,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
                     exit={{ opacity: 0, x: -30 }}
                     transition={{ duration: 0.35, delay: idx * 0.08 }}
                   >
-                    <EpisodeCard episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} />
+                    <EpisodeCard episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} onPlayVideo={setActiveVideoId} />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -1237,7 +1384,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {listEpisodes.map((ep, idx) => (
-                <EpisodeRow key={`list-${listPage}-${idx}`} episode={ep} C={C} defaultCta={defaultCta} />
+                <EpisodeRow key={`list-${listPage}-${idx}`} episode={ep} C={C} defaultCta={defaultCta} onPlayVideo={setActiveVideoId} />
               ))}
             </div>
 
@@ -1303,6 +1450,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
           </motion.div>
         )}
       </div>
+      {activeVideoId && <VideoModal videoId={activeVideoId} onClose={closeVideo} C={C} />}
     </section>
   );
 }
