@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   Headphones,
   Linkedin,
@@ -14,6 +16,7 @@ import {
   Rss,
   Send,
   Sparkles,
+  X,
 } from "lucide-react";
 import type {
   ContentSeriesBlockProps,
@@ -1001,20 +1004,141 @@ function EpisodeCard({
   );
 }
 
+function CarouselArrow({ direction, onClick, C, disabled }: { direction: "left" | "right"; onClick: () => void; C: ResolvedTheme; disabled?: boolean }) {
+  const Icon = direction === "left" ? ChevronLeft : ChevronRight;
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      whileHover={disabled ? {} : { scale: 1.1 }}
+      whileTap={disabled ? {} : { scale: 0.95 }}
+      style={{
+        width: "2.75rem",
+        height: "2.75rem",
+        borderRadius: "999px",
+        border: `1px solid ${disabled ? C.borderDim : C.border}`,
+        backgroundColor: disabled ? "transparent" : C.card,
+        color: disabled ? C.borderDim : C.fg,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: disabled ? "default" : "pointer",
+        transition: "border-color 0.2s, color 0.2s, background-color 0.2s",
+        opacity: disabled ? 0.4 : 1,
+      }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; } }}
+      onMouseLeave={e => { if (!disabled) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.fg; } }}
+    >
+      <Icon size={20} strokeWidth={1.5} />
+    </motion.button>
+  );
+}
+
+function EpisodeRow({ episode, C, defaultCta }: { episode: ContentSeriesEpisode; C: ResolvedTheme; defaultCta: string }) {
+  const date = formatDate(episode.publishDate);
+  const ctaText = episode.ctaText ?? defaultCta;
+  const status = episode.status ?? "on-demand";
+
+  return (
+    <motion.a
+      href={episode.ctaUrl}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "1.25rem",
+        padding: "1rem 1.25rem",
+        backgroundColor: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: "0.75rem",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "border-color 0.25s, box-shadow 0.25s",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = C.primaryFaint;
+        e.currentTarget.style.boxShadow = `0 8px 24px -12px ${rgba(C.primary, 0.3)}`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = C.border;
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      <div style={{
+        width: "4.5rem", height: "4.5rem", borderRadius: "0.5rem", overflow: "hidden", flexShrink: 0,
+        background: episode.thumbnailUrl ? undefined : `linear-gradient(135deg, ${rgba(C.primary, 0.3)} 0%, ${C.card} 100%)`,
+      }}>
+        {episode.thumbnailUrl ? (
+          <img src={episode.thumbnailUrl} alt={episode.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: rgba(C.fg, 0.35) }}>
+            <Headphones size={22} strokeWidth={1.2} />
+          </div>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.3rem", flexWrap: "wrap" }}>
+          {date && (
+            <span style={{ fontFamily: C.bodyFont, fontSize: "0.6rem", fontWeight: 500, letterSpacing: "0.2em", textTransform: "uppercase", color: C.primary }}>
+              {date}
+            </span>
+          )}
+          <StatusBadge status={status} C={C} />
+          {episode.isFeatured && (
+            <span style={{ padding: "0.15rem 0.5rem", backgroundColor: C.primary, color: C.bg, fontFamily: C.bodyFont, fontWeight: 600, fontSize: "0.5rem", letterSpacing: "0.16em", textTransform: "uppercase", borderRadius: "999px" }}>
+              Featured
+            </span>
+          )}
+        </div>
+        <h4 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.05rem", lineHeight: 1.3, color: C.heading, marginBottom: "0.2rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {episode.title}
+        </h4>
+        {(episode.guestName || episode.guestCompany) && (
+          <p style={{ fontFamily: C.bodyFont, fontSize: "0.75rem", color: C.muted, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {episode.guestName}{episode.guestName && episode.guestCompany ? " · " : ""}{episode.guestCompany}
+          </p>
+        )}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+        <PlatformLinks episode={episode} C={C} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontFamily: C.bodyFont, fontWeight: 500, fontSize: "0.65rem", letterSpacing: "0.16em", textTransform: "uppercase", color: C.primary, whiteSpace: "nowrap" }}>
+          {ctaText}
+          <ArrowRight size={13} />
+        </span>
+      </div>
+    </motion.a>
+  );
+}
+
+const CAROUSEL_PAGE_SIZE = 3;
+const LIST_PAGE_SIZE = 10;
+
 function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const defaultCta = defaultCtaForType(p.seriesType);
-  const [visible, setVisible] = useState(6);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const [showFullList, setShowFullList] = useState(false);
+  const [listPage, setListPage] = useState(0);
 
-  const sorted = useMemo(() => {
+  const episodes = useMemo(() => {
     const list = (p.episodes ?? []).filter(ep => !ep.hidden);
     list.sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured));
     return list;
   }, [p.episodes]);
 
-  const shown = sorted.slice(0, visible);
-  const hasMore = sorted.length > visible;
+  if (!episodes.length) return null;
 
-  if (!sorted.length) return null;
+  const totalCarouselPages = Math.ceil(episodes.length / CAROUSEL_PAGE_SIZE);
+  const carouselEpisodes = episodes.slice(carouselIdx * CAROUSEL_PAGE_SIZE, (carouselIdx + 1) * CAROUSEL_PAGE_SIZE);
+  const canPrev = carouselIdx > 0;
+  const canNext = carouselIdx < totalCarouselPages - 1;
+
+  const totalListPages = Math.ceil(episodes.length / LIST_PAGE_SIZE);
+  const listEpisodes = episodes.slice(listPage * LIST_PAGE_SIZE, (listPage + 1) * LIST_PAGE_SIZE);
 
   return (
     <section
@@ -1027,58 +1151,152 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
           variants={stagger}
-          style={{ marginBottom: "3.5rem", textAlign: "center" }}
+          style={{ marginBottom: "3.5rem" }}
         >
-          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
-            The Library
-          </motion.p>
-          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em" }}>
-            All Episodes
-          </motion.h2>
-        </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={stagger}
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 20rem), 1fr))", gap: "1.75rem" }}
-          className="bcs-episode-grid"
-        >
-          <AnimatePresence initial={false}>
-            {shown.map((ep, idx) => (
-              <EpisodeCard key={`${ep.title}-${ep.publishDate}-${idx}`} episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
-
-        {hasMore && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "3.5rem" }}>
-            <motion.button
-              type="button"
-              onClick={() => setVisible(v => v + 6)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                padding: "0.95rem 2.25rem",
-                backgroundColor: "transparent",
-                color: C.fg,
-                fontFamily: C.bodyFont,
-                fontWeight: 500,
-                fontSize: "0.7rem",
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                border: `1px solid ${C.border}`,
-                borderRadius: "999px",
-                cursor: "pointer",
-                transition: "border-color 0.25s, color 0.25s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.fg; }}
-            >
-              Load More Episodes
-            </motion.button>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+            <div>
+              <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
+                The Library
+              </motion.p>
+              <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em" }}>
+                All Episodes
+              </motion.h2>
+            </div>
+            {!showFullList && episodes.length > CAROUSEL_PAGE_SIZE && (
+              <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", color: C.muted, letterSpacing: "0.08em" }}>
+                  {carouselIdx + 1} / {totalCarouselPages}
+                </span>
+                <CarouselArrow direction="left" onClick={() => setCarouselIdx(i => i - 1)} C={C} disabled={!canPrev} />
+                <CarouselArrow direction="right" onClick={() => setCarouselIdx(i => i + 1)} C={C} disabled={!canNext} />
+              </motion.div>
+            )}
           </div>
+        </motion.div>
+
+        {!showFullList && (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${Math.min(carouselEpisodes.length, CAROUSEL_PAGE_SIZE)}, minmax(0, 1fr))`,
+                gap: "1.75rem",
+              }}
+            >
+              <AnimatePresence mode="wait">
+                {carouselEpisodes.map((ep, idx) => (
+                  <motion.div
+                    key={`${carouselIdx}-${idx}`}
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -30 }}
+                    transition={{ duration: 0.35, delay: idx * 0.08 }}
+                  >
+                    <EpisodeCard episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {episodes.length > CAROUSEL_PAGE_SIZE && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: "3rem" }}>
+                <motion.button
+                  type="button"
+                  onClick={() => { setShowFullList(true); setListPage(0); }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{
+                    padding: "0.95rem 2.25rem",
+                    backgroundColor: "transparent",
+                    color: C.fg,
+                    fontFamily: C.bodyFont,
+                    fontWeight: 500,
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: "999px",
+                    cursor: "pointer",
+                    transition: "border-color 0.25s, color 0.25s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.fg; }}
+                >
+                  See Full List
+                </motion.button>
+              </div>
+            )}
+          </>
+        )}
+
+        {showFullList && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {listEpisodes.map((ep, idx) => (
+                <EpisodeRow key={`list-${listPage}-${idx}`} episode={ep} C={C} defaultCta={defaultCta} />
+              ))}
+            </div>
+
+            {totalListPages > 1 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginTop: "2.5rem" }}>
+                <CarouselArrow direction="left" onClick={() => setListPage(pg => pg - 1)} C={C} disabled={listPage === 0} />
+                {Array.from({ length: totalListPages }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setListPage(i)}
+                    style={{
+                      width: "2rem",
+                      height: "2rem",
+                      borderRadius: "999px",
+                      border: `1px solid ${i === listPage ? C.primary : C.border}`,
+                      backgroundColor: i === listPage ? C.primary : "transparent",
+                      color: i === listPage ? C.bg : C.muted,
+                      fontFamily: C.bodyFont,
+                      fontWeight: 500,
+                      fontSize: "0.7rem",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <CarouselArrow direction="right" onClick={() => setListPage(pg => pg + 1)} C={C} disabled={listPage === totalListPages - 1} />
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem" }}>
+              <motion.button
+                type="button"
+                onClick={() => setShowFullList(false)}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 1.75rem",
+                  backgroundColor: "transparent",
+                  color: C.muted,
+                  fontFamily: C.bodyFont,
+                  fontWeight: 500,
+                  fontSize: "0.65rem",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  border: `1px solid ${C.borderDim}`,
+                  borderRadius: "999px",
+                  cursor: "pointer",
+                  transition: "border-color 0.25s, color 0.25s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.borderDim; e.currentTarget.style.color = C.muted; }}
+              >
+                <X size={13} />
+                Back to Carousel
+              </motion.button>
+            </div>
+          </motion.div>
         )}
       </div>
     </section>
