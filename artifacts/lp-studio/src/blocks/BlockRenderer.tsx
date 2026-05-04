@@ -108,6 +108,7 @@ import { BlockMenuSection } from "./BlockMenuSection";
 import { BlockHoursLocation } from "./BlockHoursLocation";
 import { BlockBeforeAfterGallery } from "./BlockBeforeAfterGallery";
 import { BlockSpeakerGrid } from "./BlockSpeakerGrid";
+import { BlockContentSeries } from "./BlockContentSeries";
 import { BlockSection } from "./BlockSection";
 import { BlockColumns } from "./BlockColumns";
 import { BlockGrid } from "./BlockGrid";
@@ -776,6 +777,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockDandyCtaBlock props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "one-pager-hero":
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "content-series":
+        return <BlockContentSeries props={block.props} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
       case "event-landing-hero":

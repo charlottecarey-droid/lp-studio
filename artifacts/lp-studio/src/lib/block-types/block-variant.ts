@@ -59,6 +59,7 @@ import type {
   HoursLocationBlockProps,
   BeforeAfterGalleryBlockProps,
   SpeakerGridBlockProps,
+  ContentSeriesBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -225,6 +226,7 @@ export type BlockVariant =
   | { type: "hours-location"; props: HoursLocationBlockProps }
   | { type: "before-after-gallery"; props: BeforeAfterGalleryBlockProps }
   | { type: "speaker-grid"; props: SpeakerGridBlockProps }
+  | { type: "content-series"; props: ContentSeriesBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }

@@ -5211,6 +5211,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "content-series":
+        return <p className="text-sm text-muted-foreground">Edit content-series props via the JSON panel or AI generation.</p>;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

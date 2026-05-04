@@ -1,0 +1,62 @@
+Can you create a new premium full-page landing page block for recurring content series, starting with The Margin Line podcast?
+
+This block should work for both podcast series and webinar series, but the first use case is this podcast:
+https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971
+
+Ideally, new podcast episodes should be automatically added when they appear on Apple Podcasts, either by connecting to the podcast’s RSS feed or another reliable podcast feed source. If full automation isn’t possible, create a fallback where users can manually add new episodes through editable fields.
+
+The page structure should include:
+
+Hero / Featured Episode
+Series title
+Featured or latest episode title
+Short description
+Guest/speaker name
+CTA button: Listen now, Register, Watch, etc.
+Optional hero image or guest image
+Current Event / Episode Details
+Episode title
+Date
+Time, if relevant
+Format: podcast, webinar, virtual event, live event
+Description
+CTA link
+Guest / Speaker Section
+Name
+Title
+Company
+Headshot
+Short bio
+Optional LinkedIn or website link
+Episode Library
+Automatically pull in new podcast episodes from the podcast feed when available
+Also allow manual episode creation/editing
+Each episode card should include:
+Episode title
+Guest name
+Guest title/company
+Description
+Publish date
+Thumbnail/artwork
+Listen/watch/register CTA
+Support sorting by newest first
+Allow one episode to be pinned or featured
+About the Series
+Description of The Margin Line
+Who it’s for
+Topics covered
+Optional host section
+Flexible CTA Section
+Subscribe
+Listen on Apple Podcasts
+Nominate a guest
+Contact us
+
+Design direction:
+
+Premium, editorial, and modern
+Should feel like a real media property, not a generic event page
+Use strong typography, clean spacing, and high-quality episode cards
+Make it reusable for podcasts, webinars, and recurring thought leadership series
+
+Important: Build this as a reusable full-page block where new episodes/events can be added over time without rebuilding the page.

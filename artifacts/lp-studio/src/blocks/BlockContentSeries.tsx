@@ -1,0 +1,1420 @@
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowRight,
+  Headphones,
+  Linkedin,
+  Mic,
+  Play,
+  PlayCircle,
+  Radio,
+  Rss,
+  Sparkles,
+} from "lucide-react";
+import type {
+  ContentSeriesBlockProps,
+  ContentSeriesEpisode,
+  ContentSeriesHost,
+  ContentSeriesCta,
+} from "@/lib/block-types";
+
+/* ------------------------------------------------------------------------ */
+/*  Theme                                                                    */
+/* ------------------------------------------------------------------------ */
+
+const DEFAULT_THEME = {
+  bg: "#0c0f12",
+  cardBg: "#141619",
+  fg: "#eeeae3",
+  headingColor: "#eeeae3",
+  primary: "#b59a6e",
+  muted: "#7a8088",
+  border: "#262a2f",
+  navBg: "#0c0f12",
+  navBgOpacity: 0.65,
+  navText: "#eeeae3",
+  displayFontFamily: "EB Garamond",
+  bodyFontFamily: "Inter",
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const m = hex.replace("#", "").trim();
+  const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
+  const num = parseInt(full.slice(0, 6), 16);
+  if (Number.isNaN(num)) return [0, 0, 0];
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function rgba(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+interface ResolvedTheme {
+  bg: string;
+  card: string;
+  fg: string;
+  heading: string;
+  primary: string;
+  primaryDim: string;
+  primaryFaint: string;
+  primaryGhost: string;
+  muted: string;
+  mutedDim: string;
+  border: string;
+  borderDim: string;
+  navBg: string;
+  navText: string;
+  navTextDim: string;
+  navTextSoft: string;
+  bodyFont: string;
+  displayFont: string;
+}
+
+function resolveTheme(t: ContentSeriesBlockProps["theme"]): ResolvedTheme {
+  const m = { ...DEFAULT_THEME, ...(t ?? {}) };
+  const heading = m.headingColor || m.fg;
+  const bodyFont = m.bodyFontFamily ? `'${m.bodyFontFamily}', sans-serif` : "'Inter', sans-serif";
+  const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
+  return {
+    bg: m.bg,
+    card: m.cardBg,
+    fg: m.fg,
+    heading,
+    primary: m.primary,
+    primaryDim: rgba(m.primary, 0.8),
+    primaryFaint: rgba(m.primary, 0.4),
+    primaryGhost: rgba(m.primary, 0.06),
+    muted: m.muted,
+    mutedDim: rgba(m.muted, 0.5),
+    border: m.border,
+    borderDim: rgba(m.border, 0.5),
+    navBg: rgba(m.navBg, m.navBgOpacity ?? 0.65),
+    navText: m.navText,
+    navTextDim: rgba(m.navText, 0.55),
+    navTextSoft: rgba(m.navText, 0.78),
+    bodyFont,
+    displayFont,
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Helpers                                                                  */
+/* ------------------------------------------------------------------------ */
+
+function defaultCtaForType(seriesType: ContentSeriesBlockProps["seriesType"]): string {
+  if (seriesType === "webinar") return "Register";
+  if (seriesType === "series") return "Watch";
+  return "Listen Now";
+}
+
+function seriesIcon(seriesType: ContentSeriesBlockProps["seriesType"]) {
+  if (seriesType === "webinar") return PlayCircle;
+  if (seriesType === "series") return Play;
+  return Mic;
+}
+
+function formatDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(p => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 28 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" as const } },
+};
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+
+/* ------------------------------------------------------------------------ */
+/*  Google Fonts loader                                                      */
+/* ------------------------------------------------------------------------ */
+
+function useGoogleFonts(displayFamily: string, bodyFamily: string) {
+  useEffect(() => {
+    const families: string[] = [];
+    if (displayFamily) {
+      families.push(`${displayFamily.replace(/\s+/g, "+")}:ital,wght@0,400;0,500;0,600;1,400`);
+    }
+    if (bodyFamily && bodyFamily !== displayFamily) {
+      families.push(`${bodyFamily.replace(/\s+/g, "+")}:wght@300;400;500;600`);
+    }
+    if (!families.length) return;
+    const href = `https://fonts.googleapis.com/css2?${families.map(f => `family=${f}`).join("&")}&display=swap`;
+    const id = `bcs-fonts-${href}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = href;
+    document.head.appendChild(link);
+  }, [displayFamily, bodyFamily]);
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Sticky Nav                                                               */
+/* ------------------------------------------------------------------------ */
+
+function StickyNav({
+  p,
+  C,
+}: {
+  p: ContentSeriesBlockProps;
+  C: ResolvedTheme;
+}) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 80);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const links = p.navLinks ?? [];
+  const ctaText = p.navCtaText ?? defaultCtaForType(p.seriesType);
+  const ctaUrl = p.navCtaUrl ?? "#subscribe";
+
+  return (
+    <motion.nav
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.2 }}
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        padding: scrolled ? "0.85rem 2rem" : "1.25rem 2rem",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "1.5rem",
+        backgroundColor: scrolled ? C.navBg : "transparent",
+        backdropFilter: scrolled ? "blur(14px)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(14px)" : "none",
+        borderBottom: scrolled ? `1px solid ${C.borderDim}` : "1px solid transparent",
+        transition: "padding 0.3s ease, background-color 0.3s ease, border-color 0.3s ease",
+        fontFamily: C.bodyFont,
+      }}
+    >
+      <a
+        href="#top"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.65rem",
+          color: C.navText,
+          textDecoration: "none",
+        }}
+      >
+        {p.logoUrl ? (
+          <img src={p.logoUrl} alt={p.seriesTitle} style={{ height: "1.4rem", width: "auto" }} />
+        ) : (
+          <>
+            <Radio size={18} style={{ color: C.primary }} />
+            <span
+              style={{
+                fontFamily: C.displayFont,
+                fontSize: "1.05rem",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {p.seriesTitle}
+            </span>
+          </>
+        )}
+      </a>
+
+      {links.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: "2rem",
+            alignItems: "center",
+          }}
+          className="hidden md:flex"
+        >
+          {links.map(link => (
+            <motion.a
+              key={`${link.label}-${link.href}`}
+              href={link.href}
+              whileHover={{ color: C.navText }}
+              transition={{ duration: 0.2 }}
+              style={{
+                fontWeight: 400,
+                fontSize: "0.7rem",
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: C.navTextDim,
+                textDecoration: "none",
+              }}
+            >
+              {link.label}
+            </motion.a>
+          ))}
+        </div>
+      )}
+
+      <motion.a
+        href={ctaUrl}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.97 }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.6rem 1.1rem",
+          backgroundColor: C.primary,
+          color: C.bg,
+          fontWeight: 500,
+          fontSize: "0.7rem",
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          textDecoration: "none",
+          borderRadius: "999px",
+        }}
+      >
+        {ctaText}
+        <ArrowRight size={14} />
+      </motion.a>
+    </motion.nav>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Hero                                                                     */
+/* ------------------------------------------------------------------------ */
+
+function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const Icon = seriesIcon(p.seriesType);
+  const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
+  const ctaUrl = p.heroCtaUrl ?? "#episodes";
+  const eyebrow = p.heroEyebrow ?? (p.seriesType === "webinar" ? "Featured Webinar" : p.seriesType === "series" ? "Latest Episode" : "Latest Episode");
+
+  return (
+    <section
+      id="top"
+      style={{
+        position: "relative",
+        padding: "6rem 1.5rem 7rem",
+        overflow: "hidden",
+        borderBottom: `1px solid ${C.borderDim}`,
+      }}
+    >
+      {/* Soft radial accent */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `radial-gradient(circle at 20% 0%, ${rgba(C.primary, 0.12)} 0%, transparent 55%), radial-gradient(circle at 90% 80%, ${rgba(C.primary, 0.06)} 0%, transparent 50%)`,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "78rem",
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: p.heroImageUrl ? "minmax(0, 1.1fr) minmax(0, 0.9fr)" : "minmax(0, 1fr)",
+          gap: "4rem",
+          alignItems: "center",
+        }}
+        className="bcs-hero-grid"
+      >
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          <motion.p
+            variants={fadeUp}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              fontFamily: C.bodyFont,
+              fontWeight: 400,
+              fontSize: "0.7rem",
+              letterSpacing: "0.36em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "1.75rem",
+            }}
+          >
+            <Sparkles size={14} />
+            {eyebrow}
+          </motion.p>
+
+          <motion.h1
+            variants={fadeUp}
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 400,
+              fontSize: "clamp(2.6rem, 6vw, 4.6rem)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.01em",
+              color: C.heading,
+              marginBottom: "1.25rem",
+            }}
+          >
+            {p.seriesTitle}
+          </motion.h1>
+
+          {p.seriesSubtitle && (
+            <motion.p
+              variants={fadeUp}
+              style={{
+                fontFamily: C.bodyFont,
+                fontWeight: 300,
+                fontSize: "1.05rem",
+                color: C.muted,
+                lineHeight: 1.7,
+                maxWidth: "32rem",
+                marginBottom: "2.75rem",
+              }}
+            >
+              {p.seriesSubtitle}
+            </motion.p>
+          )}
+
+          {/* Featured episode card */}
+          <motion.div
+            variants={fadeUp}
+            style={{
+              padding: "1.75rem",
+              backgroundColor: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: "1rem",
+              maxWidth: "34rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                marginBottom: "0.85rem",
+                color: C.primary,
+              }}
+            >
+              <Icon size={16} />
+              <span
+                style={{
+                  fontFamily: C.bodyFont,
+                  fontSize: "0.65rem",
+                  fontWeight: 500,
+                  letterSpacing: "0.24em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Featured
+              </span>
+            </div>
+
+            <h2
+              style={{
+                fontFamily: C.displayFont,
+                fontWeight: 500,
+                fontSize: "clamp(1.4rem, 2.4vw, 1.8rem)",
+                lineHeight: 1.25,
+                color: C.heading,
+                marginBottom: "0.75rem",
+              }}
+            >
+              {p.heroEpisodeTitle}
+            </h2>
+
+            {(p.heroGuestName || p.heroGuestTitle) && (
+              <p
+                style={{
+                  fontFamily: C.bodyFont,
+                  fontSize: "0.82rem",
+                  color: C.fg,
+                  marginBottom: "0.85rem",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
+                {p.heroGuestName && p.heroGuestTitle && (
+                  <span style={{ color: C.muted }}> · </span>
+                )}
+                {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
+              </p>
+            )}
+
+            {p.heroEpisodeDescription && (
+              <p
+                style={{
+                  fontFamily: C.bodyFont,
+                  fontWeight: 300,
+                  fontSize: "0.92rem",
+                  color: C.muted,
+                  lineHeight: 1.65,
+                  marginBottom: "1.5rem",
+                }}
+              >
+                {p.heroEpisodeDescription}
+              </p>
+            )}
+
+            <motion.a
+              href={ctaUrl}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.55rem",
+                padding: "0.85rem 1.5rem",
+                backgroundColor: C.primary,
+                color: C.bg,
+                fontFamily: C.bodyFont,
+                fontWeight: 500,
+                fontSize: "0.7rem",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                textDecoration: "none",
+                borderRadius: "999px",
+              }}
+            >
+              <Play size={14} />
+              {ctaText}
+            </motion.a>
+          </motion.div>
+        </motion.div>
+
+        {p.heroImageUrl && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, ease: "easeOut" }}
+            style={{
+              position: "relative",
+              borderRadius: "1.25rem",
+              overflow: "hidden",
+              border: `1px solid ${C.border}`,
+              aspectRatio: "4 / 5",
+              backgroundColor: C.card,
+            }}
+          >
+            <img
+              src={p.heroImageUrl}
+              alt={p.heroEpisodeTitle}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `linear-gradient(180deg, transparent 50%, ${rgba(C.bg, 0.65)} 100%)`,
+                pointerEvents: "none",
+              }}
+            />
+          </motion.div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Episode card                                                             */
+/* ------------------------------------------------------------------------ */
+
+function EpisodeCard({
+  episode,
+  C,
+  defaultCta,
+  isFeatured,
+}: {
+  episode: ContentSeriesEpisode;
+  C: ResolvedTheme;
+  defaultCta: string;
+  isFeatured: boolean;
+}) {
+  const ctaText = episode.ctaText ?? defaultCta;
+  const date = formatDate(episode.publishDate);
+
+  return (
+    <motion.a
+      href={episode.ctaUrl}
+      variants={fadeUp}
+      whileHover={{ y: -6, scale: 1.005 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: "1rem",
+        overflow: "hidden",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = C.primaryFaint;
+        e.currentTarget.style.boxShadow = `0 18px 48px -24px ${rgba(C.primary, 0.4)}`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = C.border;
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      {/* Thumbnail */}
+      <div
+        style={{
+          position: "relative",
+          aspectRatio: "16 / 9",
+          background: episode.thumbnailUrl
+            ? undefined
+            : `linear-gradient(135deg, ${rgba(C.primary, 0.35)} 0%, ${rgba(C.primary, 0.05)} 60%, ${C.card} 100%)`,
+          overflow: "hidden",
+        }}
+      >
+        {episode.thumbnailUrl ? (
+          <img
+            src={episode.thumbnailUrl}
+            alt={episode.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: rgba(C.fg, 0.4),
+            }}
+          >
+            <Headphones size={42} strokeWidth={1.2} />
+          </div>
+        )}
+        {isFeatured && (
+          <div
+            style={{
+              position: "absolute",
+              top: "0.85rem",
+              left: "0.85rem",
+              padding: "0.3rem 0.7rem",
+              backgroundColor: C.primary,
+              color: C.bg,
+              fontFamily: C.bodyFont,
+              fontWeight: 600,
+              fontSize: "0.6rem",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              borderRadius: "999px",
+            }}
+          >
+            Featured
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div
+        style={{
+          padding: "1.5rem 1.5rem 1.65rem",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+        }}
+      >
+        {date && (
+          <p
+            style={{
+              fontFamily: C.bodyFont,
+              fontSize: "0.65rem",
+              fontWeight: 500,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "0.7rem",
+            }}
+          >
+            {date}
+          </p>
+        )}
+
+        <h3
+          style={{
+            fontFamily: C.displayFont,
+            fontWeight: 500,
+            fontSize: "1.3rem",
+            lineHeight: 1.25,
+            color: C.heading,
+            marginBottom: "0.65rem",
+          }}
+        >
+          {episode.title}
+        </h3>
+
+        {(episode.guestName || episode.guestTitle || episode.guestCompany) && (
+          <p
+            style={{
+              fontFamily: C.bodyFont,
+              fontSize: "0.78rem",
+              color: C.fg,
+              marginBottom: "0.7rem",
+            }}
+          >
+            {episode.guestName && <span style={{ fontWeight: 500 }}>{episode.guestName}</span>}
+            {(episode.guestTitle || episode.guestCompany) && (
+              <span style={{ color: C.muted }}>
+                {episode.guestName ? " · " : ""}
+                {[episode.guestTitle, episode.guestCompany].filter(Boolean).join(", ")}
+              </span>
+            )}
+          </p>
+        )}
+
+        {episode.description && (
+          <p
+            style={{
+              fontFamily: C.bodyFont,
+              fontWeight: 300,
+              fontSize: "0.88rem",
+              color: C.muted,
+              lineHeight: 1.6,
+              marginBottom: "1.4rem",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {episode.description}
+          </p>
+        )}
+
+        <div style={{ marginTop: "auto" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontFamily: C.bodyFont,
+              fontWeight: 500,
+              fontSize: "0.7rem",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: C.primary,
+            }}
+          >
+            {ctaText}
+            <ArrowRight size={14} />
+          </span>
+        </div>
+      </div>
+    </motion.a>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Episode library                                                          */
+/* ------------------------------------------------------------------------ */
+
+function EpisodeLibrary({
+  p,
+  C,
+}: {
+  p: ContentSeriesBlockProps;
+  C: ResolvedTheme;
+}) {
+  const defaultCta = defaultCtaForType(p.seriesType);
+  const [visible, setVisible] = useState(6);
+
+  const sorted = useMemo(() => {
+    const list = [...(p.episodes ?? [])];
+    list.sort((a, b) => {
+      const da = new Date(a.publishDate).getTime() || 0;
+      const db = new Date(b.publishDate).getTime() || 0;
+      return db - da;
+    });
+    // Pin featured first
+    list.sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured));
+    return list;
+  }, [p.episodes]);
+
+  const shown = sorted.slice(0, visible);
+  const hasMore = sorted.length > visible;
+
+  if (!sorted.length) return null;
+
+  return (
+    <section
+      id="episodes"
+      style={{
+        padding: "7rem 1.5rem",
+        backgroundColor: C.bg,
+        borderBottom: `1px solid ${C.borderDim}`,
+      }}
+    >
+      <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={stagger}
+          style={{ marginBottom: "3.5rem", textAlign: "center" }}
+        >
+          <motion.p
+            variants={fadeUp}
+            style={{
+              fontFamily: C.bodyFont,
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              letterSpacing: "0.36em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "1rem",
+            }}
+          >
+            The Library
+          </motion.p>
+          <motion.h2
+            variants={fadeUp}
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 400,
+              fontSize: "clamp(2rem, 4vw, 3rem)",
+              color: C.heading,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            All Episodes
+          </motion.h2>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-60px" }}
+          variants={stagger}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 20rem), 1fr))",
+            gap: "1.75rem",
+          }}
+          className="bcs-episode-grid"
+        >
+          <AnimatePresence initial={false}>
+            {shown.map((ep, idx) => (
+              <EpisodeCard
+                key={`${ep.title}-${ep.publishDate}-${idx}`}
+                episode={ep}
+                C={C}
+                defaultCta={defaultCta}
+                isFeatured={!!ep.isFeatured}
+              />
+            ))}
+          </AnimatePresence>
+        </motion.div>
+
+        {hasMore && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "3.5rem" }}>
+            <motion.button
+              type="button"
+              onClick={() => setVisible(v => v + 6)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                padding: "0.95rem 2.25rem",
+                backgroundColor: "transparent",
+                color: C.fg,
+                fontFamily: C.bodyFont,
+                fontWeight: 500,
+                fontSize: "0.7rem",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                border: `1px solid ${C.border}`,
+                borderRadius: "999px",
+                cursor: "pointer",
+                transition: "border-color 0.25s, color 0.25s",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = C.primary;
+                e.currentTarget.style.color = C.primary;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = C.border;
+                e.currentTarget.style.color = C.fg;
+              }}
+            >
+              Load More Episodes
+            </motion.button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Hosts / guests                                                           */
+/* ------------------------------------------------------------------------ */
+
+function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.3 }}
+      style={{
+        backgroundColor: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: "1rem",
+        padding: "1.75rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.1rem",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        {host.photoUrl ? (
+          <img
+            src={host.photoUrl}
+            alt={host.name}
+            style={{
+              width: "3.75rem",
+              height: "3.75rem",
+              borderRadius: "999px",
+              objectFit: "cover",
+              border: `1px solid ${C.borderDim}`,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "3.75rem",
+              height: "3.75rem",
+              borderRadius: "999px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: rgba(C.primary, 0.12),
+              color: C.primary,
+              fontFamily: C.displayFont,
+              fontWeight: 500,
+              fontSize: "1.15rem",
+              border: `1px solid ${C.borderDim}`,
+            }}
+          >
+            {initials(host.name)}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h4
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 500,
+              fontSize: "1.15rem",
+              color: C.heading,
+              marginBottom: "0.2rem",
+            }}
+          >
+            {host.name}
+          </h4>
+          <p
+            style={{
+              fontFamily: C.bodyFont,
+              fontSize: "0.8rem",
+              color: C.muted,
+              lineHeight: 1.4,
+            }}
+          >
+            {host.title}
+            {host.company && <span style={{ color: C.mutedDim }}> · {host.company}</span>}
+          </p>
+        </div>
+      </div>
+
+      {host.bio && (
+        <p
+          style={{
+            fontFamily: C.bodyFont,
+            fontWeight: 300,
+            fontSize: "0.88rem",
+            color: C.muted,
+            lineHeight: 1.65,
+          }}
+        >
+          {host.bio}
+        </p>
+      )}
+
+      {host.linkedinUrl && (
+        <div>
+          <motion.a
+            href={host.linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            whileHover={{ scale: 1.08 }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "2.25rem",
+              height: "2.25rem",
+              borderRadius: "999px",
+              border: `1px solid ${C.border}`,
+              color: C.muted,
+              textDecoration: "none",
+              transition: "color 0.2s, border-color 0.2s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = C.primary;
+              e.currentTarget.style.borderColor = C.primary;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = C.muted;
+              e.currentTarget.style.borderColor = C.border;
+            }}
+          >
+            <Linkedin size={16} />
+          </motion.a>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const hosts = p.hosts ?? [];
+  if (!hosts.length) return null;
+
+  return (
+    <section
+      id="guests"
+      style={{
+        padding: "7rem 1.5rem",
+        backgroundColor: C.bg,
+        borderBottom: `1px solid ${C.borderDim}`,
+      }}
+    >
+      <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={stagger}
+          style={{ marginBottom: "3.5rem", textAlign: "center" }}
+        >
+          <motion.p
+            variants={fadeUp}
+            style={{
+              fontFamily: C.bodyFont,
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              letterSpacing: "0.36em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "1rem",
+            }}
+          >
+            Voices on the Show
+          </motion.p>
+          <motion.h2
+            variants={fadeUp}
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 400,
+              fontSize: "clamp(2rem, 4vw, 3rem)",
+              color: C.heading,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Hosts &amp; Recurring Guests
+          </motion.h2>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-60px" }}
+          variants={stagger}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))",
+            gap: "1.5rem",
+          }}
+        >
+          {hosts.map((h, idx) => (
+            <HostCard key={`${h.name}-${idx}`} host={h} C={C} />
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  About section                                                            */
+/* ------------------------------------------------------------------------ */
+
+function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const headline = p.aboutHeadline;
+  const description = p.aboutDescription;
+  const audience = p.aboutAudience;
+  const topics = p.aboutTopics ?? [];
+
+  if (!headline && !description && !audience && !topics.length) return null;
+
+  return (
+    <section
+      id="about"
+      style={{
+        padding: "7rem 1.5rem",
+        backgroundColor: C.bg,
+        borderBottom: `1px solid ${C.borderDim}`,
+      }}
+    >
+      <div style={{ maxWidth: "62rem", margin: "0 auto" }}>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={stagger}
+        >
+          <motion.p
+            variants={fadeUp}
+            style={{
+              fontFamily: C.bodyFont,
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              letterSpacing: "0.36em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "1.25rem",
+            }}
+          >
+            About the Series
+          </motion.p>
+
+          {headline && (
+            <motion.h2
+              variants={fadeUp}
+              style={{
+                fontFamily: C.displayFont,
+                fontWeight: 400,
+                fontSize: "clamp(2rem, 4.2vw, 3.2rem)",
+                lineHeight: 1.15,
+                color: C.heading,
+                letterSpacing: "-0.01em",
+                marginBottom: "1.75rem",
+                maxWidth: "44rem",
+              }}
+            >
+              {headline}
+            </motion.h2>
+          )}
+
+          {description && (
+            <motion.p
+              variants={fadeUp}
+              style={{
+                fontFamily: C.bodyFont,
+                fontWeight: 300,
+                fontSize: "1.05rem",
+                lineHeight: 1.75,
+                color: C.muted,
+                maxWidth: "48rem",
+                marginBottom: audience || topics.length ? "2.5rem" : 0,
+              }}
+            >
+              {description}
+            </motion.p>
+          )}
+
+          {audience && (
+            <motion.div
+              variants={fadeUp}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: "1rem",
+                marginBottom: topics.length ? "2.5rem" : 0,
+                paddingTop: "1.75rem",
+                borderTop: `1px solid ${C.borderDim}`,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: C.bodyFont,
+                  fontSize: "0.65rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.24em",
+                  textTransform: "uppercase",
+                  color: C.primary,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Who it's for
+              </span>
+              <span
+                style={{
+                  fontFamily: C.bodyFont,
+                  fontSize: "0.95rem",
+                  color: C.fg,
+                  lineHeight: 1.55,
+                }}
+              >
+                {audience}
+              </span>
+            </motion.div>
+          )}
+
+          {topics.length > 0 && (
+            <motion.div variants={fadeUp}>
+              <p
+                style={{
+                  fontFamily: C.bodyFont,
+                  fontSize: "0.65rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.24em",
+                  textTransform: "uppercase",
+                  color: C.primary,
+                  marginBottom: "1rem",
+                }}
+              >
+                Topics we cover
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem" }}>
+                {topics.map((topic, idx) => (
+                  <span
+                    key={`${topic}-${idx}`}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      backgroundColor: C.primaryGhost,
+                      border: `1px solid ${C.borderDim}`,
+                      borderRadius: "999px",
+                      fontFamily: C.bodyFont,
+                      fontSize: "0.78rem",
+                      color: C.fg,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  CTA section                                                              */
+/* ------------------------------------------------------------------------ */
+
+function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const headline = p.ctaSectionHeadline;
+  const sub = p.ctaSectionSubheadline;
+  const ctas: ContentSeriesCta[] = p.ctas ?? [];
+  if (!headline && !sub && !ctas.length && !p.rssFeedUrl) return null;
+
+  return (
+    <section
+      id="subscribe"
+      style={{
+        padding: "8rem 1.5rem",
+        position: "relative",
+        backgroundColor: C.bg,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `radial-gradient(circle at 50% 50%, ${rgba(C.primary, 0.18)} 0%, transparent 60%)`,
+          pointerEvents: "none",
+        }}
+      />
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-80px" }}
+        variants={stagger}
+        style={{
+          position: "relative",
+          maxWidth: "48rem",
+          margin: "0 auto",
+          textAlign: "center",
+        }}
+      >
+        {headline && (
+          <motion.h2
+            variants={fadeUp}
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 400,
+              fontSize: "clamp(2.2rem, 5vw, 3.6rem)",
+              lineHeight: 1.1,
+              color: C.heading,
+              letterSpacing: "-0.01em",
+              marginBottom: sub ? "1.25rem" : "2.5rem",
+            }}
+          >
+            {headline}
+          </motion.h2>
+        )}
+
+        {sub && (
+          <motion.p
+            variants={fadeUp}
+            style={{
+              fontFamily: C.bodyFont,
+              fontWeight: 300,
+              fontSize: "1.05rem",
+              lineHeight: 1.7,
+              color: C.muted,
+              maxWidth: "36rem",
+              margin: "0 auto 2.75rem",
+            }}
+          >
+            {sub}
+          </motion.p>
+        )}
+
+        {(ctas.length > 0 || p.rssFeedUrl) && (
+          <motion.div
+            variants={fadeUp}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              gap: "0.85rem",
+            }}
+          >
+            {ctas.map((cta, idx) => {
+              const isPrimary = (cta.variant ?? "primary") === "primary";
+              return (
+                <motion.a
+                  key={`${cta.label}-${idx}`}
+                  href={cta.url}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.95rem 1.85rem",
+                    backgroundColor: isPrimary ? C.primary : "transparent",
+                    color: isPrimary ? C.bg : C.fg,
+                    border: isPrimary ? `1px solid ${C.primary}` : `1px solid ${C.border}`,
+                    fontFamily: C.bodyFont,
+                    fontWeight: 500,
+                    fontSize: "0.72rem",
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    textDecoration: "none",
+                    borderRadius: "999px",
+                    transition: "background-color 0.25s, border-color 0.25s, color 0.25s",
+                  }}
+                  onMouseEnter={e => {
+                    if (!isPrimary) {
+                      e.currentTarget.style.borderColor = C.primary;
+                      e.currentTarget.style.color = C.primary;
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isPrimary) {
+                      e.currentTarget.style.borderColor = C.border;
+                      e.currentTarget.style.color = C.fg;
+                    }
+                  }}
+                >
+                  {cta.label}
+                </motion.a>
+              );
+            })}
+            {p.rssFeedUrl && (
+              <motion.a
+                href={p.rssFeedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.95rem 1.5rem",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "999px",
+                  color: C.muted,
+                  textDecoration: "none",
+                  fontFamily: C.bodyFont,
+                  fontWeight: 500,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                <Rss size={14} /> RSS
+              </motion.a>
+            )}
+          </motion.div>
+        )}
+      </motion.div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Root                                                                     */
+/* ------------------------------------------------------------------------ */
+
+interface Props {
+  props: ContentSeriesBlockProps;
+}
+
+export function BlockContentSeries({ props: p }: Props) {
+  const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
+  useGoogleFonts(
+    p.theme?.displayFontFamily ?? DEFAULT_THEME.displayFontFamily,
+    p.theme?.bodyFontFamily ?? DEFAULT_THEME.bodyFontFamily,
+  );
+
+  return (
+    <div
+      style={{
+        backgroundColor: C.bg,
+        color: C.fg,
+        fontFamily: C.bodyFont,
+        minHeight: "100vh",
+      }}
+    >
+      <StickyNav p={p} C={C} />
+      <Hero p={p} C={C} />
+      <EpisodeLibrary p={p} C={C} />
+      <HostsSection p={p} C={C} />
+      <AboutSection p={p} C={C} />
+      <CtaSection p={p} C={C} />
+    </div>
+  );
+}
+
+export default BlockContentSeries;

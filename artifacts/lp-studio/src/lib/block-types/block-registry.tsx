@@ -61,6 +61,7 @@ import type {
   HoursLocationBlockProps,
   BeforeAfterGalleryBlockProps,
   SpeakerGridBlockProps,
+  ContentSeriesBlockProps,
 } from "./generic-blocks";
 import type {
   SectionBlockProps,
@@ -4025,6 +4026,108 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "content-series" as const,
+    label: "Content Series",
+    category: "Events" as BlockCategory,
+    defaultProps: (): ContentSeriesBlockProps => ({
+      seriesType: "podcast",
+      seriesTitle: "The Margin Line",
+      seriesSubtitle: "Conversations with the leaders reshaping dentistry — from the operatory to the boardroom.",
+      navLinks: [
+        { label: "Episodes", href: "#episodes" },
+        { label: "Guests", href: "#guests" },
+        { label: "About", href: "#about" },
+        { label: "Subscribe", href: "#subscribe" },
+      ],
+      navCtaText: "Listen Now",
+      navCtaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+      heroEyebrow: "NEW EPISODE",
+      heroEpisodeTitle: "The Future of Digital Dentistry",
+      heroEpisodeDescription: "Dr. Sarah Chen shares her journey from a single-chair practice to a 15-location DSO — and how digital workflows transformed her margins, her team, and her patient outcomes.",
+      heroGuestName: "Dr. Sarah Chen",
+      heroGuestTitle: "CEO & Founder, Apex Dental Partners",
+      heroCtaText: "Listen Now",
+      heroCtaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+      episodes: [
+        {
+          title: "The Future of Digital Dentistry",
+          guestName: "Dr. Sarah Chen",
+          guestTitle: "CEO",
+          guestCompany: "Apex Dental Partners",
+          description: "How digital workflows are transforming margins, teams, and patient outcomes across multi-location practices.",
+          publishDate: "2025-04-28",
+          ctaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+          ctaText: "Listen",
+          isFeatured: true,
+        },
+        {
+          title: "Scaling Without Losing Your Culture",
+          guestName: "Marcus Williams",
+          guestTitle: "COO",
+          guestCompany: "Bright Smile Group",
+          description: "Practical frameworks for maintaining clinical quality and team engagement as you grow from 5 to 50 locations.",
+          publishDate: "2025-04-14",
+          ctaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+          ctaText: "Listen",
+        },
+        {
+          title: "What PE Gets Wrong About Dentistry",
+          guestName: "Rachel Torres",
+          guestTitle: "Managing Partner",
+          guestCompany: "Clearview Capital",
+          description: "An inside look at what private equity partners actually evaluate when acquiring dental groups — and the metrics most operators overlook.",
+          publishDate: "2025-03-31",
+          ctaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+          ctaText: "Listen",
+        },
+      ],
+      hosts: [
+        {
+          name: "The Margin Line Team",
+          title: "Host",
+          company: "Dandy",
+          bio: "Conversations with the leaders who are reshaping how dental care is delivered, managed, and scaled.",
+        },
+      ],
+      aboutHeadline: "About The Margin Line",
+      aboutDescription: "The Margin Line is a podcast for dental leaders who think beyond the chair. Each episode features candid conversations with the founders, operators, and investors building the future of dentistry — from clinical innovation to operational scale.",
+      aboutAudience: "DSO executives, practice owners, dental entrepreneurs, and industry leaders.",
+      aboutTopics: ["Growth strategy", "Digital workflows", "M&A and private equity", "Clinical innovation", "Team culture", "Operational excellence"],
+      ctaSectionHeadline: "Never Miss an Episode",
+      ctaSectionSubheadline: "Subscribe on your favorite platform and stay ahead of the curve.",
+      ctas: [
+        { label: "Apple Podcasts", url: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971", variant: "primary" },
+        { label: "Nominate a Guest", url: "#", variant: "outline" },
+        { label: "Contact Us", url: "#", variant: "outline" },
+      ],
+      rssFeedUrl: "",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0c0f12" rx="4" />
+        <rect x="10" y="8" width="44" height="6" rx="2" fill="#b59a6e" />
+        <rect x="10" y="18" width="60" height="3" rx="1" fill="#eeeae3" opacity="0.7" />
+        <rect x="10" y="28" width="45" height="10" rx="3" fill="#141619" stroke="#262a2f" strokeWidth="0.5" />
+        <circle cx="16" cy="33" r="3" fill="#b59a6e" opacity="0.6" />
+        <rect x="22" y="31" width="28" height="2" rx="1" fill="#eeeae3" opacity="0.5" />
+        <rect x="22" y="35" width="18" height="1.5" rx="0.5" fill="#7a8088" />
+        <rect x="10" y="42" width="45" height="10" rx="3" fill="#141619" stroke="#262a2f" strokeWidth="0.5" />
+        <circle cx="16" cy="47" r="3" fill="#b59a6e" opacity="0.6" />
+        <rect x="22" y="45" width="28" height="2" rx="1" fill="#eeeae3" opacity="0.5" />
+        <rect x="22" y="49" width="18" height="1.5" rx="0.5" fill="#7a8088" />
+        <rect x="10" y="56" width="45" height="10" rx="3" fill="#141619" stroke="#262a2f" strokeWidth="0.5" />
+        <circle cx="16" cy="61" r="3" fill="#b59a6e" opacity="0.6" />
+        <rect x="22" y="59" width="28" height="2" rx="1" fill="#eeeae3" opacity="0.5" />
+        <rect x="22" y="63" width="18" height="1.5" rx="0.5" fill="#7a8088" />
+        <rect x="70" y="10" width="40" height="50" rx="4" fill="#141619" stroke="#262a2f" strokeWidth="0.5" />
+        <rect x="76" y="16" width="28" height="16" rx="2" fill="#b59a6e" opacity="0.15" />
+        <rect x="76" y="36" width="28" height="3" rx="1" fill="#eeeae3" opacity="0.6" />
+        <rect x="76" y="42" width="20" height="2" rx="0.5" fill="#7a8088" />
+        <rect x="76" y="48" width="28" height="8" rx="2" fill="#b59a6e" />
+      </svg>
+    ),
+  },
+  {
     type: "custom-schema",
     label: "Schema-Based Custom Block",
     category: "Grid Pieces",
@@ -4152,6 +4255,7 @@ export function createBlock(type: "dandy-form-right-alt"): Extract<PageBlock, { 
 export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock, { type: "dandy-conversion-panel-1" }>;
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
+export function createBlock(type: "content-series"): Extract<PageBlock, { type: "content-series" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: "event-landing-hero"): Extract<PageBlock, { type: "event-landing-hero" }>;
 export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
@@ -4271,6 +4375,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "hours-location": return { id, type: "hours-location", props: props as HoursLocationBlockProps };
     case "before-after-gallery": return { id, type: "before-after-gallery", props: props as BeforeAfterGalleryBlockProps };
     case "speaker-grid": return { id, type: "speaker-grid", props: props as SpeakerGridBlockProps };
+    case "content-series": return { id, type: "content-series", props: props as ContentSeriesBlockProps };
     case "section": return { id, type: "section", props: props as SectionBlockProps, children: [] };
     case "columns": return { id, type: "columns", props: props as ColumnsBlockProps, children: [] };
     case "grid": return { id, type: "grid", props: props as GridBlockProps, children: [] };

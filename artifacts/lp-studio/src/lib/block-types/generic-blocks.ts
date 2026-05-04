@@ -1132,3 +1132,107 @@ export interface SpeakerGridBlockProps {
   textColor?: string;
   accentColor?: string;
 }
+
+/* ------------------------------------------------------------------------- */
+/*  Content Series — a premium full-page block for recurring content like    */
+/*  podcasts, webinar series, and thought-leadership shows. Includes a hero  */
+/*  for the featured/latest episode, a sortable episode library, guest/      */
+/*  speaker cards, an "about the series" section, and flexible CTAs.         */
+/* ------------------------------------------------------------------------- */
+
+export interface ContentSeriesTheme {
+  bg?: string;
+  cardBg?: string;
+  fg?: string;
+  headingColor?: string;
+  primary?: string;
+  muted?: string;
+  border?: string;
+  navBg?: string;
+  navBgOpacity?: number;
+  navText?: string;
+  displayFontFamily?: string;
+  bodyFontFamily?: string;
+}
+
+export interface ContentSeriesEpisode {
+  title: string;
+  guestName?: string;
+  guestTitle?: string;
+  guestCompany?: string;
+  description: string;
+  publishDate: string;
+  thumbnailUrl?: string;
+  ctaUrl: string;
+  ctaText?: string;
+  /** When true this episode is pinned/featured at the top of the library. */
+  isFeatured?: boolean;
+}
+
+export interface ContentSeriesHost {
+  name: string;
+  title: string;
+  company?: string;
+  photoUrl?: string;
+  bio?: string;
+  linkedinUrl?: string;
+  websiteUrl?: string;
+}
+
+export interface ContentSeriesCta {
+  label: string;
+  url: string;
+  /** "primary" renders solid accent; "outline" renders bordered ghost. */
+  variant?: "primary" | "outline";
+}
+
+export interface ContentSeriesNavLink {
+  label: string;
+  href: string;
+}
+
+export interface ContentSeriesBlockProps {
+  /** "podcast" | "webinar" | "series" — drives default copy (e.g. "Listen Now" vs "Register"). */
+  seriesType: "podcast" | "webinar" | "series";
+  seriesTitle: string;
+  seriesSubtitle?: string;
+  logoUrl?: string;
+
+  /** Sticky nav links (anchors to sections within the page). */
+  navLinks?: ContentSeriesNavLink[];
+  navCtaText?: string;
+  navCtaUrl?: string;
+
+  /** Hero / featured episode section. */
+  heroEyebrow?: string;
+  heroImageUrl?: string;
+  heroEpisodeTitle: string;
+  heroEpisodeDescription?: string;
+  heroGuestName?: string;
+  heroGuestTitle?: string;
+  heroCtaText?: string;
+  heroCtaUrl?: string;
+
+  /** Episode library. */
+  episodes: ContentSeriesEpisode[];
+
+  /** Guest / speaker spotlight cards (optional — for recurring guests or hosts). */
+  hosts?: ContentSeriesHost[];
+
+  /** About the series. */
+  aboutHeadline?: string;
+  aboutDescription?: string;
+  aboutAudience?: string;
+  aboutTopics?: string[];
+
+  /** Flexible CTA section at the bottom. */
+  ctaSectionHeadline?: string;
+  ctaSectionSubheadline?: string;
+  ctas?: ContentSeriesCta[];
+
+  /** Optional RSS feed URL for future auto-pull of new episodes. */
+  rssFeedUrl?: string;
+
+  /** Visual theme overrides. */
+  theme?: ContentSeriesTheme;
+}
