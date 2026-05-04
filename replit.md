@@ -53,6 +53,9 @@ A React + Vite application providing the user interface for the A/B testing plat
   - Multi-step guest application form (FormStep/FormField pattern matching event-page RSVP form)
   - Theme system resolving from tenant brand config with per-block overrides (colors, fonts)
   - Full property panel (ContentSeriesPanel.tsx) with collapsible sections for all editable fields
+  - Mobile responsive layout: CSS media queries stack grids, reduce padding, and reflow episode rows on screens ≤768px
+  - Internal error boundary shows render errors visually instead of blank page
+  - Excluded from ScrollReveal/Reveal wrappers (NO_REVEAL) since it has its own framer-motion animations
   - First use case: The Margin Line podcast
 - **Admin Dashboard**: Manages tests, variants, and results.
 - **Pages Gallery**: CRUD operations for builder pages with template selection.

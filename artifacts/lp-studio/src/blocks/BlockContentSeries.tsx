@@ -362,7 +362,7 @@ function StickyNav({
         position: "sticky",
         top: 0,
         zIndex: 50,
-        padding: scrolled ? "0.85rem 2rem" : "1.25rem 2rem",
+        padding: scrolled ? "0.85rem 1rem" : "1.25rem 1rem",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -468,6 +468,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
   return (
     <section
       id="top"
+      className="bcs-section"
       style={{
         position: "relative",
         minHeight: "85vh",
@@ -644,6 +645,7 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
   return (
     <section
       id="top"
+      className="bcs-section"
       style={{
         position: "relative",
         padding: "6rem 1.5rem 7rem",
@@ -825,6 +827,7 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   return (
     <section
       id="top"
+      className="bcs-section"
       style={{
         position: "relative",
         padding: "8rem 1.5rem 7rem",
@@ -1217,6 +1220,7 @@ function EpisodeRow({ episode, C, defaultCta, onPlayVideo }: { episode: ContentS
 
   return (
     <motion.a
+      className="bcs-episode-row"
       href={hasVideo ? "#" : episode.ctaUrl}
       onClick={handleClick}
       initial={{ opacity: 0, y: 12 }}
@@ -1326,6 +1330,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
   return (
     <section
       id="episodes"
+      className="bcs-section"
       style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}
     >
       <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
@@ -1360,6 +1365,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
         {!showFullList && (
           <>
             <div
+              className="bcs-episode-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: `repeat(${Math.min(carouselEpisodes.length, CAROUSEL_PAGE_SIZE)}, minmax(0, 1fr))`,
@@ -1539,7 +1545,7 @@ function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
 
 function SingleHostSpotlight({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
   return (
-    <section id="guests" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
+    <section id="guests" className="bcs-section" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "56rem", margin: "0 auto" }}>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem", textAlign: "center" }}>
@@ -1604,7 +1610,7 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   }
 
   return (
-    <section id="guests" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
+    <section id="guests" className="bcs-section" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} style={{ marginBottom: "3.5rem", textAlign: "center" }}>
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
@@ -1633,7 +1639,7 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   if (!headline && !description && !audience && !topics.length) return null;
 
   return (
-    <section id="about" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
+    <section id="about" className="bcs-section" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "62rem", margin: "0 auto" }}>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
@@ -1800,6 +1806,7 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
   return (
     <section
       id="apply"
+      className="bcs-section"
       style={{
         padding: "7rem 1.5rem",
         backgroundColor: C.bg,
@@ -1968,6 +1975,7 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
   return (
     <section
       id="subscribe"
+      className="bcs-section"
       style={{ padding: "8rem 1.5rem", position: "relative", backgroundColor: C.bg, overflow: "hidden" }}
     >
       <div
@@ -2120,6 +2128,28 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
 
   return (
     <ContentSeriesErrorBoundary>
+      <style>{`
+        @media (max-width: 768px) {
+          .bcs-hero-grid {
+            grid-template-columns: 1fr !important;
+            gap: 2rem !important;
+          }
+          .bcs-section {
+            padding: 3rem 1rem !important;
+          }
+          .bcs-section#top {
+            padding: 3.5rem 1rem 3rem !important;
+          }
+          .bcs-episode-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.25rem !important;
+          }
+          .bcs-episode-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+        }
+      `}</style>
       <div
         style={{
           backgroundColor: C.bg,
