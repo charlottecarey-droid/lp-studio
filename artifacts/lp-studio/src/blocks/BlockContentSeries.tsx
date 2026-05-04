@@ -98,7 +98,10 @@ interface ResolvedTheme {
 
 function resolveTheme(t: ContentSeriesBlockProps["theme"], brand?: BrandConfig): ResolvedTheme {
   const base = brandDefaults(brand);
-  const m = { ...base, ...(t ?? {}) };
+  const raw = t ?? {};
+  const m = Object.fromEntries(
+    Object.entries({ ...base, ...raw }).map(([k, v]) => [k, (typeof v === "string" && v.trim() === "") ? (base as Record<string, unknown>)[k] ?? v : v])
+  ) as typeof base;
   const heading = m.headingColor || m.fg;
   const bodyFont = m.bodyFontFamily ? `'${m.bodyFontFamily}', sans-serif` : "'Inter', sans-serif";
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";

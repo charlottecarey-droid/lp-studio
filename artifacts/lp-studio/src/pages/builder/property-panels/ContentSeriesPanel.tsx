@@ -39,11 +39,11 @@ const THEME_DEFAULTS: Required<ContentSeriesTheme> = {
 function ColorRow({ label, value, fallback, onChange }: { label: string; value: string | undefined; fallback: string; onChange: (v: string) => void }) {
   const v = (value && value.trim()) || fallback;
   return (
-    <div className="flex items-center gap-2">
-      <Label className="text-xs flex-1">{label}</Label>
-      <Input type="color" value={v} onChange={e => onChange(e.target.value)} className="h-7 w-10 p-0.5 cursor-pointer" />
-      <Input value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={fallback} className="text-xs h-7 w-24 font-mono" />
-      <BrandSwatches className="basis-full justify-end" current={value} onPick={onChange} />
+    <div className="flex items-center gap-1.5">
+      <Input type="color" value={v} onChange={e => onChange(e.target.value)} className="h-6 w-7 p-0.5 cursor-pointer shrink-0 rounded" />
+      <Label className="text-xs min-w-0 truncate shrink-0" style={{ maxWidth: "5rem" }}>{label}</Label>
+      <Input value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={fallback} className="text-[11px] h-6 flex-1 font-mono min-w-0" />
+      <BrandSwatches className="shrink-0 flex-nowrap" current={value} onPick={onChange} />
     </div>
   );
 }
@@ -206,50 +206,56 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
       {/* ── Theme & Style ────────────────────────────────────────────────── */}
       <SectionHeader label="Theme & Style" open={open.theme} onToggle={() => toggle("theme")} />
       {open.theme && (
-        <div className="space-y-3 pt-3 pb-4">
-          <div className="space-y-2">
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Fonts</Label>
-            <Field label="Heading Font" hint="Used for headlines and display text">
-              <FontSelect
-                value={theme.displayFontFamily}
-                onChange={(v) => setTheme({ displayFontFamily: v ?? THEME_DEFAULTS.displayFontFamily })}
-                inheritLabel={`Default (${THEME_DEFAULTS.displayFontFamily})`}
-              />
-            </Field>
-            <Field label="Body Font" hint="Used for paragraphs, nav, buttons, form fields">
-              <FontSelect
-                value={theme.bodyFontFamily}
-                onChange={(v) => setTheme({ bodyFontFamily: v ?? THEME_DEFAULTS.bodyFontFamily })}
-                inheritLabel={`Default (${THEME_DEFAULTS.bodyFontFamily})`}
-              />
-            </Field>
+        <div className="space-y-2 pt-3 pb-4">
+          <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Fonts</Label>
+          <Field label="Heading Font" hint="Headlines and display text">
+            <FontSelect
+              value={theme.displayFontFamily}
+              onChange={(v) => setTheme({ displayFontFamily: v ?? THEME_DEFAULTS.displayFontFamily })}
+              inheritLabel={`Default (${THEME_DEFAULTS.displayFontFamily})`}
+            />
+          </Field>
+          <Field label="Body Font" hint="Paragraphs, nav, buttons, form fields">
+            <FontSelect
+              value={theme.bodyFontFamily}
+              onChange={(v) => setTheme({ bodyFontFamily: v ?? THEME_DEFAULTS.bodyFontFamily })}
+              inheritLabel={`Default (${THEME_DEFAULTS.bodyFontFamily})`}
+            />
+          </Field>
+
+          <div className="border-t border-border pt-2 mt-1">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Page Colors</Label>
+            <div className="space-y-1">
+              <ColorRow label="Background" value={theme.bg} fallback={THEME_DEFAULTS.bg} onChange={v => setTheme({ bg: v })} />
+              <ColorRow label="Card BG" value={theme.cardBg} fallback={THEME_DEFAULTS.cardBg} onChange={v => setTheme({ cardBg: v })} />
+              <ColorRow label="Text" value={theme.fg} fallback={THEME_DEFAULTS.fg} onChange={v => setTheme({ fg: v })} />
+              <ColorRow label="Headings" value={theme.headingColor} fallback={THEME_DEFAULTS.headingColor} onChange={v => setTheme({ headingColor: v })} />
+              <ColorRow label="Accent" value={theme.primary} fallback={THEME_DEFAULTS.primary} onChange={v => setTheme({ primary: v })} />
+              <ColorRow label="Muted" value={theme.muted} fallback={THEME_DEFAULTS.muted} onChange={v => setTheme({ muted: v })} />
+              <ColorRow label="Border" value={theme.border} fallback={THEME_DEFAULTS.border} onChange={v => setTheme({ border: v })} />
+            </div>
           </div>
-          <div className="space-y-2 pt-1">
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Page Colors</Label>
-            <ColorRow label="Background" value={theme.bg} fallback={THEME_DEFAULTS.bg} onChange={v => setTheme({ bg: v })} />
-            <ColorRow label="Card / Panel BG" value={theme.cardBg} fallback={THEME_DEFAULTS.cardBg} onChange={v => setTheme({ cardBg: v })} />
-            <ColorRow label="Body Text" value={theme.fg} fallback={THEME_DEFAULTS.fg} onChange={v => setTheme({ fg: v })} />
-            <ColorRow label="Heading Text" value={theme.headingColor} fallback={THEME_DEFAULTS.headingColor} onChange={v => setTheme({ headingColor: v })} />
-            <ColorRow label="Accent / Primary" value={theme.primary} fallback={THEME_DEFAULTS.primary} onChange={v => setTheme({ primary: v })} />
-            <ColorRow label="Muted Text" value={theme.muted} fallback={THEME_DEFAULTS.muted} onChange={v => setTheme({ muted: v })} />
-            <ColorRow label="Border" value={theme.border} fallback={THEME_DEFAULTS.border} onChange={v => setTheme({ border: v })} />
-          </div>
-          <div className="space-y-2 pt-1">
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Nav Bar</Label>
-            <ColorRow label="Nav Background" value={theme.navBg} fallback={THEME_DEFAULTS.navBg} onChange={v => setTheme({ navBg: v })} />
-            <Field label={`Nav BG Opacity (${Math.round(((theme.navBgOpacity ?? THEME_DEFAULTS.navBgOpacity) as number) * 100)}%)`} hint="Lower = more see-through nav">
+
+          <div className="border-t border-border pt-2 mt-1">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Nav Bar</Label>
+            <div className="space-y-1">
+              <ColorRow label="Nav BG" value={theme.navBg} fallback={THEME_DEFAULTS.navBg} onChange={v => setTheme({ navBg: v })} />
+              <ColorRow label="Nav Text" value={theme.navText} fallback={THEME_DEFAULTS.navText} onChange={v => setTheme({ navText: v })} />
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <Label className="text-[11px] shrink-0">Opacity {Math.round(((theme.navBgOpacity ?? THEME_DEFAULTS.navBgOpacity) as number) * 100)}%</Label>
               <input
                 type="range"
                 min={0}
                 max={100}
                 value={Math.round(((theme.navBgOpacity ?? THEME_DEFAULTS.navBgOpacity) as number) * 100)}
                 onChange={e => setTheme({ navBgOpacity: Number(e.target.value) / 100 })}
-                className="w-full"
+                className="flex-1 h-4"
               />
-            </Field>
-            <ColorRow label="Nav Text" value={theme.navText} fallback={THEME_DEFAULTS.navText} onChange={v => setTheme({ navText: v })} />
+            </div>
           </div>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full mt-2" onClick={resetTheme}>
+
+          <Button type="button" variant="outline" size="sm" className="h-6 text-[11px] w-full mt-1" onClick={resetTheme}>
             Reset to defaults
           </Button>
         </div>
