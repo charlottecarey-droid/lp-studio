@@ -98,27 +98,28 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
   const setTheme = (patch: Partial<ContentSeriesTheme>) => set({ theme: { ...theme, ...patch } });
   const resetTheme = () => set({ theme: { ...THEME_DEFAULTS } });
 
+  const episodes = p.episodes ?? [];
   const updateEpisode = (i: number, patch: Partial<ContentSeriesEpisode>) => {
-    const next = p.episodes.map((ep, idx) => idx === i ? { ...ep, ...patch } : ep);
+    const next = episodes.map((ep, idx) => idx === i ? { ...ep, ...patch } : ep);
     set({ episodes: next });
   };
   const addEpisode = () => set({
-    episodes: [...p.episodes, { title: "New Episode", guestName: "", description: "", publishDate: new Date().toISOString().split("T")[0], ctaUrl: "#", isFeatured: false, status: "on-demand" as EpisodeStatus }],
+    episodes: [...episodes, { title: "New Episode", guestName: "", description: "", publishDate: new Date().toISOString().split("T")[0], ctaUrl: "#", isFeatured: false, status: "on-demand" as EpisodeStatus }],
   });
-  const removeEpisode = (i: number) => set({ episodes: p.episodes.filter((_, idx) => idx !== i) });
+  const removeEpisode = (i: number) => set({ episodes: episodes.filter((_, idx) => idx !== i) });
   const moveEpisode = (from: number, to: number) => {
-    if (to < 0 || to >= p.episodes.length) return;
-    const next = [...p.episodes];
+    if (to < 0 || to >= episodes.length) return;
+    const next = [...episodes];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
     set({ episodes: next });
   };
   const pinEpisodeAsHero = (i: number) => {
-    const next = p.episodes.map((ep, idx) => ({ ...ep, pinHero: idx === i }));
+    const next = episodes.map((ep, idx) => ({ ...ep, pinHero: idx === i }));
     set({ episodes: next, heroSourceMode: "auto" as const });
   };
   const unpinAllHeroes = () => {
-    const next = p.episodes.map(ep => ({ ...ep, pinHero: false }));
+    const next = episodes.map(ep => ({ ...ep, pinHero: false }));
     set({ episodes: next });
   };
 
@@ -331,7 +332,7 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
           </Field>
           {(p.heroSourceMode ?? "auto") === "auto" && (
             <p className="text-[11px] text-muted-foreground bg-muted/30 rounded p-2">
-              Hero is auto-populated from {p.episodes.some(ep => ep.pinHero) ? "the pinned episode" : "the newest visible episode"}. Switch to Manual to edit hero fields directly, or pin an episode in the Episodes section below.
+              Hero is auto-populated from {episodes.some(ep => ep.pinHero) ? "the pinned episode" : "the newest visible episode"}. Switch to Manual to edit hero fields directly, or pin an episode in the Episodes section below.
             </p>
           )}
           {(p.heroSourceMode === "manual") && (
@@ -399,18 +400,18 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
       )}
 
       {/* ── Episodes ─────────────────────────────────────────────────────── */}
-      <SectionHeader label={`Episodes (${p.episodes.length})`} open={open.episodes} onToggle={() => toggle("episodes")} />
+      <SectionHeader label={`Episodes (${episodes.length})`} open={open.episodes} onToggle={() => toggle("episodes")} />
       {open.episodes && (
         <div className="space-y-3 pt-3 pb-4">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{p.episodes.filter(e => !e.hidden).length} visible · {p.episodes.filter(e => e.hidden).length} hidden</span>
-            {p.episodes.some(ep => ep.pinHero) && (
+            <span>{episodes.filter(e => !e.hidden).length} visible · {episodes.filter(e => e.hidden).length} hidden</span>
+            {episodes.some(ep => ep.pinHero) && (
               <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={unpinAllHeroes}>
                 Unpin hero
               </Button>
             )}
           </div>
-          {p.episodes.map((ep, i) => {
+          {episodes.map((ep, i) => {
             const isCollapsed = !openEpisodes[i];
             return (
               <div key={i} className={`border rounded-md p-3 space-y-2 ${ep.hidden ? "border-border/50 opacity-60" : ep.pinHero ? "border-primary/50 bg-primary/5" : "border-border"}`}>
@@ -430,7 +431,7 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveEpisode(i, i - 1)} disabled={i === 0} title="Move up">
                       <ArrowUp className="w-3 h-3" />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveEpisode(i, i + 1)} disabled={i === p.episodes.length - 1} title="Move down">
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveEpisode(i, i + 1)} disabled={i === episodes.length - 1} title="Move down">
                       <ArrowDown className="w-3 h-3" />
                     </Button>
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateEpisode(i, { hidden: !ep.hidden })} title={ep.hidden ? "Show" : "Hide"}>
