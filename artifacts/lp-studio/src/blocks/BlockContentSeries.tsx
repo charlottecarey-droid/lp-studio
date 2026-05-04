@@ -1664,14 +1664,7 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
     setFormData(prev => ({ ...prev, [fieldId]: value }));
   }, []);
 
-  if (!steps.length) return null;
-
-  const step = steps[currentStep];
   const isLastStep = currentStep >= steps.length - 1;
-  const eyebrow = p.formEyebrow ?? "Be a Guest";
-  const headline = p.formHeadline ?? "Share Your Story";
-  const subtitle = p.formSubheadline ?? "";
-  const successMessage = p.formSuccessMessage ?? "Thank you! We'll be in touch.";
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1701,6 +1694,14 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
       setSubmitting(false);
     }
   }, [isLastStep, formData, p.formSubmitUrl, p.seriesTitle]);
+
+  if (!steps.length) return null;
+
+  const step = steps[currentStep];
+  const eyebrow = p.formEyebrow ?? "Be a Guest";
+  const headline = p.formHeadline ?? "Share Your Story";
+  const subtitle = p.formSubheadline ?? "";
+  const successMessage = p.formSuccessMessage ?? "Thank you! We'll be in touch.";
 
   const renderField = (field: FormField) => {
     const val = formData[field.id] ?? "";
