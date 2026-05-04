@@ -1006,11 +1006,6 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
 
   const sorted = useMemo(() => {
     const list = (p.episodes ?? []).filter(ep => !ep.hidden);
-    list.sort((a, b) => {
-      const da = new Date(a.publishDate).getTime() || 0;
-      const db = new Date(b.publishDate).getTime() || 0;
-      return db - da;
-    });
     list.sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured));
     return list;
   }, [p.episodes]);
