@@ -4041,6 +4041,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ],
       navCtaText: "Listen Now",
       navCtaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+      heroLayout: "half-bleed",
       heroEyebrow: "NEW EPISODE",
       heroEpisodeTitle: "The Future of Digital Dentistry",
       heroEpisodeDescription: "Dr. Sarah Chen shares her journey from a single-chair practice to a 15-location DSO — and how digital workflows transformed her margins, her team, and her patient outcomes.",
@@ -4100,6 +4101,24 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         { label: "Nominate a Guest", url: "#", variant: "outline" },
         { label: "Contact Us", url: "#", variant: "outline" },
       ],
+      formEyebrow: "Be a Guest",
+      formHeadline: "Share Your Story",
+      formSubheadline: "Know a leader reshaping dentistry? Nominate them — or yourself — for a future episode.",
+      formSteps: [
+        {
+          title: "Guest Application",
+          fields: [
+            { id: "first_name", type: "text", label: "First Name", placeholder: "Jane", required: true },
+            { id: "last_name", type: "text", label: "Last Name", placeholder: "Smith", required: true },
+            { id: "email", type: "email", label: "Email", placeholder: "jane@example.com", required: true },
+            { id: "company", type: "text", label: "Company / Practice", placeholder: "Apex Dental Partners", required: true },
+            { id: "title", type: "text", label: "Title / Role", placeholder: "CEO", required: false },
+            { id: "topic", type: "textarea", label: "What would you like to discuss?", placeholder: "Share the topics or stories you'd bring to the show…", required: false },
+          ],
+        },
+      ],
+      formSubmitUrl: "",
+      formSuccessMessage: "Thank you! We'll be in touch about featuring you on the show.",
       rssFeedUrl: "",
     }),
     thumbnail: () => (

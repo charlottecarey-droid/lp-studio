@@ -47,6 +47,13 @@ All packages are TypeScript composite projects, extending `tsconfig.base.json`. 
 
 A React + Vite application providing the user interface for the A/B testing platform and page builder.
 
+- **Content Series Block**: Full-page content series landing page (podcast/webinar/video series) with:
+  - Three hero layouts: full-bleed (immersive parallax bg), half-bleed (split text/image), text-only
+  - Episode library with featured pinning, guest/host spotlight cards, about section, CTA section
+  - Multi-step guest application form (FormStep/FormField pattern matching event-page RSVP form)
+  - Theme system resolving from tenant brand config with per-block overrides (colors, fonts)
+  - Full property panel (ContentSeriesPanel.tsx) with collapsible sections for all editable fields
+  - First use case: The Margin Line podcast
 - **Admin Dashboard**: Manages tests, variants, and results.
 - **Pages Gallery**: CRUD operations for builder pages with template selection.
 - **Builder Editor**: A three-panel drag-and-drop interface for designing landing pages with block library, live canvas, and property panels. Supports inline editing with Tiptap WYSIWYG.

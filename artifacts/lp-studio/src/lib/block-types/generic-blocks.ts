@@ -1203,6 +1203,8 @@ export interface ContentSeriesBlockProps {
   navCtaText?: string;
   navCtaUrl?: string;
 
+  /** Hero layout: "full-bleed" = immersive bg image, "half-bleed" = split text/image, "text-only" = no image. */
+  heroLayout?: "full-bleed" | "half-bleed" | "text-only";
   /** Hero / featured episode section. */
   heroEyebrow?: string;
   heroImageUrl?: string;
@@ -1230,9 +1232,17 @@ export interface ContentSeriesBlockProps {
   ctaSectionSubheadline?: string;
   ctas?: ContentSeriesCta[];
 
+  /** Guest application / contact form — matches the event-page FormStep pattern. */
+  formEyebrow?: string;
+  formHeadline?: string;
+  formSubheadline?: string;
+  formSteps?: import("./common").FormStep[];
+  formSubmitUrl?: string;
+  formSuccessMessage?: string;
+
   /** Optional RSS feed URL for future auto-pull of new episodes. */
   rssFeedUrl?: string;
 
-  /** Visual theme overrides. */
+  /** Visual theme overrides. When absent, colors/fonts fall back to tenant brand settings. */
   theme?: ContentSeriesTheme;
 }

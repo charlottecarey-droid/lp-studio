@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
+  CheckCircle2,
   Headphones,
   Linkedin,
+  Loader2,
   Mic,
   Play,
   PlayCircle,
   Radio,
   Rss,
+  Send,
   Sparkles,
 } from "lucide-react";
 import type {
@@ -16,13 +19,12 @@ import type {
   ContentSeriesEpisode,
   ContentSeriesHost,
   ContentSeriesCta,
+  ContentSeriesTheme,
 } from "@/lib/block-types";
+import type { FormStep, FormField } from "@/lib/block-types";
+import type { BrandConfig } from "@/lib/brand-config";
 
-/* ------------------------------------------------------------------------ */
-/*  Theme                                                                    */
-/* ------------------------------------------------------------------------ */
-
-const DEFAULT_THEME = {
+const FALLBACK_THEME = {
   bg: "#0c0f12",
   cardBg: "#141619",
   fg: "#eeeae3",
@@ -36,6 +38,24 @@ const DEFAULT_THEME = {
   displayFontFamily: "EB Garamond",
   bodyFontFamily: "Inter",
 };
+
+function brandDefaults(brand?: BrandConfig): typeof FALLBACK_THEME {
+  if (!brand) return FALLBACK_THEME;
+  return {
+    bg: brand.pageBackground || FALLBACK_THEME.bg,
+    cardBg: brand.cardBackground || FALLBACK_THEME.cardBg,
+    fg: brand.textColor || FALLBACK_THEME.fg,
+    headingColor: brand.textColor || FALLBACK_THEME.headingColor,
+    primary: brand.primaryColor || FALLBACK_THEME.primary,
+    muted: FALLBACK_THEME.muted,
+    border: brand.borderColor || FALLBACK_THEME.border,
+    navBg: brand.navBgColor || FALLBACK_THEME.navBg,
+    navBgOpacity: FALLBACK_THEME.navBgOpacity,
+    navText: brand.navText || FALLBACK_THEME.navText,
+    displayFontFamily: brand.displayFont || FALLBACK_THEME.displayFontFamily,
+    bodyFontFamily: brand.bodyFont || FALLBACK_THEME.bodyFontFamily,
+  };
+}
 
 function hexToRgb(hex: string): [number, number, number] {
   const m = hex.replace("#", "").trim();
@@ -71,8 +91,9 @@ interface ResolvedTheme {
   displayFont: string;
 }
 
-function resolveTheme(t: ContentSeriesBlockProps["theme"]): ResolvedTheme {
-  const m = { ...DEFAULT_THEME, ...(t ?? {}) };
+function resolveTheme(t: ContentSeriesBlockProps["theme"], brand?: BrandConfig): ResolvedTheme {
+  const base = brandDefaults(brand);
+  const m = { ...base, ...(t ?? {}) };
   const heading = m.headingColor || m.fg;
   const bodyFont = m.bodyFontFamily ? `'${m.bodyFontFamily}', sans-serif` : "'Inter', sans-serif";
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
@@ -97,10 +118,6 @@ function resolveTheme(t: ContentSeriesBlockProps["theme"]): ResolvedTheme {
     displayFont,
   };
 }
-
-/* ------------------------------------------------------------------------ */
-/*  Helpers                                                                  */
-/* ------------------------------------------------------------------------ */
 
 function defaultCtaForType(seriesType: ContentSeriesBlockProps["seriesType"]): string {
   if (seriesType === "webinar") return "Register";
@@ -140,10 +157,6 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
-/* ------------------------------------------------------------------------ */
-/*  Google Fonts loader                                                      */
-/* ------------------------------------------------------------------------ */
-
 function useGoogleFonts(displayFamily: string, bodyFamily: string) {
   useEffect(() => {
     const families: string[] = [];
@@ -164,10 +177,6 @@ function useGoogleFonts(displayFamily: string, bodyFamily: string) {
     document.head.appendChild(link);
   }, [displayFamily, bodyFamily]);
 }
-
-/* ------------------------------------------------------------------------ */
-/*  Sticky Nav                                                               */
-/* ------------------------------------------------------------------------ */
 
 function StickyNav({
   p,
@@ -295,15 +304,187 @@ function StickyNav({
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  Hero                                                                     */
-/* ------------------------------------------------------------------------ */
-
-function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const Icon = seriesIcon(p.seriesType);
   const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.heroCtaUrl ?? "#episodes";
-  const eyebrow = p.heroEyebrow ?? (p.seriesType === "webinar" ? "Featured Webinar" : p.seriesType === "series" ? "Latest Episode" : "Latest Episode");
+  const eyebrow = p.heroEyebrow ?? "Latest Episode";
+
+  return (
+    <section
+      id="top"
+      style={{
+        position: "relative",
+        minHeight: "85vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      {p.heroImageUrl && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage: `url(${p.heroImageUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundAttachment: "fixed",
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: `linear-gradient(180deg, ${rgba(C.bg, 0.7)} 0%, ${rgba(C.bg, 0.85)} 60%, ${C.bg} 100%)`,
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      )}
+      {!p.heroImageUrl && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `radial-gradient(circle at 20% 0%, ${rgba(C.primary, 0.12)} 0%, transparent 55%), radial-gradient(circle at 90% 80%, ${rgba(C.primary, 0.06)} 0%, transparent 50%)`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "56rem",
+          margin: "0 auto",
+          padding: "8rem 1.5rem 7rem",
+          textAlign: "center",
+        }}
+      >
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          <motion.p
+            variants={fadeUp}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              fontFamily: C.bodyFont,
+              fontWeight: 400,
+              fontSize: "0.7rem",
+              letterSpacing: "0.36em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "1.75rem",
+            }}
+          >
+            <Sparkles size={14} />
+            {eyebrow}
+          </motion.p>
+
+          <motion.h1
+            variants={fadeUp}
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 400,
+              fontSize: "clamp(2.6rem, 6vw, 4.6rem)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.01em",
+              color: C.heading,
+              marginBottom: "1.25rem",
+            }}
+          >
+            {p.seriesTitle}
+          </motion.h1>
+
+          {p.seriesSubtitle && (
+            <motion.p
+              variants={fadeUp}
+              style={{
+                fontFamily: C.bodyFont,
+                fontWeight: 300,
+                fontSize: "1.15rem",
+                color: C.muted,
+                lineHeight: 1.7,
+                maxWidth: "40rem",
+                margin: "0 auto 2.75rem",
+              }}
+            >
+              {p.seriesSubtitle}
+            </motion.p>
+          )}
+
+          <motion.div
+            variants={fadeUp}
+            style={{
+              padding: "1.75rem",
+              backgroundColor: rgba(C.card, 0.85),
+              backdropFilter: "blur(12px)",
+              border: `1px solid ${C.border}`,
+              borderRadius: "1rem",
+              maxWidth: "36rem",
+              margin: "0 auto",
+              textAlign: "left",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.85rem", color: C.primary }}>
+              <Icon size={16} />
+              <span style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.24em", textTransform: "uppercase" }}>Featured</span>
+            </div>
+            <h2 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "clamp(1.4rem, 2.4vw, 1.8rem)", lineHeight: 1.25, color: C.heading, marginBottom: "0.75rem" }}>
+              {p.heroEpisodeTitle}
+            </h2>
+            {(p.heroGuestName || p.heroGuestTitle) && (
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.82rem", color: C.fg, marginBottom: "0.85rem", letterSpacing: "0.02em" }}>
+                {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
+                {p.heroGuestName && p.heroGuestTitle && <span style={{ color: C.muted }}> · </span>}
+                {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
+              </p>
+            )}
+            {p.heroEpisodeDescription && (
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem" }}>
+                {p.heroEpisodeDescription}
+              </p>
+            )}
+            <motion.a
+              href={ctaUrl}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.55rem",
+                padding: "0.85rem 1.5rem",
+                backgroundColor: C.primary,
+                color: C.bg,
+                fontFamily: C.bodyFont,
+                fontWeight: 500,
+                fontSize: "0.7rem",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                textDecoration: "none",
+                borderRadius: "999px",
+              }}
+            >
+              <Play size={14} />
+              {ctaText}
+            </motion.a>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const Icon = seriesIcon(p.seriesType);
+  const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
+  const ctaUrl = p.heroCtaUrl ?? "#episodes";
+  const eyebrow = p.heroEyebrow ?? "Latest Episode";
 
   return (
     <section
@@ -315,7 +496,6 @@ function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
         borderBottom: `1px solid ${C.borderDim}`,
       }}
     >
-      {/* Soft radial accent */}
       <div
         aria-hidden
         style={{
@@ -390,7 +570,6 @@ function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
             </motion.p>
           )}
 
-          {/* Featured episode card */}
           <motion.div
             variants={fadeUp}
             style={{
@@ -401,75 +580,25 @@ function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
               maxWidth: "34rem",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.6rem",
-                marginBottom: "0.85rem",
-                color: C.primary,
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.85rem", color: C.primary }}>
               <Icon size={16} />
-              <span
-                style={{
-                  fontFamily: C.bodyFont,
-                  fontSize: "0.65rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.24em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Featured
-              </span>
+              <span style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.24em", textTransform: "uppercase" }}>Featured</span>
             </div>
-
-            <h2
-              style={{
-                fontFamily: C.displayFont,
-                fontWeight: 500,
-                fontSize: "clamp(1.4rem, 2.4vw, 1.8rem)",
-                lineHeight: 1.25,
-                color: C.heading,
-                marginBottom: "0.75rem",
-              }}
-            >
+            <h2 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "clamp(1.4rem, 2.4vw, 1.8rem)", lineHeight: 1.25, color: C.heading, marginBottom: "0.75rem" }}>
               {p.heroEpisodeTitle}
             </h2>
-
             {(p.heroGuestName || p.heroGuestTitle) && (
-              <p
-                style={{
-                  fontFamily: C.bodyFont,
-                  fontSize: "0.82rem",
-                  color: C.fg,
-                  marginBottom: "0.85rem",
-                  letterSpacing: "0.02em",
-                }}
-              >
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.82rem", color: C.fg, marginBottom: "0.85rem", letterSpacing: "0.02em" }}>
                 {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
-                {p.heroGuestName && p.heroGuestTitle && (
-                  <span style={{ color: C.muted }}> · </span>
-                )}
+                {p.heroGuestName && p.heroGuestTitle && <span style={{ color: C.muted }}> · </span>}
                 {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
               </p>
             )}
-
             {p.heroEpisodeDescription && (
-              <p
-                style={{
-                  fontFamily: C.bodyFont,
-                  fontWeight: 300,
-                  fontSize: "0.92rem",
-                  color: C.muted,
-                  lineHeight: 1.65,
-                  marginBottom: "1.5rem",
-                }}
-              >
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem" }}>
                 {p.heroEpisodeDescription}
               </p>
             )}
-
             <motion.a
               href={ctaUrl}
               whileHover={{ scale: 1.03 }}
@@ -531,9 +660,152 @@ function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  Episode card                                                             */
-/* ------------------------------------------------------------------------ */
+function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const Icon = seriesIcon(p.seriesType);
+  const ctaText = p.heroCtaText ?? defaultCtaForType(p.seriesType);
+  const ctaUrl = p.heroCtaUrl ?? "#episodes";
+  const eyebrow = p.heroEyebrow ?? "Latest Episode";
+
+  return (
+    <section
+      id="top"
+      style={{
+        position: "relative",
+        padding: "8rem 1.5rem 7rem",
+        overflow: "hidden",
+        borderBottom: `1px solid ${C.borderDim}`,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `radial-gradient(circle at 50% 0%, ${rgba(C.primary, 0.1)} 0%, transparent 50%)`,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ position: "relative", maxWidth: "52rem", margin: "0 auto", textAlign: "center" }}>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          <motion.p
+            variants={fadeUp}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              fontFamily: C.bodyFont,
+              fontWeight: 400,
+              fontSize: "0.7rem",
+              letterSpacing: "0.36em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: "1.75rem",
+            }}
+          >
+            <Sparkles size={14} />
+            {eyebrow}
+          </motion.p>
+
+          <motion.h1
+            variants={fadeUp}
+            style={{
+              fontFamily: C.displayFont,
+              fontWeight: 400,
+              fontSize: "clamp(2.6rem, 6vw, 4.6rem)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.01em",
+              color: C.heading,
+              marginBottom: "1.25rem",
+            }}
+          >
+            {p.seriesTitle}
+          </motion.h1>
+
+          {p.seriesSubtitle && (
+            <motion.p
+              variants={fadeUp}
+              style={{
+                fontFamily: C.bodyFont,
+                fontWeight: 300,
+                fontSize: "1.15rem",
+                color: C.muted,
+                lineHeight: 1.7,
+                maxWidth: "40rem",
+                margin: "0 auto 2.75rem",
+              }}
+            >
+              {p.seriesSubtitle}
+            </motion.p>
+          )}
+
+          <motion.div
+            variants={fadeUp}
+            style={{
+              padding: "2rem",
+              backgroundColor: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: "1rem",
+              maxWidth: "36rem",
+              margin: "0 auto",
+              textAlign: "left",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.85rem", color: C.primary }}>
+              <Icon size={16} />
+              <span style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.24em", textTransform: "uppercase" }}>Featured</span>
+            </div>
+            <h2 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "clamp(1.4rem, 2.4vw, 1.8rem)", lineHeight: 1.25, color: C.heading, marginBottom: "0.75rem" }}>
+              {p.heroEpisodeTitle}
+            </h2>
+            {(p.heroGuestName || p.heroGuestTitle) && (
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.82rem", color: C.fg, marginBottom: "0.85rem", letterSpacing: "0.02em" }}>
+                {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
+                {p.heroGuestName && p.heroGuestTitle && <span style={{ color: C.muted }}> · </span>}
+                {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
+              </p>
+            )}
+            {p.heroEpisodeDescription && (
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem" }}>
+                {p.heroEpisodeDescription}
+              </p>
+            )}
+            <motion.a
+              href={ctaUrl}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.55rem",
+                padding: "0.85rem 1.5rem",
+                backgroundColor: C.primary,
+                color: C.bg,
+                fontFamily: C.bodyFont,
+                fontWeight: 500,
+                fontSize: "0.7rem",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                textDecoration: "none",
+                borderRadius: "999px",
+              }}
+            >
+              <Play size={14} />
+              {ctaText}
+            </motion.a>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const layout = p.heroLayout ?? "half-bleed";
+  if (layout === "full-bleed") return <HeroFullBleed p={p} C={C} />;
+  if (layout === "text-only") return <HeroTextOnly p={p} C={C} />;
+  return <HeroHalfBleed p={p} C={C} />;
+}
 
 function EpisodeCard({
   episode,
@@ -575,7 +847,6 @@ function EpisodeCard({
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      {/* Thumbnail */}
       <div
         style={{
           position: "relative",
@@ -587,94 +858,30 @@ function EpisodeCard({
         }}
       >
         {episode.thumbnailUrl ? (
-          <img
-            src={episode.thumbnailUrl}
-            alt={episode.title}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
+          <img src={episode.thumbnailUrl} alt={episode.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: rgba(C.fg, 0.4),
-            }}
-          >
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: rgba(C.fg, 0.4) }}>
             <Headphones size={42} strokeWidth={1.2} />
           </div>
         )}
         {isFeatured && (
-          <div
-            style={{
-              position: "absolute",
-              top: "0.85rem",
-              left: "0.85rem",
-              padding: "0.3rem 0.7rem",
-              backgroundColor: C.primary,
-              color: C.bg,
-              fontFamily: C.bodyFont,
-              fontWeight: 600,
-              fontSize: "0.6rem",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              borderRadius: "999px",
-            }}
-          >
+          <div style={{ position: "absolute", top: "0.85rem", left: "0.85rem", padding: "0.3rem 0.7rem", backgroundColor: C.primary, color: C.bg, fontFamily: C.bodyFont, fontWeight: 600, fontSize: "0.6rem", letterSpacing: "0.18em", textTransform: "uppercase", borderRadius: "999px" }}>
             Featured
           </div>
         )}
       </div>
 
-      {/* Body */}
-      <div
-        style={{
-          padding: "1.5rem 1.5rem 1.65rem",
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-        }}
-      >
+      <div style={{ padding: "1.5rem 1.5rem 1.65rem", display: "flex", flexDirection: "column", flex: 1 }}>
         {date && (
-          <p
-            style={{
-              fontFamily: C.bodyFont,
-              fontSize: "0.65rem",
-              fontWeight: 500,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: C.primary,
-              marginBottom: "0.7rem",
-            }}
-          >
+          <p style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.22em", textTransform: "uppercase", color: C.primary, marginBottom: "0.75rem" }}>
             {date}
           </p>
         )}
-
-        <h3
-          style={{
-            fontFamily: C.displayFont,
-            fontWeight: 500,
-            fontSize: "1.3rem",
-            lineHeight: 1.25,
-            color: C.heading,
-            marginBottom: "0.65rem",
-          }}
-        >
+        <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.3rem", lineHeight: 1.25, color: C.heading, marginBottom: "0.65rem" }}>
           {episode.title}
         </h3>
-
         {(episode.guestName || episode.guestTitle || episode.guestCompany) && (
-          <p
-            style={{
-              fontFamily: C.bodyFont,
-              fontSize: "0.78rem",
-              color: C.fg,
-              marginBottom: "0.7rem",
-            }}
-          >
+          <p style={{ fontFamily: C.bodyFont, fontSize: "0.78rem", color: C.fg, marginBottom: "0.7rem" }}>
             {episode.guestName && <span style={{ fontWeight: 500 }}>{episode.guestName}</span>}
             {(episode.guestTitle || episode.guestCompany) && (
               <span style={{ color: C.muted }}>
@@ -684,40 +891,13 @@ function EpisodeCard({
             )}
           </p>
         )}
-
         {episode.description && (
-          <p
-            style={{
-              fontFamily: C.bodyFont,
-              fontWeight: 300,
-              fontSize: "0.88rem",
-              color: C.muted,
-              lineHeight: 1.6,
-              marginBottom: "1.4rem",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
+          <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.88rem", color: C.muted, lineHeight: 1.6, marginBottom: "1.4rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {episode.description}
           </p>
         )}
-
         <div style={{ marginTop: "auto" }}>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              fontFamily: C.bodyFont,
-              fontWeight: 500,
-              fontSize: "0.7rem",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: C.primary,
-            }}
-          >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontFamily: C.bodyFont, fontWeight: 500, fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: C.primary }}>
             {ctaText}
             <ArrowRight size={14} />
           </span>
@@ -727,17 +907,7 @@ function EpisodeCard({
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  Episode library                                                          */
-/* ------------------------------------------------------------------------ */
-
-function EpisodeLibrary({
-  p,
-  C,
-}: {
-  p: ContentSeriesBlockProps;
-  C: ResolvedTheme;
-}) {
+function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const defaultCta = defaultCtaForType(p.seriesType);
   const [visible, setVisible] = useState(6);
 
@@ -748,7 +918,6 @@ function EpisodeLibrary({
       const db = new Date(b.publishDate).getTime() || 0;
       return db - da;
     });
-    // Pin featured first
     list.sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured));
     return list;
   }, [p.episodes]);
@@ -761,11 +930,7 @@ function EpisodeLibrary({
   return (
     <section
       id="episodes"
-      style={{
-        padding: "7rem 1.5rem",
-        backgroundColor: C.bg,
-        borderBottom: `1px solid ${C.borderDim}`,
-      }}
+      style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}
     >
       <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
         <motion.div
@@ -775,30 +940,10 @@ function EpisodeLibrary({
           variants={stagger}
           style={{ marginBottom: "3.5rem", textAlign: "center" }}
         >
-          <motion.p
-            variants={fadeUp}
-            style={{
-              fontFamily: C.bodyFont,
-              fontSize: "0.7rem",
-              fontWeight: 500,
-              letterSpacing: "0.36em",
-              textTransform: "uppercase",
-              color: C.primary,
-              marginBottom: "1rem",
-            }}
-          >
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
             The Library
           </motion.p>
-          <motion.h2
-            variants={fadeUp}
-            style={{
-              fontFamily: C.displayFont,
-              fontWeight: 400,
-              fontSize: "clamp(2rem, 4vw, 3rem)",
-              color: C.heading,
-              letterSpacing: "-0.01em",
-            }}
-          >
+          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em" }}>
             All Episodes
           </motion.h2>
         </motion.div>
@@ -808,22 +953,12 @@ function EpisodeLibrary({
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
           variants={stagger}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 20rem), 1fr))",
-            gap: "1.75rem",
-          }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 20rem), 1fr))", gap: "1.75rem" }}
           className="bcs-episode-grid"
         >
           <AnimatePresence initial={false}>
             {shown.map((ep, idx) => (
-              <EpisodeCard
-                key={`${ep.title}-${ep.publishDate}-${idx}`}
-                episode={ep}
-                C={C}
-                defaultCta={defaultCta}
-                isFeatured={!!ep.isFeatured}
-              />
+              <EpisodeCard key={`${ep.title}-${ep.publishDate}-${idx}`} episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} />
             ))}
           </AnimatePresence>
         </motion.div>
@@ -849,14 +984,8 @@ function EpisodeLibrary({
                 cursor: "pointer",
                 transition: "border-color 0.25s, color 0.25s",
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = C.primary;
-                e.currentTarget.style.color = C.primary;
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = C.border;
-                e.currentTarget.style.color = C.fg;
-              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.fg; }}
             >
               Load More Episodes
             </motion.button>
@@ -867,99 +996,37 @@ function EpisodeLibrary({
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  Hosts / guests                                                           */
-/* ------------------------------------------------------------------------ */
-
 function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
   return (
     <motion.div
       variants={fadeUp}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.3 }}
-      style={{
-        backgroundColor: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: "1rem",
-        padding: "1.75rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1.1rem",
-      }}
+      style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, borderRadius: "1rem", padding: "1.75rem", display: "flex", flexDirection: "column", gap: "1.1rem" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
         {host.photoUrl ? (
-          <img
-            src={host.photoUrl}
-            alt={host.name}
-            style={{
-              width: "3.75rem",
-              height: "3.75rem",
-              borderRadius: "999px",
-              objectFit: "cover",
-              border: `1px solid ${C.borderDim}`,
-            }}
-          />
+          <img src={host.photoUrl} alt={host.name} style={{ width: "3.75rem", height: "3.75rem", borderRadius: "999px", objectFit: "cover", border: `1px solid ${C.borderDim}` }} />
         ) : (
-          <div
-            style={{
-              width: "3.75rem",
-              height: "3.75rem",
-              borderRadius: "999px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: rgba(C.primary, 0.12),
-              color: C.primary,
-              fontFamily: C.displayFont,
-              fontWeight: 500,
-              fontSize: "1.15rem",
-              border: `1px solid ${C.borderDim}`,
-            }}
-          >
+          <div style={{ width: "3.75rem", height: "3.75rem", borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: rgba(C.primary, 0.12), color: C.primary, fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.15rem", border: `1px solid ${C.borderDim}` }}>
             {initials(host.name)}
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h4
-            style={{
-              fontFamily: C.displayFont,
-              fontWeight: 500,
-              fontSize: "1.15rem",
-              color: C.heading,
-              marginBottom: "0.2rem",
-            }}
-          >
+          <h4 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.15rem", color: C.heading, marginBottom: "0.2rem" }}>
             {host.name}
           </h4>
-          <p
-            style={{
-              fontFamily: C.bodyFont,
-              fontSize: "0.8rem",
-              color: C.muted,
-              lineHeight: 1.4,
-            }}
-          >
+          <p style={{ fontFamily: C.bodyFont, fontSize: "0.8rem", color: C.muted, lineHeight: 1.4 }}>
             {host.title}
             {host.company && <span style={{ color: C.mutedDim }}> · {host.company}</span>}
           </p>
         </div>
       </div>
-
       {host.bio && (
-        <p
-          style={{
-            fontFamily: C.bodyFont,
-            fontWeight: 300,
-            fontSize: "0.88rem",
-            color: C.muted,
-            lineHeight: 1.65,
-          }}
-        >
+        <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.88rem", color: C.muted, lineHeight: 1.65 }}>
           {host.bio}
         </p>
       )}
-
       {host.linkedinUrl && (
         <div>
           <motion.a
@@ -967,26 +1034,9 @@ function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
             target="_blank"
             rel="noopener noreferrer"
             whileHover={{ scale: 1.08 }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "2.25rem",
-              height: "2.25rem",
-              borderRadius: "999px",
-              border: `1px solid ${C.border}`,
-              color: C.muted,
-              textDecoration: "none",
-              transition: "color 0.2s, border-color 0.2s",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = C.primary;
-              e.currentTarget.style.borderColor = C.primary;
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = C.muted;
-              e.currentTarget.style.borderColor = C.border;
-            }}
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "2.25rem", height: "2.25rem", borderRadius: "999px", border: `1px solid ${C.border}`, color: C.muted, textDecoration: "none", transition: "color 0.2s, border-color 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.color = C.primary; e.currentTarget.style.borderColor = C.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.borderColor = C.border; }}
           >
             <Linkedin size={16} />
           </motion.a>
@@ -1001,61 +1051,17 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   if (!hosts.length) return null;
 
   return (
-    <section
-      id="guests"
-      style={{
-        padding: "7rem 1.5rem",
-        backgroundColor: C.bg,
-        borderBottom: `1px solid ${C.borderDim}`,
-      }}
-    >
+    <section id="guests" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "78rem", margin: "0 auto" }}>
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          variants={stagger}
-          style={{ marginBottom: "3.5rem", textAlign: "center" }}
-        >
-          <motion.p
-            variants={fadeUp}
-            style={{
-              fontFamily: C.bodyFont,
-              fontSize: "0.7rem",
-              fontWeight: 500,
-              letterSpacing: "0.36em",
-              textTransform: "uppercase",
-              color: C.primary,
-              marginBottom: "1rem",
-            }}
-          >
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} style={{ marginBottom: "3.5rem", textAlign: "center" }}>
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
             Voices on the Show
           </motion.p>
-          <motion.h2
-            variants={fadeUp}
-            style={{
-              fontFamily: C.displayFont,
-              fontWeight: 400,
-              fontSize: "clamp(2rem, 4vw, 3rem)",
-              color: C.heading,
-              letterSpacing: "-0.01em",
-            }}
-          >
+          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em" }}>
             Hosts &amp; Recurring Guests
           </motion.h2>
         </motion.div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={stagger}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))",
-            gap: "1.5rem",
-          }}
-        >
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))", gap: "1.5rem" }}>
           {hosts.map((h, idx) => (
             <HostCard key={`${h.name}-${idx}`} host={h} C={C} />
           ))}
@@ -1064,10 +1070,6 @@ function HostsSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
     </section>
   );
 }
-
-/* ------------------------------------------------------------------------ */
-/*  About section                                                            */
-/* ------------------------------------------------------------------------ */
 
 function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const headline = p.aboutHeadline;
@@ -1078,104 +1080,31 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   if (!headline && !description && !audience && !topics.length) return null;
 
   return (
-    <section
-      id="about"
-      style={{
-        padding: "7rem 1.5rem",
-        backgroundColor: C.bg,
-        borderBottom: `1px solid ${C.borderDim}`,
-      }}
-    >
+    <section id="about" style={{ padding: "7rem 1.5rem", backgroundColor: C.bg, borderBottom: `1px solid ${C.borderDim}` }}>
       <div style={{ maxWidth: "62rem", margin: "0 auto" }}>
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          variants={stagger}
-        >
-          <motion.p
-            variants={fadeUp}
-            style={{
-              fontFamily: C.bodyFont,
-              fontSize: "0.7rem",
-              fontWeight: 500,
-              letterSpacing: "0.36em",
-              textTransform: "uppercase",
-              color: C.primary,
-              marginBottom: "1.25rem",
-            }}
-          >
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger}>
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
             About the Series
           </motion.p>
 
           {headline && (
-            <motion.h2
-              variants={fadeUp}
-              style={{
-                fontFamily: C.displayFont,
-                fontWeight: 400,
-                fontSize: "clamp(2rem, 4.2vw, 3.2rem)",
-                lineHeight: 1.15,
-                color: C.heading,
-                letterSpacing: "-0.01em",
-                marginBottom: "1.75rem",
-                maxWidth: "44rem",
-              }}
-            >
+            <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4.2vw, 3.2rem)", lineHeight: 1.15, color: C.heading, letterSpacing: "-0.01em", marginBottom: "1.75rem", maxWidth: "44rem" }}>
               {headline}
             </motion.h2>
           )}
 
           {description && (
-            <motion.p
-              variants={fadeUp}
-              style={{
-                fontFamily: C.bodyFont,
-                fontWeight: 300,
-                fontSize: "1.05rem",
-                lineHeight: 1.75,
-                color: C.muted,
-                maxWidth: "48rem",
-                marginBottom: audience || topics.length ? "2.5rem" : 0,
-              }}
-            >
+            <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", lineHeight: 1.75, color: C.muted, maxWidth: "48rem", marginBottom: audience || topics.length ? "2.5rem" : 0 }}>
               {description}
             </motion.p>
           )}
 
           {audience && (
-            <motion.div
-              variants={fadeUp}
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "1rem",
-                marginBottom: topics.length ? "2.5rem" : 0,
-                paddingTop: "1.75rem",
-                borderTop: `1px solid ${C.borderDim}`,
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: C.bodyFont,
-                  fontSize: "0.65rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.24em",
-                  textTransform: "uppercase",
-                  color: C.primary,
-                  whiteSpace: "nowrap",
-                }}
-              >
+            <motion.div variants={fadeUp} style={{ display: "flex", alignItems: "baseline", gap: "1rem", marginBottom: topics.length ? "2.5rem" : 0, paddingTop: "1.75rem", borderTop: `1px solid ${C.borderDim}` }}>
+              <span style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.24em", textTransform: "uppercase", color: C.primary, whiteSpace: "nowrap" }}>
                 Who it's for
               </span>
-              <span
-                style={{
-                  fontFamily: C.bodyFont,
-                  fontSize: "0.95rem",
-                  color: C.fg,
-                  lineHeight: 1.55,
-                }}
-              >
+              <span style={{ fontFamily: C.bodyFont, fontSize: "0.95rem", color: C.fg, lineHeight: 1.55 }}>
                 {audience}
               </span>
             </motion.div>
@@ -1183,34 +1112,12 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
 
           {topics.length > 0 && (
             <motion.div variants={fadeUp}>
-              <p
-                style={{
-                  fontFamily: C.bodyFont,
-                  fontSize: "0.65rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.24em",
-                  textTransform: "uppercase",
-                  color: C.primary,
-                  marginBottom: "1rem",
-                }}
-              >
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 600, letterSpacing: "0.24em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
                 Topics we cover
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem" }}>
                 {topics.map((topic, idx) => (
-                  <span
-                    key={`${topic}-${idx}`}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      backgroundColor: C.primaryGhost,
-                      border: `1px solid ${C.borderDim}`,
-                      borderRadius: "999px",
-                      fontFamily: C.bodyFont,
-                      fontSize: "0.78rem",
-                      color: C.fg,
-                      letterSpacing: "0.02em",
-                    }}
-                  >
+                  <span key={`${topic}-${idx}`} style={{ padding: "0.5rem 1rem", backgroundColor: C.primaryGhost, border: `1px solid ${C.borderDim}`, borderRadius: "999px", fontFamily: C.bodyFont, fontSize: "0.78rem", color: C.fg, letterSpacing: "0.02em" }}>
                     {topic}
                   </span>
                 ))}
@@ -1223,9 +1130,279 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  CTA section                                                              */
-/* ------------------------------------------------------------------------ */
+function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const steps = p.formSteps ?? [];
+  if (!steps.length) return null;
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const step = steps[currentStep];
+  const isLastStep = currentStep >= steps.length - 1;
+  const eyebrow = p.formEyebrow ?? "Be a Guest";
+  const headline = p.formHeadline ?? "Share Your Story";
+  const subtitle = p.formSubheadline ?? "";
+  const successMessage = p.formSuccessMessage ?? "Thank you! We'll be in touch.";
+
+  const handleFieldChange = useCallback((fieldId: string, value: string) => {
+    setFormData(prev => ({ ...prev, [fieldId]: value }));
+  }, []);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLastStep) {
+      setCurrentStep(s => s + 1);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const submitUrl = p.formSubmitUrl || "/api/lp/leads";
+      const res = await fetch(submitUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formData,
+          source: "content-series",
+          seriesTitle: p.seriesTitle,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) throw new Error("Submission failed");
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [isLastStep, formData, p.formSubmitUrl, p.seriesTitle]);
+
+  const renderField = (field: FormField) => {
+    const val = formData[field.id] ?? "";
+    const baseInputStyle: React.CSSProperties = {
+      width: "100%",
+      padding: "0.85rem 1rem",
+      backgroundColor: rgba(C.bg, 0.6),
+      border: `1px solid ${C.border}`,
+      borderRadius: "0.5rem",
+      color: C.fg,
+      fontFamily: C.bodyFont,
+      fontSize: "0.9rem",
+      outline: "none",
+      transition: "border-color 0.2s",
+    };
+
+    if (field.type === "textarea") {
+      return (
+        <textarea
+          value={val}
+          onChange={e => handleFieldChange(field.id, e.target.value)}
+          placeholder={field.placeholder}
+          required={field.required}
+          rows={4}
+          style={{ ...baseInputStyle, resize: "vertical", minHeight: "6rem" }}
+          onFocus={e => { e.currentTarget.style.borderColor = C.primary; }}
+          onBlur={e => { e.currentTarget.style.borderColor = C.border; }}
+        />
+      );
+    }
+    if (field.type === "select") {
+      return (
+        <select
+          value={val}
+          onChange={e => handleFieldChange(field.id, e.target.value)}
+          required={field.required}
+          style={{ ...baseInputStyle, cursor: "pointer" }}
+          onFocus={e => { e.currentTarget.style.borderColor = C.primary; }}
+          onBlur={e => { e.currentTarget.style.borderColor = C.border; }}
+        >
+          <option value="">{field.placeholder || "Select..."}</option>
+          {(field.options ?? []).map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      );
+    }
+    if (field.type === "hidden") return null;
+
+    return (
+      <input
+        type={field.type === "phone" ? "tel" : field.type}
+        value={val}
+        onChange={e => handleFieldChange(field.id, e.target.value)}
+        placeholder={field.placeholder}
+        required={field.required}
+        style={baseInputStyle}
+        onFocus={e => { e.currentTarget.style.borderColor = C.primary; }}
+        onBlur={e => { e.currentTarget.style.borderColor = C.border; }}
+      />
+    );
+  };
+
+  return (
+    <section
+      id="apply"
+      style={{
+        padding: "7rem 1.5rem",
+        backgroundColor: C.bg,
+        borderBottom: `1px solid ${C.borderDim}`,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `radial-gradient(circle at 50% 100%, ${rgba(C.primary, 0.08)} 0%, transparent 50%)`,
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "relative", maxWidth: "42rem", margin: "0 auto" }}>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} style={{ textAlign: "center", marginBottom: "3rem" }}>
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
+            {eyebrow}
+          </motion.p>
+          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em", marginBottom: subtitle ? "1rem" : 0 }}>
+            {headline}
+          </motion.h2>
+          {subtitle && (
+            <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", color: C.muted, lineHeight: 1.7, maxWidth: "36rem", margin: "0 auto" }}>
+              {subtitle}
+            </motion.p>
+          )}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          style={{
+            backgroundColor: C.card,
+            border: `1px solid ${C.border}`,
+            borderRadius: "1rem",
+            padding: "2.5rem",
+            position: "relative",
+          }}
+        >
+          {submitted ? (
+            <div style={{ textAlign: "center", padding: "2rem 0" }}>
+              <CheckCircle2 size={48} style={{ color: C.primary, marginBottom: "1.25rem" }} />
+              <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.6rem", color: C.heading, marginBottom: "0.75rem" }}>
+                Application Received
+              </h3>
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.95rem", color: C.muted, lineHeight: 1.65 }}>
+                {successMessage}
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              {steps.length > 1 && (
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "2rem" }}>
+                  {steps.map((s, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: "3px",
+                        borderRadius: "2px",
+                        backgroundColor: i <= currentStep ? C.primary : C.border,
+                        transition: "background-color 0.3s",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {step && (
+                <>
+                  {steps.length > 1 && step.title && (
+                    <p style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.2em", textTransform: "uppercase", color: C.primary, marginBottom: "1.5rem" }}>
+                      {step.title}
+                    </p>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    {step.fields.filter(f => f.type !== "hidden").map(field => (
+                      <div key={field.id}>
+                        <label style={{ display: "block", fontFamily: C.bodyFont, fontSize: "0.78rem", fontWeight: 500, color: C.fg, marginBottom: "0.4rem", letterSpacing: "0.02em" }}>
+                          {field.label}
+                          {field.required && <span style={{ color: C.primary, marginLeft: "0.25rem" }}>*</span>}
+                        </label>
+                        {renderField(field)}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {error && (
+                <p style={{ fontFamily: C.bodyFont, fontSize: "0.85rem", color: "#ef4444", marginTop: "1rem" }}>
+                  {error}
+                </p>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2rem", gap: "1rem" }}>
+                {currentStep > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(s => s - 1)}
+                    style={{
+                      padding: "0.85rem 1.5rem",
+                      backgroundColor: "transparent",
+                      border: `1px solid ${C.border}`,
+                      borderRadius: "999px",
+                      color: C.fg,
+                      fontFamily: C.bodyFont,
+                      fontWeight: 500,
+                      fontSize: "0.7rem",
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Back
+                  </button>
+                )}
+                <motion.button
+                  type="submit"
+                  disabled={submitting}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{
+                    marginLeft: "auto",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.55rem",
+                    padding: "0.85rem 1.75rem",
+                    backgroundColor: C.primary,
+                    color: C.bg,
+                    fontFamily: C.bodyFont,
+                    fontWeight: 500,
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    border: "none",
+                    borderRadius: "999px",
+                    cursor: submitting ? "wait" : "pointer",
+                    opacity: submitting ? 0.7 : 1,
+                  }}
+                >
+                  {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  {isLastStep ? "Submit" : "Next"}
+                </motion.button>
+              </div>
+            </form>
+          )}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
 function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const headline = p.ctaSectionHeadline;
@@ -1236,78 +1413,31 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
   return (
     <section
       id="subscribe"
-      style={{
-        padding: "8rem 1.5rem",
-        position: "relative",
-        backgroundColor: C.bg,
-        overflow: "hidden",
-      }}
+      style={{ padding: "8rem 1.5rem", position: "relative", backgroundColor: C.bg, overflow: "hidden" }}
     >
       <div
         aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `radial-gradient(circle at 50% 50%, ${rgba(C.primary, 0.18)} 0%, transparent 60%)`,
-          pointerEvents: "none",
-        }}
+        style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${rgba(C.primary, 0.18)} 0%, transparent 60%)`, pointerEvents: "none" }}
       />
       <motion.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-80px" }}
         variants={stagger}
-        style={{
-          position: "relative",
-          maxWidth: "48rem",
-          margin: "0 auto",
-          textAlign: "center",
-        }}
+        style={{ position: "relative", maxWidth: "48rem", margin: "0 auto", textAlign: "center" }}
       >
         {headline && (
-          <motion.h2
-            variants={fadeUp}
-            style={{
-              fontFamily: C.displayFont,
-              fontWeight: 400,
-              fontSize: "clamp(2.2rem, 5vw, 3.6rem)",
-              lineHeight: 1.1,
-              color: C.heading,
-              letterSpacing: "-0.01em",
-              marginBottom: sub ? "1.25rem" : "2.5rem",
-            }}
-          >
+          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2.2rem, 5vw, 3.6rem)", lineHeight: 1.1, color: C.heading, letterSpacing: "-0.01em", marginBottom: sub ? "1.25rem" : "2.5rem" }}>
             {headline}
           </motion.h2>
         )}
-
         {sub && (
-          <motion.p
-            variants={fadeUp}
-            style={{
-              fontFamily: C.bodyFont,
-              fontWeight: 300,
-              fontSize: "1.05rem",
-              lineHeight: 1.7,
-              color: C.muted,
-              maxWidth: "36rem",
-              margin: "0 auto 2.75rem",
-            }}
-          >
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", lineHeight: 1.7, color: C.muted, maxWidth: "36rem", margin: "0 auto 2.75rem" }}>
             {sub}
           </motion.p>
         )}
-
         {(ctas.length > 0 || p.rssFeedUrl) && (
-          <motion.div
-            variants={fadeUp}
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              gap: "0.85rem",
-            }}
-          >
+          <motion.div variants={fadeUp} style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.85rem" }}>
             {ctas.map((cta, idx) => {
               const isPrimary = (cta.variant ?? "primary") === "primary";
               return (
@@ -1333,18 +1463,8 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
                     borderRadius: "999px",
                     transition: "background-color 0.25s, border-color 0.25s, color 0.25s",
                   }}
-                  onMouseEnter={e => {
-                    if (!isPrimary) {
-                      e.currentTarget.style.borderColor = C.primary;
-                      e.currentTarget.style.color = C.primary;
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isPrimary) {
-                      e.currentTarget.style.borderColor = C.border;
-                      e.currentTarget.style.color = C.fg;
-                    }
-                  }}
+                  onMouseEnter={e => { if (!isPrimary) { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; } }}
+                  onMouseLeave={e => { if (!isPrimary) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.fg; } }}
                 >
                   {cta.label}
                 </motion.a>
@@ -1383,19 +1503,18 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/*  Root                                                                     */
-/* ------------------------------------------------------------------------ */
-
 interface Props {
   props: ContentSeriesBlockProps;
+  brand?: BrandConfig;
+  onFieldChange?: (updated: ContentSeriesBlockProps) => void;
 }
 
-export function BlockContentSeries({ props: p }: Props) {
-  const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
+export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
+  const C = useMemo(() => resolveTheme(p.theme, brand), [p.theme, brand]);
+  const base = brandDefaults(brand);
   useGoogleFonts(
-    p.theme?.displayFontFamily ?? DEFAULT_THEME.displayFontFamily,
-    p.theme?.bodyFontFamily ?? DEFAULT_THEME.bodyFontFamily,
+    p.theme?.displayFontFamily ?? base.displayFontFamily,
+    p.theme?.bodyFontFamily ?? base.bodyFontFamily,
   );
 
   return (
@@ -1412,6 +1531,7 @@ export function BlockContentSeries({ props: p }: Props) {
       <EpisodeLibrary p={p} C={C} />
       <HostsSection p={p} C={C} />
       <AboutSection p={p} C={C} />
+      <FormSection p={p} C={C} />
       <CtaSection p={p} C={C} />
     </div>
   );

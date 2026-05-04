@@ -77,6 +77,7 @@ import { MenuSectionPanel } from "./MenuSectionPanel";
 import { HoursLocationPanel } from "./HoursLocationPanel";
 import { BeforeAfterGalleryPanel } from "./BeforeAfterGalleryPanel";
 import { SpeakerGridPanel } from "./SpeakerGridPanel";
+import { ContentSeriesPanel } from "./ContentSeriesPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -5212,7 +5213,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         );
       }
       case "content-series":
-        return <p className="text-sm text-muted-foreground">Edit content-series props via the JSON panel or AI generation.</p>;
+        return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
