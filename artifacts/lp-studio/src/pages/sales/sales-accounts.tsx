@@ -3356,48 +3356,41 @@ function GenerateMicrositeModal({
               generate unique hotlinks for each contact with an email address.
             </div>
 
-            {/* Marketing Templates (optional starting point) */}
-            {marketingTemplates.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium flex items-center gap-1.5">
-                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                  Start from a template <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <div className="flex flex-col gap-2">
-                  {marketingTemplates.map((t) => {
-                    const label = t.templateLabel ?? t.title;
-                    const isSelected = selectedTemplate?.id === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => setSelectedTemplate(isSelected ? null : t)}
-                        className={[
-                          "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                          "focus:outline-none focus:ring-2 focus:ring-amber-300",
-                          isSelected
-                            ? "border-amber-400 bg-amber-50 ring-1 ring-amber-400"
-                            : "border-border bg-background hover:border-amber-300",
-                          busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                        ].join(" ")}
-                      >
-                        <span className="text-sm font-medium leading-tight flex items-center gap-1.5">
-                          <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                          {label}
-                        </span>
-                        {t.templateDescription && (
-                          <span className="text-xs text-muted-foreground">{t.templateDescription}</span>
-                        )}
-                      </button>
-                    );
-                  })}
+            {/* Marketing Templates (optional starting point) — collapsible dropdown */}
+            {marketingTemplates.length > 0 && (() => {
+              const selectedLabel = selectedTemplate
+                ? (selectedTemplate.templateLabel ?? selectedTemplate.title)
+                : null;
+              return (
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    Start from a template <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <select
+                    value={selectedTemplate?.id ?? ""}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const id = e.target.value ? Number(e.target.value) : null;
+                      setSelectedTemplate(id !== null ? marketingTemplates.find(t => t.id === id) ?? null : null);
+                    }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
+                  >
+                    <option value="">No template — AI generates from scratch</option>
+                    {marketingTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.templateLabel ?? t.title}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedTemplate && (
+                    <p className="text-xs text-muted-foreground">
+                      <strong>{selectedLabel}</strong> selected — AI will use this layout and personalise all copy for {accountName}.
+                    </p>
+                  )}
                 </div>
-                {selectedTemplate && (
-                  <p className="text-xs text-muted-foreground">Template selected — AI will use this layout and personalise all copy for {accountName}.</p>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">
