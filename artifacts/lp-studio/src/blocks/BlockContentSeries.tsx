@@ -514,7 +514,7 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
           maxWidth: "78rem",
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: p.heroImageUrl ? "minmax(0, 1.1fr) minmax(0, 0.9fr)" : "minmax(0, 1fr)",
+          gridTemplateColumns: p.heroImageUrl ? "minmax(0, 1.2fr) minmax(0, 0.8fr)" : "minmax(0, 1fr)",
           gap: "4rem",
           alignItems: "center",
         }}
@@ -638,20 +638,21 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
               borderRadius: "1.25rem",
               overflow: "hidden",
               border: `1px solid ${C.border}`,
-              aspectRatio: "4 / 5",
               backgroundColor: C.card,
+              maxWidth: "28rem",
+              marginLeft: "auto",
             }}
           >
             <img
               src={p.heroImageUrl}
               alt={p.heroEpisodeTitle}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "auto", objectFit: "cover", display: "block" }}
             />
             <div
               style={{
                 position: "absolute",
                 inset: 0,
-                background: `linear-gradient(180deg, transparent 50%, ${rgba(C.bg, 0.65)} 100%)`,
+                background: `linear-gradient(180deg, transparent 60%, ${rgba(C.bg, 0.45)} 100%)`,
                 pointerEvents: "none",
               }}
             />

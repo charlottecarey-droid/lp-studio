@@ -4043,6 +4043,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       navCtaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
       heroLayout: "half-bleed",
       heroEyebrow: "NEW EPISODE",
+      heroImageUrl: "/images/margin-line-cover.webp",
       heroEpisodeTitle: "The Future of Digital Dentistry",
       heroEpisodeDescription: "Dr. Sarah Chen shares her journey from a single-chair practice to a 15-location DSO — and how digital workflows transformed her margins, her team, and her patient outcomes.",
       heroGuestName: "Dr. Sarah Chen",
