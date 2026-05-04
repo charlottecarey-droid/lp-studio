@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowUp, ArrowDown, Pin, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import type {
   ContentSeriesHost,
   ContentSeriesCta,
   ContentSeriesNavLink,
+  EpisodeStatus,
 } from "@/lib/block-types";
 import type { FormStep, FormField, FormFieldType } from "@/lib/block-types";
 
@@ -87,6 +88,7 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
     cta: false,
     nav: false,
   });
+  const [openEpisodes, setOpenEpisodes] = useState<Record<number, boolean>>({});
 
   const toggle = (key: string) => setOpen(s => ({ ...s, [key]: !s[key] }));
   const set = (patch: Partial<ContentSeriesBlockProps>) => onChange({ ...p, ...patch });
@@ -100,9 +102,24 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
     set({ episodes: next });
   };
   const addEpisode = () => set({
-    episodes: [...p.episodes, { title: "New Episode", guestName: "", description: "", publishDate: new Date().toISOString().split("T")[0], ctaUrl: "#", isFeatured: false }],
+    episodes: [...p.episodes, { title: "New Episode", guestName: "", description: "", publishDate: new Date().toISOString().split("T")[0], ctaUrl: "#", isFeatured: false, status: "on-demand" as EpisodeStatus }],
   });
   const removeEpisode = (i: number) => set({ episodes: p.episodes.filter((_, idx) => idx !== i) });
+  const moveEpisode = (from: number, to: number) => {
+    if (to < 0 || to >= p.episodes.length) return;
+    const next = [...p.episodes];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    set({ episodes: next });
+  };
+  const pinEpisodeAsHero = (i: number) => {
+    const next = p.episodes.map((ep, idx) => ({ ...ep, pinHero: idx === i }));
+    set({ episodes: next, heroSourceMode: "auto" as const });
+  };
+  const unpinAllHeroes = () => {
+    const next = p.episodes.map(ep => ({ ...ep, pinHero: false }));
+    set({ episodes: next });
+  };
 
   const hosts = p.hosts ?? [];
   const updateHost = (i: number, patch: Partial<ContentSeriesHost>) => {
@@ -252,33 +269,51 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Hero Eyebrow" hint="Small label above the title">
-            <AiTextField type="input" value={p.heroEyebrow ?? ""} onChange={v => set({ heroEyebrow: v })} fieldLabel="Hero Eyebrow" brandVoiceSet={brandVoiceSet}
-              onSuggest={() => suggestCopy("content-series", "heroEyebrow", p.heroEyebrow ?? "", {})} />
+          <Field label="Hero Source" hint="Auto fills hero from newest (or pinned) episode. Manual lets you edit hero fields directly.">
+            <Select value={p.heroSourceMode ?? "auto"} onValueChange={(v) => set({ heroSourceMode: v as "auto" | "manual" })}>
+              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto (from episodes)</SelectItem>
+                <SelectItem value="manual">Manual (edit below)</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
-          <Field label="Hero Image">
-            <ImagePicker value={p.heroImageUrl ?? ""} onChange={v => set({ heroImageUrl: v || undefined })} />
-          </Field>
-          <Field label="Featured Episode Title">
-            <AiTextField type="input" value={p.heroEpisodeTitle} onChange={v => set({ heroEpisodeTitle: v })} fieldLabel="Episode Title" brandVoiceSet={brandVoiceSet}
-              onSuggest={() => suggestCopy("content-series", "heroEpisodeTitle", p.heroEpisodeTitle, {})} />
-          </Field>
-          <Field label="Episode Description">
-            <AiTextField type="textarea" value={p.heroEpisodeDescription ?? ""} onChange={v => set({ heroEpisodeDescription: v })} rows={3} fieldLabel="Episode Description" brandVoiceSet={brandVoiceSet}
-              onSuggest={() => suggestCopy("content-series", "heroEpisodeDescription", p.heroEpisodeDescription ?? "", {})} />
-          </Field>
-          <Field label="Guest Name">
-            <Input value={p.heroGuestName ?? ""} onChange={e => set({ heroGuestName: e.target.value })} className="text-xs h-7" placeholder="Dr. Sarah Chen" />
-          </Field>
-          <Field label="Guest Title">
-            <Input value={p.heroGuestTitle ?? ""} onChange={e => set({ heroGuestTitle: e.target.value })} className="text-xs h-7" placeholder="CEO & Founder" />
-          </Field>
-          <Field label="CTA Text">
-            <Input value={p.heroCtaText ?? ""} onChange={e => set({ heroCtaText: e.target.value })} className="text-xs h-7" placeholder="Listen Now" />
-          </Field>
-          <Field label="CTA URL">
-            <Input value={p.heroCtaUrl ?? ""} onChange={e => set({ heroCtaUrl: e.target.value })} className="text-xs h-7 font-mono" placeholder="https://…" />
-          </Field>
+          {(p.heroSourceMode ?? "auto") === "auto" && (
+            <p className="text-[11px] text-muted-foreground bg-muted/30 rounded p-2">
+              Hero is auto-populated from {p.episodes.some(ep => ep.pinHero) ? "the pinned episode" : "the newest visible episode"}. Switch to Manual to edit hero fields directly, or pin an episode in the Episodes section below.
+            </p>
+          )}
+          {(p.heroSourceMode === "manual") && (
+            <>
+              <Field label="Hero Eyebrow" hint="Small label above the title">
+                <AiTextField type="input" value={p.heroEyebrow ?? ""} onChange={v => set({ heroEyebrow: v })} fieldLabel="Hero Eyebrow" brandVoiceSet={brandVoiceSet}
+                  onSuggest={() => suggestCopy("content-series", "heroEyebrow", p.heroEyebrow ?? "", {})} />
+              </Field>
+              <Field label="Hero Image">
+                <ImagePicker value={p.heroImageUrl ?? ""} onChange={v => set({ heroImageUrl: v || undefined })} />
+              </Field>
+              <Field label="Featured Episode Title">
+                <AiTextField type="input" value={p.heroEpisodeTitle} onChange={v => set({ heroEpisodeTitle: v })} fieldLabel="Episode Title" brandVoiceSet={brandVoiceSet}
+                  onSuggest={() => suggestCopy("content-series", "heroEpisodeTitle", p.heroEpisodeTitle, {})} />
+              </Field>
+              <Field label="Episode Description">
+                <AiTextField type="textarea" value={p.heroEpisodeDescription ?? ""} onChange={v => set({ heroEpisodeDescription: v })} rows={3} fieldLabel="Episode Description" brandVoiceSet={brandVoiceSet}
+                  onSuggest={() => suggestCopy("content-series", "heroEpisodeDescription", p.heroEpisodeDescription ?? "", {})} />
+              </Field>
+              <Field label="Guest Name">
+                <Input value={p.heroGuestName ?? ""} onChange={e => set({ heroGuestName: e.target.value })} className="text-xs h-7" placeholder="Dr. Sarah Chen" />
+              </Field>
+              <Field label="Guest Title">
+                <Input value={p.heroGuestTitle ?? ""} onChange={e => set({ heroGuestTitle: e.target.value })} className="text-xs h-7" placeholder="CEO & Founder" />
+              </Field>
+              <Field label="CTA Text">
+                <Input value={p.heroCtaText ?? ""} onChange={e => set({ heroCtaText: e.target.value })} className="text-xs h-7" placeholder="Listen Now" />
+              </Field>
+              <Field label="CTA URL">
+                <Input value={p.heroCtaUrl ?? ""} onChange={e => set({ heroCtaUrl: e.target.value })} className="text-xs h-7 font-mono" placeholder="https://…" />
+              </Field>
+            </>
+          )}
         </div>
       )}
 
@@ -313,32 +348,91 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
       )}
 
       {/* ── Episodes ─────────────────────────────────────────────────────── */}
-      <SectionHeader label="Episodes" open={open.episodes} onToggle={() => toggle("episodes")} />
+      <SectionHeader label={`Episodes (${p.episodes.length})`} open={open.episodes} onToggle={() => toggle("episodes")} />
       {open.episodes && (
         <div className="space-y-3 pt-3 pb-4">
-          {p.episodes.map((ep, i) => (
-            <div key={i} className="border border-border rounded-md p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{ep.title || `Episode ${i + 1}`}</span>
-                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeEpisode(i)}>
-                  <Trash2 className="w-3 h-3" />
-                </Button>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{p.episodes.filter(e => !e.hidden).length} visible · {p.episodes.filter(e => e.hidden).length} hidden</span>
+            {p.episodes.some(ep => ep.pinHero) && (
+              <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={unpinAllHeroes}>
+                Unpin hero
+              </Button>
+            )}
+          </div>
+          {p.episodes.map((ep, i) => {
+            const isCollapsed = !openEpisodes[i];
+            return (
+              <div key={i} className={`border rounded-md p-3 space-y-2 ${ep.hidden ? "border-border/50 opacity-60" : ep.pinHero ? "border-primary/50 bg-primary/5" : "border-border"}`}>
+                <div className="flex items-center gap-1">
+                  <button type="button" className="flex-1 flex items-center gap-1.5 text-left" onClick={() => setOpenEpisodes(s => ({ ...s, [i]: !s[i] }))}>
+                    {isCollapsed ? <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" /> : <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />}
+                    <span className="text-xs font-medium text-muted-foreground truncate">{ep.title || `Episode ${i + 1}`}</span>
+                    {ep.pinHero && <Pin className="w-3 h-3 text-primary shrink-0" />}
+                    {ep.hidden && <EyeOff className="w-3 h-3 text-muted-foreground shrink-0" />}
+                    {ep.status && ep.status !== "on-demand" && (
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${ep.status === "live" ? "bg-red-500/15 text-red-400" : "bg-blue-500/15 text-blue-400"}`}>
+                        {ep.status === "live" ? "Live" : "Upcoming"}
+                      </span>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveEpisode(i, i - 1)} disabled={i === 0} title="Move up">
+                      <ArrowUp className="w-3 h-3" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveEpisode(i, i + 1)} disabled={i === p.episodes.length - 1} title="Move down">
+                      <ArrowDown className="w-3 h-3" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateEpisode(i, { hidden: !ep.hidden })} title={ep.hidden ? "Show" : "Hide"}>
+                      {ep.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className={`h-6 w-6 ${ep.pinHero ? "text-primary" : ""}`} onClick={() => ep.pinHero ? unpinAllHeroes() : pinEpisodeAsHero(i)} title={ep.pinHero ? "Unpin from hero" : "Pin as hero"}>
+                      <Pin className="w-3 h-3" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeEpisode(i)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                {!isCollapsed && (
+                  <div className="space-y-2 pt-1">
+                    <ImagePicker value={ep.thumbnailUrl ?? ""} onChange={v => updateEpisode(i, { thumbnailUrl: v || undefined })} />
+                    <Input value={ep.title} onChange={e => updateEpisode(i, { title: e.target.value })} className="h-7 text-xs" placeholder="Episode title" />
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Input value={ep.guestName ?? ""} onChange={e => updateEpisode(i, { guestName: e.target.value })} className="h-7 text-xs" placeholder="Guest name" />
+                      <Input value={ep.guestTitle ?? ""} onChange={e => updateEpisode(i, { guestTitle: e.target.value })} className="h-7 text-xs" placeholder="Guest title" />
+                    </div>
+                    <Input value={ep.guestCompany ?? ""} onChange={e => updateEpisode(i, { guestCompany: e.target.value })} className="h-7 text-xs" placeholder="Guest company" />
+                    <Textarea value={ep.description} onChange={e => updateEpisode(i, { description: e.target.value })} className="text-xs min-h-[3rem]" rows={2} placeholder="Episode description" />
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Input type="date" value={ep.publishDate} onChange={e => updateEpisode(i, { publishDate: e.target.value })} className="h-7 text-xs" />
+                      <Select value={ep.status ?? "on-demand"} onValueChange={v => updateEpisode(i, { status: v as EpisodeStatus })}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="on-demand">On Demand</SelectItem>
+                          <SelectItem value="live">Live</SelectItem>
+                          <SelectItem value="upcoming">Upcoming</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Input value={ep.ctaText ?? ""} onChange={e => updateEpisode(i, { ctaText: e.target.value })} className="h-7 text-xs" placeholder="CTA label" />
+                      <Input value={ep.ctaUrl} onChange={e => updateEpisode(i, { ctaUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="CTA URL" />
+                    </div>
+                    <div className="space-y-1 pt-1">
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Platform Links</Label>
+                      <Input value={ep.applePodcastsUrl ?? ""} onChange={e => updateEpisode(i, { applePodcastsUrl: e.target.value || undefined })} className="h-7 text-xs font-mono" placeholder="Apple Podcasts URL" />
+                      <Input value={ep.spotifyUrl ?? ""} onChange={e => updateEpisode(i, { spotifyUrl: e.target.value || undefined })} className="h-7 text-xs font-mono" placeholder="Spotify URL" />
+                      <Input value={ep.youtubeUrl ?? ""} onChange={e => updateEpisode(i, { youtubeUrl: e.target.value || undefined })} className="h-7 text-xs font-mono" placeholder="YouTube URL" />
+                    </div>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <input type="checkbox" checked={!!ep.isFeatured} onChange={e => updateEpisode(i, { isFeatured: e.target.checked })} className="w-3 h-3" />
+                      Featured in library
+                    </label>
+                  </div>
+                )}
               </div>
-              <Input value={ep.title} onChange={e => updateEpisode(i, { title: e.target.value })} className="h-7 text-xs" placeholder="Episode title" />
-              <Input value={ep.guestName ?? ""} onChange={e => updateEpisode(i, { guestName: e.target.value })} className="h-7 text-xs" placeholder="Guest name" />
-              <Input value={ep.guestTitle ?? ""} onChange={e => updateEpisode(i, { guestTitle: e.target.value })} className="h-7 text-xs" placeholder="Guest title" />
-              <Input value={ep.guestCompany ?? ""} onChange={e => updateEpisode(i, { guestCompany: e.target.value })} className="h-7 text-xs" placeholder="Guest company" />
-              <Textarea value={ep.description} onChange={e => updateEpisode(i, { description: e.target.value })} className="text-xs min-h-[3rem]" rows={2} placeholder="Episode description" />
-              <Input type="date" value={ep.publishDate} onChange={e => updateEpisode(i, { publishDate: e.target.value })} className="h-7 text-xs" />
-              <Input value={ep.ctaUrl} onChange={e => updateEpisode(i, { ctaUrl: e.target.value })} className="h-7 text-xs font-mono" placeholder="CTA URL" />
-              <Input value={ep.ctaText ?? ""} onChange={e => updateEpisode(i, { ctaText: e.target.value })} className="h-7 text-xs" placeholder="CTA text (e.g. Listen)" />
-              <ImagePicker value={ep.thumbnailUrl ?? ""} onChange={v => updateEpisode(i, { thumbnailUrl: v || undefined })} />
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                <input type="checkbox" checked={!!ep.isFeatured} onChange={e => updateEpisode(i, { isFeatured: e.target.checked })} className="w-3 h-3" />
-                Featured
-              </label>
-            </div>
-          ))}
+            );
+          })}
           <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full" onClick={addEpisode}>
             <Plus className="w-3 h-3 mr-1" /> Add Episode
           </Button>

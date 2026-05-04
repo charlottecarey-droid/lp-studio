@@ -1155,6 +1155,8 @@ export interface ContentSeriesTheme {
   bodyFontFamily?: string;
 }
 
+export type EpisodeStatus = "upcoming" | "live" | "on-demand";
+
 export interface ContentSeriesEpisode {
   title: string;
   guestName?: string;
@@ -1165,8 +1167,17 @@ export interface ContentSeriesEpisode {
   thumbnailUrl?: string;
   ctaUrl: string;
   ctaText?: string;
+  applePodcastsUrl?: string;
+  spotifyUrl?: string;
+  youtubeUrl?: string;
   /** When true this episode is pinned/featured at the top of the library. */
   isFeatured?: boolean;
+  /** When true this episode is pinned as the hero — overrides auto-newest behavior. */
+  pinHero?: boolean;
+  /** When true the episode is hidden from the public library (still editable in panel). */
+  hidden?: boolean;
+  /** Episode availability status. Defaults to "on-demand". */
+  status?: EpisodeStatus;
 }
 
 export interface ContentSeriesHost {
@@ -1205,6 +1216,8 @@ export interface ContentSeriesBlockProps {
 
   /** Hero layout: "full-bleed" = immersive bg image, "half-bleed" = split text/image, "text-only" = no image. */
   heroLayout?: "full-bleed" | "half-bleed" | "text-only";
+  /** "auto" = newest episode populates hero; "manual" = hero fields are edited independently. */
+  heroSourceMode?: "auto" | "manual";
   /** Hero / featured episode section. */
   heroEyebrow?: string;
   heroImageUrl?: string;

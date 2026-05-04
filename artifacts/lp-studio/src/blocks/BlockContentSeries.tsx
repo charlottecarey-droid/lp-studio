@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   CheckCircle2,
+  Circle,
   Headphones,
   Linkedin,
   Loader2,
@@ -20,6 +21,7 @@ import type {
   ContentSeriesHost,
   ContentSeriesCta,
   ContentSeriesTheme,
+  EpisodeStatus,
 } from "@/lib/block-types";
 import type { FormStep, FormField } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -807,6 +809,89 @@ function Hero({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   return <HeroHalfBleed p={p} C={C} />;
 }
 
+const STATUS_CONFIG: Record<EpisodeStatus, { label: string; color: string; dotColor: string }> = {
+  upcoming: { label: "Upcoming", color: "#6d9eeb", dotColor: "#6d9eeb" },
+  live: { label: "Live", color: "#e06060", dotColor: "#e06060" },
+  "on-demand": { label: "On Demand", color: "#7cc47c", dotColor: "#7cc47c" },
+};
+
+function StatusBadge({ status, C }: { status: EpisodeStatus; C: ResolvedTheme }) {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: "0.35rem",
+      padding: "0.25rem 0.6rem",
+      backgroundColor: rgba(cfg.color, 0.15),
+      border: `1px solid ${rgba(cfg.color, 0.3)}`,
+      borderRadius: "999px",
+      fontFamily: C.bodyFont, fontWeight: 600, fontSize: "0.55rem",
+      letterSpacing: "0.16em", textTransform: "uppercase", color: cfg.color,
+    }}>
+      <Circle size={6} fill={cfg.dotColor} stroke="none" />
+      {cfg.label}
+    </div>
+  );
+}
+
+function ApplePodcastsIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2C6.477 2 2 6.477 2 12c0 3.17 1.481 5.994 3.785 7.82-.07-.54-.156-1.372-.156-2.77 0-1.396.636-2.478 1.28-3.36-.236-.614-.37-1.28-.37-1.98C6.54 8.7 8.958 6.28 12 6.28s5.46 2.42 5.46 5.43c0 .7-.134 1.366-.37 1.98.644.882 1.28 1.964 1.28 3.36 0 1.398-.086 2.23-.156 2.77A9.963 9.963 0 0022 12c0-5.523-4.477-10-10-10zm0 7.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zm0 6.5c-.96 0-1.6.56-1.92 1.24-.32.68-.58 2.06-.58 3.26 0 .56.06 1.08.18 1.5h4.64c.12-.42.18-.94.18-1.5 0-1.2-.26-2.58-.58-3.26-.32-.68-.96-1.24-1.92-1.24z"/>
+    </svg>
+  );
+}
+
+function SpotifyIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.622.622 0 01-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.622.622 0 11-.277-1.215c3.81-.87 7.076-.495 9.712 1.115a.622.622 0 01.207.857zm1.224-2.719a.78.78 0 01-1.072.257c-2.687-1.652-6.786-2.131-9.965-1.166a.78.78 0 01-.453-1.494c3.628-1.102 8.143-.568 11.233 1.331a.78.78 0 01.257 1.072zm.105-2.835C14.693 8.952 9.375 8.775 6.297 9.71a.935.935 0 11-.543-1.79c3.533-1.073 9.404-.866 13.115 1.338a.935.935 0 01-1.054 1.612z"/>
+    </svg>
+  );
+}
+
+function YouTubeIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+    </svg>
+  );
+}
+
+function PlatformLinks({ episode, C }: { episode: ContentSeriesEpisode; C: ResolvedTheme }) {
+  const links = [
+    { url: episode.applePodcastsUrl, icon: <ApplePodcastsIcon size={13} />, label: "Apple" },
+    { url: episode.spotifyUrl, icon: <SpotifyIcon size={13} />, label: "Spotify" },
+    { url: episode.youtubeUrl, icon: <YouTubeIcon size={13} />, label: "YouTube" },
+  ].filter(l => l.url);
+
+  if (!links.length) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem" }}>
+      {links.map(l => (
+        <a
+          key={l.label}
+          href={l.url!}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={l.label}
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: "1.75rem", height: "1.75rem", borderRadius: "999px",
+            backgroundColor: rgba(C.primary, 0.12), color: C.fg,
+            transition: "background-color 0.2s, color 0.2s",
+            textDecoration: "none",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.primary; e.currentTarget.style.color = C.bg; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = rgba(C.primary, 0.12); e.currentTarget.style.color = C.fg; }}
+        >
+          {l.icon}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function EpisodeCard({
   episode,
   C,
@@ -820,6 +905,7 @@ function EpisodeCard({
 }) {
   const ctaText = episode.ctaText ?? defaultCta;
   const date = formatDate(episode.publishDate);
+  const status = episode.status ?? "on-demand";
 
   return (
     <motion.a
@@ -864,19 +950,25 @@ function EpisodeCard({
             <Headphones size={42} strokeWidth={1.2} />
           </div>
         )}
-        {isFeatured && (
-          <div style={{ position: "absolute", top: "0.85rem", left: "0.85rem", padding: "0.3rem 0.7rem", backgroundColor: C.primary, color: C.bg, fontFamily: C.bodyFont, fontWeight: 600, fontSize: "0.6rem", letterSpacing: "0.18em", textTransform: "uppercase", borderRadius: "999px" }}>
-            Featured
-          </div>
-        )}
+        <div style={{ position: "absolute", top: "0.85rem", left: "0.85rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {isFeatured && (
+            <div style={{ padding: "0.3rem 0.7rem", backgroundColor: C.primary, color: C.bg, fontFamily: C.bodyFont, fontWeight: 600, fontSize: "0.6rem", letterSpacing: "0.18em", textTransform: "uppercase", borderRadius: "999px" }}>
+              Featured
+            </div>
+          )}
+          {status !== "on-demand" && <StatusBadge status={status} C={C} />}
+        </div>
       </div>
 
       <div style={{ padding: "1.5rem 1.5rem 1.65rem", display: "flex", flexDirection: "column", flex: 1 }}>
-        {date && (
-          <p style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.22em", textTransform: "uppercase", color: C.primary, marginBottom: "0.75rem" }}>
-            {date}
-          </p>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+          {date && (
+            <p style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.22em", textTransform: "uppercase", color: C.primary, margin: 0 }}>
+              {date}
+            </p>
+          )}
+          {status === "on-demand" && <StatusBadge status={status} C={C} />}
+        </div>
         <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.3rem", lineHeight: 1.25, color: C.heading, marginBottom: "0.65rem" }}>
           {episode.title}
         </h3>
@@ -896,6 +988,7 @@ function EpisodeCard({
             {episode.description}
           </p>
         )}
+        <PlatformLinks episode={episode} C={C} />
         <div style={{ marginTop: "auto" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontFamily: C.bodyFont, fontWeight: 500, fontSize: "0.7rem", letterSpacing: "0.18em", textTransform: "uppercase", color: C.primary }}>
             {ctaText}
@@ -912,7 +1005,7 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
   const [visible, setVisible] = useState(6);
 
   const sorted = useMemo(() => {
-    const list = [...(p.episodes ?? [])];
+    const list = (p.episodes ?? []).filter(ep => !ep.hidden);
     list.sort((a, b) => {
       const da = new Date(a.publishDate).getTime() || 0;
       const db = new Date(b.publishDate).getTime() || 0;
@@ -1509,6 +1602,45 @@ interface Props {
   onFieldChange?: (updated: ContentSeriesBlockProps) => void;
 }
 
+function resolveHeroFromEpisodes(p: ContentSeriesBlockProps): ContentSeriesBlockProps {
+  const mode = p.heroSourceMode ?? "auto";
+  if (mode === "manual") return p;
+
+  const pinned = (p.episodes ?? []).find(ep => ep.pinHero && !ep.hidden);
+  if (pinned) {
+    return {
+      ...p,
+      heroEpisodeTitle: pinned.title,
+      heroEpisodeDescription: pinned.description,
+      heroGuestName: pinned.guestName ?? p.heroGuestName,
+      heroGuestTitle: [pinned.guestTitle, pinned.guestCompany].filter(Boolean).join(", ") || p.heroGuestTitle,
+      heroImageUrl: pinned.thumbnailUrl ?? p.heroImageUrl,
+      heroCtaUrl: pinned.ctaUrl ?? p.heroCtaUrl,
+      heroCtaText: pinned.ctaText ?? p.heroCtaText,
+    };
+  }
+
+  const visible = (p.episodes ?? []).filter(ep => !ep.hidden);
+  if (!visible.length) return p;
+
+  const newest = [...visible].sort((a, b) => {
+    const da = new Date(a.publishDate).getTime() || 0;
+    const db = new Date(b.publishDate).getTime() || 0;
+    return db - da;
+  })[0];
+
+  return {
+    ...p,
+    heroEpisodeTitle: newest.title,
+    heroEpisodeDescription: newest.description,
+    heroGuestName: newest.guestName ?? p.heroGuestName,
+    heroGuestTitle: [newest.guestTitle, newest.guestCompany].filter(Boolean).join(", ") || p.heroGuestTitle,
+    heroImageUrl: newest.thumbnailUrl ?? p.heroImageUrl,
+    heroCtaUrl: newest.ctaUrl ?? p.heroCtaUrl,
+    heroCtaText: newest.ctaText ?? p.heroCtaText,
+  };
+}
+
 export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
   const C = useMemo(() => resolveTheme(p.theme, brand), [p.theme, brand]);
   const base = brandDefaults(brand);
@@ -1516,6 +1648,8 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
     p.theme?.displayFontFamily ?? base.displayFontFamily,
     p.theme?.bodyFontFamily ?? base.bodyFontFamily,
   );
+
+  const effective = useMemo(() => resolveHeroFromEpisodes(p), [p]);
 
   return (
     <div
@@ -1526,13 +1660,13 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
         minHeight: "100vh",
       }}
     >
-      <StickyNav p={p} C={C} />
-      <Hero p={p} C={C} />
-      <EpisodeLibrary p={p} C={C} />
-      <HostsSection p={p} C={C} />
-      <AboutSection p={p} C={C} />
-      <FormSection p={p} C={C} />
-      <CtaSection p={p} C={C} />
+      <StickyNav p={effective} C={C} />
+      <Hero p={effective} C={C} />
+      <EpisodeLibrary p={effective} C={C} />
+      <HostsSection p={effective} C={C} />
+      <AboutSection p={effective} C={C} />
+      <FormSection p={effective} C={C} />
+      <CtaSection p={effective} C={C} />
     </div>
   );
 }

@@ -4049,6 +4049,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heroGuestTitle: "CEO & Founder, Apex Dental Partners",
       heroCtaText: "Listen Now",
       heroCtaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+      heroSourceMode: "auto",
       episodes: [
         {
           title: "The Future of Digital Dentistry",
@@ -4059,7 +4060,11 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           publishDate: "2025-04-28",
           ctaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
           ctaText: "Listen",
+          applePodcastsUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+          spotifyUrl: "",
+          youtubeUrl: "",
           isFeatured: true,
+          status: "on-demand" as const,
         },
         {
           title: "Scaling Without Losing Your Culture",
@@ -4070,6 +4075,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           publishDate: "2025-04-14",
           ctaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
           ctaText: "Listen",
+          applePodcastsUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+          status: "on-demand" as const,
         },
         {
           title: "What PE Gets Wrong About Dentistry",
@@ -4080,6 +4087,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           publishDate: "2025-03-31",
           ctaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
           ctaText: "Listen",
+          applePodcastsUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+          status: "on-demand" as const,
         },
       ],
       hosts: [

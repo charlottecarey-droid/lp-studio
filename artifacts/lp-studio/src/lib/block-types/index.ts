@@ -98,6 +98,7 @@ export type {
   ContentSeriesBlockProps,
   ContentSeriesTheme,
   ContentSeriesEpisode,
+  EpisodeStatus,
   ContentSeriesHost,
   ContentSeriesCta,
   ContentSeriesNavLink,
