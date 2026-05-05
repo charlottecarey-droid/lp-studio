@@ -1331,6 +1331,16 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       accentColor: "#c7e738",
       textColor: "#ffffff",
       disclaimer: "By submitting, you agree to be contacted about Dandy products and services.",
+      variant: "split",
+      inputStyle: "rounded",
+      buttonColor: "#c7e738",
+      buttonHoverColor: "#b3d028",
+      buttonTextColor: "#003a30",
+      leftColumnFr: 1.05,
+      rightColumnFr: 1,
+      cardColor: "#e8e6df",
+      cardTextColor: "#0a2b25",
+      imageBackgroundColor: "#ffffff",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

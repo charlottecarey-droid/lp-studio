@@ -190,6 +190,30 @@ export interface DandyProductHeroBlockProps {
   /** Text color. Default: white. */
   textColor?: string;
 
+  /** Layout variant.
+   *  - "split" (default): solid bg with image bleeding off the right edge (current Crowns hero look)
+   *  - "card": light section bg with a grey card behind the copy + form on the left
+   *  - "gradient": soft horizontal gradient between the bg color and the image side instead of a hard line */
+  variant?: "split" | "card" | "gradient";
+  /** Email input + button shape. "rounded" = pill (default), "square" = squared corners. */
+  inputStyle?: "rounded" | "square";
+  /** Submit button background color. Defaults to accentColor. */
+  buttonColor?: string;
+  /** Submit button hover background color. Defaults to a slightly darker shade of buttonColor. */
+  buttonHoverColor?: string;
+  /** Submit button text color. Defaults to backgroundColor (dark text on lime button). */
+  buttonTextColor?: string;
+  /** Left column flex ratio (grid fr). Default: 1.05. */
+  leftColumnFr?: number;
+  /** Right column flex ratio (grid fr). Default: 1. */
+  rightColumnFr?: number;
+  /** Background color of the grey card (variant === "card"). Default: #e8e6df. */
+  cardColor?: string;
+  /** Text color inside the grey card (variant === "card"). Default: #0a2b25. */
+  cardTextColor?: string;
+  /** Background color used for the image side in "card" and "gradient" variants. Default: #ffffff. */
+  imageBackgroundColor?: string;
+
   /** What happens when the user submits the email pill.
    *  - "navigate" (default, current): redirect to primaryCtaUrl with ?email=…
    *  - "modal-form": open a modal with a customizable form (email pre-filled)

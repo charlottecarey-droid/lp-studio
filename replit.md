@@ -57,6 +57,11 @@ A React + Vite application providing the user interface for the A/B testing plat
   - Internal error boundary shows render errors visually instead of blank page
   - Excluded from ScrollReveal/Reveal wrappers (NO_REVEAL) since it has its own framer-motion animations
   - First use case: The Margin Line podcast
+- **Dandy Product Hero Block** (`dandy-product-hero`): Email-capture hero with three layout variants:
+  - `split` (default): solid bg with image bleeding off the right edge (original Crowns hero look)
+  - `card`: light section bg with grey card behind copy + form on the left (matches the "Partner with Dandy. Get a Free Scanner." reference)
+  - `gradient`: soft horizontal gradient between bg color and image side instead of a hard line
+  - Two input styles (rounded pill / square corners), customizable button bg/hover/text colors, customizable left & right column widths (fr ratios), card bg + text color, and image-side bg color
 - **Admin Dashboard**: Manages tests, variants, and results.
 - **Pages Gallery**: CRUD operations for builder pages with template selection.
 - **Builder Editor**: A three-panel drag-and-drop interface for designing landing pages with block library, live canvas, and property panels. Supports inline editing with Tiptap WYSIWYG.

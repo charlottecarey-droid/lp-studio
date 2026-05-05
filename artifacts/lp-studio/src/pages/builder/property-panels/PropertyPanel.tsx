@@ -2845,13 +2845,60 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
 
             <div className="space-y-3 border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout Variant</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  ["split", "Split", "Hard line, image bleeds right"],
+                  ["card", "Grey Card", "Card behind copy + form"],
+                  ["gradient", "Gradient", "Soft fade between sides"],
+                ] as const).map(([val, label, hint]) => (
+                  <button
+                    key={val}
+                    onClick={() => onChange({ ...block, props: { ...p, variant: val } })}
+                    className={`py-2 px-2 text-[11px] rounded border ${(p.variant ?? "split") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                    title={hint}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-xs">Input style</Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([
+                    ["rounded", "Rounded (pill)"],
+                    ["square", "Square corners"],
+                  ] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => onChange({ ...block, props: { ...p, inputStyle: val } })}
+                      className={`py-1.5 text-xs rounded border ${(p.inputStyle ?? "rounded") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-xs">Left column width: {(p.leftColumnFr ?? 1.05).toFixed(2)}fr</Label>
+                <Slider value={[p.leftColumnFr ?? 1.05]} min={0.5} max={2} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, leftColumnFr: v } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Right column width: {(p.rightColumnFr ?? 1).toFixed(2)}fr</Label>
+                <Slider value={[p.rightColumnFr ?? 1]} min={0.5} max={2} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, rightColumnFr: v } })} />
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-3">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</Label>
               <div className="space-y-1.5">
                 <Label className="text-xs">Min height: {p.minHeight ?? 90}vh</Label>
                 <Slider value={[p.minHeight ?? 90]} min={50} max={100} step={1} onValueChange={([v]) => onChange({ ...block, props: { ...p, minHeight: v } })} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Background color</Label>
+                <Label className="text-xs">Background color {((p.variant ?? "split") !== "split") && <span className="text-muted-foreground">(used for gradient overlay)</span>}</Label>
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.backgroundColor ?? "#003a30" }}>
                     <input type="color" value={p.backgroundColor ?? "#003a30"} onChange={e => onChange({ ...block, props: { ...p, backgroundColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
@@ -2860,7 +2907,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Accent color (eyebrow + button)</Label>
+                <Label className="text-xs">Accent color (eyebrow)</Label>
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.accentColor ?? "#c7e738" }}>
                     <input type="color" value={p.accentColor ?? "#c7e738"} onChange={e => onChange({ ...block, props: { ...p, accentColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
@@ -2875,6 +2922,72 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <input type="color" value={p.textColor ?? "#ffffff"} onChange={e => onChange({ ...block, props: { ...p, textColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
                   </div>
                   <Input value={p.textColor ?? "#ffffff"} onChange={e => onChange({ ...block, props: { ...p, textColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+
+              {((p.variant ?? "split") === "card" || (p.variant ?? "split") === "gradient") && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image side background</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.imageBackgroundColor ?? "#ffffff" }}>
+                      <input type="color" value={p.imageBackgroundColor ?? "#ffffff"} onChange={e => onChange({ ...block, props: { ...p, imageBackgroundColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                    </div>
+                    <Input value={p.imageBackgroundColor ?? "#ffffff"} onChange={e => onChange({ ...block, props: { ...p, imageBackgroundColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                  </div>
+                </div>
+              )}
+
+              {(p.variant ?? "split") === "card" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Card background</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.cardColor ?? "#e8e6df" }}>
+                        <input type="color" value={p.cardColor ?? "#e8e6df"} onChange={e => onChange({ ...block, props: { ...p, cardColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                      </div>
+                      <Input value={p.cardColor ?? "#e8e6df"} onChange={e => onChange({ ...block, props: { ...p, cardColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Card text color</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.cardTextColor ?? "#0a2b25" }}>
+                        <input type="color" value={p.cardTextColor ?? "#0a2b25"} onChange={e => onChange({ ...block, props: { ...p, cardTextColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                      </div>
+                      <Input value={p.cardTextColor ?? "#0a2b25"} onChange={e => onChange({ ...block, props: { ...p, cardTextColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-3 border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Button Colors</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button background</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.buttonColor ?? p.accentColor ?? "#c7e738" }}>
+                    <input type="color" value={p.buttonColor ?? p.accentColor ?? "#c7e738"} onChange={e => onChange({ ...block, props: { ...p, buttonColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.buttonColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, buttonColor: e.target.value } })} placeholder={p.accentColor ?? "#c7e738"} className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button hover background</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.buttonHoverColor ?? p.buttonColor ?? p.accentColor ?? "#b3d028" }}>
+                    <input type="color" value={p.buttonHoverColor ?? p.buttonColor ?? p.accentColor ?? "#b3d028"} onChange={e => onChange({ ...block, props: { ...p, buttonHoverColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.buttonHoverColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, buttonHoverColor: e.target.value } })} placeholder="#b3d028" className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button text color</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.buttonTextColor ?? p.backgroundColor ?? "#003a30" }}>
+                    <input type="color" value={p.buttonTextColor ?? p.backgroundColor ?? "#003a30"} onChange={e => onChange({ ...block, props: { ...p, buttonTextColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.buttonTextColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, buttonTextColor: e.target.value } })} placeholder={p.backgroundColor ?? "#003a30"} className="h-7 text-xs font-mono flex-1" />
                 </div>
               </div>
             </div>
