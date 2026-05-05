@@ -62,7 +62,7 @@ const objectStorageService = new ObjectStorageService();
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp",
-  "image/avif", "image/heic", "image/heif",
+  "image/avif", "image/heic", "image/heif", "image/svg+xml",
 ]);
 
 const ALLOWED_VIDEO_TYPES = new Set([
