@@ -309,17 +309,31 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
             </Select>
           </Field>
           {(p.heroLayout === "full-bleed") && (
-            <div className="flex items-center gap-2">
-              <Label className="text-[11px] shrink-0">Overlay {Math.round((p.heroOverlayOpacity ?? 0.7) * 100)}%</Label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round((p.heroOverlayOpacity ?? 0.7) * 100)}
-                onChange={e => set({ heroOverlayOpacity: Number(e.target.value) / 100 })}
-                className="flex-1 h-4"
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <Label className="text-[11px] shrink-0">Overlay {Math.round((p.heroOverlayOpacity ?? 0.7) * 100)}%</Label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round((p.heroOverlayOpacity ?? 0.7) * 100)}
+                  onChange={e => set({ heroOverlayOpacity: Number(e.target.value) / 100 })}
+                  className="flex-1 h-4"
+                />
+              </div>
+              <Field label="Full-Bleed Hero Background Image" hint="Optional. When set, this image is used as the hero background instead of the featured episode thumbnail, and the featured episode card is hidden so the hero shows just the series title.">
+                <ImagePicker value={p.heroBackgroundImageUrl ?? ""} onChange={v => set({ heroBackgroundImageUrl: v || undefined })} />
+                {p.heroBackgroundImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => set({ heroBackgroundImageUrl: undefined })}
+                    className="mt-1 text-[11px] text-muted-foreground hover:text-foreground underline"
+                  >
+                    Clear (use featured episode image instead)
+                  </button>
+                )}
+              </Field>
+            </>
           )}
           <Field label="Hero Source" hint="Auto fills hero from newest (or pinned) episode. Manual lets you edit hero fields directly.">
             <Select value={p.heroSourceMode ?? "auto"} onValueChange={(v) => set({ heroSourceMode: v as "auto" | "manual" })}>

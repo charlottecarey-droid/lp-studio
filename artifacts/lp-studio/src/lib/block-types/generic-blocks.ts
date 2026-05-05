@@ -1227,6 +1227,10 @@ export interface ContentSeriesBlockProps {
   heroLayout?: "full-bleed" | "half-bleed" | "text-only";
   /** Overlay opacity for full-bleed hero (0–1). Controls how much the background image shows through. */
   heroOverlayOpacity?: number;
+  /** Dedicated full-bleed hero background image. When set (and heroLayout === "full-bleed"),
+   *  this image is used as the immersive bg INSTEAD of the featured episode's thumbnail, and
+   *  the featured episode card is hidden so the hero shows only the series title/subtitle. */
+  heroBackgroundImageUrl?: string;
   /** "auto" = newest episode populates hero; "manual" = hero fields are edited independently. */
   heroSourceMode?: "auto" | "manual";
   /** Hero / featured episode section. */

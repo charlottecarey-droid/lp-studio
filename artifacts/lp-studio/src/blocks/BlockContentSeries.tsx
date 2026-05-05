@@ -478,13 +478,13 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
         overflow: "hidden",
       }}
     >
-      {p.heroImageUrl && (
+      {(p.heroBackgroundImageUrl || p.heroImageUrl) && (
         <>
           <div
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage: `url(${p.heroImageUrl})`,
+              backgroundImage: `url(${p.heroBackgroundImageUrl || p.heroImageUrl})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundAttachment: "fixed",
@@ -501,7 +501,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
           />
         </>
       )}
-      {!p.heroImageUrl && (
+      {!p.heroBackgroundImageUrl && !p.heroImageUrl && (
         <div
           aria-hidden
           style={{
@@ -574,6 +574,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
             </motion.p>
           )}
 
+          {!p.heroBackgroundImageUrl && (
           <motion.div
             variants={fadeUp}
             style={{
@@ -630,6 +631,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
               {ctaText}
             </motion.a>
           </motion.div>
+          )}
         </motion.div>
       </div>
     </section>
