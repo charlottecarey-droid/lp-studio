@@ -1170,6 +1170,8 @@ export interface ContentSeriesEpisode {
   applePodcastsUrl?: string;
   spotifyUrl?: string;
   youtubeUrl?: string;
+  /** Set when this episode was imported from an RSS feed; used as the merge key on re-sync. */
+  rssGuid?: string;
   /** When true this episode is pinned/featured at the top of the library. */
   isFeatured?: boolean;
   /** When true this episode is pinned as the hero — overrides auto-newest behavior. */
@@ -1268,8 +1270,15 @@ export interface ContentSeriesBlockProps {
   formSubmitUrl?: string;
   formSuccessMessage?: string;
 
-  /** Optional RSS feed URL for future auto-pull of new episodes. */
+  /** Optional RSS feed URL. When set, the panel "Sync from RSS" button can pull episodes;
+   *  if rssAutoSync is also true, the published page also fetches the feed on render and
+   *  merges newly published items into the displayed list (manual edits win on conflicts). */
   rssFeedUrl?: string;
+  /** When true, the published landing page calls /api/lp/rss/parse on mount and merges any
+   *  new episodes from the feed into the displayed list. Manual episodes always remain. */
+  rssAutoSync?: boolean;
+  /** ISO timestamp of the last manual sync via the panel — informational only. */
+  rssLastSyncedAt?: string;
 
   /** Visual theme overrides. When absent, colors/fonts fall back to tenant brand settings. */
   theme?: ContentSeriesTheme;

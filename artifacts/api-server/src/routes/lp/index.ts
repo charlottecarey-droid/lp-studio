@@ -34,6 +34,7 @@ import pageSpeedRouter from "./page-speed";
 import ampPagesRouter from "./amp-pages";
 import programmaticPagesRouter from "./programmatic-pages";
 import adMapRouter from "./ad-map";
+import rssSyncRouter from "./rss-sync";
 
 const router = Router();
 
@@ -72,5 +73,6 @@ router.use(conversionScoringRouter);
 router.use(ampPagesRouter);
 router.use(programmaticPagesRouter);
 router.use(adMapRouter);
+router.use(rssSyncRouter);
 
 export default router;

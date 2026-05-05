@@ -61,6 +61,117 @@ function SectionHeader({ label, open, onToggle }: { label: string; open: boolean
   );
 }
 
+function RssSyncControls({ p, set }: { p: ContentSeriesBlockProps; set: (patch: Partial<ContentSeriesBlockProps>) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const merge = (parsed: Array<{ guid?: string; title: string; description: string; publishDate?: string; audioUrl?: string; thumbnailUrl?: string }>) => {
+    const existing = p.episodes ?? [];
+    const byGuid = new Map<string, number>();
+    const byUrl = new Map<string, number>();
+    existing.forEach((ep, i) => {
+      if (ep.rssGuid) byGuid.set(ep.rssGuid, i);
+      if (ep.ctaUrl) byUrl.set(ep.ctaUrl, i);
+    });
+    const next = [...existing];
+    let added = 0;
+    let updated = 0;
+    for (const item of parsed) {
+      let idx = -1;
+      if (item.guid && byGuid.has(item.guid)) idx = byGuid.get(item.guid)!;
+      else if (item.audioUrl && byUrl.has(item.audioUrl)) idx = byUrl.get(item.audioUrl)!;
+      if (idx >= 0) {
+        const cur = next[idx];
+        next[idx] = {
+          ...cur,
+          title: cur.title || item.title,
+          description: cur.description || item.description,
+          publishDate: cur.publishDate || item.publishDate || cur.publishDate,
+          thumbnailUrl: cur.thumbnailUrl || item.thumbnailUrl,
+          ctaUrl: cur.ctaUrl || item.audioUrl || "#",
+          rssGuid: cur.rssGuid ?? item.guid,
+        };
+        updated += 1;
+      } else {
+        next.push({
+          title: item.title,
+          description: item.description,
+          publishDate: item.publishDate ?? new Date().toISOString(),
+          thumbnailUrl: item.thumbnailUrl,
+          ctaUrl: item.audioUrl ?? p.rssFeedUrl ?? "#",
+          ctaText: "Listen Now",
+          rssGuid: item.guid,
+          status: "on-demand",
+        });
+        added += 1;
+      }
+    }
+    set({ episodes: next, rssLastSyncedAt: new Date().toISOString() });
+    setInfo(`${added} new, ${updated} updated, ${parsed.length} in feed`);
+  };
+
+  const handleSync = async () => {
+    setError(null);
+    setInfo(null);
+    if (!p.rssFeedUrl) {
+      setError("Add an RSS Feed URL above first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const resp = await fetch("/api/lp/rss/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: p.rssFeedUrl }),
+      });
+      const data = await resp.json().catch(() => ({})) as { episodes?: Array<{ guid?: string; title: string; description: string; publishDate?: string; audioUrl?: string; thumbnailUrl?: string }>; error?: string };
+      if (!resp.ok) {
+        setError(data.error ?? `Sync failed (${resp.status})`);
+        return;
+      }
+      if (!data.episodes || data.episodes.length === 0) {
+        setError("Feed parsed but contained no episodes.");
+        return;
+      }
+      merge(data.episodes);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const lastSynced = p.rssLastSyncedAt ? new Date(p.rssLastSyncedAt).toLocaleString() : null;
+
+  return (
+    <div className="space-y-2 border border-border rounded-md p-2.5 bg-muted/20">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs font-medium">RSS Episode Sync</Label>
+        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy || !p.rssFeedUrl} onClick={handleSync}>
+          {busy ? "Syncing…" : "Sync now"}
+        </Button>
+      </div>
+      <label className="flex items-start gap-2 text-[11px] text-muted-foreground cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={!!p.rssAutoSync}
+          onChange={e => set({ rssAutoSync: e.target.checked || undefined })}
+        />
+        <span>
+          <span className="font-medium text-foreground">Auto-sync on page load.</span> Visitors always see the latest episodes from your feed without you re-publishing. Manual edits to existing episodes are kept.
+        </span>
+      </label>
+      {info && <p className="text-[11px] text-emerald-600">{info}</p>}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      {lastSynced && !info && !error && (
+        <p className="text-[11px] text-muted-foreground">Last manual sync: {lastSynced}</p>
+      )}
+    </div>
+  );
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
@@ -710,9 +821,10 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
             <AiTextField type="textarea" value={p.ctaSectionSubheadline ?? ""} onChange={v => set({ ctaSectionSubheadline: v })} rows={2} fieldLabel="CTA Subheadline" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("content-series", "ctaSectionSubheadline", p.ctaSectionSubheadline ?? "", {})} />
           </Field>
-          <Field label="RSS Feed URL" hint="Optional RSS feed link">
+          <Field label="RSS Feed URL" hint="Paste your podcast RSS URL. Used for the public 'RSS' button and (optionally) live episode sync.">
             <Input value={p.rssFeedUrl ?? ""} onChange={e => set({ rssFeedUrl: e.target.value })} className="text-xs h-7 font-mono" placeholder="https://…" />
           </Field>
+          <RssSyncControls p={p} set={set} />
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">CTA Buttons</Label>

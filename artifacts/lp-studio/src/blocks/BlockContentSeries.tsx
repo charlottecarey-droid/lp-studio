@@ -1313,11 +1313,64 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const closeVideo = useCallback(() => setActiveVideoId(null), []);
 
+  // Live RSS sync: when enabled, fetch the feed and merge new items into the
+  // displayed list. Manual edits (existing episodes) are never overwritten.
+  const [rssEpisodes, setRssEpisodes] = useState<ContentSeriesEpisode[]>([]);
+  useEffect(() => {
+    if (!p.rssAutoSync || !p.rssFeedUrl) {
+      setRssEpisodes([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch("/api/lp/rss/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: p.rssFeedUrl }),
+        });
+        if (!resp.ok) return;
+        const feed = await resp.json() as { episodes?: Array<{
+          guid?: string; title: string; description: string; publishDate?: string;
+          audioUrl?: string; thumbnailUrl?: string;
+        }> };
+        if (cancelled || !feed.episodes) return;
+        const manual = p.episodes ?? [];
+        const manualKeys = new Set<string>();
+        for (const ep of manual) {
+          if (ep.rssGuid) manualKeys.add(`g:${ep.rssGuid}`);
+          if (ep.ctaUrl) manualKeys.add(`u:${ep.ctaUrl}`);
+        }
+        const newOnes: ContentSeriesEpisode[] = [];
+        for (const item of feed.episodes) {
+          const guidKey = item.guid ? `g:${item.guid}` : null;
+          const urlKey = item.audioUrl ? `u:${item.audioUrl}` : null;
+          if ((guidKey && manualKeys.has(guidKey)) || (urlKey && manualKeys.has(urlKey))) continue;
+          newOnes.push({
+            title: item.title,
+            description: item.description,
+            publishDate: item.publishDate ?? new Date().toISOString(),
+            thumbnailUrl: item.thumbnailUrl,
+            ctaUrl: item.audioUrl ?? p.rssFeedUrl ?? "#",
+            ctaText: "Listen Now",
+            rssGuid: item.guid,
+            status: "on-demand",
+          });
+        }
+        setRssEpisodes(newOnes);
+      } catch {
+        // silent — fall back to manual episodes only
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [p.rssAutoSync, p.rssFeedUrl, p.episodes]);
+
   const episodes = useMemo(() => {
-    const list = (p.episodes ?? []).filter(ep => !ep.hidden);
+    const merged: ContentSeriesEpisode[] = [...(p.episodes ?? []), ...rssEpisodes];
+    const list = merged.filter(ep => !ep.hidden);
     list.sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured));
     return list;
-  }, [p.episodes]);
+  }, [p.episodes, rssEpisodes]);
 
   if (!episodes.length) return null;
 
