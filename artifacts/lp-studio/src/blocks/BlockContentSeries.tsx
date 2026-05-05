@@ -1364,27 +1364,57 @@ function EpisodeLibrary({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme
 
         {!showFullList && (
           <>
-            <div
-              className="bcs-episode-grid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${Math.min(carouselEpisodes.length, CAROUSEL_PAGE_SIZE)}, minmax(0, 1fr))`,
-                gap: "1.75rem",
-              }}
-            >
-              <AnimatePresence mode="wait">
-                {carouselEpisodes.map((ep, idx) => (
-                  <motion.div
-                    key={`${carouselIdx}-${idx}`}
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ duration: 0.35, delay: idx * 0.08 }}
+            <div className="bcs-carousel-wrap" style={{ position: "relative" }}>
+              {episodes.length > CAROUSEL_PAGE_SIZE && (
+                <>
+                  <div
+                    className="bcs-carousel-side-arrow bcs-carousel-side-arrow-left"
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "-1.25rem",
+                      transform: "translateY(-50%)",
+                      zIndex: 5,
+                    }}
                   >
-                    <EpisodeCard episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} onPlayVideo={setActiveVideoId} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                    <CarouselArrow direction="left" onClick={() => setCarouselIdx(i => Math.max(0, i - 1))} C={C} disabled={!canPrev} />
+                  </div>
+                  <div
+                    className="bcs-carousel-side-arrow bcs-carousel-side-arrow-right"
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      right: "-1.25rem",
+                      transform: "translateY(-50%)",
+                      zIndex: 5,
+                    }}
+                  >
+                    <CarouselArrow direction="right" onClick={() => setCarouselIdx(i => Math.min(totalCarouselPages - 1, i + 1))} C={C} disabled={!canNext} />
+                  </div>
+                </>
+              )}
+              <div
+                className="bcs-episode-grid"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${Math.min(carouselEpisodes.length, CAROUSEL_PAGE_SIZE)}, minmax(0, 1fr))`,
+                  gap: "1.75rem",
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  {carouselEpisodes.map((ep, idx) => (
+                    <motion.div
+                      key={`${carouselIdx}-${idx}`}
+                      initial={{ opacity: 0, x: 30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -30 }}
+                      transition={{ duration: 0.35, delay: idx * 0.08 }}
+                    >
+                      <EpisodeCard episode={ep} C={C} defaultCta={defaultCta} isFeatured={!!ep.isFeatured} onPlayVideo={setActiveVideoId} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
             </div>
 
             {episodes.length > CAROUSEL_PAGE_SIZE && (
@@ -2147,6 +2177,9 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
           .bcs-episode-row {
             flex-direction: column !important;
             align-items: flex-start !important;
+          }
+          .bcs-carousel-side-arrow {
+            display: none !important;
           }
         }
       `}</style>
