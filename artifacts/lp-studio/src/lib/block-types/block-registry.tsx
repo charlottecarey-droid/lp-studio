@@ -4115,7 +4115,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       aboutAudience: "DSO executives, practice owners, dental entrepreneurs, and industry leaders.",
       aboutTopics: ["Growth strategy", "Digital workflows", "M&A and private equity", "Clinical innovation", "Team culture", "Operational excellence"],
       ctaSectionHeadline: "Never Miss an Episode",
-      ctaSectionSubheadline: "Subscribe on your favorite platform and stay ahead of the curve.",
+      ctaSectionSubheadline: "Subscribe to get an alert the moment a new episode drops — or follow along wherever you enjoy your podcasts.",
       ctas: [
         { label: "Apple Podcasts", url: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971", variant: "primary" },
         { label: "Spotify", url: "https://open.spotify.com/", variant: "outline" },

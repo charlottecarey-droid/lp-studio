@@ -416,7 +416,10 @@ function StickyNav({
   onSubscribe: (initial: Record<string, string>) => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
-  const [navEmail, setNavEmail] = useState("");
+  // onSubscribe is intentionally unused here — the nav Subscribe button anchors to
+  // #subscribe instead of opening the modal so visitors land in the bottom CTA section
+  // where they can also see all the podcast platform links.
+  void onSubscribe;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
@@ -426,19 +429,13 @@ function StickyNav({
   }, []);
 
   const links = p.navLinks ?? [];
-  const ctaText = p.navCtaText ?? defaultCtaForType(p.seriesType);
-  const ctaUrl = p.navCtaUrl ?? "#subscribe";
-  const showSubscribeInput = p.subscribeEnabled !== false;
-  const subscribePlaceholder = p.subscribePlaceholder ?? "your@email.com";
-  const subscribeButton = p.subscribeButtonLabel ?? "Subscribe";
-
-  const handleNavSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = navEmail.trim();
-    if (!trimmed) return;
-    onSubscribe({ email: trimmed });
-    setNavEmail("");
-  };
+  // The nav now always shows a Subscribe button (when subscribeEnabled) that scrolls
+  // to the #subscribe section so the email input can breathe in the CTA section.
+  const subscribeOn = p.subscribeEnabled !== false;
+  const navCtaLabel = subscribeOn
+    ? (p.subscribeButtonLabel ?? "Subscribe")
+    : (p.navCtaText ?? defaultCtaForType(p.seriesType));
+  const navCtaHref = subscribeOn ? "#subscribe" : (p.navCtaUrl ?? "#subscribe");
 
   return (
     <motion.nav
@@ -520,94 +517,31 @@ function StickyNav({
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-        {showSubscribeInput && (
-          <form
-            onSubmit={handleNavSubscribe}
-            className="bcs-nav-subscribe"
-            style={{
-              display: "flex",
-              alignItems: "stretch",
-              gap: "0.35rem",
-              padding: "0.25rem 0.25rem 0.25rem 0.85rem",
-              borderRadius: "999px",
-              border: `1px solid ${C.border}`,
-              backgroundColor: rgba(C.bg, 0.55),
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-            }}
-          >
-            <input
-              type="email"
-              required
-              value={navEmail}
-              onChange={e => setNavEmail(e.target.value)}
-              placeholder={subscribePlaceholder}
-              aria-label="Subscribe email"
-              style={{
-                width: "11rem",
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                color: C.fg,
-                fontFamily: C.bodyFont,
-                fontSize: "0.78rem",
-                padding: "0.3rem 0",
-              }}
-            />
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              aria-label={subscribeButton}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                padding: "0.45rem 0.95rem",
-                backgroundColor: C.primary,
-                color: C.bg,
-                border: "none",
-                borderRadius: "999px",
-                fontFamily: C.bodyFont,
-                fontWeight: 500,
-                fontSize: "0.66rem",
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Send size={12} />
-              <span className="bcs-nav-subscribe-label">{subscribeButton}</span>
-            </motion.button>
-          </form>
-        )}
-        {!showSubscribeInput && (
-          <motion.a
-            href={ctaUrl}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.6rem 1.1rem",
-              backgroundColor: C.primary,
-              color: C.bg,
-              fontWeight: 500,
-              fontSize: "0.7rem",
-              letterSpacing: "0.16em",
+      <motion.a
+        href={navCtaHref}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.97 }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.6rem 1.25rem",
+          backgroundColor: C.primary,
+          color: C.bg,
+          fontFamily: C.bodyFont,
+          fontWeight: 500,
+          fontSize: "0.7rem",
+          letterSpacing: "0.16em",
           textTransform: "uppercase",
           textDecoration: "none",
           borderRadius: "999px",
+          whiteSpace: "nowrap",
         }}
       >
-        {ctaText}
-        <ArrowRight size={14} />
-          </motion.a>
-        )}
-      </div>
+        {subscribeOn ? <Send size={13} /> : null}
+        {navCtaLabel}
+        {!subscribeOn && <ArrowRight size={14} />}
+      </motion.a>
     </motion.nav>
   );
 }
@@ -2474,9 +2408,9 @@ function CtaSection({ p, C, onSubscribe }: { p: ContentSeriesBlockProps; C: Reso
   const headline = p.ctaSectionHeadline;
   const sub = p.ctaSectionSubheadline;
   const ctas: ContentSeriesCta[] = p.ctas ?? [];
-  // Subscribe input now lives in the nav by default. Only render it inside
-  // the CTA section if the operator explicitly opted in via subscribeShowInCta.
-  const showSubscribe = p.subscribeEnabled !== false && p.subscribeShowInCta === true;
+  // Subscribe input lives in the CTA section so it has room to breathe.
+  // The nav has a Subscribe button that anchors here.
+  const showSubscribe = p.subscribeEnabled !== false;
   if (!headline && !sub && !ctas.length && !p.rssFeedUrl && !showSubscribe) return null;
 
   return (
@@ -2507,12 +2441,16 @@ function CtaSection({ p, C, onSubscribe }: { p: ContentSeriesBlockProps; C: Reso
           </motion.p>
         )}
         {showSubscribe && (
-          <motion.div variants={fadeUp} style={{ marginBottom: (ctas.length > 0 || p.rssFeedUrl) ? "2rem" : 0, display: "flex", justifyContent: "center" }}>
+          <motion.div variants={fadeUp} style={{ marginBottom: (ctas.length > 0 || p.rssFeedUrl) ? "4rem" : 0, display: "flex", justifyContent: "center" }}>
             <SubscribeForm p={p} C={C} onOpenForm={onSubscribe} />
           </motion.div>
         )}
         {(ctas.length > 0 || p.rssFeedUrl) && (
-          <motion.div variants={fadeUp} style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.85rem" }}>
+          <motion.div variants={fadeUp} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+            <span style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", letterSpacing: "0.22em", textTransform: "uppercase", color: C.muted, opacity: 0.75 }}>
+              Or listen on
+            </span>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.85rem" }}>
             {ctas.map((cta, idx) => {
               const { icon, label } = platformIconFor(cta);
               return (
@@ -2572,6 +2510,7 @@ function CtaSection({ p, C, onSubscribe }: { p: ContentSeriesBlockProps; C: Reso
                 <Rss size={18} />
               </motion.a>
             )}
+            </div>
           </motion.div>
         )}
       </motion.div>

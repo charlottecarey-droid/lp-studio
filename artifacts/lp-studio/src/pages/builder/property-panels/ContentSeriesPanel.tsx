@@ -961,18 +961,9 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
               onSuggest={() => suggestCopy("content-series", "ctaSectionSubheadline", p.ctaSectionSubheadline ?? "", {})} />
           </Field>
 
-          <div className="border border-border rounded-md p-2.5 space-y-2 bg-muted/30">
-            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-              <input
-                type="checkbox"
-                checked={p.subscribeShowInCta === true}
-                onChange={e => set({ subscribeShowInCta: e.target.checked })}
-                className="w-3.5 h-3.5"
-              />
-              Also show subscribe input here (in CTA section)
-            </label>
-            <p className="text-[10px] text-muted-foreground pl-5 leading-relaxed">
-              The subscribe input lives in the nav by default. Toggle this on to also render it inline in the bottom CTA section.
+          <div className="border border-border rounded-md p-2.5 bg-muted/30">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              The subscribe input renders here in the CTA section. The nav has a Subscribe button that anchors to it. Edit subscribe copy and the modal in the <span className="font-medium text-foreground">Subscribe Form (Modal)</span> section below.
             </p>
           </div>
 
