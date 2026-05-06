@@ -2270,7 +2270,7 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
   );
 
   const safeProps = useMemo<ContentSeriesBlockProps>(() => {
-    if (!p) return { seriesType: "podcast", seriesTitle: "Untitled Series", seriesSubtitle: "", episodes: [] } as ContentSeriesBlockProps;
+    if (!p) return { seriesType: "podcast", seriesTitle: "Untitled Series", seriesSubtitle: "", heroEpisodeTitle: "", episodes: [] } as ContentSeriesBlockProps;
     return { ...p, episodes: p.episodes ?? [], hosts: p.hosts ?? [], ctas: p.ctas ?? [], formSteps: p.formSteps ?? [] };
   }, [p]);
 
