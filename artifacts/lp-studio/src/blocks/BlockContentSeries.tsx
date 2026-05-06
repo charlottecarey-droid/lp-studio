@@ -428,7 +428,6 @@ function StickyNav({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const links = p.navLinks ?? [];
   // The nav now always shows a Subscribe button (when subscribeEnabled) that scrolls
   // to the #subscribe section so the email input can breathe in the CTA section.
   const subscribeOn = p.subscribeEnabled !== false;
@@ -436,6 +435,16 @@ function StickyNav({
     ? (p.subscribeButtonLabel ?? "Subscribe")
     : (p.navCtaText ?? defaultCtaForType(p.seriesType));
   const navCtaHref = subscribeOn ? "#subscribe" : (p.navCtaUrl ?? "#subscribe");
+  // De-dupe: when the Subscribe button is on, hide any nav link that points to the
+  // same anchor or shares the same label so visitors don't see "Subscribe" twice.
+  const links = (p.navLinks ?? []).filter(link => {
+    if (!subscribeOn) return true;
+    const href = (link.href || "").trim().toLowerCase();
+    const label = (link.label || "").trim().toLowerCase();
+    if (href === "#subscribe") return false;
+    if (label === navCtaLabel.trim().toLowerCase()) return false;
+    return true;
+  });
 
   return (
     <motion.nav
@@ -1213,6 +1222,10 @@ function EpisodeCard({
         textDecoration: "none",
         color: "inherit",
         cursor: "pointer",
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
+        boxSizing: "border-box",
         transition: "border-color 0.3s ease, box-shadow 0.3s ease",
       }}
       onMouseEnter={e => {
@@ -1234,6 +1247,7 @@ function EpisodeCard({
             ? undefined
             : `linear-gradient(135deg, ${rgba(C.primary, 0.35)} 0%, ${rgba(C.primary, 0.05)} 60%, ${C.card} 100%)`,
           overflow: "hidden",
+          width: "100%",
         }}
       >
         {episode.thumbnailUrl ? (
@@ -1263,7 +1277,7 @@ function EpisodeCard({
           )}
           {status === "on-demand" && <StatusBadge status={status} C={C} />}
         </div>
-        <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.3rem", lineHeight: 1.25, color: C.heading, marginBottom: "0.65rem" }}>
+        <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.3rem", lineHeight: 1.25, color: C.heading, marginBottom: "0.65rem", overflowWrap: "anywhere", wordBreak: "break-word", hyphens: "auto" }}>
           {episode.title}
         </h3>
         {(episode.guestName || episode.guestTitle || episode.guestCompany) && (
@@ -2635,12 +2649,17 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
             padding: 3.5rem 1rem 3rem !important;
           }
           .bcs-episode-grid {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: minmax(0, 1fr) !important;
             gap: 1.25rem !important;
           }
           .bcs-episode-row {
             flex-direction: column !important;
-            align-items: flex-start !important;
+            align-items: stretch !important;
+            gap: 0.85rem !important;
+          }
+          .bcs-episode-row > div:last-child {
+            width: 100% !important;
+            justify-content: space-between !important;
           }
         }
       `}</style>
