@@ -1843,15 +1843,17 @@ function FormModal({
   p,
   C,
   onClose,
+  initialFormData,
 }: {
   p: ContentSeriesBlockProps;
   C: ResolvedTheme;
   onClose: () => void;
+  initialFormData?: Record<string, string>;
 }) {
   const steps = p.formSteps ?? [];
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState<Record<string, string>>(() => initialFormData ?? {});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2183,8 +2185,7 @@ function FormModal({
   );
 }
 
-function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
-  const [open, setOpen] = useState(false);
+function FormSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void }) {
   const steps = p.formSteps ?? [];
   if (!steps.length) return null;
 
@@ -2236,7 +2237,7 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
           <motion.button
             variants={fadeUp}
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={onOpenForm}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
             style={{
@@ -2262,70 +2263,22 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
           </motion.button>
         </motion.div>
       </section>
-      {open && <FormModal p={p} C={C} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function SubscribeForm({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: (initial: Record<string, string>) => void }) {
   const [email, setEmail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const placeholder = p.subscribePlaceholder ?? "your@email.com";
   const buttonLabel = p.subscribeButtonLabel ?? "Subscribe";
-  const successMessage = p.subscribeSuccessMessage ?? "You're in. Watch your inbox.";
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const submitUrl = p.subscribeSubmitUrl || p.formSubmitUrl || "/api/lp/leads";
-      const res = await fetch(submitUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          formData: { email: email.trim() },
-          source: "content-series-subscribe",
-          seriesTitle: p.seriesTitle,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) throw new Error("Subscribe failed");
-      setSubmitted(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }, [email, p.subscribeSubmitUrl, p.formSubmitUrl, p.seriesTitle]);
-
-  if (submitted) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.6rem",
-          padding: "0.95rem 1.5rem",
-          backgroundColor: rgba(C.primary, 0.12),
-          border: `1px solid ${rgba(C.primary, 0.45)}`,
-          borderRadius: "999px",
-          color: C.fg,
-          fontFamily: C.bodyFont,
-          fontSize: "0.85rem",
-        }}
-      >
-        <CheckCircle2 size={16} style={{ color: C.primary }} />
-        {successMessage}
-      </motion.div>
-    );
-  }
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    onOpenForm({ email: trimmed });
+  }, [email, onOpenForm]);
 
   return (
     <form
@@ -2345,7 +2298,6 @@ function SubscribeForm({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
         value={email}
         onChange={e => setEmail(e.target.value)}
         placeholder={placeholder}
-        disabled={submitting}
         style={{
           flex: 1,
           minWidth: "12rem",
@@ -2364,7 +2316,6 @@ function SubscribeForm({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
       />
       <motion.button
         type="submit"
-        disabled={submitting}
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.97 }}
         style={{
@@ -2381,23 +2332,17 @@ function SubscribeForm({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
           fontSize: "0.72rem",
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          cursor: submitting ? "wait" : "pointer",
-          opacity: submitting ? 0.7 : 1,
+          cursor: "pointer",
         }}
       >
-        {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        <Send size={14} />
         {buttonLabel}
       </motion.button>
-      {error && (
-        <p style={{ width: "100%", fontFamily: C.bodyFont, fontSize: "0.8rem", color: "#ef4444", textAlign: "center", marginTop: "0.5rem" }}>
-          {error}
-        </p>
-      )}
     </form>
   );
 }
 
-function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function CtaSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: (initial: Record<string, string>) => void }) {
   const headline = p.ctaSectionHeadline;
   const sub = p.ctaSectionSubheadline;
   const ctas: ContentSeriesCta[] = p.ctas ?? [];
@@ -2433,7 +2378,7 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
         )}
         {showSubscribe && (
           <motion.div variants={fadeUp} style={{ marginBottom: (ctas.length > 0 || p.rssFeedUrl) ? "2rem" : 0, display: "flex", justifyContent: "center" }}>
-            <SubscribeForm p={p} C={C} />
+            <SubscribeForm p={p} C={C} onOpenForm={onOpenForm} />
           </motion.div>
         )}
         {(ctas.length > 0 || p.rssFeedUrl) && (
@@ -2563,6 +2508,14 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
 
   const effective = useMemo(() => resolveHeroFromEpisodes(safeProps), [safeProps]);
 
+  const [formModalState, setFormModalState] = useState<{ open: boolean; initial: Record<string, string> }>({ open: false, initial: {} });
+  const openForm = useCallback((initial: Record<string, string> = {}) => {
+    setFormModalState({ open: true, initial });
+  }, []);
+  const closeForm = useCallback(() => {
+    setFormModalState(s => ({ ...s, open: false }));
+  }, []);
+
   return (
     <ContentSeriesErrorBoundary>
       <style>{`
@@ -2600,9 +2553,12 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
         {(safeProps.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
         {(safeProps.showHosts !== false) && <HostsSection p={effective} C={C} />}
         {(safeProps.showAbout !== false) && <AboutSection p={effective} C={C} />}
-        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} />}
-        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} />}
+        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openForm()} />}
+        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onOpenForm={openForm} />}
       </div>
+      {formModalState.open && (
+        <FormModal p={effective} C={C} onClose={closeForm} initialFormData={formModalState.initial} />
+      )}
     </ContentSeriesErrorBoundary>
   );
 }
