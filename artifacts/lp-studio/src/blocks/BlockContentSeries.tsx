@@ -8,16 +8,19 @@ import {
   Circle,
   Headphones,
   Globe,
+  Link2,
   Linkedin,
   Loader2,
   Mic,
   Play,
   PlayCircle,
+  Podcast,
   Radio,
   Rss,
   Send,
   Sparkles,
   X,
+  Youtube,
 } from "lucide-react";
 import type {
   ContentSeriesBlockProps,
@@ -406,11 +409,14 @@ function useGoogleFonts(displayFamily: string, bodyFamily: string) {
 function StickyNav({
   p,
   C,
+  onSubscribe,
 }: {
   p: ContentSeriesBlockProps;
   C: ResolvedTheme;
+  onSubscribe: (initial: Record<string, string>) => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const [navEmail, setNavEmail] = useState("");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
@@ -422,6 +428,17 @@ function StickyNav({
   const links = p.navLinks ?? [];
   const ctaText = p.navCtaText ?? defaultCtaForType(p.seriesType);
   const ctaUrl = p.navCtaUrl ?? "#subscribe";
+  const showSubscribeInput = p.subscribeEnabled !== false;
+  const subscribePlaceholder = p.subscribePlaceholder ?? "your@email.com";
+  const subscribeButton = p.subscribeButtonLabel ?? "Subscribe";
+
+  const handleNavSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = navEmail.trim();
+    if (!trimmed) return;
+    onSubscribe({ email: trimmed });
+    setNavEmail("");
+  };
 
   return (
     <motion.nav
@@ -503,20 +520,84 @@ function StickyNav({
         </div>
       )}
 
-      <motion.a
-        href={ctaUrl}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.97 }}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          padding: "0.6rem 1.1rem",
-          backgroundColor: C.primary,
-          color: C.bg,
-          fontWeight: 500,
-          fontSize: "0.7rem",
-          letterSpacing: "0.16em",
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+        {showSubscribeInput && (
+          <form
+            onSubmit={handleNavSubscribe}
+            className="bcs-nav-subscribe"
+            style={{
+              display: "flex",
+              alignItems: "stretch",
+              gap: "0.35rem",
+              padding: "0.25rem 0.25rem 0.25rem 0.85rem",
+              borderRadius: "999px",
+              border: `1px solid ${C.border}`,
+              backgroundColor: rgba(C.bg, 0.55),
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+            }}
+          >
+            <input
+              type="email"
+              required
+              value={navEmail}
+              onChange={e => setNavEmail(e.target.value)}
+              placeholder={subscribePlaceholder}
+              aria-label="Subscribe email"
+              style={{
+                width: "11rem",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: C.fg,
+                fontFamily: C.bodyFont,
+                fontSize: "0.78rem",
+                padding: "0.3rem 0",
+              }}
+            />
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              aria-label={subscribeButton}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                padding: "0.45rem 0.95rem",
+                backgroundColor: C.primary,
+                color: C.bg,
+                border: "none",
+                borderRadius: "999px",
+                fontFamily: C.bodyFont,
+                fontWeight: 500,
+                fontSize: "0.66rem",
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Send size={12} />
+              <span className="bcs-nav-subscribe-label">{subscribeButton}</span>
+            </motion.button>
+          </form>
+        )}
+        {!showSubscribeInput && (
+          <motion.a
+            href={ctaUrl}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.6rem 1.1rem",
+              backgroundColor: C.primary,
+              color: C.bg,
+              fontWeight: 500,
+              fontSize: "0.7rem",
+              letterSpacing: "0.16em",
           textTransform: "uppercase",
           textDecoration: "none",
           borderRadius: "999px",
@@ -524,9 +605,43 @@ function StickyNav({
       >
         {ctaText}
         <ArrowRight size={14} />
-      </motion.a>
+          </motion.a>
+        )}
+      </div>
     </motion.nav>
   );
+}
+
+function platformIconFor(cta: ContentSeriesCta): { icon: React.ReactNode; label: string } {
+  const url = (cta.url || "").toLowerCase();
+  const label = (cta.label || "").toLowerCase();
+  const text = `${url} ${label}`;
+  if (text.includes("spotify")) {
+    return {
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+        </svg>
+      ),
+      label: cta.label || "Spotify",
+    };
+  }
+  if (text.includes("apple") || text.includes("podcasts.apple") || text.includes("itunes")) {
+    return { icon: <Podcast size={18} />, label: cta.label || "Apple Podcasts" };
+  }
+  if (text.includes("youtube") || text.includes("youtu.be")) {
+    return { icon: <Youtube size={18} />, label: cta.label || "YouTube" };
+  }
+  if (text.includes("rss") || url.endsWith(".xml")) {
+    return { icon: <Rss size={18} />, label: cta.label || "RSS" };
+  }
+  if (text.includes("overcast") || text.includes("pocket") || text.includes("castbox")) {
+    return { icon: <Headphones size={18} />, label: cta.label || "Podcast" };
+  }
+  if (text.includes("amazon") || text.includes("audible")) {
+    return { icon: <Headphones size={18} />, label: cta.label || "Amazon" };
+  }
+  return { icon: <Link2 size={18} />, label: cta.label || "Link" };
 }
 
 function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
@@ -1839,18 +1954,31 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   );
 }
 
+interface FormModalConfig {
+  eyebrow: string;
+  headline: string;
+  subtitle?: string;
+  steps: FormStep[];
+  submitUrl: string;
+  successMessage: string;
+  successTitle?: string;
+  source: string;
+}
+
 function FormModal({
+  config,
   p,
   C,
   onClose,
   initialFormData,
 }: {
+  config: FormModalConfig;
   p: ContentSeriesBlockProps;
   C: ResolvedTheme;
   onClose: () => void;
   initialFormData?: Record<string, string>;
 }) {
-  const steps = p.formSteps ?? [];
+  const steps = config.steps ?? [];
 
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>(() => initialFormData ?? {});
@@ -1884,13 +2012,12 @@ function FormModal({
     setSubmitting(true);
     setError(null);
     try {
-      const submitUrl = p.formSubmitUrl || "/api/lp/leads";
-      const res = await fetch(submitUrl, {
+      const res = await fetch(config.submitUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formData,
-          source: "content-series",
+          source: config.source,
           seriesTitle: p.seriesTitle,
           timestamp: new Date().toISOString(),
         }),
@@ -1902,15 +2029,16 @@ function FormModal({
     } finally {
       setSubmitting(false);
     }
-  }, [isLastStep, formData, p.formSubmitUrl, p.seriesTitle, onClose]);
+  }, [isLastStep, formData, config.submitUrl, config.source, p.seriesTitle]);
 
   if (!steps.length) return null;
 
   const step = steps[currentStep];
-  const eyebrow = p.formEyebrow ?? "Be a Guest";
-  const headline = p.formHeadline ?? "Share Your Story";
-  const subtitle = p.formSubheadline ?? "";
-  const successMessage = p.formSuccessMessage ?? "Thank you! We'll be in touch.";
+  const eyebrow = config.eyebrow;
+  const headline = config.headline;
+  const subtitle = config.subtitle ?? "";
+  const successMessage = config.successMessage;
+  const successTitle = config.successTitle ?? "Thanks!";
 
   const renderField = (field: FormField) => {
     const val = formData[field.id] ?? "";
@@ -2055,7 +2183,7 @@ function FormModal({
             <div style={{ textAlign: "center", padding: "1rem 0" }}>
               <CheckCircle2 size={42} style={{ color: C.primary, marginBottom: "1rem" }} />
               <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.4rem", color: C.heading, marginBottom: "0.6rem" }}>
-                Application Received
+                {successTitle}
               </h3>
               <p style={{ fontFamily: C.bodyFont, fontSize: "0.92rem", color: C.muted, lineHeight: 1.6 }}>
                 {successMessage}
@@ -2342,11 +2470,13 @@ function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Re
   );
 }
 
-function CtaSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: (initial: Record<string, string>) => void }) {
+function CtaSection({ p, C, onSubscribe }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onSubscribe: (initial: Record<string, string>) => void }) {
   const headline = p.ctaSectionHeadline;
   const sub = p.ctaSectionSubheadline;
   const ctas: ContentSeriesCta[] = p.ctas ?? [];
-  const showSubscribe = p.subscribeEnabled !== false;
+  // Subscribe input now lives in the nav by default. Only render it inside
+  // the CTA section if the operator explicitly opted in via subscribeShowInCta.
+  const showSubscribe = p.subscribeEnabled !== false && p.subscribeShowInCta === true;
   if (!headline && !sub && !ctas.length && !p.rssFeedUrl && !showSubscribe) return null;
 
   return (
@@ -2378,40 +2508,40 @@ function CtaSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Resol
         )}
         {showSubscribe && (
           <motion.div variants={fadeUp} style={{ marginBottom: (ctas.length > 0 || p.rssFeedUrl) ? "2rem" : 0, display: "flex", justifyContent: "center" }}>
-            <SubscribeForm p={p} C={C} onOpenForm={onOpenForm} />
+            <SubscribeForm p={p} C={C} onOpenForm={onSubscribe} />
           </motion.div>
         )}
         {(ctas.length > 0 || p.rssFeedUrl) && (
           <motion.div variants={fadeUp} style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.85rem" }}>
             {ctas.map((cta, idx) => {
-              const isPrimary = (cta.variant ?? "primary") === "primary";
+              const { icon, label } = platformIconFor(cta);
               return (
                 <motion.a
                   key={`${cta.label}-${idx}`}
                   href={cta.url}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ scale: 1.08, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label={label}
+                  title={label}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "0.5rem",
-                    padding: "0.95rem 1.85rem",
-                    backgroundColor: isPrimary ? C.primary : "transparent",
-                    color: isPrimary ? C.bg : C.fg,
-                    border: isPrimary ? `1px solid ${C.primary}` : `1px solid ${C.border}`,
-                    fontFamily: C.bodyFont,
-                    fontWeight: 500,
-                    fontSize: "0.72rem",
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    textDecoration: "none",
+                    justifyContent: "center",
+                    width: "3rem",
+                    height: "3rem",
+                    backgroundColor: "transparent",
+                    color: C.muted,
+                    border: `1px solid ${C.border}`,
                     borderRadius: "999px",
+                    textDecoration: "none",
                     transition: "background-color 0.25s, border-color 0.25s, color 0.25s",
                   }}
-                  onMouseEnter={e => { if (!isPrimary) { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; } }}
-                  onMouseLeave={e => { if (!isPrimary) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.fg; } }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
                 >
-                  {cta.label}
+                  {icon}
                 </motion.a>
               );
             })}
@@ -2420,25 +2550,26 @@ function CtaSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Resol
                 href={p.rssFeedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.08, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label="RSS"
+                title="RSS"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.95rem 1.5rem",
+                  justifyContent: "center",
+                  width: "3rem",
+                  height: "3rem",
                   border: `1px solid ${C.border}`,
                   borderRadius: "999px",
                   color: C.muted,
                   textDecoration: "none",
-                  fontFamily: C.bodyFont,
-                  fontWeight: 500,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
+                  transition: "background-color 0.25s, border-color 0.25s, color 0.25s",
                 }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
               >
-                <Rss size={14} /> RSS
+                <Rss size={18} />
               </motion.a>
             )}
           </motion.div>
@@ -2508,13 +2639,47 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
 
   const effective = useMemo(() => resolveHeroFromEpisodes(safeProps), [safeProps]);
 
-  const [formModalState, setFormModalState] = useState<{ open: boolean; initial: Record<string, string> }>({ open: false, initial: {} });
-  const openForm = useCallback((initial: Record<string, string> = {}) => {
-    setFormModalState({ open: true, initial });
+  const [formModalState, setFormModalState] = useState<{ open: boolean; kind: "guest" | "subscribe"; initial: Record<string, string> }>({ open: false, kind: "guest", initial: {} });
+  const openGuestForm = useCallback((initial: Record<string, string> = {}) => {
+    setFormModalState({ open: true, kind: "guest", initial });
+  }, []);
+  const openSubscribeForm = useCallback((initial: Record<string, string> = {}) => {
+    setFormModalState({ open: true, kind: "subscribe", initial });
   }, []);
   const closeForm = useCallback(() => {
     setFormModalState(s => ({ ...s, open: false }));
   }, []);
+
+  const subscribeFormSteps: FormStep[] = (effective.subscribeFormSteps && effective.subscribeFormSteps.length)
+    ? effective.subscribeFormSteps
+    : [{
+        title: "Subscribe",
+        fields: [
+          { id: "email", type: "email", label: "Email", placeholder: "your@email.com", required: true },
+        ],
+      }];
+
+  const modalConfig: FormModalConfig = formModalState.kind === "subscribe"
+    ? {
+        eyebrow: effective.subscribeFormEyebrow ?? "Stay in the Loop",
+        headline: effective.subscribeFormHeadline ?? "Never Miss an Episode",
+        subtitle: effective.subscribeFormSubheadline ?? "Get new episodes delivered to your inbox.",
+        steps: subscribeFormSteps,
+        submitUrl: effective.subscribeFormSubmitUrl || effective.subscribeSubmitUrl || effective.formSubmitUrl || "/api/lp/leads",
+        successMessage: effective.subscribeSuccessMessage ?? "You're in. Watch your inbox.",
+        successTitle: "You're Subscribed",
+        source: "content-series-subscribe",
+      }
+    : {
+        eyebrow: effective.formEyebrow ?? "Be a Guest",
+        headline: effective.formHeadline ?? "Share Your Story",
+        subtitle: effective.formSubheadline ?? "",
+        steps: effective.formSteps ?? [],
+        submitUrl: effective.formSubmitUrl || "/api/lp/leads",
+        successMessage: effective.formSuccessMessage ?? "Thank you! We'll be in touch.",
+        successTitle: "Application Received",
+        source: "content-series-guest",
+      };
 
   return (
     <ContentSeriesErrorBoundary>
@@ -2548,16 +2713,16 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
           minHeight: "100vh",
         }}
       >
-        {(safeProps.showNav !== false) && <StickyNav p={effective} C={C} />}
+        {(safeProps.showNav !== false) && <StickyNav p={effective} C={C} onSubscribe={openSubscribeForm} />}
         {(safeProps.showHero !== false) && <Hero p={effective} C={C} />}
         {(safeProps.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
         {(safeProps.showHosts !== false) && <HostsSection p={effective} C={C} />}
         {(safeProps.showAbout !== false) && <AboutSection p={effective} C={C} />}
-        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openForm()} />}
-        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onOpenForm={openForm} />}
+        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openGuestForm()} />}
+        {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onSubscribe={openSubscribeForm} />}
       </div>
       {formModalState.open && (
-        <FormModal p={effective} C={C} onClose={closeForm} initialFormData={formModalState.initial} />
+        <FormModal config={modalConfig} p={effective} C={C} onClose={closeForm} initialFormData={formModalState.initial} />
       )}
     </ContentSeriesErrorBoundary>
   );

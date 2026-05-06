@@ -197,6 +197,7 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
     hosts: false,
     about: false,
     form: false,
+    subscribe: false,
     cta: false,
     nav: false,
   });
@@ -286,6 +287,28 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
   };
   const removeFormField = (si: number, fi: number) => {
     set({ formSteps: formSteps.map((s, idx) => idx === si ? { ...s, fields: (s.fields ?? []).filter((_, fidx) => fidx !== fi) } : s) });
+  };
+
+  // Subscribe-modal form (separate from the guest application form above).
+  const subscribeFormSteps = p.subscribeFormSteps ?? [];
+  const updateSubscribeStep = (si: number, patch: Partial<FormStep>) =>
+    set({ subscribeFormSteps: subscribeFormSteps.map((s, idx) => idx === si ? { ...s, ...patch } : s) });
+  const addSubscribeStep = () =>
+    set({ subscribeFormSteps: [...subscribeFormSteps, { title: "New Step", fields: [] }] });
+  const removeSubscribeStep = (si: number) =>
+    set({ subscribeFormSteps: subscribeFormSteps.filter((_, idx) => idx !== si) });
+  const updateSubscribeField = (si: number, fi: number, patch: Partial<FormField>) => {
+    const steps = subscribeFormSteps.map((s, idx) =>
+      idx === si ? { ...s, fields: (s.fields ?? []).map((f, fidx) => fidx === fi ? { ...f, ...patch } : f) } : s
+    );
+    set({ subscribeFormSteps: steps });
+  };
+  const addSubscribeField = (si: number) => {
+    const newField: FormField = { id: `field_${Date.now()}`, type: "text", label: "New Field", placeholder: "", required: false };
+    set({ subscribeFormSteps: subscribeFormSteps.map((s, idx) => idx === si ? { ...s, fields: [...(s.fields ?? []), newField] } : s) });
+  };
+  const removeSubscribeField = (si: number, fi: number) => {
+    set({ subscribeFormSteps: subscribeFormSteps.map((s, idx) => idx === si ? { ...s, fields: (s.fields ?? []).filter((_, fidx) => fidx !== fi) } : s) });
   };
 
   return (
@@ -816,6 +839,115 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
         </div>
       )}
 
+      {/* ── Subscribe Form (Modal) ───────────────────────────────────────── */}
+      <SectionHeader label="Subscribe Form (Modal)" open={open.subscribe} onToggle={() => toggle("subscribe")} />
+      {open.subscribe && (
+        <div className="space-y-3 pt-3 pb-4">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Opens when someone submits the email input in the nav. This is a <span className="font-medium text-foreground">separate form</span> from the Guest Application above — give it its own headline, subhead, and fields (typically just email + name).
+          </p>
+          <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+            <input
+              type="checkbox"
+              checked={p.subscribeEnabled !== false}
+              onChange={e => set({ subscribeEnabled: e.target.checked })}
+              className="w-3.5 h-3.5"
+            />
+            Enable subscribe input in nav
+          </label>
+          {p.subscribeEnabled !== false && (
+            <>
+              <Field label="Nav Input Placeholder">
+                <Input value={p.subscribePlaceholder ?? ""} onChange={e => set({ subscribePlaceholder: e.target.value || undefined })} className="text-xs h-7" placeholder="your@email.com" />
+              </Field>
+              <Field label="Nav Button Label">
+                <Input value={p.subscribeButtonLabel ?? ""} onChange={e => set({ subscribeButtonLabel: e.target.value || undefined })} className="text-xs h-7" placeholder="Subscribe" />
+              </Field>
+              <div className="border-t border-border pt-3 mt-3 space-y-3">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Modal Copy</Label>
+                <Field label="Eyebrow">
+                  <AiTextField type="input" value={p.subscribeFormEyebrow ?? ""} onChange={v => set({ subscribeFormEyebrow: v })} fieldLabel="Subscribe Eyebrow" brandVoiceSet={brandVoiceSet}
+                    onSuggest={() => suggestCopy("content-series", "subscribeFormEyebrow", p.subscribeFormEyebrow ?? "", {})} />
+                </Field>
+                <Field label="Headline">
+                  <AiTextField type="input" value={p.subscribeFormHeadline ?? ""} onChange={v => set({ subscribeFormHeadline: v })} fieldLabel="Subscribe Headline" brandVoiceSet={brandVoiceSet}
+                    onSuggest={() => suggestCopy("content-series", "subscribeFormHeadline", p.subscribeFormHeadline ?? "", {})} />
+                </Field>
+                <Field label="Subtitle">
+                  <AiTextField type="textarea" value={p.subscribeFormSubheadline ?? ""} onChange={v => set({ subscribeFormSubheadline: v })} rows={2} fieldLabel="Subscribe Subtitle" brandVoiceSet={brandVoiceSet}
+                    onSuggest={() => suggestCopy("content-series", "subscribeFormSubheadline", p.subscribeFormSubheadline ?? "", {})} />
+                </Field>
+                <Field label="Success Message">
+                  <Input value={p.subscribeSuccessMessage ?? ""} onChange={e => set({ subscribeSuccessMessage: e.target.value || undefined })} className="text-xs h-7" placeholder="You're in. Watch your inbox." />
+                </Field>
+                <Field label="Submit URL" hint="Falls back to Subscribe Submit URL, then Form Submit URL, then default lead system.">
+                  <Input value={p.subscribeFormSubmitUrl ?? ""} onChange={e => set({ subscribeFormSubmitUrl: e.target.value || undefined })} className="text-xs h-7 font-mono" placeholder="https://… (optional)" />
+                </Field>
+              </div>
+              <div className="border-t border-border pt-3 mt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Subscribe Form Steps</Label>
+                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={addSubscribeStep}>
+                    <Plus className="w-3 h-3 mr-1" /> Step
+                  </Button>
+                </div>
+                {subscribeFormSteps.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground italic">No custom fields — modal will show a single email input.</p>
+                )}
+                {subscribeFormSteps.map((fStep, si) => (
+                  <div key={si} className="border border-border rounded p-2 space-y-2">
+                    <div className="flex items-center gap-1">
+                      <Input value={fStep.title} onChange={e => updateSubscribeStep(si, { title: e.target.value })} placeholder="Step title" className="text-xs h-7 flex-1" />
+                      <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0" onClick={() => removeSubscribeStep(si)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5 pl-2">
+                      {(fStep.fields ?? []).map((field, fi) => (
+                        <div key={fi} className="border border-border/50 rounded p-1.5 space-y-1.5">
+                          <div className="flex items-center gap-1">
+                            <Input value={field.label} onChange={e => updateSubscribeField(si, fi, { label: e.target.value })} placeholder="Label" className="text-xs h-6 flex-1" />
+                            <select
+                              value={field.type}
+                              onChange={e => updateSubscribeField(si, fi, { type: e.target.value as FormFieldType })}
+                              className="text-xs h-6 border border-border rounded px-1 bg-background"
+                            >
+                              {(["text", "email", "phone", "textarea", "select", "hidden"] as FormFieldType[]).map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                            <Button type="button" size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => removeSubscribeField(si, fi)}>
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </Button>
+                          </div>
+                          <Input value={field.placeholder ?? ""} onChange={e => updateSubscribeField(si, fi, { placeholder: e.target.value })} placeholder="Placeholder" className="text-xs h-6" />
+                          {field.type === "select" && (
+                            <Textarea
+                              value={(field.options ?? []).join("\n")}
+                              onChange={e => updateSubscribeField(si, fi, { options: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })}
+                              placeholder="One option per line"
+                              className="text-xs min-h-[3rem]"
+                              rows={2}
+                            />
+                          )}
+                          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                            <input type="checkbox" checked={field.required} onChange={e => updateSubscribeField(si, fi, { required: e.target.checked })} className="w-3 h-3" />
+                            Required
+                          </label>
+                        </div>
+                      ))}
+                      <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs w-full border border-dashed border-border" onClick={() => addSubscribeField(si)}>
+                        <Plus className="w-3 h-3 mr-1" /> Add Field
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── CTA Section ──────────────────────────────────────────────────── */}
       <SectionHeader label="CTA Section" open={open.cta} onToggle={() => toggle("cta")} />
       {open.cta && (
@@ -833,28 +965,15 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
             <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
               <input
                 type="checkbox"
-                checked={p.subscribeEnabled !== false}
-                onChange={e => set({ subscribeEnabled: e.target.checked })}
+                checked={p.subscribeShowInCta === true}
+                onChange={e => set({ subscribeShowInCta: e.target.checked })}
                 className="w-3.5 h-3.5"
               />
-              Show email subscribe input
+              Also show subscribe input here (in CTA section)
             </label>
-            {p.subscribeEnabled !== false && (
-              <div className="space-y-2 pl-1">
-                <Field label="Placeholder">
-                  <Input value={p.subscribePlaceholder ?? ""} onChange={e => set({ subscribePlaceholder: e.target.value || undefined })} className="text-xs h-7" placeholder="your@email.com" />
-                </Field>
-                <Field label="Button Label">
-                  <Input value={p.subscribeButtonLabel ?? ""} onChange={e => set({ subscribeButtonLabel: e.target.value || undefined })} className="text-xs h-7" placeholder="Subscribe" />
-                </Field>
-                <Field label="Success Message">
-                  <Input value={p.subscribeSuccessMessage ?? ""} onChange={e => set({ subscribeSuccessMessage: e.target.value || undefined })} className="text-xs h-7" placeholder="You're in. Watch your inbox." />
-                </Field>
-                <Field label="Submit URL" hint="Falls back to the form Submit URL, then default lead system.">
-                  <Input value={p.subscribeSubmitUrl ?? ""} onChange={e => set({ subscribeSubmitUrl: e.target.value || undefined })} className="text-xs h-7 font-mono" placeholder="https://… (optional)" />
-                </Field>
-              </div>
-            )}
+            <p className="text-[10px] text-muted-foreground pl-5 leading-relaxed">
+              The subscribe input lives in the nav by default. Toggle this on to also render it inline in the bottom CTA section.
+            </p>
           </div>
 
           <div className="space-y-2">

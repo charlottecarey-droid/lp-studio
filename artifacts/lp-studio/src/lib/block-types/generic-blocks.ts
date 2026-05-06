@@ -1273,13 +1273,33 @@ export interface ContentSeriesBlockProps {
   /** Label of the button that opens the application form modal. */
   formButtonLabel?: string;
 
-  /** Inline email subscribe input rendered in the bottom CTA section. */
+  /** Inline email subscribe input rendered in the sticky nav (and optionally
+   *  in the bottom CTA section when subscribeShowInCta is true). Submitting
+   *  the inline input opens the dedicated Subscribe modal below with the
+   *  email pre-filled. */
   subscribeEnabled?: boolean;
   subscribePlaceholder?: string;
   subscribeButtonLabel?: string;
   subscribeSuccessMessage?: string;
-  /** Where the subscribe email is POSTed. Falls back to formSubmitUrl, then /api/lp/leads. */
+  /** Where the subscribe email is POSTed. Falls back to subscribeFormSubmitUrl,
+   *  then formSubmitUrl, then /api/lp/leads. */
   subscribeSubmitUrl?: string;
+  /** When true, also render the inline subscribe input inside the bottom CTA
+   *  section (in addition to the nav). Defaults to false — the input lives in
+   *  the nav by default. */
+  subscribeShowInCta?: boolean;
+
+  /** Subscribe modal — separate from the guest application form so it can have
+   *  its own headline/subheadline/fields (typically just email + name). When
+   *  subscribeFormSteps is empty/missing, the modal falls back to a single
+   *  email-only step. */
+  subscribeFormEyebrow?: string;
+  subscribeFormHeadline?: string;
+  subscribeFormSubheadline?: string;
+  subscribeFormSteps?: import("./common").FormStep[];
+  /** Optional custom POST endpoint for the subscribe modal. Falls back to
+   *  subscribeSubmitUrl chain. */
+  subscribeFormSubmitUrl?: string;
 
   /** Optional RSS feed URL. When set, the panel "Sync from RSS" button can pull episodes;
    *  if rssAutoSync is also true, the published page also fetches the feed on render and

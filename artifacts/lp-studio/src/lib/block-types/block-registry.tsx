@@ -4118,8 +4118,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaSectionSubheadline: "Subscribe on your favorite platform and stay ahead of the curve.",
       ctas: [
         { label: "Apple Podcasts", url: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971", variant: "primary" },
-        { label: "Nominate a Guest", url: "#", variant: "outline" },
-        { label: "Contact Us", url: "#", variant: "outline" },
+        { label: "Spotify", url: "https://open.spotify.com/", variant: "outline" },
+        { label: "YouTube", url: "https://www.youtube.com/", variant: "outline" },
       ],
       formEyebrow: "Be a Guest",
       formHeadline: "Share Your Story",
@@ -4144,6 +4144,19 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       subscribePlaceholder: "your@email.com",
       subscribeButtonLabel: "Subscribe",
       subscribeSuccessMessage: "You're in. Watch your inbox for the next episode.",
+      subscribeShowInCta: false,
+      subscribeFormEyebrow: "Stay in the Loop",
+      subscribeFormHeadline: "Never Miss an Episode",
+      subscribeFormSubheadline: "Drop your email and we'll send each new episode straight to your inbox.",
+      subscribeFormSteps: [
+        {
+          title: "Subscribe",
+          fields: [
+            { id: "email", type: "email", label: "Email", placeholder: "your@email.com", required: true },
+            { id: "first_name", type: "text", label: "First Name", placeholder: "Jane", required: false },
+          ],
+        },
+      ],
       rssFeedUrl: "",
     }),
     thumbnail: () => (
