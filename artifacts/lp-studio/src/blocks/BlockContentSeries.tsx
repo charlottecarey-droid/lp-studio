@@ -1919,12 +1919,16 @@ function FormModal({
   C,
   onClose,
   initialFormData,
+  pageId,
+  sessionId,
 }: {
   config: FormModalConfig;
   p: ContentSeriesBlockProps;
   C: ResolvedTheme;
   onClose: () => void;
   initialFormData?: Record<string, string>;
+  pageId?: number;
+  sessionId?: string;
 }) {
   const steps = config.steps ?? [];
 
@@ -1960,24 +1964,37 @@ function FormModal({
     setSubmitting(true);
     setError(null);
     try {
+      // The /api/lp/leads endpoint requires `pageId` and a `fields` map.
+      // Include source/series metadata as hidden-style entries inside `fields`
+      // so they're persisted with the lead without changing the API contract.
+      const fields: Record<string, unknown> = {
+        ...formData,
+        _source: config.source,
+        _seriesTitle: p.seriesTitle ?? "",
+        _submittedAt: new Date().toISOString(),
+      };
+      const body: Record<string, unknown> = { fields };
+      if (typeof pageId === "number") body.pageId = pageId;
+      if (sessionId) body.sessionId = sessionId;
+
       const res = await fetch(config.submitUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          formData,
-          source: config.source,
-          seriesTitle: p.seriesTitle,
-          timestamp: new Date().toISOString(),
-        }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error("Submission failed");
+      if (!res.ok) {
+        let detail = "";
+        try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
+        throw new Error(detail || `Submission failed (${res.status})`);
+      }
       setSubmitted(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : "Something went wrong. Please try again.";
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
-  }, [isLastStep, formData, config.submitUrl, config.source, p.seriesTitle]);
+  }, [isLastStep, formData, config.submitUrl, config.source, p.seriesTitle, pageId, sessionId]);
 
   if (!steps.length) return null;
 
@@ -2536,6 +2553,8 @@ interface Props {
   props: ContentSeriesBlockProps;
   brand?: BrandConfig;
   onFieldChange?: (updated: ContentSeriesBlockProps) => void;
+  pageId?: number;
+  sessionId?: string;
 }
 
 function resolveHeroFromEpisodes(p: ContentSeriesBlockProps): ContentSeriesBlockProps {
@@ -2577,7 +2596,8 @@ function resolveHeroFromEpisodes(p: ContentSeriesBlockProps): ContentSeriesBlock
   };
 }
 
-export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
+export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
+  void _onFieldChange;
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
   const base = brandDefaults(brand);
   useGoogleFonts(
@@ -2680,7 +2700,7 @@ export function BlockContentSeries({ props: p, brand, onFieldChange }: Props) {
         {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onSubscribe={openSubscribeForm} />}
       </div>
       {formModalState.open && (
-        <FormModal config={modalConfig} p={effective} C={C} onClose={closeForm} initialFormData={formModalState.initial} />
+        <FormModal config={modalConfig} p={effective} C={C} onClose={closeForm} initialFormData={formModalState.initial} pageId={pageId} sessionId={sessionId} />
       )}
     </ContentSeriesErrorBoundary>
   );
