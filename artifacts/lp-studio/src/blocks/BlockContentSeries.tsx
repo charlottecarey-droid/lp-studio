@@ -673,7 +673,7 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
               </p>
             )}
             {p.heroEpisodeDescription && (
-              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem" }}>
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                 {p.heroEpisodeDescription}
               </p>
             )}
@@ -824,7 +824,7 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
               </p>
             )}
             {p.heroEpisodeDescription && (
-              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem" }}>
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                 {p.heroEpisodeDescription}
               </p>
             )}
@@ -997,7 +997,7 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
               </p>
             )}
             {p.heroEpisodeDescription && (
-              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem" }}>
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.65, marginBottom: "1.5rem", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                 {p.heroEpisodeDescription}
               </p>
             )}
