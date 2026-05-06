@@ -2376,13 +2376,27 @@ function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Re
   return (
     <form
       onSubmit={handleSubmit}
+      className="bcs-subscribe-form"
       style={{
         display: "flex",
-        flexWrap: "wrap",
-        gap: "0.5rem",
+        alignItems: "stretch",
+        gap: 0,
         width: "100%",
         maxWidth: "30rem",
         margin: "0 auto",
+        backgroundColor: rgba(C.bg, 0.6),
+        border: `1px solid ${C.border}`,
+        borderRadius: "999px",
+        padding: "4px",
+        transition: "border-color 0.2s, box-shadow 0.2s",
+      }}
+      onFocusCapture={e => {
+        (e.currentTarget as HTMLFormElement).style.borderColor = C.primary;
+        (e.currentTarget as HTMLFormElement).style.boxShadow = `0 0 0 4px ${rgba(C.primary, 0.12)}`;
+      }}
+      onBlurCapture={e => {
+        (e.currentTarget as HTMLFormElement).style.borderColor = C.border;
+        (e.currentTarget as HTMLFormElement).style.boxShadow = "none";
       }}
     >
       <input
@@ -2391,31 +2405,31 @@ function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Re
         value={email}
         onChange={e => setEmail(e.target.value)}
         placeholder={placeholder}
+        className="bcs-subscribe-input"
         style={{
           flex: 1,
-          minWidth: "12rem",
-          padding: "0.95rem 1.25rem",
-          backgroundColor: rgba(C.bg, 0.6),
-          border: `1px solid ${C.border}`,
-          borderRadius: "999px",
+          minWidth: 0,
+          padding: "0.85rem 1.25rem",
+          backgroundColor: "transparent",
+          border: "none",
+          borderRadius: "999px 0 0 999px",
           color: C.fg,
           fontFamily: C.bodyFont,
           fontSize: "0.9rem",
           outline: "none",
-          transition: "border-color 0.2s",
         }}
-        onFocus={e => { e.currentTarget.style.borderColor = C.primary; }}
-        onBlur={e => { e.currentTarget.style.borderColor = C.border; }}
       />
       <motion.button
         type="submit"
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.97 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="bcs-subscribe-button"
         style={{
           display: "inline-flex",
           alignItems: "center",
+          justifyContent: "center",
           gap: "0.5rem",
-          padding: "0.95rem 1.65rem",
+          padding: "0.75rem 1.65rem",
           backgroundColor: C.primary,
           color: C.bg,
           border: "none",
@@ -2426,6 +2440,8 @@ function SubscribeForm({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Re
           letterSpacing: "0.2em",
           textTransform: "uppercase",
           cursor: "pointer",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
         }}
       >
         <Send size={14} />
