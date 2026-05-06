@@ -1262,13 +1262,24 @@ export interface ContentSeriesBlockProps {
   ctaSectionSubheadline?: string;
   ctas?: ContentSeriesCta[];
 
-  /** Guest application / contact form — matches the event-page FormStep pattern. */
+  /** Guest application / contact form — matches the event-page FormStep pattern.
+   *  The form opens in a modal triggered by a button in the form section. */
   formEyebrow?: string;
   formHeadline?: string;
   formSubheadline?: string;
   formSteps?: import("./common").FormStep[];
   formSubmitUrl?: string;
   formSuccessMessage?: string;
+  /** Label of the button that opens the application form modal. */
+  formButtonLabel?: string;
+
+  /** Inline email subscribe input rendered in the bottom CTA section. */
+  subscribeEnabled?: boolean;
+  subscribePlaceholder?: string;
+  subscribeButtonLabel?: string;
+  subscribeSuccessMessage?: string;
+  /** Where the subscribe email is POSTed. Falls back to formSubmitUrl, then /api/lp/leads. */
+  subscribeSubmitUrl?: string;
 
   /** Optional RSS feed URL. When set, the panel "Sync from RSS" button can pull episodes;
    *  if rssAutoSync is also true, the published page also fetches the feed on render and

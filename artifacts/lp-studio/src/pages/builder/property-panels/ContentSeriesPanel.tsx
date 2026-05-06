@@ -754,6 +754,9 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
             <AiTextField type="input" value={p.formSuccessMessage ?? ""} onChange={v => set({ formSuccessMessage: v })} fieldLabel="Success Message" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("content-series", "formSuccessMessage", p.formSuccessMessage ?? "", {})} />
           </Field>
+          <Field label="Open-Form Button Label" hint="Text on the button that opens the application modal">
+            <Input value={p.formButtonLabel ?? ""} onChange={e => set({ formButtonLabel: e.target.value || undefined })} className="text-xs h-7" placeholder="Apply to be a Guest" />
+          </Field>
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
               <Label className="text-xs font-medium">Form Steps</Label>
@@ -825,6 +828,35 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
             <AiTextField type="textarea" value={p.ctaSectionSubheadline ?? ""} onChange={v => set({ ctaSectionSubheadline: v })} rows={2} fieldLabel="CTA Subheadline" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("content-series", "ctaSectionSubheadline", p.ctaSectionSubheadline ?? "", {})} />
           </Field>
+
+          <div className="border border-border rounded-md p-2.5 space-y-2 bg-muted/30">
+            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={p.subscribeEnabled !== false}
+                onChange={e => set({ subscribeEnabled: e.target.checked })}
+                className="w-3.5 h-3.5"
+              />
+              Show email subscribe input
+            </label>
+            {p.subscribeEnabled !== false && (
+              <div className="space-y-2 pl-1">
+                <Field label="Placeholder">
+                  <Input value={p.subscribePlaceholder ?? ""} onChange={e => set({ subscribePlaceholder: e.target.value || undefined })} className="text-xs h-7" placeholder="your@email.com" />
+                </Field>
+                <Field label="Button Label">
+                  <Input value={p.subscribeButtonLabel ?? ""} onChange={e => set({ subscribeButtonLabel: e.target.value || undefined })} className="text-xs h-7" placeholder="Subscribe" />
+                </Field>
+                <Field label="Success Message">
+                  <Input value={p.subscribeSuccessMessage ?? ""} onChange={e => set({ subscribeSuccessMessage: e.target.value || undefined })} className="text-xs h-7" placeholder="You're in. Watch your inbox." />
+                </Field>
+                <Field label="Submit URL" hint="Falls back to the form Submit URL, then default lead system.">
+                  <Input value={p.subscribeSubmitUrl ?? ""} onChange={e => set({ subscribeSubmitUrl: e.target.value || undefined })} className="text-xs h-7 font-mono" placeholder="https://… (optional)" />
+                </Field>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">CTA Buttons</Label>

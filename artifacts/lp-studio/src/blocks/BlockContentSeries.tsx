@@ -1839,7 +1839,15 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   );
 }
 
-function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+function FormModal({
+  p,
+  C,
+  onClose,
+}: {
+  p: ContentSeriesBlockProps;
+  C: ResolvedTheme;
+  onClose: () => void;
+}) {
   const steps = p.formSteps ?? [];
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -1847,6 +1855,17 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
 
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
@@ -1881,7 +1900,7 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
     } finally {
       setSubmitting(false);
     }
-  }, [isLastStep, formData, p.formSubmitUrl, p.seriesTitle]);
+  }, [isLastStep, formData, p.formSubmitUrl, p.seriesTitle, onClose]);
 
   if (!steps.length) return null;
 
@@ -1954,63 +1973,111 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
   };
 
   return (
-    <section
-      id="apply"
-      className="bcs-section"
-      style={{
-        padding: "7rem 1.5rem",
-        backgroundColor: C.bg,
-        borderBottom: `1px solid ${C.borderDim}`,
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        aria-hidden
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
         style={{
-          position: "absolute",
+          position: "fixed",
           inset: 0,
-          background: `radial-gradient(circle at 50% 100%, ${rgba(C.primary, 0.08)} 0%, transparent 50%)`,
-          pointerEvents: "none",
+          zIndex: 9999,
+          backgroundColor: "rgba(0,0,0,0.78)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          padding: "5vh 1.5rem",
+          overflowY: "auto",
         }}
-      />
-      <div style={{ position: "relative", maxWidth: "42rem", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={stagger} style={{ textAlign: "center", marginBottom: "3rem" }}>
-          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
-            {eyebrow}
-          </motion.p>
-          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em", marginBottom: subtitle ? "1rem" : 0 }}>
-            {headline}
-          </motion.h2>
-          {subtitle && (
-            <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", color: C.muted, lineHeight: 1.7, maxWidth: "36rem", margin: "0 auto" }}>
-              {subtitle}
-            </motion.p>
-          )}
-        </motion.div>
-
+      >
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          initial={{ scale: 0.96, opacity: 0, y: 12 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.96, opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          onClick={e => e.stopPropagation()}
           style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: "38rem",
             backgroundColor: C.card,
             border: `1px solid ${C.border}`,
             borderRadius: "1rem",
-            padding: "2.5rem",
-            position: "relative",
+            padding: "2.25rem",
+            boxShadow: "0 30px 70px rgba(0,0,0,0.55)",
           }}
         >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: "0.85rem",
+              right: "0.85rem",
+              width: "2rem",
+              height: "2rem",
+              borderRadius: "999px",
+              backgroundColor: "transparent",
+              border: `1px solid ${C.border}`,
+              color: C.muted,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "color 0.2s, border-color 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = C.fg; e.currentTarget.style.borderColor = C.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.borderColor = C.border; }}
+          >
+            <X size={14} />
+          </button>
+
+          <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
+            <p style={{ fontFamily: C.bodyFont, fontSize: "0.65rem", fontWeight: 500, letterSpacing: "0.32em", textTransform: "uppercase", color: C.primary, marginBottom: "0.65rem" }}>
+              {eyebrow}
+            </p>
+            <h2 style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(1.5rem, 3vw, 2rem)", color: C.heading, letterSpacing: "-0.01em", marginBottom: subtitle ? "0.65rem" : 0, lineHeight: 1.2 }}>
+              {headline}
+            </h2>
+            {subtitle && (
+              <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "0.92rem", color: C.muted, lineHeight: 1.6 }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+
           {submitted ? (
-            <div style={{ textAlign: "center", padding: "2rem 0" }}>
-              <CheckCircle2 size={48} style={{ color: C.primary, marginBottom: "1.25rem" }} />
-              <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.6rem", color: C.heading, marginBottom: "0.75rem" }}>
+            <div style={{ textAlign: "center", padding: "1rem 0" }}>
+              <CheckCircle2 size={42} style={{ color: C.primary, marginBottom: "1rem" }} />
+              <h3 style={{ fontFamily: C.displayFont, fontWeight: 500, fontSize: "1.4rem", color: C.heading, marginBottom: "0.6rem" }}>
                 Application Received
               </h3>
-              <p style={{ fontFamily: C.bodyFont, fontSize: "0.95rem", color: C.muted, lineHeight: 1.65 }}>
+              <p style={{ fontFamily: C.bodyFont, fontSize: "0.92rem", color: C.muted, lineHeight: 1.6 }}>
                 {successMessage}
               </p>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  marginTop: "1.5rem",
+                  padding: "0.7rem 1.5rem",
+                  backgroundColor: "transparent",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "999px",
+                  color: C.fg,
+                  fontFamily: C.bodyFont,
+                  fontWeight: 500,
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
@@ -2111,8 +2178,222 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
             </form>
           )}
         </motion.div>
-      </div>
-    </section>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const [open, setOpen] = useState(false);
+  const steps = p.formSteps ?? [];
+  if (!steps.length) return null;
+
+  const eyebrow = p.formEyebrow ?? "Be a Guest";
+  const headline = p.formHeadline ?? "Share Your Story";
+  const subtitle = p.formSubheadline ?? "";
+  const buttonLabel = p.formButtonLabel ?? "Apply to be a Guest";
+
+  return (
+    <>
+      <section
+        id="apply"
+        className="bcs-section"
+        style={{
+          padding: "7rem 1.5rem",
+          backgroundColor: C.bg,
+          borderBottom: `1px solid ${C.borderDim}`,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `radial-gradient(circle at 50% 100%, ${rgba(C.primary, 0.08)} 0%, transparent 50%)`,
+            pointerEvents: "none",
+          }}
+        />
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={stagger}
+          style={{ position: "relative", maxWidth: "40rem", margin: "0 auto", textAlign: "center" }}
+        >
+          <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontSize: "0.7rem", fontWeight: 500, letterSpacing: "0.36em", textTransform: "uppercase", color: C.primary, marginBottom: "1rem" }}>
+            {eyebrow}
+          </motion.p>
+          <motion.h2 variants={fadeUp} style={{ fontFamily: C.displayFont, fontWeight: 400, fontSize: "clamp(2rem, 4vw, 3rem)", color: C.heading, letterSpacing: "-0.01em", marginBottom: subtitle ? "1.25rem" : "2rem", lineHeight: 1.15 }}>
+            {headline}
+          </motion.h2>
+          {subtitle && (
+            <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", color: C.muted, lineHeight: 1.7, marginBottom: "2.25rem" }}>
+              {subtitle}
+            </motion.p>
+          )}
+          <motion.button
+            variants={fadeUp}
+            type="button"
+            onClick={() => setOpen(true)}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              padding: "1rem 2rem",
+              backgroundColor: C.primary,
+              color: C.bg,
+              border: "none",
+              borderRadius: "999px",
+              fontFamily: C.bodyFont,
+              fontWeight: 500,
+              fontSize: "0.72rem",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: `0 12px 30px ${rgba(C.primary, 0.28)}`,
+            }}
+          >
+            {buttonLabel}
+            <ArrowRight size={14} />
+          </motion.button>
+        </motion.div>
+      </section>
+      {open && <FormModal p={p} C={C} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function SubscribeForm({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const placeholder = p.subscribePlaceholder ?? "your@email.com";
+  const buttonLabel = p.subscribeButtonLabel ?? "Subscribe";
+  const successMessage = p.subscribeSuccessMessage ?? "You're in. Watch your inbox.";
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const submitUrl = p.subscribeSubmitUrl || p.formSubmitUrl || "/api/lp/leads";
+      const res = await fetch(submitUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formData: { email: email.trim() },
+          source: "content-series-subscribe",
+          seriesTitle: p.seriesTitle,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) throw new Error("Subscribe failed");
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [email, p.subscribeSubmitUrl, p.formSubmitUrl, p.seriesTitle]);
+
+  if (submitted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.6rem",
+          padding: "0.95rem 1.5rem",
+          backgroundColor: rgba(C.primary, 0.12),
+          border: `1px solid ${rgba(C.primary, 0.45)}`,
+          borderRadius: "999px",
+          color: C.fg,
+          fontFamily: C.bodyFont,
+          fontSize: "0.85rem",
+        }}
+      >
+        <CheckCircle2 size={16} style={{ color: C.primary }} />
+        {successMessage}
+      </motion.div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "0.5rem",
+        width: "100%",
+        maxWidth: "30rem",
+        margin: "0 auto",
+      }}
+    >
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder={placeholder}
+        disabled={submitting}
+        style={{
+          flex: 1,
+          minWidth: "12rem",
+          padding: "0.95rem 1.25rem",
+          backgroundColor: rgba(C.bg, 0.6),
+          border: `1px solid ${C.border}`,
+          borderRadius: "999px",
+          color: C.fg,
+          fontFamily: C.bodyFont,
+          fontSize: "0.9rem",
+          outline: "none",
+          transition: "border-color 0.2s",
+        }}
+        onFocus={e => { e.currentTarget.style.borderColor = C.primary; }}
+        onBlur={e => { e.currentTarget.style.borderColor = C.border; }}
+      />
+      <motion.button
+        type="submit"
+        disabled={submitting}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.97 }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.95rem 1.65rem",
+          backgroundColor: C.primary,
+          color: C.bg,
+          border: "none",
+          borderRadius: "999px",
+          fontFamily: C.bodyFont,
+          fontWeight: 500,
+          fontSize: "0.72rem",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          cursor: submitting ? "wait" : "pointer",
+          opacity: submitting ? 0.7 : 1,
+        }}
+      >
+        {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        {buttonLabel}
+      </motion.button>
+      {error && (
+        <p style={{ width: "100%", fontFamily: C.bodyFont, fontSize: "0.8rem", color: "#ef4444", textAlign: "center", marginTop: "0.5rem" }}>
+          {error}
+        </p>
+      )}
+    </form>
   );
 }
 
@@ -2120,7 +2401,8 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
   const headline = p.ctaSectionHeadline;
   const sub = p.ctaSectionSubheadline;
   const ctas: ContentSeriesCta[] = p.ctas ?? [];
-  if (!headline && !sub && !ctas.length && !p.rssFeedUrl) return null;
+  const showSubscribe = p.subscribeEnabled !== false;
+  if (!headline && !sub && !ctas.length && !p.rssFeedUrl && !showSubscribe) return null;
 
   return (
     <section
@@ -2148,6 +2430,11 @@ function CtaSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) 
           <motion.p variants={fadeUp} style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1.05rem", lineHeight: 1.7, color: C.muted, maxWidth: "36rem", margin: "0 auto 2.75rem" }}>
             {sub}
           </motion.p>
+        )}
+        {showSubscribe && (
+          <motion.div variants={fadeUp} style={{ marginBottom: (ctas.length > 0 || p.rssFeedUrl) ? "2rem" : 0, display: "flex", justifyContent: "center" }}>
+            <SubscribeForm p={p} C={C} />
+          </motion.div>
         )}
         {(ctas.length > 0 || p.rssFeedUrl) && (
           <motion.div variants={fadeUp} style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.85rem" }}>

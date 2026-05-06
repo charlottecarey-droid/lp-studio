@@ -4139,6 +4139,11 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ],
       formSubmitUrl: "",
       formSuccessMessage: "Thank you! We'll be in touch about featuring you on the show.",
+      formButtonLabel: "Apply to be a Guest",
+      subscribeEnabled: true,
+      subscribePlaceholder: "your@email.com",
+      subscribeButtonLabel: "Subscribe",
+      subscribeSuccessMessage: "You're in. Watch your inbox for the next episode.",
       rssFeedUrl: "",
     }),
     thumbnail: () => (
