@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 import agreementSummaryPreviewUrl from "@/assets/agreement-summary-preview.png";
+import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import {
   Search, Plus, Eye, EyeOff, Copy, Trash2, RotateCcw, Upload, X, Loader2,
   FileText, GripVertical, Settings2, ChevronDown, Save, FileDown, Image as ImageIcon,
@@ -755,6 +756,11 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
                       rows={4}
                       placeholder="Section body"
                       className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none leading-snug"
+                    />
+                    <AgreementNumbersEditor
+                      body={section.body}
+                      onChange={next => updateAgreementSection(idx, { body: next })}
+                      size="xs"
                     />
                   </div>
                 ))}

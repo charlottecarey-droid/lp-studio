@@ -6,8 +6,9 @@ import headerImgPracticeManagerUrl from "@/assets/dandy-dso-enterprise-data.webp
 import dandyScannerUrl from "@/assets/dandy-scanner-transparent.png?url";
 import { useLocation, Link as RouterLink } from "wouter";
 import {
-  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2
+  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2, RotateCcw
 } from "lucide-react";
+import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import type { CustomTemplate } from "./one-pager-custom-utils";
@@ -422,6 +423,41 @@ const SalesOnePager = () => {
   // field.id so values survive across template switches without colliding.
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
 
+  // Agreement Summary content — sales reps can edit prices/numbers and any
+  // section text inline before downloading. Seeded from defaults, then merged
+  // with any admin-saved layout (so admin edits in the Template Editor still
+  // flow through as the starting point).
+  const [agreementContent, setAgreementContent] = useState<AgreementSummaryContent>(() => ({
+    ...sharedDefaultAgreementSummaryContent,
+    sections: sharedDefaultAgreementSummaryContent.sections.map(s => ({ ...s })),
+  }));
+  const [agreementLoaded, setAgreementLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadLayoutDefault("dandy_agreement_summary_template_layout")
+      .catch(() => null)
+      .then(saved => {
+        if (cancelled) return;
+        if (saved) {
+          setAgreementContent(prev => ({
+            ...prev,
+            ...saved,
+            sections: Array.isArray((saved as AgreementSummaryContent).sections) && (saved as AgreementSummaryContent).sections.length
+              ? (saved as AgreementSummaryContent).sections.map(s => ({ ...s }))
+              : prev.sections,
+          }));
+        }
+        setAgreementLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+  const resetAgreementContent = () => {
+    setAgreementContent({
+      ...sharedDefaultAgreementSummaryContent,
+      sections: sharedDefaultAgreementSummaryContent.sections.map(s => ({ ...s })),
+    });
+  };
+
   // When the active custom template changes, seed the form with each
   // editable-by-sales field's defaultValue so empty inputs still ship the
   // marketing default (matches resolveValue() in pdf.ts).
@@ -604,15 +640,10 @@ const SalesOnePager = () => {
         doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com");
         doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
-        // Pull admin-saved overrides (headline/subheadline/sections/footer +
-        // optional font sizes & footer contacts) so reps generate the version
-        // configured in the Template Editor.
-        const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout").catch(() => null);
-        const content: AgreementSummaryContent = {
-          ...sharedDefaultAgreementSummaryContent,
-          ...(saved ?? {}),
-        };
-        doc = await generateAgreementSummaryOnePager(content);
+        // Use the rep-edited content (which was seeded from defaults +
+        // admin-saved layout on mount), so any number/price/text edits made
+        // here flow into the generated PDF.
+        doc = await generateAgreementSummaryOnePager(agreementContent);
         doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
         doc = await generateROIOnePager(dsoName.trim(), numPractices);
@@ -746,8 +777,92 @@ const SalesOnePager = () => {
 
           <div className="space-y-6">
             {template === "agreement-summary" && (
-              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-                No inputs required — this template ships with the standard Dandy Practice Agreement copy. Click <span className="font-semibold text-foreground">Download One-Pager</span> below.
+              <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Edit Agreement Details</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      All text is editable. Use the <span className="font-medium text-foreground">Numbers / Prices</span> chips to quickly update dollar amounts, percentages, and time periods.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetAgreementContent}
+                    disabled={!agreementLoaded}
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground border border-border rounded-md px-2 py-1 hover:bg-muted/40 transition-colors disabled:opacity-50"
+                    title="Reset to default text"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Reset
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Headline</label>
+                    <input
+                      type="text"
+                      value={agreementContent.headline}
+                      onChange={e => setAgreementContent(p => ({ ...p, headline: e.target.value }))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Subheadline</label>
+                    <textarea
+                      value={agreementContent.subheadline}
+                      onChange={e => setAgreementContent(p => ({ ...p, subheadline: e.target.value }))}
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+                    />
+                  </div>
+                  {agreementContent.sections.map((section, idx) => (
+                    <div key={idx} className="rounded-lg border border-border bg-background/50 p-3 space-y-2">
+                      <input
+                        type="text"
+                        value={section.label}
+                        onChange={e =>
+                          setAgreementContent(p => ({
+                            ...p,
+                            sections: p.sections.map((s, j) => j === idx ? { ...s, label: e.target.value } : s),
+                          }))
+                        }
+                        placeholder="Section label"
+                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                      <textarea
+                        value={section.body}
+                        onChange={e =>
+                          setAgreementContent(p => ({
+                            ...p,
+                            sections: p.sections.map((s, j) => j === idx ? { ...s, body: e.target.value } : s),
+                          }))
+                        }
+                        rows={4}
+                        placeholder="Section body"
+                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none leading-snug"
+                      />
+                      <AgreementNumbersEditor
+                        body={section.body}
+                        size="xs"
+                        onChange={next =>
+                          setAgreementContent(p => ({
+                            ...p,
+                            sections: p.sections.map((s, j) => j === idx ? { ...s, body: next } : s),
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Footer</label>
+                    <textarea
+                      value={agreementContent.footer}
+                      onChange={e => setAgreementContent(p => ({ ...p, footer: e.target.value }))}
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+                    />
+                  </div>
+                </div>
               </div>
             )}
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${template === "agreement-summary" ? "hidden" : ""}`}>

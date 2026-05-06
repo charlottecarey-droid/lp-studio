@@ -22,6 +22,7 @@ import {
   type AgreementContact,
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
+import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 
 // ── API helpers (mirrors sales-one-pager.tsx) ──────────────────────
 const API_BASE = "/api";
@@ -1415,6 +1416,12 @@ export default function SalesOnePagerEditor() {
                           }
                           placeholder="Body text…"
                           className={textareaCls}
+                        />
+                        <AgreementNumbersEditor
+                          body={sec.body}
+                          onChange={next =>
+                            setAgreementSections(p => p.map((s, j) => j === i ? { ...s, body: next } : s))
+                          }
                         />
                       </div>
                     ))}
