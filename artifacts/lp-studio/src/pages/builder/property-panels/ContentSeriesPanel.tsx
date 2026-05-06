@@ -314,6 +314,10 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
         <Field label="Logo URL" hint="Leave blank for text + icon in nav">
           <ImagePicker value={p.logoUrl ?? ""} onChange={v => set({ logoUrl: v || undefined })} />
         </Field>
+        <Field label="RSS Feed URL" hint="Paste your podcast RSS URL. Used for the public 'RSS' button and (optionally) live episode sync.">
+          <Input value={p.rssFeedUrl ?? ""} onChange={e => set({ rssFeedUrl: e.target.value })} className="text-xs h-7 font-mono" placeholder="https://…" />
+        </Field>
+        <RssSyncControls p={p} set={set} />
       </div>
 
       {/* ── Theme & Style ────────────────────────────────────────────────── */}
@@ -821,10 +825,6 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
             <AiTextField type="textarea" value={p.ctaSectionSubheadline ?? ""} onChange={v => set({ ctaSectionSubheadline: v })} rows={2} fieldLabel="CTA Subheadline" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("content-series", "ctaSectionSubheadline", p.ctaSectionSubheadline ?? "", {})} />
           </Field>
-          <Field label="RSS Feed URL" hint="Paste your podcast RSS URL. Used for the public 'RSS' button and (optionally) live episode sync.">
-            <Input value={p.rssFeedUrl ?? ""} onChange={e => set({ rssFeedUrl: e.target.value })} className="text-xs h-7 font-mono" placeholder="https://…" />
-          </Field>
-          <RssSyncControls p={p} set={set} />
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">CTA Buttons</Label>
