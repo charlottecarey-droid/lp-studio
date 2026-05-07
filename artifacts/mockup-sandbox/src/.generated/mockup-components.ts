@@ -2,6 +2,6 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/spatial-tour-dynamic-nav/Variant.tsx": () => import("../components/mockups/spatial-tour-dynamic-nav/Variant.tsx"),
-  "./components/mockups/spatial-tour-video-hero/Variant.tsx": () => import("../components/mockups/spatial-tour-video-hero/Variant.tsx"),
-  "./components/mockups/spatial-tour-live-telemetry/Variant.tsx": () => import("../components/mockups/spatial-tour-live-telemetry/Variant.tsx")
+  "./components/mockups/spatial-tour-live-telemetry/Variant.tsx": () => import("../components/mockups/spatial-tour-live-telemetry/Variant.tsx"),
+  "./components/mockups/spatial-tour-video-hero/Variant.tsx": () => import("../components/mockups/spatial-tour-video-hero/Variant.tsx")
 };
