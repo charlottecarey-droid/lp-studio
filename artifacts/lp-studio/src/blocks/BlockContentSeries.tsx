@@ -1932,6 +1932,20 @@ interface AvailabilityDate {
 
 type AvailabilityStatus = "loading" | "ready-with-slots" | "ready-empty" | "error";
 
+const AVAILABILITY_MAX_PICKS = 3;
+
+/** Picker stores selections as newline-joined entries of the form
+ *  `YYYY-MM-DD|HH:MM|HH:MM::Display Label`. Helpers below read/write that
+ *  string so the rest of the form layer can keep treating preferred_slot
+ *  as a plain field value. */
+function parsePickerValue(v: string): string[] {
+  if (!v) return [];
+  return v.split("\n").map(s => s.trim()).filter(Boolean);
+}
+function serializePickerValue(picks: string[]): string {
+  return picks.join("\n");
+}
+
 function AvailabilityPicker({
   config,
   C,
@@ -1951,6 +1965,7 @@ function AvailabilityPicker({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [maxNotice, setMaxNotice] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1990,7 +2005,21 @@ function AvailabilityPicker({
     return () => { cancelled = true; };
   }, [config.sheetId, config.tab, pageId, onStatusChange]);
 
-  const selectedKey = value || "";
+  const selectedEntries = parsePickerValue(value);
+  const selectedSet = new Set(selectedEntries);
+  const togglePick = (entry: string) => {
+    if (selectedSet.has(entry)) {
+      onChange(serializePickerValue(selectedEntries.filter(e => e !== entry)));
+      setMaxNotice(false);
+      return;
+    }
+    if (selectedEntries.length >= AVAILABILITY_MAX_PICKS) {
+      setMaxNotice(true);
+      return;
+    }
+    setMaxNotice(false);
+    onChange(serializePickerValue([...selectedEntries, entry]));
+  };
 
   if (loading) {
     return (
@@ -2017,16 +2046,22 @@ function AvailabilityPicker({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+      <p style={{ fontFamily: C.bodyFont, fontSize: "0.78rem", color: C.muted, margin: 0, letterSpacing: "0.02em" }}>
+        Select up to {AVAILABILITY_MAX_PICKS} times that work for you
+        {selectedEntries.length > 0 && (
+          <span style={{ color: C.primary, fontWeight: 500 }}> · {selectedEntries.length} selected</span>
+        )}
+      </p>
       {dates.map(d => {
         const isExpanded = expandedDate === d.date;
         const hasMultiple = d.slots.length > 1;
         const singleSlot = d.slots[0];
-        const isSelected = selectedKey.startsWith(`${d.date}|`);
+        const dateHasSelection = selectedEntries.some(e => e.startsWith(`${d.date}|`));
         return (
           <div
             key={d.date}
             style={{
-              border: `1px solid ${isSelected ? C.primary : C.border}`,
+              border: `1px solid ${dateHasSelection ? C.primary : C.border}`,
               borderRadius: "0.6rem",
               backgroundColor: rgba(C.bg, 0.5),
               overflow: "hidden",
@@ -2041,7 +2076,7 @@ function AvailabilityPicker({
                 } else if (singleSlot) {
                   const key = `${d.date}|${singleSlot.start}|${singleSlot.end}`;
                   const display = `${d.dateLabel} · ${singleSlot.label}`;
-                  onChange(`${key}::${display}`);
+                  togglePick(`${key}::${display}`);
                 }
               }}
               style={{
@@ -2063,7 +2098,7 @@ function AvailabilityPicker({
               <span style={{ fontSize: "0.75rem", color: C.muted, letterSpacing: "0.05em" }}>
                 {hasMultiple
                   ? `${d.slots.length} slots${isExpanded ? "" : " · tap to choose"}`
-                  : (isSelected ? "Selected ✓" : (singleSlot?.label ?? ""))}
+                  : (dateHasSelection ? "Selected ✓" : (singleSlot?.label ?? ""))}
               </span>
             </button>
             {hasMultiple && isExpanded && (
@@ -2071,12 +2106,13 @@ function AvailabilityPicker({
                 {d.slots.map(s => {
                   const key = `${d.date}|${s.start}|${s.end}`;
                   const display = `${d.dateLabel} · ${s.label}`;
-                  const slotSelected = selectedKey === `${key}::${display}`;
+                  const entry = `${key}::${display}`;
+                  const slotSelected = selectedSet.has(entry);
                   return (
                     <button
                       key={key}
                       type="button"
-                      onClick={() => onChange(`${key}::${display}`)}
+                      onClick={() => togglePick(entry)}
                       style={{
                         padding: "0.5rem 0.95rem",
                         borderRadius: "999px",
@@ -2091,7 +2127,7 @@ function AvailabilityPicker({
                         transition: "background-color 0.15s, color 0.15s, border-color 0.15s",
                       }}
                     >
-                      {s.label}
+                      {slotSelected ? "✓ " : ""}{s.label}
                     </button>
                   );
                 })}
@@ -2100,6 +2136,11 @@ function AvailabilityPicker({
           </div>
         );
       })}
+      {maxNotice && (
+        <p style={{ fontFamily: C.bodyFont, fontSize: "0.78rem", color: C.primary, margin: "0.25rem 0 0", letterSpacing: "0.02em" }}>
+          You can pick up to {AVAILABILITY_MAX_PICKS} times. Tap a selected one to remove it.
+        </p>
+      )}
     </div>
   );
 }
@@ -2165,8 +2206,12 @@ function FormModal({
     // so we can still capture the lead and follow up to schedule.
     if (config.availability && availabilityStatus === "ready-with-slots") {
       const picked = formData[config.availability.fieldId];
-      if (!picked) {
-        setError("Please select a recording date to continue.");
+      const hasPick = parsePickerValue(picked ?? "").length > 0;
+      const hasComment = (formData.availability_comments ?? "").trim().length > 0;
+      // Allow submission if the guest either picked a slot OR left a comment
+      // (e.g. "none of these times work, here's my preferred range").
+      if (!hasPick && !hasComment) {
+        setError("Please select at least one recording date — or leave a comment below with your preferred range.");
         return;
       }
     }
@@ -2424,6 +2469,42 @@ function FormModal({
                         pageId={pageId}
                         onStatusChange={handleAvailabilityStatus}
                       />
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem", marginTop: "0.35rem" }}>
+                        <label
+                          htmlFor="availability_comments"
+                          style={{
+                            fontFamily: C.bodyFont,
+                            fontSize: "0.82rem",
+                            lineHeight: 1.5,
+                            color: C.muted,
+                            letterSpacing: "0.01em",
+                          }}
+                        >
+                          Questions, comments, or don't see a time slot that works for you? Enter your preferred date range or comment below.
+                        </label>
+                        <textarea
+                          id="availability_comments"
+                          value={formData.availability_comments ?? ""}
+                          onChange={e => handleFieldChange("availability_comments", e.target.value)}
+                          rows={3}
+                          placeholder="e.g. I'd prefer the week of June 9, weekday mornings ET…"
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem 0.9rem",
+                            backgroundColor: rgba(C.bg, 0.6),
+                            border: `1px solid ${C.border}`,
+                            borderRadius: "0.5rem",
+                            color: C.fg,
+                            fontFamily: C.bodyFont,
+                            fontSize: "0.88rem",
+                            lineHeight: 1.5,
+                            outline: "none",
+                            resize: "vertical",
+                            minHeight: "5.5rem",
+                            transition: "border-color 0.2s",
+                          }}
+                        />
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>

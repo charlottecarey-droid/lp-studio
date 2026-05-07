@@ -275,8 +275,9 @@ router.get("/lp/podcast-availability", limiter, async (req, res): Promise<void> 
 const APPLICATIONS_TAB = "Applications";
 const APPLICATION_HEADERS = [
   "Submitted At (UTC)",
-  "Picked Date",
-  "Picked Time",
+  "Picked Date(s)",
+  "Picked Time(s)",
+  "Scheduling Comments",
   "First Name",
   "Last Name",
   "Email",
@@ -289,14 +290,28 @@ const APPLICATION_HEADERS = [
   "All Fields (JSON)",
 ];
 
-function pickSlot(value: string | undefined): { date: string; time: string } {
-  if (!value) return { date: "", time: "" };
-  // Stored format: "YYYY-MM-DD|HH:MM|HH:MM::Fri May 29 · 1 PM–2 PM ET"
-  const sep = value.indexOf("::");
-  const display = sep >= 0 ? value.slice(sep + 2) : value;
-  const dotIdx = display.indexOf(" · ");
-  if (dotIdx >= 0) return { date: display.slice(0, dotIdx), time: display.slice(dotIdx + 3) };
-  return { date: display, time: "" };
+/** Parse the picker's storage format. Each line is one pick of the form
+ *  `YYYY-MM-DD|HH:MM|HH:MM::Fri May 29 · 1 PM–2 PM ET`. Returns the dates
+ *  and times as separate "; "-joined strings for the dedicated columns. */
+function pickSlots(value: string | undefined): { dates: string; times: string } {
+  if (!value) return { dates: "", times: "" };
+  const lines = value.split("\n").map(s => s.trim()).filter(Boolean);
+  const dates: string[] = [];
+  const times: string[] = [];
+  for (const line of lines) {
+    const sep = line.indexOf("::");
+    const display = sep >= 0 ? line.slice(sep + 2) : line;
+    const dotIdx = display.indexOf(" · ");
+    if (dotIdx >= 0) {
+      dates.push(display.slice(0, dotIdx));
+      times.push(display.slice(dotIdx + 3));
+    } else {
+      dates.push(display);
+    }
+  }
+  // Dedupe dates (multiple slots on the same day).
+  const uniqDates = Array.from(new Set(dates));
+  return { dates: uniqDates.join("; "), times: times.join("; ") };
 }
 
 function pickField(fields: Record<string, unknown>, ...names: string[]): string {
@@ -376,11 +391,12 @@ export async function appendGuestApplicationToSheet(
 
   await ensureApplicationsTab(sheetId);
 
-  const slot = pickSlot(typeof fields.preferred_slot === "string" ? fields.preferred_slot : undefined);
+  const slots = pickSlots(typeof fields.preferred_slot === "string" ? fields.preferred_slot : undefined);
   const row: string[] = [
     new Date().toISOString(),
-    slot.date,
-    slot.time,
+    slots.dates,
+    slots.times,
+    pickField(fields, "availability_comments"),
     pickField(fields, "first_name", "firstName", "first"),
     pickField(fields, "last_name", "lastName", "last"),
     pickField(fields, "email", "Email"),
