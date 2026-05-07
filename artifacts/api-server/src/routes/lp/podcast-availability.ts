@@ -266,4 +266,146 @@ router.get("/lp/podcast-availability", limiter, async (req, res): Promise<void> 
   }
 });
 
+// ---------------------------------------------------------------------------
+// Submission writeback: append guest applications to the same Google Sheet
+// (under a separate "Applications" tab so the existing Scheduled tab is left
+// untouched). Called from the /lp/leads handler in a background task.
+// ---------------------------------------------------------------------------
+
+const APPLICATIONS_TAB = "Applications";
+const APPLICATION_HEADERS = [
+  "Submitted At (UTC)",
+  "Picked Date",
+  "Picked Time",
+  "First Name",
+  "Last Name",
+  "Email",
+  "Phone",
+  "Company / Practice",
+  "Role / Title",
+  "Story / Notes",
+  "Source",
+  "Page",
+  "All Fields (JSON)",
+];
+
+function pickSlot(value: string | undefined): { date: string; time: string } {
+  if (!value) return { date: "", time: "" };
+  // Stored format: "YYYY-MM-DD|HH:MM|HH:MM::Fri May 29 · 1 PM–2 PM ET"
+  const sep = value.indexOf("::");
+  const display = sep >= 0 ? value.slice(sep + 2) : value;
+  const dotIdx = display.indexOf(" · ");
+  if (dotIdx >= 0) return { date: display.slice(0, dotIdx), time: display.slice(dotIdx + 3) };
+  return { date: display, time: "" };
+}
+
+function pickField(fields: Record<string, unknown>, ...names: string[]): string {
+  for (const n of names) {
+    const v = fields[n];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+async function ensureApplicationsTab(sheetId: string): Promise<void> {
+  // Read the spreadsheet metadata to see if the tab already exists. If not,
+  // batchUpdate to add it and seed the header row.
+  const metaResp = await connectors.proxy(
+    "google-sheet",
+    `/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))`,
+    { method: "GET" },
+  );
+  if (!metaResp.ok) {
+    throw new Error(`Sheets metadata fetch failed (${metaResp.status})`);
+  }
+  const meta = (await metaResp.json()) as { sheets?: { properties?: { title?: string } }[] };
+  const exists = (meta.sheets ?? []).some(s => s.properties?.title === APPLICATIONS_TAB);
+  if (exists) return;
+
+  const addResp = await connectors.proxy(
+    "google-sheet",
+    `/v4/spreadsheets/${sheetId}:batchUpdate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [{ addSheet: { properties: { title: APPLICATIONS_TAB } } }],
+      }),
+    },
+  );
+  if (!addResp.ok) {
+    const text = await addResp.text();
+    throw new Error(`Failed to create Applications tab (${addResp.status}): ${text.slice(0, 300)}`);
+  }
+  const headerResp = await connectors.proxy(
+    "google-sheet",
+    `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${APPLICATIONS_TAB}!A1`)}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values: [APPLICATION_HEADERS] }),
+    },
+  );
+  if (!headerResp.ok) {
+    const text = await headerResp.text();
+    throw new Error(`Failed to write headers (${headerResp.status}): ${text.slice(0, 300)}`);
+  }
+}
+
+/**
+ * Append a guest-form submission to the Applications tab of the configured
+ * podcast tracker spreadsheet for the given page. Resolves silently when
+ * the page has no content-series block with `availabilitySheetId` set.
+ */
+export async function appendGuestApplicationToSheet(
+  pageId: number,
+  fields: Record<string, unknown>,
+  pageSlug: string,
+): Promise<void> {
+  const rows = await db
+    .select({ blocks: lpPagesTable.blocks })
+    .from(lpPagesTable)
+    .where(eq(lpPagesTable.id, pageId))
+    .limit(1);
+  if (!rows.length) return;
+  const allowed = collectAllowedAvailability(rows[0].blocks);
+  if (!allowed.size) return;
+  // Use the first configured sheetId on the page (typically only one).
+  const first = allowed.values().next().value as string;
+  const [sheetId] = first.split("::");
+
+  await ensureApplicationsTab(sheetId);
+
+  const slot = pickSlot(typeof fields.preferred_slot === "string" ? fields.preferred_slot : undefined);
+  const row: string[] = [
+    new Date().toISOString(),
+    slot.date,
+    slot.time,
+    pickField(fields, "first_name", "firstName", "first"),
+    pickField(fields, "last_name", "lastName", "last"),
+    pickField(fields, "email", "Email"),
+    pickField(fields, "phone", "Phone"),
+    pickField(fields, "company", "practice", "Company", "Practice"),
+    pickField(fields, "role", "title", "Role", "Title"),
+    pickField(fields, "story", "notes", "message", "tell_us", "Story", "Notes"),
+    typeof fields._source === "string" ? fields._source : "content-series-guest",
+    pageSlug,
+    JSON.stringify(fields),
+  ];
+
+  const appendResp = await connectors.proxy(
+    "google-sheet",
+    `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${APPLICATIONS_TAB}!A1`)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values: [row] }),
+    },
+  );
+  if (!appendResp.ok) {
+    const text = await appendResp.text();
+    throw new Error(`Append failed (${appendResp.status}): ${text.slice(0, 300)}`);
+  }
+}
+
 export default router;

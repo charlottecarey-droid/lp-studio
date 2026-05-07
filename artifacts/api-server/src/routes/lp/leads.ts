@@ -13,6 +13,7 @@ import {
   type SalesforceConfig,
 } from "../../lib/notifications";
 import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./integrations";
+import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
@@ -178,6 +179,13 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
   res.status(201).json({ success: true, leadId: lead.id });
 
   setImmediate(async () => {
+    // Content-series guest applications: append the submission to the
+    // configured podcast tracker Google Sheet (Applications tab).
+    if (fields._source === "content-series-guest") {
+      appendGuestApplicationToSheet(pageId, fields, page.slug).catch(err => {
+        console.error("[leads] podcast sheet writeback failed:", err);
+      });
+    }
     try {
       let variantName: string | undefined;
       if (variantId) {
