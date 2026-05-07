@@ -2,6 +2,7 @@ import type { BackgroundStyle } from "../bg-styles";
 import type {
   BlockSettings,
   CaseStudyItem,
+  CtaModalConfig,
   FormStep,
   NavHeaderLink,
   NavHeaderCta,
@@ -12,7 +13,7 @@ import type {
   RoiOutputField,
 } from "./common";
 
-export interface HeroBlockProps {
+export interface HeroBlockProps extends CtaModalConfig {
   headline: string;
   subheadline: string;
   ctaText: string;
@@ -33,7 +34,14 @@ export interface HeroBlockProps {
   imageShadow?: boolean;
   ctaTextColor?: string;
   buttonWidth?: "auto" | "full";
-  ctaAction?: "url" | "chilipiper";
+  /**
+   * What happens when the CTA button is clicked.
+   *  - "url"             → navigate to ctaUrl (default)
+   *  - "chilipiper"      → open Chili Piper iframe popup with chilipiperUrl
+   *  - "modal-form"      → open EmailCaptureModal in form mode (uses modal* config)
+   *  - "modal-chilipiper" → open EmailCaptureModal in chilipiper mode (uses modalChilipiperUrl)
+   */
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   chilipiperUrl?: string;
 }
 

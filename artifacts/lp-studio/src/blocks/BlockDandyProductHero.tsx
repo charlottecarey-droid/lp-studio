@@ -7,7 +7,7 @@ import { InlineText } from "@/components/InlineText";
 
 interface Props {
   block: { props: DandyProductHeroBlockProps };
-  onCtaClick?: (url: string, mode?: "link" | "chilipiper") => void;
+  onCtaClick?: (url: string, mode?: import("@/lib/block-types").CtaMode) => void;
   pageId?: number;
   variantId?: number;
   onFieldChange?: (updated: DandyProductHeroBlockProps) => void;
@@ -277,6 +277,31 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
         />
       )}
 
+      {/* Bleed image: sibling of the centered grid so right:0 reaches the
+          true section edge instead of the grid's inner padding. Width is
+          derived from the column ratios on tablet+ so the split-slider still
+          controls the visual proportion. */}
+      {variant === "split" && imageBleed && (
+        <motion.div
+          className="dph-image-bleed"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: `${(rightFr / (leftFr + rightFr)) * 100}%`,
+            overflow: "hidden",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          {imageEl}
+        </motion.div>
+      )}
+
       <div
         className="dph-grid"
         style={{
@@ -318,37 +343,27 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
           )}
         </motion.div>
 
-        {/* ── Right: product image ── */}
-        <motion.div
-          className={imageBleed && variant === "split" ? "dph-image-bleed" : "dph-image"}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
-          style={
-            variant === "split" && imageBleed
-              ? {
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  // Width derived from column ratios so the column-width sliders
-                  // still control the visual split when the image bleeds.
-                  width: `${(rightFr / (leftFr + rightFr)) * 100}%`,
-                  overflow: "hidden",
-                  pointerEvents: "none",
-                }
-              : {
-                  position: "relative",
-                  width: "100%",
-                  height: "100%",
-                  minHeight: "60vh",
-                  overflow: "hidden",
-                  pointerEvents: "none",
-                }
-          }
-        >
-          {imageEl}
-        </motion.div>
+        {/* ── Right: product image (skipped when bleeding — image renders as
+            section sibling above so the second grid column is reserved space
+            but visually empty here). */}
+        {!(variant === "split" && imageBleed) && (
+          <motion.div
+            className="dph-image"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
+            style={{
+              position: "relative",
+              width: "100%",
+              height: "100%",
+              minHeight: "60vh",
+              overflow: "hidden",
+              pointerEvents: "none",
+            }}
+          >
+            {imageEl}
+          </motion.div>
+        )}
       </div>
 
       <EmailCaptureModal

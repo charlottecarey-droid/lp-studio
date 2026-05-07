@@ -1,0 +1,447 @@
+diff --git a/artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx b/artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
+index ad341175..45ee0b16 100644
+--- a/artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
++++ b/artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
+@@ -7,7 +7,7 @@ import { InlineText } from "@/components/InlineText";
+ 
+ interface Props {
+   block: { props: DandyProductHeroBlockProps };
+-  onCtaClick?: (url: string, mode?: "link" | "chilipiper") => void;
++  onCtaClick?: (url: string, mode?: import("@/lib/block-types").CtaMode) => void;
+   pageId?: number;
+   variantId?: number;
+   onFieldChange?: (updated: DandyProductHeroBlockProps) => void;
+@@ -277,6 +277,31 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
+         />
+       )}
+ 
++      {/* Bleed image: sibling of the centered grid so right:0 reaches the
++          true section edge instead of the grid's inner padding. Width is
++          derived from the column ratios on tablet+ so the split-slider still
++          controls the visual proportion. */}
++      {variant === "split" && imageBleed && (
++        <motion.div
++          className="dph-image-bleed"
++          initial={{ opacity: 0, scale: 0.95 }}
++          animate={{ opacity: 1, scale: 1 }}
++          transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
++          style={{
++            position: "absolute",
++            top: 0,
++            right: 0,
++            bottom: 0,
++            width: `${(rightFr / (leftFr + rightFr)) * 100}%`,
++            overflow: "hidden",
++            pointerEvents: "none",
++            zIndex: 1,
++          }}
++        >
++          {imageEl}
++        </motion.div>
++      )}
++
+       <div
+         className="dph-grid"
+         style={{
+@@ -318,37 +343,27 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
+           )}
+         </motion.div>
+ 
+-        {/* ── Right: product image ── */}
+-        <motion.div
+-          className={imageBleed && variant === "split" ? "dph-image-bleed" : "dph-image"}
+-          initial={{ opacity: 0, scale: 0.95 }}
+-          animate={{ opacity: 1, scale: 1 }}
+-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
+-          style={
+-            variant === "split" && imageBleed
+-              ? {
+-                  position: "absolute",
+-                  top: 0,
+-                  right: 0,
+-                  bottom: 0,
+-                  // Width derived from column ratios so the column-width sliders
+-                  // still control the visual split when the image bleeds.
+-                  width: `${(rightFr / (leftFr + rightFr)) * 100}%`,
+-                  overflow: "hidden",
+-                  pointerEvents: "none",
+-                }
+-              : {
+-                  position: "relative",
+-                  width: "100%",
+-                  height: "100%",
+-                  minHeight: "60vh",
+-                  overflow: "hidden",
+-                  pointerEvents: "none",
+-                }
+-          }
+-        >
+-          {imageEl}
+-        </motion.div>
++        {/* ── Right: product image (skipped when bleeding — image renders as
++            section sibling above so the second grid column is reserved space
++            but visually empty here). */}
++        {!(variant === "split" && imageBleed) && (
++          <motion.div
++            className="dph-image"
++            initial={{ opacity: 0, scale: 0.95 }}
++            animate={{ opacity: 1, scale: 1 }}
++            transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
++            style={{
++              position: "relative",
++              width: "100%",
++              height: "100%",
++              minHeight: "60vh",
++              overflow: "hidden",
++              pointerEvents: "none",
++            }}
++          >
++            {imageEl}
++          </motion.div>
++        )}
+       </div>
+ 
+       <EmailCaptureModal
+diff --git a/artifacts/lp-studio/src/blocks/BlockHero.tsx b/artifacts/lp-studio/src/blocks/BlockHero.tsx
+index 74e9d1f6..aa7e4b50 100644
+--- a/artifacts/lp-studio/src/blocks/BlockHero.tsx
++++ b/artifacts/lp-studio/src/blocks/BlockHero.tsx
+@@ -8,7 +8,7 @@ import { InlineImage } from "@/components/InlineImage";
+ import { getHeadlineSizeClass } from "@/lib/typography";
+ import { motion } from "framer-motion";
+ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+-import { ChiliPiperButton } from "@/components/ChiliPiperButton";
++import { CtaButton } from "@/components/CtaButton";
+ import type { ReactNode } from "react";
+ 
+ const EASE = [0.16, 1, 0.3, 1] as const;
+@@ -127,28 +127,41 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
+       )}
+       <motion.div {...cAnim}>
+         <div className={cn("flex flex-col gap-4 pt-2", isFullWidth ? "w-full" : "w-fit", !isSplit && "items-center", isSplitRight && "items-end")}>
+-          {props.ctaAction === "chilipiper" && props.chilipiperUrl ? (
+-            <ChiliPiperButton
+-              url={props.chilipiperUrl}
+-              className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
+-              style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
+-            >
+-              <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+-              <ArrowRight className="w-4 h-4 ml-2" />
+-            </ChiliPiperButton>
+-          ) : (
+-            <motion.button
+-              onClick={onCtaClick}
+-              className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
+-              style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
+-              whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
+-              whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+-              transition={{ type: "spring", stiffness: 400, damping: 18 }}
+-            >
+-              <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+-              <ArrowRight className="w-4 h-4 ml-2" />
+-            </motion.button>
+-          )}
++          <CtaButton
++            ctaAction={
++              props.ctaAction === "chilipiper" ||
++              props.ctaAction === "modal-form" ||
++              props.ctaAction === "modal-chilipiper"
++                ? props.ctaAction
++                : "url"
++            }
++            ctaUrl={props.ctaUrl}
++            chilipiperUrl={props.chilipiperUrl}
++            modalChilipiperUrl={props.modalChilipiperUrl}
++            modalFormSource={props.modalFormSource}
++            modalFormId={props.modalFormId}
++            modalMarketoBaseUrl={props.modalMarketoBaseUrl}
++            modalMarketoMunchkinId={props.modalMarketoMunchkinId}
++            modalMarketoFormId={props.modalMarketoFormId}
++            modalHeadline={props.modalHeadline}
++            modalSubheadline={props.modalSubheadline}
++            modalSubmitText={props.modalSubmitText}
++            modalSuccessMessage={props.modalSuccessMessage}
++            modalDisclaimer={props.modalDisclaimer}
++            modalShowFirstName={props.modalShowFirstName}
++            modalShowLastName={props.modalShowLastName}
++            modalShowPhone={props.modalShowPhone}
++            modalShowCompany={props.modalShowCompany}
++            onClick={onCtaClick}
++            className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
++            style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
++            brand={brand}
++            source="hero-cta"
++            animationsEnabled={animationsEnabled}
++          >
++            <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
++            <ArrowRight className="w-4 h-4 ml-2" />
++          </CtaButton>
+           {props.showSocialProof && (
+             <div className={cn("flex items-center gap-2 text-sm font-medium opacity-80", !isSplit && "justify-center")}>
+               <ShieldCheck className="w-4 h-4" />
+diff --git a/artifacts/lp-studio/src/components/BlockDsoCta.tsx b/artifacts/lp-studio/src/components/BlockDsoCta.tsx
+index 19df9ceb..f4f4c964 100644
+--- a/artifacts/lp-studio/src/components/BlockDsoCta.tsx
++++ b/artifacts/lp-studio/src/components/BlockDsoCta.tsx
+@@ -12,7 +12,7 @@ const SPRING    = { type: "spring" as const, stiffness: 400, damping: 18 };
+ interface Props {
+   ctaText:     string;
+   ctaUrl?:     string;
+-  ctaMode?:    "link" | "chilipiper";
++  ctaMode?:    "link" | "chilipiper" | "modal-form" | "modal-chilipiper";
+   ctaVariant?: "primary" | "secondary" | "link";
+   brand:       BrandConfig;
+   dark?:       boolean;
+diff --git a/artifacts/lp-studio/src/lib/block-types/common.ts b/artifacts/lp-studio/src/lib/block-types/common.ts
+index 45f26d6d..72113222 100644
+--- a/artifacts/lp-studio/src/lib/block-types/common.ts
++++ b/artifacts/lp-studio/src/lib/block-types/common.ts
+@@ -3,7 +3,37 @@ import type { BackgroundStyle } from "../bg-styles";
+ 
+ export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO" | "DSO Practices" | "Events" | "Grid Pieces" | "Showcase";
+ 
+-export type CtaMode = "link" | "chilipiper";
++export type CtaMode = "link" | "chilipiper" | "modal-form" | "modal-chilipiper";
++
++/**
++ * Shared modal-CTA config. Spread onto any block's props alongside the
++ * existing `ctaUrl` / `chilipiperUrl` fields so a normal button (no inline
++ * email pill) can open an EmailCaptureModal — the same flow as
++ * BlockDandyProductHero, but triggered from a button click. Field naming
++ * mirrors BlockDandyProductHero so the editor section is reusable.
++ */
++export interface CtaModalConfig {
++  /** Required when ctaMode === "modal-chilipiper". Email is appended as ?email=… on submit. */
++  modalChilipiperUrl?: string;
++  /** "simple" (built-in form) | "linked" (global form id) | "marketo" (embedded Marketo form). */
++  modalFormSource?: "simple" | "linked" | "marketo";
++  /** Linked global form id when modalFormSource === "linked". */
++  modalFormId?: number;
++  /** Marketo config when modalFormSource === "marketo". */
++  modalMarketoBaseUrl?: string;
++  modalMarketoMunchkinId?: string;
++  modalMarketoFormId?: number;
++  /** Built-in ("simple") form copy + field toggles. */
++  modalHeadline?: string;
++  modalSubheadline?: string;
++  modalSubmitText?: string;
++  modalSuccessMessage?: string;
++  modalDisclaimer?: string;
++  modalShowFirstName?: boolean;
++  modalShowLastName?: boolean;
++  modalShowPhone?: boolean;
++  modalShowCompany?: boolean;
++}
+ 
+ export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
+ 
+diff --git a/artifacts/lp-studio/src/lib/block-types/generic-blocks.ts b/artifacts/lp-studio/src/lib/block-types/generic-blocks.ts
+index 6cb611e9..325ff930 100644
+--- a/artifacts/lp-studio/src/lib/block-types/generic-blocks.ts
++++ b/artifacts/lp-studio/src/lib/block-types/generic-blocks.ts
+@@ -2,6 +2,7 @@ import type { BackgroundStyle } from "../bg-styles";
+ import type {
+   BlockSettings,
+   CaseStudyItem,
++  CtaModalConfig,
+   FormStep,
+   NavHeaderLink,
+   NavHeaderCta,
+@@ -12,7 +13,7 @@ import type {
+   RoiOutputField,
+ } from "./common";
+ 
+-export interface HeroBlockProps {
++export interface HeroBlockProps extends CtaModalConfig {
+   headline: string;
+   subheadline: string;
+   ctaText: string;
+@@ -33,7 +34,14 @@ export interface HeroBlockProps {
+   imageShadow?: boolean;
+   ctaTextColor?: string;
+   buttonWidth?: "auto" | "full";
+-  ctaAction?: "url" | "chilipiper";
++  /**
++   * What happens when the CTA button is clicked.
++   *  - "url"             → navigate to ctaUrl (default)
++   *  - "chilipiper"      → open Chili Piper iframe popup with chilipiperUrl
++   *  - "modal-form"      → open EmailCaptureModal in form mode (uses modal* config)
++   *  - "modal-chilipiper" → open EmailCaptureModal in chilipiper mode (uses modalChilipiperUrl)
++   */
++  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+   chilipiperUrl?: string;
+ }
+ 
+diff --git a/artifacts/lp-studio/src/lib/block-types/index.ts b/artifacts/lp-studio/src/lib/block-types/index.ts
+index ca26a7d1..354f04ae 100644
+--- a/artifacts/lp-studio/src/lib/block-types/index.ts
++++ b/artifacts/lp-studio/src/lib/block-types/index.ts
+@@ -7,7 +7,7 @@ export type {
+ } from "./container-blocks";
+ 
+ // Common types and utilities
+-export type { BlockCategory, CtaMode, FormFieldType, BlockSettings } from "./common";
++export type { BlockCategory, CtaMode, CtaModalConfig, FormFieldType, BlockSettings } from "./common";
+ export type { StepCondition, FormField, FormStep } from "./common";
+ export type { CaseStudyItem, ResourceItem } from "./common";
+ export type { NavHeaderLink, NavHeaderCta } from "./common";
+diff --git a/artifacts/lp-studio/src/pages/builder/property-panels/DsoPracticeNavPanel.tsx b/artifacts/lp-studio/src/pages/builder/property-panels/DsoPracticeNavPanel.tsx
+index 90004cfd..29556a78 100644
+--- a/artifacts/lp-studio/src/pages/builder/property-panels/DsoPracticeNavPanel.tsx
++++ b/artifacts/lp-studio/src/pages/builder/property-panels/DsoPracticeNavPanel.tsx
+@@ -114,7 +114,7 @@ export function DsoPracticeNavPanel({ props, onChange }: Props) {
+           <Label className="text-xs text-muted-foreground">Mode</Label>
+           <select
+             value={props.ctaMode ?? "link"}
+-            onChange={e => onChange({ ...props, ctaMode: e.target.value as "link" | "chilipiper" })}
++            onChange={e => onChange({ ...props, ctaMode: e.target.value as "link" | "chilipiper" | "modal-form" | "modal-chilipiper" })}
+             className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+           >
+             <option value="link">Regular link</option>
+diff --git a/artifacts/lp-studio/src/pages/builder/property-panels/HeroPanel.tsx b/artifacts/lp-studio/src/pages/builder/property-panels/HeroPanel.tsx
+index f20541ff..c44a598c 100644
+--- a/artifacts/lp-studio/src/pages/builder/property-panels/HeroPanel.tsx
++++ b/artifacts/lp-studio/src/pages/builder/property-panels/HeroPanel.tsx
+@@ -105,27 +105,138 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, bgOptions
+         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
+         <Select
+           value={props.ctaAction ?? "url"}
+-          onValueChange={v => set("ctaAction", v as "url" | "chilipiper")}
++          onValueChange={v => set("ctaAction", v as "url" | "chilipiper" | "modal-form" | "modal-chilipiper")}
+         >
+           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+           <SelectContent>
+             <SelectItem value="url">Open URL</SelectItem>
+-            <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
++            <SelectItem value="chilipiper">Open Chili Piper (popup)</SelectItem>
++            <SelectItem value="modal-form">Open form in modal</SelectItem>
++            <SelectItem value="modal-chilipiper">Open Chili Piper in modal</SelectItem>
+           </SelectContent>
+         </Select>
+       </div>
+-      {(props.ctaAction ?? "url") === "url" ? (
++      {(props.ctaAction ?? "url") === "url" && (
+         <div>
+           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
+           <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
+         </div>
+-      ) : (
++      )}
++      {props.ctaAction === "chilipiper" && (
+         <div>
+           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
+           <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+           <p className="text-[11px] text-muted-foreground mt-1">Paste your Chili Piper booking link. Leads are captured on meeting confirmation and synced to CRM.</p>
+         </div>
+       )}
++      {(props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper") && (
++        <div className="space-y-3 rounded-md border border-border/60 bg-muted/30 p-3">
++          <p className="text-[11px] text-muted-foreground">
++            Clicking the button opens an overlay {props.ctaAction === "modal-chilipiper" ? "with the Chili Piper scheduler embedded." : "with a lead-capture form. After submit you can hand off to Chili Piper via a linked or Marketo form."}
++          </p>
++          {props.ctaAction === "modal-chilipiper" && (
++            <div>
++              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL (modal)</Label>
++              <Input
++                value={props.modalChilipiperUrl ?? ""}
++                onChange={e => set("modalChilipiperUrl", e.target.value)}
++                className="text-sm font-mono"
++                placeholder="https://meetdandy.chilipiper.com/router/..."
++              />
++            </div>
++          )}
++          {props.ctaAction === "modal-form" && (
++            <>
++              <div>
++                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Form Source</Label>
++                <Select
++                  value={props.modalFormSource ?? "simple"}
++                  onValueChange={v => set("modalFormSource", v as "simple" | "linked" | "marketo")}
++                >
++                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
++                  <SelectContent>
++                    <SelectItem value="simple">Built-in form</SelectItem>
++                    <SelectItem value="linked">Linked global form</SelectItem>
++                    <SelectItem value="marketo">Marketo form (→ Chili Piper)</SelectItem>
++                  </SelectContent>
++                </Select>
++              </div>
++              {(props.modalFormSource ?? "simple") === "linked" && (
++                <div>
++                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Linked Form ID</Label>
++                  <Input
++                    type="number"
++                    value={props.modalFormId ?? ""}
++                    onChange={e => set("modalFormId", e.target.value ? Number(e.target.value) : undefined)}
++                    className="text-sm font-mono"
++                    placeholder="123"
++                  />
++                </div>
++              )}
++              {props.modalFormSource === "marketo" && (
++                <>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Marketo Base URL</Label>
++                    <Input value={props.modalMarketoBaseUrl ?? ""} onChange={e => set("modalMarketoBaseUrl", e.target.value)} className="text-sm font-mono" placeholder="//app-sj14.marketo.com" />
++                  </div>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Munchkin ID</Label>
++                    <Input value={props.modalMarketoMunchkinId ?? ""} onChange={e => set("modalMarketoMunchkinId", e.target.value)} className="text-sm font-mono" placeholder="123-ABC-456" />
++                  </div>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Marketo Form ID</Label>
++                    <Input
++                      type="number"
++                      value={props.modalMarketoFormId ?? ""}
++                      onChange={e => set("modalMarketoFormId", e.target.value ? Number(e.target.value) : undefined)}
++                      className="text-sm font-mono"
++                      placeholder="1234"
++                    />
++                  </div>
++                </>
++              )}
++              {(props.modalFormSource ?? "simple") === "simple" && (
++                <>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Modal Headline</Label>
++                    <Input value={props.modalHeadline ?? ""} onChange={e => set("modalHeadline", e.target.value)} className="text-sm" placeholder="Tell us a bit about you" />
++                  </div>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Modal Subheadline</Label>
++                    <Input value={props.modalSubheadline ?? ""} onChange={e => set("modalSubheadline", e.target.value)} className="text-sm" placeholder="We'll be in touch shortly." />
++                  </div>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Submit Button Text</Label>
++                    <Input value={props.modalSubmitText ?? ""} onChange={e => set("modalSubmitText", e.target.value)} className="text-sm" placeholder="Submit" />
++                  </div>
++                  <div>
++                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Success Message</Label>
++                    <Input value={props.modalSuccessMessage ?? ""} onChange={e => set("modalSuccessMessage", e.target.value)} className="text-sm" placeholder="Thanks! We'll be in touch shortly." />
++                  </div>
++                  <div className="grid grid-cols-2 gap-2 pt-1">
++                    <label className="flex items-center gap-2 text-xs">
++                      <Switch checked={props.modalShowFirstName ?? true} onCheckedChange={v => set("modalShowFirstName", v)} />
++                      First name
++                    </label>
++                    <label className="flex items-center gap-2 text-xs">
++                      <Switch checked={props.modalShowLastName ?? true} onCheckedChange={v => set("modalShowLastName", v)} />
++                      Last name
++                    </label>
++                    <label className="flex items-center gap-2 text-xs">
++                      <Switch checked={props.modalShowPhone ?? true} onCheckedChange={v => set("modalShowPhone", v)} />
++                      Phone
++                    </label>
++                    <label className="flex items-center gap-2 text-xs">
++                      <Switch checked={props.modalShowCompany ?? false} onCheckedChange={v => set("modalShowCompany", v)} />
++                      Company
++                    </label>
++                  </div>
++                </>
++              )}
++            </>
++          )}
++        </div>
++      )}
+       {onApplyCtaToAll && (
+         <button
+           type="button"

@@ -3,7 +3,37 @@ import type { BackgroundStyle } from "../bg-styles";
 
 export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO" | "DSO Practices" | "Events" | "Grid Pieces" | "Showcase";
 
-export type CtaMode = "link" | "chilipiper";
+export type CtaMode = "link" | "chilipiper" | "modal-form" | "modal-chilipiper";
+
+/**
+ * Shared modal-CTA config. Spread onto any block's props alongside the
+ * existing `ctaUrl` / `chilipiperUrl` fields so a normal button (no inline
+ * email pill) can open an EmailCaptureModal — the same flow as
+ * BlockDandyProductHero, but triggered from a button click. Field naming
+ * mirrors BlockDandyProductHero so the editor section is reusable.
+ */
+export interface CtaModalConfig {
+  /** Required when ctaMode === "modal-chilipiper". Email is appended as ?email=… on submit. */
+  modalChilipiperUrl?: string;
+  /** "simple" (built-in form) | "linked" (global form id) | "marketo" (embedded Marketo form). */
+  modalFormSource?: "simple" | "linked" | "marketo";
+  /** Linked global form id when modalFormSource === "linked". */
+  modalFormId?: number;
+  /** Marketo config when modalFormSource === "marketo". */
+  modalMarketoBaseUrl?: string;
+  modalMarketoMunchkinId?: string;
+  modalMarketoFormId?: number;
+  /** Built-in ("simple") form copy + field toggles. */
+  modalHeadline?: string;
+  modalSubheadline?: string;
+  modalSubmitText?: string;
+  modalSuccessMessage?: string;
+  modalDisclaimer?: string;
+  modalShowFirstName?: boolean;
+  modalShowLastName?: boolean;
+  modalShowPhone?: boolean;
+  modalShowCompany?: boolean;
+}
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
 

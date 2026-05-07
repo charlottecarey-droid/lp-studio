@@ -12,7 +12,7 @@ const SPRING    = { type: "spring" as const, stiffness: 400, damping: 18 };
 interface Props {
   ctaText:     string;
   ctaUrl?:     string;
-  ctaMode?:    "link" | "chilipiper";
+  ctaMode?:    "link" | "chilipiper" | "modal-form" | "modal-chilipiper";
   ctaVariant?: "primary" | "secondary" | "link";
   brand:       BrandConfig;
   dark?:       boolean;

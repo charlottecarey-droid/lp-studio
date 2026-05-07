@@ -105,25 +105,136 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, bgOptions
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
         <Select
           value={props.ctaAction ?? "url"}
-          onValueChange={v => set("ctaAction", v as "url" | "chilipiper")}
+          onValueChange={v => set("ctaAction", v as "url" | "chilipiper" | "modal-form" | "modal-chilipiper")}
         >
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="url">Open URL</SelectItem>
-            <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
+            <SelectItem value="chilipiper">Open Chili Piper (popup)</SelectItem>
+            <SelectItem value="modal-form">Open form in modal</SelectItem>
+            <SelectItem value="modal-chilipiper">Open Chili Piper in modal</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      {(props.ctaAction ?? "url") === "url" ? (
+      {(props.ctaAction ?? "url") === "url" && (
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
           <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
         </div>
-      ) : (
+      )}
+      {props.ctaAction === "chilipiper" && (
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
           <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
           <p className="text-[11px] text-muted-foreground mt-1">Paste your Chili Piper booking link. Leads are captured on meeting confirmation and synced to CRM.</p>
+        </div>
+      )}
+      {(props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper") && (
+        <div className="space-y-3 rounded-md border border-border/60 bg-muted/30 p-3">
+          <p className="text-[11px] text-muted-foreground">
+            Clicking the button opens an overlay {props.ctaAction === "modal-chilipiper" ? "with the Chili Piper scheduler embedded." : "with a lead-capture form. After submit you can hand off to Chili Piper via a linked or Marketo form."}
+          </p>
+          {props.ctaAction === "modal-chilipiper" && (
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL (modal)</Label>
+              <Input
+                value={props.modalChilipiperUrl ?? ""}
+                onChange={e => set("modalChilipiperUrl", e.target.value)}
+                className="text-sm font-mono"
+                placeholder="https://meetdandy.chilipiper.com/router/..."
+              />
+            </div>
+          )}
+          {props.ctaAction === "modal-form" && (
+            <>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Form Source</Label>
+                <Select
+                  value={props.modalFormSource ?? "simple"}
+                  onValueChange={v => set("modalFormSource", v as "simple" | "linked" | "marketo")}
+                >
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="simple">Built-in form</SelectItem>
+                    <SelectItem value="linked">Linked global form</SelectItem>
+                    <SelectItem value="marketo">Marketo form (→ Chili Piper)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(props.modalFormSource ?? "simple") === "linked" && (
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Linked Form ID</Label>
+                  <Input
+                    type="number"
+                    value={props.modalFormId ?? ""}
+                    onChange={e => set("modalFormId", e.target.value ? Number(e.target.value) : undefined)}
+                    className="text-sm font-mono"
+                    placeholder="123"
+                  />
+                </div>
+              )}
+              {props.modalFormSource === "marketo" && (
+                <>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Marketo Base URL</Label>
+                    <Input value={props.modalMarketoBaseUrl ?? ""} onChange={e => set("modalMarketoBaseUrl", e.target.value)} className="text-sm font-mono" placeholder="//app-sj14.marketo.com" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Munchkin ID</Label>
+                    <Input value={props.modalMarketoMunchkinId ?? ""} onChange={e => set("modalMarketoMunchkinId", e.target.value)} className="text-sm font-mono" placeholder="123-ABC-456" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Marketo Form ID</Label>
+                    <Input
+                      type="number"
+                      value={props.modalMarketoFormId ?? ""}
+                      onChange={e => set("modalMarketoFormId", e.target.value ? Number(e.target.value) : undefined)}
+                      className="text-sm font-mono"
+                      placeholder="1234"
+                    />
+                  </div>
+                </>
+              )}
+              {(props.modalFormSource ?? "simple") === "simple" && (
+                <>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Modal Headline</Label>
+                    <Input value={props.modalHeadline ?? ""} onChange={e => set("modalHeadline", e.target.value)} className="text-sm" placeholder="Tell us a bit about you" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Modal Subheadline</Label>
+                    <Input value={props.modalSubheadline ?? ""} onChange={e => set("modalSubheadline", e.target.value)} className="text-sm" placeholder="We'll be in touch shortly." />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Submit Button Text</Label>
+                    <Input value={props.modalSubmitText ?? ""} onChange={e => set("modalSubmitText", e.target.value)} className="text-sm" placeholder="Submit" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Success Message</Label>
+                    <Input value={props.modalSuccessMessage ?? ""} onChange={e => set("modalSuccessMessage", e.target.value)} className="text-sm" placeholder="Thanks! We'll be in touch shortly." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <label className="flex items-center gap-2 text-xs">
+                      <Switch checked={props.modalShowFirstName ?? true} onCheckedChange={v => set("modalShowFirstName", v)} />
+                      First name
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      <Switch checked={props.modalShowLastName ?? true} onCheckedChange={v => set("modalShowLastName", v)} />
+                      Last name
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      <Switch checked={props.modalShowPhone ?? true} onCheckedChange={v => set("modalShowPhone", v)} />
+                      Phone
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      <Switch checked={props.modalShowCompany ?? false} onCheckedChange={v => set("modalShowCompany", v)} />
+                      Company
+                    </label>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
       {onApplyCtaToAll && (

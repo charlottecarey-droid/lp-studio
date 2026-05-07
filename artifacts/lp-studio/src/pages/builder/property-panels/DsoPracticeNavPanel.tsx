@@ -114,7 +114,7 @@ export function DsoPracticeNavPanel({ props, onChange }: Props) {
           <Label className="text-xs text-muted-foreground">Mode</Label>
           <select
             value={props.ctaMode ?? "link"}
-            onChange={e => onChange({ ...props, ctaMode: e.target.value as "link" | "chilipiper" })}
+            onChange={e => onChange({ ...props, ctaMode: e.target.value as "link" | "chilipiper" | "modal-form" | "modal-chilipiper" })}
             className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="link">Regular link</option>
