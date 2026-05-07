@@ -653,7 +653,10 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   return (
     <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={bgInlineStyle}>
       <div className="max-w-xl mx-auto">
-        {(props.headline || props.subheadline) && (
+        {/* Hide the form headline/subheadline once the scheduler iframe has
+            taken over — the scheduler should fill the available space without
+            a stale "Tell us about you"-style header pushing it down. */}
+        {!chiliPiperHandoffUrl && (props.headline || props.subheadline) && (
           <div className="text-center mb-8">
             {props.headline && (
               <h2 className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
@@ -693,7 +696,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
               </div>
               <ChiliPiperIframe
                 url={chiliPiperHandoffUrl}
-                className="w-full h-[min(70vh,560px)] border-0 rounded-lg"
+                className="w-full h-[min(80vh,680px)] border-0 rounded-lg"
                 onUnavailable={() => {
                   // Iframe blocked / failed to load — pop the scheduler
                   // in a new tab so the lead can still book, then mark

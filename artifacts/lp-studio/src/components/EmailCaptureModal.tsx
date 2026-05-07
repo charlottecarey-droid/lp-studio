@@ -231,6 +231,30 @@ export function EmailCaptureModal({
           )}
         </div>
       ) : formSource === "marketo" ? (
+        // Once the scheduler is showing, expand to the wider/taller chilipiper
+        // shell (matches `mode === "chilipiper"` modal above) and drop the
+        // form headline/subheadline + inner padding so the iframe fills the
+        // modal instead of sitting in a small inner card.
+        chiliPiperHandoffUrl ? (
+          <div className="relative w-full max-w-3xl h-[min(90vh,720px)] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <ChiliPiperIframe
+              url={chiliPiperHandoffUrl}
+              className="flex-1 w-full border-0"
+              onUnavailable={() => {
+                safeNavigate(chiliPiperHandoffUrl, "_blank");
+                setChiliPiperHandoffUrl(null);
+                onClose();
+              }}
+            />
+          </div>
+        ) : (
         <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
           <button
             onClick={onClose}
@@ -250,21 +274,7 @@ export function EmailCaptureModal({
                 )}
               </div>
             )}
-            {chiliPiperHandoffUrl ? (
-              <ChiliPiperIframe
-                url={chiliPiperHandoffUrl}
-                className="w-full h-[min(70vh,520px)] border-0 rounded-lg"
-                onUnavailable={() => {
-                  // Iframe failed (CSP/X-Frame-Options/network/ad-blocker).
-                  // Pop the scheduler in a new tab so the lead can still book
-                  // and close the capture modal so the visitor isn't stuck
-                  // staring at a blank frame.
-                  safeNavigate(chiliPiperHandoffUrl, "_blank");
-                  setChiliPiperHandoffUrl(null);
-                  onClose();
-                }}
-              />
-            ) : marketoBaseUrl && marketoMunchkinId && marketoFormId ? (
+            {marketoBaseUrl && marketoMunchkinId && marketoFormId ? (
               <MarketoForm
                 baseUrl={marketoBaseUrl}
                 munchkinId={marketoMunchkinId}
@@ -281,8 +291,8 @@ export function EmailCaptureModal({
                       return;
                     }
                     // Modal mode (default): swap the Marketo form for the
-                    // scheduler iframe inline so the visitor never leaves
-                    // the page.
+                    // full-bleed scheduler iframe rendered by the outer
+                    // ternary above so the iframe fills the modal.
                     setChiliPiperHandoffUrl(url);
                     return;
                   }
@@ -292,13 +302,14 @@ export function EmailCaptureModal({
             ) : (
               <p className="text-sm text-slate-500">Marketo form is not configured.</p>
             )}
-            {state === "success" && !chiliPiperHandoffUrl && (
+            {state === "success" && (
               <div className="mt-5 flex items-center gap-2 text-sm" style={{ color: primary }}>
                 <Check className="w-4 h-4" /> {cfg.successMessage}
               </div>
             )}
           </div>
         </div>
+        )
       ) : formSource === "linked" ? (
         // max-w-2xl gives the embedded BlockForm — and especially the
         // Chili Piper iframe it swaps to after submit — enough room to
