@@ -2784,9 +2784,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Input value={p.imageAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageAlt: e.target.value } })} className="h-8 text-xs" />
               </div>
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Bleed off right edge</Label>
-                <Switch checked={p.imageBleed !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, imageBleed: v } })} />
+                <Label className={`text-xs ${(p.variant ?? "split") !== "split" ? "text-muted-foreground/60" : ""}`}>
+                  Bleed off right edge
+                </Label>
+                <Switch
+                  checked={p.imageBleed !== false}
+                  disabled={(p.variant ?? "split") !== "split"}
+                  onCheckedChange={v => onChange({ ...block, props: { ...p, imageBleed: v } })}
+                />
               </div>
+              {(p.variant ?? "split") !== "split" && (
+                <p className="text-[10px] text-muted-foreground -mt-1">
+                  Bleed only applies to the <strong>Split</strong> variant. Switch the variant above to enable it.
+                </p>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Image anchor (focal point)</Label>
                 <div className="grid grid-cols-3 gap-1">
