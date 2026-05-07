@@ -1273,6 +1273,19 @@ export interface ContentSeriesBlockProps {
   /** Label of the button that opens the application form modal. */
   formButtonLabel?: string;
 
+  /** Optional Google Sheets-backed recording-slot picker rendered as the
+   *  FINAL step of the guest application form. When `availabilitySheetId` is
+   *  set, the form fetches /api/lp/podcast-availability?sheetId=…&tab=… and
+   *  shows date cards that expand into 1-hour slot buttons. The chosen slot
+   *  is saved on the lead under field id `preferred_slot`. */
+  availabilitySheetId?: string;
+  /** Sheet tab to scan (defaults to "Scheduled"). */
+  availabilitySheetTab?: string;
+  /** Helper copy shown above the date cards. */
+  availabilityHelperText?: string;
+  /** Step title (small uppercase label above the picker). */
+  availabilityStepTitle?: string;
+
   /** Inline email subscribe input rendered in the sticky nav (and optionally
    *  in the bottom CTA section when subscribeShowInCta is true). Submitting
    *  the inline input opens the dedicated Subscribe modal below with the

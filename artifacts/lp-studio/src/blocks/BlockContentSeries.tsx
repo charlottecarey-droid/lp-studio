@@ -1902,6 +1902,14 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
   );
 }
 
+interface AvailabilityConfig {
+  sheetId: string;
+  tab: string;
+  helperText: string;
+  stepTitle: string;
+  fieldId: string;
+}
+
 interface FormModalConfig {
   eyebrow: string;
   headline: string;
@@ -1911,6 +1919,189 @@ interface FormModalConfig {
   successMessage: string;
   successTitle?: string;
   source: string;
+  /** When set, an additional synthetic step is appended to the end of the
+   *  form rendering a Google Sheets-backed recording-slot picker. */
+  availability?: AvailabilityConfig;
+}
+
+interface AvailabilityDate {
+  date: string;
+  dateLabel: string;
+  slots: { start: string; end: string; label: string }[];
+}
+
+type AvailabilityStatus = "loading" | "ready-with-slots" | "ready-empty" | "error";
+
+function AvailabilityPicker({
+  config,
+  C,
+  value,
+  onChange,
+  pageId,
+  onStatusChange,
+}: {
+  config: AvailabilityConfig;
+  C: ResolvedTheme;
+  value: string;
+  onChange: (v: string) => void;
+  pageId?: number;
+  onStatusChange?: (s: AvailabilityStatus) => void;
+}) {
+  const [dates, setDates] = useState<AvailabilityDate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    onStatusChange?.("loading");
+    if (typeof pageId !== "number") {
+      // No pageId means we're in editor preview; the public endpoint requires
+      // it. Surface a friendly empty state so the form remains submittable.
+      setLoading(false);
+      setDates([]);
+      onStatusChange?.("ready-empty");
+      return;
+    }
+    const params = new URLSearchParams({
+      sheetId: config.sheetId,
+      tab: config.tab,
+      pageId: String(pageId),
+    });
+    fetch(`/api/lp/podcast-availability?${params.toString()}`)
+      .then(async r => {
+        if (!r.ok) throw new Error(`Status ${r.status}`);
+        return r.json() as Promise<{ dates: AvailabilityDate[] }>;
+      })
+      .then(data => {
+        if (cancelled) return;
+        const list = data.dates ?? [];
+        setDates(list);
+        onStatusChange?.(list.length ? "ready-with-slots" : "ready-empty");
+      })
+      .catch(err => {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : "Failed to load");
+        onStatusChange?.("error");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [config.sheetId, config.tab, pageId, onStatusChange]);
+
+  const selectedKey = value || "";
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "1rem 0", color: C.muted, fontFamily: C.bodyFont, fontSize: "0.85rem" }}>
+        <Loader2 size={14} className="animate-spin" />
+        Loading available dates…
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <p style={{ fontFamily: C.bodyFont, fontSize: "0.85rem", color: "#ef4444" }}>
+        Couldn't load available dates ({loadError}). You can still submit and we'll follow up to schedule.
+      </p>
+    );
+  }
+  if (!dates.length) {
+    return (
+      <p style={{ fontFamily: C.bodyFont, fontSize: "0.85rem", color: C.muted }}>
+        No open recording dates at the moment. Submit your application and we'll reach out as soon as new dates open up.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+      {dates.map(d => {
+        const isExpanded = expandedDate === d.date;
+        const hasMultiple = d.slots.length > 1;
+        const singleSlot = d.slots[0];
+        const isSelected = selectedKey.startsWith(`${d.date}|`);
+        return (
+          <div
+            key={d.date}
+            style={{
+              border: `1px solid ${isSelected ? C.primary : C.border}`,
+              borderRadius: "0.6rem",
+              backgroundColor: rgba(C.bg, 0.5),
+              overflow: "hidden",
+              transition: "border-color 0.18s",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (hasMultiple) {
+                  setExpandedDate(prev => (prev === d.date ? null : d.date));
+                } else if (singleSlot) {
+                  const key = `${d.date}|${singleSlot.start}|${singleSlot.end}`;
+                  const display = `${d.dateLabel} · ${singleSlot.label}`;
+                  onChange(`${key}::${display}`);
+                }
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                padding: "0.85rem 1rem",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: C.fg,
+                fontFamily: C.bodyFont,
+                textAlign: "left",
+              }}
+            >
+              <span style={{ fontSize: "0.95rem", fontWeight: 500 }}>{d.dateLabel}</span>
+              <span style={{ fontSize: "0.75rem", color: C.muted, letterSpacing: "0.05em" }}>
+                {hasMultiple
+                  ? `${d.slots.length} slots${isExpanded ? "" : " · tap to choose"}`
+                  : (isSelected ? "Selected ✓" : (singleSlot?.label ?? ""))}
+              </span>
+            </button>
+            {hasMultiple && isExpanded && (
+              <div style={{ padding: "0 1rem 0.85rem 1rem", display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+                {d.slots.map(s => {
+                  const key = `${d.date}|${s.start}|${s.end}`;
+                  const display = `${d.dateLabel} · ${s.label}`;
+                  const slotSelected = selectedKey === `${key}::${display}`;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => onChange(`${key}::${display}`)}
+                      style={{
+                        padding: "0.5rem 0.95rem",
+                        borderRadius: "999px",
+                        border: `1px solid ${slotSelected ? C.primary : C.border}`,
+                        backgroundColor: slotSelected ? C.primary : "transparent",
+                        color: slotSelected ? C.bg : C.fg,
+                        fontFamily: C.bodyFont,
+                        fontSize: "0.78rem",
+                        fontWeight: 500,
+                        letterSpacing: "0.04em",
+                        cursor: "pointer",
+                        transition: "background-color 0.15s, color 0.15s, border-color 0.15s",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function FormModal({
@@ -1930,13 +2121,21 @@ function FormModal({
   pageId?: number;
   sessionId?: string;
 }) {
-  const steps = config.steps ?? [];
+  const baseSteps = config.steps ?? [];
+  // When availability is configured, append a synthetic final step that
+  // renders the Google Sheets-backed slot picker (see AvailabilityPicker).
+  const steps: FormStep[] = config.availability
+    ? [...baseSteps, { title: config.availability.stepTitle, fields: [] }]
+    : baseSteps;
+  const availabilityStepIndex = config.availability ? steps.length - 1 : -1;
 
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>(() => initialFormData ?? {});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("loading");
+  const handleAvailabilityStatus = useCallback((s: AvailabilityStatus) => setAvailabilityStatus(s), []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -1960,6 +2159,16 @@ function FormModal({
     if (!isLastStep) {
       setCurrentStep(s => s + 1);
       return;
+    }
+    // Require a picked slot only when the picker actually loaded selectable
+    // dates. If there are no open dates or the load failed, allow submission
+    // so we can still capture the lead and follow up to schedule.
+    if (config.availability && availabilityStatus === "ready-with-slots") {
+      const picked = formData[config.availability.fieldId];
+      if (!picked) {
+        setError("Please select a recording date to continue.");
+        return;
+      }
     }
     setSubmitting(true);
     setError(null);
@@ -1994,7 +2203,7 @@ function FormModal({
     } finally {
       setSubmitting(false);
     }
-  }, [isLastStep, formData, config.submitUrl, config.source, p.seriesTitle, pageId, sessionId]);
+  }, [isLastStep, formData, config.submitUrl, config.source, config.availability, availabilityStatus, p.seriesTitle, pageId, sessionId]);
 
   if (!steps.length) return null;
 
@@ -2200,17 +2409,35 @@ function FormModal({
                       {step.title}
                     </p>
                   )}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                    {(step.fields ?? []).filter(f => f.type !== "hidden").map(field => (
-                      <div key={field.id}>
-                        <label style={{ display: "block", fontFamily: C.bodyFont, fontSize: "0.78rem", fontWeight: 500, color: C.fg, marginBottom: "0.4rem", letterSpacing: "0.02em" }}>
-                          {field.label}
-                          {field.required && <span style={{ color: C.primary, marginLeft: "0.25rem" }}>*</span>}
-                        </label>
-                        {renderField(field)}
-                      </div>
-                    ))}
-                  </div>
+                  {currentStep === availabilityStepIndex && config.availability ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+                      {config.availability.helperText && (
+                        <p style={{ fontFamily: C.bodyFont, fontSize: "0.92rem", lineHeight: 1.55, color: C.muted, margin: 0 }}>
+                          {config.availability.helperText}
+                        </p>
+                      )}
+                      <AvailabilityPicker
+                        config={config.availability}
+                        C={C}
+                        value={formData[config.availability.fieldId] ?? ""}
+                        onChange={v => handleFieldChange(config.availability!.fieldId, v)}
+                        pageId={pageId}
+                        onStatusChange={handleAvailabilityStatus}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                      {(step.fields ?? []).filter(f => f.type !== "hidden").map(field => (
+                        <div key={field.id}>
+                          <label style={{ display: "block", fontFamily: C.bodyFont, fontSize: "0.78rem", fontWeight: 500, color: C.fg, marginBottom: "0.4rem", letterSpacing: "0.02em" }}>
+                            {field.label}
+                            {field.required && <span style={{ color: C.primary, marginLeft: "0.25rem" }}>*</span>}
+                          </label>
+                          {renderField(field)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -2668,6 +2895,16 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
         successMessage: effective.formSuccessMessage ?? "Thank you! We'll be in touch.",
         successTitle: "Application Received",
         source: "content-series-guest",
+        availability: effective.availabilitySheetId
+          ? {
+              sheetId: effective.availabilitySheetId,
+              tab: effective.availabilitySheetTab || "Scheduled",
+              helperText: effective.availabilityHelperText
+                || "If you are nominating yourself, please select the most convenient date to come to NYC to film an episode (T&E covered by Dandy).",
+              stepTitle: effective.availabilityStepTitle || "Pick a Recording Date",
+              fieldId: "preferred_slot",
+            }
+          : undefined,
       };
 
   return (

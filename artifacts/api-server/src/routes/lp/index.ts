@@ -35,6 +35,7 @@ import ampPagesRouter from "./amp-pages";
 import programmaticPagesRouter from "./programmatic-pages";
 import adMapRouter from "./ad-map";
 import rssSyncRouter from "./rss-sync";
+import podcastAvailabilityRouter from "./podcast-availability";
 
 const router = Router();
 
@@ -74,5 +75,6 @@ router.use(ampPagesRouter);
 router.use(programmaticPagesRouter);
 router.use(adMapRouter);
 router.use(rssSyncRouter);
+router.use(podcastAvailabilityRouter);
 
 export default router;

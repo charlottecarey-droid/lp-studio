@@ -29,6 +29,7 @@ const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/resolve-token\// },  // GET /lp/resolve-token/:token
   { method: "*",    pattern: /^\/lp\/personalized\// },   // personalized link tracking
   { method: "POST", pattern: /^\/lp\/rss\/parse$/ },      // POST /lp/rss/parse — public RSS proxy/parser for content-series live sync
+  { method: "GET",  pattern: /^\/lp\/podcast-availability$/ }, // GET /lp/podcast-availability?sheetId=…&tab=… — public Google Sheets-backed slot picker for content-series guest forms
   { method: "GET",  pattern: /^\/lp\/og-preview\// },     // GET /lp/og-preview/:slug — OG meta HTML for social bots
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
   { method: "*",    pattern: /^\/webhooks\// },           // POST /webhooks/rb2b, /webhooks/apollo — third-party visitor identification

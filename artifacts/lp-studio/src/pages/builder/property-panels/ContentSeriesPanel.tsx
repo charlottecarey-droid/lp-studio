@@ -780,6 +780,24 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
           <Field label="Open-Form Button Label" hint="Text on the button that opens the application modal">
             <Input value={p.formButtonLabel ?? ""} onChange={e => set({ formButtonLabel: e.target.value || undefined })} className="text-xs h-7" placeholder="Apply to be a Guest" />
           </Field>
+
+          <div className="border-t border-border pt-3 mt-2 space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recording Slot Picker</Label>
+            <p className="text-[11px] text-muted-foreground leading-snug">Reads "OPEN" rows from a Google Sheet (column C = OPEN, D = date, E = time range) and renders date cards as the final step of the guest form. Ranges over 1 hour split into hourly slots. Leave Sheet ID blank to disable.</p>
+            <Field label="Google Sheet ID" hint="From the sheet URL: /spreadsheets/d/<ID>/edit">
+              <Input value={p.availabilitySheetId ?? ""} onChange={e => set({ availabilitySheetId: e.target.value || undefined })} className="text-xs h-7 font-mono" placeholder="19le6P9-bhUDm-1EteGhYBUXA_TDqbKeRzWMVGgkE664" />
+            </Field>
+            <Field label="Sheet Tab" hint="Defaults to 'Scheduled'">
+              <Input value={p.availabilitySheetTab ?? ""} onChange={e => set({ availabilitySheetTab: e.target.value || undefined })} className="text-xs h-7" placeholder="Scheduled" />
+            </Field>
+            <Field label="Step Title">
+              <Input value={p.availabilityStepTitle ?? ""} onChange={e => set({ availabilityStepTitle: e.target.value || undefined })} className="text-xs h-7" placeholder="Pick a Recording Date" />
+            </Field>
+            <Field label="Helper Text" hint="Shown above the date cards">
+              <AiTextField type="textarea" value={p.availabilityHelperText ?? ""} onChange={v => set({ availabilityHelperText: v || undefined })} rows={3} fieldLabel="Availability Helper Text" brandVoiceSet={brandVoiceSet}
+                onSuggest={() => suggestCopy("content-series", "availabilityHelperText", p.availabilityHelperText ?? "", {})} />
+            </Field>
+          </div>
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
               <Label className="text-xs font-medium">Form Steps</Label>
