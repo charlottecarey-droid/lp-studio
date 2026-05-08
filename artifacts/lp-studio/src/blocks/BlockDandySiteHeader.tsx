@@ -20,8 +20,14 @@ interface Props {
 }
 
 type CtaActionMode = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
-function normalizeAction(a: DandySiteHeaderBlockProps["primaryCtaAction"]): CtaActionMode {
-  return a === "chilipiper" || a === "modal-form" || a === "modal-chilipiper" ? a : "url";
+// Resolve with a legacy fallback. BuilderEditor.applyCtaToAll() writes the
+// legacy `primaryCtaMode` field on every block with `primaryCtaUrl` (this
+// block included) but does not write `primaryCtaAction`. Without the
+// fallback, primary silently reverts to URL mode after Apply-to-all from a
+// modal-mode source while secondary keeps its panel-set value.
+function resolveAction(action: string | undefined, legacyMode: string | undefined): CtaActionMode {
+  const v = action ?? legacyMode;
+  return v === "chilipiper" || v === "modal-form" || v === "modal-chilipiper" ? v : "url";
 }
 
 export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, variantId }: Props) {
@@ -50,8 +56,15 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
   };
   const hasFgOverride = !!props.textColor;
 
-  const primaryAction = normalizeAction(props.primaryCtaAction);
-  const secondaryAction = normalizeAction(props.secondaryCtaAction);
+  const legacy = props as unknown as Record<string, unknown>;
+  const primaryAction = resolveAction(
+    props.primaryCtaAction,
+    legacy.primaryCtaMode as string | undefined,
+  );
+  const secondaryAction = resolveAction(
+    props.secondaryCtaAction,
+    legacy.secondaryCtaMode as string | undefined,
+  );
 
   const handleClick = (action: CtaActionMode, url: string) => {
     if (action === "modal-form") return setModalOpen("form");

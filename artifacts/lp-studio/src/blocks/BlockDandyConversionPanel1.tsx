@@ -42,8 +42,20 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
     ? "border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
     : "border-2 border-white text-white hover:bg-white hover:text-[var(--brand-primary)]";
 
-  const normalizeAction = (mode: string | undefined): "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =>
-    mode === "chilipiper" || mode === "modal-form" || mode === "modal-chilipiper" ? mode : "url";
+  // Resolve the runtime CTA mode with a legacy fallback. The current panel
+  // writes `{primary,secondary}CtaAction`, but the "Apply CTA to All Sections"
+  // helper in BuilderEditor still writes the legacy `primaryCtaMode` field on
+  // every block that has a `primaryCtaUrl` — including this one. Without the
+  // fallback, primary silently reverts to URL mode (and the modal never
+  // opens) after the user runs Apply-to-all from a modal-mode source block,
+  // while secondary keeps working because Apply-to-all only touches primary.
+  const resolveAction = (
+    action: string | undefined,
+    legacyMode: string | undefined,
+  ): "url" | "chilipiper" | "modal-form" | "modal-chilipiper" => {
+    const v = action ?? legacyMode;
+    return v === "chilipiper" || v === "modal-form" || v === "modal-chilipiper" ? v : "url";
+  };
 
   const modalCfg = {
     modalChilipiperUrl: props.modalChilipiperUrl,
@@ -83,7 +95,10 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
         <div className="flex flex-wrap justify-center gap-4 mt-2">
           {props.primaryCtaText && (
             <CtaButton
-              ctaAction={normalizeAction(props.primaryCtaAction)}
+              ctaAction={resolveAction(
+                props.primaryCtaAction,
+                (props as unknown as Record<string, unknown>).primaryCtaMode as string | undefined,
+              )}
               ctaUrl={props.primaryCtaUrl}
               chilipiperUrl={props.primaryChilipiperUrl}
               {...modalCfg}
@@ -98,7 +113,10 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
           )}
           {props.secondaryCtaText && (
             <CtaButton
-              ctaAction={normalizeAction(props.secondaryCtaAction)}
+              ctaAction={resolveAction(
+                props.secondaryCtaAction,
+                (props as unknown as Record<string, unknown>).secondaryCtaMode as string | undefined,
+              )}
               ctaUrl={props.secondaryCtaUrl}
               chilipiperUrl={props.secondaryChilipiperUrl}
               {...modalCfg}
