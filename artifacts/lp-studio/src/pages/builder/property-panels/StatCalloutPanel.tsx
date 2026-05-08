@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 
 interface Props {
   props: StatCalloutBlockProps;
@@ -12,6 +13,12 @@ interface Props {
 export function StatCalloutPanel({ props, onChange }: Props) {
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="stat-callout"
+        fields={["stat", "description", "footnote"]}
+        values={{ stat: props.stat, description: props.description, footnote: props.footnote ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Stat</Label>
         <Input value={props.stat} onChange={e => onChange({ ...props, stat: e.target.value })} className="text-sm font-mono" placeholder="89%" />

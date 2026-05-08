@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 
@@ -31,6 +32,12 @@ export function HoursLocationPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="hours-location"
+        fields={["eyebrow", "headline", "subheadline", "ctaText"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline, subheadline: props.subheadline ?? "", ctaText: props.ctaText ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs">Eyebrow</Label>
         <Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} />

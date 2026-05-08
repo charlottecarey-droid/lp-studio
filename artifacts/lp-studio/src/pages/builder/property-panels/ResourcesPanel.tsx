@@ -172,7 +172,7 @@ export default function ResourcesPanel({ props, onChange, bgOptions }: Props) {
       <div>
         <Label className="text-xs text-slate-500 mb-1">Headline</Label>
         <Input
-          value={props.headline}
+          value={props.headline ?? ""}
           onChange={(e) => onChange({ ...props, headline: e.target.value })}
         />
       </div>

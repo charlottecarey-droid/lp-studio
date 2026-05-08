@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import type { DandyVerticalTabsBlockProps } from "@/lib/block-types";
 
@@ -32,6 +33,12 @@ export function DandyVerticalTabsPanel({ blockType = "dandy-vertical-tabs", prop
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "subheadline"]}
+        values={{ headline: p.headline, subheadline: p.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Headline</Label>
         <AiTextField

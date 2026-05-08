@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -20,6 +21,12 @@ interface Props {
 export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll }: Props) {
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "subheadline", "ctaText"]}
+        values={{ headline: props.headline, subheadline: props.subheadline ?? "", ctaText: props.ctaText }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</Label>

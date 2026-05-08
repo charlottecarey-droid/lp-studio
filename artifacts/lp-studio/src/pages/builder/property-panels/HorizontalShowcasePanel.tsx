@@ -13,6 +13,7 @@ import type {
 import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 
 interface Props {
   props: HorizontalShowcaseBlockProps;
@@ -38,6 +39,12 @@ export function HorizontalShowcasePanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-6">
+      <BlockRefreshButton
+        blockType="horizontal-showcase"
+        fields={["eyebrow", "headline"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div className="space-y-3">
         <div>
           <Label className="text-xs font-medium mb-1.5 block">Eyebrow</Label>

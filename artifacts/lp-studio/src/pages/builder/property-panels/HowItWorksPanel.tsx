@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
@@ -27,6 +28,12 @@ export function HowItWorksPanel({ blockType, props, onChange, brandVoiceSet }: P
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline"]}
+        values={{ headline: props.headline }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Section Headline</Label>
         <AiTextField

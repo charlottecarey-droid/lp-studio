@@ -15,6 +15,7 @@ function moveArr<T>(arr: T[], from: number, to: number): T[] {
 import type { SpeakerGridBlockProps, SpeakerGridSpeaker } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 
 interface Props {
   props: SpeakerGridBlockProps;
@@ -34,6 +35,12 @@ export function SpeakerGridPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="speaker-grid"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline, subheadline: props.subheadline ?? "" }}
+        onApply={(u) => update(u)}
+      />
       <div>
         <Label className="text-xs">Eyebrow</Label>
         <Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} />

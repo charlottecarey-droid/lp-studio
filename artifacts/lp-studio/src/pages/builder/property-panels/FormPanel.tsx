@@ -5,6 +5,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Link2, Link2Off, X 
 import type { FormBlockProps, FormField, FormFieldType, FormStep } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BrandSwatches } from "@/components/BrandSwatches";
@@ -470,6 +471,12 @@ export function FormPanel({ props, onChange, pageId, bgOptions }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="form"
+        fields={["headline", "subheadline"]}
+        values={{ headline: props.headline, subheadline: props.subheadline }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className={LABEL_CLS}>Global Form</Label>
         <p className="text-xs text-muted-foreground mb-2">

@@ -1,6 +1,7 @@
 import type { ComparisonBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BrandSwatches } from "@/components/BrandSwatches";
@@ -34,6 +35,12 @@ function BulletList({ bullets, onChange }: { bullets: string[]; onChange: (b: st
 export function ComparisonPanel({ props, onChange, onApplyCtaToAll }: Props) {
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="comparison"
+        fields={["headline", "ctaText"]}
+        values={{ headline: props.headline, ctaText: props.ctaText }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Section Headline</Label>
         <Input value={props.headline} onChange={e => onChange({ ...props, headline: e.target.value })} className="text-sm" />

@@ -1,6 +1,7 @@
 import type { ProductGridBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,12 @@ export function ProductGridPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="product-grid"
+        fields={["headline", "subheadline"]}
+        values={{ headline: props.headline, subheadline: props.subheadline }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Columns</Label>
         <div className="flex gap-1.5">

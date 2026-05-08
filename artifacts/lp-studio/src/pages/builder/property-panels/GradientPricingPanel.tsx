@@ -4,6 +4,7 @@ import type {
 } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,12 @@ export function GradientPricingPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType="gradient-pricing"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline, subheadline: props.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Header</div>
         <div>

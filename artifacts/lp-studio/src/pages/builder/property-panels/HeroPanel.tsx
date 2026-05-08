@@ -32,6 +32,12 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, bgOptions
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "subheadline", "ctaText"]}
+        values={{ headline: props.headline, subheadline: props.subheadline, ctaText: props.ctaText }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</Label>

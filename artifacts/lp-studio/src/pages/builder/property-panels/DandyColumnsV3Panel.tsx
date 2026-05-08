@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Switch } from "@/components/ui/switch";
 import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,12 @@ export function DandyColumnsV3Panel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="dandy-columns-v3"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, subheadline: p.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Eyebrow</Label>
         <Input value={p.eyebrow ?? ""} onChange={e => set("eyebrow", e.target.value || undefined)} className="h-8 text-xs" />

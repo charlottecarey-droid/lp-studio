@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import type {
@@ -123,6 +124,21 @@ export function SpatialTourPanel({ props: p, onChange, brandVoiceSet }: Props) {
 
   return (
     <div className="space-y-0 p-4">
+      <BlockRefreshButton
+        blockType="spatial-tour"
+        fields={["heroEyebrow", "heroHeadlineLine1", "heroHeadlineLine2", "heroHeadlineEmphasis", "heroHeadlineLine3", "heroBody", "heroPrimaryCta", "heroSecondaryCta"]}
+        values={{
+          heroEyebrow: p.heroEyebrow ?? "",
+          heroHeadlineLine1: p.heroHeadlineLine1 ?? "",
+          heroHeadlineLine2: p.heroHeadlineLine2 ?? "",
+          heroHeadlineEmphasis: p.heroHeadlineEmphasis ?? "",
+          heroHeadlineLine3: p.heroHeadlineLine3 ?? "",
+          heroBody: p.heroBody ?? "",
+          heroPrimaryCta: p.heroPrimaryCta ?? "",
+          heroSecondaryCta: p.heroSecondaryCta ?? "",
+        }}
+        onApply={(u) => set(u as Partial<SpatialTourBlockProps>)}
+      />
 
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <SectionHeader label="Navigation" open={open.nav} onToggle={() => toggle("nav")} />

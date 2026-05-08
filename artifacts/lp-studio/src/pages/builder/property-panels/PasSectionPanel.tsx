@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
@@ -26,6 +27,12 @@ export function PasSectionPanel({ blockType, props, onChange, brandVoiceSet }: P
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "body"]}
+        values={{ headline: props.headline, body: props.body }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
         <AiTextField

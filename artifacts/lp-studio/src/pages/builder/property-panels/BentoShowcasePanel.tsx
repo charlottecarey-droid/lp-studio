@@ -6,6 +6,7 @@ import type {
 } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
@@ -326,6 +327,12 @@ export function BentoShowcasePanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType="bento-showcase"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline ?? "", subheadline: props.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Section header

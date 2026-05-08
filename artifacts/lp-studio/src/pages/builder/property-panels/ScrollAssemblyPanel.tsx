@@ -2,6 +2,7 @@ import { Plus, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -61,6 +62,12 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-6">
+      <BlockRefreshButton
+        blockType="scroll-assembly"
+        fields={["eyebrow", "ctaText"]}
+        values={{ eyebrow: props.eyebrow ?? "", ctaText: props.ctaText ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div className="space-y-3">
         <div>
           <Label className="text-xs font-medium mb-1.5 block">Eyebrow</Label>

@@ -3,6 +3,7 @@ import { BG_OPTIONS } from "@/lib/bg-styles";
 type BgOpts = typeof BG_OPTIONS;
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
@@ -51,6 +52,12 @@ export default function CaseStudiesPanel({ props, onChange, bgOptions }: Props) 
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType="case-studies"
+        fields={["headline", "subheadline"]}
+        values={{ headline: props.headline ?? "", subheadline: props.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <LibraryButtons
         type="case_study"
         title="Case Studies Library"

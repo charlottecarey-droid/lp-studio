@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 
 function moveArr<T>(arr: T[], from: number, to: number): T[] {
@@ -55,6 +56,12 @@ export function MenuSectionPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="menu-section"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline, subheadline: props.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs">Eyebrow</Label>
         <Input value={props.eyebrow ?? ""} onChange={(e) => update({ eyebrow: e.target.value })} />

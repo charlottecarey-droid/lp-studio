@@ -9,6 +9,7 @@ import { VideoPicker } from "@/components/VideoPicker";
 import { ImagePicker } from "@/components/ImagePicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
@@ -28,6 +29,12 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "subheadline", "ctaText"]}
+        values={{ headline: props.headline, subheadline: props.subheadline, ctaText: props.ctaText }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Layout</Label>
         <Select

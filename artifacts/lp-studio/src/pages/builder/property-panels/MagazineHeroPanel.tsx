@@ -1,6 +1,7 @@
 import type { MagazineHeroBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -25,6 +26,12 @@ export function MagazineHeroPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType="magazine-hero"
+        fields={["eyebrow", "headline", "subheadline", "ctaText"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline, subheadline: props.subheadline ?? "", ctaText: props.ctaText }}
+        onApply={(u) => update(u)}
+      />
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Layout & style

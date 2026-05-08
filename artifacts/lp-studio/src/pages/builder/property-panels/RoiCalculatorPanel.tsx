@@ -4,6 +4,7 @@ type BgOpts = typeof BG_OPTIONS;
 import type { RoiCalculatorBlockProps, RoiInputField, RoiOutputField } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -252,6 +253,12 @@ export function RoiCalculatorPanel({ props, onChange, bgOptions }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="roi-calculator"
+        fields={["headline", "subheadline", "ctaText"]}
+        values={{ headline: props.headline, subheadline: props.subheadline, ctaText: props.ctaText }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <Button variant="outline" size="sm" className="w-full gap-2 h-8 text-xs" onClick={() => setPresetOpen(true)}>
         <Wand2 className="w-3.5 h-3.5" /> Load Preset
       </Button>

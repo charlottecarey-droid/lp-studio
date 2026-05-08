@@ -2,6 +2,7 @@ import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -38,6 +39,12 @@ export function StickyStackPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-6">
+      <BlockRefreshButton
+        blockType="sticky-stack"
+        fields={["eyebrow", "headline"]}
+        values={{ eyebrow: props.eyebrow ?? "", headline: props.headline ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div className="space-y-3">
         <div>
           <Label className="text-xs font-medium mb-1.5 block">Eyebrow</Label>

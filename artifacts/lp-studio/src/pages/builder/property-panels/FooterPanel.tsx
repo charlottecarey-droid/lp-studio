@@ -1,4 +1,5 @@
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,12 @@ export function FooterPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType="footer"
+        fields={["copyrightText"]}
+        values={{ copyrightText: props.copyrightText ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Background Color</Label>
         <div className="flex items-center gap-2">

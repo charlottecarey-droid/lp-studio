@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 
 interface Props {
   props: BoldStatementBlockProps;
@@ -17,6 +18,12 @@ export function BoldStatementPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType="bold-statement"
+        fields={["eyebrow", "statement"]}
+        values={{ eyebrow: props.eyebrow ?? "", statement: props.statement }}
+        onApply={(u) => update(u)}
+      />
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Copy</div>
         <div>

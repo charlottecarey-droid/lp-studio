@@ -2,6 +2,7 @@ import type { TestimonialBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 
 interface Props {
   props: TestimonialBlockProps;
@@ -11,6 +12,12 @@ interface Props {
 export function TestimonialPanel({ props, onChange }: Props) {
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="testimonial"
+        fields={["quote", "author", "role", "practiceName"]}
+        values={{ quote: props.quote, author: props.author, role: props.role, practiceName: props.practiceName ?? "" }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Quote</Label>
         <Textarea value={props.quote} onChange={e => onChange({ ...props, quote: e.target.value })} rows={4} className="text-sm resize-none" />

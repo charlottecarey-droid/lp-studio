@@ -2,6 +2,7 @@ import type { OnePagerHeroBlockProps } from "@/lib/block-types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
@@ -26,6 +27,17 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "partnerName", "tagline", "subtitle"]}
+        values={{
+          headline: props.headline ?? props.partnerName,
+          partnerName: props.partnerName,
+          tagline: props.tagline ?? "",
+          subtitle: props.subtitle ?? "",
+        }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       {/* Headline */}
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { FontSelect } from "@/components/FontSelect";
@@ -313,6 +314,12 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
 
   return (
     <div className="space-y-0 p-4">
+      <BlockRefreshButton
+        blockType="content-series"
+        fields={["seriesTitle", "seriesSubtitle"]}
+        values={{ seriesTitle: p.seriesTitle, seriesSubtitle: p.seriesSubtitle ?? "" }}
+        onApply={(u) => set(u)}
+      />
 
       {/* ── Series Type ──────────────────────────────────────────────────── */}
       <div className="pb-3 space-y-2">

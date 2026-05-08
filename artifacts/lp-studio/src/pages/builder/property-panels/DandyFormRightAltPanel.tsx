@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandSwatches } from "@/components/BrandSwatches";
@@ -24,6 +25,12 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="dandy-form-right-alt"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, subheadline: p.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Background Color</Label>
         <div className="flex gap-2 items-center">

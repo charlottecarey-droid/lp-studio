@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import type { DandySwitchbackBlockProps } from "@/lib/block-types";
 
@@ -32,6 +33,12 @@ export function DandySwitchbackPanel({ blockType = "dandy-switchback", props: p,
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, subheadline: p.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Eyebrow</Label>
         <Input value={p.eyebrow ?? ""} onChange={e => set("eyebrow", e.target.value || undefined)} className="h-8 text-xs" />

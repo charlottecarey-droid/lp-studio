@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { suggestCopy } from "@/lib/copy-api";
@@ -154,6 +155,28 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
 
   return (
     <div className="space-y-0 p-4">
+      <BlockRefreshButton
+        blockType="event-page"
+        fields={["eventName", "eventSubtitle", "heroEyebrow", "heroTagline", "heroLocation", "heroCtaText", "agendaEyebrow", "agendaHeadline", "agendaSubtitle", "detailsEyebrow", "detailsHeadline", "detailsSubtitle", "rsvpEyebrow", "rsvpHeadline", "rsvpSubtitle"]}
+        values={{
+          eventName: p.eventName ?? "",
+          eventSubtitle: p.eventSubtitle ?? "",
+          heroEyebrow: p.heroEyebrow ?? "",
+          heroTagline: p.heroTagline ?? "",
+          heroLocation: p.heroLocation ?? "",
+          heroCtaText: p.heroCtaText ?? "",
+          agendaEyebrow: p.agendaEyebrow ?? "",
+          agendaHeadline: p.agendaHeadline ?? "",
+          agendaSubtitle: p.agendaSubtitle ?? "",
+          detailsEyebrow: p.detailsEyebrow ?? "",
+          detailsHeadline: p.detailsHeadline ?? "",
+          detailsSubtitle: p.detailsSubtitle ?? "",
+          rsvpEyebrow: p.rsvpEyebrow ?? "",
+          rsvpHeadline: p.rsvpHeadline ?? "",
+          rsvpSubtitle: p.rsvpSubtitle ?? "",
+        }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
 
       {/* ── Theme & Style ───────────────────────────────────────────────────── */}
       <SectionHeader label="Theme & Style" open={open.theme} onToggle={() => toggle("theme")} />

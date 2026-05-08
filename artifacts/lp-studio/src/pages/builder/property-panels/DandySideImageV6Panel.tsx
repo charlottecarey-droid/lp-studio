@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,12 @@ export function DandySideImageV6Panel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="dandy-side-image-v6"
+        fields={["eyebrow", "headline", "badgeText"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, badgeText: p.badgeText ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Image Position</Label>
         <Select value={p.imagePosition ?? "right"} onValueChange={v => set("imagePosition", v as "left" | "right")}>

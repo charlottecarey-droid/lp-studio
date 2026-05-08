@@ -5,6 +5,8 @@ import { BrandSwatches } from "@/components/BrandSwatches";
 import type { DandyCtaBlockProps } from "@/lib/block-types";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+
 interface Props {
   props: DandyCtaBlockProps;
   onChange: (p: DandyCtaBlockProps) => void;
@@ -16,6 +18,12 @@ export function DandyCtaBlockPanel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="dandy-cta-block"
+        fields={["eyebrow", "headline", "subheadline", "primaryCtaText"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Alignment</Label>
         <Select value={p.alignment ?? "center"} onValueChange={v => set("alignment", v as "left" | "center" | "right")}>

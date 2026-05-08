@@ -11,6 +11,7 @@ import { VideoPicker } from "@/components/VideoPicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
@@ -40,6 +41,12 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
 
   return (
     <div className="space-y-5">
+      <BlockRefreshButton
+        blockType={blockType}
+        fields={["headline", "subheadline", "ctaText"]}
+        values={{ headline: props.headline, subheadline: props.subheadline, ctaText: props.ctaText }}
+        onApply={(u) => onChange({ ...props, ...u })}
+      />
       <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Hero Content</p>
 
       <div>

@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,12 @@ export function DandyConversionPanel1Panel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <BlockRefreshButton
+        blockType="dandy-conversion-panel-1"
+        fields={["eyebrow", "headline", "subheadline"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, subheadline: p.subheadline ?? "" }}
+        onApply={(u) => onChange({ ...p, ...u })}
+      />
       <div className="space-y-1.5">
         <Label className="text-xs">Style</Label>
         <Select value={p.style ?? "teal"} onValueChange={v => set("style", v as "teal" | "lime" | "medium" | "white")}>

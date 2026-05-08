@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { LibraryPicker } from "@/components/LibraryPicker";
 import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
@@ -70,6 +71,12 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet, bgOptions }: 
 
   return (
     <div className="space-y-4 p-4">
+      <BlockRefreshButton
+        blockType={block.type}
+        fields={["eyebrow", "headline", "subheadline", "ctaText"]}
+        values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", ctaText: p.ctaText ?? "" }}
+        onApply={(u) => onChange({ ...block, props: { ...p, ...u } })}
+      />
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label className="text-xs">Eyebrow</Label>
