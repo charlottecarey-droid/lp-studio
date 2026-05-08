@@ -23,6 +23,8 @@ import type { BlockPath } from "@/lib/block-tree";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import type { BrandConfig } from "@/lib/brand-config";
 
+type ParentLayout = "stack" | "grid";
+
 interface NestedChildProps {
   child: PageBlock;
   parentPath: BlockPath;
@@ -36,9 +38,15 @@ interface NestedChildProps {
    *  child at index 0 renders this chip; pass undefined to skip. */
   onInsertBefore?: () => void;
   onBlockChange: (updated: PageBlock) => void;
-  renderChild: (c: PageBlock, i: number, parentPath: BlockPath) => ReactNode;
-  renderEmptySlot: (parentPath: BlockPath) => ReactNode;
-  renderTailSlot?: (parentPath: BlockPath) => ReactNode;
+  renderChild: (c: PageBlock, i: number, parentPath: BlockPath, parentLayout?: ParentLayout) => ReactNode;
+  renderEmptySlot: (parentPath: BlockPath, parentLayout?: ParentLayout) => ReactNode;
+  renderTailSlot?: (parentPath: BlockPath, parentLayout?: ParentLayout) => ReactNode;
+  /** Layout of the *parent* container.
+   *  - "stack" (default): vertical flow, render before/after insert chips.
+   *  - "grid": parent is a CSS-grid container (grid/columns block). Insert
+   *    chips would steal grid cells and shove children to the right column,
+   *    so we omit them entirely. */
+  parentLayout?: ParentLayout;
 }
 
 export function NestedChild({
@@ -55,6 +63,7 @@ export function NestedChild({
   renderChild,
   renderEmptySlot,
   renderTailSlot,
+  parentLayout = "stack",
 }: NestedChildProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: child.id,
@@ -66,9 +75,11 @@ export function NestedChild({
     opacity: isDragging ? 0.4 : 1,
   };
 
+  const showChips = parentLayout !== "grid";
+
   return (
     <>
-      {index === 0 && onInsertBefore && (
+      {showChips && index === 0 && onInsertBefore && (
         <NestedInsertChip onClick={onInsertBefore} />
       )}
       <div
@@ -120,7 +131,7 @@ export function NestedChild({
           renderTailSlot={renderTailSlot}
         />
       </div>
-      <NestedInsertChip onClick={onInsertAfter} />
+      {showChips && <NestedInsertChip onClick={onInsertAfter} />}
     </>
   );
 }
@@ -147,6 +158,7 @@ interface EmptyContainerSlotProps {
   parentPath: BlockPath;
   onInsert: () => void;
   label?: string;
+  parentLayout?: ParentLayout;
 }
 
 /**
@@ -156,13 +168,18 @@ interface EmptyContainerSlotProps {
  * Reuses the same `container:<parentPath>` droppable id as
  * `EmptyContainerSlot` so `handleDragEnd` treats both identically (append).
  */
-export function TailDropSlot({ parentPath }: { parentPath: BlockPath }) {
+export function TailDropSlot({ parentPath, parentLayout }: { parentPath: BlockPath; parentLayout?: ParentLayout }) {
   const id = `container:${parentPath.join(".")}`;
   const { setNodeRef, isOver } = useDroppable({ id });
+  // In grid containers, span the full row so this drop zone occupies its
+  // own row instead of stealing a single cell that would otherwise hold a
+  // child.
+  const gridSpanStyle = parentLayout === "grid" ? { gridColumn: "1 / -1" } : undefined;
   return (
     <div
       ref={setNodeRef}
       data-tail-slot={id}
+      style={gridSpanStyle}
       className={cn(
         "h-3 -mt-1 rounded transition-colors",
         isOver ? "bg-primary/30 ring-1 ring-primary" : "bg-transparent",
@@ -171,13 +188,15 @@ export function TailDropSlot({ parentPath }: { parentPath: BlockPath }) {
   );
 }
 
-export function EmptyContainerSlot({ parentPath, onInsert, label }: EmptyContainerSlotProps) {
+export function EmptyContainerSlot({ parentPath, onInsert, label, parentLayout }: EmptyContainerSlotProps) {
   const id = `container:${parentPath.join(".")}`;
   const { setNodeRef, isOver } = useDroppable({ id });
+  const gridSpanStyle = parentLayout === "grid" ? { gridColumn: "1 / -1" } : undefined;
   return (
     <div
       ref={setNodeRef}
       data-empty-slot={id}
+      style={gridSpanStyle}
       className={cn(
         "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed py-6 px-4 text-xs transition-colors",
         isOver

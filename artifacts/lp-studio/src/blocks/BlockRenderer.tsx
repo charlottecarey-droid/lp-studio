@@ -133,19 +133,19 @@ interface Props {
    * with no chrome (used by viewer/published pages). The builder supplies a
    * version that wraps each child in selection/drag chrome and insert chips.
    */
-  renderChild?: (child: PageBlock, index: number, parentPath: BlockPath) => ReactNode;
+  renderChild?: (child: PageBlock, index: number, parentPath: BlockPath, parentLayout?: "stack" | "grid") => ReactNode;
   /**
    * Optional callback for "drop block here" zones inside empty containers.
    * Builder uses this to register a useDroppable target. Viewer ignores it.
    */
-  renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
+  renderEmptySlot?: (parentPath: BlockPath, parentLayout?: "stack" | "grid") => ReactNode;
   /**
    * Optional callback for an "append-at-end" drop zone rendered after the
    * last child of a non-empty container. Without this, dragging a block to
    * the bottom of a list is impossible (sortable's "before over" semantics
    * never resolves to "after the last item").
    */
-  renderTailSlot?: (parentPath: BlockPath) => ReactNode;
+  renderTailSlot?: (parentPath: BlockPath, parentLayout?: "stack" | "grid") => ReactNode;
   pageId?: number;
   /**
    * Active A/B test id when the page is being rendered as a test variant.
@@ -301,17 +301,29 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
   const childrenArr: PageBlock[] = Array.isArray((rawBlock as PageBlock).children)
     ? ((rawBlock as PageBlock).children as PageBlock[])
     : [];
+  // Container layout signal forwarded to the builder chrome. CSS-grid
+  // containers (`grid` / `columns`) auto-place every direct child into a
+  // grid cell, so the per-child insert chips and the tail-slot wrapper
+  // would otherwise occupy real grid cells and shove all the actual
+  // content into the right column. We tell the chrome to drop the chips
+  // and let the tail/empty slots span the full row instead.
+  const rawType = (rawBlock as PageBlock).type;
+  const parentLayout: "stack" | "grid" =
+    rawType === "grid" || rawType === "columns" ? "grid" : "stack";
   const renderChildren = (parentPath: BlockPath, kids: PageBlock[]): ReactNode => {
     if (kids.length === 0) {
-      return renderEmptySlot ? renderEmptySlot(parentPath) : null;
+      return renderEmptySlot ? renderEmptySlot(parentPath, parentLayout) : null;
     }
     if (renderChild) {
-      const rendered = kids.map((c, i) => renderChild(c, i, parentPath));
+      const rendered = kids.map((c, i) => renderChild(c, i, parentPath, parentLayout));
       // Append a tail droppable so users can drop blocks AFTER the last
       // child (sortable "before over" semantics can't otherwise reach the
-      // end-of-list slot).
+      // end-of-list slot). In grid layouts we use display:contents on the
+      // wrapper so the inner slot becomes the grid item directly (and can
+      // span the full row via its own gridColumn style).
       if (renderTailSlot) {
-        return [...rendered, <span key="__tail__">{renderTailSlot(parentPath)}</span>];
+        const tailWrapStyle = parentLayout === "grid" ? { display: "contents" as const } : undefined;
+        return [...rendered, <span key="__tail__" style={tailWrapStyle}>{renderTailSlot(parentPath, parentLayout)}</span>];
       }
       return rendered;
     }

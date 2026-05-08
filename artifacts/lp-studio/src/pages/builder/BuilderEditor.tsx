@@ -1519,7 +1519,7 @@ export default function BuilderEditor() {
   // (not in a child component) so they share the BuilderEditor closure for
   // selection state and undo-tracked mutations.
   const renderNestedChild = useCallback(
-    (child: PageBlock, index: number, parentPath: BlockPath): ReactNode => (
+    (child: PageBlock, index: number, parentPath: BlockPath, parentLayout?: "stack" | "grid"): ReactNode => (
       <NestedChild
         key={child.id}
         child={child}
@@ -1544,15 +1544,17 @@ export default function BuilderEditor() {
         renderChild={renderNestedChild}
         renderEmptySlot={renderEmptySlot}
         renderTailSlot={renderTailSlot}
+        parentLayout={parentLayout}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [brand, selectedBlockId],
   );
   const renderEmptySlot = useCallback(
-    (parentPath: BlockPath): ReactNode => (
+    (parentPath: BlockPath, parentLayout?: "stack" | "grid"): ReactNode => (
       <EmptyContainerSlot
         parentPath={parentPath}
+        parentLayout={parentLayout}
         onInsert={() => {
           setNestedInsertTarget({ parentPath, index: 0 });
           setInsertDialogOpen(true);
@@ -1562,8 +1564,8 @@ export default function BuilderEditor() {
     [],
   );
   const renderTailSlot = useCallback(
-    (parentPath: BlockPath): ReactNode => (
-      <TailDropSlot parentPath={parentPath} />
+    (parentPath: BlockPath, parentLayout?: "stack" | "grid"): ReactNode => (
+      <TailDropSlot parentPath={parentPath} parentLayout={parentLayout} />
     ),
     [],
   );
