@@ -3,10 +3,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
 import { HEADER_FONT_OPTIONS } from "./header-fonts";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+
+type NavCtaAction = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
 
 interface Props {
   props: NavHeaderBlockProps;
@@ -164,6 +170,21 @@ export function NavHeaderPanel({ props, onChange }: Props) {
           className="text-xs h-7"
           placeholder="URL"
         />
+        <div>
+          <Label className="text-[11px] font-medium mb-1.5 block">Action</Label>
+          <Select
+            value={props.cta1Action ?? "url"}
+            onValueChange={v => onChange({ ...props, cta1Action: v as NavCtaAction })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
+              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+              <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="border rounded-lg p-3 space-y-2">
@@ -182,7 +203,35 @@ export function NavHeaderPanel({ props, onChange }: Props) {
           className="text-xs h-7"
           placeholder="URL"
         />
+        <div>
+          <Label className="text-[11px] font-medium mb-1.5 block">Action</Label>
+          <Select
+            value={props.cta2Action ?? "url"}
+            onValueChange={v => onChange({ ...props, cta2Action: v as NavCtaAction })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
+              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+              <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {(props.cta1Action === "modal-form" || props.cta1Action === "modal-chilipiper" ||
+        props.cta2Action === "modal-form" || props.cta2Action === "modal-chilipiper") && (
+        <CtaButtonModalConfigSection
+          ctaAction={
+            (props.cta1Action === "modal-chilipiper" || props.cta2Action === "modal-chilipiper")
+              ? "modal-chilipiper"
+              : "modal-form"
+          }
+          value={props}
+          onChange={(next) => onChange({ ...props, ...next })}
+        />
+      )}
     </div>
   );
 }

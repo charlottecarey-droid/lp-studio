@@ -7,7 +7,7 @@ export interface DsoPracticeNavLink {
   anchor: string;
 }
 
-export interface DsoPracticeNavBlockProps {
+export interface DsoPracticeNavBlockProps extends CtaModalConfig {
   dsoName?: string;
   links: DsoPracticeNavLink[];
   ctaText?: string;

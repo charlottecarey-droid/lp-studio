@@ -528,6 +528,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockNavHeader
             props={block.props}
             brand={brand}
+            pageId={pageId}
+            variantId={variantId}
             onFieldChange={onBlockChange
               ? (updated: NavHeaderBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -734,7 +736,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-testimonials":
         return <BlockDsoTestimonials props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-practice-nav":
-        return <BlockDsoPracticeNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoPracticeNav props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-practice-hero":
         return <BlockDsoPracticeHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-stat-row":
@@ -765,7 +767,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dandy-switchback":
         return <BlockDandySwitchback props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-site-header":
-        return <BlockDandySiteHeader props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDandySiteHeader props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-site-footer":
         return <BlockDandySiteFooter props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-video-testimonials":

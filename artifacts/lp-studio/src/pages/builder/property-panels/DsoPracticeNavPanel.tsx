@@ -1,8 +1,9 @@
 import { Plus, Trash2 } from "lucide-react";
-import type { DsoPracticeNavBlockProps, DsoPracticeNavLink } from "@/lib/block-types";
+import type { CtaMode, DsoPracticeNavBlockProps, DsoPracticeNavLink } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
   props: DsoPracticeNavBlockProps;
@@ -114,13 +115,23 @@ export function DsoPracticeNavPanel({ props, onChange }: Props) {
           <Label className="text-xs text-muted-foreground">Mode</Label>
           <select
             value={props.ctaMode ?? "link"}
-            onChange={e => onChange({ ...props, ctaMode: e.target.value as "link" | "chilipiper" | "modal-form" | "modal-chilipiper" })}
+            onChange={e => onChange({ ...props, ctaMode: e.target.value as CtaMode })}
             className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="link">Regular link</option>
             <option value="chilipiper">Chili Piper popup</option>
+            <option value="modal-form">Open modal with form</option>
+            <option value="modal-chilipiper">Open modal then Chili Piper</option>
           </select>
         </div>
+
+        {(props.ctaMode === "modal-form" || props.ctaMode === "modal-chilipiper") && (
+          <CtaButtonModalConfigSection
+            ctaAction={props.ctaMode}
+            value={props}
+            onChange={(next) => onChange({ ...props, ...next })}
+          />
+        )}
       </div>
     </div>
   );

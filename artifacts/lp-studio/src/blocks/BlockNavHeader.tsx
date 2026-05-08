@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getButtonClasses } from "@/lib/brand-config";
@@ -7,6 +8,8 @@ import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { motion } from "framer-motion";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -14,13 +17,20 @@ interface Props {
   props: NavHeaderBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: NavHeaderBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
+type CtaActionMode = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+
+function normalizeAction(a: NavHeaderBlockProps["cta1Action"]): CtaActionMode {
+  return a === "chilipiper" || a === "modal-form" || a === "modal-chilipiper" ? a : "url";
+}
+
+export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId }: Props) {
   // Load any catalog Google Font referenced by the per-header font override.
-  // Without this, picking "Geist" or "Playfair Display" from the dropdown
-  // does nothing — the browser falls back to the next family in the stack.
   useBlockFonts(props.fontFamily);
+  const [modalOpen, setModalOpen] = useState<false | "form" | "chilipiper">(false);
 
   const updateLink = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
@@ -28,8 +38,6 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, navLinks });
   };
 
-  // Inline background/text/font overrides. Falls back to the historical
-  // white bar with slate-900 text when unset.
   const headerBg = props.backgroundColor ?? "#ffffff";
   const headerFg = props.textColor;
   const overlay = Math.max(0, Math.min(1, props.backgroundOverlay ?? 0));
@@ -40,10 +48,60 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
     color: headerFg || undefined,
     fontFamily: props.fontFamily || undefined,
   };
-  // Drop the hard-coded bg/text classes when an override is in play so the
-  // user's color isn't fighting tailwind's `bg-white` / `text-slate-*`.
   const hasBgOverride = !!(props.backgroundColor || props.backgroundImage);
   const hasFgOverride = !!props.textColor;
+
+  const cta1Action = normalizeAction(props.cta1Action);
+  const cta2Action = normalizeAction(props.cta2Action);
+
+  // Renders a CTA button with the right behaviour for its action mode.
+  // - url        → <motion.a href>
+  // - chilipiper → wrapped in ChiliPiperButton
+  // - modal-*    → <motion.button> that opens the shared EmailCaptureModal
+  const renderCta = (
+    cta: { label: string; url: string },
+    action: CtaActionMode,
+    onLabelEdit: ((v: string) => void) | undefined,
+    btnClassName: string,
+    btnStyle?: React.CSSProperties,
+  ) => {
+    if (!cta?.label) return null;
+    const inner = <InlineText value={cta.label} onUpdate={onLabelEdit} />;
+    if (action === "modal-form" || action === "modal-chilipiper") {
+      return (
+        <motion.button
+          type="button"
+          onClick={() => setModalOpen(action === "modal-chilipiper" ? "chilipiper" : "form")}
+          className={btnClassName}
+          style={btnStyle}
+          whileHover={{ scale: 1.04, y: -1 }}
+          whileTap={{ scale: 0.96 }}
+          transition={SPRING}
+        >
+          {inner}
+        </motion.button>
+      );
+    }
+    if (action === "chilipiper") {
+      return (
+        <ChiliPiperButton url={cta.url || brand.chilipiperUrl || "#"} className={btnClassName} style={btnStyle}>
+          {inner}
+        </ChiliPiperButton>
+      );
+    }
+    return (
+      <motion.a
+        href={cta.url || "#"}
+        className={btnClassName}
+        style={btnStyle}
+        whileHover={{ scale: 1.04, y: -1 }}
+        whileTap={{ scale: 0.96 }}
+        transition={SPRING}
+      >
+        {inner}
+      </motion.a>
+    );
+  };
 
   return (
     <header
@@ -72,9 +130,6 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
                 href={link.url || "#"}
                 className={cn(
                   "text-sm font-medium transition-colors whitespace-nowrap",
-                  // Drop the slate palette when the user has set their own
-                  // text color so it actually takes effect (the slate classes
-                  // would otherwise win over inherited `color`).
                   hasFgOverride ? "hover:opacity-80" : "text-slate-600 hover:text-slate-900",
                 )}
               >
@@ -103,40 +158,51 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
               />
             </a>
           )}
-          {props.cta1?.label && (
-            <motion.a
-              href={props.cta1.url || "#"}
-              className={cn(
-                getButtonClasses(brand),
-                "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-              )}
-              whileHover={{ scale: 1.04, y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              transition={SPRING}
-            >
-              <InlineText
-                value={props.cta1.label}
-                onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, cta1: { ...props.cta1, label: v } }) : undefined}
-              />
-            </motion.a>
+          {renderCta(
+            props.cta1,
+            cta1Action,
+            onFieldChange ? (v) => onFieldChange({ ...props, cta1: { ...props.cta1, label: v } }) : undefined,
+            cn(getButtonClasses(brand), "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"),
           )}
-          {props.cta2?.label && (
-            <motion.a
-              href={props.cta2.url || "#"}
-              className={getButtonClasses(brand)}
-              style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-              whileHover={{ scale: 1.04, y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              transition={SPRING}
-            >
-              <InlineText
-                value={props.cta2.label}
-                onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, cta2: { ...props.cta2, label: v } }) : undefined}
-              />
-            </motion.a>
+          {renderCta(
+            props.cta2,
+            cta2Action,
+            onFieldChange ? (v) => onFieldChange({ ...props, cta2: { ...props.cta2, label: v } }) : undefined,
+            getButtonClasses(brand),
+            { backgroundColor: brand.accentColor, color: brand.primaryColor },
           )}
         </div>
       </div>
+
+      <EmailCaptureModal
+        open={!!modalOpen}
+        onClose={() => setModalOpen(false)}
+        email=""
+        mode={modalOpen === "chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={props.modalChilipiperUrl ?? brand.chilipiperUrl ?? ""}
+        formSource={props.modalFormSource}
+        linkedFormId={props.modalFormId}
+        marketoBaseUrl={props.modalMarketoBaseUrl}
+        marketoMunchkinId={props.modalMarketoMunchkinId}
+        marketoFormId={props.modalMarketoFormId}
+        formConfig={{
+          headline: props.modalHeadline,
+          subheadline: props.modalSubheadline,
+          submitText: props.modalSubmitText,
+          successMessage: props.modalSuccessMessage,
+          disclaimer: props.modalDisclaimer,
+          showFirstName: props.modalShowFirstName,
+          showLastName: props.modalShowLastName,
+          showPhone: props.modalShowPhone,
+          showCompany: props.modalShowCompany,
+        }}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="nav-header"
+      />
     </header>
   );
 }

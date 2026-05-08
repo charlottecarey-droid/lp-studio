@@ -3,10 +3,16 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
 import { HEADER_FONT_OPTIONS } from "./header-fonts";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
+
+type SiteHeaderCtaAction = NonNullable<DandySiteHeaderBlockProps["primaryCtaAction"]>;
 
 interface Props {
   props: DandySiteHeaderBlockProps;
@@ -113,6 +119,18 @@ export function DandySiteHeaderPanel({ props: p, onChange }: Props) {
           <Label className="text-xs">URL</Label>
           <Input value={p.primaryCtaUrl} onChange={e => set("primaryCtaUrl", e.target.value)} className="h-8 text-xs" placeholder="https://..." />
         </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Action</Label>
+          <Select value={p.primaryCtaAction ?? "url"} onValueChange={v => set("primaryCtaAction", v as SiteHeaderCtaAction)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
+              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+              <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="border-t pt-3 space-y-3">
@@ -125,7 +143,32 @@ export function DandySiteHeaderPanel({ props: p, onChange }: Props) {
           <Label className="text-xs">URL</Label>
           <Input value={p.secondaryCtaUrl} onChange={e => set("secondaryCtaUrl", e.target.value)} className="h-8 text-xs" placeholder="https://..." />
         </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Action</Label>
+          <Select value={p.secondaryCtaAction ?? "url"} onValueChange={v => set("secondaryCtaAction", v as SiteHeaderCtaAction)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
+              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+              <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {(p.primaryCtaAction === "modal-form" || p.primaryCtaAction === "modal-chilipiper" ||
+        p.secondaryCtaAction === "modal-form" || p.secondaryCtaAction === "modal-chilipiper") && (
+        <CtaButtonModalConfigSection
+          ctaAction={
+            (p.primaryCtaAction === "modal-chilipiper" || p.secondaryCtaAction === "modal-chilipiper")
+              ? "modal-chilipiper"
+              : "modal-form"
+          }
+          value={p}
+          onChange={(next) => onChange({ ...p, ...next })}
+        />
+      )}
     </div>
   );
 }

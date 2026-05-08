@@ -486,7 +486,7 @@ export interface DandySiteHeaderNavLink {
   url: string;
 }
 
-export interface DandySiteHeaderBlockProps {
+export interface DandySiteHeaderBlockProps extends CtaModalConfig {
   logoUrl?: string;
   phoneNumber: string;
   phoneLabel: string;
@@ -494,6 +494,10 @@ export interface DandySiteHeaderBlockProps {
   primaryCtaUrl: string;
   secondaryCtaText: string;
   secondaryCtaUrl: string;
+  /** How the primary CTA behaves on click. Defaults to "url". */
+  primaryCtaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  /** How the secondary CTA behaves on click. Defaults to "url". */
+  secondaryCtaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   navLinks: DandySiteHeaderNavLink[];
   /** Optional CSS background color for the header bar. Falls back to the
    *  brand primary color when unset. Accepts any CSS color (`#hex`,

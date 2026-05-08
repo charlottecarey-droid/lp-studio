@@ -1,13 +1,19 @@
 import type { BackgroundStyle } from "../bg-styles";
-import type { NavHeaderLink, PopupTrigger } from "./common";
+import type { CtaModalConfig, NavHeaderLink, PopupTrigger } from "./common";
 
-export interface NavHeaderBlockProps {
+export type NavCtaAction = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+
+export interface NavHeaderBlockProps extends CtaModalConfig {
   logoText: string;
   logoUrl: string;
   navLinks: NavHeaderLink[];
   phone: string;
   cta1: { label: string; url: string };
   cta2: { label: string; url: string };
+  /** How CTA 1 (secondary) behaves on click. Defaults to "url". */
+  cta1Action?: NavCtaAction;
+  /** How CTA 2 (primary) behaves on click. Defaults to "url". */
+  cta2Action?: NavCtaAction;
   /** Optional CSS background color for the header bar. Falls back to white
    *  when unset. Accepts any CSS color (`#hex`, `rgb()`, `var(--brand-…)`). */
   backgroundColor?: string;

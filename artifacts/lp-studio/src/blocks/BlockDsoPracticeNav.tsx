@@ -6,6 +6,7 @@ import type { DsoPracticeNavBlockProps } from "@/lib/block-types";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 
 const DEFAULT_NAV_LINKS = [
   { label: "How it works", anchor: "#steps" },
@@ -23,10 +24,13 @@ interface Props {
   props: DsoPracticeNavBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DsoPracticeNavBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDsoPracticeNav({ props, brand, onFieldChange }: Props) {
+export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState<false | "form" | "chilipiper">(false);
 
   const ctaUrl = props.ctaUrl || brand.chilipiperUrl || "#";
   const ctaMode = props.ctaMode || (brand.chilipiperUrl ? "chilipiper" : "link");
@@ -54,16 +58,32 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange }: Props) {
       "transition-all hover:opacity-90 hover:-translate-y-0.5 active:scale-95",
       className
     );
+    const inner = <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />;
     if (ctaMode === "chilipiper") {
       return (
         <ChiliPiperButton url={ctaUrl} className={cls} style={ctaBtnStyle}>
-          <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+          {inner}
         </ChiliPiperButton>
+      );
+    }
+    if (ctaMode === "modal-form" || ctaMode === "modal-chilipiper") {
+      return (
+        <button
+          type="button"
+          className={cls}
+          style={ctaBtnStyle}
+          onClick={() => {
+            setModalOpen(ctaMode === "modal-chilipiper" ? "chilipiper" : "form");
+            onClick?.();
+          }}
+        >
+          {inner}
+        </button>
       );
     }
     return (
       <a href={ctaUrl} className={cls} style={ctaBtnStyle} onClick={onClick}>
-        <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+        {inner}
       </a>
     );
   };
@@ -117,6 +137,36 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange }: Props) {
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
+
+      <EmailCaptureModal
+        open={!!modalOpen}
+        onClose={() => setModalOpen(false)}
+        email=""
+        mode={modalOpen === "chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={props.modalChilipiperUrl ?? brand.chilipiperUrl ?? ""}
+        formSource={props.modalFormSource}
+        linkedFormId={props.modalFormId}
+        marketoBaseUrl={props.modalMarketoBaseUrl}
+        marketoMunchkinId={props.modalMarketoMunchkinId}
+        marketoFormId={props.modalMarketoFormId}
+        formConfig={{
+          headline: props.modalHeadline,
+          subheadline: props.modalSubheadline,
+          submitText: props.modalSubmitText,
+          successMessage: props.modalSuccessMessage,
+          disclaimer: props.modalDisclaimer,
+          showFirstName: props.modalShowFirstName,
+          showLastName: props.modalShowLastName,
+          showPhone: props.modalShowPhone,
+          showCompany: props.modalShowCompany,
+        }}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="dso-practice-nav"
+      />
 
       {/* Mobile dropdown */}
       {mobileOpen && (

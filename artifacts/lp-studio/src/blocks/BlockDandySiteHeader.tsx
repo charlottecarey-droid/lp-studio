@@ -1,4 +1,5 @@
 import type React from "react";
+import { useState } from "react";
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -7,18 +8,25 @@ import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
 import { safeNavigate } from "@/lib/safe-url";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 
 interface Props {
   props: DandySiteHeaderBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DandySiteHeaderBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
-  // Load any catalog Google Font referenced by the per-header font override.
-  // Without this, picking "Geist" or "Playfair Display" from the dropdown
-  // does nothing — the browser falls back to the next family in the stack.
+type CtaActionMode = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+function normalizeAction(a: DandySiteHeaderBlockProps["primaryCtaAction"]): CtaActionMode {
+  return a === "chilipiper" || a === "modal-form" || a === "modal-chilipiper" ? a : "url";
+}
+
+export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, variantId }: Props) {
   useBlockFonts(props.fontFamily);
+  const [modalOpen, setModalOpen] = useState<false | "form" | "chilipiper">(false);
 
   const field = (key: keyof DandySiteHeaderBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -29,10 +37,6 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, navLinks });
   };
 
-  // Compose inline overrides. When unset, fall back to the original
-  // brand-primary background + white text via the existing tailwind class.
-  // `textColor` is also exposed as a CSS variable so descendant elements
-  // (nav links, phone, CTAs) can inherit it without per-element edits.
   const headerBg = props.backgroundColor ?? `var(--brand-primary, ${brand.primaryColor})`;
   const headerFg = props.textColor ?? "#ffffff";
   const overlay = Math.max(0, Math.min(1, props.backgroundOverlay ?? 0));
@@ -46,11 +50,26 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
   };
   const hasFgOverride = !!props.textColor;
 
+  const primaryAction = normalizeAction(props.primaryCtaAction);
+  const secondaryAction = normalizeAction(props.secondaryCtaAction);
+
+  const handleClick = (action: CtaActionMode, url: string) => {
+    if (action === "modal-form") return setModalOpen("form");
+    if (action === "modal-chilipiper") return setModalOpen("chilipiper");
+    safeNavigate(url);
+  };
+
+  const secondaryClass = cn(
+    "hidden md:block text-sm font-semibold border rounded-xl px-5 py-2.5 transition-colors",
+    hasFgOverride
+      ? "border-current/30 hover:bg-black/5"
+      : "text-white border-white/30 hover:bg-white/10",
+  );
+  const primaryClass = "bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all";
+
   return (
     <header className="w-full shadow-sm" style={headerStyle}>
-      {/* Main header */}
       <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center gap-8">
-        {/* Logo */}
         <div className="shrink-0">
           <BrandLogo
             brand={brand}
@@ -61,7 +80,6 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           />
         </div>
 
-        {/* Nav links */}
         {(props.navLinks ?? []).length > 0 && (
           <nav className="hidden lg:flex items-center gap-8 flex-1">
             {(props.navLinks ?? []).map((link, i) => (
@@ -70,8 +88,6 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
                 href={link.url || "#"}
                 className={cn(
                   "text-sm font-medium transition-colors whitespace-nowrap",
-                  // Use the inherited header color when the user supplied a
-                  // textColor; otherwise keep the original white/75 ramp.
                   hasFgOverride ? "opacity-80 hover:opacity-100" : "text-white/75 hover:text-white",
                 )}
               >
@@ -85,7 +101,6 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
         )}
 
         <div className="ml-auto flex items-center gap-4 shrink-0">
-          {/* Phone */}
           {props.phoneNumber && (
             <a
               href={`tel:${props.phoneNumber}`}
@@ -99,32 +114,61 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
             </a>
           )}
 
-          {/* Secondary CTA */}
           {props.secondaryCtaText && (
-            <button
-              onClick={() => safeNavigate(props.secondaryCtaUrl)}
-              className={cn(
-                "hidden md:block text-sm font-semibold border rounded-xl px-5 py-2.5 transition-colors",
-                hasFgOverride
-                  ? "border-current/30 hover:bg-black/5"
-                  : "text-white border-white/30 hover:bg-white/10",
-              )}
-            >
-              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
-            </button>
+            secondaryAction === "chilipiper" ? (
+              <ChiliPiperButton url={props.secondaryCtaUrl || brand.chilipiperUrl || "#"} className={secondaryClass}>
+                <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+              </ChiliPiperButton>
+            ) : (
+              <button onClick={() => handleClick(secondaryAction, props.secondaryCtaUrl)} className={secondaryClass}>
+                <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+              </button>
+            )
           )}
 
-          {/* Primary CTA */}
           {props.primaryCtaText && (
-            <button
-              onClick={() => safeNavigate(props.primaryCtaUrl)}
-              className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all"
-            >
-              <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
-            </button>
+            primaryAction === "chilipiper" ? (
+              <ChiliPiperButton url={props.primaryCtaUrl || brand.chilipiperUrl || "#"} className={primaryClass}>
+                <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
+              </ChiliPiperButton>
+            ) : (
+              <button onClick={() => handleClick(primaryAction, props.primaryCtaUrl)} className={primaryClass}>
+                <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
+              </button>
+            )
           )}
         </div>
       </div>
+
+      <EmailCaptureModal
+        open={!!modalOpen}
+        onClose={() => setModalOpen(false)}
+        email=""
+        mode={modalOpen === "chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={props.modalChilipiperUrl ?? brand.chilipiperUrl ?? ""}
+        formSource={props.modalFormSource}
+        linkedFormId={props.modalFormId}
+        marketoBaseUrl={props.modalMarketoBaseUrl}
+        marketoMunchkinId={props.modalMarketoMunchkinId}
+        marketoFormId={props.modalMarketoFormId}
+        formConfig={{
+          headline: props.modalHeadline,
+          subheadline: props.modalSubheadline,
+          submitText: props.modalSubmitText,
+          successMessage: props.modalSuccessMessage,
+          disclaimer: props.modalDisclaimer,
+          showFirstName: props.modalShowFirstName,
+          showLastName: props.modalShowLastName,
+          showPhone: props.modalShowPhone,
+          showCompany: props.modalShowCompany,
+        }}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="dandy-site-header"
+      />
     </header>
   );
 }
