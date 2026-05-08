@@ -862,6 +862,15 @@ export interface MagazineHeroBlockProps extends CtaModalConfig {
   issueLabel?: string;
   /** Cover layout only: how dark to scrim the image so overlay text reads. */
   coverScrim?: number;
+  /** Optional per-block override for the headline font family. When set,
+   *  overrides the `serifStyle` preset. Pick from the curated FONT_CATALOG
+   *  via the FontSelect control. Leave undefined to inherit the brand's
+   *  display font (e.g. Bagoss for Dandy) when one is configured, or fall
+   *  back to the chosen serif preset. */
+  headlineFont?: string;
+  /** Optional per-block override for the body/eyebrow/byline font. Defaults
+   *  to the brand's body font when set, else system sans-serif. */
+  bodyFont?: string;
 }
 
 /* ------------------------------------------------------------------------- */

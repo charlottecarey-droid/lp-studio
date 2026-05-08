@@ -5,6 +5,8 @@ import type { MagazineHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
+import { toFontFamilyValue } from "@/lib/font-catalog";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 interface Props {
   props: MagazineHeroBlockProps;
@@ -45,6 +47,24 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
   const serifStyle = props.serifStyle || "modern";
   const serifFamily = SERIF_FAMILY[serifStyle];
   const headlineWeight = WEIGHT[props.headlineWeight || (serifStyle === "modern" ? "regular" : "bold")];
+
+  // Per-block font overrides — load any selected catalog font (Google Fonts)
+  // so the choice actually renders instead of silently falling back.
+  useBlockFonts(props.headlineFont, props.bodyFont);
+  // Headline: explicit pick → brand display font (e.g. Bagoss for Dandy) →
+  // chosen serif preset. The brand-token CSS var is set by `getBrandStyle`
+  // when the tenant has a `displayFont` configured; otherwise it's absent
+  // and the serif preset takes over via the var() fallback chain.
+  const headlineFamily = props.headlineFont
+    ? toFontFamilyValue(props.headlineFont, "display") || serifFamily
+    : `var(--brand-font-display, ${serifFamily})`;
+  // Body / eyebrow / byline / CTAs: explicit pick → brand body font →
+  // system sans-serif. Applied via inline style on the section root so it
+  // cascades to every nested element that doesn't carry its own font.
+  const bodyFamily = props.bodyFont
+    ? toFontFamilyValue(props.bodyFont, "sans") ||
+      "var(--brand-font-body, ui-sans-serif, system-ui, sans-serif)"
+    : "var(--brand-font-body, ui-sans-serif, system-ui, sans-serif)";
   const rotation = props.imageRotation ?? 0;
   const showRule = !!props.showRule;
   const issueLabel = props.issueLabel;
@@ -59,7 +79,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
       : "url";
 
   const headlineStyle: CSSProperties = {
-    fontFamily: serifFamily,
+    fontFamily: headlineFamily,
     fontWeight: headlineWeight,
     fontSize: "clamp(2.5rem, 7vw, 6rem)",
     letterSpacing: serifStyle === "modern" ? "-0.015em" : "-0.03em",
@@ -183,7 +203,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
   if (layout === "cover") {
     const scrim = props.coverScrim ?? 0.55;
     return (
-      <section className="relative overflow-hidden font-sans isolate" style={{ backgroundColor: "#0A0A0A", color: "#FFFFFF" }}>
+      <section className="relative overflow-hidden isolate" style={{ backgroundColor: "#0A0A0A", color: "#FFFFFF", fontFamily: bodyFamily }}>
         <div className="relative w-full min-h-[640px] lg:min-h-[760px]">
           {props.imageUrl ? (
             <InlineImage
@@ -229,7 +249,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
 
   if (layout === "stacked") {
     return (
-      <section className="relative overflow-hidden font-sans" style={{ backgroundColor: bg, color: text }}>
+      <section className="relative overflow-hidden" style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}>
         <div className="max-w-5xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
           {showRule && (
             <div className="border-t mb-10" style={{ borderColor: text, opacity: 0.12 }} />
@@ -277,7 +297,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
   }
 
   return (
-    <section className="relative overflow-hidden font-sans" style={{ backgroundColor: bg, color: text }}>
+    <section className="relative overflow-hidden" style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}>
       <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-16 lg:pt-20 pb-20 lg:pb-28">
         {showRule && (
           <div className="border-t mb-12 lg:mb-16" style={{ borderColor: text, opacity: 0.12 }} />

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
+import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
@@ -51,7 +52,27 @@ export function MagazineHeroPanel({ props, onChange }: Props) {
           </Select>
         </div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Headline serif</Label>
+          <Label className="text-[11px] text-muted-foreground">Headline font</Label>
+          <FontSelect
+            value={props.headlineFont}
+            onChange={(v) => update({ headlineFont: v })}
+            inheritLabel="Inherit from brand (display)"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Defaults to the brand's display font (e.g. Bagoss for Dandy). Pick a
+            catalog font to override per block.
+          </p>
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Body font (eyebrow, copy, byline)</Label>
+          <FontSelect
+            value={props.bodyFont}
+            onChange={(v) => update({ bodyFont: v })}
+            inheritLabel="Inherit from brand (body)"
+          />
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Headline serif fallback</Label>
           <Select
             value={props.serifStyle || "modern"}
             onValueChange={(v) => update({ serifStyle: v as MagazineHeroBlockProps["serifStyle"] })}
@@ -63,6 +84,9 @@ export function MagazineHeroPanel({ props, onChange }: Props) {
               <SelectItem value="classic" className="text-xs">Classic — Playfair Display (traditional)</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Used only when no headline font is picked above and the brand has no display font configured.
+          </p>
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Headline weight</Label>
