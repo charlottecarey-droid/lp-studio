@@ -113,3 +113,9 @@ id = "lw2lXicJyvKgpiYOaGrYr"
 uri = "file://attached_assets/exports/inside-dandy-standalone.tar.gz"
 type = "unspecified"
 title = "Inside Dandy — Standalone HTML (compressed)"
+
+[[outputs]]
+id = "cC_-PpzAZ2jmYfxicnIV1"
+uri = "file://attached_assets/exports/inside-dandy-v2-standalone.html.txt"
+type = "text"
+title = "Inside Dandy v2 — Standalone HTML (paste into Custom HTML block)"
