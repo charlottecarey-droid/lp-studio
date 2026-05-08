@@ -1,10 +1,11 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
-import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import type { DandyColumnsV2BlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -56,6 +57,32 @@ export function DandyColumnsV2Panel({ props: p, onChange }: Props) {
       <div className="space-y-1.5">
         <Label className="text-xs">Subheadline</Label>
         <Input value={p.subheadline ?? ""} onChange={e => set("subheadline", e.target.value || undefined)} className="h-8 text-xs" />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">Card background color</Label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={p.cardBgColor || "#ffffff"}
+            onChange={e => set("cardBgColor", e.target.value)}
+            className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
+          />
+          <Input
+            value={p.cardBgColor ?? ""}
+            onChange={e => set("cardBgColor", e.target.value || undefined)}
+            placeholder="transparent"
+            className="h-8 text-xs font-mono flex-1"
+            maxLength={7}
+          />
+          {p.cardBgColor && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0" onClick={() => set("cardBgColor", undefined)}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+        <BrandSwatches className="mt-1.5" current={p.cardBgColor} onPick={hex => set("cardBgColor", hex)} />
+        <p className="text-[10px] text-muted-foreground">Leave blank for transparent (no card). Setting a color adds rounded padding around each column.</p>
       </div>
 
       <div className="border-t pt-3">

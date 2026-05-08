@@ -425,6 +425,8 @@ export interface DandyColumnsV2BlockProps {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
+  /** Background color for each column card. Defaults to transparent. */
+  cardBgColor?: string;
   items: DandyColumnsV2Item[];
 }
 

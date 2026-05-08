@@ -57,7 +57,11 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
 
         <div className="grid md:grid-cols-3 gap-10 md:gap-12">
           {(props.items ?? []).map((item, i) => (
-            <div key={i} className="flex flex-col">
+            <div
+              key={i}
+              className={cn("flex flex-col", props.cardBgColor && "rounded-2xl p-6 md:p-7")}
+              style={props.cardBgColor ? { backgroundColor: props.cardBgColor } : undefined}
+            >
               <div className="rounded-2xl overflow-hidden mb-7 aspect-[3/2] bg-slate-100">
                 <img
                   src={item.imageUrl || PLACEHOLDER}
