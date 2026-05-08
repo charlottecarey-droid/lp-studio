@@ -159,22 +159,35 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
   const [emailValue, setEmailValue] = useState("");
 
-  // Email-capture submit: navigates to the configured primary CTA URL with the
-  // email appended as `?email=…` so the destination form/checkout can prefill.
-  // - Modal modes open the EmailCaptureModal.
-  // - Anchor-only URLs (`#section`) smooth-scroll instead of reloading the page.
-  // - "#" / empty URLs fall through to onCtaClick which resolves chili-piper or
-  //   the brand-level default CTA URL — previously these silently navigated to
-  //   `?email=…` (losing the page) which read as "the button doesn't work".
+  // Email-capture submit. Routing priority:
+  //   1. Explicit modal modes → open the EmailCaptureModal.
+  //   2. Configured primary CTA mode = chili-piper → defer to onCtaClick which
+  //      pops the chili-piper scheduler at the viewer level.
+  //   3. Anchor-only URLs (`#section`) → smooth-scroll on this page.
+  //   4. Real http(s)/relative URL → navigate with `?email=…` appended.
+  //   5. No real destination configured anywhere → open the EmailCaptureModal
+  //      so the visitor's submission is never silently dropped (this used to
+  //      read as "the button doesn't do anything" because primaryCtaUrl
+  //      defaults to "#" and brand.defaultCtaUrl is also "#" on most brands,
+  //      so the onCtaClick chain bottomed out at a no-op).
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = emailValue.trim();
     if (!trimmed) return;
+
     if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
       setEmailModalOpen(true);
       return;
     }
+
+    // Chili-piper at the CTA-mode level → let the viewer open the scheduler.
+    if (p.primaryCtaMode === "chilipiper" && onCtaClick) {
+      onCtaClick();
+      return;
+    }
+
     const ctaUrl = p.primaryCtaUrl?.trim() ?? "";
+
     // Anchor-only: scroll to the target on the same page.
     if (ctaUrl.startsWith("#") && ctaUrl.length > 1) {
       const target = document.getElementById(ctaUrl.slice(1));
@@ -183,24 +196,31 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         return;
       }
     }
-    // Real URL: navigate with email appended. Bare "#" or empty falls through
-    // to onCtaClick so the chili-piper popup / brand default CTA fires.
-    if (ctaUrl && ctaUrl !== "#" && !ctaUrl.startsWith("#")) {
+
+    // Real URL: navigate with email appended.
+    const hasRealUrl = ctaUrl && ctaUrl !== "#" && !ctaUrl.startsWith("#");
+    if (hasRealUrl) {
       try {
         const url = new URL(ctaUrl, window.location.origin);
         url.searchParams.set("email", trimmed);
         window.location.assign(url.toString());
         return;
       } catch {
-        // Fall through to onCtaClick / no-op for non-URL targets.
+        // Fall through to brand-level / modal fallbacks.
       }
     }
-    if (onCtaClick) {
+
+    // Brand-level fallback: only delegate to onCtaClick when the brand actually
+    // has a real default destination — otherwise the whole chain no-ops.
+    const brandDefault = brand?.defaultCtaUrl?.trim();
+    const brandHasDefault = !!(brandDefault && brandDefault !== "#" && !brandDefault.startsWith("#"));
+    const brandHasChilipiper = !!brand?.chilipiperUrl;
+    if (onCtaClick && (brandHasDefault || brandHasChilipiper)) {
       onCtaClick();
       return;
     }
-    // Last-resort safety net: open the capture modal so the visitor's submission
-    // is never silently dropped when no URL is configured.
+
+    // Final safety net: pop the capture modal so the email isn't lost.
     setEmailModalOpen(true);
   };
 
