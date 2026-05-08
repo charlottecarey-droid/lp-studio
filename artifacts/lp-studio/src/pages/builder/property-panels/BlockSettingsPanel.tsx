@@ -257,25 +257,6 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
         </Select>
       </div>
 
-      <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 block">
-          Delay — {s.animationDelay ?? 0}ms
-        </Label>
-        <input
-          type="range"
-          min={0}
-          max={800}
-          step={50}
-          value={s.animationDelay ?? 0}
-          onChange={e => set("animationDelay", Number(e.target.value))}
-          className="w-full accent-[var(--brand-primary)]"
-        />
-        <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
-          <span>0ms</span>
-          <span>800ms</span>
-        </div>
-      </div>
-
       <Separator />
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background Image</p>
 
