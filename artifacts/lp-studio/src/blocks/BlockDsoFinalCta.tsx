@@ -1,16 +1,23 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ScanAcross, ScanDown, FlickerDot, PulseGlow } from "./SectionAmbient";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
+import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { ChiliPiperModal } from "./ChiliPiperModal";
 
 interface Props {
   props: DsoFinalCtaBlockProps;
   onCtaClick?: () => void;
   onFieldChange?: (updated: DsoFinalCtaBlockProps) => void;
+  brand?: BrandConfig;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
 }
 
 const P     = "hsl(152,42%,12%)";
@@ -18,7 +25,11 @@ const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange }: Props) {
+export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, pageId, variantId, sessionId }: Props) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [cpOpen, setCpOpen] = useState(false);
+  const isModalCta = props.primaryCtaMode === "modal-form" || props.primaryCtaMode === "modal-chilipiper";
+  const isChiliPiperCta = props.primaryCtaMode === "chilipiper" && !!props.primaryChilipiperUrl;
   const field = (key: keyof DsoFinalCtaBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoFinalCtaBlockProps[typeof key] }) : undefined;
 
@@ -46,6 +57,8 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange }: Props) {
   const contentY = useTransform(scrollYProgress, [0, 1], ["30px", "-15px"]);
 
   const handlePrimary = () => {
+    if (isModalCta) { onCtaClick?.(); setModalOpen(true); return; }
+    if (isChiliPiperCta) { onCtaClick?.(); setCpOpen(true); return; }
     if (onCtaClick) { onCtaClick(); return; }
     if (primaryCtaUrl && primaryCtaUrl !== "#") safeNavigate(primaryCtaUrl, "_blank");
   };
@@ -287,6 +300,44 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange }: Props) {
           )}
         </motion.div>
       </motion.div>
+      {isChiliPiperCta && cpOpen && props.primaryChilipiperUrl && (
+        <ChiliPiperModal
+          url={props.primaryChilipiperUrl}
+          pageId={pageId}
+          variantId={variantId}
+          sessionId={sessionId}
+          onClose={() => setCpOpen(false)}
+        />
+      )}
+      {isModalCta && (
+        <EmailCaptureModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          email=""
+          mode={props.primaryCtaMode === "modal-chilipiper" ? "chilipiper" : "form"}
+          chilipiperUrl={props.modalChilipiperUrl}
+          formSource={props.modalFormSource}
+          linkedFormId={props.modalFormId}
+          marketoBaseUrl={props.modalMarketoBaseUrl}
+          marketoMunchkinId={props.modalMarketoMunchkinId}
+          marketoFormId={props.modalMarketoFormId}
+          formConfig={{
+            headline: props.modalHeadline,
+            subheadline: props.modalSubheadline,
+            submitText: props.modalSubmitText,
+            successMessage: props.modalSuccessMessage,
+            disclaimer: props.modalDisclaimer,
+            showFirstName: props.modalShowFirstName,
+            showLastName: props.modalShowLastName,
+            showPhone: props.modalShowPhone,
+            showCompany: props.modalShowCompany,
+          }}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="dso-final-cta"
+        />
+      )}
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import type React from "react";
 import type { BackgroundStyle } from "../bg-styles";
-import type { CtaMode } from "./common";
+import type { CtaMode, CtaModalConfig } from "./common";
 
 export interface DsoPracticeNavLink {
   label: string;
@@ -714,13 +714,15 @@ export interface DsoPilotStepsBlockProps {
   ctaMode?: CtaMode;
 }
 
-export interface DsoFinalCtaBlockProps {
+export interface DsoFinalCtaBlockProps extends CtaModalConfig {
   eyebrow: string;
   headline: string;
   subheadline: string;
   primaryCtaText: string;
   primaryCtaUrl: string;
   primaryCtaMode?: CtaMode;
+  /** Chili Piper URL when primaryCtaMode === "chilipiper". */
+  primaryChilipiperUrl?: string;
   secondaryCtaText: string;
   secondaryCtaUrl: string;
   backgroundStyle: BackgroundStyle;

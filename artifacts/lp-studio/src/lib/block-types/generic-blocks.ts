@@ -123,24 +123,24 @@ export interface PhotoStripBlockProps {
   speed?: "slow" | "normal" | "fast";
 }
 
-export interface BottomCtaBlockProps {
+export interface BottomCtaBlockProps extends CtaModalConfig {
   headline: string;
   subheadline: string;
   ctaText: string;
   ctaUrl: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
-  ctaAction?: "url" | "chilipiper";
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   chilipiperUrl?: string;
 }
 
-export interface VideoSectionBlockProps {
+export interface VideoSectionBlockProps extends CtaModalConfig {
   layout: "full-width" | "split-left" | "split-right";
   headline: string;
   subheadline: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   ctaText: string;
   ctaUrl: string;
-  ctaAction?: "url" | "chilipiper";
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   chilipiperUrl?: string;
   videoUrl: string;
   aspectRatio: "16/9" | "4/3" | "1/1";
@@ -347,12 +347,12 @@ export interface FooterBlockProps {
   columns: FooterColumn[];
 }
 
-export interface FullBleedHeroBlockProps {
+export interface FullBleedHeroBlockProps extends CtaModalConfig {
   headline: string;
   subheadline: string;
   ctaText: string;
   ctaUrl: string;
-  ctaAction?: "url" | "chilipiper";
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   chilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;

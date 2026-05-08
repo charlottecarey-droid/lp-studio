@@ -10,6 +10,7 @@ import { useState, useRef, useCallback } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { VideoModal } from "@/components/VideoModal";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 
@@ -74,6 +75,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   const field = (key: keyof VideoSectionBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as VideoSectionBlockProps[typeof key] }) : undefined;
   const [cpOpen, setCpOpen] = useState(false);
+  const [ctaModalOpen, setCtaModalOpen] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -106,10 +108,13 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   };
 
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
+  const isModalCta = props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper";
 
   const handleCtaClick = () => {
     onCtaClick?.();
-    if (isChiliPiper) {
+    if (isModalCta) {
+      setCtaModalOpen(true);
+    } else if (isChiliPiper) {
       setCpOpen(true);
     } else if (props.ctaUrl) {
       const url = props.ctaUrl.trim();
@@ -402,15 +407,48 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     </div>
   );
 
-  const modal = cpOpen && props.chilipiperUrl ? (
-    <ChiliPiperModal
-      url={props.chilipiperUrl}
-      pageId={pageId}
-      variantId={variantId}
-      sessionId={sessionId}
-      onClose={() => setCpOpen(false)}
-    />
-  ) : null;
+  const modal = (
+    <>
+      {cpOpen && props.chilipiperUrl && (
+        <ChiliPiperModal
+          url={props.chilipiperUrl}
+          pageId={pageId}
+          variantId={variantId}
+          sessionId={sessionId}
+          onClose={() => setCpOpen(false)}
+        />
+      )}
+      {isModalCta && (
+        <EmailCaptureModal
+          open={ctaModalOpen}
+          onClose={() => setCtaModalOpen(false)}
+          email=""
+          mode={props.ctaAction === "modal-chilipiper" ? "chilipiper" : "form"}
+          chilipiperUrl={props.modalChilipiperUrl}
+          formSource={props.modalFormSource}
+          linkedFormId={props.modalFormId}
+          marketoBaseUrl={props.modalMarketoBaseUrl}
+          marketoMunchkinId={props.modalMarketoMunchkinId}
+          marketoFormId={props.modalMarketoFormId}
+          formConfig={{
+            headline: props.modalHeadline,
+            subheadline: props.modalSubheadline,
+            submitText: props.modalSubmitText,
+            successMessage: props.modalSuccessMessage,
+            disclaimer: props.modalDisclaimer,
+            showFirstName: props.modalShowFirstName,
+            showLastName: props.modalShowLastName,
+            showPhone: props.modalShowPhone,
+            showCompany: props.modalShowCompany,
+          }}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="video-section"
+        />
+      )}
+    </>
+  );
 
   const videoModal = (
     <VideoModal

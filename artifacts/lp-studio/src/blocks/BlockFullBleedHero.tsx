@@ -11,6 +11,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { safeNavigate } from "@/lib/safe-url";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -42,6 +43,7 @@ function hexToRgbParts(hex: string): string {
 export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId, childrenSlot }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,8 +51,10 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
+  const isModalCta = props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper";
 
   const handleCtaClick = () => {
+    if (isModalCta) { onCtaClick?.(); setModalOpen(true); return; }
     if (onCtaClick) { onCtaClick(); return; }
     if (isChiliPiper) { setCpOpen(true); return; }
     if (props.ctaUrl && props.ctaUrl !== "#") safeNavigate(props.ctaUrl, "_blank");
@@ -328,6 +332,35 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         variantId={variantId}
         sessionId={sessionId}
         onClose={() => setCpOpen(false)}
+      />
+    )}
+    {isModalCta && (
+      <EmailCaptureModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        email=""
+        mode={props.ctaAction === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={props.modalChilipiperUrl}
+        formSource={props.modalFormSource}
+        linkedFormId={props.modalFormId}
+        marketoBaseUrl={props.modalMarketoBaseUrl}
+        marketoMunchkinId={props.modalMarketoMunchkinId}
+        marketoFormId={props.modalMarketoFormId}
+        formConfig={{
+          headline: props.modalHeadline,
+          subheadline: props.modalSubheadline,
+          submitText: props.modalSubmitText,
+          successMessage: props.modalSuccessMessage,
+          disclaimer: props.modalDisclaimer,
+          showFirstName: props.modalShowFirstName,
+          showLastName: props.modalShowLastName,
+          showPhone: props.modalShowPhone,
+          showCompany: props.modalShowCompany,
+        }}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="full-bleed-hero"
       />
     )}
     </>

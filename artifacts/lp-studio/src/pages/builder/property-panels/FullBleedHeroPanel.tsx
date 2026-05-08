@@ -13,6 +13,7 @@ import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
   blockType: string;
@@ -155,26 +156,36 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
         <Select
           value={props.ctaAction ?? "url"}
-          onValueChange={v => set("ctaAction", v as "url" | "chilipiper")}
+          onValueChange={v => set("ctaAction", v as "url" | "chilipiper" | "modal-form" | "modal-chilipiper")}
         >
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="url">Open URL</SelectItem>
             <SelectItem value="chilipiper">Open Chili Piper (iframe)</SelectItem>
+            <SelectItem value="modal-form">Open modal with form</SelectItem>
+            <SelectItem value="modal-chilipiper">Open modal → Chili Piper</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      {(props.ctaAction ?? "url") === "url" ? (
+      {(props.ctaAction ?? "url") === "url" && (
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
           <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
         </div>
-      ) : (
+      )}
+      {props.ctaAction === "chilipiper" && (
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
           <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
           <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
         </div>
+      )}
+      {(props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper") && (
+        <CtaButtonModalConfigSection
+          ctaAction={props.ctaAction}
+          value={props}
+          onChange={(next) => onChange({ ...props, ...next })}
+        />
       )}
 
       {onApplyCtaToAll && (

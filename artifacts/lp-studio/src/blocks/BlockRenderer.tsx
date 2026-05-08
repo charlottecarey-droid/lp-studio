@@ -643,6 +643,10 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return (
           <BlockDsoFinalCta
             props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            sessionId={sessionId}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />

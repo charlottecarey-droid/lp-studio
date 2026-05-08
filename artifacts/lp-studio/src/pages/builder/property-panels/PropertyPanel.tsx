@@ -18,6 +18,7 @@ import { HowItWorksPanel } from "./HowItWorksPanel";
 import { ProductGridPanel } from "./ProductGridPanel";
 import { PhotoStripPanel } from "./PhotoStripPanel";
 import { BottomCtaPanel } from "./BottomCtaPanel";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import { VideoSectionPanel } from "./VideoSectionPanel";
 import CaseStudiesPanel from "./CaseStudiesPanel";
 import ResourcesPanel from "./ResourcesPanel";
@@ -1858,9 +1859,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <SelectContent>
                   <SelectItem value="link" className="text-xs">Link / Redirect</SelectItem>
                   <SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem>
+                  <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                  <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {p.primaryCtaMode === "chilipiper" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Chili Piper URL</Label>
+                <Input value={p.primaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryChilipiperUrl: e.target.value } })} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+              </div>
+            )}
+            {(p.primaryCtaMode === "modal-form" || p.primaryCtaMode === "modal-chilipiper") && (
+              <CtaButtonModalConfigSection
+                ctaAction={p.primaryCtaMode}
+                value={p}
+                onChange={(next) => onChange({ ...block, props: { ...p, ...next } })}
+              />
+            )}
             {onApplyCtaToAll && (
               <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
                 <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
