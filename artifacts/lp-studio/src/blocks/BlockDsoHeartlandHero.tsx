@@ -227,13 +227,18 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const ctaStyle = p.ctaStyle ?? "buttons";
 
   const emailCaptureForm = (
-    <motion.form
+    // NOTE: Use a plain <form>, not motion.form. motion.form was silently
+    // swallowing submit events (the Dandy Product Hero uses plain <form>
+    // and works correctly). Keep entrance animation on a wrapping motion.div.
+    <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.35 }}
+      style={{ marginTop: "2rem", maxWidth: 480 }}
+    >
+    <form
       onSubmit={handleEmailSubmit}
       style={{
-        marginTop: "2rem",
         display: "flex",
         alignItems: "center",
         gap: 6,
@@ -241,7 +246,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         borderRadius: 9999,
         background: "#fff",
         boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-        maxWidth: 480,
+        width: "100%",
       }}
     >
       <input
@@ -297,7 +302,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       >
         {p.emailCaptureButtonText || p.primaryCtaText || "Get Started"}
       </button>
-    </motion.form>
+    </form>
+    </motion.div>
   );
 
   const ctaButtons = ctaStyle === "email-capture" ? emailCaptureForm : (
