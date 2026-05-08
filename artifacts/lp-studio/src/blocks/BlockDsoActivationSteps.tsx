@@ -2,12 +2,10 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoActivationStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
-import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
-
-const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
+import { CtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: DsoActivationStepsBlockProps;
@@ -22,8 +20,11 @@ const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow, headline, subheadline, steps = [],
-    ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark",
+    ctaText, ctaUrl, ctaMode = "link", chilipiperUrl, backgroundStyle = "dark",
   } = props;
+  // Map legacy ctaMode ("link" | "chilipiper" | "modal-form" | "modal-chilipiper")
+  // onto CtaButton's CtaActionMode ("url" | …).
+  const ctaAction = ctaMode === "link" ? "url" : ctaMode;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -153,30 +154,33 @@ export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) 
             transition={{ delay: 0.3 }}
             style={{ textAlign: "center", marginTop: "3rem" }}
           >
-            {ctaMode === "chilipiper" ? (
-              <ChiliPiperButton
-                url={ctaUrl ?? ""}
-                className={getButtonClasses(brand, "inline-flex items-center gap-2")}
-                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-              >
-                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
-                <ArrowRight style={{ width: 16, height: 16 }} />
-              </ChiliPiperButton>
-            ) : (
-              <motion.a
-                href={ctaUrl ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={getButtonClasses(brand, "inline-flex items-center gap-2")}
-                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
-                whileHover={{ scale: 1.04, y: -1 }}
-                whileTap={{ scale: 0.96 }}
-                transition={SPRING}
-              >
-                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
-                <ArrowRight style={{ width: 16, height: 16 }} />
-              </motion.a>
-            )}
+            <CtaButton
+              ctaAction={ctaAction}
+              ctaUrl={ctaUrl}
+              chilipiperUrl={chilipiperUrl ?? ctaUrl}
+              modalChilipiperUrl={props.modalChilipiperUrl}
+              modalFormSource={props.modalFormSource}
+              modalFormId={props.modalFormId}
+              modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+              modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+              modalMarketoFormId={props.modalMarketoFormId}
+              modalHeadline={props.modalHeadline}
+              modalSubheadline={props.modalSubheadline}
+              modalSubmitText={props.modalSubmitText}
+              modalSuccessMessage={props.modalSuccessMessage}
+              modalDisclaimer={props.modalDisclaimer}
+              modalShowFirstName={props.modalShowFirstName}
+              modalShowLastName={props.modalShowLastName}
+              modalShowPhone={props.modalShowPhone}
+              modalShowCompany={props.modalShowCompany}
+              brand={brand}
+              source="dso-activation-steps"
+              className={getButtonClasses(brand, "inline-flex items-center gap-2")}
+              style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+            >
+              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+              <ArrowRight style={{ width: 16, height: 16 }} />
+            </CtaButton>
           </motion.div>
         )}
       </div>

@@ -561,14 +561,17 @@ export interface DsoActivationStep {
   desc: string;
 }
 
-export interface DsoActivationStepsBlockProps {
+export interface DsoActivationStepsBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline?: string;
   subheadline?: string;
   steps: DsoActivationStep[];
   ctaText?: string;
   ctaUrl?: string;
+  /** Legacy field kept for back-compat: "link" | "chilipiper" | "modal-form" | "modal-chilipiper". */
   ctaMode?: CtaMode;
+  /** Used when ctaMode === "chilipiper". */
+  chilipiperUrl?: string;
   ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }

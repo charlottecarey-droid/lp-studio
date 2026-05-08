@@ -554,15 +554,23 @@ export interface DandyVideoTestimonialsBlockProps {
   items: DandyVideoTestimonialItem[];
 }
 
-export interface DandySideImageV6BlockProps {
+export interface DandySideImageV6BlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
   bullets?: string[];
   ctaText?: string;
   ctaUrl?: string;
+  /** Behavior of the primary CTA. Defaults to "url" (open URL). */
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  /** Used when ctaAction === "chilipiper". */
+  chilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  /** Behavior of the secondary CTA. Defaults to "url". */
+  secondaryCtaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  /** Used when secondaryCtaAction === "chilipiper". */
+  secondaryChilipiperUrl?: string;
   imageUrl?: string;
   badgeText?: string;
   imagePosition?: "left" | "right";

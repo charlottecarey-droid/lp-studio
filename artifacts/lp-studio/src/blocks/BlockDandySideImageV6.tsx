@@ -4,7 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import { safeNavigate } from "@/lib/safe-url";
+import { CtaButton } from "@/components/CtaButton";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1200&h=900&fit=crop";
 
@@ -57,19 +57,57 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
       )}
       {props.ctaText && (
         <div className="flex flex-wrap gap-4 mt-3">
-          <button
-            onClick={() => safeNavigate(props.ctaUrl)}
+          <CtaButton
+            ctaAction={props.ctaAction ?? "url"}
+            ctaUrl={props.ctaUrl}
+            chilipiperUrl={props.chilipiperUrl}
+            modalChilipiperUrl={props.modalChilipiperUrl}
+            modalFormSource={props.modalFormSource}
+            modalFormId={props.modalFormId}
+            modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+            modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+            modalMarketoFormId={props.modalMarketoFormId}
+            modalHeadline={props.modalHeadline}
+            modalSubheadline={props.modalSubheadline}
+            modalSubmitText={props.modalSubmitText}
+            modalSuccessMessage={props.modalSuccessMessage}
+            modalDisclaimer={props.modalDisclaimer}
+            modalShowFirstName={props.modalShowFirstName}
+            modalShowLastName={props.modalShowLastName}
+            modalShowPhone={props.modalShowPhone}
+            modalShowCompany={props.modalShowCompany}
+            brand={brand}
+            source="dandy-side-image-v6-primary"
             className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
           >
             <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
-          </button>
+          </CtaButton>
           {props.secondaryCtaText && (
-            <button
-              onClick={() => safeNavigate(props.secondaryCtaUrl)}
+            <CtaButton
+              ctaAction={props.secondaryCtaAction ?? "url"}
+              ctaUrl={props.secondaryCtaUrl}
+              chilipiperUrl={props.secondaryChilipiperUrl}
+              modalChilipiperUrl={props.modalChilipiperUrl}
+              modalFormSource={props.modalFormSource}
+              modalFormId={props.modalFormId}
+              modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+              modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+              modalMarketoFormId={props.modalMarketoFormId}
+              modalHeadline={props.modalHeadline}
+              modalSubheadline={props.modalSubheadline}
+              modalSubmitText={props.modalSubmitText}
+              modalSuccessMessage={props.modalSuccessMessage}
+              modalDisclaimer={props.modalDisclaimer}
+              modalShowFirstName={props.modalShowFirstName}
+              modalShowLastName={props.modalShowLastName}
+              modalShowPhone={props.modalShowPhone}
+              modalShowCompany={props.modalShowCompany}
+              brand={brand}
+              source="dandy-side-image-v6-secondary"
               className="border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] font-semibold px-8 py-4 rounded-xl text-base hover:bg-[var(--brand-primary)] hover:text-white transition-all"
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
-            </button>
+            </CtaButton>
           )}
         </div>
       )}

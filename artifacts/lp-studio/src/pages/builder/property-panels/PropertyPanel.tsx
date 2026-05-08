@@ -4460,9 +4460,21 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">CTA Text</Label>
               <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Book Your Activation Call" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
             </div>
-            <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem><SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem><SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem></SelectContent></Select></div>
+            {(p.ctaMode ?? "link") === "link" && (
+              <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            )}
+            {p.ctaMode === "chilipiper" && (
+              <div className="space-y-1.5"><Label className="text-xs">Chili Piper URL</Label><Input value={p.chilipiperUrl ?? p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
+            )}
             <div className="space-y-1.5"><Label className="text-xs">CTA Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
+            {(p.ctaMode === "modal-form" || p.ctaMode === "modal-chilipiper") && (
+              <CtaButtonModalConfigSection
+                ctaAction={p.ctaMode}
+                value={p}
+                onChange={(next) => onChange({ ...block, props: { ...p, ...next } })}
+              />
+            )}
             {onApplyCtaToAll && (
               <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
                 <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
