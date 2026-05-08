@@ -95,7 +95,11 @@ export function CtaButton({
         if (isModal) setOpen(true);
         // URL-mode fallback: if no host onClick wired navigation, navigate here.
         if (!isModal && !onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
-          safeNavigate(ctaUrl, "_blank");
+          // Same-page anchors and relative paths navigate in the same tab so
+          // anchor links scroll instead of opening a (popup-blocked) new tab.
+          const trimmed = ctaUrl.trim();
+          const isSameTab = trimmed.startsWith("#") || trimmed.startsWith("/") || trimmed.startsWith("?");
+          safeNavigate(ctaUrl, isSameTab ? "_self" : "_blank");
         }
       }}
       className={className}
