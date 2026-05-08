@@ -344,12 +344,13 @@ export interface DsoScrollStoryBlockProps {
   backgroundStyle?: BackgroundStyle;
 }
 
-export interface DsoScrollStoryHeroBlockProps {
+export interface DsoScrollStoryHeroBlockProps extends CtaModalConfig {
   eyebrow: string;
   chapters: DsoScrollStoryChapter[];
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  chilipiperUrl?: string;
   imagePosition?: "left" | "right";
   backgroundStyle?: BackgroundStyle;
   backgroundVideoUrl?: string;
@@ -607,16 +608,18 @@ export interface DsoTestimonialsBlockProps {
   backgroundStyle?: BackgroundStyle;
 }
 
-export interface DsoPracticeHeroBlockProps {
+export interface DsoPracticeHeroBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline?: string;
   subheadline?: string;
   primaryCtaText?: string;
   primaryCtaUrl?: string;
   primaryCtaMode?: CtaMode;
+  primaryChilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
   secondaryCtaMode?: CtaMode;
+  secondaryChilipiperUrl?: string;
   trustLine?: string;
   backgroundStyle?: BackgroundStyle;
   layout?: "centered" | "split" | "bg-image";
@@ -731,7 +734,7 @@ export interface DsoFinalCtaBlockProps extends CtaModalConfig {
   overlayColor?: string;
 }
 
-export interface DsoComparisonBlockProps {
+export interface DsoComparisonBlockProps extends CtaModalConfig {
   eyebrow: string;
   headline: string;
   subheadline: string;
@@ -747,6 +750,7 @@ export interface DsoComparisonBlockProps {
   ctaText: string;
   ctaUrl: string;
   ctaMode?: CtaMode;
+  chilipiperUrl?: string;
   rows: { need: string; dandy: string; traditional: string }[];
   backgroundStyle: BackgroundStyle;
   tableNeedColor?: string;

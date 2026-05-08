@@ -2,6 +2,7 @@ import type { BackgroundStyle } from "../bg-styles";
 import type {
   BlockSettings,
   CaseStudyItem,
+  CtaMode,
   CtaModalConfig,
   FormStep,
   NavHeaderLink,
@@ -61,11 +62,11 @@ export interface PasSectionBlockProps {
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
-export interface ComparisonBlockProps {
+export interface ComparisonBlockProps extends CtaModalConfig {
   headline: string;
   ctaText: string;
   ctaUrl: string;
-  ctaAction?: "url" | "chilipiper";
+  ctaAction?: CtaMode;
   chilipiperUrl?: string;
   oldWayLabel: string;
   oldWayBullets: string[];
@@ -613,27 +614,35 @@ export interface DandyConversionPanel1Stat {
   label: string;
 }
 
-export interface DandyConversionPanel1BlockProps {
+export interface DandyConversionPanel1BlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
   primaryCtaText?: string;
   primaryCtaUrl?: string;
+  primaryCtaAction?: CtaMode;
+  primaryChilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  secondaryCtaAction?: CtaMode;
+  secondaryChilipiperUrl?: string;
   style?: "teal" | "lime" | "medium" | "white";
   bgColor?: string;
   stats?: DandyConversionPanel1Stat[];
 }
 
-export interface DandyCtaBlockProps {
+export interface DandyCtaBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
   primaryCtaText?: string;
   primaryCtaUrl?: string;
+  primaryCtaAction?: CtaMode;
+  primaryChilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  secondaryCtaAction?: CtaMode;
+  secondaryChilipiperUrl?: string;
   disclaimer?: string;
   alignment?: "left" | "center" | "right";
   bgColor?: string;
@@ -800,16 +809,20 @@ export interface StickyStackBlockProps {
 /*  feature article, not a SaaS landing.                                     */
 /* ------------------------------------------------------------------------- */
 
-export interface MagazineHeroBlockProps {
+export interface MagazineHeroBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
   ctaText: string;
   ctaUrl: string;
+  ctaAction?: CtaMode;
+  chilipiperUrl?: string;
   /** Optional secondary CTA rendered as a text link next to the primary
    *  button. Useful for "Read the story →" style flows. */
   ctaSecondaryText?: string;
   ctaSecondaryUrl?: string;
+  ctaSecondaryAction?: CtaMode;
+  secondaryChilipiperUrl?: string;
   bylineLabel?: string;
   bylineValue?: string;
   imageUrl?: string;
@@ -847,7 +860,7 @@ export interface MagazineHeroBlockProps {
 /*  feel like a campaign, not a product page.                                */
 /* ------------------------------------------------------------------------- */
 
-export interface BoldStatementBlockProps {
+export interface BoldStatementBlockProps extends CtaModalConfig {
   eyebrow?: string;
   /** Main statement. Use HTML <em>...</em> around the word(s) you want
    *  rendered in the accent color. */
@@ -856,6 +869,8 @@ export interface BoldStatementBlockProps {
   footnote?: string;
   ctaText?: string;
   ctaUrl?: string;
+  ctaAction?: CtaMode;
+  chilipiperUrl?: string;
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
