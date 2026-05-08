@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -5,6 +6,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { CtaModalConfig } from "@/lib/block-types";
+
+interface GlobalFormSummary {
+  id: number;
+  name: string;
+}
 
 interface Props {
   /** Currently selected ctaAction so the panel knows which fields to show. */
@@ -29,6 +35,14 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
   const formSource = cfg.modalFormSource ?? "simple";
 
   const set = (patch: Partial<CtaModalConfig>) => onChange({ ...cfg, ...patch });
+
+  const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
+  useEffect(() => {
+    fetch("/api/lp/forms")
+      .then(r => r.json())
+      .then((data: GlobalFormSummary[]) => setGlobalForms(data))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-3 border rounded-lg p-3 bg-slate-50/50">
@@ -67,16 +81,35 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
 
           {formSource === "linked" && (
             <div>
-              <Label className="text-[11px] font-medium mb-1.5 block">Linked global form id</Label>
-              <Input
-                type="number"
-                value={cfg.modalFormId ?? ""}
-                onChange={(e) => set({ modalFormId: e.target.value === "" ? undefined : Number(e.target.value) })}
-                placeholder="6"
-                className="h-9 text-xs"
-              />
+              <Label className="text-[11px] font-medium mb-1.5 block">Linked global form</Label>
+              <Select
+                value={cfg.modalFormId != null ? String(cfg.modalFormId) : "__none__"}
+                onValueChange={(v) =>
+                  set({ modalFormId: v === "__none__" ? undefined : Number(v) })
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select a form…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" className="text-xs">— None selected —</SelectItem>
+                  {globalForms.map((f) => (
+                    <SelectItem key={f.id} value={String(f.id)} className="text-xs">
+                      {f.name}{" "}
+                      <span className="text-muted-foreground">(#{f.id})</span>
+                    </SelectItem>
+                  ))}
+                  {cfg.modalFormId != null && !globalForms.some(f => f.id === cfg.modalFormId) && (
+                    <SelectItem value={String(cfg.modalFormId)} className="text-xs">
+                      Form #{cfg.modalFormId} (not found)
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Reuses any global form (Marketo, native, etc.). If the form has a Chili Piper handoff configured, the modal swaps to the scheduler iframe after submit.
+                Reuses any global form (Marketo, native, etc.). Manage forms in the{" "}
+                <a href="/forms" target="_blank" rel="noopener noreferrer" className="underline">Forms library</a>.
+                If the form has a Chili Piper handoff configured, the modal swaps to the scheduler iframe after submit.
               </p>
             </div>
           )}
