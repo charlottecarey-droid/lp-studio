@@ -101,3 +101,15 @@ id = "mEaTVdgfJpN4QvNuGbr06"
 uri = "file://screenshots/spatial-tour-preview.jpg"
 type = "image"
 title = "Inside Dandy — Spatial Lab Tour preview"
+
+[[outputs]]
+id = "_y4PoSQqzX_rryZ2qCN0x"
+uri = "file://attached_assets/exports/inside-dandy-standalone.html.txt"
+type = "text"
+title = "Inside Dandy — Standalone HTML (paste into Custom HTML block)"
+
+[[outputs]]
+id = "lw2lXicJyvKgpiYOaGrYr"
+uri = "file://attached_assets/exports/inside-dandy-standalone.tar.gz"
+type = "unspecified"
+title = "Inside Dandy — Standalone HTML (compressed)"
