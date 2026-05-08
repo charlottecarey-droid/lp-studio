@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
+import { motion, type TargetAndTransition } from "framer-motion";
 import { useRoute, useLocation } from "wouter";
 import { trackView } from "@/hooks/use-recently-viewed";
 import {
@@ -96,6 +97,19 @@ interface CustomBlock {
   block_settings?: Record<string, unknown>;
   segment?: string;
 }
+
+type BuilderAnimationStyle = "fade-up" | "fade-in" | "slide-left" | "slide-right" | "scale-in" | "none";
+
+const BUILDER_ANIMATION_VARIANTS: Record<BuilderAnimationStyle, { initial: TargetAndTransition; animate: TargetAndTransition }> = {
+  "fade-up":    { initial: { opacity: 0, y: 40 },        animate: { opacity: 1, y: 0 } },
+  "fade-in":    { initial: { opacity: 0 },               animate: { opacity: 1 } },
+  "slide-left": { initial: { opacity: 0, x: -60 },       animate: { opacity: 1, x: 0 } },
+  "slide-right":{ initial: { opacity: 0, x: 60 },        animate: { opacity: 1, x: 0 } },
+  "scale-in":   { initial: { opacity: 0, scale: 0.92 }, animate: { opacity: 1, scale: 1 } },
+  "none":       { initial: {},                            animate: {} },
+};
+
+const BUILDER_ANIMATION_EASE = [0.16, 1, 0.3, 1] as const;
 
 function genBlockId(type: string) {
   return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -3208,17 +3222,34 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
       ) : (
         <div className="cursor-pointer" onClick={e => { e.stopPropagation(); onSelect(); }}>
           <BuilderBlockErrorBoundary blockType={block.type}>
-            <BlockRenderer
-              block={block}
-              brand={brand}
-              onBlockChange={onBlockChange}
-              animationsEnabled={false}
-              isBuilder
-              path={path ?? [blockIndex]}
-              renderChild={renderChild}
-              renderEmptySlot={renderEmptySlot}
-              renderTailSlot={renderTailSlot}
-            />
+            {(() => {
+              const animStyle = (block.blockSettings?.animationStyle ?? "fade-up") as BuilderAnimationStyle;
+              const variant = BUILDER_ANIMATION_VARIANTS[animStyle] ?? BUILDER_ANIMATION_VARIANTS["fade-up"];
+              const renderer = (
+                <BlockRenderer
+                  block={block}
+                  brand={brand}
+                  onBlockChange={onBlockChange}
+                  animationsEnabled={false}
+                  isBuilder
+                  path={path ?? [blockIndex]}
+                  renderChild={renderChild}
+                  renderEmptySlot={renderEmptySlot}
+                  renderTailSlot={renderTailSlot}
+                />
+              );
+              if (animStyle === "none") return renderer;
+              return (
+                <motion.div
+                  key={animStyle}
+                  initial={variant.initial}
+                  animate={variant.animate}
+                  transition={{ duration: 0.65, ease: BUILDER_ANIMATION_EASE }}
+                >
+                  {renderer}
+                </motion.div>
+              );
+            })()}
           </BuilderBlockErrorBoundary>
         </div>
       )}

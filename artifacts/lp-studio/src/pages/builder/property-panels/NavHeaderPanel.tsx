@@ -168,8 +168,20 @@ export function NavHeaderPanel({ props, onChange }: Props) {
           value={props.cta1.url}
           onChange={e => onChange({ ...props, cta1: { ...props.cta1, url: e.target.value } })}
           className="text-xs h-7"
-          placeholder="URL"
+          placeholder="URL (use #apply to anchor to the Content Series guest form)"
         />
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full h-7 text-[11px] font-normal justify-start"
+          onClick={() => onChange({
+            ...props,
+            cta1: { label: "Apply to be a Guest", url: "#apply" },
+            cta1Action: "url",
+          })}
+        >
+          Anchor to “Apply to be a Guest” form
+        </Button>
         <div>
           <Label className="text-[11px] font-medium mb-1.5 block">Action</Label>
           <Select
@@ -201,8 +213,20 @@ export function NavHeaderPanel({ props, onChange }: Props) {
           value={props.cta2.url}
           onChange={e => onChange({ ...props, cta2: { ...props.cta2, url: e.target.value } })}
           className="text-xs h-7"
-          placeholder="URL"
+          placeholder="URL (use #apply to anchor to the Content Series guest form)"
         />
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full h-7 text-[11px] font-normal justify-start"
+          onClick={() => onChange({
+            ...props,
+            cta2: { label: "Apply to be a Guest", url: "#apply" },
+            cta2Action: "url",
+          })}
+        >
+          Anchor to “Apply to be a Guest” form
+        </Button>
         <div>
           <Label className="text-[11px] font-medium mb-1.5 block">Action</Label>
           <Select
