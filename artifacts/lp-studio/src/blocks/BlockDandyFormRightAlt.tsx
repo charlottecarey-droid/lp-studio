@@ -228,7 +228,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             src={props.imageUrl ?? ""}
             alt={props.imageAlt ?? ""}
             wrapperClassName="block w-full"
-            className={`w-full ${aspect} object-cover rounded-2xl shadow-xl`}
+            className={`w-full ${aspect} object-cover rounded-2xl ${(props.imageShadow ?? true) ? "shadow-xl" : ""}`}
             onUpdate={field("imageUrl")}
           />
         ) : null

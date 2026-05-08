@@ -127,6 +127,15 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
               </SelectContent>
             </Select>
           </div>
+          <label className="flex items-center justify-between gap-2 text-xs">
+            <span>Drop shadow</span>
+            <input
+              type="checkbox"
+              checked={p.imageShadow ?? true}
+              onChange={(e) => set("imageShadow", e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
         </div>
       )}
 

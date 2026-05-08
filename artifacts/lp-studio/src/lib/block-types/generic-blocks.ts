@@ -626,6 +626,9 @@ export interface DandyFormRightAltBlockProps {
   imageAlt?: string;
   /** Aspect ratio for the left image. Defaults to "portrait". */
   imageAspect?: "portrait" | "square" | "landscape" | "wide";
+  /** Whether to render a soft drop shadow under the left image. Defaults to true
+   *  for back-compat with existing pages. */
+  imageShadow?: boolean;
 
   /** Where the headline + subheadline render.
    *  - "default" (current): headline group lives in the left column above the
