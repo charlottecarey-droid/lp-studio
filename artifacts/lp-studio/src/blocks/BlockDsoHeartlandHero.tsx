@@ -426,6 +426,41 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     </motion.nav>
   );
 
+  // Shared modal element — must be rendered in every layout branch below,
+  // otherwise setEmailModalOpen(true) wires to nothing and the modal-form /
+  // modal-chilipiper submit modes silently no-op.
+  const emailCaptureModalEl = (
+    <EmailCaptureModal
+      open={emailModalOpen}
+      onClose={() => setEmailModalOpen(false)}
+      email={emailValue}
+      mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+      chilipiperUrl={p.modalChilipiperUrl}
+      primaryColor={brand.primaryColor}
+      accentColor={brand.accentColor}
+      brand={brand}
+      pageId={pageId}
+      variantId={variantId}
+      source="dso-heartland-hero"
+      formSource={p.modalFormSource ?? "simple"}
+      linkedFormId={p.modalFormId}
+      marketoBaseUrl={p.modalMarketoBaseUrl}
+      marketoMunchkinId={p.modalMarketoMunchkinId}
+      marketoFormId={p.modalMarketoFormId}
+      formConfig={{
+        headline: p.modalHeadline,
+        subheadline: p.modalSubheadline,
+        submitText: p.modalSubmitText,
+        successMessage: p.modalSuccessMessage,
+        disclaimer: p.modalDisclaimer,
+        showFirstName: p.modalShowFirstName,
+        showLastName: p.modalShowLastName,
+        showPhone: p.modalShowPhone,
+        showCompany: p.modalShowCompany,
+      }}
+    />
+  );
+
   /* ── SPLIT LAYOUT ─────────────────────────────────────────── */
   if (isSplit) {
     return (
@@ -572,6 +607,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             })()}
           </div>
         </section>
+        {emailCaptureModalEl}
       </div>
     );
   }
@@ -759,6 +795,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             </motion.div>
           </div>
         </section>
+        {emailCaptureModalEl}
       </div>
     );
   }
@@ -1023,6 +1060,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             )}
           </motion.div>
         </section>
+        {emailCaptureModalEl}
       </div>
     );
   }
@@ -1188,35 +1226,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           )}
         </motion.div>
       </section>
-      <EmailCaptureModal
-        open={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        email={emailValue}
-        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
-        chilipiperUrl={p.modalChilipiperUrl}
-        primaryColor={brand.primaryColor}
-        accentColor={brand.accentColor}
-        brand={brand}
-        pageId={pageId}
-        variantId={variantId}
-        source="dso-heartland-hero"
-        formSource={p.modalFormSource ?? "simple"}
-        linkedFormId={p.modalFormId}
-        marketoBaseUrl={p.modalMarketoBaseUrl}
-        marketoMunchkinId={p.modalMarketoMunchkinId}
-        marketoFormId={p.modalMarketoFormId}
-        formConfig={{
-          headline: p.modalHeadline,
-          subheadline: p.modalSubheadline,
-          submitText: p.modalSubmitText,
-          successMessage: p.modalSuccessMessage,
-          disclaimer: p.modalDisclaimer,
-          showFirstName: p.modalShowFirstName,
-          showLastName: p.modalShowLastName,
-          showPhone: p.modalShowPhone,
-          showCompany: p.modalShowCompany,
-        }}
-      />
+      {emailCaptureModalEl}
     </div>
   );
 }
