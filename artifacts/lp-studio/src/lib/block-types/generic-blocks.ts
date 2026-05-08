@@ -617,6 +617,29 @@ export interface DandyFormRightAltBlockProps {
   marketoBaseUrl?: string;
   marketoMunchkinId?: string;
   marketoFormId?: number;
+
+  /** Left column content. "bullets" (default) shows the checkmark list;
+   *  "image" shows an editorial image instead. */
+  leftMode?: "bullets" | "image";
+  /** Image shown when `leftMode === "image"`. */
+  imageUrl?: string;
+  imageAlt?: string;
+  /** Aspect ratio for the left image. Defaults to "portrait". */
+  imageAspect?: "portrait" | "square" | "landscape" | "wide";
+
+  /** Where the headline + subheadline render.
+   *  - "default" (current): headline group lives in the left column above the
+   *    bullets / image.
+   *  - "centered-over-block": a centered headline group spans the full width
+   *    above the two-column grid (left content + form card sit underneath). */
+  headlineLayout?: "default" | "centered-over-block";
+
+  /** Optional link to a global form (managed in /forms). When set, the card
+   *  renders the global form's fields/steps and routes submissions through
+   *  the form's Chili Piper handoff config (if any) — same wiring as the
+   *  shared `form` block. Leave undefined to use the built-in
+   *  firstName / lastName / email / phone fields. */
+  formId?: number;
 }
 
 export interface DandyConversionPanel1Stat {

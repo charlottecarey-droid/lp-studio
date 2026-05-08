@@ -1,10 +1,22 @@
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Link2, Link2Off } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { ImagePicker } from "@/components/ImagePicker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { DandyFormRightAltBlockProps } from "@/lib/block-types";
+
+interface GlobalFormSummary { id: number; name: string }
+const API_BASE = "/api";
 
 interface Props {
   props: DandyFormRightAltBlockProps;
@@ -23,6 +35,16 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
   const addBullet = () => onChange({ ...p, bullets: [...(p.bullets ?? []), ""] });
   const removeBullet = (i: number) => onChange({ ...p, bullets: (p.bullets ?? []).filter((_, idx) => idx !== i) });
 
+  // Load global forms once for the picker.
+  const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/forms`).then(r => r.json()).then((data: GlobalFormSummary[]) => setGlobalForms(data)).catch(() => {});
+  }, []);
+  const linkedForm = globalForms.find(f => f.id === p.formId);
+
+  const leftMode = p.leftMode ?? "bullets";
+  const headlineLayout = p.headlineLayout ?? "default";
+
   return (
     <div className="space-y-4">
       <BlockRefreshButton
@@ -39,6 +61,74 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
           <Input value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
         </div>
       </div>
+
+      <div className="border-t pt-3 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout</p>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Left side content</Label>
+          <div className="flex gap-1">
+            {(["bullets", "image"] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => set("leftMode", m)}
+                className={`flex-1 py-1.5 text-xs rounded border ${leftMode === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+              >
+                {m === "bullets" ? "Bullet list" : "Image"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Headline placement</Label>
+          <div className="flex gap-1">
+            {([
+              ["default", "Above content"],
+              ["centered-over-block", "Centered over block"],
+            ] as const).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => set("headlineLayout", m)}
+                className={`flex-1 py-1.5 text-xs rounded border ${headlineLayout === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">"Centered over block" lifts the headline above both columns.</p>
+        </div>
+      </div>
+
+      {leftMode === "image" && (
+        <div className="border-t pt-3 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Image</p>
+          <ImagePicker
+            value={p.imageUrl ?? ""}
+            onChange={(v) => set("imageUrl", v || undefined)}
+            placeholder="Upload or paste image URL"
+          />
+          <div className="space-y-1.5">
+            <Label className="text-xs">Alt text</Label>
+            <Input value={p.imageAlt ?? ""} onChange={e => set("imageAlt", e.target.value || undefined)} className="h-8 text-xs" placeholder="Brief description for accessibility" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Aspect ratio</Label>
+            <Select
+              value={p.imageAspect ?? "portrait"}
+              onValueChange={(v) => set("imageAspect", v as DandyFormRightAltBlockProps["imageAspect"])}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="portrait" className="text-xs">Portrait 4:5</SelectItem>
+                <SelectItem value="square" className="text-xs">Square 1:1</SelectItem>
+                <SelectItem value="landscape" className="text-xs">Landscape 5:4</SelectItem>
+                <SelectItem value="wide" className="text-xs">Wide 16:10</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
       <div className="border-t pt-3 space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Left Copy</p>
@@ -72,6 +162,42 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
 
       <div className="border-t pt-3 space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Form Source</p>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">Global Form</Label>
+          <p className="text-[11px] text-muted-foreground">
+            Link to a globally-managed form. Fields and the Chili Piper handoff are defined in the Forms library.
+          </p>
+          <div className="flex gap-2">
+            <Select
+              value={p.formId != null ? String(p.formId) : "__local__"}
+              onValueChange={v => set("formId", v === "__local__" ? undefined : parseInt(v, 10))}
+            >
+              <SelectTrigger className="h-8 text-xs flex-1">
+                <SelectValue placeholder="Use built-in fields" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__local__" className="text-xs">
+                  <span className="flex items-center gap-1.5"><Link2Off className="w-3 h-3" />Use built-in fields</span>
+                </SelectItem>
+                {globalForms.map(f => (
+                  <SelectItem key={f.id} value={String(f.id)} className="text-xs">
+                    <span className="flex items-center gap-1.5"><Link2 className="w-3 h-3" />{f.name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <a href="/forms" target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <Button size="sm" variant="outline" type="button" className="h-8">Manage</Button>
+            </a>
+          </div>
+          {linkedForm && (
+            <p className="text-[11px] text-green-600 mt-1 flex items-center gap-1">
+              <Link2 className="w-3 h-3" /> Linked to "{linkedForm.name}". Chili Piper handoff (if configured on the form) runs after submit.
+            </p>
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs">Form Mode</Label>
           <div className="flex gap-1">
@@ -80,13 +206,18 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
                 key={m}
                 type="button"
                 onClick={() => set("formMode", m)}
-                className={`flex-1 py-1.5 text-xs rounded border ${(p.formMode ?? "native") === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                disabled={p.formId != null && m === "marketo"}
+                className={`flex-1 py-1.5 text-xs rounded border ${(p.formMode ?? "native") === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"} disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {m === "native" ? "Built-in form" : "Marketo embed"}
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-muted-foreground">Marketo embed loads your Marketo form directly in this card.</p>
+          <p className="text-[11px] text-muted-foreground">
+            {p.formId != null
+              ? "Linked global form takes precedence over Form Mode."
+              : "Marketo embed loads your Marketo form directly in this card."}
+          </p>
         </div>
         {p.formMode === "marketo" && (
           <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
