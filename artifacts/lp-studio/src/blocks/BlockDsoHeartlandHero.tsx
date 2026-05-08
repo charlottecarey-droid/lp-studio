@@ -161,7 +161,11 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
   // Email-capture submit: navigates to the configured primary CTA URL with the
   // email appended as `?email=…` so the destination form/checkout can prefill.
-  // Falls back to onCtaClick (e.g. Chili Piper popup) when no URL is set.
+  // - Modal modes open the EmailCaptureModal.
+  // - Anchor-only URLs (`#section`) smooth-scroll instead of reloading the page.
+  // - "#" / empty URLs fall through to onCtaClick which resolves chili-piper or
+  //   the brand-level default CTA URL — previously these silently navigated to
+  //   `?email=…` (losing the page) which read as "the button doesn't work".
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = emailValue.trim();
@@ -170,9 +174,20 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       setEmailModalOpen(true);
       return;
     }
-    if (p.primaryCtaUrl) {
+    const ctaUrl = p.primaryCtaUrl?.trim() ?? "";
+    // Anchor-only: scroll to the target on the same page.
+    if (ctaUrl.startsWith("#") && ctaUrl.length > 1) {
+      const target = document.getElementById(ctaUrl.slice(1));
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+    // Real URL: navigate with email appended. Bare "#" or empty falls through
+    // to onCtaClick so the chili-piper popup / brand default CTA fires.
+    if (ctaUrl && ctaUrl !== "#" && !ctaUrl.startsWith("#")) {
       try {
-        const url = new URL(p.primaryCtaUrl, window.location.origin);
+        const url = new URL(ctaUrl, window.location.origin);
         url.searchParams.set("email", trimmed);
         window.location.assign(url.toString());
         return;
@@ -180,7 +195,13 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         // Fall through to onCtaClick / no-op for non-URL targets.
       }
     }
-    onCtaClick?.();
+    if (onCtaClick) {
+      onCtaClick();
+      return;
+    }
+    // Last-resort safety net: open the capture modal so the visitor's submission
+    // is never silently dropped when no URL is configured.
+    setEmailModalOpen(true);
   };
 
   const ctaStyle = p.ctaStyle ?? "buttons";
@@ -224,7 +245,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       />
       <button
         type="submit"
-        className="inline-flex items-center justify-center rounded-full text-sm font-semibold transition-opacity hover:opacity-90"
+        className="inline-flex items-center justify-center rounded-full text-sm font-semibold"
         style={{
           background: PRIMARY,
           color: "hsl(192, 30%, 6%)",
@@ -234,6 +255,24 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           whiteSpace: "nowrap",
           letterSpacing: "0.02em",
           textTransform: "uppercase",
+          transition: "filter 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.filter = "brightness(1.08)";
+          e.currentTarget.style.transform = "translateY(-1px)";
+          e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.22)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.filter = "";
+          e.currentTarget.style.transform = "";
+          e.currentTarget.style.boxShadow = "0 2px 6px rgba(0,0,0,0.12)";
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.filter = "brightness(1.08)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.filter = "";
         }}
       >
         {p.emailCaptureButtonText || p.primaryCtaText || "Get Started"}
