@@ -2,15 +2,17 @@ import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyConversionPanel1BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import { safeNavigate } from "@/lib/safe-url";
+import { CtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: DandyConversionPanel1BlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DandyConversionPanel1BlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDandyConversionPanel1({ props, brand, onFieldChange }: Props) {
+export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const style = props.style ?? "teal";
 
   const field = (key: keyof DandyConversionPanel1BlockProps) =>
@@ -40,6 +42,27 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange }: Prop
     ? "border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
     : "border-2 border-white text-white hover:bg-white hover:text-[var(--brand-primary)]";
 
+  const normalizeAction = (mode: string | undefined): "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =>
+    mode === "chilipiper" || mode === "modal-form" || mode === "modal-chilipiper" ? mode : "url";
+
+  const modalCfg = {
+    modalChilipiperUrl: props.modalChilipiperUrl,
+    modalFormSource: props.modalFormSource,
+    modalFormId: props.modalFormId,
+    modalMarketoBaseUrl: props.modalMarketoBaseUrl,
+    modalMarketoMunchkinId: props.modalMarketoMunchkinId,
+    modalMarketoFormId: props.modalMarketoFormId,
+    modalHeadline: props.modalHeadline,
+    modalSubheadline: props.modalSubheadline,
+    modalSubmitText: props.modalSubmitText,
+    modalSuccessMessage: props.modalSuccessMessage,
+    modalDisclaimer: props.modalDisclaimer,
+    modalShowFirstName: props.modalShowFirstName,
+    modalShowLastName: props.modalShowLastName,
+    modalShowPhone: props.modalShowPhone,
+    modalShowCompany: props.modalShowCompany,
+  };
+
   return (
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
       <div className="max-w-4xl mx-auto px-6 md:px-10 text-center flex flex-col items-center gap-6">
@@ -59,20 +82,34 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange }: Prop
 
         <div className="flex flex-wrap justify-center gap-4 mt-2">
           {props.primaryCtaText && (
-            <button
-              onClick={() => safeNavigate(props.primaryCtaUrl)}
+            <CtaButton
+              ctaAction={normalizeAction(props.primaryCtaAction)}
+              ctaUrl={props.primaryCtaUrl}
+              chilipiperUrl={props.primaryChilipiperUrl}
+              {...modalCfg}
               className={cn("font-bold px-10 py-4 rounded-xl text-base transition-all", primaryBtnCls)}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="dandy-conversion-panel-primary"
             >
               <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
-            </button>
+            </CtaButton>
           )}
           {props.secondaryCtaText && (
-            <button
-              onClick={() => safeNavigate(props.secondaryCtaUrl)}
+            <CtaButton
+              ctaAction={normalizeAction(props.secondaryCtaAction)}
+              ctaUrl={props.secondaryCtaUrl}
+              chilipiperUrl={props.secondaryChilipiperUrl}
+              {...modalCfg}
               className={cn("font-semibold px-10 py-4 rounded-xl text-base transition-all", secondaryBtnCls)}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="dandy-conversion-panel-secondary"
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
-            </button>
+            </CtaButton>
           )}
         </div>
 

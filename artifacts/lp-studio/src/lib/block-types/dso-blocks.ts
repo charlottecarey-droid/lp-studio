@@ -350,6 +350,7 @@ export interface DsoScrollStoryHeroBlockProps extends CtaModalConfig {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaAction?: CtaMode;
   chilipiperUrl?: string;
   imagePosition?: "left" | "right";
   backgroundStyle?: BackgroundStyle;
@@ -615,10 +616,12 @@ export interface DsoPracticeHeroBlockProps extends CtaModalConfig {
   primaryCtaText?: string;
   primaryCtaUrl?: string;
   primaryCtaMode?: CtaMode;
+  primaryCtaAction?: CtaMode;
   primaryChilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
   secondaryCtaMode?: CtaMode;
+  secondaryCtaAction?: CtaMode;
   secondaryChilipiperUrl?: string;
   trustLine?: string;
   backgroundStyle?: BackgroundStyle;
@@ -750,6 +753,7 @@ export interface DsoComparisonBlockProps extends CtaModalConfig {
   ctaText: string;
   ctaUrl: string;
   ctaMode?: CtaMode;
+  ctaAction?: CtaMode;
   chilipiperUrl?: string;
   rows: { need: string; dandy: string; traditional: string }[];
   backgroundStyle: BackgroundStyle;

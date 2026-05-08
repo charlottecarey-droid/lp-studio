@@ -4,12 +4,15 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { MagazineHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { CtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: MagazineHeroBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
   onFieldChange?: (updated: MagazineHeroBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 const SERIF_FAMILY: Record<NonNullable<MagazineHeroBlockProps["serifStyle"]>, string> = {
@@ -31,7 +34,7 @@ const WEIGHT: Record<NonNullable<MagazineHeroBlockProps["headlineWeight"]>, numb
   bold: 700,
 };
 
-export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
   const field = (key: keyof MagazineHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
   const accent = props.accentColor || brand.accentColor || "#FF6B35";
@@ -46,10 +49,14 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
   const showRule = !!props.showRule;
   const issueLabel = props.issueLabel;
 
-  const goPrimary = () => {
-    if (onCtaClick) return onCtaClick();
-    if (props.ctaUrl && props.ctaUrl !== "#") window.location.href = props.ctaUrl;
-  };
+  const primaryAction: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =
+    props.ctaAction === "chilipiper" || props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper"
+      ? props.ctaAction
+      : "url";
+  const secondaryAction: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =
+    props.ctaSecondaryAction === "chilipiper" || props.ctaSecondaryAction === "modal-form" || props.ctaSecondaryAction === "modal-chilipiper"
+      ? props.ctaSecondaryAction
+      : "url";
 
   const headlineStyle: CSSProperties = {
     fontFamily: serifFamily,
@@ -59,7 +66,6 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     lineHeight: serifStyle === "modern" ? 1.02 : 0.95,
   };
 
-  // ---- Issue / metadata strip (shared across all layouts) -----------------
   const issueStrip = (issueLabel || onFieldChange) ? (
     <div
       className="flex items-center gap-3 text-[10px] uppercase tracking-[0.32em] font-medium"
@@ -74,7 +80,6 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     </div>
   ) : null;
 
-  // ---- Eyebrow ------------------------------------------------------------
   const eyebrow = (props.eyebrow || onFieldChange) ? (
     <div
       className="inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.28em] font-semibold"
@@ -85,7 +90,6 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     </div>
   ) : null;
 
-  // ---- Subheadline --------------------------------------------------------
   const subheadline = (props.subheadline || onFieldChange) ? (
     <InlineText
       as="p"
@@ -97,43 +101,63 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     />
   ) : null;
 
-  // ---- CTAs ---------------------------------------------------------------
+  // Pass-through modal config props (shared between primary + secondary CTAs).
+  const modalCfg = {
+    modalChilipiperUrl: props.modalChilipiperUrl,
+    modalFormSource: props.modalFormSource,
+    modalFormId: props.modalFormId,
+    modalMarketoBaseUrl: props.modalMarketoBaseUrl,
+    modalMarketoMunchkinId: props.modalMarketoMunchkinId,
+    modalMarketoFormId: props.modalMarketoFormId,
+    modalHeadline: props.modalHeadline,
+    modalSubheadline: props.modalSubheadline,
+    modalSubmitText: props.modalSubmitText,
+    modalSuccessMessage: props.modalSuccessMessage,
+    modalDisclaimer: props.modalDisclaimer,
+    modalShowFirstName: props.modalShowFirstName,
+    modalShowLastName: props.modalShowLastName,
+    modalShowPhone: props.modalShowPhone,
+    modalShowCompany: props.modalShowCompany,
+  };
+
   const ctas = (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2">
-      <button
-        type="button"
-        onClick={goPrimary}
-        className="inline-flex items-center gap-2 px-7 py-3.5 font-medium rounded-full transition-all hover:-translate-y-0.5 hover:shadow-lg text-sm tracking-wide"
+      <CtaButton
+        ctaAction={primaryAction}
+        ctaUrl={props.ctaUrl}
+        chilipiperUrl={props.chilipiperUrl}
+        {...modalCfg}
+        onClick={onCtaClick}
+        className="inline-flex items-center gap-2 px-7 py-3.5 font-medium rounded-full text-sm tracking-wide"
         style={{ backgroundColor: text, color: bg }}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="magazine-hero-primary"
       >
-        <InlineText
-          as="span"
-          value={props.ctaText}
-          onUpdate={field("ctaText")}
-        />
+        <InlineText as="span" value={props.ctaText} onUpdate={field("ctaText")} />
         <ArrowUpRight className="w-4 h-4" />
-      </button>
+      </CtaButton>
       {(props.ctaSecondaryText || onFieldChange) && (
-        <a
-          href={props.ctaSecondaryUrl || "#"}
-          className="inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+        <CtaButton
+          ctaAction={secondaryAction}
+          ctaUrl={props.ctaSecondaryUrl}
+          chilipiperUrl={props.secondaryChilipiperUrl}
+          {...modalCfg}
+          className="inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline bg-transparent"
           style={{ color: text, opacity: 0.85 }}
-          onClick={(e) => {
-            if (!props.ctaSecondaryUrl || props.ctaSecondaryUrl === "#") e.preventDefault();
-          }}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="magazine-hero-secondary"
         >
-          <InlineText
-            as="span"
-            value={props.ctaSecondaryText ?? ""}
-            onUpdate={field("ctaSecondaryText")}
-          />
+          <InlineText as="span" value={props.ctaSecondaryText ?? ""} onUpdate={field("ctaSecondaryText")} />
           <ArrowRight className="w-3.5 h-3.5" />
-        </a>
+        </CtaButton>
       )}
     </div>
   );
 
-  // ---- Byline -------------------------------------------------------------
   const byline = (props.bylineLabel || props.bylineValue || onFieldChange) ? (
     <div className="text-[10px] uppercase tracking-[0.28em] font-medium" style={{ opacity: 0.55 }}>
       <InlineText
@@ -156,10 +180,6 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     </div>
   ) : null;
 
-  // -------------------------------------------------------------------------
-  // COVER LAYOUT — image full-bleed background with overlay text. Premium,
-  // National Geographic / Apple cover-story vibe.
-  // -------------------------------------------------------------------------
   if (layout === "cover") {
     const scrim = props.coverScrim ?? 0.55;
     return (
@@ -207,10 +227,6 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     );
   }
 
-  // -------------------------------------------------------------------------
-  // STACKED LAYOUT — centered editorial column with image below. Magazine
-  // feature-article opener.
-  // -------------------------------------------------------------------------
   if (layout === "stacked") {
     return (
       <section className="relative overflow-hidden font-sans" style={{ backgroundColor: bg, color: text }}>
@@ -260,15 +276,6 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange }: P
     );
   }
 
-  // -------------------------------------------------------------------------
-  // SPLIT LAYOUT (default) — refined two-column editorial.
-  // Premium tweaks vs. the original:
-  //   • lighter, modern serif (Instrument Serif) by default
-  //   • no implicit rotation; opt in via imageRotation
-  //   • softer shadow + rounded-lg (instead of harsh shadow-2xl rounded-md)
-  //   • optional issue strip and top/bottom rules for a real editorial feel
-  //   • secondary CTA link
-  // -------------------------------------------------------------------------
   return (
     <section className="relative overflow-hidden font-sans" style={{ backgroundColor: bg, color: text }}>
       <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-16 lg:pt-20 pb-20 lg:pb-28">

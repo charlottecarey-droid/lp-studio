@@ -5,6 +5,7 @@ import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { CtaModalConfig } from "@/lib/block-types";
 import { usePageContext } from "@/lib/page-context";
+import { safeNavigate } from "@/lib/safe-url";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -92,6 +93,10 @@ export function CtaButton({
       onClick={() => {
         onClick?.();
         if (isModal) setOpen(true);
+        // URL-mode fallback: if no host onClick wired navigation, navigate here.
+        if (!isModal && !onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
+          safeNavigate(ctaUrl, "_blank");
+        }
       }}
       className={className}
       style={{ cursor: "pointer", ...style }}

@@ -8,24 +8,24 @@
 import { motion } from "framer-motion";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
-import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
-
-const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
+import { CtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: DsoPracticeHeroBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DsoPracticeHeroBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoPracticeHero({ props, brand, onFieldChange }: Props) {
+export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const field = (key: keyof DsoPracticeHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPracticeHeroBlockProps[typeof key] }) : undefined;
   const {
@@ -35,9 +35,13 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange }: Props) {
     primaryCtaText,
     primaryCtaUrl,
     primaryCtaMode = "link",
+    primaryCtaAction,
+    primaryChilipiperUrl,
     secondaryCtaText,
     secondaryCtaUrl,
     secondaryCtaMode = "link",
+    secondaryCtaAction,
+    secondaryChilipiperUrl,
     trustLine,
     backgroundStyle = "dark",
     layout = "centered",
@@ -47,6 +51,37 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange }: Props) {
     heroHeight = "default",
     imageAspect = "4/3",
   } = props;
+
+  // Resolve action: prefer explicit ctaAction; else map legacy mode "chilipiper"
+  // to action="chilipiper" so existing pages keep working.
+  const resolveAction = (
+    action: string | undefined,
+    legacyMode: string,
+  ): "url" | "chilipiper" | "modal-form" | "modal-chilipiper" => {
+    if (action === "chilipiper" || action === "modal-form" || action === "modal-chilipiper" || action === "url") return action;
+    if (legacyMode === "chilipiper" || legacyMode === "modal-form" || legacyMode === "modal-chilipiper") return legacyMode;
+    return "url";
+  };
+  const primaryAction = resolveAction(primaryCtaAction, primaryCtaMode);
+  const secondaryAction = resolveAction(secondaryCtaAction, secondaryCtaMode);
+
+  const modalCfg = {
+    modalChilipiperUrl: props.modalChilipiperUrl,
+    modalFormSource: props.modalFormSource,
+    modalFormId: props.modalFormId,
+    modalMarketoBaseUrl: props.modalMarketoBaseUrl,
+    modalMarketoMunchkinId: props.modalMarketoMunchkinId,
+    modalMarketoFormId: props.modalMarketoFormId,
+    modalHeadline: props.modalHeadline,
+    modalSubheadline: props.modalSubheadline,
+    modalSubmitText: props.modalSubmitText,
+    modalSuccessMessage: props.modalSuccessMessage,
+    modalDisclaimer: props.modalDisclaimer,
+    modalShowFirstName: props.modalShowFirstName,
+    modalShowLastName: props.modalShowLastName,
+    modalShowPhone: props.modalShowPhone,
+    modalShowCompany: props.modalShowCompany,
+  };
 
   const heightClass =
     heroHeight === "full" ? "min-h-screen"
@@ -138,49 +173,37 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange }: Props) {
       style={{ display: "flex", gap: "0.875rem", flexWrap: "wrap" }}
     >
       {primaryCtaText && (
-        primaryCtaMode === "chilipiper" ? (
-          <ChiliPiperButton
-            url={primaryCtaUrl || ""}
-            className={getButtonClasses(brand, "inline-flex items-center")}
-            style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-          >
-            <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} />
-          </ChiliPiperButton>
-        ) : (
-          <motion.a
-            href={primaryCtaUrl || "#"}
-            className={getButtonClasses(brand, "inline-flex items-center")}
-            style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
-            whileHover={{ scale: 1.04, y: -1 }}
-            whileTap={{ scale: 0.96 }}
-            transition={SPRING}
-          >
-            <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} />
-          </motion.a>
-        )
+        <CtaButton
+          ctaAction={primaryAction}
+          ctaUrl={primaryCtaUrl}
+          chilipiperUrl={primaryChilipiperUrl ?? (primaryCtaMode === "chilipiper" ? primaryCtaUrl : undefined)}
+          {...modalCfg}
+          className={getButtonClasses(brand, "inline-flex items-center")}
+          style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="dso-practice-hero-primary"
+        >
+          <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} />
+        </CtaButton>
       )}
 
       {secondaryCtaText && (
-        secondaryCtaMode === "chilipiper" ? (
-          <ChiliPiperButton
-            url={secondaryCtaUrl || ""}
-            className={getSecondaryButtonClasses(brand)}
-            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.5)" }}
-          >
-            <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
-          </ChiliPiperButton>
-        ) : (
-          <motion.a
-            href={secondaryCtaUrl || "#"}
-            className={getSecondaryButtonClasses(brand)}
-            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.5)", textDecoration: "none" }}
-            whileHover={{ scale: 1.04, y: -1 }}
-            whileTap={{ scale: 0.96 }}
-            transition={SPRING}
-          >
-            <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
-          </motion.a>
-        )
+        <CtaButton
+          ctaAction={secondaryAction}
+          ctaUrl={secondaryCtaUrl}
+          chilipiperUrl={secondaryChilipiperUrl ?? (secondaryCtaMode === "chilipiper" ? secondaryCtaUrl : undefined)}
+          {...modalCfg}
+          className={getSecondaryButtonClasses(brand)}
+          style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.5)" }}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="dso-practice-hero-secondary"
+        >
+          <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+        </CtaButton>
       )}
     </motion.div>
   );

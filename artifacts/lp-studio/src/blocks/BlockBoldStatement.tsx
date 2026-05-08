@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { BoldStatementBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { CtaButton } from "@/components/CtaButton";
 import { WordReveal } from "./WordReveal";
 
 interface Props {
@@ -9,12 +10,10 @@ interface Props {
   brand: BrandConfig;
   onCtaClick?: () => void;
   onFieldChange?: (updated: BoldStatementBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-/** Convert a 3- or 6-digit hex color to an `rgba(...)` string with the
- *  given alpha. Returns null when the input isn't a hex literal so callers
- *  can fall back to a safe default (Framer Motion's color interpolator
- *  needs hex/rgb/rgba/hsl — not CSS vars or color-mix). */
 function hexToRgba(hex: string, alpha: number): string | null {
   const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
   if (!m) return null;
@@ -23,10 +22,6 @@ function hexToRgba(hex: string, alpha: number): string | null {
   return `rgba(${(num >> 16) & 255},${(num >> 8) & 255},${num & 255},${alpha})`;
 }
 
-/** Split the statement into accent (em) vs plain segments and render each.
- *  When `scrollReveal` is true each segment is wrapped in a WordReveal so the
- *  whole sentence lights up word-by-word as the visitor scrolls — italic
- *  segments still resolve to the accent color when fully revealed. */
 function renderStatement(
   html: string,
   accent: string,
@@ -62,20 +57,19 @@ function renderStatement(
   });
 }
 
-export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
   const bg = props.bgColor || "#0A0A0A";
   const text = props.textColor || "#FFFFFF";
   const accent = props.accentColor || brand.accentColor || "#C7E738";
-  // Disable scroll-reveal in the editor (when onFieldChange is set) so the
-  // author can always see the full statement while editing.
   const scrollReveal = !!props.scrollReveal && !onFieldChange;
-  // Framer Motion's color interpolator only handles hex/rgb/rgba/hsl strings
-  // — `color-mix(...)` and CSS variables aren't animatable — so derive the
-  // default dim color as an rgba() literal from the text color when it's a
-  // hex; otherwise fall back to white-at-20%.
   const dimColor = props.dimColor || hexToRgba(text, 0.2) || "rgba(255,255,255,0.2)";
   const field = (key: keyof BoldStatementBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+
+  const action: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =
+    props.ctaAction === "chilipiper" || props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper"
+      ? props.ctaAction
+      : "url";
 
   return (
     <section
@@ -126,16 +120,32 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: 
               />
             )}
             {(props.ctaText || onFieldChange) && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (onCtaClick) return onCtaClick();
-                  if (props.ctaUrl && props.ctaUrl !== "#") {
-                    window.location.href = props.ctaUrl;
-                  }
-                }}
-                className="inline-flex items-center gap-2 px-7 py-4 font-semibold rounded-full transition-transform hover:-translate-y-0.5 self-start lg:self-auto"
+              <CtaButton
+                ctaAction={action}
+                ctaUrl={props.ctaUrl}
+                chilipiperUrl={props.chilipiperUrl}
+                modalChilipiperUrl={props.modalChilipiperUrl}
+                modalFormSource={props.modalFormSource}
+                modalFormId={props.modalFormId}
+                modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+                modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+                modalMarketoFormId={props.modalMarketoFormId}
+                modalHeadline={props.modalHeadline}
+                modalSubheadline={props.modalSubheadline}
+                modalSubmitText={props.modalSubmitText}
+                modalSuccessMessage={props.modalSuccessMessage}
+                modalDisclaimer={props.modalDisclaimer}
+                modalShowFirstName={props.modalShowFirstName}
+                modalShowLastName={props.modalShowLastName}
+                modalShowPhone={props.modalShowPhone}
+                modalShowCompany={props.modalShowCompany}
+                onClick={onCtaClick}
+                className="inline-flex items-center gap-2 px-7 py-4 font-semibold rounded-full self-start lg:self-auto"
                 style={{ backgroundColor: accent, color: bg }}
+                brand={brand}
+                pageId={pageId}
+                variantId={variantId}
+                source="bold-statement"
               >
                 <InlineText
                   as="span"
@@ -143,7 +153,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: 
                   onUpdate={field("ctaText")}
                 />
                 <ArrowRight className="w-4 h-4" />
-              </button>
+              </CtaButton>
             )}
           </div>
         )}

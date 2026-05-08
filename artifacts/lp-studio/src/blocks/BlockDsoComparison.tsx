@@ -1,15 +1,19 @@
 import { motion } from "framer-motion";
 import { Check, Minus, ArrowRight } from "lucide-react";
 import type { DsoComparisonBlockProps } from "@/lib/block-types";
+import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
-import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
+import { CtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: DsoComparisonBlockProps;
+  brand?: BrandConfig;
   onCtaClick?: () => void;
   animationsEnabled?: boolean;
   onFieldChange?: (updated: DsoComparisonBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 const P     = "hsl(152,42%,12%)";
@@ -31,7 +35,7 @@ const DEFAULT_ROWS = [
   { need: "Change Management",       dandy: "Hands-on onboarding that respects team autonomy",            traditional: "Minimal onboarding, slow rollout" },
 ];
 
-export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true, onFieldChange }: Props) {
+export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled = true, onFieldChange, pageId, variantId }: Props) {
   const {
     eyebrow = "The Difference",
     headline = "A modern stack vs. the old way.",
@@ -71,10 +75,11 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
 
   const displayRows = (rows && rows.length > 0) ? rows : DEFAULT_ROWS;
 
-  const handleCta = () => {
-    if (onCtaClick) { onCtaClick(); return; }
-    if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl, "_blank");
-  };
+  const action: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" = (() => {
+    const a = props.ctaAction ?? props.ctaMode;
+    if (a === "chilipiper" || a === "modal-form" || a === "modal-chilipiper") return a;
+    return "url";
+  })();
 
   const headlineParts = headline.includes("\n") ? headline.split("\n") : [headline];
 
@@ -266,8 +271,26 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
             {...ctaAnim}
             style={{ marginTop: "3rem", textAlign: "center" }}
           >
-            <button
-              onClick={handleCta}
+            <CtaButton
+              ctaAction={action}
+              ctaUrl={ctaUrl}
+              chilipiperUrl={props.chilipiperUrl}
+              modalChilipiperUrl={props.modalChilipiperUrl}
+              modalFormSource={props.modalFormSource}
+              modalFormId={props.modalFormId}
+              modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+              modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+              modalMarketoFormId={props.modalMarketoFormId}
+              modalHeadline={props.modalHeadline}
+              modalSubheadline={props.modalSubheadline}
+              modalSubmitText={props.modalSubmitText}
+              modalSuccessMessage={props.modalSuccessMessage}
+              modalDisclaimer={props.modalDisclaimer}
+              modalShowFirstName={props.modalShowFirstName}
+              modalShowLastName={props.modalShowLastName}
+              modalShowPhone={props.modalShowPhone}
+              modalShowCompany={props.modalShowCompany}
+              onClick={onCtaClick}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -281,20 +304,15 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 color: PFG,
                 cursor: "pointer",
                 border: "none",
-                transition: "transform 0.25s ease, box-shadow 0.25s ease",
                 boxShadow: `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`,
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 8px 32px rgb(var(--brand-primary-rgb, 0 58 48) / 0.333)`;
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`;
-              }}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="dso-comparison"
             >
               <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} /> <ArrowRight style={{ width: 16, height: 16 }} />
-            </button>
+            </CtaButton>
           </motion.div>
         )}
       </div>

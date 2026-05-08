@@ -5,9 +5,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { InlineText } from "@/components/InlineText";
-import { ChiliPiperModal } from "./ChiliPiperModal";
-import { useState } from "react";
-import { safeNavigate } from "@/lib/safe-url";
+import { CtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: ComparisonBlockProps;
@@ -16,15 +14,17 @@ interface Props {
   onFieldChange?: (updated: ComparisonBlockProps) => void;
   pageId?: number;
   variantId?: number;
-  sessionId?: string;
 }
 
-export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageId, variantId, sessionId }: Props) {
+export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
-  const [cpOpen, setCpOpen] = useState(false);
-  const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
+
+  const action: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =
+    props.ctaAction === "chilipiper" || props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper"
+      ? props.ctaAction
+      : "url";
 
   const oldCardBg = props.oldCardBg ?? "#f1f5f9";
   const newCardBg = props.newCardBg ?? "var(--brand-primary)";
@@ -37,12 +37,6 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
   const updateNewBullet = (index: number, value: string) => {
     if (!onFieldChange) return;
     onFieldChange({ ...props, newWayBullets: props.newWayBullets.map((b, i) => (i === index ? value : b)) });
-  };
-
-  const handleCtaClick = () => {
-    if (onCtaClick) { onCtaClick(); return; }
-    if (isChiliPiper) { setCpOpen(true); return; }
-    if (props.ctaUrl && props.ctaUrl !== "#") safeNavigate(props.ctaUrl, "_blank");
   };
 
   return (
@@ -83,21 +77,38 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
           </div>
         </div>
         <div className="text-center">
-          <button onClick={handleCtaClick} className={getButtonClasses(brand, "inline-flex items-center")} style={{ backgroundColor: LIME, color: FOREST }}>
+          <CtaButton
+            ctaAction={action}
+            ctaUrl={props.ctaUrl}
+            chilipiperUrl={props.chilipiperUrl}
+            modalChilipiperUrl={props.modalChilipiperUrl}
+            modalFormSource={props.modalFormSource}
+            modalFormId={props.modalFormId}
+            modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+            modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+            modalMarketoFormId={props.modalMarketoFormId}
+            modalHeadline={props.modalHeadline}
+            modalSubheadline={props.modalSubheadline}
+            modalSubmitText={props.modalSubmitText}
+            modalSuccessMessage={props.modalSuccessMessage}
+            modalDisclaimer={props.modalDisclaimer}
+            modalShowFirstName={props.modalShowFirstName}
+            modalShowLastName={props.modalShowLastName}
+            modalShowPhone={props.modalShowPhone}
+            modalShowCompany={props.modalShowCompany}
+            onClick={onCtaClick}
+            className={getButtonClasses(brand, "inline-flex items-center")}
+            style={{ backgroundColor: LIME, color: FOREST }}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            source="comparison-cta"
+          >
             <InlineText value={props.ctaText} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, ctaText: v }) : undefined} />
             <ArrowRight className="w-4 h-4 ml-2" />
-          </button>
+          </CtaButton>
         </div>
       </div>
-      {cpOpen && props.chilipiperUrl && (
-        <ChiliPiperModal
-          url={props.chilipiperUrl}
-          pageId={pageId}
-          variantId={variantId}
-          sessionId={sessionId}
-          onClose={() => setCpOpen(false)}
-        />
-      )}
     </section>
   );
 }

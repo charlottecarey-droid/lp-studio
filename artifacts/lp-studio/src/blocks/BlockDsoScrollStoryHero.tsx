@@ -4,6 +4,8 @@ import { motion, useInView } from "framer-motion";
 import type { DsoScrollStoryHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { CtaButton } from "@/components/CtaButton";
+import type { BrandConfig } from "@/lib/brand-config";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -61,11 +63,14 @@ const DEFAULT_CHAPTERS: DsoScrollStoryHeroBlockProps["chapters"] = [
 
 interface Props {
   props: DsoScrollStoryHeroBlockProps;
+  brand?: BrandConfig;
   onCtaClick?: () => void;
   onFieldChange?: (updated: DsoScrollStoryHeroBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDsoScrollStoryHero({ props, onCtaClick, onFieldChange }: Props) {
+export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
   const {
     eyebrow = "Why teams choose us",
     chapters,
@@ -229,9 +234,30 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick, onFieldChange }: Pr
         {/* CTA */}
         {ctaText && (
           <div>
-            <a
-              href={onCtaClick ? undefined : (ctaUrl || "#")}
-              onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
+            <CtaButton
+              ctaAction={(() => {
+                const a = props.ctaAction ?? props.ctaMode;
+                if (a === "chilipiper" || a === "modal-form" || a === "modal-chilipiper") return a;
+                return "url";
+              })()}
+              ctaUrl={ctaUrl}
+              chilipiperUrl={props.chilipiperUrl}
+              modalChilipiperUrl={props.modalChilipiperUrl}
+              modalFormSource={props.modalFormSource}
+              modalFormId={props.modalFormId}
+              modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+              modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+              modalMarketoFormId={props.modalMarketoFormId}
+              modalHeadline={props.modalHeadline}
+              modalSubheadline={props.modalSubheadline}
+              modalSubmitText={props.modalSubmitText}
+              modalSuccessMessage={props.modalSuccessMessage}
+              modalDisclaimer={props.modalDisclaimer}
+              modalShowFirstName={props.modalShowFirstName}
+              modalShowLastName={props.modalShowLastName}
+              modalShowPhone={props.modalShowPhone}
+              modalShowCompany={props.modalShowCompany}
+              onClick={onCtaClick}
               style={{
                 display: "inline-block",
                 padding: "0.875rem 2rem",
@@ -242,15 +268,16 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick, onFieldChange }: Pr
                 fontWeight: 700,
                 letterSpacing: "-0.01em",
                 borderRadius: "0.5rem",
-                textDecoration: "none",
                 cursor: "pointer",
-                transition: "opacity 0.2s",
+                border: "none",
               }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              brand={brand}
+              pageId={pageId}
+              variantId={variantId}
+              source="dso-scroll-story-hero"
             >
               {ctaText}
-            </a>
+            </CtaButton>
           </div>
         )}
       </div>

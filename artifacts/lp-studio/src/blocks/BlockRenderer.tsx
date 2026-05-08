@@ -391,7 +391,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockComparison
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated: ComparisonBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -657,7 +659,10 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return (
           <BlockDsoComparison
             props={block.props}
-            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.ctaUrl, block.props.ctaMode)) : undefined}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             animationsEnabled={animationsEnabled}
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
@@ -695,7 +700,10 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return (
           <BlockDsoScrollStoryHero
             props={block.props}
-            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.ctaUrl, block.props.ctaMode)) : undefined}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
@@ -738,7 +746,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-practice-nav":
         return <BlockDsoPracticeNav props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-practice-hero":
-        return <BlockDsoPracticeHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoPracticeHero props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-stat-row":
         return <BlockDsoStatRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-faq":
@@ -779,9 +787,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dandy-form-right-alt":
         return <BlockDandyFormRightAlt props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} pageId={pageId} variantId={variantId} />;
       case "dandy-conversion-panel-1":
-        return <BlockDandyConversionPanel1 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDandyConversionPanel1 props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-cta-block":
-        return <BlockDandyCtaBlock props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDandyCtaBlock props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "one-pager-hero":
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "content-series":
@@ -847,7 +855,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockMagazineHero
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -858,7 +868,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockBoldStatement
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick && block.props.ctaUrl ? () => onCtaClick(block.props.ctaUrl!) : undefined}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

@@ -3,7 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ColorField } from "./BlockSettingsPanel";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
   props: BoldStatementBlockProps;
@@ -66,6 +68,23 @@ export function BoldStatementPanel({ props, onChange }: Props) {
             />
           </div>
           <div>
+            <Label className="text-[11px] text-muted-foreground">Action</Label>
+            <Select
+              value={props.ctaAction ?? "url"}
+              onValueChange={(v) => update({ ctaAction: v as BoldStatementBlockProps["ctaAction"] })}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+                <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
+                <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {(props.ctaAction ?? "url") === "url" && (
+          <div>
             <Label className="text-[11px] text-muted-foreground">URL</Label>
             <Input
               value={props.ctaUrl ?? ""}
@@ -74,7 +93,25 @@ export function BoldStatementPanel({ props, onChange }: Props) {
               className="h-8 text-xs"
             />
           </div>
-        </div>
+        )}
+        {props.ctaAction === "chilipiper" && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
+            <Input
+              value={props.chilipiperUrl ?? ""}
+              onChange={(e) => update({ chilipiperUrl: e.target.value })}
+              placeholder="https://meetdandy.chilipiper.com/round-robin/..."
+              className="h-8 text-xs font-mono"
+            />
+          </div>
+        )}
+        {(props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper") && (
+          <CtaButtonModalConfigSection
+            ctaAction={props.ctaAction}
+            value={props}
+            onChange={(next) => onChange({ ...props, ...next })}
+          />
+        )}
       </div>
 
       <div className="space-y-3">
