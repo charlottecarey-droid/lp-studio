@@ -147,7 +147,12 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
         ctaUrl={props.ctaUrl}
         chilipiperUrl={props.chilipiperUrl}
         {...modalCfg}
-        onClick={onCtaClick}
+        // Only forward the host's navigation callback for plain URL actions —
+        // for modal-form / modal-chilipiper / chilipiper modes, the CtaButton
+        // handles the click itself (opens modal / popup) and the host's
+        // navigator would otherwise also open `ctaUrl` in a new tab on top
+        // of the modal.
+        onClick={primaryAction === "url" ? onCtaClick : undefined}
         className="inline-flex items-center gap-2 px-7 py-3.5 font-medium rounded-full text-sm tracking-wide"
         style={{ backgroundColor: text, color: bg }}
         brand={brand}
