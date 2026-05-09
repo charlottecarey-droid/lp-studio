@@ -1,5 +1,6 @@
+import { useRef } from "react";
 import type { IdParallaxShowcaseBlockProps, IdShowcaseFrame } from "@/lib/block-types";
-import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
+import { useInsideDandyStyles, useIdInView } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
 
@@ -8,9 +9,37 @@ interface Props {
   onFieldChange?: (next: IdParallaxShowcaseBlockProps) => void;
 }
 
+interface FrameProps {
+  frame: IdShowcaseFrame;
+  index: number;
+  onUpdate?: (patch: Partial<IdShowcaseFrame>) => void;
+  isEditor: boolean;
+}
+
+function Frame({ frame, index, onUpdate, isEditor }: FrameProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useIdInView(ref, { threshold: isEditor ? 0 : 0.2 });
+  return (
+    <div ref={ref} className={`id-frame id-f${index + 1}${isEditor ? " id-in-view" : ""}`}>
+      {frame.imageUrl && (
+        <div className="id-frame-img" style={{ backgroundImage: `url(${frame.imageUrl})` }} />
+      )}
+      <div className="id-frame-vignette" />
+      <div className="id-frame-caption">
+        <div>
+          <InlineText as="div" className="id-frame-label" value={frame.label ?? ""} onUpdate={onUpdate ? (v) => onUpdate({ label: v }) : undefined} />
+          <EditableEm as="h4" value={frame.headline ?? ""} onUpdate={onUpdate ? (v) => onUpdate({ headline: v }) : undefined} />
+        </div>
+        <InlineText as="div" className="id-frame-where" value={frame.where ?? ""} onUpdate={onUpdate ? (v) => onUpdate({ where: v }) : undefined} />
+      </div>
+    </div>
+  );
+}
+
 export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
   useInsideDandyStyles();
   const frames = props.frames ?? [];
+  const isEditor = !!onFieldChange;
   const f = (k: keyof IdParallaxShowcaseBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [k]: v }) : undefined;
   const updateFrame = (i: number, patch: Partial<IdShowcaseFrame>) => {
@@ -30,7 +59,6 @@ export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
             as="h2"
             value={props.headline ?? ""}
             onUpdate={f("headline")}
-           
           />
         </div>
         {(props.blurb || onFieldChange) && (
@@ -39,19 +67,13 @@ export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
       </div>
       <div className="id-stack">
         {frames.slice(0, 3).map((fr, i) => (
-          <div key={i} className={`id-frame id-f${i + 1}`}>
-            {fr.imageUrl && (
-              <div className="id-frame-img" style={{ backgroundImage: `url(${fr.imageUrl})` }} />
-            )}
-            <div className="id-frame-vignette" />
-            <div className="id-frame-caption">
-              <div>
-                <InlineText as="div" className="id-frame-label" value={fr.label ?? ""} onUpdate={onFieldChange ? (v) => updateFrame(i, { label: v }) : undefined} />
-                <EditableEm as="h4" value={fr.headline ?? ""} onUpdate={onFieldChange ? (v) => updateFrame(i, { headline: v }) : undefined} />
-              </div>
-              <InlineText as="div" className="id-frame-where" value={fr.where ?? ""} onUpdate={onFieldChange ? (v) => updateFrame(i, { where: v }) : undefined} />
-            </div>
-          </div>
+          <Frame
+            key={i}
+            frame={fr}
+            index={i}
+            isEditor={isEditor}
+            onUpdate={onFieldChange ? (patch) => updateFrame(i, patch) : undefined}
+          />
         ))}
       </div>
     </section>
