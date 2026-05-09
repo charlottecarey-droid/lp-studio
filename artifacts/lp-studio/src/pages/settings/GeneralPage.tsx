@@ -307,14 +307,12 @@ function GeneralContent() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="tenant-url" className="sr-only">Workspace URL</Label>
-                <Input
-                  id="tenant-url"
-                  readOnly
-                  value={tenantLoginUrl}
-                  className="font-mono text-sm h-9"
-                  onFocus={(e) => e.currentTarget.select()}
-                />
+                <div
+                  className="flex-1 min-w-0 font-mono text-sm text-foreground bg-muted/40 border border-border/60 rounded-md px-3 h-9 inline-flex items-center truncate select-all"
+                  title={tenantLoginUrl}
+                >
+                  {tenantLoginUrl}
+                </div>
                 <Button
                   variant="outline"
                   size="icon"

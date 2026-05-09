@@ -456,12 +456,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">Your workspace URL</Label>
               <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={tenantLoginUrl}
-                  className="font-mono text-sm bg-background"
-                  onFocus={(e) => e.currentTarget.select()}
-                />
+                <div
+                  className="flex-1 min-w-0 font-mono text-sm text-foreground bg-background/60 border border-border/60 rounded-md px-3 py-2 truncate select-all"
+                  title={tenantLoginUrl}
+                >
+                  {tenantLoginUrl}
+                </div>
                 <Button
                   variant="outline"
                   size="icon"

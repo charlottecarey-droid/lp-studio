@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
-  Users, BarChart2, TableProperties, AlertCircle, UserSquare2,
+  Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -725,6 +725,31 @@ export default function BrandSettings() {
   const [importApplied, setImportApplied] = useState(false);
 
   const [hexErrors, setHexErrors] = useState<Record<string, boolean>>({});
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoFilePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const data = await res.json();
+      setConfig((prev) => ({ ...prev, logoUrl: `/api/storage${data.url}` }));
+      toast({ title: "Logo uploaded", description: "Don't forget to save your brand settings." });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingLogo(false);
+    }
+  }, [toast]);
 
   // Sync the form's draft from the shared provider whenever it loads /
   // changes from elsewhere (e.g. the onboarding wizard's refreshBrand()).
@@ -1079,13 +1104,49 @@ export default function BrandSettings() {
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-8">
                   <div className="flex flex-col gap-4">
                     <div>
-                      <Label className="text-sm font-medium mb-1.5 block">Logo URL</Label>
-                      <p className="text-xs text-muted-foreground mb-2">SVG recommended for crispness and auto-recoloring on dark/light surfaces.</p>
-                      <Input
-                        value={config.logoUrl ?? ""}
-                        onChange={(e) => update("logoUrl", e.target.value)}
-                        placeholder="https://… or /assets/logo.svg"
+                      <Label className="text-sm font-medium mb-1.5 block">Logo</Label>
+                      <p className="text-xs text-muted-foreground mb-2">SVG recommended for crispness and auto-recoloring on dark/light surfaces. Max 20 MB.</p>
+                      <input
+                        ref={logoFileInputRef}
+                        type="file"
+                        accept="image/svg+xml,image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleLogoFilePick}
                       />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => logoFileInputRef.current?.click()}
+                          disabled={uploadingLogo}
+                          className="gap-1.5 shrink-0"
+                        >
+                          {uploadingLogo
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                            : <><Upload className="w-3.5 h-3.5" /> Upload logo</>}
+                        </Button>
+                        {config.logoUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => update("logoUrl", "")}
+                            disabled={uploadingLogo}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5 block">…or paste a URL</Label>
+                        <Input
+                          value={config.logoUrl ?? ""}
+                          onChange={(e) => update("logoUrl", e.target.value)}
+                          placeholder="https://… or /assets/logo.svg"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <Checkbox
