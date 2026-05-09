@@ -66,8 +66,10 @@ const CSS = `
 
 /* CINEMA PILLARS — entrance animations on scroll */
 .id-cinema { position:relative; background:var(--id-teal-deep); }
-.id-cinema-pillar { position:relative; min-height:100vh; padding:120px 60px; display:flex; align-items:flex-end; overflow:hidden; border-bottom:1px solid var(--id-line); }
-.id-cinema-pillar:last-child { border-bottom:none; }
+/* Sticky-stack: each pillar pins to the top of the viewport while in its scroll
+   range, then the next pillar slides up over it. Later siblings paint above
+   earlier ones, so the cover transition is seamless. */
+.id-cinema-pillar { position:sticky; top:0; min-height:100vh; padding:120px 60px; display:flex; align-items:flex-end; overflow:hidden; background:var(--id-teal-deep); }
 .id-cinema-pillar .id-cinema-bg { position:absolute; inset:0; pointer-events:none; }
 .id-cinema-pillar.id-pillar-0 .id-cinema-bg { background:radial-gradient(ellipse at 30% 60%,#0A4A3E 0%,#001814 70%); }
 .id-cinema-pillar.id-pillar-1 .id-cinema-bg { background:linear-gradient(135deg,#003A30 0%,#001814 100%); }
