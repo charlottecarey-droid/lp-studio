@@ -5,17 +5,15 @@
 import { useEffect } from "react";
 
 const STYLE_ID = "inside-dandy-block-styles";
-const FONT_LINK_ID = "inside-dandy-font-link";
 
 const CSS = `
-.id-block { --id-teal:#003A30; --id-teal-deep:#001814; --id-cit:#C7E738; --id-green:#1AC065; --id-line:rgba(255,255,255,0.08); --id-display:'Fraunces','Bagoss Standard','PT Serif','Crimson Text',Georgia,serif; --id-ease:cubic-bezier(0.7,0,0.18,1); --id-ease-out:cubic-bezier(0.16,1,0.3,1); color:#fff; box-sizing:border-box; }
+.id-block { --id-teal:#003A30; --id-teal-deep:#001814; --id-cit:#C7E738; --id-green:#1AC065; --id-line:rgba(255,255,255,0.08); --id-display:'Bagoss Standard',Georgia,serif; --id-ease:cubic-bezier(0.7,0,0.18,1); --id-ease-out:cubic-bezier(0.16,1,0.3,1); color:#fff; box-sizing:border-box; }
 .id-block *, .id-block *::before, .id-block *::after { box-sizing:border-box; }
 .id-block .id-eyebrow { display:inline-flex; align-items:center; gap:14px; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--id-cit); font-weight:500; }
 .id-block .id-eyebrow::before { content:""; width:24px; height:1px; background:var(--id-cit); }
-.id-block em { font-style:italic; font-family:var(--id-display); color:var(--id-cit); font-feature-settings:"ss01"; }
-/* Headlines pick up Fraunces' optical-size axis for premium feel */
-.id-block h1, .id-block h2, .id-block h3, .id-block h4 { font-family:var(--id-display); font-weight:400; font-variation-settings:"opsz" 144,"SOFT" 30; }
-.id-block h1 em, .id-block h2 em, .id-block h3 em, .id-block h4 em { font-style:italic; font-variation-settings:"opsz" 144,"SOFT" 50; }
+.id-block em { font-style:italic; font-family:var(--id-display); color:var(--id-cit); }
+.id-block h1, .id-block h2, .id-block h3, .id-block h4 { font-family:var(--id-display); font-weight:400; }
+.id-block h1 em, .id-block h2 em, .id-block h3 em, .id-block h4 em { font-style:italic; }
 
 /* Scroll reveal: elements animate in when their container has .id-in-view */
 .id-reveal { opacity:0; transform:translateY(40px); transition:opacity 1100ms var(--id-ease-out), transform 1100ms var(--id-ease-out); will-change:opacity,transform; }
@@ -198,15 +196,8 @@ const CSS = `
 export function useInsideDandyStyles() {
   useEffect(() => {
     if (typeof document === "undefined") return;
-    // Load Fraunces (Bagoss-similar premium serif) from Google Fonts.
-    if (!document.getElementById(FONT_LINK_ID)) {
-      const link = document.createElement("link");
-      link.id = FONT_LINK_ID;
-      link.rel = "stylesheet";
-      link.href =
-        "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,30..100;1,9..144,300..700,30..100&display=swap";
-      document.head.appendChild(link);
-    }
+    // Bagoss Standard is loaded by the host app's index.css @font-face — we
+    // just consume the family name from --id-display.
     if (!document.getElementById(STYLE_ID)) {
       const el = document.createElement("style");
       el.id = STYLE_ID;
