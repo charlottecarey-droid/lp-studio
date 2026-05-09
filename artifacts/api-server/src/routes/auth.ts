@@ -5,6 +5,7 @@ import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
+import { sendWelcomeEmail } from "../lib/notifications";
 
 /**
  * Pick the user-facing wildcard base host for building tenant login URLs
@@ -547,6 +548,46 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
       `UPDATE tenants SET onboarding_completed_at = now() WHERE id = $1`,
       [sess.tenantId]
     );
+
+    // Task #134 — fire a one-off welcome email containing the canonical
+    // workspace URL. Gated on:
+    //   • Open-domain request (the onboarding wizard only runs there)
+    //   • welcome_email_sent_at IS NULL (atomic claim via UPDATE…RETURNING
+    //     so concurrent calls send at most one email per tenant)
+    //   • A resolvable canonical host and recipient email
+    const requestHost = getRequestHost(req);
+    if (requestHost && isWildcardBaseHost(requestHost) && sess.email) {
+      const claim = await pool.query(
+        `UPDATE tenants
+            SET welcome_email_sent_at = now()
+          WHERE id = $1 AND welcome_email_sent_at IS NULL
+          RETURNING name, slug, domain`,
+        [sess.tenantId]
+      );
+      if (claim.rows.length > 0) {
+        const t = claim.rows[0];
+        const host = getCanonicalTenantHost({ slug: t.slug ?? null, domain: t.domain ?? null });
+        if (host) {
+          const workspaceUrl = `https://${host}`;
+          // Fire-and-forget so the API response isn't blocked on Resend.
+          // Errors are logged inside sendWelcomeEmail.
+          void sendWelcomeEmail({
+            recipientEmail: sess.email,
+            recipientName: sess.name ?? null,
+            tenantName: t.name ?? "your workspace",
+            workspaceUrl,
+          });
+        } else {
+          // Couldn't build a canonical URL — release the gate so a future
+          // call (after the tenant gets a slug/domain) can still send it.
+          await pool.query(
+            `UPDATE tenants SET welcome_email_sent_at = NULL WHERE id = $1`,
+            [sess.tenantId]
+          );
+        }
+      }
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error("[auth] /complete-onboarding error:", err);

@@ -699,6 +699,8 @@ async function runMigrations(): Promise<void> {
 
       -- Tenant onboarding tracking
       ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz;
+      -- Task #134 — gate the post-onboarding welcome email so it fires once per tenant
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS welcome_email_sent_at timestamptz;
 
       -- Global landing-page templates (cross-tenant template library, scoped by industry)
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS is_global boolean NOT NULL DEFAULT false;
