@@ -21,6 +21,12 @@ export type TenantHostMatch = {
   tenantSlug: string;
   mode: "tenant-locked" | "microsite-only";
   micrositeDomain: string | null;
+  /**
+   * Set when this host matched only via a tenant_slug_redirects row
+   * (the slug used in the URL is no longer the tenant's canonical slug).
+   * Callers should redirect the user to `<tenantSlug>.<wildcardBase>`.
+   */
+  viaSlugRedirect?: boolean;
 };
 
 type TenantRow = {
@@ -34,6 +40,8 @@ type TenantRow = {
 type Cache = {
   byDomain: Map<string, TenantHostMatch>;
   bySlug: Map<string, TenantHostMatch>;
+  /** Old slug -> the tenant's current canonical match (viaSlugRedirect=true). */
+  byRedirectSlug: Map<string, TenantHostMatch>;
   knownOrigins: Set<string>;
   loadedAt: number;
 };
@@ -48,6 +56,7 @@ async function loadCache(): Promise<Cache> {
   );
   const byDomain = new Map<string, TenantHostMatch>();
   const bySlug = new Map<string, TenantHostMatch>();
+  const byRedirectSlug = new Map<string, TenantHostMatch>();
   const knownOrigins = new Set<string>();
 
   for (const t of result.rows) {
@@ -76,7 +85,28 @@ async function loadCache(): Promise<Cache> {
     }
   }
 
-  return { byDomain, bySlug, knownOrigins, loadedAt: Date.now() };
+  // Load slug redirects for any active tenant. Expired rows are ignored so
+  // they naturally stop redirecting after their TTL even before the cleanup
+  // job removes them.
+  try {
+    const redirects = await pool.query<{ old_slug: string; tenant_id: number }>(
+      `SELECT old_slug, tenant_id FROM tenant_slug_redirects WHERE expires_at > now()`
+    );
+    for (const r of redirects.rows) {
+      // Find the canonical match by tenant_id; skip if tenant is no longer active.
+      const canonical = [...bySlug.values()].find(m => m.tenantId === r.tenant_id);
+      if (!canonical) continue;
+      const old = r.old_slug.toLowerCase();
+      // Don't shadow a live slug.
+      if (bySlug.has(old)) continue;
+      byRedirectSlug.set(old, { ...canonical, viaSlugRedirect: true });
+    }
+  } catch {
+    // Table may not exist yet on a brand-new boot before migrations run.
+    // Treat as "no redirects" rather than failing the whole cache load.
+  }
+
+  return { byDomain, bySlug, byRedirectSlug, knownOrigins, loadedAt: Date.now() };
 }
 
 async function getCache(): Promise<Cache> {
@@ -132,6 +162,10 @@ export async function findTenantByHost(host: string): Promise<TenantHostMatch | 
   if (slug) {
     const bySlug = c.bySlug.get(slug);
     if (bySlug) return bySlug;
+    // Task #133 — fall back to slug rename redirects so old bookmarks still
+    // resolve to the right tenant (callers can detect this via viaSlugRedirect).
+    const redirected = c.byRedirectSlug.get(slug);
+    if (redirected) return redirected;
   }
 
   return null;
@@ -141,6 +175,57 @@ export async function findTenantByHost(host: string): Promise<TenantHostMatch | 
 export async function getKnownTenantOrigins(): Promise<Set<string>> {
   const c = await getCache();
   return c.knownOrigins;
+}
+
+// ─── Slug validation ─────────────────────────────────────────────────────────
+
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+export type SlugValidation = { ok: true; normalized: string } | { ok: false; error: string };
+
+/**
+ * Validate a user-supplied workspace slug. Lower-cases, collapses runs of
+ * hyphens, and trims leading/trailing hyphens. Reserved subdomains and
+ * wildcard base hosts are rejected so users can't claim "app", "api", etc.
+ */
+export function validateSlug(input: string): SlugValidation {
+  const trimmed = (input ?? "").trim().toLowerCase();
+  if (!trimmed) return { ok: false, error: "Slug is required" };
+  const normalized = trimmed
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!normalized) return { ok: false, error: "Use letters, numbers, and hyphens only" };
+  if (normalized.length < 2) return { ok: false, error: "Slug must be at least 2 characters" };
+  if (normalized.length > 63) return { ok: false, error: "Slug must be 63 characters or fewer" };
+  if (!SLUG_RE.test(normalized)) return { ok: false, error: "Slug must start and end with a letter or number" };
+  if (RESERVED_SUBDOMAINS.has(normalized)) return { ok: false, error: `${normalized} is reserved` };
+  return { ok: true, normalized };
+}
+
+/**
+ * Returns true if `slug` is currently held by another tenant via an unexpired
+ * row in tenant_slug_redirects. Pass excludeTenantId=null when no tenant
+ * exists yet (signup / admin-create paths). Used to prevent newly-created
+ * tenants from hijacking traffic intended for a recently renamed-away slug
+ * (task #133).
+ */
+export async function isSlugRedirectReserved(
+  slug: string,
+  excludeTenantId: number | null,
+): Promise<boolean> {
+  if (!slug) return false;
+  const params: unknown[] = [slug.toLowerCase()];
+  let where = `old_slug = $1 AND expires_at > now()`;
+  if (excludeTenantId !== null) {
+    params.push(excludeTenantId);
+    where += ` AND tenant_id <> $2`;
+  }
+  const result = await pool.query<{ tenant_id: number }>(
+    `SELECT tenant_id FROM tenant_slug_redirects WHERE ${where} LIMIT 1`,
+    params,
+  );
+  return result.rows.length > 0;
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────

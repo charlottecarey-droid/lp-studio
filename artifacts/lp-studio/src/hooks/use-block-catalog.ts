@@ -41,6 +41,30 @@ function normalize(rows: unknown): CatalogEntry[] {
   }));
 }
 
+/**
+ * Strip "Dandy"/"DSO" tokens from a block label so non-Dandy tenants never see
+ * those words anywhere in the builder UI. Used as a last-resort cleanup for
+ * block defs that fall back to BLOCK_REGISTRY (whose labels intentionally say
+ * "Dandy ...", "DSO ...", "Inside Dandy · ..." for the dental industry).
+ */
+function neutralizeLabel(label: string): string {
+  if (!label) return label;
+  let out = label
+    .replace(/^Inside\s+Dandy\s*[·:\-–—]\s*/i, "")
+    .replace(/^Dandy\s*[:\-–—]\s*/i, "")
+    .replace(/^Dandy\s+/i, "")
+    .replace(/^DSO\s+/i, "")
+    .replace(/\s*\((?:[^()]*\b(?:Dandy|DSO)\b[^()]*)\)\s*$/i, "")
+    .replace(/\s+\b(?:Dandy|DSO)\b\s*$/i, "")
+    .replace(/\b(?:Dandy|DSO)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([:·–—])\s*/g, " $1 ")
+    .trim();
+  // If the cleanup left an empty string, fall back to the original so we
+  // never render a blank label in the inspector.
+  return out || label;
+}
+
 export interface ResolvedBlockDef {
   type: string;
   label: string;
@@ -104,7 +128,7 @@ export function useBlockCatalog() {
     if (rows === null) {
       return BLOCK_REGISTRY.map(def => ({
         type: def.type,
-        label: def.label,
+        label: industry === "generic" ? neutralizeLabel(def.label) : def.label,
         category: def.category,
         defaultProps: def.defaultProps,
         sortOrder: 0,
@@ -145,9 +169,10 @@ export function useBlockCatalog() {
     const out: ResolvedBlockDef[] = [];
     for (const cat of catalogByType.values()) {
       const reg = BLOCK_REGISTRY.find(b => b.type === cat.blockType);
+      const rawLabel = cat.label || reg?.label || cat.blockType;
       out.push({
         type: cat.blockType,
-        label: cat.label || reg?.label || cat.blockType,
+        label: neutralizeLabel(rawLabel),
         category: (cat.category as BlockCategory) || reg?.category || ("Content" as BlockCategory),
         defaultProps: reg
           ? () => ({ ...reg.defaultProps(), ...cat.defaultProps })
@@ -168,7 +193,11 @@ export function useBlockCatalog() {
     if (!reg) return undefined;
     return {
       type: reg.type,
-      label: reg.label,
+      // Strip "Dandy"/"DSO" from registry labels for non-Dandy tenants. This
+      // matters for legacy pages that still reference dandy-*/dso-* blocks
+      // not present in the generic catalog — the inspector/sidebar would
+      // otherwise leak the dental-flavored label text.
+      label: industry === "generic" ? neutralizeLabel(reg.label) : reg.label,
       category: reg.category,
       defaultProps: reg.defaultProps,
       sortOrder: 0,

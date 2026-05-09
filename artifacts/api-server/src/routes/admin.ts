@@ -9,6 +9,8 @@ import {
   invalidateTenantHostCache,
   WILDCARD_BASE_HOSTS,
   extractWildcardSlug,
+  validateSlug,
+  isSlugRedirectReserved,
 } from "../lib/tenantHosts";
 import dns from "dns/promises";
 import https from "https";
@@ -181,14 +183,17 @@ router.post("/tenants", async (req, res): Promise<void> => {
     return;
   }
 
-  const slugClean = slug
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+  const slugVal = validateSlug(slug);
+  if (!slugVal.ok) {
+    res.status(400).json({ error: `Invalid slug — ${slugVal.error}` });
+    return;
+  }
+  const slugClean = slugVal.normalized;
 
-  if (!slugClean) {
-    res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
+  // Task #133 — block reuse of slugs that are still inside another tenant's
+  // rename redirect window so we don't hijack their old bookmarks.
+  if (await isSlugRedirectReserved(slugClean, null)) {
+    res.status(409).json({ error: "That slug was recently used by another workspace and is reserved" });
     return;
   }
 
@@ -1074,6 +1079,175 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("[admin] PATCH /tenant-settings error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Workspace slug rename (task #133) ───────────────────────────────────────
+// Lets a workspace admin rename their tenant's slug after onboarding.
+// On rename we insert a row into tenant_slug_redirects so requests to
+// `<oldslug>.<wildcard-base>` continue to resolve to this tenant for a
+// limited window (90 days) — the lp-studio frontend reads this through
+// /api/auth/domain-context and bounces the user to the new canonical host.
+
+const SLUG_REDIRECT_TTL_DAYS = 90;
+
+router.get("/tenant-slug", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  try {
+    const r = await pool.query<{ slug: string; domain: string | null }>(
+      `SELECT slug, domain FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    const baseHost = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
+    const canonicalHost = r.rows[0].domain
+      ? r.rows[0].domain.toLowerCase()
+      : (baseHost && r.rows[0].slug ? `${r.rows[0].slug.toLowerCase()}.${baseHost}` : null);
+    res.json({
+      slug: r.rows[0].slug,
+      domain: r.rows[0].domain,
+      baseHost,
+      canonicalHost,
+      loginUrl: canonicalHost ? `https://${canonicalHost}` : null,
+      // Surface the redirect window so the UI can tell the admin how long
+      // their old URL will keep working.
+      redirectTtlDays: SLUG_REDIRECT_TTL_DAYS,
+    });
+  } catch (err) {
+    console.error("[admin] GET /tenant-slug error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/tenant-slug/availability", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  const raw = (req.query.slug as string | undefined) ?? "";
+  const v = validateSlug(raw);
+  if (!v.ok) { res.json({ ok: false, available: false, error: v.error, normalized: null }); return; }
+  try {
+    const conflict = await pool.query<{ id: number }>(
+      `SELECT id FROM tenants WHERE lower(slug) = $1 AND id <> $2 LIMIT 1`,
+      [v.normalized, tenantId],
+    );
+    if (conflict.rows.length > 0) {
+      res.json({ ok: true, available: false, error: "That URL is already taken", normalized: v.normalized });
+      return;
+    }
+    // An unexpired redirect held by another tenant blocks reuse so we don't
+    // silently re-point an old bookmark at a different workspace.
+    const redirectConflict = await pool.query<{ tenant_id: number }>(
+      `SELECT tenant_id FROM tenant_slug_redirects
+        WHERE old_slug = $1 AND tenant_id <> $2 AND expires_at > now() LIMIT 1`,
+      [v.normalized, tenantId],
+    );
+    if (redirectConflict.rows.length > 0) {
+      res.json({ ok: true, available: false, error: "That URL was recently used by another workspace", normalized: v.normalized });
+      return;
+    }
+    res.json({ ok: true, available: true, normalized: v.normalized });
+  } catch (err) {
+    console.error("[admin] GET /tenant-slug/availability error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.patch("/tenant-slug", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const v = validateSlug((req.body?.slug as string | undefined) ?? "");
+  if (!v.ok) { res.status(400).json({ error: v.error }); return; }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const cur = await client.query<{ slug: string }>(
+      `SELECT slug FROM tenants WHERE id = $1 FOR UPDATE`,
+      [tenantId],
+    );
+    if (!cur.rows.length) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Tenant not found" });
+      return;
+    }
+    const oldSlug = cur.rows[0].slug.toLowerCase();
+    if (oldSlug === v.normalized) {
+      await client.query("ROLLBACK");
+      res.json({ ok: true, slug: oldSlug, unchanged: true });
+      return;
+    }
+
+    // Enforce uniqueness against live tenants AND against unexpired redirects
+    // owned by other tenants.
+    const conflict = await client.query<{ id: number }>(
+      `SELECT id FROM tenants WHERE lower(slug) = $1 AND id <> $2 LIMIT 1`,
+      [v.normalized, tenantId],
+    );
+    if (conflict.rows.length > 0) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "That URL is already taken" });
+      return;
+    }
+    const redirectConflict = await client.query<{ tenant_id: number }>(
+      `SELECT tenant_id FROM tenant_slug_redirects
+        WHERE old_slug = $1 AND tenant_id <> $2 AND expires_at > now() LIMIT 1`,
+      [v.normalized, tenantId],
+    );
+    if (redirectConflict.rows.length > 0) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "That URL was recently used by another workspace" });
+      return;
+    }
+
+    // Update the tenant, then record the old slug as a redirect. If the
+    // tenant is renaming back to a slug they previously used, drop that
+    // redirect row first so it doesn't shadow the live slug.
+    await client.query(
+      `DELETE FROM tenant_slug_redirects WHERE old_slug = $1`,
+      [v.normalized],
+    );
+    await client.query(
+      `UPDATE tenants SET slug = $1, updated_at = now() WHERE id = $2`,
+      [v.normalized, tenantId],
+    );
+    const expiresAt = new Date(Date.now() + SLUG_REDIRECT_TTL_DAYS * 24 * 60 * 60 * 1000);
+    await client.query(
+      `INSERT INTO tenant_slug_redirects (old_slug, tenant_id, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (old_slug) DO UPDATE
+         SET tenant_id = EXCLUDED.tenant_id,
+             expires_at = EXCLUDED.expires_at,
+             created_at = now()`,
+      [oldSlug, tenantId, expiresAt],
+    );
+    await client.query("COMMIT");
+    invalidateTenantHostCache();
+
+    const baseHost = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
+    res.json({
+      ok: true,
+      slug: v.normalized,
+      oldSlug,
+      baseHost,
+      canonicalHost: baseHost ? `${v.normalized}.${baseHost}` : null,
+      redirectExpiresAt: expiresAt.toISOString(),
+      redirectTtlDays: SLUG_REDIRECT_TTL_DAYS,
+    });
+  } catch (err: any) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "That URL is already taken" });
+      return;
+    }
+    console.error("[admin] PATCH /tenant-slug error:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 

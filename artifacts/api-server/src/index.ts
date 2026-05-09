@@ -718,6 +718,20 @@ async function runMigrations(): Promise<void> {
         END IF;
       END;
       $$;
+
+      -- Task #133 — slug rename redirects. Each row maps an old (renamed)
+      -- slug back to its tenant for a limited window so existing bookmarks
+      -- to <oldslug>.lpstudio.ai keep working.
+      CREATE TABLE IF NOT EXISTS tenant_slug_redirects (
+        old_slug      text PRIMARY KEY,
+        tenant_id     integer NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        expires_at    timestamptz NOT NULL,
+        created_at    timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS tenant_slug_redirects_tenant_id_idx
+        ON tenant_slug_redirects (tenant_id);
+      CREATE INDEX IF NOT EXISTS tenant_slug_redirects_expires_at_idx
+        ON tenant_slug_redirects (expires_at);
     `);
     logger.info("Migrations applied successfully");
 

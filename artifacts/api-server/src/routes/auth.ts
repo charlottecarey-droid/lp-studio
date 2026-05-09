@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { pool } from "@workspace/db";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
-import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS } from "../lib/tenantHosts";
+import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 
 /**
@@ -790,6 +790,13 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     // Resolve via shared host resolver (handles exact domain, microsite_domain,
     // and wildcard subdomains <slug>.lpstudio.ai / <slug>.app.lpstudio.ai).
     const match = await findTenantByHost(domain);
+    // Task #133 — when the host matched only via a slug rename redirect,
+    // surface the canonical host so the frontend can immediately bounce the
+    // user (and any cookies / sessions) to the new URL.
+    const canonicalHost = match ? getCanonicalTenantHost({ slug: match.tenantSlug, domain: null }) : null;
+    const redirectToHost = match?.viaSlugRedirect && canonicalHost && canonicalHost !== domain
+      ? canonicalHost
+      : null;
     const data = match
       ? {
           mode: match.mode,
@@ -797,10 +804,11 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
           tenantName: match.tenantName,
           tenantSlug: match.tenantSlug,
           micrositeDomain: match.micrositeDomain,
+          redirectToHost,
         }
       : extractWildcardSlug(domain) !== null
-        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null }
-        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
+        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null }
+        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null };
 
     domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
     res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
@@ -849,6 +857,13 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 
     if (!slugClean) {
       res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
+      return;
+    }
+
+    // Task #133 — block reuse of a slug that's currently inside another
+    // tenant's rename redirect window so we don't hijack their old bookmarks.
+    if (await isSlugRedirectReserved(slugClean, null)) {
+      res.status(409).json({ error: "That workspace URL was recently used by another workspace. Please choose another." });
       return;
     }
 

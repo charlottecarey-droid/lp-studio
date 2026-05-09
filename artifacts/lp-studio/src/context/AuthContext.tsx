@@ -36,6 +36,12 @@ export interface DomainContext {
   tenantName: string | null;
   tenantSlug: string | null;
   micrositeDomain: string | null;
+  /**
+   * Task #133 — set when the request hit a slug that was renamed away.
+   * The frontend redirects the entire window to this host so old bookmarks
+   * land on the workspace's current URL.
+   */
+  redirectToHost?: string | null;
 }
 
 interface AuthContextValue {
@@ -131,6 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           const data = (await r.json()) as DomainContext;
           if (cancelled) return;
+          // Task #133 — if this host is an old, renamed slug, bounce the
+          // browser to the workspace's current canonical host before any
+          // login UI renders. Preserves the path + query so deep links work.
+          if (data.redirectToHost && data.redirectToHost !== window.location.hostname) {
+            const target = `https://${data.redirectToHost}${window.location.pathname}${window.location.search}${window.location.hash}`;
+            window.location.replace(target);
+            return;
+          }
           setDomainContext(data);
           setDomainContextError(null);
           return;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useLocation } from "wouter";
@@ -8,11 +8,205 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings as SettingsIcon, Globe, Copy, Check } from "lucide-react";
+import { Loader2, Settings as SettingsIcon, Globe, Copy, Check, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface TenantSettingsPayload {
   requireReviewBeforePublish: boolean;
+}
+
+interface TenantSlugPayload {
+  slug: string;
+  domain: string | null;
+  baseHost: string | null;
+  canonicalHost: string | null;
+  loginUrl: string | null;
+  redirectTtlDays: number;
+}
+
+interface SlugAvailability {
+  ok: boolean;
+  available: boolean;
+  normalized: string | null;
+  error?: string;
+}
+
+function WorkspaceSlugCard() {
+  const { user, refresh } = useAuth();
+  const { toast } = useToast();
+  const isAdmin = user?.isAdmin ?? false;
+  const [info, setInfo] = useState<TenantSlugPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [check, setCheck] = useState<SlugAvailability | null>(null);
+  const [saving, setSaving] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqIdRef = useRef(0);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/tenant-slug", { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as TenantSlugPayload;
+      setInfo(json);
+      setDraft(json.slug);
+      setCheck(null);
+    } catch {
+      toast({ title: "Failed to load workspace URL", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  // Debounced availability check.
+  useEffect(() => {
+    if (!info) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = draft.trim().toLowerCase();
+    if (!trimmed || trimmed === info.slug.toLowerCase()) {
+      setCheck(null);
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    const myId = ++reqIdRef.current;
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/tenant-slug/availability?slug=${encodeURIComponent(trimmed)}`, {
+          credentials: "include",
+        });
+        const json = (await res.json()) as SlugAvailability;
+        if (myId !== reqIdRef.current) return;
+        setCheck(json);
+      } catch {
+        if (myId !== reqIdRef.current) return;
+        setCheck({ ok: false, available: false, normalized: null, error: "Could not check availability" });
+      } finally {
+        if (myId === reqIdRef.current) setChecking(false);
+      }
+    }, 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [draft, info]);
+
+  const trimmedDraft = draft.trim().toLowerCase();
+  const unchanged = !!info && trimmedDraft === info.slug.toLowerCase();
+  const canSave = isAdmin && !!info && !unchanged && !!check && check.available && !saving && !checking;
+  const previewHost = info?.baseHost && check?.normalized
+    ? `${check.normalized}.${info.baseHost}`
+    : null;
+
+  async function handleSave() {
+    if (!canSave || !check?.normalized) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/tenant-slug", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: check.normalized }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to update workspace URL");
+      toast({
+        title: "Workspace URL updated",
+        description: `Old URL will keep redirecting for ${info?.redirectTtlDays ?? 90} days.`,
+      });
+      await refresh();
+      await load();
+    } catch (err) {
+      toast({
+        title: "Couldn't update workspace URL",
+        description: err instanceof Error ? err.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-5">
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+  if (!info?.baseHost) {
+    // No wildcard base host configured (dev/replit env without WILDCARD_TENANT_BASE_HOSTS).
+    return null;
+  }
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-start gap-4">
+        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+          <Globe className="w-4 h-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold">Workspace URL</h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-prose">
+              Choose the subdomain teammates use to sign in. Old URLs keep
+              working for {info.redirectTtlDays} days after a rename.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center flex-1 min-w-0 rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
+              <Input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="acme"
+                disabled={!isAdmin || saving}
+                className="font-mono text-sm h-9 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-r-none"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+              />
+              <span className="text-sm text-muted-foreground font-mono pr-3 select-none whitespace-nowrap">
+                .{info.baseHost}
+              </span>
+            </div>
+            <Button
+              onClick={handleSave}
+              disabled={!canSave}
+              data-testid="save-slug"
+              className="shrink-0 h-9"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+          <div className="min-h-[20px] text-xs">
+            {!isAdmin ? (
+              <span className="text-muted-foreground italic">Only admins can change the workspace URL.</span>
+            ) : checking ? (
+              <span className="text-muted-foreground inline-flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Checking availability…
+              </span>
+            ) : unchanged ? (
+              <span className="text-muted-foreground">
+                Current URL: <span className="font-mono">{info.canonicalHost}</span>
+              </span>
+            ) : check?.error ? (
+              <span className="text-destructive inline-flex items-center gap-1.5">
+                <AlertCircle className="w-3 h-3" /> {check.error}
+              </span>
+            ) : check?.available && previewHost ? (
+              <span className="text-emerald-600 inline-flex items-center gap-1.5">
+                <CheckCircle2 className="w-3 h-3" />
+                Available — your workspace will be at <span className="font-mono">{previewHost}</span>
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function GeneralContent() {
@@ -135,6 +329,8 @@ function GeneralContent() {
           </div>
         </Card>
       )}
+
+      <WorkspaceSlugCard />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
