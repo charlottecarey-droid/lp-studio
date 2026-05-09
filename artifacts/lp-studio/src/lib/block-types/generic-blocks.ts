@@ -1399,3 +1399,90 @@ export interface ContentSeriesBlockProps {
   /** Visual theme overrides. When absent, colors/fonts fall back to tenant brand settings. */
   theme?: ContentSeriesTheme;
 }
+
+/* ------------------------------------------------------------------------- */
+/*  Inside Dandy block family — `id-*`. Cinematic teal/citron Dandy lab     */
+/*  page broken into reusable text/image-editable sections.                 */
+/* ------------------------------------------------------------------------- */
+
+export interface IdHeroBlockProps {
+  eyebrow?: string;
+  /** First headline line (plain text). */
+  line1?: string;
+  /** Second headline line. */
+  line2?: string;
+  /** Third headline line. Wrap accent words in <em>…</em>. */
+  line3?: string;
+  lead?: string;
+  cta1Text?: string;
+  cta1Url?: string;
+  cta2Text?: string;
+  cta2Url?: string;
+  bgImage?: string;
+}
+
+export interface IdMarqueeBlockProps {
+  /** List of strings shown in the scrolling marquee. Wrap accent words in <em>…</em>. */
+  items: string[];
+  /** Animation duration in seconds (one full loop). Defaults to 40. */
+  durationSec?: number;
+}
+
+export interface IdIntroBlockProps {
+  eyebrow?: string;
+  /** Big manifesto statement. Wrap accent words in <em>…</em>. */
+  statement: string;
+}
+
+export interface IdCinemaPillar {
+  number: string;
+  label: string;
+  headline: string;
+  body: string;
+  /** Decorative SVG/CSS art kit. One of: scan | design | rail | bars. */
+  art: string;
+}
+
+export interface IdCinemaPillarsBlockProps {
+  pillars: IdCinemaPillar[];
+}
+
+export interface IdShowcaseFrame {
+  imageUrl: string;
+  label: string;
+  headline: string;
+  where: string;
+}
+
+export interface IdParallaxShowcaseBlockProps {
+  eyebrow?: string;
+  headline: string;
+  blurb?: string;
+  frames: IdShowcaseFrame[];
+}
+
+export interface IdStatItem {
+  value: string;
+  label: string;
+  description: string;
+}
+
+export interface IdStatsBlockProps {
+  stats: IdStatItem[];
+}
+
+export interface IdInvitationMeta {
+  heading: string;
+  text: string;
+}
+
+export interface IdInvitationBlockProps {
+  eyebrow?: string;
+  headline: string;
+  blurb?: string;
+  cta1Text?: string;
+  cta1Url?: string;
+  cta2Text?: string;
+  cta2Url?: string;
+  meta?: IdInvitationMeta[];
+}

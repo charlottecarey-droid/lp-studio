@@ -54,6 +54,13 @@ import type {
   StickyStackBlockProps,
   MagazineHeroBlockProps,
   BoldStatementBlockProps,
+  IdHeroBlockProps,
+  IdMarqueeBlockProps,
+  IdIntroBlockProps,
+  IdCinemaPillarsBlockProps,
+  IdParallaxShowcaseBlockProps,
+  IdStatsBlockProps,
+  IdInvitationBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
@@ -3435,6 +3442,184 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "id-hero" as const,
+    label: "Inside Dandy · Hero",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdHeroBlockProps => ({
+      eyebrow: "Inside Dandy · 2026",
+      line1: "The first",
+      line2: "and only",
+      line3: "<em>AI</em> dental lab.",
+      lead: "Scanning, design, manufacturing, data — running as one integrated system. The first lab actually doing it.",
+      cta1Text: "Tour the lab",
+      cta1Url: "#",
+      cta2Text: "Watch the film",
+      cta2Url: "#",
+      bgImage: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1920&fit=crop",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <circle cx="92" cy="32" r="22" fill="#C7E738" opacity="0.18" />
+        <rect x="10" y="10" width="20" height="2" rx="1" fill="#C7E738" opacity="0.7" />
+        <text x="10" y="32" fontSize="11" fontWeight="400" fill="#fff" fontFamily="Georgia, serif">The first</text>
+        <text x="10" y="42" fontSize="11" fontWeight="400" fill="#fff" fontFamily="Georgia, serif">and only</text>
+        <text x="10" y="52" fontSize="11" fontWeight="400" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">AI</text>
+        <text x="20" y="52" fontSize="11" fontWeight="400" fill="#fff" fontFamily="Georgia, serif">dental lab.</text>
+        <rect x="10" y="58" width="22" height="6" rx="3" fill="#C7E738" />
+        <rect x="36" y="58" width="22" height="6" rx="3" fill="none" stroke="#fff" strokeOpacity="0.4" strokeWidth="0.6" />
+      </svg>
+    ),
+  },
+  {
+    type: "id-marquee" as const,
+    label: "Inside Dandy · Marquee",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdMarqueeBlockProps => ({
+      items: [
+        "<em>AI</em> Scan Review",
+        "Generative restoration design",
+        "Robotic manufacturing",
+        "Network analytics",
+        "End to end. <em>AI</em> throughout.",
+      ],
+      durationSec: 40,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <line x1="0" y1="20" x2="120" y2="20" stroke="#fff" strokeOpacity="0.1" strokeWidth="0.5" />
+        <line x1="0" y1="50" x2="120" y2="50" stroke="#fff" strokeOpacity="0.1" strokeWidth="0.5" />
+        <text x="6" y="40" fontSize="9" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">AI</text>
+        <text x="22" y="40" fontSize="9" fill="#fff" fontFamily="Georgia, serif" opacity="0.5">Scan · Design · Make · Data</text>
+        <text x="6" y="40" fontSize="9" fill="#C7E738" opacity="0.7">·</text>
+      </svg>
+    ),
+  },
+  {
+    type: "id-intro" as const,
+    label: "Inside Dandy · Intro",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdIntroBlockProps => ({
+      eyebrow: "A new category",
+      statement: "The dental lab has been unchanged for a century. We rebuilt it from the scan up — with <em>AI</em> in every step.",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <rect x="8" y="10" width="22" height="2" rx="1" fill="#C7E738" opacity="0.7" />
+        <text x="8" y="28" fontSize="8" fill="#fff" fontFamily="Georgia, serif">The dental lab has</text>
+        <text x="8" y="38" fontSize="8" fill="#fff" fontFamily="Georgia, serif">been unchanged.</text>
+        <text x="8" y="48" fontSize="8" fill="#fff" fontFamily="Georgia, serif">We rebuilt it with</text>
+        <text x="8" y="58" fontSize="8" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">AI</text>
+        <text x="20" y="58" fontSize="8" fill="#fff" fontFamily="Georgia, serif">in every step.</text>
+      </svg>
+    ),
+  },
+  {
+    type: "id-cinema-pillars" as const,
+    label: "Inside Dandy · Cinema Pillars",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdCinemaPillarsBlockProps => ({
+      pillars: [
+        { number: "<em>01</em>", label: "Pillar 01 / Scan", headline: "Every scan, <em>reviewed</em> by AI.", body: "Real-time scan review flags margin gaps, prep angles, and tissue interference while the patient is still in the chair.", art: "scan" },
+        { number: "<em>02</em>", label: "Pillar 02 / Design", headline: "Generative design, <em>master-crafted</em> finish.", body: "AI proposes restorations within seconds, our master ceramists refine them. Speed plus craft.", art: "design" },
+        { number: "<em>03</em>", label: "Pillar 03 / Make", headline: "<em>Robotic</em> precision at scale.", body: "Automated milling and printing lines run 24/7. Every restoration is dimensionally checked before it ships.", art: "rail" },
+        { number: "<em>04</em>", label: "Pillar 04 / Data", headline: "Every case becomes <em>knowledge</em>.", body: "Network-wide analytics turn every case into training signal — making the next case better than the last.", art: "bars" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <circle cx="22" cy="35" r="14" fill="none" stroke="#C7E738" strokeOpacity="0.6" strokeWidth="0.6" strokeDasharray="2,2" />
+        <circle cx="22" cy="35" r="6" fill="#C7E738" opacity="0.3" />
+        <text x="42" y="20" fontSize="6" fill="#C7E738" opacity="0.6" fontFamily="Georgia, serif">01 / SCAN</text>
+        <text x="42" y="34" fontSize="9" fill="#fff" fontFamily="Georgia, serif">Every scan,</text>
+        <text x="42" y="44" fontSize="9" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">reviewed</text>
+        <text x="78" y="44" fontSize="9" fill="#fff" fontFamily="Georgia, serif">by AI.</text>
+        <line x1="6" y1="60" x2="114" y2="60" stroke="#fff" strokeOpacity="0.08" />
+      </svg>
+    ),
+  },
+  {
+    type: "id-parallax-showcase" as const,
+    label: "Inside Dandy · Parallax Showcase",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdParallaxShowcaseBlockProps => ({
+      eyebrow: "Inside the lab",
+      headline: "Where craft meets <em>code</em>.",
+      blurb: "70,000 square feet in Provo. AI runs on every workstation. Master technicians refine every output. The result feels inevitable.",
+      frames: [
+        { imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1600&fit=crop", label: "01 / The lab floor", headline: "<em>Robotic</em> milling, master craft.", where: "Provo, UT" },
+        { imageUrl: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=900&fit=crop", label: "02 / The crown", headline: "Every <em>margin</em> within microns.", where: "QA bench" },
+        { imageUrl: "https://images.unsplash.com/photo-1629909615184-74f495363b67?q=80&w=1400&fit=crop", label: "03 / The team", headline: "Master ceramists, <em>AI co-pilots</em>.", where: "Design studio" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <rect x="10" y="14" width="60" height="34" rx="3" fill="#0A4A3E" />
+        <rect x="62" y="28" width="36" height="28" rx="3" fill="#003A30" />
+        <rect x="22" y="44" width="48" height="20" rx="3" fill="#0A4A3E" opacity="0.8" />
+        <rect x="14" y="42" width="14" height="2" rx="1" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "id-stats" as const,
+    label: "Inside Dandy · Stats",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdStatsBlockProps => ({
+      stats: [
+        { value: "<em>4,000</em>+", label: "Practices on Dandy", description: "From solo doctors to the largest DSOs in the country." },
+        { value: "<em>2.4</em>M", label: "Cases delivered", description: "Crowns, bridges, aligners, dentures — all through one workflow." },
+        { value: "<em>98.6</em>%", label: "Fit rate, first try", description: "Industry average is 91%. Our AI catches issues before they become remakes." },
+        { value: "<em>24</em>hr", label: "Average turnaround", description: "Same-day scan, next-day delivery. The fastest in the industry." },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        {[0,1,2,3].map(i => (
+          <g key={i} transform={`translate(${6 + i * 28},0)`}>
+            <text x="0" y="32" fontSize="13" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">{["4K","2M","99%","24h"][i]}</text>
+            <rect x="0" y="40" width="14" height="1.5" rx="0.75" fill="#fff" opacity="0.5" />
+            <rect x="0" y="46" width="22" height="1.5" rx="0.75" fill="#fff" opacity="0.3" />
+            <rect x="0" y="50" width="18" height="1.5" rx="0.75" fill="#fff" opacity="0.3" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "id-invitation" as const,
+    label: "Inside Dandy · Invitation",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdInvitationBlockProps => ({
+      eyebrow: "The invitation",
+      headline: "Come see <em>the future</em> of the dental lab.",
+      blurb: "Twice a year we open our Provo lab to a small group of dentists and DSO leaders. Two days, full access, no script.",
+      cta1Text: "Request an invitation",
+      cta1Url: "#",
+      cta2Text: "Watch the film",
+      cta2Url: "#",
+      meta: [
+        { heading: "Q1", text: "Feb 12–13" },
+        { heading: "Q2", text: "May 7–8" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <circle cx="60" cy="35" r="32" fill="#C7E738" opacity="0.08" />
+        <text x="60" y="28" fontSize="10" fill="#fff" fontFamily="Georgia, serif" textAnchor="middle">Come see</text>
+        <text x="60" y="40" fontSize="10" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif" textAnchor="middle">the future</text>
+        <rect x="36" y="48" width="22" height="6" rx="3" fill="#C7E738" />
+        <rect x="62" y="48" width="22" height="6" rx="3" fill="none" stroke="#fff" strokeOpacity="0.4" strokeWidth="0.6" />
+      </svg>
+    ),
+  },
+  {
     type: "bold-statement",
     label: "Bold Statement",
     category: "Content",
@@ -4211,6 +4396,13 @@ function makeId(type: BlockType): string {
 
 export function createBlock(type: "magazine-hero"): Extract<PageBlock, { type: "magazine-hero" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
+export function createBlock(type: "id-hero"): Extract<PageBlock, { type: "id-hero" }>;
+export function createBlock(type: "id-marquee"): Extract<PageBlock, { type: "id-marquee" }>;
+export function createBlock(type: "id-intro"): Extract<PageBlock, { type: "id-intro" }>;
+export function createBlock(type: "id-cinema-pillars"): Extract<PageBlock, { type: "id-cinema-pillars" }>;
+export function createBlock(type: "id-parallax-showcase"): Extract<PageBlock, { type: "id-parallax-showcase" }>;
+export function createBlock(type: "id-stats"): Extract<PageBlock, { type: "id-stats" }>;
+export function createBlock(type: "id-invitation"): Extract<PageBlock, { type: "id-invitation" }>;
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
 export function createBlock(type: "editorial-carousel"): Extract<PageBlock, { type: "editorial-carousel" }>;
@@ -4425,6 +4617,13 @@ export function createBlock(type: BlockType): PageBlock {
     case "sticky-stack": return { id, type: "sticky-stack", props: props as StickyStackBlockProps };
     case "magazine-hero": return { id, type: "magazine-hero", props: props as MagazineHeroBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
+    case "id-hero": return { id, type: "id-hero", props: props as IdHeroBlockProps };
+    case "id-marquee": return { id, type: "id-marquee", props: props as IdMarqueeBlockProps };
+    case "id-intro": return { id, type: "id-intro", props: props as IdIntroBlockProps };
+    case "id-cinema-pillars": return { id, type: "id-cinema-pillars", props: props as IdCinemaPillarsBlockProps };
+    case "id-parallax-showcase": return { id, type: "id-parallax-showcase", props: props as IdParallaxShowcaseBlockProps };
+    case "id-stats": return { id, type: "id-stats", props: props as IdStatsBlockProps };
+    case "id-invitation": return { id, type: "id-invitation", props: props as IdInvitationBlockProps };
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
     case "editorial-carousel": return { id, type: "editorial-carousel", props: props as EditorialCarouselBlockProps };

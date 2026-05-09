@@ -102,6 +102,13 @@ import { BlockStickyStack } from "./BlockStickyStack";
 import { BlockMagazineHero } from "./BlockMagazineHero";
 import { BlockEditorialCarousel } from "./BlockEditorialCarousel";
 import { BlockBoldStatement } from "./BlockBoldStatement";
+import { BlockIdHero } from "./BlockIdHero";
+import { BlockIdMarquee } from "./BlockIdMarquee";
+import { BlockIdIntro } from "./BlockIdIntro";
+import { BlockIdCinemaPillars } from "./BlockIdCinemaPillars";
+import { BlockIdParallaxShowcase } from "./BlockIdParallaxShowcase";
+import { BlockIdStats } from "./BlockIdStats";
+import { BlockIdInvitation } from "./BlockIdInvitation";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
 import { BlockMenuSection } from "./BlockMenuSection";
@@ -888,6 +895,20 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
               : undefined}
           />
         );
+      case "id-hero":
+        return <BlockIdHero props={block.props} onCtaClick={onCtaClick} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-marquee":
+        return <BlockIdMarquee props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-intro":
+        return <BlockIdIntro props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-cinema-pillars":
+        return <BlockIdCinemaPillars props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-parallax-showcase":
+        return <BlockIdParallaxShowcase props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-stats":
+        return <BlockIdStats props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-invitation":
+        return <BlockIdInvitation props={block.props} onCtaClick={onCtaClick} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "bento-showcase":
         return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null} />;
       case "gradient-pricing":

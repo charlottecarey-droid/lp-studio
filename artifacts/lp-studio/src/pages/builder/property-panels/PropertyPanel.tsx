@@ -72,6 +72,13 @@ import { EventPagePanel } from "./EventPagePanel";
 import { BentoShowcasePanel } from "./BentoShowcasePanel";
 import { MagazineHeroPanel } from "./MagazineHeroPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
+import { IdHeroPanel } from "./IdHeroPanel";
+import { IdMarqueePanel } from "./IdMarqueePanel";
+import { IdIntroPanel } from "./IdIntroPanel";
+import { IdCinemaPillarsPanel } from "./IdCinemaPillarsPanel";
+import { IdParallaxShowcasePanel } from "./IdParallaxShowcasePanel";
+import { IdStatsPanel } from "./IdStatsPanel";
+import { IdInvitationPanel } from "./IdInvitationPanel";
 import { GradientPricingPanel } from "./GradientPricingPanel";
 import { EditorialCarouselPanel } from "./EditorialCarouselPanel";
 import { MenuSectionPanel } from "./MenuSectionPanel";
@@ -5240,6 +5247,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
           />
         );
+      case "id-hero":
+        return <IdHeroPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-marquee":
+        return <IdMarqueePanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-intro":
+        return <IdIntroPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-cinema-pillars":
+        return <IdCinemaPillarsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-parallax-showcase":
+        return <IdParallaxShowcasePanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-stats":
+        return <IdStatsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-invitation":
+        return <IdInvitationPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "gradient-pricing":
         return (
           <GradientPricingPanel

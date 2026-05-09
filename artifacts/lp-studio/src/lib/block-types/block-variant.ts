@@ -52,6 +52,13 @@ import type {
   StickyStackBlockProps,
   MagazineHeroBlockProps,
   BoldStatementBlockProps,
+  IdHeroBlockProps,
+  IdMarqueeBlockProps,
+  IdIntroBlockProps,
+  IdCinemaPillarsBlockProps,
+  IdParallaxShowcaseBlockProps,
+  IdStatsBlockProps,
+  IdInvitationBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
@@ -219,6 +226,13 @@ export type BlockVariant =
   | { type: "spatial-tour"; props: SpatialTourBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
+  | { type: "id-hero"; props: IdHeroBlockProps }
+  | { type: "id-marquee"; props: IdMarqueeBlockProps }
+  | { type: "id-intro"; props: IdIntroBlockProps }
+  | { type: "id-cinema-pillars"; props: IdCinemaPillarsBlockProps }
+  | { type: "id-parallax-showcase"; props: IdParallaxShowcaseBlockProps }
+  | { type: "id-stats"; props: IdStatsBlockProps }
+  | { type: "id-invitation"; props: IdInvitationBlockProps }
   | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
   | { type: "gradient-pricing"; props: GradientPricingBlockProps }
   | { type: "editorial-carousel"; props: EditorialCarouselBlockProps }
