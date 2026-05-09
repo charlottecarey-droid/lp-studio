@@ -20,6 +20,14 @@ export interface AuthUser {
   // Submit-for-Review / Approve / Reject UI is hidden and `pages` perm
   // holders publish directly.
   requireReviewBeforePublish?: boolean;
+  // Task #132 — canonical tenant login URL fields. The wizard's welcome
+  // step, AuthGate auto-redirect, and Settings → General all read these
+  // so the wildcard base host is never hardcoded on the client.
+  tenantSlug?: string | null;
+  tenantDomain?: string | null;
+  tenantHost?: string | null;
+  tenantLoginUrl?: string | null;
+  shouldRedirectToTenantHost?: boolean;
 }
 
 export interface DomainContext {

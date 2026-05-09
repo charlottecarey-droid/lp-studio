@@ -6,7 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings as SettingsIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Settings as SettingsIcon, Globe, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface TenantSettingsPayload {
@@ -19,8 +21,23 @@ function GeneralContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [requireReview, setRequireReview] = useState<boolean>(true);
+  const [copied, setCopied] = useState(false);
 
   const isAdmin = user?.isAdmin ?? false;
+  // Task #132 — show the canonical workspace URL so members always know
+  // where to bookmark / share for sign-in. Server computes this from the
+  // tenant slug + the wildcard base host config, so it stays correct
+  // even when the wildcard base changes.
+  const tenantLoginUrl = user?.tenantLoginUrl ?? null;
+
+  async function copyTenantUrl() {
+    if (!tenantLoginUrl) return;
+    try {
+      await navigator.clipboard.writeText(tenantLoginUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked */ }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +97,44 @@ function GeneralContent() {
           Workspace-level toggles that apply to every member of this tenant.
         </p>
       </div>
+
+      {tenantLoginUrl && (
+        <Card className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Globe className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold">Workspace login URL</h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-prose">
+                  Bookmark and share this URL with teammates. It's the canonical
+                  sign-in page for this workspace.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="tenant-url" className="sr-only">Workspace URL</Label>
+                <Input
+                  id="tenant-url"
+                  readOnly
+                  value={tenantLoginUrl}
+                  className="font-mono text-sm h-9"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={copyTenantUrl}
+                  title="Copy URL"
+                  className="shrink-0 h-9 w-9"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">

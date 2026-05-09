@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveBrandConfig, fetchBrandConfig } from "@/lib/brand-config";
-import { Upload, Palette, Building2, ArrowRight, ArrowLeft, Check, X } from "lucide-react";
+import { Upload, Palette, Building2, ArrowRight, ArrowLeft, Check, X, Copy, ExternalLink, PartyPopper } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 interface OnboardingWizardProps {
   onComplete: () => Promise<void>;
@@ -13,6 +15,7 @@ const STEPS = [
   { id: "name", label: "Your brand", icon: Building2 },
   { id: "logo", label: "Logo", icon: Upload },
   { id: "colors", label: "Colors", icon: Palette },
+  { id: "welcome", label: "All set", icon: PartyPopper },
 ];
 
 function ColorSwatch({ color, accent }: { color: string; accent: string }) {
@@ -43,6 +46,8 @@ function ColorSwatch({ color, accent }: { color: string; accent: string }) {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
+  const { domainContext } = useAuth();
+  const { refreshBrand } = useBrandConfig();
   const [step, setStep] = useState(0);
   const [brandName, setBrandName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -53,6 +58,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [accentColor, setAccentColor] = useState("#4f46e5");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Task #132 — populated after complete-onboarding so we can show the
+  // welcome step with the user's tenant URL + Open my workspace handoff.
+  const [tenantHost, setTenantHost] = useState<string | null>(null);
+  const [tenantLoginUrl, setTenantLoginUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [opening, setOpening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -121,11 +132,71 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         throw new Error("Failed to complete onboarding");
       }
 
+      // Task #132 — push the new brand into the shared provider so the
+      // sidebar logo / brand name / colors update immediately, with no
+      // hard refresh required (and so they're already correct on the
+      // welcome step we may render below).
+      await refreshBrand();
+
+      // Task #132 — when the user signed up on the open domain, fetch
+      // the canonical tenant login URL from /me and show the welcome
+      // step instead of dropping them straight into app.lpstudio.ai.
+      // We deliberately do NOT call onComplete() yet, because that
+      // calls AuthContext.refresh() which would flip onboardingCompleted
+      // to true and unmount this wizard before the user sees the URL.
+      // If the user just closes the tab, the next open-domain sign-in
+      // will hit the AuthGate auto-redirect and land them on the
+      // tenant subdomain anyway.
+      if (domainContext?.mode === "open") {
+        try {
+          const meRes = await fetch("/api/auth/me", { credentials: "include" });
+          if (meRes.ok) {
+            const me = await meRes.json();
+            if (me?.tenantHost && me?.tenantLoginUrl) {
+              setTenantHost(me.tenantHost as string);
+              setTenantLoginUrl(me.tenantLoginUrl as string);
+              setSaving(false);
+              setStep(3);
+              return;
+            }
+          }
+        } catch { /* fall through to default onComplete */ }
+      }
+
       await onComplete();
     } catch {
       setError("Something went wrong. Please try again.");
       setSaving(false);
     }
+  }
+
+  async function copyTenantUrl() {
+    if (!tenantLoginUrl) return;
+    try {
+      await navigator.clipboard.writeText(tenantLoginUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked — user can still select manually */ }
+  }
+
+  async function openWorkspace() {
+    if (!tenantHost) return;
+    setOpening(true);
+    try {
+      const res = await fetch("/api/auth/handoff-code", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.url) {
+          window.location.href = data.url as string;
+          return;
+        }
+      }
+    } catch { /* fall through to plain redirect */ }
+    // Fallback: navigate to the subdomain's normal sign-in page.
+    window.location.href = `https://${tenantHost}/`;
   }
 
   const canAdvanceStep0 = brandName.trim().length > 0;
@@ -365,6 +436,59 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 )}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Step 3: Welcome — task #132. Only reached on the open domain
+            after complete-onboarding succeeds. Surfaces the canonical
+            tenant URL so the user learns "this is where I sign in", with
+            a one-click handoff that uses /auth/handoff-code → /auth/accept
+            to set the session cookie on the subdomain. */}
+        {step === 3 && tenantHost && tenantLoginUrl && (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">You're all set!</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your workspace lives at its own address. Bookmark it — that's where you'll sign in from now on.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Your workspace URL</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={tenantLoginUrl}
+                  className="font-mono text-sm bg-background"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={copyTenantUrl}
+                  title="Copy URL"
+                  className="shrink-0"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                To log in next time, enter this URL into your browser. Future logins from{" "}
+                <span className="font-mono">{window.location.host}</span> will redirect here automatically.
+              </p>
+            </div>
+
+            <Button
+              className="gap-2 w-full"
+              onClick={openWorkspace}
+              disabled={opening}
+            >
+              {opening ? (
+                <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Opening…</>
+              ) : (
+                <><ExternalLink className="w-4 h-4" /> Open my workspace</>
+              )}
+            </Button>
           </div>
         )}
 

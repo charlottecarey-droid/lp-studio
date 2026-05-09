@@ -376,5 +376,52 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return <OnboardingWizard onComplete={refresh} />;
   }
 
+  // Task #132 — auto-redirect onboarded users from the open domain
+  // (app.lpstudio.ai / lpstudio.ai) to their canonical tenant subdomain.
+  // Server-side `shouldRedirectToTenantHost` is gated on the request host
+  // being a known wildcard base, so this never fires on dev / replit hosts
+  // or when the user is already on their canonical host. The handoff-code
+  // flow sets the session cookie on the subdomain in one redirect.
+  if (user.shouldRedirectToTenantHost && user.tenantHost) {
+    return <TenantHandoffRedirect host={user.tenantHost} />;
+  }
+
   return <>{children}</>;
+}
+
+// Task #132 — bridge component that exchanges the current session for a
+// single-use code and redirects to /api/auth/accept on the tenant host.
+// Falls back to a plain navigation if the handoff endpoint is unreachable
+// (e.g. transient API error) so the user is never stranded.
+function TenantHandoffRedirect({ host }: { host: string }) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/handoff-code", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.url) {
+            window.location.replace(data.url as string);
+            return;
+          }
+        }
+      } catch { /* fall through */ }
+      if (!cancelled) {
+        window.location.replace(`https://${host}/`);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [host]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background">
+      <div className="animate-spin h-7 w-7 border-2 border-primary border-t-transparent rounded-full" />
+      <p className="text-sm text-muted-foreground">Taking you to your workspace…</p>
+    </div>
+  );
 }

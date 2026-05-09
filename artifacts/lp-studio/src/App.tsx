@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { BrandConfigProvider } from "@/context/BrandConfigContext";
 import { AuthGate } from "@/components/AuthGate";
 import { RoleGuard } from "@/components/RoleGuard";
 import { DevToolsPanel } from "@/components/DevToolsPanel";
@@ -533,7 +534,9 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AuthProvider>
-            <AppShell />
+            <BrandConfigProvider>
+              <AppShell />
+            </BrandConfigProvider>
           </AuthProvider>
         </WouterRouter>
       </TooltipProvider>

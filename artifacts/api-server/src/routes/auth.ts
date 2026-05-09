@@ -3,8 +3,31 @@ import { OAuth2Client } from "google-auth-library";
 import { pool } from "@workspace/db";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
-import { findTenantByHost, extractWildcardSlug } from "../lib/tenantHosts";
+import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
+
+/**
+ * Pick the user-facing wildcard base host for building tenant login URLs
+ * (e.g. "lpstudio.ai"). Prefers a base that does NOT start with "app." so
+ * users see the cleaner `<slug>.lpstudio.ai` rather than
+ * `<slug>.app.lpstudio.ai`. Falls back to the first configured base.
+ */
+function publicWildcardBaseHost(): string | null {
+  const preferred = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app."));
+  return preferred ?? WILDCARD_BASE_HOSTS[0] ?? null;
+}
+
+/**
+ * Compute the canonical login host for a tenant. Prefers the tenant's
+ * configured custom `domain` (e.g. meetdandy-lp.com); otherwise falls back
+ * to `<slug>.<wildcardBaseHost>` (e.g. acme.lpstudio.ai).
+ */
+function getCanonicalTenantHost(t: { domain: string | null; slug: string | null }): string | null {
+  if (t.domain) return t.domain.toLowerCase();
+  const base = publicWildcardBaseHost();
+  if (!base || !t.slug) return null;
+  return `${t.slug.toLowerCase()}.${base}`;
+}
 
 const router = Router();
 
@@ -409,19 +432,67 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     // any tenant the boot backfill hasn't yet touched preserves the #108
     // behaviour (Submit-for-Review / Approve / Reject UI visible).
     let requireReviewBeforePublish = true;
+    // Task #132 — surface the canonical tenant login URL (custom domain or
+    // wildcard subdomain) so the onboarding wizard, AuthGate auto-redirect,
+    // and Settings → General can hand users off to / display their
+    // personal workspace URL without hardcoding the wildcard base host.
+    let tenantSlug: string | null = null;
+    let tenantDomain: string | null = null;
+    let tenantHost: string | null = null;
+    let tenantLoginUrl: string | null = null;
     if (sess.tenantId) {
       const tenantResult = await pool.query(
-        `SELECT onboarding_completed_at, settings FROM tenants WHERE id = $1`,
+        `SELECT onboarding_completed_at, settings, slug, domain FROM tenants WHERE id = $1`,
         [sess.tenantId]
       );
       if (tenantResult.rows.length > 0) {
-        onboardingCompleted = tenantResult.rows[0].onboarding_completed_at !== null;
-        const settings = tenantResult.rows[0].settings ?? {};
+        const row = tenantResult.rows[0];
+        onboardingCompleted = row.onboarding_completed_at !== null;
+        const settings = row.settings ?? {};
         const ind = settings.industry;
         if (ind === "dental" || ind === "generic") tenantIndustry = ind;
         if (settings.requireReviewBeforePublish === false) requireReviewBeforePublish = false;
+        tenantSlug = row.slug ?? null;
+        tenantDomain = row.domain ?? null;
+        tenantHost = getCanonicalTenantHost({ slug: tenantSlug, domain: tenantDomain });
+        tenantLoginUrl = tenantHost ? `https://${tenantHost}` : null;
       }
     }
+
+    // Task #132 — auto-redirect open-domain logins to the user's tenant
+    // subdomain. Only flag a redirect when:
+    //   • the request actually came in on one of the wildcard base hosts
+    //     (e.g. lpstudio.ai / app.lpstudio.ai) — never on dev/replit hosts;
+    //   • we have a canonical tenant host;
+    //   • the canonical host differs from the host we were called on.
+    // The frontend uses the existing /api/auth/handoff-code → /api/auth/accept
+    // exchange to complete the cross-domain handoff.
+    const requestHost = getRequestHost(req);
+    const onOpenBaseHost = !!requestHost && isWildcardBaseHost(requestHost);
+
+    // Multi-workspace guard: count the user's accepted memberships across
+    // all tenants. If they belong to more than one workspace we must NOT
+    // auto-redirect — they may want a workspace picker. We allow the
+    // redirect only when the user is unambiguously bound to a single
+    // workspace. Pending invites (accepted_at IS NULL) don't count.
+    let workspaceCount = 0;
+    if (sess.userId) {
+      const wc = await pool.query(
+        `SELECT COUNT(DISTINCT tm.tenant_id)::int AS n
+           FROM tenant_members tm
+          WHERE tm.user_id = $1 AND tm.accepted_at IS NOT NULL`,
+        [sess.userId]
+      );
+      workspaceCount = wc.rows[0]?.n ?? 0;
+    }
+
+    const shouldRedirectToTenantHost = !!(
+      onOpenBaseHost &&
+      onboardingCompleted &&
+      tenantHost &&
+      tenantHost !== requestHost &&
+      workspaceCount <= 1
+    );
 
     // Pull app_users.role (NOT the tenant role!) so the frontend can detect
     // Dandy super-admins (role='superadmin'). Tenant role lives in sess.role
@@ -433,7 +504,18 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       if (ur.rows.length > 0) appUserRole = ur.rows[0].role ?? null;
     }
 
-    res.json({ ...sess, onboardingCompleted, tenantIndustry, appUserRole, requireReviewBeforePublish });
+    res.json({
+      ...sess,
+      onboardingCompleted,
+      tenantIndustry,
+      appUserRole,
+      requireReviewBeforePublish,
+      tenantSlug,
+      tenantDomain,
+      tenantHost,
+      tenantLoginUrl,
+      shouldRedirectToTenantHost,
+    });
   } catch (err) {
     console.error("[auth] /me error:", err);
     res.status(500).json({ error: "Server error" });
@@ -468,6 +550,61 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
     res.json({ ok: true });
   } catch (err) {
     console.error("[auth] /complete-onboarding error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/handoff-code — task #132
+// Exchanges the caller's current session for a single-use, short-lived code
+// that can be redeemed via /api/auth/accept on the tenant's canonical host.
+// Used by the onboarding wizard's "Open my workspace" button and the
+// AuthGate auto-redirect, both of which need to land the user on the
+// tenant subdomain already authenticated.
+router.post("/auth/handoff-code", async (req, res): Promise<void> => {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  try {
+    const sessionResult = await pool.query(
+      `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid]
+    );
+    if (!sessionResult.rows.length) {
+      res.status(401).json({ error: "Session expired" });
+      return;
+    }
+    const sess = JSON.parse(sessionResult.rows[0].sess);
+    if (!sess.tenantId) {
+      res.status(400).json({ error: "No tenant associated with this session" });
+      return;
+    }
+    const tenantResult = await pool.query(
+      `SELECT slug, domain FROM tenants WHERE id = $1`,
+      [sess.tenantId]
+    );
+    if (!tenantResult.rows.length) {
+      res.status(404).json({ error: "Tenant not found" });
+      return;
+    }
+    const host = getCanonicalTenantHost({
+      slug: tenantResult.rows[0].slug ?? null,
+      domain: tenantResult.rows[0].domain ?? null,
+    });
+    if (!host) {
+      res.status(400).json({ error: "Tenant has no canonical host" });
+      return;
+    }
+    const code = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute single-use
+    await pool.query(
+      `INSERT INTO auth_exchange_codes (code, sid, expires_at) VALUES ($1, $2, $3)`,
+      [code, sid, expiresAt]
+    );
+    res.json({ code, host, url: `https://${host}/api/auth/accept?code=${encodeURIComponent(code)}` });
+  } catch (err) {
+    console.error("[auth] /handoff-code error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

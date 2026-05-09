@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig } from "@/lib/brand-config";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 function UserFooter() {
   const { user, logout } = useAuth();
@@ -161,20 +161,12 @@ function OptimizeBetaMenu({ location }: { location: string }) {
 export function AppSidebar() {
   const [location] = useLocation();
   const { hasPerm, user } = useAuth();
-  const [brandLogoUrl, setBrandLogoUrl] = useState<string>("");
-  const [brandName, setBrandName] = useState<string>("");
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchBrandConfig()
-      .then((b) => {
-        if (cancelled) return;
-        setBrandLogoUrl(b.logoUrl ?? "");
-        setBrandName(b.brandName ?? "");
-      })
-      .catch(() => { /* keep empty fallbacks */ });
-    return () => { cancelled = true; };
-  }, []);
+  // Task #132 — read from the shared BrandConfigProvider so the sidebar
+  // logo / brand name update the moment OnboardingWizard or BrandSettings
+  // calls refreshBrand() — no hard refresh required.
+  const { brand } = useBrandConfig();
+  const brandLogoUrl = brand.logoUrl ?? "";
+  const brandName = brand.brandName ?? "";
 
   const showMarketing =
     hasPerm("pages") || hasPerm("tests") || hasPerm("analytics") || hasPerm("forms_leads");

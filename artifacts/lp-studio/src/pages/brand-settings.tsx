@@ -37,6 +37,7 @@ import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -696,8 +697,14 @@ const FIELD_LABELS: Record<string, string> = {
 
 export default function BrandSettings() {
   const { toast } = useToast();
-  const [config, setConfig] = useState<BrandConfig>(DEFAULT_BRAND);
-  const [loading, setLoading] = useState(true);
+  // Task #132 — initialize config from the shared BrandConfigProvider so
+  // there is a single source of truth for brand state across the app.
+  // The form still owns its own draft `config` (so editing fields does
+  // not affect the sidebar), but it seeds from + writes back to the
+  // provider on save instead of fetching independently.
+  const { brand: providerBrand, loading: providerLoading, refreshBrand } = useBrandConfig();
+  const [config, setConfig] = useState<BrandConfig>(providerBrand);
+  const [loading, setLoading] = useState(providerLoading);
   const [saving, setSaving] = useState(false);
 
   const [presets, setPresets] = useState<BrandPreset[]>([]);
@@ -719,8 +726,16 @@ export default function BrandSettings() {
 
   const [hexErrors, setHexErrors] = useState<Record<string, boolean>>({});
 
+  // Sync the form's draft from the shared provider whenever it loads /
+  // changes from elsewhere (e.g. the onboarding wizard's refreshBrand()).
   useEffect(() => {
-    fetchBrandConfig().then((c) => { setConfig(c); setLoading(false); });
+    if (!providerLoading) {
+      setConfig(providerBrand);
+      setLoading(false);
+    }
+  }, [providerBrand, providerLoading]);
+
+  useEffect(() => {
     fetchPresets();
   }, []);
 
@@ -792,6 +807,9 @@ export default function BrandSettings() {
     setSaving(true);
     try {
       await saveBrandConfig(config);
+      // Task #132 — push the new brand into the shared provider so the
+      // sidebar logo / brand name update immediately, no hard refresh.
+      void refreshBrand();
       toast({ title: "Brand settings saved", description: "All landing pages now reflect the new settings." });
     } catch {
       toast({ title: "Save failed", description: "Could not save brand settings.", variant: "destructive" });
