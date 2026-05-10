@@ -124,6 +124,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   // the viewport center is the active panel. Mirrors the source's behavior.
   useEffect(() => {
     if (isEditor) return;
+    if (props.pillarStackedScroll === false) return;
     if (typeof window === "undefined") return;
     // Trim any stale entries left over from a previous render with more
     // pillars so we never read past the current pillar count.
@@ -159,6 +160,8 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   }, [isEditor, pillars.length]);
 
   const holdVh = Math.max(0.5, props.pillarHoldVh ?? 1.5);
+  const stackedScroll = props.pillarStackedScroll !== false;
+  const flatMode = !stackedScroll && !isEditor;
 
   const updatePillar = (i: number, patch: Partial<IdCinemaPillar>) => {
     if (!onFieldChange) return;
@@ -169,7 +172,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   return (
     <section
       ref={sectionRef}
-      className={`id-block id-cinema${isEditor ? " id-cinema-editor" : ""}`}
+      className={`id-block id-cinema${isEditor ? " id-cinema-editor" : ""}${flatMode ? " id-cinema-flat" : ""}`}
     >
       <div className="id-cinema-sticky">
         <div className="id-cinema-bg" data-bg={String(active)} aria-hidden />
@@ -229,7 +232,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
           ))}
         </div>
       </div>
-      {!isEditor &&
+      {!isEditor && stackedScroll &&
         pillars.map((_, i) => (
           <div
             key={i}

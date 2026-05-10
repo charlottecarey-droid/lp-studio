@@ -1502,6 +1502,10 @@ export interface IdCinemaPillarsBlockProps {
   /** Scroll length each pillar is held on-screen, in viewport heights.
    *  Defaults to 1.5. Higher values = each step lingers longer on scroll. */
   pillarHoldVh?: number;
+  /** When true (default), pillars use the cinematic sticky/stacked scroll
+   *  effect where each step holds the viewport. When false, pillars render
+   *  as plain stacked sections that scroll normally. */
+  pillarStackedScroll?: boolean;
 }
 
 export interface IdShowcaseFrame {
