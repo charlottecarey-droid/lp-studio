@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
+import { VideoPicker } from "@/components/VideoPicker";
 
 interface Props {
   props: IdCinemaPillarsBlockProps;
@@ -18,17 +19,6 @@ const ART_OPTIONS = [
   { value: "rail", label: "Robotic rail" },
   { value: "bars", label: "Data bars" },
   { value: "video", label: "Background video" },
-];
-
-const PRESET_VIDEOS = [
-  { value: "/inside-dandy/scans/scan-overhead.mp4", label: "Overhead scan" },
-  { value: "/inside-dandy/scans/scan-soft-tissue.mp4", label: "Soft tissue capture" },
-  { value: "/inside-dandy/scans/scan-arch-rotate.mp4", label: "Arch rotate" },
-  { value: "/inside-dandy/scans/scan-zoom-detail.mp4", label: "Zoom detail" },
-  { value: "/inside-dandy/scans/scan-finish.mp4", label: "Finish & confirm" },
-  { value: "/inside-dandy/scans/scan-wand-pass.mp4", label: "Wand pass" },
-  { value: "/inside-dandy/scans/scan-wand-vertical.mp4", label: "Wand close-up (vertical)" },
-  { value: "/inside-dandy/scans/scan-arch-vertical.mp4", label: "Arch close-up (vertical)" },
 ];
 
 const POSITION_PRESETS = [
@@ -70,8 +60,6 @@ export function IdCinemaPillarsPanel({ props, onChange }: Props) {
       </div>
       {pillars.map((p, i) => {
         const isVideo = p.art === "video";
-        const presetMatch = PRESET_VIDEOS.find((v) => v.value === p.videoSrc);
-        const videoSelectValue = !p.videoSrc ? "" : presetMatch ? p.videoSrc : "__custom__";
         const positionPresetMatch = POSITION_PRESETS.find((pp) => pp.value === (p.videoPosition || "center") && pp.value !== "__custom__");
         const positionSelectValue = positionPresetMatch ? positionPresetMatch.value : "__custom__";
         return (
@@ -97,33 +85,11 @@ export function IdCinemaPillarsPanel({ props, onChange }: Props) {
             </div>
             {isVideo && (
               <div className="space-y-2 rounded border border-dashed border-muted-foreground/30 p-2">
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Video preset</Label>
-                  <Select
-                    value={videoSelectValue || "__none__"}
-                    onValueChange={(v) => {
-                      if (v === "__none__") return update(i, { videoSrc: undefined });
-                      if (v === "__custom__") return; // keep current custom value
-                      update(i, { videoSrc: v });
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pick a preset…" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__" className="text-xs">— none —</SelectItem>
-                      {PRESET_VIDEOS.map((v) => <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>)}
-                      <SelectItem value="__custom__" className="text-xs">Custom URL…</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Video URL</Label>
-                  <Input
-                    value={p.videoSrc ?? ""}
-                    onChange={(e) => update(i, { videoSrc: e.target.value || undefined })}
-                    placeholder="/inside-dandy/scans/scan-overhead.mp4 or https://…"
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
+                <VideoPicker
+                  label="Video"
+                  value={p.videoSrc ?? ""}
+                  onChange={(v) => update(i, { videoSrc: v || undefined })}
+                />
                 <div>
                   <Label className="text-[11px] text-muted-foreground">Crop position</Label>
                   <Select

@@ -5,26 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
+import { VideoPicker } from "@/components/VideoPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: IdSpotlightBlockProps;
   onChange: (props: IdSpotlightBlockProps) => void;
 }
-
-const PRESET_VIDEOS = [
-  { value: "/videos/scan-overhead.mp4", label: "Overhead scan" },
-  { value: "/videos/scan-soft-tissue.mp4", label: "Soft tissue capture" },
-  { value: "/videos/scan-arch-rotate.mp4", label: "Arch rotate" },
-  { value: "/videos/scan-zoom-detail.mp4", label: "Zoom detail" },
-  { value: "/videos/scan-finish.mp4", label: "Finish & confirm" },
-  { value: "/videos/scan-wand-pass.mp4", label: "Wand pass" },
-  { value: "/videos/scan-wand-vertical.mp4", label: "Wand close-up (vertical)" },
-  { value: "/videos/scan-arch-vertical.mp4", label: "Arch close-up (vertical)" },
-  { value: "/videos/ai-scan-review.mp4", label: "AI scan review" },
-  { value: "/videos/dandy-broll.mp4", label: "Dandy b-roll" },
-  { value: "/videos/dandy-lab-video.mp4", label: "Dandy lab" },
-  { value: "/videos/dandy-digital-lab.mp4", label: "Dandy digital lab" },
-];
 
 const POSITIONS = [
   { value: "center", label: "Center" },
@@ -52,9 +39,6 @@ export function IdSpotlightPanel({ props, onChange }: Props) {
   const updateStep = (i: number, patch: Partial<IdSpotlightStep>) =>
     setSteps(steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
 
-  const presetMatch = PRESET_VIDEOS.find((v) => v.value === props.videoSrc);
-  const videoSelectValue = !props.videoSrc ? "__none__" : presetMatch ? props.videoSrc : "__custom__";
-
   return (
     <div className="space-y-4">
       <div className="border rounded-md p-3 space-y-2">
@@ -75,32 +59,17 @@ export function IdSpotlightPanel({ props, onChange }: Props) {
 
       <div className="border rounded-md p-3 space-y-2">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Background video</div>
-        <div>
-          <Label className="text-[11px] text-muted-foreground">Preset</Label>
-          <Select
-            value={videoSelectValue}
-            onValueChange={(v) => {
-              if (v === "__none__") return set("videoSrc", undefined);
-              if (v === "__custom__") return;
-              set("videoSrc", v);
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__" className="text-xs">— none —</SelectItem>
-              {PRESET_VIDEOS.map((v) => <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>)}
-              <SelectItem value="__custom__" className="text-xs">Custom URL…</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-[11px] text-muted-foreground">Video URL</Label>
-          <Input value={props.videoSrc ?? ""} onChange={(e) => set("videoSrc", e.target.value || undefined)} placeholder="/videos/scan-overhead.mp4" className="h-8 text-xs font-mono" />
-        </div>
-        <div>
-          <Label className="text-[11px] text-muted-foreground">Poster image (fallback / first frame)</Label>
-          <Input value={props.posterUrl ?? ""} onChange={(e) => set("posterUrl", e.target.value || undefined)} placeholder="https://…" className="h-8 text-xs font-mono" />
-        </div>
+        <VideoPicker
+          label="Video"
+          value={props.videoSrc ?? ""}
+          onChange={(v) => set("videoSrc", v || undefined)}
+        />
+        <ImagePicker
+          label="Poster image (fallback / first frame)"
+          value={props.posterUrl ?? ""}
+          onChange={(v) => set("posterUrl", v || undefined)}
+          placeholder="https://…"
+        />
         <div>
           <Label className="text-[11px] text-muted-foreground">Crop position</Label>
           <Select value={props.videoPosition || "center"} onValueChange={(v) => set("videoPosition", v)}>

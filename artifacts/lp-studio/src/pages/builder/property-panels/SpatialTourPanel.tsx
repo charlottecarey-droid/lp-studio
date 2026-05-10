@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import type {
   SpatialTourBlockProps,
@@ -181,8 +182,8 @@ export function SpatialTourPanel({ props: p, onChange, brandVoiceSet }: Props) {
           <Field label="Hero Image" hint="Background photo behind the headline. Also used as the video poster + reduced-motion fallback.">
             <ImagePicker value={p.heroImageUrl} onChange={v => set({ heroImageUrl: v })} />
           </Field>
-          <Field label="Hero Video URL" hint="Optional looping mp4/webm. When set, replaces the static hero with a Ken-Burns video stage + vignette + REC indicator. Leave blank to use the static hero. e.g. /videos/dandy-lab-video.mp4">
-            <Input value={p.heroVideoUrl ?? ""} onChange={e => set({ heroVideoUrl: e.target.value })} className="text-xs h-8" placeholder="/videos/dandy-lab-video.mp4" />
+          <Field label="Hero Video" hint="Optional looping mp4/webm. When set, replaces the static hero with a Ken-Burns video stage + vignette + REC indicator. Leave blank to use the static hero.">
+            <VideoPicker value={p.heroVideoUrl ?? ""} onChange={v => set({ heroVideoUrl: v })} />
           </Field>
           <Field label="Eyebrow" hint="Small uppercase text above the headline">
             <AiTextField type="input" value={p.heroEyebrow} onChange={v => set({ heroEyebrow: v })} fieldLabel="Hero Eyebrow" brandVoiceSet={brandVoiceSet}

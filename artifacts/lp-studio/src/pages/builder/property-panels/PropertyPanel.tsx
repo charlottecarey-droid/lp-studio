@@ -3266,8 +3266,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Video URL</Label>
-              <Input value={p.videoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, videoUrl: e.target.value } })} placeholder="/videos/ai-scan-review.mp4" className="h-8 text-xs" />
+              <VideoPicker label="Video" value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v || undefined } })} />
               <p className="text-[10px] text-muted-foreground">Loops as motion graphic. Leave empty to show animated UI instead.</p>
             </div>
             <div className="border-t pt-3">

@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
@@ -67,8 +68,7 @@ function CtaEditor({
       )}
       {action === "video-modal" && (
         <div>
-          <Label className="text-[11px] text-muted-foreground">Video URL</Label>
-          <Input value={videoUrl} onChange={(e) => onVideoUrl(e.target.value)} className="h-8 text-xs" placeholder="YouTube, Vimeo, Loom, or .mp4 URL" />
+          <VideoPicker label="Video" value={videoUrl} onChange={onVideoUrl} />
           <p className="text-[10px] text-muted-foreground mt-1">Opens an in-page video overlay (no form). Great for “Watch the film”.</p>
         </div>
       )}
