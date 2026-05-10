@@ -15,15 +15,32 @@ type ArtKind = (typeof ART_KINDS)[number];
 // The art layer for a given kind. All five are rendered at once; CSS opacity
 // crossfades between them based on which one has `.id-active`.
 function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind; videoSrc?: string; videoPosition?: string; isActive: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // `autoPlay` only fires on initial mount, so when the user scrolls to a
+  // pillar that wasn't active at first paint its video never starts. Drive
+  // play/pause imperatively from `isActive` instead.
+  useEffect(() => {
+    if (kind !== "video") return;
+    const v = videoRef.current;
+    if (!v) return;
+    if (isActive) {
+      v.currentTime = 0;
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => { /* ignore autoplay rejection */ });
+    } else {
+      v.pause();
+    }
+  }, [kind, isActive, videoSrc]);
+
   if (kind === "video") {
     if (!videoSrc) {
       return <div className="id-art-video id-art-video-empty" aria-hidden />;
     }
     return (
       <video
+        ref={videoRef}
         className="id-art-video"
         src={videoSrc}
-        autoPlay={isActive}
         muted
         loop
         playsInline
