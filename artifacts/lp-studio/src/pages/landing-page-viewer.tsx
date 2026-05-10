@@ -31,6 +31,8 @@ import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } 
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BlockRenderer, NO_REVEAL } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
+import { LinkedFormStyleProvider } from "@/components/LinkedFormStyleContext";
+import { readLinkedFormStyle } from "@/lib/linked-form-style";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
 
 /** Catches render errors in individual blocks so one bad block can't blank the entire page. */
@@ -596,6 +598,7 @@ export default function LandingPageViewer() {
     const scopedCss = customCss ? scopeCustomCss(customCss, "[data-lp-page]") : "";
 
     return (
+      <LinkedFormStyleProvider value={readLinkedFormStyle(pageVars)}>
       <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(brand), scrollBehavior: smoothScroll ? undefined : "auto" }}>
         <BrandFontLoader brand={brand} />
         <style>{`
@@ -653,6 +656,7 @@ export default function LandingPageViewer() {
           />
         )}
       </div>
+      </LinkedFormStyleProvider>
     );
   }
 
@@ -712,6 +716,7 @@ export default function LandingPageViewer() {
     };
 
     return (
+      <LinkedFormStyleProvider value={readLinkedFormStyle(pageVars)}>
       <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(brand), scrollBehavior: linkedSmoothScroll ? undefined : "auto" }}>
         <BrandFontLoader brand={brand} />
         <style>{`
@@ -781,6 +786,7 @@ export default function LandingPageViewer() {
           />
         )}
       </div>
+      </LinkedFormStyleProvider>
     );
   }
 

@@ -52,19 +52,26 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
   const f = (k: keyof IdIntroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [k]: v }) : undefined;
   const sectionRef = useRef<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
   const [progress, setProgress] = useState(0);
   const isEditor = !!onFieldChange;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const node = sectionRef.current;
-    if (!node) return;
+    // Track the <h2>, not the outer <section>. The section has 200px of
+    // top padding, so if we measured its top edge the animation would
+    // complete (raw → 1) while the h2 was still 200px below the fold —
+    // visitors saw the statement already fully lit before they could read
+    // it. Anchoring on the h2 means the letters light up exactly as the
+    // headline scrolls from the bottom of the viewport up to the top.
     let raf = 0;
     const tick = () => {
       raf = 0;
+      const node = headingRef.current ?? sectionRef.current;
+      if (!node) return;
       const rect = node.getBoundingClientRect();
       const vh = window.innerHeight || 1;
-      // Map [section bottom hits 80% of viewport ➜ section top hits 20%] to [0..1].
+      // Map [headline top hits 85% of viewport ➜ headline top hits 15%] to [0..1].
       const enter = vh * 0.85;
       const exit = vh * 0.15;
       const raw = (enter - rect.top) / (enter - exit);
@@ -115,7 +122,7 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
             onUpdate={f("statement")}
           />
         ) : (
-          <h2 aria-label={(props.statement ?? "").replace(/<\/?em>/g, "")}>
+          <h2 ref={headingRef} aria-label={(props.statement ?? "").replace(/<\/?em>/g, "")}>
             {totalLetters === 0 || !letterReveal
               ? renderEm(props.statement ?? "")
               : (() => {

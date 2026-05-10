@@ -8,6 +8,7 @@ import type { FormBlockProps, ChiliPiperHandoffConfig } from "@/lib/block-types"
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
+import { useLinkedFormStyle } from "@/components/LinkedFormStyleContext";
 
 export type EmailCaptureModalMode = "form" | "chilipiper";
 export type EmailCaptureFormSource = "simple" | "linked" | "marketo";
@@ -106,6 +107,10 @@ export function EmailCaptureModal({
   variantId,
   source,
 }: EmailCaptureModalProps) {
+  // Per-page color overrides for linked-form rendering inside the modal.
+  // Provided by <LinkedFormStyleProvider> in landing-page-viewer; null on
+  // pages without overrides configured.
+  const linkedStyle = useLinkedFormStyle();
   const cfg: Required<EmailCaptureFormConfig> = {
     showFirstName: formConfig?.showFirstName ?? true,
     showLastName: formConfig?.showLastName ?? true,
@@ -315,7 +320,10 @@ export function EmailCaptureModal({
         // Chili Piper iframe it swaps to after submit — enough room to
         // breathe (the form itself was fine narrower, but the scheduler
         // looked cramped at max-w-lg).
-        <div className="relative w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div
+          className="relative w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
+          style={{ backgroundColor: linkedStyle?.cardBg ?? "#ffffff", color: linkedStyle?.text }}
+        >
           <button
             onClick={onClose}
             className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
@@ -333,6 +341,13 @@ export function EmailCaptureModal({
                   subheadline: cfg.subheadline,
                   submitButtonText: cfg.submitText,
                   successMessage: cfg.successMessage,
+                  // Per-page color overrides flow through the existing
+                  // BlockForm style props so the in-modal linked form
+                  // matches the host page's chosen palette.
+                  ...(linkedStyle?.cardBg ? { cardBgColor: linkedStyle.cardBg } : {}),
+                  ...(linkedStyle?.border ? { inputAccentColor: linkedStyle.border } : {}),
+                  ...(linkedStyle?.button ? { submitButtonColor: linkedStyle.button } : {}),
+                  ...(linkedStyle?.buttonText ? { submitButtonTextColor: linkedStyle.buttonText } : {}),
                 }}
                 brand={brand}
                 pageId={pageId}

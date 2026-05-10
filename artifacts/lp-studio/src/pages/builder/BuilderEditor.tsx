@@ -20,11 +20,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LINKED_FORM_STYLE_KEY, readLinkedFormStyle, writeLinkedFormStyle, type LinkedFormStyle } from "@/lib/linked-form-style";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -738,6 +739,108 @@ function highlightCss(css: string): string {
   s = s.replace(/:\s*((?:#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|[\w-.]+(?:\([\s\S]*?\))?|"[^"]*"|'[^']*'))/g,
     (_, val) => `: ${protect(`<span style="color:#ce9178">${val}</span>`)}`);
   return s.replace(/\x00(\d+)\x00/g, (_, i) => slots[parseInt(i)]);
+}
+
+/**
+ * Per-page colour overrides for the linked form rendered inside the
+ * EmailCaptureModal (triggered by Inside-Dandy CTAs and any other CTA wired
+ * to the page's email-capture popup). Persisted on `pageVariables` under the
+ * reserved `__linkedFormStyle` key so we don't need a DB migration.
+ */
+function LinkedFormStylePanel({
+  variables,
+  onChange,
+}: {
+  variables: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = readLinkedFormStyle(variables);
+  const hasAny = current !== null;
+
+  const update = (patch: Partial<LinkedFormStyle>) => {
+    const next: LinkedFormStyle = { ...(current ?? {}), ...patch };
+    // Treat empty strings as "clear" so the colour picker's reset
+    // re-falls-back to the brand defaults inside BlockForm.
+    (Object.keys(patch) as (keyof LinkedFormStyle)[]).forEach(k => {
+      if (!patch[k]) delete next[k];
+    });
+    onChange(writeLinkedFormStyle(variables, next));
+  };
+
+  const clearAll = () => {
+    const stripped: Record<string, string> = {};
+    for (const [k, v] of Object.entries(variables)) {
+      if (k !== LINKED_FORM_STYLE_KEY) stripped[k] = v;
+    }
+    onChange(stripped);
+  };
+
+  const Row = ({ label, value, onValue, fallback }: { label: string; value: string | undefined; onValue: (v: string) => void; fallback: string }) => (
+    <div className="flex items-center justify-between gap-3">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Input
+          type="color"
+          value={value || fallback}
+          onChange={e => onValue(e.target.value)}
+          className="h-7 w-10 p-0.5 cursor-pointer"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onValue("")}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+            title="Reset to brand default"
+          >
+            reset
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="border-t border-border shrink-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Linked Form Colours</span>
+          {hasAny && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+        </div>
+        <svg
+          className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", open && "rotate-180")}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Overrides the colours of the linked form shown in the email-capture popup on this page. Leave any colour empty to inherit the brand default.
+          </p>
+          <Row label="Card background" value={current?.cardBg} onValue={v => update({ cardBg: v })} fallback="#ffffff" />
+          <Row label="Text" value={current?.text} onValue={v => update({ text: v })} fallback="#0f172a" />
+          <Row label="Input border" value={current?.border} onValue={v => update({ border: v })} fallback="#003a30" />
+          <Row label="Button background" value={current?.button} onValue={v => update({ button: v })} fallback="#c7e738" />
+          <Row label="Button text" value={current?.buttonText} onValue={v => update({ buttonText: v })} fallback="#003a30" />
+          {hasAny && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+            >
+              Clear all overrides
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CustomCssPanel({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -2571,6 +2674,10 @@ export default function BuilderEditor() {
             </div>
           )}
           </div>
+          <LinkedFormStylePanel
+            variables={pageVariables}
+            onChange={vars => { setPageVariables(vars); setTimeout(handleSave, 50); }}
+          />
           <VariablesPanel
             blocks={blocks}
             variables={pageVariables}
