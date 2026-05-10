@@ -38,8 +38,8 @@ const CSS = `
 .id-hero .id-hero-eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--id-cit); box-shadow:0 0 12px var(--id-cit); flex-shrink:0; }
 .id-hero.id-ready .id-hero-eyebrow { opacity:1; transform:translateY(0); }
 .id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:clamp(56px,9vw,156px); line-height:0.94; letter-spacing:-0.028em; color:#fff; margin:0; }
-.id-hero h1 .id-line { display:block; overflow:hidden; }
-.id-hero h1 .id-line .id-line-inner { display:block; transform:translateY(110%); transition:transform 1100ms var(--id-ease-out); }
+.id-hero h1 .id-line { display:block; overflow:hidden; padding:0.18em 0 0.22em; margin:-0.18em 0 -0.22em; }
+.id-hero h1 .id-line .id-line-inner { display:block; transform:translateY(140%); transition:transform 1100ms var(--id-ease-out); will-change:transform; }
 .id-hero.id-ready h1 .id-line:nth-child(1) .id-line-inner { transform:translateY(0); transition-delay:200ms; }
 .id-hero.id-ready h1 .id-line:nth-child(2) .id-line-inner { transform:translateY(0); transition-delay:340ms; }
 .id-hero.id-ready h1 .id-line:nth-child(3) .id-line-inner { transform:translateY(0); transition-delay:480ms; }
