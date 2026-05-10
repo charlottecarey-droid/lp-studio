@@ -24,7 +24,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
-import { DEFAULT_BRAND, getBrandStyleVars } from "@/lib/brand-config";
+import { DEFAULT_BRAND, getBrandStyleVars, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
 import type { PageBlock } from "@/lib/block-types";
 
 // Matches the enriched response from GET /api/lp/templates/enriched
@@ -98,6 +98,17 @@ export default function TemplateMarketplace() {
   const [previewBlocks, setPreviewBlocks] = useState<PageBlock[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Tenant brand for preview rendering — falls back to neutral DEFAULT_BRAND
+  // until the fetch resolves so any block reading var(--brand-primary) etc.
+  // resolves to the tenant's actual palette instead of the neutral defaults.
+  const [previewBrand, setPreviewBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  useEffect(() => {
+    let cancelled = false;
+    fetchBrandConfig()
+      .then(b => { if (!cancelled) setPreviewBrand(b); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   // Monotonic request token: when the user rapidly switches templates or
   // closes the modal mid-fetch, only the most recent request is allowed to
   // write state. Prevents stale-response-A from overwriting newer-response-B.
@@ -627,16 +638,17 @@ export default function TemplateMarketplace() {
               </div>
             )}
             {!previewLoading && !previewError && previewBlocks && previewBlocks.length > 0 && (
-              // Apply DEFAULT_BRAND CSS vars on a wrapper so blocks that read
-              // `var(--brand-primary)`, `var(--brand-accent)`, etc. resolve to
-              // the neutral default palette. Without this, vars are unset and
-              // backgrounds/text fall back to white-on-white in the modal.
-              <div className="template-preview-root" style={getBrandStyleVars(DEFAULT_BRAND)}>
+              // Apply the tenant's brand CSS vars on a wrapper so blocks that
+              // read `var(--brand-primary)`, `var(--brand-accent)`, etc. resolve
+              // to the tenant's actual palette (matching what the builder will
+              // show after cloning). Falls back to DEFAULT_BRAND until the
+              // /api/lp/brand fetch resolves so vars are never unset.
+              <div className="template-preview-root" style={getBrandStyleVars(previewBrand)}>
                 {previewBlocks.map((block, i) => (
                   <BlockRenderer
                     key={(block as { id?: string }).id ?? i}
                     block={block}
-                    brand={DEFAULT_BRAND}
+                    brand={previewBrand}
                     animationsEnabled={false}
                   />
                 ))}

@@ -1,14 +1,26 @@
 import { useParams } from "wouter";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
-import { DEFAULT_BRAND, getBrandStyleVars } from "@/lib/brand-config";
+import { DEFAULT_BRAND, getBrandStyleVars, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
 
 export default function TemplatePreview() {
   const params = useParams<{ templateId: string }>();
   const templateId = params.templateId ?? "";
   const template = LP_TEMPLATES.find((t) => t.id === templateId);
+
+  // Render with the tenant's brand so blocks reading var(--brand-primary)
+  // etc. resolve to the tenant's actual palette (matching the builder).
+  // Falls back to DEFAULT_BRAND until the /api/lp/brand fetch resolves.
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  useEffect(() => {
+    let cancelled = false;
+    fetchBrandConfig()
+      .then(b => { if (!cancelled) setBrand(b); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   if (!template) {
     return (
@@ -25,9 +37,9 @@ export default function TemplatePreview() {
 
   return (
     <Suspense fallback={null}>
-      <div style={getBrandStyleVars(DEFAULT_BRAND)}>
+      <div style={getBrandStyleVars(brand)}>
         {blocks.map((block, i) => (
-          <BlockRenderer key={block.id ?? i} block={block as never} brand={DEFAULT_BRAND} />
+          <BlockRenderer key={block.id ?? i} block={block as never} brand={brand} />
         ))}
       </div>
     </Suspense>
