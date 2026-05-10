@@ -378,6 +378,24 @@ export interface FullBleedHeroBlockProps extends CtaModalConfig {
   socialProofText?: string;
 }
 
+export interface ParallaxImageHeroBlockProps {
+  imageUrl: string;
+  eyebrow: string;
+  referenceLabel: string;
+  headline: string;
+  headlineAccentWord?: string;
+  accentColor?: string;
+  ctaText: string;
+  ctaUrl: string;
+  brandMark: string;
+  brandMarkLogoUrl?: string;
+  overlayOpacity: number;
+  overlayColor?: string;
+  parallaxStrength: number;
+  minHeight: "full" | "large";
+  textColor?: string;
+}
+
 export interface RoiCalculatorBlockProps {
   headline: string;
   subheadline: string;

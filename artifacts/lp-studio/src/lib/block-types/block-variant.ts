@@ -33,6 +33,7 @@ import type {
   ProductShowcaseBlockProps,
   FooterBlockProps,
   FullBleedHeroBlockProps,
+  ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,
   DandyVersusBlockProps,
   DandyColumnsV2BlockProps,
@@ -159,6 +160,7 @@ export type BlockVariant =
   | { type: "nav-header"; props: NavHeaderBlockProps }
   | { type: "cta-button"; props: CtaButtonBlockProps }
   | { type: "full-bleed-hero"; props: FullBleedHeroBlockProps }
+  | { type: "parallax-image-hero"; props: ParallaxImageHeroBlockProps }
   | { type: "footer"; props: FooterBlockProps }
   | { type: "form"; props: FormBlockProps }
   | { type: "popup"; props: PopupBlockProps }

@@ -41,6 +41,7 @@ export type {
   ProductShowcaseBlockProps,
   FooterBlockProps,
   FullBleedHeroBlockProps,
+  ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,
   DandyColumnsV2Item,
   DandyColumnsV3Item,

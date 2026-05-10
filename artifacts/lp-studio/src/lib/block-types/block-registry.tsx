@@ -35,6 +35,7 @@ import type {
   ProductShowcaseBlockProps,
   FooterBlockProps,
   FullBleedHeroBlockProps,
+  ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,
   DandyVersusBlockProps,
   DandyColumnsV2BlockProps,
@@ -840,6 +841,48 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="8" y="34" width="60" height="6" rx="1.5" fill="white" opacity="0.55" />
         <rect x="8" y="44" width="28" height="10" rx="5" fill="#C7E738" />
         <rect x="40" y="44" width="28" height="10" rx="5" fill="rgba(255,255,255,0.15)" />
+      </svg>
+    ),
+  },
+  {
+    type: "parallax-image-hero",
+    label: "Parallax Image Hero",
+    category: "Layout",
+    defaultProps: (): ParallaxImageHeroBlockProps => ({
+      imageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=2400&h=1600&fit=crop",
+      eyebrow: "● LIVE AT DYKEMA 2026",
+      referenceLabel: "FE-02",
+      headline: "The first and only AI dental lab.",
+      headlineAccentWord: "AI",
+      accentColor: "#C7E738",
+      ctaText: "Take a tour",
+      ctaUrl: "#",
+      brandMark: "dandy",
+      brandMarkLogoUrl: "",
+      overlayOpacity: 35,
+      overlayColor: "#000000",
+      parallaxStrength: 0.35,
+      minHeight: "full",
+      textColor: "#FFFFFF",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="pxh" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#1a1a1a" />
+            <stop offset="100%" stopColor="#3a3a3a" />
+          </linearGradient>
+        </defs>
+        <rect width="120" height="70" fill="url(#pxh)" rx="4" />
+        <circle cx="6" cy="6" r="1" fill="#C7E738" />
+        <rect x="10" y="5" width="40" height="2" rx="1" fill="white" opacity="0.85" />
+        <rect x="100" y="5" width="14" height="2" rx="1" fill="white" opacity="0.6" />
+        <rect x="6" y="30" width="60" height="6" rx="1" fill="white" opacity="0.95" />
+        <rect x="6" y="40" width="14" height="6" rx="1" fill="#C7E738" opacity="0.95" />
+        <rect x="22" y="40" width="34" height="6" rx="1" fill="white" opacity="0.95" />
+        <rect x="6" y="60" width="22" height="3" rx="1" fill="white" opacity="0.85" />
+        <rect x="6" y="64" width="22" height="0.6" fill="white" opacity="0.7" />
+        <rect x="98" y="61" width="16" height="4" rx="1" fill="white" opacity="0.95" />
       </svg>
     ),
   },
@@ -4446,6 +4489,7 @@ export function createBlock(type: "product-showcase"): Extract<PageBlock, { type
 export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
 export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
 export function createBlock(type: "full-bleed-hero"): Extract<PageBlock, { type: "full-bleed-hero" }>;
+export function createBlock(type: "parallax-image-hero"): Extract<PageBlock, { type: "parallax-image-hero" }>;
 export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer" }>;
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
 export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }>;
@@ -4550,6 +4594,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };
     case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };
     case "full-bleed-hero": return { id, type: "full-bleed-hero", props: props as FullBleedHeroBlockProps };
+    case "parallax-image-hero": return { id, type: "parallax-image-hero", props: props as ParallaxImageHeroBlockProps };
     case "footer": return { id, type: "footer", props: props as FooterBlockProps };
     case "form": return { id, type: "form", props: props as FormBlockProps };
     case "popup": return { id, type: "popup", props: props as PopupBlockProps };

@@ -42,6 +42,7 @@ import { ProductShowcasePanel } from "./ProductShowcasePanel";
 import { NavHeaderPanel } from "./NavHeaderPanel";
 import { CtaButtonPanel } from "./CtaButtonPanel";
 import { FullBleedHeroPanel } from "./FullBleedHeroPanel";
+import { ParallaxImageHeroPanel } from "./ParallaxImageHeroPanel";
 import { FooterPanel } from "./FooterPanel";
 import { ModalFormSourcePanel } from "./ModalFormSourcePanel";
 import { FormPanel } from "./FormPanel";
@@ -926,6 +927,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
             onApplyCtaToAll={onApplyCtaToAll}
+          />
+        );
+      case "parallax-image-hero":
+        return (
+          <ParallaxImageHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       case "footer":

@@ -78,6 +78,7 @@ import { BlockProductShowcase } from "./BlockProductShowcase";
 import { BlockNavHeader } from "./BlockNavHeader";
 import { BlockCtaButton } from "./BlockCtaButton";
 import { BlockFullBleedHero } from "./BlockFullBleedHero";
+import { BlockParallaxImageHero } from "./BlockParallaxImageHero";
 import { BlockFooter } from "./BlockFooter";
 import { BlockForm } from "./BlockForm";
 import { BlockPopup } from "./BlockPopup";
@@ -295,7 +296,7 @@ export const NO_REVEAL = new Set<string>([
   "scroll-assembly", "horizontal-showcase", "sticky-stack", "spatial-tour",
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
-  "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
+  "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero",
   "content-series",
   "spacer",
@@ -577,6 +578,18 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
               : undefined}
             animationsEnabled={animationsEnabled}
             childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null}
+          />
+        );
+      case "parallax-image-hero":
+        return (
+          <BlockParallaxImageHero
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+            animationsEnabled={animationsEnabled}
           />
         );
       case "footer":
