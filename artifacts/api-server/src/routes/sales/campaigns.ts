@@ -305,6 +305,10 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
     // Load template
+    if (campaign.templateId === null) {
+      res.status(400).json({ error: "Campaign has no template assigned" });
+      return;
+    }
     const [template] = await db.select().from(salesEmailTemplatesTable)
       .where(eq(salesEmailTemplatesTable.id, campaign.templateId));
     if (!template) { res.status(400).json({ error: "Template not found" }); return; }
