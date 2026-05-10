@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { ImagePicker } from "@/components/ImagePicker";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
@@ -162,6 +163,24 @@ export function IdHeroPanel({ props, onChange }: Props) {
               <SelectItem value="right" className="text-xs">Right</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">Headline size</Label>
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {Math.round((props.headlineScale ?? 1) * 100)}%
+            </span>
+          </div>
+          <Slider
+            min={0.5}
+            max={1.5}
+            step={0.05}
+            value={[props.headlineScale ?? 1]}
+            onValueChange={(v) => u({ headlineScale: v[0] })}
+          />
+          <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+            Shrink the headline if a long word gets clipped on the right.
+          </p>
         </div>
       </div>
       <div className="space-y-3">

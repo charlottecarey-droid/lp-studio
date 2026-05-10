@@ -35,11 +35,14 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
   const cta1Action = normalizeAction(props.cta1Action);
   const cta2Action = normalizeAction(props.cta2Action);
 
+  const headlineScale = Math.max(0.5, Math.min(1.5, props.headlineScale ?? 1));
+
   return (
     <section
       className={`id-block id-hero${ready ? " id-ready" : ""}${
         props.align === "right" ? " id-hero-align-right" : ""
       }`}
+      style={{ ["--id-hero-h1-scale" as never]: String(headlineScale) }}
     >
       {props.bgImage && (
         <div className="id-hero-bg" style={{ backgroundImage: `url(${props.bgImage})` }} />

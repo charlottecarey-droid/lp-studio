@@ -24,7 +24,7 @@ const CSS = `
 .id-in-view .id-reveal-d4 { transition-delay:480ms; }
 
 /* HERO — centered cinematic with concentric signal-orb + smoky photo */
-.id-hero { position:relative; height:100vh; min-height:780px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); padding:80px 0 140px; }
+.id-hero { position:relative; height:100vh; min-height:780px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); padding:80px 0 180px; }
 .id-hero .id-hero-bg { position:absolute; inset:-5%; background-size:cover; background-position:center; opacity:0; transform:scale(1.15); transition:opacity 1800ms var(--id-ease-out), transform 16000ms linear; filter:saturate(0.55) contrast(1.05); }
 .id-hero.id-ready .id-hero-bg { opacity:0.32; transform:scale(1); }
 .id-hero .id-hero-overlay { position:absolute; inset:0; z-index:2; background:radial-gradient(ellipse at 50% 70%,rgba(0,58,48,0.4) 0%,rgba(0,24,20,0.92) 60%),linear-gradient(180deg,rgba(0,24,20,0.6) 0%,rgba(0,24,20,0.3) 40%,rgba(0,24,20,0.95) 100%); }
@@ -37,8 +37,11 @@ const CSS = `
 .id-hero .id-hero-eyebrow { display:inline-flex; align-items:center; gap:10px; margin:0 0 32px; padding:8px 18px; border:1px solid var(--id-line); border-radius:999px; background:rgba(0,0,0,0.2); color:rgba(255,255,255,0.72); font-size:11px; letter-spacing:0.28em; text-transform:uppercase; font-weight:500; opacity:0; transform:translateY(12px); transition:opacity 1000ms 100ms var(--id-ease-out), transform 1000ms 100ms var(--id-ease-out); }
 .id-hero .id-hero-eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--id-cit); box-shadow:0 0 12px var(--id-cit); flex-shrink:0; }
 .id-hero.id-ready .id-hero-eyebrow { opacity:1; transform:translateY(0); }
-.id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:clamp(56px,9vw,156px); line-height:0.94; letter-spacing:-0.028em; color:#fff; margin:0; }
-.id-hero h1 .id-line { display:block; overflow:hidden; padding:0.18em 0 0.22em; margin:-0.18em 0 -0.22em; }
+.id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:calc(clamp(48px,8vw,140px) * var(--id-hero-h1-scale, 1)); line-height:0.94; letter-spacing:-0.028em; color:#fff; margin:0; overflow-wrap:break-word; word-break:normal; hyphens:auto; }
+/* Each line uses a clip-path that only crops top/bottom — wide text can still
+   bleed sideways without being chopped, while the translateY entrance animation
+   stays hidden behind the clip. */
+.id-hero h1 .id-line { display:block; clip-path:inset(0 -100vw 0 -100vw); padding:0.18em 0 0.22em; margin:-0.18em 0 -0.22em; }
 .id-hero h1 .id-line .id-line-inner { display:block; transform:translateY(140%); transition:transform 1100ms var(--id-ease-out); will-change:transform; }
 .id-hero.id-ready h1 .id-line:nth-child(1) .id-line-inner { transform:translateY(0); transition-delay:200ms; }
 .id-hero.id-ready h1 .id-line:nth-child(2) .id-line-inner { transform:translateY(0); transition-delay:340ms; }
