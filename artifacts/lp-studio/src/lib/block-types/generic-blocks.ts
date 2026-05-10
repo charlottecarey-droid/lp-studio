@@ -1494,6 +1494,10 @@ export interface IdShowcaseFrame {
   label: string;
   headline: string;
   where: string;
+  /** CSS background-position for the frame image (e.g. "center", "top",
+   *  "bottom right", "30% 20%"). Defaults to "center". Use this when the
+   *  important part of the photo is being cropped out. */
+  imagePosition?: string;
 }
 
 export interface IdParallaxShowcaseBlockProps {
@@ -1501,6 +1505,9 @@ export interface IdParallaxShowcaseBlockProps {
   headline: string;
   blurb?: string;
   frames: IdShowcaseFrame[];
+  /** Strength of the on-enter parallax zoom, 0..1. Defaults to 0.5.
+   *  0 = no zoom, 1 = strong zoom (scale 1.16 → 1). */
+  parallaxStrength?: number;
 }
 
 export interface IdStatItem {

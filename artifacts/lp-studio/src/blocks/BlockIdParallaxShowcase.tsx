@@ -22,7 +22,13 @@ function Frame({ frame, index, onUpdate, isEditor }: FrameProps) {
   return (
     <div ref={ref} className={`id-frame id-f${index + 1}${isEditor ? " id-in-view" : ""}`}>
       {frame.imageUrl && (
-        <div className="id-frame-img" style={{ backgroundImage: `url(${frame.imageUrl})` }} />
+        <div
+          className="id-frame-img"
+          style={{
+            backgroundImage: `url(${frame.imageUrl})`,
+            backgroundPosition: frame.imagePosition || "center",
+          }}
+        />
       )}
       <div className="id-frame-vignette" />
       <div className="id-frame-caption">
@@ -48,8 +54,15 @@ export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
     onFieldChange({ ...props, frames: next });
   };
 
+  // Map 0..1 strength to a starting zoom factor of 1.00 → 1.16.
+  const strength = Math.max(0, Math.min(1, props.parallaxStrength ?? 0.5));
+  const startScale = 1 + 0.16 * strength;
+
   return (
-    <section className="id-block id-showcase">
+    <section
+      className="id-block id-showcase"
+      style={{ ["--id-parallax-start" as never]: String(startScale) }}
+    >
       <div className="id-head">
         <div>
           {(props.eyebrow || onFieldChange) && (

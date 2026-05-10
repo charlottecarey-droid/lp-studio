@@ -186,7 +186,7 @@ const CSS = `
 .id-showcase .id-frame.id-f1 { max-width:1100px; aspect-ratio:16/9; }
 .id-showcase .id-frame.id-f2 { max-width:520px; aspect-ratio:3/4; margin-left:auto; margin-right:8%; margin-top:-180px; z-index:3; }
 .id-showcase .id-frame.id-f3 { max-width:920px; aspect-ratio:16/10; margin-left:6%; margin-top:-100px; z-index:2; }
-.id-showcase .id-frame .id-frame-img { position:absolute; inset:0; background-size:cover; background-position:center; transition:transform 1600ms var(--id-ease-out); transform:scale(1.08); }
+.id-showcase .id-frame .id-frame-img { position:absolute; inset:0; background-size:cover; background-position:center; transition:transform 1600ms var(--id-ease-out); transform:scale(var(--id-parallax-start, 1.08)); }
 .id-showcase .id-frame.id-in-view .id-frame-img { transform:scale(1); }
 .id-showcase .id-frame .id-frame-vignette { position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,24,20,0) 0%,rgba(0,24,20,0.6) 100%); }
 .id-showcase .id-frame .id-frame-caption { position:absolute; left:32px; bottom:28px; right:32px; display:flex; justify-content:space-between; align-items:flex-end; z-index:3; gap:24px; }
