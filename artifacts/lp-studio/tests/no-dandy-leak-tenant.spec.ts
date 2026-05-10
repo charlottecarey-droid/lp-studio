@@ -30,6 +30,7 @@ import {
   purgeStaleRoyalTenants,
   type RoyalTenant,
 } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const { Pool } = pg;
 
@@ -267,7 +268,7 @@ test.describe("Royal-tenant no-Dandy-leak end-to-end", () => {
     pageSlug = `royal-leak-page-${Date.now().toString(36)}`;
     const createRes = await request.post("/api/lp/pages", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {
@@ -301,7 +302,7 @@ test.describe("Royal-tenant no-Dandy-leak end-to-end", () => {
 
     const updateRes = await request.put(`/api/lp/pages/${pageId}`, {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {

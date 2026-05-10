@@ -23,7 +23,8 @@
 // 403'd from grid-piece authoring even though they can publish ordinary
 // pages. That's the regression this spec locks in.
 
-import { test, expect, request as playwrightRequest, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
+import { newAuthedContext } from "./setup/csrf";
 import pg from "pg";
 import {
   createReviewWorkflowTenant,
@@ -53,10 +54,7 @@ test.afterAll(async () => {
 });
 
 async function clientFor(sid: string): Promise<APIRequestContext> {
-  return await playwrightRequest.newContext({
-    baseURL: API_BASE,
-    extraHTTPHeaders: { Cookie: `lp_sid=${sid}` },
-  });
+  return await newAuthedContext({ baseURL: API_BASE, sid });
 }
 
 function uniqueSlug(prefix: string): string {

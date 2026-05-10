@@ -20,6 +20,7 @@ import {
   type ReviewWorkflowTenant,
 } from "./setup/review-workflow-tenant";
 import { purgeStaleRoyalTenants } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const dbUrl = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -85,7 +86,7 @@ async function setSessionCookie(context: BrowserContext, sid: string, baseURL: s
 async function createDraftPage(request: APIRequestContext, sid: string, title: string): Promise<number> {
   const slug = `palette-${tenant.tenantId}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const res = await request.post("/api/lp/pages", {
-    headers: { "Content-Type": "application/json", Cookie: `lp_sid=${sid}` },
+    headers: { "Content-Type": "application/json", ...(await csrfHeaders(request, sid)) },
     data: { title, slug, blocks: [], status: "draft" },
   });
   if (res.status() !== 201) {

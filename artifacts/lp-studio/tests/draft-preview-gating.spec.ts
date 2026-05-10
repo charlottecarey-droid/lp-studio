@@ -12,6 +12,7 @@ import {
   purgeStaleRoyalTenants,
   type RoyalTenant,
 } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const { Pool } = pg;
 
@@ -64,7 +65,7 @@ test.describe("Draft preview gating (task #107)", () => {
     // Create the primary draft page on `tenant`.
     const createRes = await request.post("/api/lp/pages", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {
@@ -86,7 +87,7 @@ test.describe("Draft preview gating (task #107)", () => {
     // is page-scoped and can't unlock a different page.
     const secondCreate = await request.post("/api/lp/pages", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {
@@ -102,7 +103,7 @@ test.describe("Draft preview gating (task #107)", () => {
     // Draft on the OTHER tenant — used to verify cross-tenant isolation.
     const otherCreate = await request.post("/api/lp/pages", {
       headers: {
-        Cookie: `lp_sid=${otherTenant.sessionSid}`,
+        ...(await csrfHeaders(request, otherTenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {
@@ -278,7 +279,7 @@ test.describe("Draft preview gating (task #107)", () => {
     const reviewSlug = `pending-gating-${Date.now().toString(36)}`;
     const createRes = await request.post("/api/lp/pages", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {
@@ -349,7 +350,7 @@ test.describe("Draft preview gating (task #107)", () => {
     // Publish the page.
     const publishRes = await request.put(`/api/lp/pages/${pageId}`, {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { status: "published" },

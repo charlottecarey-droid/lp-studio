@@ -27,6 +27,7 @@ import {
   purgeStaleRoyalTenants,
   type RoyalTenant,
 } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const { Pool } = pg;
 
@@ -175,7 +176,7 @@ test.describe("Workspace slug redirect manager (task #153)", () => {
     // ── 1. Rename the tenant so an old-slug redirect row gets created ────
     const renameRes = await request.patch("/api/admin/tenant-slug", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { slug: target },
@@ -225,7 +226,7 @@ test.describe("Workspace slug redirect manager (task #153)", () => {
     // ── 4. Non-admin gets 403 on DELETE, and the row is still there ──────
     const memberDeleteRes = await request.delete(
       `/api/admin/tenant-slug/redirects/${encodeURIComponent(originalSlug.toLowerCase())}`,
-      { headers: { Cookie: `lp_sid=${nonAdminSid}` } },
+      { headers: await csrfHeaders(request, nonAdminSid) },
     );
     expect(
       memberDeleteRes.status(),
@@ -243,7 +244,7 @@ test.describe("Workspace slug redirect manager (task #153)", () => {
     // ── 5. Admin DELETE removes the row ──────────────────────────────────
     const deleteRes = await request.delete(
       `/api/admin/tenant-slug/redirects/${encodeURIComponent(originalSlug.toLowerCase())}`,
-      { headers: { Cookie: `lp_sid=${tenant.sessionSid}` } },
+      { headers: await csrfHeaders(request, tenant.sessionSid) },
     );
     expect(
       deleteRes.ok(),
@@ -291,7 +292,7 @@ test.describe("Workspace slug redirect manager (task #153)", () => {
 
     const otherRenameRes = await request.patch("/api/admin/tenant-slug", {
       headers: {
-        Cookie: `lp_sid=${otherTenant.sessionSid}`,
+        ...(await csrfHeaders(request, otherTenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { slug: originalSlug },
@@ -333,7 +334,7 @@ test.describe("Workspace slug redirect manager (task #153)", () => {
     // cleanupRoyalTenant doesn't trip over a redirect row pointing at it.
     await request.patch("/api/admin/tenant-slug", {
       headers: {
-        Cookie: `lp_sid=${otherTenant.sessionSid}`,
+        ...(await csrfHeaders(request, otherTenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { slug: otherTenant.slug },

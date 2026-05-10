@@ -28,6 +28,7 @@ import {
   purgeStaleRoyalTenants,
   type RoyalTenant,
 } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const { Pool } = pg;
 
@@ -141,7 +142,7 @@ test.describe("Workspace slug rename (task #137)", () => {
     // ── 3. Perform the rename ────────────────────────────────────────────
     const renameRes = await request.patch("/api/admin/tenant-slug", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { slug: target },
@@ -216,7 +217,7 @@ test.describe("Workspace slug rename (task #137)", () => {
 
     const hijackRes = await request.patch("/api/admin/tenant-slug", {
       headers: {
-        Cookie: `lp_sid=${otherTenant.sessionSid}`,
+        ...(await csrfHeaders(request, otherTenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { slug: originalSlug },
@@ -239,7 +240,7 @@ test.describe("Workspace slug rename (task #137)", () => {
     //      first so the redirect can't shadow the live slug. ──────────────
     const undoRes = await request.patch("/api/admin/tenant-slug", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: { slug: originalSlug },

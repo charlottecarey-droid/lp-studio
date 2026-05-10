@@ -14,7 +14,7 @@
 // All four user identities (admin / Content Manager / editor / superadmin)
 // are seeded via the new helper in setup/review-workflow-tenant.ts.
 
-import { test, expect, request as playwrightRequest, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 import pg from "pg";
 import {
   createReviewWorkflowTenant,
@@ -22,6 +22,7 @@ import {
   purgeStaleReviewWorkflowTenants,
   type ReviewWorkflowTenant,
 } from "./setup/review-workflow-tenant";
+import { newAuthedContext } from "./setup/csrf";
 
 // Trailing slash is REQUIRED. Playwright's APIRequestContext resolves request
 // paths against baseURL using WHATWG URL semantics: a leading-slash path
@@ -66,10 +67,7 @@ test.afterAll(async () => {
  * and rehydrates the session payload from app_sessions.
  */
 async function clientFor(sid: string): Promise<APIRequestContext> {
-  return await playwrightRequest.newContext({
-    baseURL: API_BASE,
-    extraHTTPHeaders: { Cookie: `lp_sid=${sid}` },
-  });
+  return await newAuthedContext({ baseURL: API_BASE, sid });
 }
 
 async function createPage(sid: string, tenantId: number, title: string): Promise<{ id: number; slug: string }> {
@@ -268,12 +266,10 @@ test.describe("Page review workflow", () => {
 
     // Then have the superadmin (whose session is attached to `tenant`) act on
     // that page by setting X-Tenant-Id. A non-superadmin user cannot do this.
-    const superCtx = await playwrightRequest.newContext({
+    const superCtx = await newAuthedContext({
       baseURL: API_BASE,
-      extraHTTPHeaders: {
-        Cookie: `lp_sid=${tenant.superadmin.sessionSid}`,
-        "X-Tenant-Id": String(secondTenant.tenantId),
-      },
+      sid: tenant.superadmin.sessionSid,
+      extraHeaders: { "X-Tenant-Id": String(secondTenant.tenantId) },
     });
     const res = await superCtx.put(`lp/pages/${page.id}`, {
       data: { status: "published" },
@@ -285,12 +281,10 @@ test.describe("Page review workflow", () => {
 
     // Negative control: a regular editor with the same X-Tenant-Id header
     // gets rejected (the override only honours superadmins).
-    const editorCtx = await playwrightRequest.newContext({
+    const editorCtx = await newAuthedContext({
       baseURL: API_BASE,
-      extraHTTPHeaders: {
-        Cookie: `lp_sid=${tenant.editor.sessionSid}`,
-        "X-Tenant-Id": String(secondTenant.tenantId),
-      },
+      sid: tenant.editor.sessionSid,
+      extraHeaders: { "X-Tenant-Id": String(secondTenant.tenantId) },
     });
     const cheatPage = await createPage(secondTenant.editor.sessionSid, secondTenant.tenantId, "Editor cheat target");
     const cheatRes = await editorCtx.put(`lp/pages/${cheatPage.id}`, {

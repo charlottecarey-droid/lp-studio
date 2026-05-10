@@ -8,6 +8,7 @@ import { Sentry, isSentryInitialized } from "./lib/sentry";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost, invalidateTenantHostCache } from "./lib/tenantHosts";
+import { csrfProtection, csrfErrorHandler, generateCsrfToken } from "./lib/csrf";
 
 const app: Express = express();
 
@@ -172,7 +173,27 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
+// CSRF protection (double-submit cookie). Registered AFTER cookieParser and
+// the body parsers so the middleware can read req.cookies and req.body.
+// Internally exempts GET/HEAD/OPTIONS, /api/webhooks/* (secret-authed),
+// /api/_test/* (dev fixtures), the login endpoints, and any request that
+// doesn't carry the session cookie. See lib/csrf.ts for the full policy.
+app.use(csrfProtection);
+
+// Token endpoint: clients call this once at boot (and again after the auth
+// state changes) to obtain a CSRF token + the matching `lp_csrf` cookie.
+// GET so it's never blocked by the CSRF check itself.
+app.get("/api/auth/csrf", (req, res) => {
+  const csrfToken = generateCsrfToken(req, res);
+  res.json({ csrfToken });
+});
+
 app.use("/api", router);
+
+// CSRF-specific error handler — must come BEFORE the Sentry/global error
+// handlers so a missing/invalid token surfaces as a clean 403 instead of a
+// sanitized 500 (and isn't reported to Sentry as an unhandled exception).
+app.use(csrfErrorHandler);
 
 // Sentry express error handler — must be registered AFTER all routes
 // but BEFORE our own global error handler so it can capture the error

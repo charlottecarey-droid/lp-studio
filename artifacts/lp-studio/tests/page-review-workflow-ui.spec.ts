@@ -31,6 +31,7 @@ import {
   type ReviewWorkflowTenant,
 } from "./setup/review-workflow-tenant";
 import { purgeStaleRoyalTenants } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const dbUrl = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -131,7 +132,7 @@ async function createDraftPageAsEditor(request: APIRequestContext, title: string
   const res = await request.post("/api/lp/pages", {
     headers: {
       "Content-Type": "application/json",
-      Cookie: `lp_sid=${tenant.editor.sessionSid}`,
+      ...(await csrfHeaders(request, tenant.editor.sessionSid)),
     },
     data: { title, slug, blocks: [], status: "draft" },
   });

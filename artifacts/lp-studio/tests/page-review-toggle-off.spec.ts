@@ -11,7 +11,8 @@
 // Setup mirrors the #108 spec — same helper, but the `requireReviewBeforePublish`
 // option is forced to false so we exercise the new code paths.
 
-import { test, expect, request as playwrightRequest, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
+import { newAuthedContext } from "./setup/csrf";
 import pg from "pg";
 import { randomBytes } from "node:crypto";
 import {
@@ -46,10 +47,7 @@ test.afterAll(async () => {
 });
 
 async function clientFor(sid: string): Promise<APIRequestContext> {
-  return await playwrightRequest.newContext({
-    baseURL: API_BASE,
-    extraHTTPHeaders: { Cookie: `lp_sid=${sid}` },
-  });
+  return await newAuthedContext({ baseURL: API_BASE, sid });
 }
 
 async function createPage(sid: string, tenantId: number, title: string): Promise<{ id: number; slug: string }> {

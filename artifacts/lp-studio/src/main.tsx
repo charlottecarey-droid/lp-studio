@@ -2,6 +2,14 @@ import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./index.css";
+import { installCsrfFetchInterceptor, ensureCsrfToken } from "./lib/api-fetch";
+
+// Install the CSRF fetch interceptor before any React code runs so every
+// state-changing /api/* request automatically carries the X-CSRF-Token
+// header. ensureCsrfToken() warms the cache so the first POST doesn't pay
+// the round-trip cost of fetching a token.
+installCsrfFetchInterceptor();
+void ensureCsrfToken();
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN_FRONTEND as string | undefined;
 if (sentryDsn) {

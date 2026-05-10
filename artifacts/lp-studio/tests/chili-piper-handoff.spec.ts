@@ -33,6 +33,7 @@ import {
   purgeStaleRoyalTenants,
   type RoyalTenant,
 } from "./setup/royal-tenant";
+import { csrfHeaders } from "./setup/csrf";
 
 const { Pool } = pg;
 
@@ -131,7 +132,7 @@ test.describe("Marketo → Chili Piper handoff", () => {
     pageSlug = `cp-handoff-${Date.now().toString(36)}`;
     const createRes = await request.post("/api/lp/pages", {
       headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
+        ...(await csrfHeaders(request, tenant.sessionSid)),
         "Content-Type": "application/json",
       },
       data: {
