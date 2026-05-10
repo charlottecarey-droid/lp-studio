@@ -35,3 +35,6 @@ export * from "./tenantMembers";
 
 // Block catalog (per-industry library configuration)
 export * from "./blockCatalog";
+
+// Per-tenant inbound webhook secrets
+export * from "./tenantWebhookSecrets";

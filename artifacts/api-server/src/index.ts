@@ -890,8 +890,65 @@ async function runMigrations(): Promise<void> {
       -- redirect notified at most once).
       ALTER TABLE tenant_slug_redirects
         ADD COLUMN IF NOT EXISTS notified_at timestamptz;
+
+      -- Task #147 — per-tenant inbound webhook secrets. The public webhook
+      -- endpoints (/webhooks/rb2b, /webhooks/apollo, /webhooks/letterdrop)
+      -- now embed a per-tenant secret in the URL so signals route to the
+      -- correct tenant instead of being hardcoded to Dandy (#1).
+      CREATE TABLE IF NOT EXISTS tenant_webhook_secrets (
+        id            serial PRIMARY KEY,
+        tenant_id     integer NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        integration   text NOT NULL,
+        secret        text NOT NULL UNIQUE,
+        created_at    timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS tenant_webhook_secrets_tenant_integration_idx
+        ON tenant_webhook_secrets (tenant_id, integration);
+      CREATE INDEX IF NOT EXISTS tenant_webhook_secrets_secret_idx
+        ON tenant_webhook_secrets (secret);
     `);
     logger.info("Migrations applied successfully");
+
+    // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
+    // letterdrop integrations don't break the moment we cut over the routes.
+    // Generates one secret per integration for tenant #1, idempotent under
+    // ON CONFLICT (the unique (tenant_id, integration) index). The marker
+    // ensures we only generate fresh values once; subsequent boots are no-ops.
+    // Operators must update the third-party trackers to point at the new
+    // /webhooks/<integration>/<secret> URLs (logged on first seed).
+    try {
+      const webhookMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'dandy_webhook_secrets_v1'`
+      );
+      if (webhookMarker.rows.length === 0) {
+        const { randomBytes } = await import("node:crypto");
+        const integrations = ["rb2b", "apollo", "letterdrop"] as const;
+        const seeded: { integration: string; secret: string }[] = [];
+        for (const integration of integrations) {
+          const secret = randomBytes(24).toString("base64url");
+          const result = await db.execute<{ secret: string }>(sql`
+            INSERT INTO tenant_webhook_secrets (tenant_id, integration, secret)
+            VALUES (1, ${integration}, ${secret})
+            ON CONFLICT (tenant_id, integration) DO NOTHING
+            RETURNING secret
+          `);
+          if (result.rows.length > 0) {
+            seeded.push({ integration, secret: result.rows[0].secret });
+          }
+        }
+        if (seeded.length > 0) {
+          logger.warn(
+            { seeded: seeded.map((s) => ({ integration: s.integration, urlSuffix: `/webhooks/${s.integration}/${s.secret}` })) },
+            "Seeded Dandy webhook secrets — update RB2B/Apollo/Letterdrop dashboards to the new URLs"
+          );
+        }
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('dandy_webhook_secrets_v1') ON CONFLICT DO NOTHING`
+        );
+      }
+    } catch (whErr) {
+      logger.error({ err: whErr }, "Dandy webhook secret seed failed (non-fatal)");
+    }
 
     // One-shot backfill of tenants.settings.industry so existing rows get the
     // correct industry without manual DB intervention. Tenants #1 and #5 are

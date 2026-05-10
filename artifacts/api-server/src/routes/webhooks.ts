@@ -2,16 +2,22 @@
  * Webhook endpoints for third-party visitor identification services.
  * These are public (no auth) endpoints — external services POST to them.
  *
- * POST /webhooks/rb2b        — RB2B LinkedIn visitor identification
- * POST /webhooks/apollo      — Apollo.io website visitor identification
- * POST /webhooks/letterdrop  — Letterdrop lead/visitor identification
+ * POST /webhooks/rb2b/:secret        — RB2B LinkedIn visitor identification
+ * POST /webhooks/apollo/:secret      — Apollo.io website visitor identification
+ * POST /webhooks/letterdrop/:secret  — Letterdrop lead/visitor identification
+ *
+ * Each URL embeds a per-tenant secret (see lib/db schema
+ * `tenantWebhookSecrets`). The handler resolves the tenant by
+ * (integration, secret); unknown secrets return 404 with no body so an
+ * attacker can't probe which integrations a tenant has wired up.
  *
  * All endpoints:
- *   1. Parse the payload
- *   2. Extract LP slug from the page URL
- *   3. Match visitor to an existing account (by domain) and contact (by LinkedIn / email)
- *   4. Write a `visitor_identified` signal
- *   5. Broadcast via SSE so the sales console updates in real-time
+ *   1. Resolve the tenant from the URL secret (404 on miss)
+ *   2. Parse the payload
+ *   3. Extract LP slug from the page URL
+ *   4. Match visitor to an existing account (by domain) and contact (by LinkedIn / email)
+ *   5. Write a `visitor_identified` signal scoped to the resolved tenant
+ *   6. Broadcast via SSE so the sales console updates in real-time
  */
 
 import { Router } from "express";
@@ -20,13 +26,43 @@ import {
   salesSignalsTable,
   salesAccountsTable,
   salesContactsTable,
+  tenantWebhookSecretsTable,
 } from "@workspace/db";
-import { eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, or } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
 
 const router = Router();
 
+type Integration = "rb2b" | "apollo" | "letterdrop";
+
 // ─── Helpers ─────────────────────────────────────────────────
+
+/**
+ * Resolve a webhook secret to a tenant id. Returns null if no row matches —
+ * callers must convert that into a 404 with no body so the response is
+ * indistinguishable from "no such route", preventing enumeration of which
+ * tenants have which integrations enabled.
+ */
+async function resolveTenantBySecret(
+  integration: Integration,
+  secret: string | undefined,
+): Promise<number | null> {
+  if (!secret || typeof secret !== "string") return null;
+  // Defensive bound — base64url(24) is 32 chars, so anything wildly outside
+  // that range can't be a real secret. Avoids hitting the DB for obvious junk.
+  if (secret.length < 16 || secret.length > 128) return null;
+  const [row] = await db
+    .select({ tenantId: tenantWebhookSecretsTable.tenantId })
+    .from(tenantWebhookSecretsTable)
+    .where(
+      and(
+        eq(tenantWebhookSecretsTable.integration, integration),
+        eq(tenantWebhookSecretsTable.secret, secret),
+      ),
+    )
+    .limit(1);
+  return row?.tenantId ?? null;
+}
 
 /** Extract the LP slug from a full page URL, e.g. "faster-dentures" */
 function slugFromUrl(pageUrl: string | undefined): string | null {
@@ -48,43 +84,64 @@ function normaliseDomain(raw: string | undefined): string | null {
 }
 
 /**
- * Try to find a matching account by company domain.
- * Returns the account id, or null if not found.
+ * Try to find a matching account by company domain, scoped to a single
+ * tenant. The tenant scope is mandatory: without it, a webhook routed to
+ * tenant B could attach an `accountId` belonging to tenant A whenever
+ * domains overlap (a common case — many tenants will track visits to the
+ * same Fortune 500 companies). Returns the account id, or null.
  */
-async function findAccountByDomain(domain: string | null): Promise<number | null> {
+async function findAccountByDomain(
+  tenantId: number,
+  domain: string | null,
+): Promise<number | null> {
   if (!domain) return null;
   const [row] = await db
     .select({ id: salesAccountsTable.id })
     .from(salesAccountsTable)
-    .where(ilike(salesAccountsTable.domain, domain))
+    .where(
+      and(
+        eq(salesAccountsTable.tenantId, tenantId),
+        ilike(salesAccountsTable.domain, domain),
+      ),
+    )
     .limit(1);
   return row?.id ?? null;
 }
 
 /**
- * Try to find a matching contact by LinkedIn URL or email.
- * Returns the contact id, or null if not found.
+ * Try to find a matching contact by LinkedIn URL or email, scoped to a
+ * single tenant. Same isolation rationale as findAccountByDomain — emails
+ * and LinkedIn URLs can legitimately appear in multiple tenants' CRMs and
+ * we never want to cross-link them. Returns the contact id, or null.
  */
 async function findContact(
+  tenantId: number,
   linkedinUrl: string | null,
-  email: string | null
+  email: string | null,
 ): Promise<number | null> {
-  const conditions: ReturnType<typeof eq>[] = [];
-  if (linkedinUrl) conditions.push(eq(salesContactsTable.linkedinUrl, linkedinUrl));
-  if (email)       conditions.push(ilike(salesContactsTable.email, email));
-  if (!conditions.length) return null;
+  const identityConditions: ReturnType<typeof eq>[] = [];
+  if (linkedinUrl) identityConditions.push(eq(salesContactsTable.linkedinUrl, linkedinUrl));
+  if (email)       identityConditions.push(ilike(salesContactsTable.email, email));
+  if (!identityConditions.length) return null;
 
   const [row] = await db
     .select({ id: salesContactsTable.id })
     .from(salesContactsTable)
-    .where(or(...conditions))
+    .where(
+      and(
+        eq(salesContactsTable.tenantId, tenantId),
+        or(...identityConditions),
+      ),
+    )
     .limit(1);
   return row?.id ?? null;
 }
 
-// ─── POST /webhooks/rb2b ─────────────────────────────────────
+// ─── POST /webhooks/rb2b/:secret ─────────────────────────────
 /**
- * RB2B identifies LinkedIn users visiting the page and POSTs here.
+ * RB2B identifies LinkedIn users visiting the page and POSTs here. The URL
+ * embeds a per-tenant secret so signals route to the right tenant; an
+ * unknown secret responds with 404.
  *
  * Expected payload shape (RB2B standard):
  * {
@@ -101,8 +158,16 @@ async function findContact(
  *   }
  * }
  */
-router.post("/rb2b", async (req, res): Promise<void> => {
+router.post("/rb2b/:secret", async (req, res): Promise<void> => {
   try {
+    const tenantId = await resolveTenantBySecret("rb2b", req.params.secret);
+    if (tenantId == null) {
+      // 404 with no body — indistinguishable from "no such route" to avoid
+      // leaking whether RB2B is configured for any tenant.
+      res.status(404).end();
+      return;
+    }
+
     // RB2B fires for every visit; only populate identity when they match someone.
     // Log the raw body so we can inspect the payload format if needed.
     console.log("[rb2b] raw body:", JSON.stringify(req.body));
@@ -129,14 +194,14 @@ router.post("/rb2b", async (req, res): Promise<void> => {
     }
 
     const [accountId, contactId] = await Promise.all([
-      findAccountByDomain(companyDomain),
-      findContact(linkedinUrl, email),
+      findAccountByDomain(tenantId, companyDomain),
+      findContact(tenantId, linkedinUrl, email),
     ]);
 
     const [signal] = await db
       .insert(salesSignalsTable)
       .values({
-        tenantId: 1,          // Dandy tenant
+        tenantId,
         accountId,
         contactId,
         type: "visitor_identified",
@@ -163,9 +228,11 @@ router.post("/rb2b", async (req, res): Promise<void> => {
   }
 });
 
-// ─── POST /webhooks/apollo ───────────────────────────────────
+// ─── POST /webhooks/apollo/:secret ───────────────────────────
 /**
- * Apollo website tracker sends visitor identification events here.
+ * Apollo website tracker sends visitor identification events here. The URL
+ * embeds a per-tenant secret so signals route to the right tenant; an
+ * unknown secret responds with 404.
  *
  * Expected payload shape (Apollo standard webhook):
  * {
@@ -193,8 +260,14 @@ router.post("/rb2b", async (req, res): Promise<void> => {
  *   }
  * }
  */
-router.post("/apollo", async (req, res): Promise<void> => {
+router.post("/apollo/:secret", async (req, res): Promise<void> => {
   try {
+    const tenantId = await resolveTenantBySecret("apollo", req.params.secret);
+    if (tenantId == null) {
+      res.status(404).end();
+      return;
+    }
+
     const body = req.body ?? {};
 
     const org    = body.organization ?? body.org ?? {};
@@ -215,14 +288,14 @@ router.post("/apollo", async (req, res): Promise<void> => {
     const title: string              = person.title ?? "";
 
     const [accountId, contactId] = await Promise.all([
-      findAccountByDomain(companyDomain),
-      findContact(linkedinUrl, email),
+      findAccountByDomain(tenantId, companyDomain),
+      findContact(tenantId, linkedinUrl, email),
     ]);
 
     const [signal] = await db
       .insert(salesSignalsTable)
       .values({
-        tenantId: 1,
+        tenantId,
         accountId,
         contactId,
         type: "visitor_identified",
@@ -247,9 +320,11 @@ router.post("/apollo", async (req, res): Promise<void> => {
   }
 });
 
-// ─── POST /webhooks/letterdrop ───────────────────────────────
+// ─── POST /webhooks/letterdrop/:secret ───────────────────────
 /**
- * Letterdrop sends lead/visitor identification events here.
+ * Letterdrop sends lead/visitor identification events here. The URL embeds
+ * a per-tenant secret so signals route to the right tenant; an unknown
+ * secret responds with 404.
  *
  * Letterdrop payload shape (flexible — we capture all common variants):
  * {
@@ -268,8 +343,14 @@ router.post("/apollo", async (req, res): Promise<void> => {
  * Nested variants (e.g. { lead: { ... } } or { visitor: { ... } }) are
  * also handled by flattening the first nested object found.
  */
-router.post("/letterdrop", async (req, res): Promise<void> => {
+router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
   try {
+    const tenantId = await resolveTenantBySecret("letterdrop", req.params.secret);
+    if (tenantId == null) {
+      res.status(404).end();
+      return;
+    }
+
     // Letterdrop sends either a single lead object or an array of leads
     const raw = req.body ?? {};
     const leads: Record<string, string | undefined>[] = Array.isArray(raw)
@@ -301,14 +382,14 @@ router.post("/letterdrop", async (req, res): Promise<void> => {
       const lastEngagedDate: string = props.last_engaged_date ?? "";
 
       const [accountId, contactId] = await Promise.all([
-        findAccountByDomain(companyDomain),
-        findContact(linkedinUrl, email),
+        findAccountByDomain(tenantId, companyDomain),
+        findContact(tenantId, linkedinUrl, email),
       ]);
 
       const [signal] = await db
         .insert(salesSignalsTable)
         .values({
-          tenantId: 1,
+          tenantId,
           accountId,
           contactId,
           type: "visitor_identified",
