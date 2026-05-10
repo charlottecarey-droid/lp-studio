@@ -944,7 +944,11 @@ async function runMigrations(): Promise<void> {
       // used invalid kind "headline" + headline/body fields (rendered
       // blank); two `dandy-versus` blocks shipped with empty props (no
       // text on either side).
-      const SEED_MARKER = "global_templates_seed_v19";
+      // v20: re-seed to pick up fc400e28 — flagship template images
+      // (before/after gallery, speaker grids, carousels) and bento tile
+      // backgrounds were repopulated in the seed file but never reached
+      // the DB because the v19 marker was already present.
+      const SEED_MARKER = "global_templates_seed_v20";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
