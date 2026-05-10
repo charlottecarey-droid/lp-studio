@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { IdSpotlightBlockProps } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
@@ -32,6 +33,33 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
     if (!onFieldChange) return;
     onFieldChange({ ...props, [key]: value });
   };
+
+  // Browsers cap how many <video autoplay> elements can decode in parallel
+  // (typically ~3 on desktop, even fewer on mobile). When a page has
+  // multiple Spotlight / Cinema Pillars blocks each with their own video,
+  // the later ones get stuck on a poster frame and look like static images.
+  // The fix: only call play() while the video is actually in the viewport,
+  // and pause it otherwise. That way the browser never has to juggle more
+  // than 1-2 active decoders even on a long page.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || typeof window === "undefined" || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            v.play().catch(() => {});
+          } else {
+            v.pause();
+          }
+        }
+      },
+      { threshold: 0.15 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, [videoSrc]);
 
   return (
     <section className="id-section id-spotlight" aria-labelledby="id-spotlight-h">
@@ -73,6 +101,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
           <div className="id-spotlight-media">
             {videoSrc ? (
               <video
+                ref={videoRef}
                 className="id-spotlight-video"
                 src={videoSrc}
                 autoPlay
