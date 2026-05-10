@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 /**
  * Force the SPA shell (index.html) to revalidate on every visit so returning
@@ -72,6 +73,21 @@ export default defineConfig({
           ),
         ]
       : []),
+    // Upload source maps to Sentry at build time so production stack traces
+    // are readable. No-ops (silent: true) when SENTRY_AUTH_TOKEN is missing,
+    // so local builds don't fail without Sentry credentials.
+    ...(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            release: { name: process.env.SENTRY_RELEASE },
+            sourcemaps: { filesToDeleteAfterUpload: ["**/*.map"] },
+            telemetry: false,
+          }),
+        ]
+      : []),
   ],
   resolve: {
     alias: {
@@ -84,6 +100,10 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Emit source maps so the Sentry vite plugin can upload them. They are
+    // deleted from the final bundle by `filesToDeleteAfterUpload` when the
+    // upload runs, so production users never download them.
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {

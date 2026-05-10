@@ -15,7 +15,12 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    entryPoints: [
+      path.resolve(artifactDir, "src/index.ts"),
+      // Built as a separate bundle so it can be loaded via Node's --import
+      // flag BEFORE the main bundle. See src/instrument.ts for why.
+      path.resolve(artifactDir, "src/instrument.ts"),
+    ],
     platform: "node",
     bundle: true,
     format: "esm",
@@ -66,6 +71,17 @@ async function buildAll() {
       "@opentelemetry/*",
       "@google-cloud/*",
       "@google/*",
+      "@sentry/*",
+      "@opentelemetry/*",
+      "import-in-the-middle",
+      "require-in-the-middle",
+      // Sentry's node SDK hooks Node's module loader to instrument these
+      // libraries automatically. Bundling them defeats that — the hooks
+      // never see them get loaded. Keep them external so the runtime
+      // import order (initSentry → import server) is what's enforced.
+      "express",
+      "http",
+      "https",
       "googleapis",
       "firebase-admin",
       "@parcel/watcher",

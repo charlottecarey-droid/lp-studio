@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
+import { Sentry, isSentryInitialized } from "./lib/sentry";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost, invalidateTenantHostCache } from "./lib/tenantHosts";
@@ -124,6 +125,13 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 app.use("/api", router);
+
+// Sentry express error handler — must be registered AFTER all routes
+// but BEFORE our own global error handler so it can capture the error
+// before we sanitize the response.
+if (isSentryInitialized()) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // Global error handler — must be registered after all routes.
 // Catches any error passed to next(err) or thrown inside async handlers.

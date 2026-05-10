@@ -33,6 +33,7 @@ const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/og-preview\// },     // GET /lp/og-preview/:slug — OG meta HTML for social bots
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
   { method: "*",    pattern: /^\/webhooks\// },           // POST /webhooks/rb2b, /webhooks/apollo — third-party visitor identification
+  { method: "GET",  pattern: /^\/lp\/test-sentry-error$/ }, // dev-only — guarded by NODE_ENV in the route module itself
 ];
 
 // Auth guard for /lp/* and /sales/* (applied before the routers)

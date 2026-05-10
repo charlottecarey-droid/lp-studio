@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import * as Sentry from "@sentry/react";
 
 export interface AuthUser {
   userId: number;
@@ -100,11 +101,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(u);
         // Record own tenantId on first load (only set once)
         setOwnTenantId(prev => prev === undefined ? u.tenantId : prev);
+        // Attach minimal user context to Sentry events. Email and name are
+        // intentionally omitted — only the opaque ids needed to triage.
+        Sentry.setUser({
+          id: String(u.userId),
+          tenantId: u.tenantId == null ? undefined : String(u.tenantId),
+        });
       } else {
         setUser(null);
+        Sentry.setUser(null);
       }
     } catch {
       setUser(null);
+      Sentry.setUser(null);
     } finally {
       setLoading(false);
     }
@@ -175,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPermOverride(null);
     setImpersonatedTenantName(null);
     setOwnTenantId(undefined);
+    Sentry.setUser(null);
   }, []);
 
   // hasPerm: uses override when a role is being previewed; otherwise the real user perms

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import * as Sentry from "@sentry/node";
 import { pool } from "@workspace/db";
 import { findTenantByHost } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
@@ -63,6 +64,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       }
     }
     req.authUser = user;
+
+    // Attach minimal user context to Sentry events fired during this
+    // request's scope. Only opaque ids — never email/name. Sentry's express
+    // integration isolates a per-request scope so this doesn't leak into
+    // other concurrent requests.
+    Sentry.setUser({
+      id: String(user.userId),
+      tenantId: user.tenantId == null ? undefined : String(user.tenantId),
+    });
 
     // Host enforcement: if the request arrives via a host that maps to a
     // tenant (custom domain, microsite, or wildcard subdomain), the session's

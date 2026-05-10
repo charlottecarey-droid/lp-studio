@@ -28,6 +28,7 @@ import tokenResolveRouter from "./token-resolve";
 import contentBriefRouter from "./content-brief";
 import inUseImagesRouter from "./in-use-images";
 import templatesRouter from "./templates";
+import testSentryErrorRouter from "./test-sentry-error";
 import adminTemplatesRouter from "./adminTemplates";
 import conversionScoringRouter from "./conversion-scoring";
 import pageSpeedRouter from "./page-speed";
@@ -76,5 +77,6 @@ router.use(programmaticPagesRouter);
 router.use(adMapRouter);
 router.use(rssSyncRouter);
 router.use(podcastAvailabilityRouter);
+router.use(testSentryErrorRouter);
 
 export default router;
