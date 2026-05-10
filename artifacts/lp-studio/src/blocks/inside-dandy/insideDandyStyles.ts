@@ -217,21 +217,30 @@ const CSS = `
    is gated on the .id-layer.id-active selector below; when the layer loses
    .id-active the rule no longer applies and the bars snap back to this
    collapsed base, so the next activation re-plays the staggered rise. */
-.id-art-bars .id-bar { background:linear-gradient(to top,var(--id-green) 0%,var(--id-cit) 100%); border-radius:2px 2px 0 0; opacity:0; transform:scaleY(0); transform-origin:bottom; }
-.id-cinema-art .id-layer.id-active .id-art-bars .id-bar { animation:idBarRise 1.1s var(--id-ease) both; }
-.id-art-bars .id-bar:nth-child(1){animation-delay:0.05s}
-.id-art-bars .id-bar:nth-child(2){animation-delay:0.10s}
-.id-art-bars .id-bar:nth-child(3){animation-delay:0.15s}
-.id-art-bars .id-bar:nth-child(4){animation-delay:0.20s}
-.id-art-bars .id-bar:nth-child(5){animation-delay:0.25s}
-.id-art-bars .id-bar:nth-child(6){animation-delay:0.30s}
-.id-art-bars .id-bar:nth-child(7){animation-delay:0.35s}
-.id-art-bars .id-bar:nth-child(8){animation-delay:0.40s}
-.id-art-bars .id-bar:nth-child(9){animation-delay:0.45s}
-.id-art-bars .id-bar:nth-child(10){animation-delay:0.50s}
-.id-art-bars .id-bar:nth-child(11){animation-delay:0.55s}
-.id-art-bars .id-bar:nth-child(12){animation-delay:0.60s}
-@keyframes idBarRise { from { transform:scaleY(0); transform-origin:bottom; opacity:0; } to { transform:scaleY(1); opacity:0.85; } }
+.id-art-bars .id-bar { position:relative; background:linear-gradient(to top,var(--id-green) 0%,var(--id-cit) 100%); border-radius:3px 3px 0 0; opacity:0; transform:scaleY(0); transform-origin:bottom; box-shadow:0 0 0 rgba(199,231,56,0); }
+/* Premium entrance: slower (1.8s) so each column reads as a deliberate
+   measurement, with a soft overshoot at the top (settle, not bounce) plus
+   a brief glow that fades after the bar lands. */
+.id-cinema-art .id-layer.id-active .id-art-bars .id-bar { animation:idBarRise 1.8s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
+.id-art-bars .id-bar:nth-child(1){animation-delay:0.08s}
+.id-art-bars .id-bar:nth-child(2){animation-delay:0.16s}
+.id-art-bars .id-bar:nth-child(3){animation-delay:0.24s}
+.id-art-bars .id-bar:nth-child(4){animation-delay:0.32s}
+.id-art-bars .id-bar:nth-child(5){animation-delay:0.40s}
+.id-art-bars .id-bar:nth-child(6){animation-delay:0.48s}
+.id-art-bars .id-bar:nth-child(7){animation-delay:0.56s}
+.id-art-bars .id-bar:nth-child(8){animation-delay:0.64s}
+.id-art-bars .id-bar:nth-child(9){animation-delay:0.72s}
+.id-art-bars .id-bar:nth-child(10){animation-delay:0.80s}
+.id-art-bars .id-bar:nth-child(11){animation-delay:0.88s}
+.id-art-bars .id-bar:nth-child(12){animation-delay:0.96s}
+@keyframes idBarRise {
+  0%   { transform:scaleY(0);     opacity:0;    box-shadow:0 0 0 rgba(199,231,56,0); }
+  55%  { opacity:0.85; }
+  78%  { transform:scaleY(1.06);  opacity:0.95; box-shadow:0 -8px 28px rgba(199,231,56,0.32); }
+  90%  { transform:scaleY(0.985); }
+  100% { transform:scaleY(1);     opacity:0.85; box-shadow:0 0 0 rgba(199,231,56,0); }
+}
 
 /* PARALLAX SHOWCASE */
 .id-showcase { position:relative; background:var(--id-teal-deep); padding:200px 0 240px; overflow:hidden; }
