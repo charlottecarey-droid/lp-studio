@@ -1376,8 +1376,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <ImagePicker value={p.imageUrl} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Video URL (YouTube embed)</Label>
-              <Input value={p.videoUrl} onChange={e => onChange({ ...block, props: { ...p, videoUrl: e.target.value } })} placeholder="https://www.youtube.com/embed/..." />
+              <VideoPicker label="Video (YouTube embed or library)" value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">CTA text</Label>
@@ -2313,8 +2312,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <ImagePicker value={p.backgroundImageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, backgroundImageUrl: v } })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Background video URL (optional)</Label>
-                  <Input value={p.backgroundVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
+                  <VideoPicker label="Background Video (optional)" value={p.backgroundVideoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, backgroundVideoUrl: v || undefined } })} />
                   <p className="text-[11px] text-muted-foreground">Overrides background image when set. Use a direct MP4/WebM link.</p>
                 </div>
                 {p.backgroundImageUrl && !p.backgroundVideoUrl && (
@@ -3800,8 +3798,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Background video URL (optional)</Label>
-              <Input value={p.backgroundVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
+              <VideoPicker label="Background Video (optional)" value={p.backgroundVideoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, backgroundVideoUrl: v || undefined } })} />
               <p className="text-[11px] text-muted-foreground">Plays behind the full section. Use a direct MP4/WebM link.</p>
             </div>
             <DsoRefreshRow fields={["eyebrow"]} values={{ eyebrow: p.eyebrow ?? "" }} />
