@@ -30,10 +30,13 @@ import {
 } from "@workspace/db";
 import { and, eq, ilike, or } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
 type Integration = "rb2b" | "apollo" | "letterdrop";
+
+const LOG_BODIES = process.env.LOG_WEBHOOK_BODIES === "1";
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -168,9 +171,9 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
       return;
     }
 
-    // RB2B fires for every visit; only populate identity when they match someone.
-    // Log the raw body so we can inspect the payload format if needed.
-    console.log("[rb2b] raw body:", JSON.stringify(req.body));
+    if (LOG_BODIES) {
+      logger.debug({ source: "rb2b", body: req.body }, "rb2b raw body");
+    }
 
     const props = req.body?.properties ?? req.body ?? {};
 
@@ -185,10 +188,10 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
     const slug                         = slugFromUrl(pageUrl ?? undefined);
 
     // Skip signals where RB2B couldn't identify anyone and has no page context.
-    const hasIdentity = firstName || lastName || companyName || linkedinUrl || email;
-    const hasContext  = pageUrl || slug;
+    const hasIdentity = Boolean(firstName || lastName || companyName || linkedinUrl || email);
+    const hasContext  = Boolean(pageUrl || slug);
     if (!hasIdentity && !hasContext) {
-      console.log("[rb2b] skipping — no identity or page context in payload");
+      logger.info({ source: "rb2b" }, "rb2b webhook skipped — no identity or page context");
       res.status(200).json({ ok: true, skipped: true });
       return;
     }
@@ -197,6 +200,21 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
       findAccountByDomain(tenantId, companyDomain),
       findContact(tenantId, linkedinUrl, email),
     ]);
+
+    logger.info(
+      {
+        tenantId,
+        source: "rb2b",
+        slug,
+        hasEmail: Boolean(email),
+        hasLinkedin: Boolean(linkedinUrl),
+        hasIdentity,
+        hasCompanyDomain: Boolean(companyDomain),
+        accountMatched: Boolean(accountId),
+        contactMatched: Boolean(contactId),
+      },
+      "rb2b webhook received",
+    );
 
     const [signal] = await db
       .insert(salesSignalsTable)
@@ -223,7 +241,7 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
     broadcastSignal(signal);
     res.status(201).json({ ok: true });
   } catch (err) {
-    console.error("POST /webhooks/rb2b error:", err);
+    logger.error({ err, source: "rb2b" }, "POST /webhooks/rb2b error");
     res.status(500).json({ error: "Internal error" });
   }
 });
@@ -268,6 +286,10 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
       return;
     }
 
+    if (LOG_BODIES) {
+      logger.debug({ source: "apollo", body: req.body }, "apollo raw body");
+    }
+
     const body = req.body ?? {};
 
     const org    = body.organization ?? body.org ?? {};
@@ -292,6 +314,21 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
       findContact(tenantId, linkedinUrl, email),
     ]);
 
+    logger.info(
+      {
+        tenantId,
+        source: "apollo",
+        slug,
+        hasEmail: Boolean(email),
+        hasLinkedin: Boolean(linkedinUrl),
+        hasIdentity: Boolean(firstName || lastName || email || linkedinUrl),
+        hasCompanyDomain: Boolean(companyDomain),
+        accountMatched: Boolean(accountId),
+        contactMatched: Boolean(contactId),
+      },
+      "apollo webhook received",
+    );
+
     const [signal] = await db
       .insert(salesSignalsTable)
       .values({
@@ -315,7 +352,7 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
     broadcastSignal(signal);
     res.status(201).json({ ok: true });
   } catch (err) {
-    console.error("POST /webhooks/apollo error:", err);
+    logger.error({ err, source: "apollo" }, "POST /webhooks/apollo error");
     res.status(500).json({ error: "Internal error" });
   }
 });
@@ -349,6 +386,10 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
     if (tenantId == null) {
       res.status(404).end();
       return;
+    }
+
+    if (LOG_BODIES) {
+      logger.debug({ source: "letterdrop", body: req.body }, "letterdrop raw body");
     }
 
     // Letterdrop sends either a single lead object or an array of leads
@@ -386,6 +427,22 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
         findContact(tenantId, linkedinUrl, email),
       ]);
 
+      logger.info(
+        {
+          tenantId,
+          source: "letterdrop",
+          slug,
+          hasEmail: Boolean(email),
+          hasLinkedin: Boolean(linkedinUrl),
+          hasIdentity: Boolean(firstName || lastName || email || linkedinUrl),
+          hasCompanyDomain: Boolean(companyDomain),
+          hasActivity: Boolean(activityType || lastActivity),
+          accountMatched: Boolean(accountId),
+          contactMatched: Boolean(contactId),
+        },
+        "letterdrop webhook received",
+      );
+
       const [signal] = await db
         .insert(salesSignalsTable)
         .values({
@@ -418,7 +475,7 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
 
     res.status(201).json({ ok: true });
   } catch (err) {
-    console.error("POST /webhooks/letterdrop error:", err);
+    logger.error({ err, source: "letterdrop" }, "POST /webhooks/letterdrop error");
     res.status(500).json({ error: "Internal error" });
   }
 });
