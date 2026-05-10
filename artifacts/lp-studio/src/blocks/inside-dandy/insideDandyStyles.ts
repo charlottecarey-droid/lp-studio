@@ -212,11 +212,11 @@ const CSS = `
 @keyframes idTravel { 0%{left:0%;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{left:100%;opacity:0} }
 /* DATA: rising bars */
 .id-art-bars { position:relative; width:90vw; max-width:760px; height:380px; display:grid; grid-template-columns:repeat(12,1fr); align-items:end; gap:8px; padding:0 20px; }
-/* Default state: bars sit collapsed at the baseline so the entrance animation
-   reads "growing up from zero" the moment the layer activates. The animation
-   rule is gated on `.id-layer.id-active` below — when the layer loses
-   `.id-active`, the rule no longer applies and the bars snap back to the
-   collapsed base state, so the next activation re-plays the staggered rise. */
+/* Default state: bars sit collapsed so the entrance animation reads as
+   "growing up from zero" each time the layer activates. The animation rule
+   is gated on the .id-layer.id-active selector below; when the layer loses
+   .id-active the rule no longer applies and the bars snap back to this
+   collapsed base, so the next activation re-plays the staggered rise. */
 .id-art-bars .id-bar { background:linear-gradient(to top,var(--id-green) 0%,var(--id-cit) 100%); border-radius:2px 2px 0 0; opacity:0; transform:scaleY(0); transform-origin:bottom; }
 .id-cinema-art .id-layer.id-active .id-art-bars .id-bar { animation:idBarRise 1.1s var(--id-ease) both; }
 .id-art-bars .id-bar:nth-child(1){animation-delay:0.05s}

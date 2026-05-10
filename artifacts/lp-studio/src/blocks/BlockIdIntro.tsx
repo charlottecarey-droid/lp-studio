@@ -76,11 +76,16 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
       raf = window.requestAnimationFrame(tick);
     };
     tick();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    // Listen in the CAPTURE phase on document so we catch scrolls from any
+    // ancestor scroll container (the builder preview pane scrolls inside
+    // <main overflow-y-auto>, not window). Plain window scroll listeners
+    // miss those events, which is why the letter reveal sat frozen at the
+    // initial dim state in the builder.
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", onScroll);
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
       window.removeEventListener("resize", onScroll);
     };
   }, []);
