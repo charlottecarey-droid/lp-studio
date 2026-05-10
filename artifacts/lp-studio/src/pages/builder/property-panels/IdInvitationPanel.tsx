@@ -1,19 +1,90 @@
-import type { IdInvitationBlockProps, IdInvitationMeta } from "@/lib/block-types";
+import type { IdInvitationBlockProps, IdInvitationMeta, IdCtaAction } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
   props: IdInvitationBlockProps;
   onChange: (props: IdInvitationBlockProps) => void;
 }
 
+const ACTIONS: { value: IdCtaAction; label: string }[] = [
+  { value: "url", label: "Open URL" },
+  { value: "chilipiper", label: "Open Chili Piper popup" },
+  { value: "modal-form", label: "Open modal with form" },
+  { value: "modal-chilipiper", label: "Open modal then Chili Piper" },
+  { value: "video-modal", label: "Open video in modal" },
+];
+
+function CtaEditor({
+  label, action, urlValue, urlOnChange, textValue, textOnChange,
+  chilipiperUrl, onChilipiperUrl, videoUrl, onVideoUrl,
+  onActionChange,
+}: {
+  label: string;
+  action: IdCtaAction;
+  urlValue: string;
+  urlOnChange: (v: string) => void;
+  textValue: string;
+  textOnChange: (v: string) => void;
+  chilipiperUrl: string;
+  onChilipiperUrl: (v: string) => void;
+  videoUrl: string;
+  onVideoUrl: (v: string) => void;
+  onActionChange: (a: IdCtaAction) => void;
+}) {
+  return (
+    <div className="border rounded-md p-3 space-y-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div>
+        <Label className="text-[11px] text-muted-foreground">Button text</Label>
+        <Input value={textValue} onChange={(e) => textOnChange(e.target.value)} className="h-8 text-xs" />
+      </div>
+      <div>
+        <Label className="text-[11px] text-muted-foreground">Action</Label>
+        <Select value={action} onValueChange={(v) => onActionChange(v as IdCtaAction)}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {ACTIONS.map((a) => <SelectItem key={a.value} value={a.value} className="text-xs">{a.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      {action === "url" && (
+        <div>
+          <Label className="text-[11px] text-muted-foreground">URL</Label>
+          <Input value={urlValue} onChange={(e) => urlOnChange(e.target.value)} className="h-8 text-xs" placeholder="https://… or #anchor" />
+        </div>
+      )}
+      {action === "chilipiper" && (
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
+          <Input value={chilipiperUrl} onChange={(e) => onChilipiperUrl(e.target.value)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/router/…" />
+        </div>
+      )}
+      {action === "video-modal" && (
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Video URL</Label>
+          <Input value={videoUrl} onChange={(e) => onVideoUrl(e.target.value)} className="h-8 text-xs" placeholder="YouTube, Vimeo, Loom, or .mp4 URL" />
+          <p className="text-[10px] text-muted-foreground mt-1">Opens an in-page video overlay (no form). Great for “Watch the film”.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function IdInvitationPanel({ props, onChange }: Props) {
   const u = (patch: Partial<IdInvitationBlockProps>) => onChange({ ...props, ...patch });
   const meta = props.meta ?? [];
   const setMeta = (next: IdInvitationMeta[]) => u({ meta: next });
+  const cta1Action = (props.cta1Action ?? "url") as IdCtaAction;
+  const cta2Action = (props.cta2Action ?? "url") as IdCtaAction;
+  const anyModal =
+    cta1Action === "modal-form" || cta1Action === "modal-chilipiper" ||
+    cta2Action === "modal-form" || cta2Action === "modal-chilipiper";
 
   return (
     <div className="space-y-4">
@@ -25,12 +96,43 @@ export function IdInvitationPanel({ props, onChange }: Props) {
       </div>
       <div className="space-y-2">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTAs</div>
-        <div className="grid grid-cols-2 gap-2">
-          <Input placeholder="Primary text" value={props.cta1Text ?? ""} onChange={(e) => u({ cta1Text: e.target.value })} className="h-8 text-xs" />
-          <Input placeholder="Primary URL" value={props.cta1Url ?? ""} onChange={(e) => u({ cta1Url: e.target.value })} className="h-8 text-xs" />
-          <Input placeholder="Secondary text" value={props.cta2Text ?? ""} onChange={(e) => u({ cta2Text: e.target.value })} className="h-8 text-xs" />
-          <Input placeholder="Secondary URL" value={props.cta2Url ?? ""} onChange={(e) => u({ cta2Url: e.target.value })} className="h-8 text-xs" />
-        </div>
+        <CtaEditor
+          label="Primary CTA"
+          action={cta1Action}
+          textValue={props.cta1Text ?? ""}
+          textOnChange={(v) => u({ cta1Text: v })}
+          urlValue={props.cta1Url ?? ""}
+          urlOnChange={(v) => u({ cta1Url: v })}
+          chilipiperUrl={props.cta1ChilipiperUrl ?? ""}
+          onChilipiperUrl={(v) => u({ cta1ChilipiperUrl: v })}
+          videoUrl={props.cta1VideoUrl ?? ""}
+          onVideoUrl={(v) => u({ cta1VideoUrl: v })}
+          onActionChange={(a) => u({ cta1Action: a })}
+        />
+        <CtaEditor
+          label="Secondary CTA"
+          action={cta2Action}
+          textValue={props.cta2Text ?? ""}
+          textOnChange={(v) => u({ cta2Text: v })}
+          urlValue={props.cta2Url ?? ""}
+          urlOnChange={(v) => u({ cta2Url: v })}
+          chilipiperUrl={props.cta2ChilipiperUrl ?? ""}
+          onChilipiperUrl={(v) => u({ cta2ChilipiperUrl: v })}
+          videoUrl={props.cta2VideoUrl ?? ""}
+          onVideoUrl={(v) => u({ cta2VideoUrl: v })}
+          onActionChange={(a) => u({ cta2Action: a })}
+        />
+        {anyModal && (
+          <CtaButtonModalConfigSection
+            ctaAction={
+              (cta1Action === "modal-chilipiper" || cta2Action === "modal-chilipiper")
+                ? "modal-chilipiper"
+                : "modal-form"
+            }
+            value={props}
+            onChange={(next) => onChange({ ...props, ...next })}
+          />
+        )}
       </div>
       <div className="space-y-2">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Meta row</div>

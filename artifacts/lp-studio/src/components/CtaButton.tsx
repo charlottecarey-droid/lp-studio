@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { VideoModal } from "@/components/VideoModal";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { CtaModalConfig } from "@/lib/block-types";
 import { usePageContext } from "@/lib/page-context";
@@ -9,7 +10,12 @@ import { safeNavigate } from "@/lib/safe-url";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
-export type CtaActionMode = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+export type CtaActionMode =
+  | "url"
+  | "chilipiper"
+  | "modal-form"
+  | "modal-chilipiper"
+  | "video-modal";
 
 export interface CtaButtonProps extends CtaModalConfig {
   /** Behavior when the button is clicked. Defaults to "url". */
@@ -18,6 +24,10 @@ export interface CtaButtonProps extends CtaModalConfig {
   ctaUrl?: string;
   /** Used when ctaAction === "chilipiper". */
   chilipiperUrl?: string;
+  /** Used when ctaAction === "video-modal" — opens an in-page video overlay. */
+  videoUrl?: string;
+  /** Optional poster shown before the video (native video sources only). */
+  videoPosterUrl?: string;
   /** Optional callback (analytics, builder preview) fired alongside default behavior. */
   onClick?: () => void;
   className?: string;
@@ -46,6 +56,8 @@ export function CtaButton({
   ctaAction = "url",
   ctaUrl,
   chilipiperUrl,
+  videoUrl,
+  videoPosterUrl,
   modalChilipiperUrl,
   modalFormSource = "simple",
   modalFormId,
@@ -72,6 +84,7 @@ export function CtaButton({
   children,
 }: CtaButtonProps) {
   const [open, setOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const ctx = usePageContext();
   const resolvedPageId = pageId ?? ctx.pageId ?? undefined;
   const resolvedVariantId = variantId ?? ctx.variantId ?? undefined;
@@ -86,6 +99,7 @@ export function CtaButton({
   }
 
   const isModal = ctaAction === "modal-form" || ctaAction === "modal-chilipiper";
+  const isVideo = ctaAction === "video-modal";
 
   const button = (
     <motion.button
@@ -93,8 +107,9 @@ export function CtaButton({
       onClick={() => {
         onClick?.();
         if (isModal) setOpen(true);
+        if (isVideo && videoUrl && videoUrl.trim() !== "") setVideoOpen(true);
         // URL-mode fallback: if no host onClick wired navigation, navigate here.
-        if (!isModal && !onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
+        if (!isModal && !isVideo && !onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
           // Same-page anchors and relative paths navigate in the same tab so
           // anchor links scroll instead of opening a (popup-blocked) new tab.
           const trimmed = ctaUrl.trim();
@@ -111,6 +126,21 @@ export function CtaButton({
       {children}
     </motion.button>
   );
+
+  if (isVideo) {
+    return (
+      <>
+        {button}
+        <VideoModal
+          open={videoOpen}
+          onClose={() => setVideoOpen(false)}
+          videoUrl={videoUrl}
+          posterUrl={videoPosterUrl}
+          ariaLabel="Video"
+        />
+      </>
+    );
+  }
 
   if (!isModal) return button;
 

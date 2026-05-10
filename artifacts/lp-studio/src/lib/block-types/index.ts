@@ -109,6 +109,7 @@ export type {
   IdStatItem,
   IdInvitationBlockProps,
   IdInvitationMeta,
+  IdCtaAction,
   ContentSeriesEpisode,
   EpisodeStatus,
   ContentSeriesHost,

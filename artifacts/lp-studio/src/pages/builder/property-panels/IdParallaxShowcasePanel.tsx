@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: IdParallaxShowcaseBlockProps;
@@ -31,10 +32,7 @@ export function IdParallaxShowcasePanel({ props, onChange }: Props) {
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Frame {i + 1}</div>
             <Button size="sm" variant="ghost" onClick={() => u({ frames: frames.filter((_, idx) => idx !== i) })}><X className="w-3 h-3" /></Button>
           </div>
-          <div>
-            <Label className="text-[11px] text-muted-foreground">Image URL</Label>
-            <Input value={fr.imageUrl ?? ""} onChange={(e) => update(i, { imageUrl: e.target.value })} className="h-8 text-xs" />
-          </div>
+          <ImagePicker label="Image" value={fr.imageUrl ?? ""} onChange={(v) => update(i, { imageUrl: v })} />
           <div>
             <Label className="text-[11px] text-muted-foreground">Label</Label>
             <Input value={fr.label ?? ""} onChange={(e) => update(i, { label: e.target.value })} className="h-8 text-xs" />

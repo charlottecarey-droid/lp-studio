@@ -1423,7 +1423,17 @@ export interface ContentSeriesBlockProps {
 /*  page broken into reusable text/image-editable sections.                 */
 /* ------------------------------------------------------------------------- */
 
-export interface IdHeroBlockProps {
+/** Action mode supported by Inside Dandy CTA buttons. Mirrors CtaActionMode
+ *  but adds "video-modal" so the secondary "Watch the film" CTA can open an
+ *  in-page video overlay instead of a form. */
+export type IdCtaAction =
+  | "url"
+  | "chilipiper"
+  | "modal-form"
+  | "modal-chilipiper"
+  | "video-modal";
+
+export interface IdHeroBlockProps extends CtaModalConfig {
   eyebrow?: string;
   /** First headline line (plain text). */
   line1?: string;
@@ -1434,8 +1444,14 @@ export interface IdHeroBlockProps {
   lead?: string;
   cta1Text?: string;
   cta1Url?: string;
+  cta1Action?: IdCtaAction;
+  cta1ChilipiperUrl?: string;
+  cta1VideoUrl?: string;
   cta2Text?: string;
   cta2Url?: string;
+  cta2Action?: IdCtaAction;
+  cta2ChilipiperUrl?: string;
+  cta2VideoUrl?: string;
   bgImage?: string;
 }
 
@@ -1494,13 +1510,19 @@ export interface IdInvitationMeta {
   text: string;
 }
 
-export interface IdInvitationBlockProps {
+export interface IdInvitationBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   blurb?: string;
   cta1Text?: string;
   cta1Url?: string;
+  cta1Action?: IdCtaAction;
+  cta1ChilipiperUrl?: string;
+  cta1VideoUrl?: string;
   cta2Text?: string;
   cta2Url?: string;
+  cta2Action?: IdCtaAction;
+  cta2ChilipiperUrl?: string;
+  cta2VideoUrl?: string;
   meta?: IdInvitationMeta[];
 }
