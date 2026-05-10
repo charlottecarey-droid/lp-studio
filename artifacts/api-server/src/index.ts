@@ -5,8 +5,25 @@ config({ path: resolve(process.cwd(), ".env") });
 
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { invalidateTenantHostCache } from "./lib/tenantHosts";
+
+const SLUG_REDIRECT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
+
+async function cleanupExpiredSlugRedirects(): Promise<void> {
+  try {
+    const result = await pool.query(
+      `DELETE FROM tenant_slug_redirects WHERE expires_at < now()`
+    );
+    if (result.rowCount && result.rowCount > 0) {
+      logger.info({ deleted: result.rowCount }, "expired tenant_slug_redirects cleaned up");
+      invalidateTenantHostCache();
+    }
+  } catch (err) {
+    logger.error({ err }, "tenant_slug_redirects cleanup failed (non-fatal)");
+  }
+}
 
 async function runMigrations(): Promise<void> {
   try {
@@ -1017,6 +1034,14 @@ runMigrations()
       }
 
       logger.info({ port }, "Server listening");
+
+      // Periodic cleanup of expired workspace URL redirects (task #136).
+      // Runs once at boot and then on a fixed interval. Failures are logged
+      // but never crash the server.
+      void cleanupExpiredSlugRedirects();
+      setInterval(() => {
+        void cleanupExpiredSlugRedirects();
+      }, SLUG_REDIRECT_CLEANUP_INTERVAL_MS).unref();
     });
   })
   .catch((err) => {
