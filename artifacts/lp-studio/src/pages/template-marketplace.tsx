@@ -471,16 +471,21 @@ export default function TemplateMarketplace() {
                   key={template.id}
                   className="group overflow-hidden border border-border/40 hover:border-border/80 hover:shadow-lg transition-all duration-300 flex flex-col"
                 >
-                  {/* Thumbnail — use ogImage if available, otherwise gradient */}
-                  <div
-                    className="h-40 relative overflow-hidden"
+                  {/* Thumbnail — use ogImage if available, otherwise gradient.
+                      Clicking the thumbnail opens the preview modal (matches
+                      the Eye icon affordance on hover). */}
+                  <button
+                    type="button"
+                    onClick={() => handlePreview(template)}
+                    aria-label={`Preview ${template.templateLabel}`}
+                    className="h-40 relative overflow-hidden block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     style={
                       template.ogImage
                         ? { backgroundImage: `url(${template.ogImage})`, backgroundSize: "cover", backgroundPosition: "center" }
                         : { background: getGradient(index) }
                     }
                   >
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
                       <Eye className="h-8 w-8 text-white" />
                     </div>
                     {template.status === "published" && (
@@ -493,7 +498,7 @@ export default function TemplateMarketplace() {
                         Starter
                       </Badge>
                     )}
-                  </div>
+                  </button>
 
                   {/* Content */}
                   <div className="p-5 flex flex-col flex-grow">
