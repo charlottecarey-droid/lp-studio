@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star, CheckSquare, MessageSquare } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star, CheckSquare, MessageSquare, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
@@ -63,7 +63,7 @@ interface Test {
   variantCount?: number;
 }
 
-type FilterStatus = "All" | "Draft" | "Published" | "Running" | "Templates";
+type FilterStatus = "All" | "Mine" | "Draft" | "Published" | "Running" | "Templates";
 type SortBy = "recent" | "author";
 
 function CopyButton({ url }: { url: string }) {
@@ -882,6 +882,13 @@ export default function PagesGallery() {
       if (filterStatus === "Published" && page.status !== "published") return false;
       if (filterStatus === "Running" && !runningTests.some(t => t.slug === page.slug)) return false;
       if (filterStatus === "Templates" && !page.isTemplate) return false;
+      if (filterStatus === "Mine") {
+        const me = (user?.name ?? "").trim().toLowerCase();
+        if (!me) return false;
+        const created = (page.createdByName ?? "").trim().toLowerCase();
+        const updated = (page.updatedByName ?? "").trim().toLowerCase();
+        if (created !== me && updated !== me) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const author = (page.createdByName ?? page.updatedByName ?? "").toLowerCase();
@@ -943,7 +950,9 @@ export default function PagesGallery() {
         {!isLoading && pages.length > 0 && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex gap-1 flex-wrap">
-              {(["All", "Draft", "Published", "Running", "Templates"] as const).map(status => (
+              {((["All", "Mine", "Draft", "Published", "Running", "Templates"] as const)
+                .filter(s => s !== "Mine" || !!user?.name)
+              ).map(status => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
@@ -953,9 +962,11 @@ export default function PagesGallery() {
                       ? "bg-foreground/10 text-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
+                  title={status === "Mine" ? "Pages you authored or last updated" : undefined}
                 >
+                  {status === "Mine" && <User className="w-3 h-3" />}
                   {status === "Templates" && <Star className="w-3 h-3" />}
-                  {status}
+                  {status === "Mine" ? "My Pages" : status}
                 </button>
               ))}
             </div>
@@ -1016,7 +1027,7 @@ export default function PagesGallery() {
         ) : filteredPages.length === 0 ? (
           <div className="border border-border rounded-lg p-12 text-center">
             <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-foreground mb-1">No {filterStatus === "All" ? "pages" : filterStatus.toLowerCase() + " pages"}</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-1">No {filterStatus === "All" ? "pages" : filterStatus === "Mine" ? "pages by you yet" : filterStatus.toLowerCase() + " pages"}</h3>
             <p className="text-xs text-muted-foreground mb-4">Try a different filter or create a new page.</p>
             <Button variant="outline" size="sm" className="rounded-lg text-xs" onClick={() => setFilterStatus("All")}>
               View all pages
