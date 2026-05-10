@@ -149,6 +149,22 @@ export function IdHeroPanel({ props, onChange }: Props) {
         )}
       </div>
       <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout</div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Content alignment</Label>
+          <Select
+            value={props.align ?? "center"}
+            onValueChange={(v) => u({ align: v as "center" | "right" })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="center" className="text-xs">Center</SelectItem>
+              <SelectItem value="right" className="text-xs">Right</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background image</div>
         <ImagePicker value={props.bgImage ?? ""} onChange={(v) => u({ bgImage: v || undefined })} placeholder="Upload or paste a URL" />
       </div>

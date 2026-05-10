@@ -1453,6 +1453,8 @@ export interface IdHeroBlockProps extends CtaModalConfig {
   cta2ChilipiperUrl?: string;
   cta2VideoUrl?: string;
   bgImage?: string;
+  /** Horizontal alignment of the hero content. Defaults to "center". */
+  align?: "center" | "right";
 }
 
 export interface IdMarqueeBlockProps {

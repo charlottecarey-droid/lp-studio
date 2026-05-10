@@ -24,7 +24,7 @@ const CSS = `
 .id-in-view .id-reveal-d4 { transition-delay:480ms; }
 
 /* HERO — centered cinematic with concentric signal-orb + smoky photo */
-.id-hero { position:relative; height:100vh; min-height:780px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); }
+.id-hero { position:relative; height:100vh; min-height:780px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); padding:80px 0 140px; }
 .id-hero .id-hero-bg { position:absolute; inset:-5%; background-size:cover; background-position:center; opacity:0; transform:scale(1.15); transition:opacity 1800ms var(--id-ease-out), transform 16000ms linear; filter:saturate(0.55) contrast(1.05); }
 .id-hero.id-ready .id-hero-bg { opacity:0.32; transform:scale(1); }
 .id-hero .id-hero-overlay { position:absolute; inset:0; z-index:2; background:radial-gradient(ellipse at 50% 70%,rgba(0,58,48,0.4) 0%,rgba(0,24,20,0.92) 60%),linear-gradient(180deg,rgba(0,24,20,0.6) 0%,rgba(0,24,20,0.3) 40%,rgba(0,24,20,0.95) 100%); }
@@ -47,7 +47,11 @@ const CSS = `
 .id-hero.id-ready .id-lead { opacity:1; transform:translateY(0); }
 .id-hero .id-ctas { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; opacity:0; transform:translateY(12px); transition:opacity 1100ms 880ms var(--id-ease-out), transform 1100ms 880ms var(--id-ease-out); }
 .id-hero.id-ready .id-ctas { opacity:1; transform:translateY(0); }
-.id-hero .id-scroll-hint { position:absolute; bottom:32px; left:50%; transform:translateX(-50%); z-index:10; font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.5); display:flex; flex-direction:column; align-items:center; gap:14px; opacity:0; transition:opacity 1500ms 1400ms var(--id-ease-out); }
+.id-hero .id-scroll-hint { position:absolute; bottom:32px; left:50%; transform:translateX(-50%); z-index:10; font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.5); display:flex; flex-direction:column; align-items:center; gap:14px; opacity:0; transition:opacity 1500ms 1400ms var(--id-ease-out); pointer-events:none; }
+/* Right-aligned hero variant — text, lead and CTAs hug the right edge. */
+.id-hero.id-hero-align-right .id-hero-content { text-align:right; }
+.id-hero.id-hero-align-right .id-lead { margin-left:auto; margin-right:0; }
+.id-hero.id-hero-align-right .id-ctas { justify-content:flex-end; }
 .id-hero.id-ready .id-scroll-hint { opacity:1; }
 .id-hero .id-scroll-hint .id-scroll-line { width:1px; height:48px; background:linear-gradient(to bottom,var(--id-cit),transparent); animation:idScrollLine 2.4s ease-in-out infinite; }
 @keyframes idScrollLine { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform:scaleY(1);transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }

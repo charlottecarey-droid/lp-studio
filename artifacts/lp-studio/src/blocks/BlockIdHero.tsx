@@ -36,7 +36,11 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
   const cta2Action = normalizeAction(props.cta2Action);
 
   return (
-    <section className={`id-block id-hero${ready ? " id-ready" : ""}`}>
+    <section
+      className={`id-block id-hero${ready ? " id-ready" : ""}${
+        props.align === "right" ? " id-hero-align-right" : ""
+      }`}
+    >
       {props.bgImage && (
         <div className="id-hero-bg" style={{ backgroundImage: `url(${props.bgImage})` }} />
       )}
