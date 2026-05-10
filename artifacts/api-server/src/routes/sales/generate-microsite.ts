@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 import rateLimit from "express-rate-limit";
 
@@ -957,7 +958,8 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
 /**
  * POST /sales/accounts/:accountId/generate-microsite
  */
-router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (req, res): Promise<void> => {
+router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLimiter, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const accountId = Number(req.params.accountId);
   const { prompt: userPrompt, audience, templateId, ctaOverride } = req.body as { prompt?: string; audience?: MicrositeAudience; templateId?: number; ctaOverride?: CtaOverride };
 
@@ -967,11 +969,15 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
   }
 
   try {
-    const [account] = await db.select().from(salesAccountsTable).where(eq(salesAccountsTable.id, accountId));
+    const [account] = await db.select().from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
     const [briefing] = await db.select().from(salesBriefingsTable)
-      .where(eq(salesBriefingsTable.accountId, accountId))
+      .where(and(
+        eq(salesBriefingsTable.tenantId, tenantId),
+        eq(salesBriefingsTable.accountId, accountId),
+      ))
       .orderBy(desc(salesBriefingsTable.updatedAt))
       .limit(1);
 

@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable, salesBriefingsTable } from "@workspace/db";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 
 const router = Router();
@@ -26,10 +27,11 @@ function checkAIRateLimit(key: string): boolean {
 // POST /person-brief  (mounted under /api/sales by the parent router)
 // Accepts the research text already gathered by draft-email and generates
 // a structured call-prep brief for a specific contact.
-router.post("/person-brief", async (req, res): Promise<void> => {
+router.post("/person-brief", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     // Rate limit: max 10 AI requests per minute per tenant
-    const tenantKey = `person-brief-${(req as any).tenantId ?? "global"}`;
+    const tenantKey = `person-brief-${tenantId}`;
     if (!checkAIRateLimit(tenantKey)) {
       res.status(429).json({ error: "Too many AI requests. Please wait a minute before trying again." });
       return;
@@ -52,8 +54,10 @@ router.post("/person-brief", async (req, res): Promise<void> => {
       return;
     }
 
-    const [contact] = await db.select().from(salesContactsTable).where(eq(salesContactsTable.id, contactId)).limit(1);
-    const [account] = await db.select().from(salesAccountsTable).where(eq(salesAccountsTable.id, accountId)).limit(1);
+    const [contact] = await db.select().from(salesContactsTable)
+      .where(and(eq(salesContactsTable.id, contactId), eq(salesContactsTable.tenantId, tenantId))).limit(1);
+    const [account] = await db.select().from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId))).limit(1);
     if (!contact || !account) {
       res.status(404).json({ error: "Contact or account not found" });
       return;
@@ -80,7 +84,10 @@ router.post("/person-brief", async (req, res): Promise<void> => {
     // ─── Load account briefing (pre-generated intelligence) ─────
     let briefing: BriefingData | null = null;
     const [br] = await db.select().from(salesBriefingsTable)
-      .where(eq(salesBriefingsTable.accountId, accountId))
+      .where(and(
+        eq(salesBriefingsTable.tenantId, tenantId),
+        eq(salesBriefingsTable.accountId, accountId),
+      ))
       .orderBy(desc(salesBriefingsTable.updatedAt))
       .limit(1);
     if (br?.briefingData && (br.briefingData as Record<string, unknown>).overview) {

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
@@ -79,6 +79,7 @@ export type SfdcSyncLog = typeof sfdcSyncLogTable.$inferSelect;
  */
 export const sfdcLeadsTable = pgTable("sfdc_leads", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
   salesforceId: text("salesforce_id").notNull().unique(),
   firstName: text("first_name"),
   lastName: text("last_name").notNull(),
@@ -96,7 +97,9 @@ export const sfdcLeadsTable = pgTable("sfdc_leads", {
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => ({
+  tenantIdx: index("idx_sfdc_leads_tenant_id").on(t.tenantId),
+}));
 
 export type SfdcLead = typeof sfdcLeadsTable.$inferSelect;
 
@@ -105,6 +108,7 @@ export type SfdcLead = typeof sfdcLeadsTable.$inferSelect;
  */
 export const sfdcOpportunitiesTable = pgTable("sfdc_opportunities", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
   salesforceId: text("salesforce_id").notNull().unique(),
   accountId: integer("account_id").references(() => salesAccountsTable.id),
   name: text("name").notNull(),
@@ -121,6 +125,8 @@ export const sfdcOpportunitiesTable = pgTable("sfdc_opportunities", {
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => ({
+  tenantIdx: index("idx_sfdc_opportunities_tenant_id").on(t.tenantId),
+}));
 
 export type SfdcOpportunity = typeof sfdcOpportunitiesTable.$inferSelect;

@@ -252,10 +252,10 @@ router.post("/sfdc/sync/:object", requireAuth, async (req, res): Promise<void> =
         result = await sfdcService.syncContacts(connection.id, tenantId);
         break;
       case "leads":
-        result = await sfdcService.syncLeads(connection.id);
+        result = await sfdcService.syncLeads(connection.id, tenantId);
         break;
       case "opportunities":
-        result = await sfdcService.syncOpportunities(connection.id);
+        result = await sfdcService.syncOpportunities(connection.id, tenantId);
         break;
     }
 
@@ -392,13 +392,15 @@ router.put("/sfdc/field-mappings", requireAuth, async (req, res): Promise<void> 
 
 /**
  * GET /sfdc/leads
- * List synced SFDC Leads
+ * List synced SFDC Leads (scoped to caller's tenant).
  */
-router.get("/sfdc/leads", async (_req, res): Promise<void> => {
+router.get("/sfdc/leads", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const leads = await db
       .select()
       .from(sfdcLeadsTable)
+      .where(eq(sfdcLeadsTable.tenantId, tenantId))
       .orderBy(desc(sfdcLeadsTable.lastSyncedAt))
       .limit(100);
 
@@ -411,13 +413,15 @@ router.get("/sfdc/leads", async (_req, res): Promise<void> => {
 
 /**
  * GET /sfdc/opportunities
- * List synced SFDC Opportunities
+ * List synced SFDC Opportunities (scoped to caller's tenant).
  */
-router.get("/sfdc/opportunities", async (_req, res): Promise<void> => {
+router.get("/sfdc/opportunities", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const opportunities = await db
       .select()
       .from(sfdcOpportunitiesTable)
+      .where(eq(sfdcOpportunitiesTable.tenantId, tenantId))
       .orderBy(desc(sfdcOpportunitiesTable.lastSyncedAt))
       .limit(100);
 

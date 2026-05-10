@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesBriefingsTable, salesAccountsTable, lpBrandSettingsTable } from "@workspace/db";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 
 const router = Router();
@@ -245,10 +246,14 @@ function buildFallbackBriefing(companyName: string): Record<string, unknown> {
 // ─── Routes ─────────────────────────────────────────────────
 
 // Get briefing for an account
-router.get("/accounts/:accountId/briefing", async (req, res): Promise<void> => {
+router.get("/accounts/:accountId/briefing", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const [briefing] = await db.select().from(salesBriefingsTable)
-      .where(eq(salesBriefingsTable.accountId, Number(req.params.accountId)))
+      .where(and(
+        eq(salesBriefingsTable.tenantId, tenantId),
+        eq(salesBriefingsTable.accountId, Number(req.params.accountId)),
+      ))
       .orderBy(desc(salesBriefingsTable.updatedAt))
       .limit(1);
     if (!briefing) {
@@ -263,16 +268,18 @@ router.get("/accounts/:accountId/briefing", async (req, res): Promise<void> => {
 });
 
 // Generate or refresh briefing for an account
-router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => {
+router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const accountId = Number(req.params.accountId);
   if (isNaN(accountId) || accountId <= 0) {
     res.status(400).json({ error: "Invalid accountId" });
     return;
   }
   try {
-    // Load account first — we need tenantId before querying brand settings
+    // Load account scoped to caller's tenant — guards against cross-tenant
+    // access via a guessed accountId.
     const [account] = await db.select().from(salesAccountsTable)
-      .where(eq(salesAccountsTable.id, accountId));
+      .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
     // Load brand settings scoped to this tenant
@@ -308,20 +315,27 @@ router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => 
       research.sources,
     );
 
-    // Check if briefing exists
+    // Check if briefing exists (scoped to tenant)
     const existing = await db.select({ id: salesBriefingsTable.id })
       .from(salesBriefingsTable)
-      .where(eq(salesBriefingsTable.accountId, accountId))
+      .where(and(
+        eq(salesBriefingsTable.tenantId, tenantId),
+        eq(salesBriefingsTable.accountId, accountId),
+      ))
       .limit(1);
 
     let result;
     if (existing.length > 0) {
       [result] = await db.update(salesBriefingsTable)
         .set({ briefingData, status: "complete" })
-        .where(eq(salesBriefingsTable.id, existing[0].id))
+        .where(and(
+          eq(salesBriefingsTable.tenantId, tenantId),
+          eq(salesBriefingsTable.id, existing[0].id),
+        ))
         .returning();
     } else {
       [result] = await db.insert(salesBriefingsTable).values({
+        tenantId,
         accountId,
         briefingData,
         status: "complete",

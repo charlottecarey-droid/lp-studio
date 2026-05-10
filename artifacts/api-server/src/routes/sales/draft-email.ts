@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable } from "@workspace/db";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 
 const router = Router();
@@ -92,9 +93,10 @@ async function firecrawlScrape(apiKey: string, domain: string): Promise<string> 
 }
 
 // POST /sales/draft-email — rich cold email using all account/contact fields + Perplexity research + Firecrawl site crawl
-router.post("/draft-email", async (req, res): Promise<void> => {
+router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   // Rate limit: max 10 AI requests per minute per tenant
-  const tenantKey = `draft-email-${(req as any).tenantId ?? "global"}`;
+  const tenantKey = `draft-email-${tenantId}`;
   if (!checkAIRateLimit(tenantKey)) {
     res.status(429).json({ error: "Too many AI requests. Please wait a minute before trying again." });
     return;
@@ -123,7 +125,7 @@ router.post("/draft-email", async (req, res): Promise<void> => {
 
     if (contactId) {
       const [c] = await db.select().from(salesContactsTable)
-        .where(eq(salesContactsTable.id, Number(contactId)));
+        .where(and(eq(salesContactsTable.id, Number(contactId)), eq(salesContactsTable.tenantId, tenantId)));
       if (c) {
         firstName    = c.firstName ?? "";
         lastName     = c.lastName ?? "";
@@ -157,7 +159,7 @@ router.post("/draft-email", async (req, res): Promise<void> => {
 
     if (accountId) {
       const [a] = await db.select().from(salesAccountsTable)
-        .where(eq(salesAccountsTable.id, Number(accountId)));
+        .where(and(eq(salesAccountsTable.id, Number(accountId)), eq(salesAccountsTable.tenantId, tenantId)));
       if (a) {
         accountName       = a.displayName ?? a.name ?? "";
         domain            = a.domain ?? "";
@@ -181,7 +183,10 @@ router.post("/draft-email", async (req, res): Promise<void> => {
     let briefing: BriefingData | null = null;
     if (accountId) {
       const [br] = await db.select().from(salesBriefingsTable)
-        .where(eq(salesBriefingsTable.accountId, Number(accountId)))
+        .where(and(
+          eq(salesBriefingsTable.tenantId, tenantId),
+          eq(salesBriefingsTable.accountId, Number(accountId)),
+        ))
         .orderBy(desc(salesBriefingsTable.updatedAt))
         .limit(1);
       if (br?.briefingData && (br.briefingData as Record<string, unknown>).overview) {
@@ -192,6 +197,7 @@ router.post("/draft-email", async (req, res): Promise<void> => {
     // ─── 4. Hotlink check ────────────────────────────────────────
     let hasMicrosite = false;
     if (contactId) {
+      // Hotlinks have no tenantId column; contactId already verified tenant-scoped above.
       const hotlinks = await db.select({ id: salesHotlinksTable.id })
         .from(salesHotlinksTable)
         .where(eq(salesHotlinksTable.contactId, Number(contactId)))

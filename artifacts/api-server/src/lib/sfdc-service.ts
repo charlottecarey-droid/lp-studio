@@ -446,7 +446,7 @@ export class SfdcService {
   /**
    * Sync Salesforce Leads into sfdc_leads table.
    */
-  async syncLeads(connectionId: number): Promise<{ created: number; updated: number }> {
+  async syncLeads(connectionId: number, tenantId: number = 1): Promise<{ created: number; updated: number }> {
     logger.info({ connectionId }, "Starting leads sync");
 
     const logId = (await db
@@ -493,6 +493,7 @@ export class SfdcService {
             updated++;
           } else {
             await db.insert(sfdcLeadsTable).values({
+              tenantId,
               salesforceId: lead.Id,
               firstName: lead.FirstName || null,
               lastName: lead.LastName,
@@ -547,7 +548,7 @@ export class SfdcService {
   /**
    * Sync Salesforce Opportunities into sfdc_opportunities table.
    */
-  async syncOpportunities(connectionId: number): Promise<{ created: number; updated: number }> {
+  async syncOpportunities(connectionId: number, tenantId: number = 1): Promise<{ created: number; updated: number }> {
     logger.info({ connectionId }, "Starting opportunities sync");
 
     const logId = (await db
@@ -601,6 +602,7 @@ export class SfdcService {
             updated++;
           } else {
             await db.insert(sfdcOpportunitiesTable).values({
+              tenantId,
               salesforceId: opp.Id,
               accountId: sfdcAccount?.id || null,
               name: opp.Name,
@@ -663,8 +665,8 @@ export class SfdcService {
       const results = await Promise.all([
         this.syncAccounts(connectionId, tenantId),
         this.syncContacts(connectionId, tenantId),
-        this.syncLeads(connectionId),
-        this.syncOpportunities(connectionId),
+        this.syncLeads(connectionId, tenantId),
+        this.syncOpportunities(connectionId, tenantId),
       ]);
 
       await db
