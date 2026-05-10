@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { VideoModal } from "@/components/VideoModal";
+import { useBrandConfig } from "@/components/BrandSwatches";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { CtaModalConfig } from "@/lib/block-types";
 import { usePageContext } from "@/lib/page-context";
@@ -85,6 +86,12 @@ export function CtaButton({
 }: CtaButtonProps) {
   const [open, setOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  // Fall back to the shared brand config (used by every other modal-CTA in
+  // the studio) when the host block doesn't pass `brand` explicitly. Without
+  // this the EmailCaptureModal renders "Brand context is missing." for any
+  // Inside-Dandy CTA that opens a form.
+  const ctxBrand = useBrandConfig();
+  const resolvedBrand = brand ?? ctxBrand ?? undefined;
   const ctx = usePageContext();
   const resolvedPageId = pageId ?? ctx.pageId ?? undefined;
   const resolvedVariantId = variantId ?? ctx.variantId ?? undefined;
@@ -169,7 +176,7 @@ export function CtaButton({
           showPhone: modalShowPhone,
           showCompany: modalShowCompany,
         }}
-        brand={brand}
+        brand={resolvedBrand}
         pageId={resolvedPageId}
         variantId={resolvedVariantId}
         source={source}
