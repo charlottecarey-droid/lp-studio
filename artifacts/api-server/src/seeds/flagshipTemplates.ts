@@ -1345,6 +1345,231 @@ const productizedAgency: GlobalTemplateSeed = {
   ],
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// 9. Content Series (Podcast variant)
+// ──────────────────────────────────────────────────────────────────────────
+const contentSeriesPodcast: GlobalTemplateSeed = {
+  slug: "global-flagship-content-series-podcast",
+  title: "Content Series — Podcast",
+  templateLabel: "Content Series — Podcast",
+  templateDescription:
+    "An editorial home for an ongoing content series — works for podcasts, video shows, newsletters, or blogs. This variant is set up as a podcast: hero episode, host bio, episode archive, guest application, and a subscribe block.",
+  ogImage: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1200&q=80",
+  industry: "media",
+  premiumRank: 9,
+  blocks: [
+    {
+      id: id("content-series", 1),
+      type: "content-series",
+      props: {
+        seriesType: "podcast",
+        seriesTitle: "Signal & Stack",
+        seriesSubtitle:
+          "An ongoing content series — set this up as a podcast, video show, newsletter, or blog. Pick the format that fits your audience; this template is configured as a podcast.",
+        navLinks: [
+          { label: "Episodes", href: "#episodes" },
+          { label: "Guests", href: "#guests" },
+          { label: "About", href: "#about" },
+          { label: "Subscribe", href: "#subscribe" },
+        ],
+        navCtaText: "Listen Now",
+        navCtaUrl: "#subscribe",
+        heroLayout: "full-bleed",
+        heroEyebrow: "NEW EPISODE",
+        heroImageUrl:
+          "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1920&q=80",
+        heroEpisodeTitle: "Building a Product People Actually Use",
+        heroEpisodeDescription:
+          "A candid conversation about cutting scope, listening to early users, and the unglamorous work of finding product-market fit.",
+        heroGuestName: "Ava Mendoza",
+        heroGuestTitle: "Co-founder & CEO, Northbeam",
+        heroCtaText: "Listen Now",
+        heroCtaUrl: "#subscribe",
+        heroSourceMode: "manual",
+        heroOverlayOpacity: 0.55,
+        episodes: [
+          {
+            title: "Building a Product People Actually Use",
+            guestName: "Ava Mendoza",
+            guestTitle: "Co-founder & CEO",
+            guestCompany: "Northbeam",
+            description:
+              "A candid conversation about cutting scope, listening to early users, and the unglamorous work of finding product-market fit.",
+            publishDate: "2026-04-28",
+            ctaUrl: "#subscribe",
+            ctaText: "Listen",
+            applePodcastsUrl: "#",
+            spotifyUrl: "#",
+            youtubeUrl: "",
+            isFeatured: true,
+            status: "on-demand" as const,
+          },
+          {
+            title: "Hiring the First Ten Engineers",
+            guestName: "Marcus Hill",
+            guestTitle: "VP Engineering",
+            guestCompany: "Lattice & Loom",
+            description:
+              "How to design an interview loop that actually predicts performance, and why your first ten hires set the ceiling for the next hundred.",
+            publishDate: "2026-04-14",
+            ctaUrl: "#subscribe",
+            ctaText: "Listen",
+            applePodcastsUrl: "#",
+            spotifyUrl: "#",
+            status: "on-demand" as const,
+          },
+          {
+            title: "What Investors Actually Look For",
+            guestName: "Priya Kapoor",
+            guestTitle: "Partner",
+            guestCompany: "Meridian Ventures",
+            description:
+              "An inside look at the quiet signals that move a check across the table — and the metrics most founders overlook in their pitch.",
+            publishDate: "2026-03-31",
+            ctaUrl: "#subscribe",
+            ctaText: "Listen",
+            applePodcastsUrl: "#",
+            spotifyUrl: "#",
+            status: "on-demand" as const,
+          },
+          {
+            title: "Designing for Trust",
+            guestName: "Jonas Weber",
+            guestTitle: "Head of Design",
+            guestCompany: "Fieldnotes",
+            description:
+              "Small interface choices, big consequences. A working designer on how craft, restraint, and clear language earn customer trust.",
+            publishDate: "2026-03-17",
+            ctaUrl: "#subscribe",
+            ctaText: "Listen",
+            applePodcastsUrl: "#",
+            spotifyUrl: "#",
+            status: "on-demand" as const,
+          },
+        ],
+        hosts: [
+          {
+            name: "Sam Reyes",
+            title: "Host & Editor",
+            company: "Signal & Stack",
+            bio: "Sam is a writer and operator who has spent the last decade interviewing founders, designers, and engineers about the work behind the work. Each episode is a long-form conversation with someone building something quietly extraordinary.",
+            photoUrl:
+              "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&q=80",
+            linkedinUrl: "",
+          },
+        ],
+        aboutHeadline: "About the show",
+        aboutDescription:
+          "Signal & Stack is a long-form interview series for people who build things. Each episode is a candid, unhurried conversation with the founders, operators, designers, and engineers shipping work that matters — the strategy, the craft, and the unglamorous middle.",
+        aboutAudience:
+          "Founders, operators, designers, engineers, and the curious in-between.",
+        aboutTopics: [
+          "Product strategy",
+          "Hiring & team building",
+          "Design craft",
+          "Fundraising",
+          "Engineering culture",
+          "Operations",
+        ],
+        ctaSectionHeadline: "Never miss an episode",
+        ctaSectionSubheadline:
+          "Subscribe wherever you listen, or drop your email and we'll send each new conversation straight to your inbox.",
+        ctas: [
+          { label: "Apple Podcasts", url: "#", variant: "primary" as const },
+          { label: "Spotify", url: "#", variant: "outline" as const },
+          { label: "YouTube", url: "#", variant: "outline" as const },
+        ],
+        formEyebrow: "Be a Guest",
+        formHeadline: "Pitch yourself for a future episode",
+        formSubheadline:
+          "Building something interesting? Tell us a little about your work and what you'd want to talk about.",
+        formSteps: [
+          {
+            title: "Guest Application",
+            fields: [
+              { id: "first_name", type: "text" as const, label: "First Name", placeholder: "Jane", required: true },
+              { id: "last_name", type: "text" as const, label: "Last Name", placeholder: "Smith", required: true },
+              { id: "email", type: "email" as const, label: "Email", placeholder: "jane@example.com", required: true },
+              { id: "company", type: "text" as const, label: "Company", placeholder: "Where you work", required: true },
+              { id: "title", type: "text" as const, label: "Title / Role", placeholder: "CEO", required: false },
+              { id: "topic", type: "textarea" as const, label: "What would you like to discuss?", placeholder: "Share the topics or stories you'd bring to the show…", required: false },
+            ],
+          },
+        ],
+        formSubmitUrl: "",
+        formSuccessMessage: "Thanks — we'll be in touch about featuring you on the show.",
+        formButtonLabel: "Apply to be a Guest",
+        subscribeEnabled: true,
+        subscribePlaceholder: "your@email.com",
+        subscribeButtonLabel: "Subscribe",
+        subscribeSuccessMessage: "You're in. Watch your inbox for the next episode.",
+        subscribeShowInCta: true,
+        subscribeFormEyebrow: "Stay in the Loop",
+        subscribeFormHeadline: "Never miss an episode",
+        subscribeFormSubheadline:
+          "Drop your email and we'll send each new episode straight to your inbox.",
+        subscribeFormSteps: [
+          {
+            title: "Subscribe",
+            fields: [
+              { id: "email", type: "email" as const, label: "Email", placeholder: "your@email.com", required: true },
+              { id: "first_name", type: "text" as const, label: "First Name", placeholder: "Jane", required: false },
+            ],
+          },
+        ],
+        rssFeedUrl: "",
+        theme: {
+          bg: "#0E0E10",
+          fg: "#F5F2EC",
+          muted: "#C9C4BB",
+          navBg: "#161618",
+          border: "#2A2A2D",
+          cardBg: "#161618",
+          navText: "#F5F2EC",
+          primary: "#E8B14A",
+          headingColor: "#F5F2EC",
+          navBgOpacity: 0.4,
+          bodyFontFamily: "Inter",
+          displayFontFamily: "Playfair Display",
+        },
+      },
+    },
+    {
+      id: id("footer", 2),
+      type: "footer",
+      props: {
+        backgroundColor: "#0E0E10",
+        accentColor: "#E8B14A",
+        copyrightText: `© ${new Date().getFullYear()} Signal & Stack. All rights reserved.`,
+        showSocialLinks: false,
+        facebookUrl: "",
+        instagramUrl: "",
+        linkedinUrl: "",
+        columns: [
+          {
+            title: "Signal & Stack",
+            links: [
+              { label: "Episodes", url: "#episodes" },
+              { label: "Guests", url: "#guests" },
+              { label: "About", url: "#about" },
+              { label: "Subscribe", url: "#subscribe" },
+            ],
+          },
+          {
+            title: "Listen",
+            links: [
+              { label: "Apple Podcasts", url: "#" },
+              { label: "Spotify", url: "#" },
+              { label: "YouTube", url: "#" },
+              { label: "RSS", url: "#" },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+};
+
 export const FLAGSHIP_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   aiProductLaunch,
   enterprisePlatform,
@@ -1354,4 +1579,5 @@ export const FLAGSHIP_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   localServices,
   eventLanding,
   productizedAgency,
+  contentSeriesPodcast,
 ];
