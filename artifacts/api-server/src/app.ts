@@ -16,11 +16,59 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 // Security headers — registered first so every response carries them.
-// CSP is intentionally omitted here; the frontend uses inline scripts (Vite HMR,
-// React) so CSP requires a per-app audit before enabling.
+//
+// CSP is enabled in REPORT-ONLY mode with a permissive baseline. Violations
+// are sent to /api/csp-report and logged via pino. After ~1 week of monitoring
+// in production, tighten the policy and flip to enforce mode:
+//   TODO(csp-enforce): replace `'unsafe-inline'` for scripts with per-request
+//   nonces (Vite html-template plugin emits `<script nonce="…">` tags and the
+//   server echoes the same nonce in the `script-src` directive), then set
+//   `reportOnly: false`. Track third-party origins surfaced by the report-only
+//   logs (Sentry, Resend, Apollo, GTM, RB2B, fonts, etc.) and add them to the
+//   appropriate directives before flipping.
+const replitDevDomain = process.env.REPLIT_DEV_DOMAIN;
+const replitFrameAncestor = replitDevDomain ? [`https://${replitDevDomain}`, "https://*.replit.dev"] : ["https://*.replit.dev"];
+
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      reportOnly: true,
+      useDefaults: false,
+      directives: {
+        "default-src": ["'self'"],
+        // 'unsafe-inline' / 'unsafe-eval' are TEMPORARY — required for Vite
+        // HMR and inline bootstrap scripts in index.html. Remove once the
+        // nonce plumbing TODO above is implemented.
+        "script-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://www.googletagmanager.com",
+          "https://ddwl4m2hdecbv.cloudfront.net",
+          "https://assets.apollo.io",
+        ],
+        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
+        "img-src": ["'self'", "data:", "blob:", "https:"],
+        "media-src": ["'self'", "data:", "blob:", "https:"],
+        "connect-src": [
+          "'self'",
+          "https://*.ingest.sentry.io",
+          "https://*.ingest.us.sentry.io",
+          "https://api.resend.com",
+          "https://app.apollo.io",
+          "https://*.apollo.io",
+          "https://www.google-analytics.com",
+          "https://*.googletagmanager.com",
+        ],
+        "frame-ancestors": ["'self'", ...replitFrameAncestor],
+        "frame-src": ["'self'", "https://www.googletagmanager.com"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'self'"],
+        "report-uri": ["/api/csp-report"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
   }),
 );

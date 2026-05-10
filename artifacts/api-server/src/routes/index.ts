@@ -10,6 +10,7 @@ import adminRouter from "./admin";
 import blockCatalogRouter from "./blockCatalog";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import webhooksRouter from "./webhooks";
+import cspReportRouter from "./cspReport";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -51,6 +52,7 @@ router.use((req, _res, next) => {
 });
 
 router.use(healthRouter);
+router.use(cspReportRouter);
 router.use(authRouter);
 router.use(lpRouter);
 router.use(storageRouter);
