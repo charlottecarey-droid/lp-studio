@@ -238,6 +238,140 @@ export async function sendWelcomeEmail(welcome: WelcomePayload): Promise<void> {
   }
 }
 
+export interface SlugRedirectExpiryPayload {
+  recipientEmail: string;
+  tenantName: string;
+  oldUrl: string;
+  currentUrl: string;
+  expiresAt: Date;
+  daysUntilExpiry: number;
+  fromEmail?: string;
+}
+
+/**
+ * Returns true if the email was accepted by Resend, false otherwise (including
+ * "no API key configured"). Callers use this to decide whether to mark the
+ * underlying record as notified — failing sends should be retried on the next
+ * scan rather than silently skipped.
+ */
+export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryPayload): Promise<boolean> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn("RESEND_API_KEY not set — skipping slug redirect expiry warning");
+    return false;
+  }
+
+  const { recipientEmail, tenantName, oldUrl, currentUrl, expiresAt, daysUntilExpiry } = payload;
+  // Deliberately do NOT honor a per-tenant from-domain here — many tenant
+  // domains aren't verified with Resend, which would cause hard rejections
+  // and an admin who never gets warned. The platform sender is verified.
+  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const expiryFormatted = expiresAt.toUTCString().replace(/ GMT$/, " UTC");
+  const headline = `An old ${escapeHtml(tenantName)} URL is about to stop working`;
+  const dayLabel = daysUntilExpiry === 1 ? "1 day" : `${daysUntilExpiry} days`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
+          <tr>
+            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
+              <div style="margin-bottom:20px">
+                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
+                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
+                </span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 40px">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+                After your workspace was renamed, links to the old URL kept working for 90 days. That window closes in <strong>${dayLabel}</strong> — once it does, anyone visiting the old URL will land on a "workspace not found" page.
+              </p>
+
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 16px;width:100%">
+                <tr>
+                  <td style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:12px 16px">
+                    <div style="font-size:12px;color:#92400e;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Old URL — stops working ${escapeHtml(expiryFormatted)}</div>
+                    <div style="font-size:14px;color:#92400e;word-break:break-all">${escapeHtml(oldUrl)}</div>
+                  </td>
+                </tr>
+              </table>
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 28px;width:100%">
+                <tr>
+                  <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px">
+                    <div style="font-size:12px;color:#166534;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Current URL — keep using this one</div>
+                    <a href="${escapeHtml(currentUrl)}" style="font-size:14px;color:#166534;text-decoration:none;font-weight:500;word-break:break-all">${escapeHtml(currentUrl)}</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#374151">
+                What you can do:
+              </p>
+              <ul style="margin:0 0 24px;padding-left:20px;font-size:14px;line-height:1.7;color:#374151">
+                <li>Forward this email to anyone who still uses the old URL so they update their bookmarks.</li>
+                <li>Update emails, docs, and external links that point at the old URL.</li>
+                <li>If you need more time, you can rename the workspace back to the old slug from Settings → General to refresh the redirect.</li>
+              </ul>
+
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(currentUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      Open ${escapeHtml(tenantName)} →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [recipientEmail],
+        subject: `Heads up: an old ${tenantName} URL stops working in ${dayLabel}`,
+        html,
+      }),
+    });
+    logger.info({ recipientEmail, tenantName, oldUrl, expiresAt: expiresAt.toISOString() }, "Slug redirect expiry warning sent");
+    return true;
+  } catch (err) {
+    logger.error({ err, recipientEmail, oldUrl }, "Failed to send slug redirect expiry warning");
+    return false;
+  }
+}
+
 export interface LeadPayload {
   leadId: number;
   pageId: number;
