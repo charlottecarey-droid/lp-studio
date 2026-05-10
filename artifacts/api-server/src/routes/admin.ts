@@ -1251,6 +1251,94 @@ router.patch("/tenant-slug", async (req, res): Promise<void> => {
   }
 });
 
+// ─── Workspace slug redirects (task #140) ────────────────────────────────────
+// After a rename, rows in tenant_slug_redirects keep the old slug pointing at
+// this tenant for SLUG_REDIRECT_TTL_DAYS. These endpoints let an admin see
+// which old URLs are still redirecting and release one early so the slug
+// becomes available for reuse (by this tenant or anyone else).
+
+router.get("/tenant-slug/redirects", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  // Match the task spec ("superadmin or tenant admin can see") and the
+  // PATCH/DELETE gates so non-admin members can't enumerate rename history.
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  try {
+    const cur = await pool.query<{ slug: string }>(
+      `SELECT slug FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    if (!cur.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    const currentSlug = cur.rows[0].slug;
+    const baseHost = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
+    const r = await pool.query<{ old_slug: string; expires_at: Date; created_at: Date }>(
+      `SELECT old_slug, expires_at, created_at
+         FROM tenant_slug_redirects
+        WHERE tenant_id = $1 AND expires_at > now()
+        ORDER BY expires_at DESC`,
+      [tenantId],
+    );
+    res.json({
+      currentSlug,
+      baseHost,
+      redirects: r.rows.map(row => ({
+        oldSlug: row.old_slug,
+        expiresAt: row.expires_at.toISOString(),
+        createdAt: row.created_at.toISOString(),
+        oldHost: baseHost ? `${row.old_slug}.${baseHost}` : null,
+      })),
+    });
+  } catch (err) {
+    console.error("[admin] GET /tenant-slug/redirects error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/tenant-slug/redirects/:oldSlug", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const oldSlug = (req.params.oldSlug ?? "").trim().toLowerCase();
+  if (!oldSlug) { res.status(400).json({ error: "Missing slug" }); return; }
+  try {
+    const r = await pool.query<{ old_slug: string; expires_at: Date }>(
+      `DELETE FROM tenant_slug_redirects
+        WHERE old_slug = $1 AND tenant_id = $2
+        RETURNING old_slug, expires_at`,
+      [oldSlug, tenantId],
+    );
+    if (!r.rows.length) {
+      res.status(404).json({ error: "Redirect not found" });
+      return;
+    }
+    invalidateTenantHostCache();
+    // Audit trail — kept lightweight (structured console log) since the app
+    // doesn't yet have a dedicated audit_log table. Includes who released the
+    // redirect and which slug was freed so it can be grepped from server logs.
+    console.info(
+      "[admin][audit] tenant-slug-redirect.released",
+      JSON.stringify({
+        tenantId,
+        oldSlug: r.rows[0].old_slug,
+        originalExpiresAt: r.rows[0].expires_at.toISOString(),
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        at: new Date().toISOString(),
+      }),
+    );
+    res.json({ ok: true, oldSlug: r.rows[0].old_slug });
+  } catch (err) {
+    console.error("[admin] DELETE /tenant-slug/redirects error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/superadmin/my-tenants
 // Returns all tenants for superadmin users (session-auth, no admin-key needed).

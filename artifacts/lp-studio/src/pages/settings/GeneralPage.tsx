@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings as SettingsIcon, Globe, Copy, Check, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Settings as SettingsIcon, Globe, Copy, Check, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface TenantSettingsPayload {
@@ -209,6 +209,158 @@ function WorkspaceSlugCard() {
   );
 }
 
+interface SlugRedirect {
+  oldSlug: string;
+  expiresAt: string;
+  createdAt: string;
+  oldHost: string | null;
+}
+
+interface SlugRedirectsPayload {
+  currentSlug: string;
+  baseHost: string | null;
+  redirects: SlugRedirect[];
+}
+
+function formatExpiresIn(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return "expired";
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  if (days >= 2) return `expires in ${days} days`;
+  if (days === 1) return "expires in 1 day";
+  const hours = Math.max(1, Math.floor(ms / (60 * 60 * 1000)));
+  return `expires in ${hours}h`;
+}
+
+function ActiveRedirectsCard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const isAdmin = user?.isAdmin ?? false;
+  const canManage = isAdmin || !!user?.permissions?.["settings"];
+  const [data, setData] = useState<SlugRedirectsPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [releasing, setReleasing] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/tenant-slug/redirects", { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as SlugRedirectsPayload;
+      setData(json);
+    } catch {
+      toast({ title: "Failed to load active redirects", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function handleRelease(oldSlug: string) {
+    if (!canManage) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        `Stop redirecting ${oldSlug} immediately? The old URL will stop working and the slug becomes available for reuse.`,
+      );
+      if (!ok) return;
+    }
+    setReleasing(oldSlug);
+    try {
+      const res = await fetch(
+        `/api/admin/tenant-slug/redirects/${encodeURIComponent(oldSlug)}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? "Failed to release redirect");
+      toast({ title: "Redirect released", description: `${oldSlug} is now free.` });
+      await load();
+    } catch (err) {
+      toast({
+        title: "Couldn't release redirect",
+        description: err instanceof Error ? err.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setReleasing(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-5">
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+  if (!data || data.redirects.length === 0) {
+    // Hide the card entirely when there's nothing to manage so the settings
+    // page stays uncluttered for tenants who've never renamed.
+    return null;
+  }
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-start gap-4">
+        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+          <Globe className="w-4 h-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold">Active URL redirects</h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-prose">
+              These old workspace URLs still redirect to <span className="font-mono">{data.currentSlug}</span>.
+              Release one to free that URL for reuse — bookmarks pointing at it will stop working immediately.
+            </p>
+          </div>
+          <ul className="divide-y divide-border/60 border border-border/60 rounded-md">
+            {data.redirects.map((r) => (
+              <li key={r.oldSlug} className="flex items-center gap-3 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-sm truncate" title={r.oldHost ?? r.oldSlug}>
+                    {r.oldHost ?? r.oldSlug}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {formatExpiresIn(r.expiresAt)} ·{" "}
+                    <span title={new Date(r.expiresAt).toLocaleString()}>
+                      until {new Date(r.expiresAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 h-8"
+                  onClick={() => handleRelease(r.oldSlug)}
+                  disabled={!canManage || releasing === r.oldSlug}
+                  data-testid={`release-redirect-${r.oldSlug}`}
+                  title={canManage ? "Release this redirect now" : "Only admins can release redirects"}
+                >
+                  {releasing === r.oldSlug ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      Release
+                    </>
+                  )}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {!canManage && (
+            <p className="text-[11px] text-muted-foreground italic">
+              Only admins can release a redirect early.
+            </p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function GeneralContent() {
   const { user, refresh } = useAuth();
   const { toast } = useToast();
@@ -329,6 +481,8 @@ function GeneralContent() {
       )}
 
       <WorkspaceSlugCard />
+
+      <ActiveRedirectsCard />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
