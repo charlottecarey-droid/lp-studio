@@ -14,6 +14,13 @@ export interface BuilderPageResponse {
   metaDescription?: string;
   ogImage?: string;
   accountNameApollo?: string;
+  /**
+   * Page-record variables (lp_pages.pageVariables jsonb). Includes the
+   * reserved `__linkedFormStyle` key when the editor has configured per-page
+   * colour overrides for the in-modal linked form. Use
+   * `readLinkedFormStyle(pageVariables)` to parse it.
+   */
+  pageVariables?: Record<string, string>;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {

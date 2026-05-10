@@ -327,7 +327,7 @@ export default function LandingPageViewer() {
   const [chilipiperUrl, setChilipiperUrl] = useState<string | null>(null);
 
   // Personalization vars written by the hotlink resolver into sessionStorage (key: `pv:<slug>`)
-  const [pageVars] = useState<Record<string, string>>(() => {
+  const [sessionPageVars] = useState<Record<string, string>>(() => {
     try {
       const raw = sessionStorage.getItem(`pv:${slug}`);
       return raw ? (JSON.parse(raw) as Record<string, string>) : {};
@@ -335,6 +335,21 @@ export default function LandingPageViewer() {
       return {};
     }
   });
+  // Page-record variables (lp_pages.pageVariables) — fetched alongside the
+  // page payload. These are persisted by the editor (e.g. `__linkedFormStyle`)
+  // and must take precedence over session vars for the same key.
+  const recordPageVars = useMemo<Record<string, string>>(() => {
+    if (!config) return {};
+    if (isBuilderPageResponse(config)) {
+      return (config as BuilderPageResponse).pageVariables ?? {};
+    }
+    const av = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: { pageVariables?: Record<string, string> } | null };
+    return av?.linkedPage?.pageVariables ?? {};
+  }, [config]);
+  const pageVars = useMemo<Record<string, string>>(
+    () => ({ ...recordPageVars, ...sessionPageVars }),
+    [recordPageVars, sessionPageVars]
+  );
   const hasPageVars = Object.keys(pageVars).length > 0;
 
   // RB2B visitor identification — resolves async after page load on partners.meetdandy.com

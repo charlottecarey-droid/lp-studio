@@ -348,6 +348,7 @@ export function EmailCaptureModal({
                   ...(linkedStyle?.border ? { inputAccentColor: linkedStyle.border } : {}),
                   ...(linkedStyle?.button ? { submitButtonColor: linkedStyle.button } : {}),
                   ...(linkedStyle?.buttonText ? { submitButtonTextColor: linkedStyle.buttonText } : {}),
+                  ...(linkedStyle?.text ? { textColor: linkedStyle.text } : {}),
                 }}
                 brand={brand}
                 pageId={pageId}

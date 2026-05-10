@@ -85,6 +85,12 @@ async function enrichVariantWithPage(variant: LpVariant) {
           customCss: linkedPage.customCss ?? "",
           animationsEnabled: linkedPage.animationsEnabled !== false,
           smoothScroll: linkedPage.smoothScroll !== false,
+          // Page-record variables flow to the viewer so per-page settings
+          // (e.g. linked-form colour overrides under the reserved
+          // `__linkedFormStyle` key) take effect at runtime.
+          pageVariables: (linkedPage.pageVariables && typeof linkedPage.pageVariables === "object" && !Array.isArray(linkedPage.pageVariables))
+            ? linkedPage.pageVariables as Record<string, string>
+            : {},
         },
       };
     }
@@ -119,6 +125,9 @@ async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: 
       blocks,
       animationsEnabled: page.animationsEnabled !== false,
       smoothScroll: page.smoothScroll !== false,
+      pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
+        ? page.pageVariables as Record<string, string>
+        : {},
     },
   };
 }
@@ -380,6 +389,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         metaDescription: builderPage.metaDescription || "",
         ogImage: builderPage.ogImage || "",
         accountNameApollo,
+        pageVariables: (builderPage.pageVariables && typeof builderPage.pageVariables === "object" && !Array.isArray(builderPage.pageVariables))
+          ? builderPage.pageVariables as Record<string, string>
+          : {},
       });
       return;
     }
@@ -497,7 +509,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   // If the variant has no linked page, check if there's a builder page with this slug
   // This covers the case where a test was created on a builder page without linking variants
   const enrichedHasPage = "linkedPage" in enrichedVariant && enrichedVariant.linkedPage != null;
-  let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean; smoothScroll: boolean } | null = null;
+  let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: unknown } | null = null;
   if (!enrichedHasPage) {
     const tenantId = await resolveTenantIdFromRequest(req);
     if (tenantId != null) {
@@ -538,6 +550,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       customCss: basePage.customCss ?? "",
       animationsEnabled: basePage.animationsEnabled !== false,
       smoothScroll: basePage.smoothScroll !== false,
+      pageVariables: (basePage.pageVariables && typeof basePage.pageVariables === "object" && !Array.isArray(basePage.pageVariables))
+        ? basePage.pageVariables as Record<string, string>
+        : {},
       // Embed A/B test info for tracking
       testId: test.id,
       testName: test.name,
@@ -642,6 +657,9 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     metaDescription: page.metaDescription || "",
     ogImage: page.ogImage || "",
     accountNameApollo: "",
+    pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
+      ? page.pageVariables as Record<string, string>
+      : {},
     isPreview: true,
   });
 });

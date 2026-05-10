@@ -2680,8 +2680,19 @@ export default function BuilderEditor() {
           />
           <VariablesPanel
             blocks={blocks}
-            variables={pageVariables}
-            onChange={vars => { setPageVariables(vars); }}
+            // Hide internal/reserved keys (e.g. `__linkedFormStyle`) from the
+            // user-facing variables list — they're managed by their own panels
+            // (LinkedFormStylePanel above) and shouldn't be editable as raw text.
+            variables={Object.fromEntries(Object.entries(pageVariables).filter(([k]) => !k.startsWith("__")))}
+            onChange={visibleVars => {
+              // Preserve any reserved `__`-prefixed entries written by other
+              // panels — VariablesPanel only sees user-editable vars.
+              const reserved: Record<string, string> = {};
+              for (const [k, v] of Object.entries(pageVariables)) {
+                if (k.startsWith("__")) reserved[k] = v;
+              }
+              setPageVariables({ ...reserved, ...visibleVars });
+            }}
           />
           <CustomCssPanel value={customCss} onChange={setCustomCss} />
         </aside>

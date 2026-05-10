@@ -615,6 +615,11 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   const submitFg = props.submitButtonTextColor || brand.primaryColor || "var(--brand-primary)";
   const inputAccent = props.inputAccentColor || brand.primaryColor || "var(--brand-primary)";
   const cardBg = props.cardBgColor || (isDark ? undefined : "#ffffff");
+  // Optional global text colour override (per-page linked-form styling).
+  // When set, applied as inline `color` to the form section so headline,
+  // labels, helper text and body inherit it — overriding the hardcoded
+  // Tailwind text-slate / brand colours used elsewhere in this block.
+  const textOverride = (props as { textColor?: string }).textColor;
   const cardStyle = props.cardStyle ?? "elevated";
   const cardRadius = props.cardRadius ?? "2xl";
   const radiusClass = { lg: "rounded-lg", xl: "rounded-xl", "2xl": "rounded-2xl", "3xl": "rounded-3xl" }[cardRadius];
@@ -635,14 +640,17 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
 
   if (submitted) {
     return (
-      <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={bgInlineStyle}>
+      <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={{ ...bgInlineStyle, ...(textOverride ? { color: textOverride } : null) }}>
         <div className="max-w-xl mx-auto text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style={{ background: submitBg }}>
             <svg viewBox="0 0 24 24" fill="none" stroke={submitFg} strokeWidth="2.75" className="w-8 h-8">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h3 className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
+          <h3
+            className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
+            style={textOverride ? { color: textOverride } : undefined}
+          >
             {activeSuccessMessage || "Thank you!"}
           </h3>
         </div>
@@ -651,7 +659,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   }
 
   return (
-    <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={bgInlineStyle}>
+    <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={{ ...bgInlineStyle, ...(textOverride ? { color: textOverride } : null) }}>
       <div className="max-w-xl mx-auto">
         {/* Hide the form headline/subheadline once the scheduler iframe has
             taken over — the scheduler should fill the available space without
@@ -659,12 +667,18 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         {!chiliPiperHandoffUrl && (props.headline || props.subheadline) && (
           <div className="text-center mb-8">
             {props.headline && (
-              <h2 className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
+              <h2
+                className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
+                style={textOverride ? { color: textOverride } : undefined}
+              >
                 {props.headline}
               </h2>
             )}
             {props.subheadline && (
-              <p className={`text-base md:text-lg ${isDark ? "text-white/80" : "text-slate-600"}`}>
+              <p
+                className={`text-base md:text-lg ${isDark ? "text-white/80" : "text-slate-600"}`}
+                style={textOverride ? { color: textOverride } : undefined}
+              >
                 {props.subheadline}
               </p>
             )}
@@ -817,7 +831,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
-                  <label className={labelClass}>
+                  <label className={labelClass} style={textOverride ? { color: textOverride, opacity: 0.85 } : undefined}>
                     {field.label}
                     {field.required && <span className="text-red-400 ml-0.5">*</span>}
                   </label>
