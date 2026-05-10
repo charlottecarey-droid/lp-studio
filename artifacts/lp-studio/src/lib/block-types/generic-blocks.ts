@@ -380,6 +380,11 @@ export interface FullBleedHeroBlockProps extends CtaModalConfig {
 
 export interface ParallaxImageHeroBlockProps {
   imageUrl: string;
+  /** Optional looping background video (mp4/webm). When set, replaces the
+   *  parallax image with a parallax-translated <video>. The image still
+   *  acts as a poster + reduced-motion fallback. */
+  videoUrl?: string;
+  videoAutoplay?: boolean;
   eyebrow: string;
   referenceLabel: string;
   headline: string;

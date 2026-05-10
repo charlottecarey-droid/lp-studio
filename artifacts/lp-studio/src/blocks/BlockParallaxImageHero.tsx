@@ -121,12 +121,12 @@ export function BlockParallaxImageHero({
         color: textColor,
       }}
     >
-      {/* Parallax image layer (oversized to allow translation without exposing edges) */}
+      {/* Parallax media layer (oversized to allow translation without exposing edges) */}
       <div
         ref={imageRef}
-        className="absolute inset-0 will-change-transform"
+        className="absolute inset-0 will-change-transform overflow-hidden"
         style={{
-          backgroundImage: props.imageUrl ? `url("${props.imageUrl}")` : undefined,
+          backgroundImage: !props.videoUrl && props.imageUrl ? `url("${props.imageUrl}")` : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -134,10 +134,25 @@ export function BlockParallaxImageHero({
           top: `-${parallaxStrength * 50}%`,
           bottom: `-${parallaxStrength * 50}%`,
         }}
-      />
+      >
+        {props.videoUrl && (
+          <video
+            key={props.videoUrl}
+            src={props.videoUrl}
+            poster={props.imageUrl || undefined}
+            autoPlay={props.videoAutoplay !== false}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden
+            className="w-full h-full object-cover"
+          />
+        )}
+      </div>
 
-      {/* Empty-state placeholder when no image set */}
-      {!props.imageUrl && (
+      {/* Empty-state placeholder when no media set */}
+      {!props.imageUrl && !props.videoUrl && (
         <div className="absolute inset-0 flex items-center justify-center text-white/30">
           <ImageIcon className="w-16 h-16" />
         </div>

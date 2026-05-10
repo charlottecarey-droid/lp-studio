@@ -4,6 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   props: ParallaxImageHeroBlockProps;
@@ -16,8 +18,20 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background image</div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background image (also used as video poster)</div>
         <ImagePicker value={props.imageUrl} onChange={(url) => u({ imageUrl: url })} />
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background video (optional)</div>
+        <VideoPicker value={props.videoUrl ?? ""} onChange={(v) => u({ videoUrl: v || undefined })} />
+        <p className="text-[10px] text-muted-foreground">When set, replaces the static image with a looping background video. The image above is used as the poster / reduced-motion fallback.</p>
+        {props.videoUrl && (
+          <div className="flex items-center justify-between pt-1">
+            <Label className="text-[11px] text-muted-foreground">Autoplay video</Label>
+            <Switch checked={props.videoAutoplay !== false} onCheckedChange={(v) => u({ videoAutoplay: v })} />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
