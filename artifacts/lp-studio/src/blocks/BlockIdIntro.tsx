@@ -9,29 +9,40 @@ interface Props {
   onFieldChange?: (next: IdIntroBlockProps) => void;
 }
 
+type Token =
+  | { kind: "space"; key: string }
+  | { kind: "word"; key: string; isEm: boolean; letters: Array<{ key: string; ch: string }> };
+
 /**
- * Splits the statement on whitespace, keeping any <em>…</em> spans intact so
- * each visible word can be individually opacity-faded as the section scrolls
- * into view. Inside <em>…</em> blocks we still split words so each word
- * lights up sequentially (and stays in the accent color via `renderEm`).
+ * Tokenises the statement into words and spaces, with each word broken into
+ * individual letters so each letter can fade up as the visitor scrolls.
+ * <em>…</em> spans are preserved on the containing word so accent words stay
+ * in the citron accent color and italic via the `.id-em-word` class.
  */
-function splitWords(text: string): Array<{ key: string; node: React.ReactNode }> {
+function tokenize(text: string): Token[] {
   if (!text) return [];
   const parts = text.split(/(<em>.*?<\/em>)/g);
-  const out: Array<{ key: string; node: React.ReactNode }> = [];
+  const out: Token[] = [];
+  let n = 0;
   parts.forEach((part, pi) => {
     const m = part.match(/^<em>(.*?)<\/em>$/);
-    if (m) {
-      const inner = m[1];
-      inner.split(/\s+/).filter(Boolean).forEach((w, wi) => {
-        out.push({ key: `${pi}-em-${wi}`, node: <em>{w}</em> });
+    const inner = m ? m[1] : part;
+    const isEm = !!m;
+    // Split on whitespace runs, keeping the runs as separate tokens so we
+    // emit explicit space tokens between words.
+    inner.split(/(\s+)/).forEach((segment, si) => {
+      if (!segment) return;
+      if (/^\s+$/.test(segment)) {
+        out.push({ kind: "space", key: `s-${n++}` });
+        return;
+      }
+      out.push({
+        kind: "word",
+        isEm,
+        key: `w-${n++}`,
+        letters: Array.from(segment).map((ch, ci) => ({ ch, key: `${pi}-${si}-${ci}` })),
       });
-    } else {
-      part.split(/\s+/).forEach((w, wi) => {
-        if (!w) return;
-        out.push({ key: `${pi}-${wi}`, node: w });
-      });
-    }
+    });
   });
   return out;
 }
@@ -74,9 +85,12 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
     };
   }, []);
 
-  const words = splitWords(props.statement ?? "");
-  // Each word lights up over a small slice of total progress.
-  const litUntil = isEditor ? words.length : Math.ceil(progress * words.length * 1.15);
+  const tokens = tokenize(props.statement ?? "");
+  const totalLetters = tokens.reduce((acc, t) => acc + (t.kind === "word" ? t.letters.length : 0), 0);
+  // Each letter lights up over a small slice of total progress. The 1.15
+  // multiplier ensures the last letter is fully lit slightly before scroll
+  // exits, so the statement reads as "complete" before fading away.
+  const litUntil = isEditor ? totalLetters : Math.ceil(progress * totalLetters * 1.15);
 
   return (
     <section ref={sectionRef} className="id-block id-intro">
@@ -95,19 +109,27 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
           />
         ) : (
           <h2 aria-label={(props.statement ?? "").replace(/<\/?em>/g, "")}>
-            {words.length === 0
+            {totalLetters === 0
               ? renderEm(props.statement ?? "")
-              : words.map((w, i) => (
-                  <span key={w.key}>
-                    <span
-                      className={`id-word${i < litUntil ? " id-lit" : ""}`}
-                      aria-hidden
-                    >
-                      {w.node}
-                    </span>
-                    {i < words.length - 1 ? " " : ""}
-                  </span>
-                ))}
+              : (() => {
+                  let letterIdx = 0;
+                  return tokens.map((t) => {
+                    if (t.kind === "space") return <span key={t.key}> </span>;
+                    return (
+                      <span key={t.key} className={`id-word${t.isEm ? " id-em-word" : ""}`} aria-hidden>
+                        {t.letters.map((l) => {
+                          const lit = letterIdx < litUntil;
+                          letterIdx += 1;
+                          return (
+                            <span key={l.key} className={`id-letter${lit ? " id-lit" : ""}`}>
+                              {l.ch}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    );
+                  });
+                })()}
           </h2>
         )}
       </div>

@@ -72,8 +72,10 @@ const CSS = `
 .id-intro .id-eyebrow { margin-bottom:48px; }
 .id-intro h2 { font-size:clamp(40px,5.6vw,84px); line-height:1.15; letter-spacing:-0.018em; color:#fff; max-width:18ch; margin:0; }
 .id-intro h2 em { color:var(--id-cit); font-feature-settings:"ss01"; }
-.id-intro h2 .id-word { display:inline-block; opacity:0.14; transition:opacity 600ms var(--id-ease-out), color 600ms var(--id-ease-out); }
-.id-intro h2 .id-word.id-lit { opacity:1; }
+.id-intro h2 .id-word { display:inline-block; white-space:nowrap; }
+.id-intro h2 .id-em-word { color:var(--id-cit); font-style:italic; font-feature-settings:"ss01"; }
+.id-intro h2 .id-letter { display:inline-block; opacity:0.14; transition:opacity 480ms var(--id-ease-out), color 480ms var(--id-ease-out); }
+.id-intro h2 .id-letter.id-lit { opacity:1; }
 
 /* CINEMA — single sticky container with cross-fading layers + scroll-driven step switcher */
 .id-cinema { position:relative; background:var(--id-teal-deep); }
