@@ -34,8 +34,8 @@ export const salesEmailCampaignsTable = pgTable("sales_email_campaigns", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
   name: text("name").notNull(),
-  templateId: integer("template_id").notNull().references(() => salesEmailTemplatesTable.id),
-  accountId: integer("account_id").references(() => salesAccountsTable.id),
+  templateId: integer("template_id").references(() => salesEmailTemplatesTable.id, { onDelete: "set null" }),
+  accountId: integer("account_id").references(() => salesAccountsTable.id, { onDelete: "set null" }),
   status: text("status").notNull().default("draft"),  // draft | scheduled | sending | sent | paused
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
