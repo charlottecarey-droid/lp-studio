@@ -1520,6 +1520,44 @@ export interface IdParallaxShowcaseBlockProps {
   parallaxStrength?: number;
 }
 
+export interface IdSpotlightResult {
+  /** Tone color for the leading dot. One of: alert | warn | ok | info. */
+  tone: string;
+  title: string;
+  body: string;
+  /** Optional action link shown beneath body, e.g. "Review in Undercut tool". */
+  actionText?: string;
+  actionUrl?: string;
+}
+
+export interface IdSpotlightStep {
+  /** Short uppercase label, e.g. "ALERTS". */
+  label: string;
+}
+
+export interface IdSpotlightBlockProps {
+  eyebrow?: string;
+  /** Use <em> tags for the lime-accent words. */
+  headline: string;
+  body?: string;
+  /** Primary background asset. */
+  videoSrc?: string;
+  /** Static fallback poster (also shown if no videoSrc). */
+  posterUrl?: string;
+  /** CSS object-position for video/poster. Defaults to "center". */
+  videoPosition?: string;
+  /** Floating overlay card title (e.g. "AI Scan Review"). */
+  cardTitle?: string;
+  /** Optional second-line label inside the card (e.g. "Results"). */
+  cardSubtitle?: string;
+  /** List items inside the floating card. */
+  results: IdSpotlightResult[];
+  /** Right-edge vertical stepper labels. The first one renders active. */
+  steps: IdSpotlightStep[];
+  /** Index (0-based) of the step that should render highlighted. */
+  activeStep?: number;
+}
+
 export interface IdStatItem {
   value: string;
   label: string;
