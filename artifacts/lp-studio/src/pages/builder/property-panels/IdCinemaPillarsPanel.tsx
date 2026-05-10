@@ -62,20 +62,31 @@ export function IdCinemaPillarsPanel({ props, onChange }: Props) {
         <div className="border rounded-md p-3 space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Step duration
+              Scroll speed
             </Label>
             <span className="text-[11px] font-mono text-muted-foreground">{holdVh.toFixed(2)}× viewport</span>
           </div>
           <Slider
-            min={0.75}
-            max={4}
+            min={0.5}
+            max={6}
             step={0.25}
             value={[holdVh]}
             onValueChange={(v) => onChange({ ...props, pillarHoldVh: v[0] })}
           />
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Faster</span>
+            <button
+              type="button"
+              className="underline-offset-2 hover:underline"
+              onClick={() => onChange({ ...props, pillarHoldVh: 1.5 })}
+            >
+              Reset to 1.5×
+            </button>
+            <span>Slower</span>
+          </div>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            How long each step lingers on screen as the visitor scrolls. Higher = slower, more
-            time to read each pillar. Defaults to 1.5×.
+            How long each pillar holds the viewport as the visitor scrolls. Lower = faster
+            (steps fly by), higher = slower (more time to read each pillar). Defaults to 1.5×.
           </p>
         </div>
       )}
