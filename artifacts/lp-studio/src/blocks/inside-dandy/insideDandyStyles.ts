@@ -24,7 +24,7 @@ const CSS = `
 .id-in-view .id-reveal-d4 { transition-delay:480ms; }
 
 /* HERO — centered cinematic with concentric signal-orb + smoky photo */
-.id-hero { position:relative; height:100vh; min-height:780px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); padding:80px 0 180px; }
+.id-hero { position:relative; min-height:100vh; height:auto; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); padding:120px 0 200px; }
 .id-hero .id-hero-bg { position:absolute; inset:-5%; background-size:cover; background-position:center; opacity:0; transform:scale(1.15); transition:opacity 1800ms var(--id-ease-out), transform 16000ms linear; filter:saturate(0.55) contrast(1.05); }
 .id-hero.id-ready .id-hero-bg { opacity:0.32; transform:scale(1); }
 .id-hero .id-hero-overlay { position:absolute; inset:0; z-index:2; background:radial-gradient(ellipse at 50% 70%,rgba(0,58,48,0.4) 0%,rgba(0,24,20,0.92) 60%),linear-gradient(180deg,rgba(0,24,20,0.6) 0%,rgba(0,24,20,0.3) 40%,rgba(0,24,20,0.95) 100%); }
