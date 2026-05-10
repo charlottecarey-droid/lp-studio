@@ -40,6 +40,13 @@ interface BrandConfig {
   productLines?: ProductLine[];
   chilipiperUrl?: string;
   defaultCtaUrl?: string;
+  defaultCtaText?: string;
+  copyrightName?: string;
+  socialUrls?: {
+    facebook?: string;
+    instagram?: string;
+    linkedin?: string;
+  };
 }
 
 // ── Media library helpers ────────────────────────────────────────────────
@@ -1186,6 +1193,18 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     if (!hasFinalCta) {
       const footerIdx = blocks.findIndex(b => b.type === "footer");
       const insertAt = footerIdx !== -1 ? footerIdx : blocks.length;
+      const brandNameForCta = (brand.brandName ?? "").trim();
+      const isDandyBrandForCta =
+        brandNameForCta === "" || brandNameForCta.toLowerCase() === "dandy";
+      const learnMoreUrl = isDandyBrandForCta
+        ? "https://www.meetdandy.com/"
+        : (brand.defaultCtaUrl?.trim() || "#");
+      const bottomSubheadline = isDandyBrandForCta
+        ? "Join thousands of dental practices already using Dandy."
+        : `Get started with ${brandNameForCta} today.`;
+      const dsoSubheadline = isDandyBrandForCta
+        ? "Book a personalized demo and see how Dandy can work for your team."
+        : `Book a personalized demo and see how ${brandNameForCta} can work for your team.`;
       const ctaBlock = (useDso || useDsoPractices)
         ? {
             id: "block-dso-final-cta-injected",
@@ -1193,12 +1212,12 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
             props: {
               eyebrow: "Get Started",
               headline: "Ready to transform your practice?",
-              subheadline: "Book a personalized demo and see how Dandy can work for your team.",
+              subheadline: dsoSubheadline,
               primaryCtaText: "Schedule a Demo",
               primaryCtaUrl: cpUrl,
               primaryCtaMode: brand.chilipiperUrl ? "chilipiper" : "link",
               secondaryCtaText: "Learn More",
-              secondaryCtaUrl: "https://www.meetdandy.com/",
+              secondaryCtaUrl: learnMoreUrl,
             },
           }
         : {
@@ -1206,7 +1225,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
             type: "bottom-cta",
             props: {
               headline: "Ready to get started?",
-              subheadline: "Join thousands of dental practices already using Dandy.",
+              subheadline: bottomSubheadline,
               ctaText: "Get Started Free",
               ctaUrl: cpUrl,
             },
@@ -1214,63 +1233,108 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       blocks.splice(insertAt, 0, ctaBlock);
     }
 
-    // 3. Footer — append if missing
+    // 3. Footer — append if missing.
+    //
+    // The hardcoded Dandy column set below is only appropriate for the actual
+    // Dandy tenant. For every other tenant we emit a minimal, brand-derived
+    // footer using their own brandName, defaultCtaUrl, and social links so
+    // the AI never leaks meetdandy.com links into a non-Dandy workspace.
     const hasFooter = blocks.some(b => b.type === "footer");
     if (!hasFooter) {
       const year = new Date().getFullYear();
-      blocks.push({
-        id: "block-footer-injected",
-        type: "footer",
-        props: {
-          backgroundColor: "#003A30",
-          accentColor: "#C7E738",
-          copyrightText: `© ${year} Dandy. All rights reserved.`,
-          showSocialLinks: false,
-          facebookUrl: "",
-          instagramUrl: "",
-          linkedinUrl: "",
-          columns: [
-            {
-              title: "Dandy",
-              links: [
-                { label: "Home", url: "https://www.meetdandy.com/" },
-                { label: "Pricing", url: "https://www.meetdandy.com/pricing/" },
-                { label: "Get in touch", url: "https://www.meetdandy.com/get-in-touch/" },
-                { label: "Dandy Reviews", url: "https://www.meetdandy.com/reviews/" },
-                { label: "Careers", url: "https://www.meetdandy.com/careers/" },
-              ],
-            },
-            {
-              title: "Products & Technology",
-              links: [
-                { label: "Lab Services", url: "https://www.meetdandy.com/lab-services/" },
-                { label: "Posterior Crown and Bridge", url: "https://www.meetdandy.com/posterior-crown-and-bridge/" },
-                { label: "Digital Dentures", url: "https://www.meetdandy.com/digital-dentures/" },
-                { label: "Implant Solutions", url: "https://www.meetdandy.com/implant-solutions/" },
-                { label: "Clear Aligners", url: "https://www.meetdandy.com/clear-aligners/" },
-              ],
-            },
-            {
-              title: "Practices",
-              links: [
-                { label: "Private Practice", url: "https://www.meetdandy.com/solutions/private-practice/" },
-                { label: "Group Practice", url: "https://www.meetdandy.com/solutions/group-practice/" },
-                { label: "DSO", url: "https://www.meetdandy.com/solutions/dso/" },
-                { label: "Login", url: "https://app.meetdandy.com/" },
-              ],
-            },
-            {
-              title: "Resources",
-              links: [
-                { label: "Learning Center", url: "https://www.meetdandy.com/learning-center/" },
-                { label: "Articles", url: "https://www.meetdandy.com/articles/" },
-                { label: "Webinars", url: "https://www.meetdandy.com/webinars/" },
-                { label: "Newsroom", url: "https://www.meetdandy.com/newsroom/" },
-              ],
-            },
-          ],
-        },
-      });
+      const brandNameRaw = (brand.brandName ?? "").trim();
+      const isDandyBrand =
+        brandNameRaw === "" || brandNameRaw.toLowerCase() === "dandy";
+      if (isDandyBrand) {
+        blocks.push({
+          id: "block-footer-injected",
+          type: "footer",
+          props: {
+            backgroundColor: "#003A30",
+            accentColor: "#C7E738",
+            copyrightText: `© ${year} Dandy. All rights reserved.`,
+            showSocialLinks: false,
+            facebookUrl: "",
+            instagramUrl: "",
+            linkedinUrl: "",
+            columns: [
+              {
+                title: "Dandy",
+                links: [
+                  { label: "Home", url: "https://www.meetdandy.com/" },
+                  { label: "Pricing", url: "https://www.meetdandy.com/pricing/" },
+                  { label: "Get in touch", url: "https://www.meetdandy.com/get-in-touch/" },
+                  { label: "Dandy Reviews", url: "https://www.meetdandy.com/reviews/" },
+                  { label: "Careers", url: "https://www.meetdandy.com/careers/" },
+                ],
+              },
+              {
+                title: "Products & Technology",
+                links: [
+                  { label: "Lab Services", url: "https://www.meetdandy.com/lab-services/" },
+                  { label: "Posterior Crown and Bridge", url: "https://www.meetdandy.com/posterior-crown-and-bridge/" },
+                  { label: "Digital Dentures", url: "https://www.meetdandy.com/digital-dentures/" },
+                  { label: "Implant Solutions", url: "https://www.meetdandy.com/implant-solutions/" },
+                  { label: "Clear Aligners", url: "https://www.meetdandy.com/clear-aligners/" },
+                ],
+              },
+              {
+                title: "Practices",
+                links: [
+                  { label: "Private Practice", url: "https://www.meetdandy.com/solutions/private-practice/" },
+                  { label: "Group Practice", url: "https://www.meetdandy.com/solutions/group-practice/" },
+                  { label: "DSO", url: "https://www.meetdandy.com/solutions/dso/" },
+                  { label: "Login", url: "https://app.meetdandy.com/" },
+                ],
+              },
+              {
+                title: "Resources",
+                links: [
+                  { label: "Learning Center", url: "https://www.meetdandy.com/learning-center/" },
+                  { label: "Articles", url: "https://www.meetdandy.com/articles/" },
+                  { label: "Webinars", url: "https://www.meetdandy.com/webinars/" },
+                  { label: "Newsroom", url: "https://www.meetdandy.com/newsroom/" },
+                ],
+              },
+            ],
+          },
+        });
+      } else {
+        // Brand-aware fallback for non-Dandy tenants. Use the tenant's own
+        // brandName, copyrightName, default CTA URL, and configured social
+        // URLs — never hardcode external links the tenant doesn't own.
+        const copyrightName =
+          (brand.copyrightName?.trim() ? brand.copyrightName.trim() : brandNameRaw) || "";
+        const homeUrl = brand.defaultCtaUrl?.trim() || "#";
+        const ctaText = brand.defaultCtaText?.trim() || "Get in touch";
+        const fb = brand.socialUrls?.facebook?.trim() || "";
+        const ig = brand.socialUrls?.instagram?.trim() || "";
+        const li = brand.socialUrls?.linkedin?.trim() || "";
+        blocks.push({
+          id: "block-footer-injected",
+          type: "footer",
+          props: {
+            backgroundColor: brand.primaryColor || "#0f172a",
+            accentColor: brand.accentColor || "#3b82f6",
+            copyrightText: copyrightName
+              ? `© ${year} ${copyrightName}. All rights reserved.`
+              : `© ${year} All rights reserved.`,
+            showSocialLinks: Boolean(fb || ig || li),
+            facebookUrl: fb,
+            instagramUrl: ig,
+            linkedinUrl: li,
+            columns: [
+              {
+                title: brandNameRaw || "Company",
+                links: [
+                  { label: "Home", url: homeUrl },
+                  { label: ctaText, url: homeUrl },
+                ],
+              },
+            ],
+          },
+        });
+      }
     }
 
     parsed.blocks = blocks;
