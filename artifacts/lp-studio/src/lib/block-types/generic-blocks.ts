@@ -1466,6 +1466,9 @@ export interface IdIntroBlockProps {
   eyebrow?: string;
   /** Big manifesto statement. Wrap accent words in <em>…</em>. */
   statement: string;
+  /** Per-letter scroll-driven light-up animation. Defaults to true. When
+   *  false, the statement renders fully lit with no animation. */
+  letterReveal?: boolean;
 }
 
 export interface IdCinemaPillar {

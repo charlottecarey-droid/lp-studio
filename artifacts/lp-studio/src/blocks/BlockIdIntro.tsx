@@ -85,12 +85,14 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
     };
   }, []);
 
+  const letterReveal = props.letterReveal !== false;
   const tokens = tokenize(props.statement ?? "");
   const totalLetters = tokens.reduce((acc, t) => acc + (t.kind === "word" ? t.letters.length : 0), 0);
   // Each letter lights up over a small slice of total progress. The 1.15
   // multiplier ensures the last letter is fully lit slightly before scroll
   // exits, so the statement reads as "complete" before fading away.
-  const litUntil = isEditor ? totalLetters : Math.ceil(progress * totalLetters * 1.15);
+  // When the reveal animation is disabled, treat every letter as lit.
+  const litUntil = isEditor || !letterReveal ? totalLetters : Math.ceil(progress * totalLetters * 1.15);
 
   return (
     <section ref={sectionRef} className="id-block id-intro">
@@ -109,7 +111,7 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
           />
         ) : (
           <h2 aria-label={(props.statement ?? "").replace(/<\/?em>/g, "")}>
-            {totalLetters === 0
+            {totalLetters === 0 || !letterReveal
               ? renderEm(props.statement ?? "")
               : (() => {
                   let letterIdx = 0;
