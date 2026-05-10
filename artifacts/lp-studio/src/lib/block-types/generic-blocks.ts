@@ -1481,8 +1481,15 @@ export interface IdCinemaPillar {
   label: string;
   headline: string;
   body: string;
-  /** Decorative SVG/CSS art kit. One of: scan | design | rail | bars. */
+  /** Decorative SVG/CSS art kit. One of: scan | design | rail | bars | video. */
   art: string;
+  /** When `art` is "video", the URL of the looping background clip
+   *  (mp4/webm). Plays muted + autoplays + loops + playsinline so it works
+   *  on iOS without a user gesture. Ignored for other art types. */
+  videoSrc?: string;
+  /** CSS object-position for the video (e.g. "center", "top", "30% 20%").
+   *  Defaults to "center". */
+  videoPosition?: string;
 }
 
 export interface IdCinemaPillarsBlockProps {

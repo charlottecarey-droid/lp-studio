@@ -9,12 +9,30 @@ interface Props {
   onFieldChange?: (next: IdCinemaPillarsBlockProps) => void;
 }
 
-const ART_KINDS = ["scan", "design", "rail", "bars"] as const;
+const ART_KINDS = ["scan", "design", "rail", "bars", "video"] as const;
 type ArtKind = (typeof ART_KINDS)[number];
 
-// The art layer for a given kind. All four are rendered at once; CSS opacity
+// The art layer for a given kind. All five are rendered at once; CSS opacity
 // crossfades between them based on which one has `.id-active`.
-function PillarArt({ kind }: { kind: ArtKind }) {
+function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind; videoSrc?: string; videoPosition?: string; isActive: boolean }) {
+  if (kind === "video") {
+    if (!videoSrc) {
+      return <div className="id-art-video id-art-video-empty" aria-hidden />;
+    }
+    return (
+      <video
+        className="id-art-video"
+        src={videoSrc}
+        autoPlay={isActive}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        style={{ objectPosition: videoPosition || "center" }}
+        aria-hidden
+      />
+    );
+  }
   if (kind === "scan") {
     return (
       <div className="id-art-scan">
@@ -151,7 +169,12 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
         <div className="id-cinema-art" aria-hidden>
           {pillars.map((p, i) => (
             <div key={i} className={`id-layer${i === active ? " id-active" : ""}`}>
-              <PillarArt kind={normalizeArt(p.art)} />
+              <PillarArt
+                kind={normalizeArt(p.art)}
+                videoSrc={p.videoSrc}
+                videoPosition={p.videoPosition}
+                isActive={i === active}
+              />
             </div>
           ))}
         </div>

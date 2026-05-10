@@ -102,6 +102,12 @@ const CSS = `
 .id-cinema-art { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; }
 .id-cinema-art .id-layer { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transform:scale(1.05); transition:opacity 900ms var(--id-ease), transform 1400ms var(--id-ease); pointer-events:none; }
 .id-cinema-art .id-layer.id-active { opacity:1; transform:scale(1); }
+/* Video art: fills the layer; let the .id-cinema-bg radial gradient bleed
+   through the top/edges for cinematic mood. The video itself is full-bleed
+   while the layer's parent (.id-cinema-art) keeps the panel text readable
+   via the .id-cinema-text overlay above. */
+.id-art-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
+.id-art-video-empty { background:repeating-linear-gradient(45deg,rgba(199,231,56,0.06) 0 12px,transparent 12px 24px); border:1px dashed rgba(199,231,56,0.3); }
 .id-cinema-text { position:absolute; inset:0; padding:0 60px 80px; z-index:5; pointer-events:none; }
 .id-cinema-text .id-panel { position:absolute; inset:0; display:flex; align-items:flex-end; padding:80px 60px; opacity:0; transform:translateY(40px); transition:opacity 900ms var(--id-ease), transform 900ms var(--id-ease); }
 .id-cinema-text .id-panel:nth-child(1) { transform:translateY(40px); }
