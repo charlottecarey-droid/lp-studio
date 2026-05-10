@@ -1479,6 +1479,9 @@ export interface IdCinemaPillar {
 
 export interface IdCinemaPillarsBlockProps {
   pillars: IdCinemaPillar[];
+  /** Scroll length each pillar is held on-screen, in viewport heights.
+   *  Defaults to 1.5. Higher values = each step lingers longer on scroll. */
+  pillarHoldVh?: number;
 }
 
 export interface IdShowcaseFrame {

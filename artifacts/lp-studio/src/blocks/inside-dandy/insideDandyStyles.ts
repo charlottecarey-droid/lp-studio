@@ -72,7 +72,7 @@ const CSS = `
 .id-intro .id-eyebrow { margin-bottom:48px; }
 .id-intro h2 { font-size:clamp(40px,5.6vw,84px); line-height:1.15; letter-spacing:-0.018em; color:#fff; max-width:18ch; margin:0; }
 .id-intro h2 em { color:var(--id-cit); font-feature-settings:"ss01"; }
-.id-intro h2 .id-word { display:inline-block; opacity:0.14; transition:opacity 600ms var(--id-ease-out), color 600ms var(--id-ease-out); margin-right:0.28em; }
+.id-intro h2 .id-word { display:inline-block; opacity:0.14; transition:opacity 600ms var(--id-ease-out), color 600ms var(--id-ease-out); }
 .id-intro h2 .id-word.id-lit { opacity:1; }
 
 /* CINEMA — single sticky container with cross-fading layers + scroll-driven step switcher */
@@ -94,8 +94,12 @@ const CSS = `
 .id-cinema-art .id-layer { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transform:scale(1.05); transition:opacity 900ms var(--id-ease), transform 1400ms var(--id-ease); pointer-events:none; }
 .id-cinema-art .id-layer.id-active { opacity:1; transform:scale(1); }
 .id-cinema-text { position:absolute; inset:0; padding:0 60px 80px; z-index:5; pointer-events:none; }
-.id-cinema-text .id-panel { position:absolute; inset:0; display:flex; align-items:flex-end; padding:80px 60px; opacity:0; transform:translateY(40px); transition:opacity 800ms var(--id-ease), transform 800ms var(--id-ease); }
-.id-cinema-text .id-panel.id-active { opacity:1; transform:translateY(0); pointer-events:auto; }
+.id-cinema-text .id-panel { position:absolute; inset:0; display:flex; align-items:flex-end; padding:80px 60px; opacity:0; transform:translateY(40px); transition:opacity 900ms var(--id-ease), transform 900ms var(--id-ease); }
+.id-cinema-text .id-panel:nth-child(1) { transform:translateY(40px); }
+.id-cinema-text .id-panel:nth-child(2) { transform:translateX(-60px); }
+.id-cinema-text .id-panel:nth-child(3) { transform:scale(0.94); }
+.id-cinema-text .id-panel:nth-child(4) { transform:translateX(60px); }
+.id-cinema-text .id-panel.id-active { opacity:1; transform:translate(0,0) scale(1); pointer-events:auto; }
 .id-cinema-text .id-meta { display:flex; justify-content:space-between; align-items:flex-end; width:100%; gap:60px; flex-wrap:wrap; }
 .id-cinema-text .id-num { font-family:var(--id-display); font-size:clamp(96px,18vw,260px); line-height:0.85; letter-spacing:-0.04em; color:rgba(255,255,255,0.08); font-feature-settings:"tnum"; }
 .id-cinema-text .id-num em { font-style:italic; color:var(--id-cit); opacity:0.4; }

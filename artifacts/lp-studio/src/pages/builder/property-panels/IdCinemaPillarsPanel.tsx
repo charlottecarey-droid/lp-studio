@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
 
@@ -23,9 +24,29 @@ export function IdCinemaPillarsPanel({ props, onChange }: Props) {
   const setPillars = (next: IdCinemaPillar[]) => onChange({ ...props, pillars: next });
   const update = (i: number, patch: Partial<IdCinemaPillar>) =>
     setPillars(pillars.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
+  const holdVh = props.pillarHoldVh ?? 1.5;
 
   return (
     <div className="space-y-4">
+      <div className="border rounded-md p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Step duration
+          </Label>
+          <span className="text-[11px] font-mono text-muted-foreground">{holdVh.toFixed(2)}× viewport</span>
+        </div>
+        <Slider
+          min={0.75}
+          max={4}
+          step={0.25}
+          value={[holdVh]}
+          onValueChange={(v) => onChange({ ...props, pillarHoldVh: v[0] })}
+        />
+        <p className="text-[10px] text-muted-foreground leading-snug">
+          How long each step lingers on screen as the visitor scrolls. Higher = slower, more
+          time to read each pillar. Defaults to 1.5×.
+        </p>
+      </div>
       {pillars.map((p, i) => (
         <div key={i} className="border rounded-md p-3 space-y-2">
           <div className="flex justify-between items-center">

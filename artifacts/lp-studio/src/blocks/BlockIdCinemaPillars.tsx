@@ -123,6 +123,8 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
     };
   }, [isEditor, pillars.length]);
 
+  const holdVh = Math.max(0.5, props.pillarHoldVh ?? 1.5);
+
   const updatePillar = (i: number, patch: Partial<IdCinemaPillar>) => {
     if (!onFieldChange) return;
     const next = pillars.map((p, idx) => (idx === i ? { ...p, ...patch } : p));
@@ -195,6 +197,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
               spacerRefs.current[i] = el;
             }}
             className="id-cinema-spacer"
+            style={{ height: `${holdVh * 100}vh` }}
             aria-hidden
           />
         ))}

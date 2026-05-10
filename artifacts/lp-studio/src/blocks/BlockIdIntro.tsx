@@ -98,12 +98,14 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
             {words.length === 0
               ? renderEm(props.statement ?? "")
               : words.map((w, i) => (
-                  <span
-                    key={w.key}
-                    className={`id-word${i < litUntil ? " id-lit" : ""}`}
-                    aria-hidden
-                  >
-                    {w.node}
+                  <span key={w.key}>
+                    <span
+                      className={`id-word${i < litUntil ? " id-lit" : ""}`}
+                      aria-hidden
+                    >
+                      {w.node}
+                    </span>
+                    {i < words.length - 1 ? " " : ""}
                   </span>
                 ))}
           </h2>
