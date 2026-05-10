@@ -110,6 +110,7 @@ import { BlockIdCinemaPillars } from "./BlockIdCinemaPillars";
 import { BlockIdParallaxShowcase } from "./BlockIdParallaxShowcase";
 import { BlockIdStats } from "./BlockIdStats";
 import { BlockIdInvitation } from "./BlockIdInvitation";
+import { BlockIdSpotlight } from "./BlockIdSpotlight";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
 import { BlockMenuSection } from "./BlockMenuSection";
@@ -303,7 +304,7 @@ export const NO_REVEAL = new Set<string>([
   // pillars, scroll-progress letter reveal, parallax showcase) and the hero's
   // own entrance animation. Wrapping them in a transformed motion.div breaks
   // position:sticky and shifts getBoundingClientRect measurements.
-  "id-hero", "id-intro", "id-cinema-pillars", "id-parallax-showcase",
+  "id-hero", "id-intro", "id-cinema-pillars", "id-parallax-showcase", "id-spotlight",
   "spacer",
 ]);
 
@@ -927,6 +928,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockIdStats props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-invitation":
         return <BlockIdInvitation props={block.props} onCtaClick={onCtaClick} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-spotlight":
+        return <BlockIdSpotlight props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "bento-showcase":
         return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null} />;
       case "gradient-pricing":

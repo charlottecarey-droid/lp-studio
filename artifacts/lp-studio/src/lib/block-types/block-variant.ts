@@ -60,6 +60,7 @@ import type {
   IdParallaxShowcaseBlockProps,
   IdStatsBlockProps,
   IdInvitationBlockProps,
+  IdSpotlightBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
@@ -235,6 +236,7 @@ export type BlockVariant =
   | { type: "id-parallax-showcase"; props: IdParallaxShowcaseBlockProps }
   | { type: "id-stats"; props: IdStatsBlockProps }
   | { type: "id-invitation"; props: IdInvitationBlockProps }
+  | { type: "id-spotlight"; props: IdSpotlightBlockProps }
   | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
   | { type: "gradient-pricing"; props: GradientPricingBlockProps }
   | { type: "editorial-carousel"; props: EditorialCarouselBlockProps }

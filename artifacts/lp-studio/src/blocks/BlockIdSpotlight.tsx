@@ -42,28 +42,28 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
             <div className="id-spotlight-eyebrow">
               <InlineText
                 value={eyebrow}
-                onChange={onFieldChange ? (v) => setField("eyebrow", v) : undefined}
-                placeholder="Eyebrow (optional)"
-                ariaLabel="Spotlight eyebrow"
+                onUpdate={onFieldChange ? (v: string) => setField("eyebrow", v) : undefined}
+               
+                
               />
             </div>
           )}
           <h2 id="id-spotlight-h" className="id-spotlight-h">
             <EditableEm
               value={headline}
-              onChange={onFieldChange ? (v) => setField("headline", v) : undefined}
-              placeholder="Section headline"
-              ariaLabel="Spotlight headline"
+              onUpdate={onFieldChange ? (v: string) => setField("headline", v) : undefined}
+             
+              
             />
           </h2>
           {(body || onFieldChange) && (
             <p className="id-spotlight-body">
               <InlineText
                 value={body}
-                onChange={onFieldChange ? (v) => setField("body", v) : undefined}
+                onUpdate={onFieldChange ? (v: string) => setField("body", v) : undefined}
                 multiline
-                placeholder="Supporting paragraph"
-                ariaLabel="Spotlight body"
+               
+                
               />
             </p>
           )}
@@ -103,9 +103,9 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                   <span className="id-sp-card-glyph" aria-hidden />
                   <InlineText
                     value={cardTitle}
-                    onChange={onFieldChange ? (v) => setField("cardTitle", v) : undefined}
-                    placeholder="Card title"
-                    ariaLabel="Card title"
+                    onUpdate={onFieldChange ? (v: string) => setField("cardTitle", v) : undefined}
+                   
+                    
                   />
                 </div>
               )}
@@ -113,9 +113,9 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                 <div className="id-sp-card-subtitle">
                   <InlineText
                     value={cardSubtitle}
-                    onChange={onFieldChange ? (v) => setField("cardSubtitle", v) : undefined}
-                    placeholder="Subtitle"
-                    ariaLabel="Card subtitle"
+                    onUpdate={onFieldChange ? (v: string) => setField("cardSubtitle", v) : undefined}
+                   
+                    
                   />
                 </div>
               )}

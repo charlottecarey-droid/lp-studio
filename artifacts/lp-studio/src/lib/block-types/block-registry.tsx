@@ -62,6 +62,7 @@ import type {
   IdParallaxShowcaseBlockProps,
   IdStatsBlockProps,
   IdInvitationBlockProps,
+  IdSpotlightBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
@@ -3663,6 +3664,47 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "id-spotlight" as const,
+    label: "Inside Dandy · Spotlight (Video Feature)",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdSpotlightBlockProps => ({
+      eyebrow: "",
+      headline: "AI Crown Prep <em>Analysis</em>",
+      body: "Detect hidden issues that lead to remakes and long-chairtime adjustments — in mere seconds.",
+      videoSrc: "/videos/scan-overhead.mp4",
+      posterUrl: "",
+      videoPosition: "center",
+      cardTitle: "AI Scan Review",
+      cardSubtitle: "Results",
+      results: [
+        { tone: "alert", title: "Prep undercut", body: "Review scan flag and refine prep if needed", actionText: "Review in Undercut tool", actionUrl: "" },
+      ],
+      steps: [
+        { label: "Alerts" },
+        { label: "Guidance" },
+        { label: "Confirmation" },
+      ],
+      activeStep: 0,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <text x="6" y="22" fontSize="7" fill="#fff" fontFamily="Georgia, serif">AI Crown Prep</text>
+        <text x="6" y="32" fontSize="7" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">Analysis</text>
+        <rect x="44" y="10" width="60" height="40" rx="3" fill="#0A4A3E" />
+        <ellipse cx="74" cy="30" rx="18" ry="14" fill="none" stroke="#C7E738" strokeOpacity="0.55" strokeWidth="0.6" />
+        <ellipse cx="74" cy="30" rx="10" ry="8" fill="#C7E738" opacity="0.18" />
+        <rect x="58" y="38" width="34" height="14" rx="2" fill="#0F1C1A" stroke="rgba(255,255,255,0.12)" strokeWidth="0.4" />
+        <circle cx="62" cy="44" r="1.4" fill="#E5484D" />
+        <rect x="66" y="42" width="22" height="1.6" rx="0.8" fill="#fff" opacity="0.7" />
+        <rect x="66" y="46" width="18" height="1.2" rx="0.6" fill="#fff" opacity="0.4" />
+        <text x="110" y="20" fontSize="3.6" fill="#fff" fontFamily="ui-monospace, monospace" textAnchor="end">ALERTS ●</text>
+        <text x="110" y="30" fontSize="3.6" fill="rgba(255,255,255,0.35)" fontFamily="ui-monospace, monospace" textAnchor="end">GUIDANCE ○</text>
+        <text x="110" y="40" fontSize="3.6" fill="rgba(255,255,255,0.35)" fontFamily="ui-monospace, monospace" textAnchor="end">CONFIRMATION ○</text>
+      </svg>
+    ),
+  },
+  {
     type: "bold-statement",
     label: "Bold Statement",
     category: "Content",
@@ -4446,6 +4488,7 @@ export function createBlock(type: "id-cinema-pillars"): Extract<PageBlock, { typ
 export function createBlock(type: "id-parallax-showcase"): Extract<PageBlock, { type: "id-parallax-showcase" }>;
 export function createBlock(type: "id-stats"): Extract<PageBlock, { type: "id-stats" }>;
 export function createBlock(type: "id-invitation"): Extract<PageBlock, { type: "id-invitation" }>;
+export function createBlock(type: "id-spotlight"): Extract<PageBlock, { type: "id-spotlight" }>;
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
 export function createBlock(type: "editorial-carousel"): Extract<PageBlock, { type: "editorial-carousel" }>;
@@ -4669,6 +4712,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "id-parallax-showcase": return { id, type: "id-parallax-showcase", props: props as IdParallaxShowcaseBlockProps };
     case "id-stats": return { id, type: "id-stats", props: props as IdStatsBlockProps };
     case "id-invitation": return { id, type: "id-invitation", props: props as IdInvitationBlockProps };
+    case "id-spotlight": return { id, type: "id-spotlight", props: props as IdSpotlightBlockProps };
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
     case "editorial-carousel": return { id, type: "editorial-carousel", props: props as EditorialCarouselBlockProps };
