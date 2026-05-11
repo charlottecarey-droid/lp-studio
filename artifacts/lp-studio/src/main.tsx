@@ -34,6 +34,43 @@ if (sentryDsn) {
   });
 }
 
+// Auto-recover from stale chunk filenames after a deploy. When a user keeps a
+// tab open across deploys, their cached `index.html` references hashed chunk
+// URLs (e.g. `/assets/Foo-abc123.js`) that no longer exist on the server.
+// `lazy(() => import(...))` then throws a TypeError / "Failed to fetch dynamically
+// imported module". We catch that case once per session and force-reload so the
+// tab gets the fresh entrypoint instead of staying stuck on a white screen.
+function isChunkLoadError(reason: unknown): boolean {
+  const msg =
+    reason instanceof Error
+      ? `${reason.name}: ${reason.message}`
+      : typeof reason === "string"
+        ? reason
+        : "";
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
+    /ChunkLoadError/i.test(msg)
+  );
+}
+function tryReloadOnce() {
+  try {
+    const key = "lp-studio-chunk-reload";
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    // sessionStorage blocked — still attempt the reload, just without the guard.
+  }
+  window.location.reload();
+}
+window.addEventListener("error", (e) => {
+  if (isChunkLoadError(e.error ?? e.message)) tryReloadOnce();
+});
+window.addEventListener("unhandledrejection", (e) => {
+  if (isChunkLoadError(e.reason)) tryReloadOnce();
+});
+
 const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error(

@@ -12,6 +12,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <!-- End Google Tag Manager -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <!-- Force browsers to revalidate index.html on every navigation so a fresh
+         deploy's hashed /assets/* filenames are picked up immediately, instead
+         of a stale cached HTML pointing at chunk URLs that no longer exist.
+         Hashed asset files themselves stay long-cached (they're content-hashed). -->
+    <meta http-equiv="cache-control" content="no-store" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="expires" content="0" />
     <title></title>
     <meta name="description" content="" />
     <meta property="og:type" content="website" />
@@ -53,7 +60,32 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <!-- Google Tag Manager (noscript) — lp.meetdandy.com and partners.meetdandy.com only -->
     <script>if (location.hostname === 'lp.meetdandy.com' || location.hostname === 'partners.meetdandy.com') { var n=document.createElement('noscript');var f=document.createElement('iframe');f.src='https://www.googletagmanager.com/ns.html?id=GTM-NHJFVSJ';f.height='0';f.width='0';f.style.cssText='display:none;visibility:hidden';n.appendChild(f);document.body.insertBefore(n, document.body.firstChild); }</script>
     <!-- End Google Tag Manager (noscript) -->
-    <div id="root"></div>
+    <!-- Pre-mount loading indicator. Replaced as soon as React mounts into #root,
+         so users see motion immediately on cold loads instead of a white screen
+         while the JS bundle downloads. -->
+    <style>
+      #pre-mount-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        z-index: 0;
+      }
+      #pre-mount-loader > div {
+        width: 32px;
+        height: 32px;
+        border: 2px solid #0A0A0A;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: pre-mount-spin 0.8s linear infinite;
+      }
+      @keyframes pre-mount-spin { to { transform: rotate(360deg); } }
+    </style>
+    <div id="root">
+      <div id="pre-mount-loader" aria-hidden="true"><div></div></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
