@@ -6,7 +6,7 @@ import headerImgPracticeManagerUrl from "@/assets/dandy-dso-enterprise-data.webp
 import dandyScannerUrl from "@/assets/dandy-scanner-transparent.png?url";
 import { useLocation, Link as RouterLink } from "wouter";
 import {
-  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2, RotateCcw, Globe, Copy, Check, ExternalLink
+  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2, RotateCcw, Globe, Copy, Check, ExternalLink, Eye, RefreshCw
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
@@ -596,8 +596,36 @@ const SalesOnePager = () => {
 
   // Web link generation (merged from sales-web-one-pager)
   const [generatingLink, setGeneratingLink] = useState(false);
-  const [linkResult, setLinkResult] = useState<{ url: string; slug: string } | null>(null);
+  const [linkResult, setLinkResult] = useState<{ url: string; slug: string; pageId: number } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [viewCount, setViewCount] = useState<number | null>(null);
+  const [viewsLoading, setViewsLoading] = useState(false);
+  const viewsPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchViewCount = useCallback(async (pageId: number) => {
+    setViewsLoading(true);
+    try {
+      const res = await fetch(`/api/sales/web-one-pager/views/${pageId}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setViewCount(data.viewCount ?? 0);
+      }
+    } catch { /* silent */ }
+    finally { setViewsLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (!linkResult) return;
+    const id = linkResult.pageId;
+    fetchViewCount(id);
+    viewsPollRef.current = setInterval(() => fetchViewCount(id), 30_000);
+    return () => {
+      if (viewsPollRef.current) {
+        clearInterval(viewsPollRef.current);
+        viewsPollRef.current = null;
+      }
+    };
+  }, [linkResult, fetchViewCount]);
 
   const handleGenerateLink = async () => {
     if (!dsoName.trim()) return;
@@ -636,7 +664,8 @@ const SalesOnePager = () => {
       }
       const data = await res.json();
       const url = `${window.location.origin}/lp-studio/p/${data.slug}`;
-      setLinkResult({ url, slug: data.slug });
+      setViewCount(null);
+      setLinkResult({ url, slug: data.slug, pageId: data.pageId });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create link";
       toast({ title: "Couldn't create link", description: msg, variant: "destructive" });
@@ -1273,36 +1302,53 @@ const SalesOnePager = () => {
             )}
 
             {linkResult && (
-              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
-                    Your shareable link is ready
-                  </span>
+              <div className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <Check className="w-4 h-4 text-green-600" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider">Your shareable link is live</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-green-700">
+                    <Eye className="w-3.5 h-3.5" />
+                    {viewsLoading && viewCount === null ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <span>{viewCount ?? 0} {viewCount === 1 ? "view" : "views"}</span>
+                    )}
+                    <button
+                      onClick={() => linkResult && fetchViewCount(linkResult.pageId)}
+                      disabled={viewsLoading}
+                      className="ml-0.5 text-green-600 hover:text-green-800 disabled:opacity-40 transition-colors"
+                      title="Refresh view count"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${viewsLoading ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-stretch gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={linkResult.url}
-                    onFocus={(e) => e.target.select()}
-                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-                  />
+                <p className="text-[11px] text-green-600">Updates every 30 seconds automatically.</p>
+                <p className="text-xs text-green-700 break-all font-mono bg-green-100 rounded px-2 py-1.5">{linkResult.url}</p>
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={copyLink}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted/40 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-white border border-green-200 px-3 py-1.5 text-xs font-medium text-green-800 hover:bg-green-50 transition-colors"
                   >
                     {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {linkCopied ? "Copied" : "Copy"}
+                    {linkCopied ? "Copied" : "Copy link"}
                   </button>
                   <a
                     href={linkResult.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted/40 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-white border border-green-200 px-3 py-1.5 text-xs font-medium text-green-800 hover:bg-green-50 transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    Open
+                    Preview
+                  </a>
+                  <a
+                    href={`/pages/${linkResult.pageId}`}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+                  >
+                    Edit in Builder →
                   </a>
                 </div>
               </div>
