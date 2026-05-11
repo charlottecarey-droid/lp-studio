@@ -47,6 +47,13 @@ const SEGMENT_FIELDS = [
   "segments",
 ];
 
+// Media fields are only meaningful when we have access to a real source
+// (e.g. a website import) — they're omitted from the section-specific
+// imports that operate on pasted brand-guidelines text.
+const MEDIA_FIELDS = [
+  "logoUrl",
+];
+
 export function getFieldsForSection(section: ImportSection): string[] {
   switch (section) {
     case "colors": return COLOR_FIELDS;
@@ -55,7 +62,7 @@ export function getFieldsForSection(section: ImportSection): string[] {
     case "voice": return VOICE_FIELDS;
     case "products": return PRODUCT_FIELDS;
     case "segments": return SEGMENT_FIELDS;
-    case "all": return [...COLOR_FIELDS, ...TYPOGRAPHY_FIELDS, ...BUTTON_FIELDS, ...VOICE_FIELDS, ...PRODUCT_FIELDS, ...SEGMENT_FIELDS];
+    case "all": return [...COLOR_FIELDS, ...TYPOGRAPHY_FIELDS, ...BUTTON_FIELDS, ...VOICE_FIELDS, ...PRODUCT_FIELDS, ...SEGMENT_FIELDS, ...MEDIA_FIELDS];
   }
 }
 
@@ -105,6 +112,7 @@ export function buildPromptForSection(section: ImportSection): string {
     targetAudience: "string — who the copy speaks to",
     copyExamples: "string[] — up to 6 sample headlines or CTAs representing brand voice",
     productLines: '{ name: string, description: string, valueProps: string[], claims: string[], keywords: string[] }[] — up to 12 product lines. name = product name, description = one-line summary, valueProps = key benefits, claims = provable statements (e.g. "50% faster"), keywords = SEO target keywords',
+    logoUrl: 'string — absolute http(s) URL to the brand\'s primary logo image (svg/png/jpg). Pick the logo shown in the site header / nav. Prefer SVG when available, then PNG. Must be a fully-qualified URL, not a relative path.',
     segments: '{ name: string, description: string, messagingAngle: string, uniqueContext: string, valueProps: string[], segmentProducts: string[], personas: { role: string, painPoints: string[] }[], challenges: { title: string, desc: string }[], stats: { value: string, label: string }[], comparisonRows: { need: string, us: string, them: string }[] }[] — audience segments. name = segment name (e.g. "DSO Leaders"), description = brief overview, messagingAngle = core pitch angle for this segment, uniqueContext = what makes this segment distinct, valueProps = up to 8 key benefits for this segment, segmentProducts = product names most relevant to this segment, personas = up to 6 buyer roles with their pain points, challenges = up to 8 problems this segment faces, stats = up to 6 proof-point metrics (value + label), comparisonRows = up to 8 comparison rows (need, what we offer, what competitors offer)',
   };
 
@@ -237,6 +245,18 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
       if (filtered.length > 0) return { valid: true, sanitized: filtered.slice(0, 20) };
     }
     return { valid: false, sanitized: null };
+  }
+  if (field === "logoUrl") {
+    if (typeof value !== "string") return { valid: false, sanitized: null };
+    const trimmed = value.trim();
+    if (trimmed.length === 0 || trimmed.length > 2000) return { valid: false, sanitized: null };
+    try {
+      const u = new URL(trimmed);
+      if (u.protocol !== "http:" && u.protocol !== "https:") return { valid: false, sanitized: null };
+      return { valid: true, sanitized: u.toString() };
+    } catch {
+      return { valid: false, sanitized: null };
+    }
   }
   if (typeof value === "string" && value.trim().length > 0) return { valid: true, sanitized: value.trim() };
   return { valid: false, sanitized: null };

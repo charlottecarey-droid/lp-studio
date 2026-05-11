@@ -29,7 +29,7 @@ catalog:
   vite: ^7.3.0
   zod: ^3.25.76
 
-ignoredBuiltDependencies: '[]'
+ignoredBuiltDependencies: []
 
 minimumReleaseAge: 1440
 
@@ -37,7 +37,9 @@ minimumReleaseAgeExclude:
   - '@replit/*'
   - stripe-replit-sync
 
-onlyBuiltDependencies: '["sharp","@sentry/cli"]'
+onlyBuiltDependencies:
+  - sharp
+  - '@sentry/cli'
 
 overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
