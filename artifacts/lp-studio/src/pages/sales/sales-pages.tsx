@@ -1032,7 +1032,7 @@ export default function SalesPages() {
                                 {selectedPages.has(page.pageId) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-muted-foreground" />}
                               </button>
                             ) : (
-                              <div className={`w-2 h-2 rounded-full ${page.pageStatus === "published" ? "bg-emerald-500" : "bg-amber-400"}`} />
+                              <div className={`w-2 h-2 rounded-full ${page.pageStatus === "published" ? "bg-[hsl(var(--accent-warm))]" : "bg-amber-400"}`} />
                             )}
                           </div>
 

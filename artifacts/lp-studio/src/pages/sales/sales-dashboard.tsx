@@ -856,7 +856,7 @@ export default function SalesDashboard() {
               <div className="lg:col-span-2 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--accent-warm))] animate-pulse" />
                     <div className="flex items-center gap-1">
                       <h2 className="text-sm font-semibold text-foreground">Live signals</h2>
                       <InfoTip

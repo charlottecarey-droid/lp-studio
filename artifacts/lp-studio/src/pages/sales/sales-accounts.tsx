@@ -339,9 +339,9 @@ function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: Fu
                       ) : (
                         <>
                           {delta > 0
-                            ? <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
+                            ? <TrendingUp className="w-3 h-3 text-[hsl(var(--accent-warm))] shrink-0" />
                             : <TrendingDown className="w-3 h-3 text-red-400 shrink-0" />}
-                          <span className={`text-[10px] font-medium tabular-nums ${delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                          <span className={`text-[10px] font-medium tabular-nums ${delta > 0 ? "text-[hsl(var(--accent-warm-strong))]" : "text-red-500 dark:text-red-400"}`}>
                             {delta > 0 ? "+" : ""}{delta} ({delta > 0 ? "+" : ""}{pct}%)
                           </span>
                         </>
