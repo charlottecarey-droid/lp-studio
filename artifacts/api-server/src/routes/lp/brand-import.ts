@@ -4,7 +4,7 @@ import OpenAI from "openai";
 
 const router = Router();
 
-function getOpenAIClient(): OpenAI {
+export function getOpenAIClient(): OpenAI {
   const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
   const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
   if (!baseURL || !apiKey) {
@@ -13,7 +13,7 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "segments" | "all";
+export type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "segments" | "all";
 
 const COLOR_FIELDS = [
   "primaryColor", "accentColor", "navBgColor", "textColor",
@@ -47,7 +47,7 @@ const SEGMENT_FIELDS = [
   "segments",
 ];
 
-function getFieldsForSection(section: ImportSection): string[] {
+export function getFieldsForSection(section: ImportSection): string[] {
   switch (section) {
     case "colors": return COLOR_FIELDS;
     case "typography": return TYPOGRAPHY_FIELDS;
@@ -59,7 +59,7 @@ function getFieldsForSection(section: ImportSection): string[] {
   }
 }
 
-function buildPromptForSection(section: ImportSection): string {
+export function buildPromptForSection(section: ImportSection): string {
   const fieldDescriptions: Record<string, string> = {
     primaryColor: 'hex "#RRGGBB"',
     accentColor: 'hex "#RRGGBB"',
@@ -155,7 +155,7 @@ const COLOR_FIELD_SET = new Set(COLOR_FIELDS);
 const STRING_FIELDS = new Set(["displayFont", "bodyFont", "brandName", "toneOfVoice", "targetAudience", "copyrightName", "defaultCtaText", "navCtaText"]);
 const STRING_ARRAY_FIELDS = new Set(["taglines", "toneKeywords", "avoidPhrases", "copyExamples"]);
 
-function sanitizeField(field: string, value: unknown): { valid: boolean; sanitized: unknown } {
+export function sanitizeField(field: string, value: unknown): { valid: boolean; sanitized: unknown } {
   if (COLOR_FIELD_SET.has(field)) {
     if (typeof value === "string" && hexRe.test(value)) return { valid: true, sanitized: value };
     return { valid: false, sanitized: null };

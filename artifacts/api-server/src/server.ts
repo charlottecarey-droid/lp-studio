@@ -212,6 +212,11 @@ async function runMigrations(): Promise<void> {
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS animations_enabled boolean NOT NULL DEFAULT true;
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS smooth_scroll boolean NOT NULL DEFAULT true;
 
+      -- Task #208: track brand-import provenance (source URL + timestamp + per-field confidence)
+      ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_source_url text;
+      ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_at timestamptz;
+      ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_summary jsonb;
+
       -- Page review workflow (task #108). All columns are nullable; only populated
       -- while a review is in flight or right after a decision is recorded.
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS submitted_for_review_at timestamptz;

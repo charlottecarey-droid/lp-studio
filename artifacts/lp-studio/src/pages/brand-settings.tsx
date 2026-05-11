@@ -16,7 +16,7 @@ import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
-  Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload,
+  Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload, Globe,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -54,6 +54,17 @@ interface ImportResult {
   proposed: Record<string, unknown>;
   confidence: Record<string, "high" | "medium" | "low">;
   unparsed: string[];
+  sourceUrl?: string;
+  pagesScraped?: string[];
+  hasScreenshot?: boolean;
+}
+
+type ImportMode = "text" | "url";
+
+interface BrandImportSource {
+  url: string | null;
+  at: string | null;
+  summary: { source?: string; fields?: string[]; confidenceCounts?: Record<string, number> } | null;
 }
 
 function ColorField({ label, value, onChange, error }: {
@@ -715,14 +726,17 @@ export default function BrandSettings() {
   const [resetOpen, setResetOpen] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
+  const [importMode, setImportMode] = useState<ImportMode>("text");
   const [importTab, setImportTab] = useState<ImportSection>("colors");
   const [importTexts, setImportTexts] = useState<Record<ImportSection, string>>({
     colors: "", typography: "", buttons: "", voice: "", products: "", segments: "",
   });
+  const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importChecked, setImportChecked] = useState<Record<string, boolean>>({});
   const [importApplied, setImportApplied] = useState(false);
+  const [importSource, setImportSource] = useState<BrandImportSource | null>(null);
 
   const [hexErrors, setHexErrors] = useState<Record<string, boolean>>({});
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -762,7 +776,15 @@ export default function BrandSettings() {
 
   useEffect(() => {
     fetchPresets();
+    fetchImportSource();
   }, []);
+
+  async function fetchImportSource() {
+    try {
+      const res = await fetch(`${BASE}/api/lp/brand-import/source`);
+      if (res.ok) setImportSource(await res.json());
+    } catch { /* silent */ }
+  }
 
   async function fetchPresets() {
     setPresetsLoading(true);
@@ -923,14 +945,47 @@ export default function BrandSettings() {
     }
   };
 
+  const handleImportFromUrl = async () => {
+    const url = importUrl.trim();
+    if (!url) return;
+    setImporting(true);
+    setImportResult(null);
+    setImportApplied(false);
+    try {
+      const res = await fetch(`${BASE}/api/lp/brand-import/from-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Import failed");
+      }
+      const result: ImportResult = await res.json();
+      setImportResult(result);
+      const checked: Record<string, boolean> = {};
+      for (const [field, conf] of Object.entries(result.confidence)) {
+        checked[field] = conf === "high" || conf === "medium";
+      }
+      setImportChecked(checked);
+    } catch (err) {
+      toast({ title: "Import failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleApplyImport = () => {
     if (!importResult) return;
     const updates: Record<string, unknown> = {};
-    let count = 0;
+    const appliedFields: string[] = [];
+    const confidenceCounts: Record<string, number> = { high: 0, medium: 0, low: 0 };
     for (const [field, val] of Object.entries(importResult.proposed)) {
       if (importChecked[field]) {
         updates[field] = val;
-        count++;
+        appliedFields.push(field);
+        const conf = importResult.confidence[field] ?? "medium";
+        confidenceCounts[conf] = (confidenceCounts[conf] ?? 0) + 1;
       }
     }
     setConfig((prev) => {
@@ -942,6 +997,15 @@ export default function BrandSettings() {
     });
     setHexErrors({});
     setImportApplied(true);
+    // Persist provenance when applied via the URL importer.
+    if (importResult.sourceUrl && appliedFields.length > 0) {
+      void fetch(`${BASE}/api/lp/brand-import/record-source`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importResult.sourceUrl, fields: appliedFields, confidenceCounts }),
+      }).then(() => fetchImportSource()).catch(() => {});
+    }
+    const count = appliedFields.length;
     toast({ title: `${count} field${count !== 1 ? "s" : ""} updated`, description: "Review and save when ready." });
   };
 
@@ -951,6 +1015,8 @@ export default function BrandSettings() {
     setImportChecked({});
     setImportApplied(false);
     setImportTexts({ colors: "", typography: "", buttons: "", voice: "", products: "", segments: "" });
+    setImportUrl("");
+    setImportMode("text");
     setImportTab("colors");
   };
 
@@ -1041,7 +1107,11 @@ export default function BrandSettings() {
             <p className="text-muted-foreground mt-2 text-lg">Configure your brand identity and manage reusable content library.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+            <Button variant="outline" onClick={() => { setImportMode("url"); setImportOpen(true); }} className="gap-2">
+              <Globe className="w-4 h-4" />
+              Import from Website
+            </Button>
+            <Button variant="outline" onClick={() => { setImportMode("text"); setImportOpen(true); }} className="gap-2">
               <Sparkles className="w-4 h-4" />
               Import from Guidelines
             </Button>
@@ -1051,6 +1121,30 @@ export default function BrandSettings() {
             </Button>
           </div>
         </div>
+
+        {importSource?.url && (() => {
+          // Defensive scheme check — only render as a link when the persisted
+          // URL is http(s); otherwise render as plain text. The server also
+          // validates this on /record-source, but defense-in-depth.
+          const safeHref = (() => {
+            try {
+              const u = new URL(importSource.url!);
+              return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
+            } catch { return null; }
+          })();
+          return (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground -mt-4">
+              <Globe className="w-3.5 h-3.5" />
+              <span>
+                imported from {safeHref
+                  ? <a href={safeHref} target="_blank" rel="noreferrer" className="underline hover:text-foreground">{safeHref}</a>
+                  : <span className="font-mono">{importSource.url}</span>}
+                {importSource.at && <> · {new Date(importSource.at).toLocaleDateString()}</>}
+                {importSource.summary?.fields?.length ? <> · {importSource.summary.fields.length} fields applied</> : null}
+              </span>
+            </div>
+          );
+        })()}
 
         <Tabs defaultValue="brand-settings" className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -1993,12 +2087,38 @@ export default function BrandSettings() {
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              Import from Brand Guidelines
+              {importMode === "url" ? <Globe className="w-5 h-5 text-primary" /> : <Sparkles className="w-5 h-5 text-primary" />}
+              {importMode === "url" ? "Import from Website" : "Import from Brand Guidelines"}
             </DialogTitle>
             <DialogDescription>
-              Paste your brand guidelines into the relevant sections below. Import one section at a time or all at once.
+              {importMode === "url"
+                ? "Enter your brand's website URL — we'll scrape the homepage and a couple of sub-pages, then extract colors, typography, voice, and more."
+                : "Paste your brand guidelines into the relevant sections below. Import one section at a time or all at once."}
             </DialogDescription>
+            {!importResult && !importApplied && (
+              <div className="flex border-b border-border mt-3">
+                <button
+                  onClick={() => setImportMode("text")}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+                    importMode === "text" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                  disabled={importing}
+                >
+                  From text
+                </button>
+                <button
+                  onClick={() => setImportMode("url")}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+                    importMode === "url" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                  disabled={importing}
+                >
+                  From website
+                </button>
+              </div>
+            )}
           </DialogHeader>
 
           {importResult && !importApplied ? (
@@ -2073,6 +2193,39 @@ export default function BrandSettings() {
               <Button variant="outline" size="sm" onClick={resetImportModal} className="mt-4">
                 Close
               </Button>
+            </div>
+          ) : importMode === "url" ? (
+            <div className="flex flex-col gap-4 py-2">
+              <div>
+                <Label className="text-sm font-medium mb-1.5 block">Website URL</Label>
+                <Input
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  placeholder="https://yourbrand.com"
+                  disabled={importing}
+                  onKeyDown={(e) => { if (e.key === "Enter" && importUrl.trim() && !importing) handleImportFromUrl(); }}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  We&apos;ll scrape the homepage plus <code>/about</code> and <code>/brand</code> when available, capture a screenshot, and extract your full brand identity. Takes ~20 seconds.
+                </p>
+              </div>
+              {importing && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Scraping site and analyzing brand…
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleImportFromUrl}
+                  disabled={importing || !importUrl.trim()}
+                  className="gap-1.5"
+                >
+                  {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                  Scrape & analyze
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-4 py-2">
