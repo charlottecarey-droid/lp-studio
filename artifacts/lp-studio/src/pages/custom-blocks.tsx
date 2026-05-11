@@ -10,9 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment, type BrandConfig } from "@/lib/brand-config";
 import { Link } from "wouter";
 import type { SchemaFieldDef, SchemaFieldType, SchemaFieldValue } from "@/lib/block-types";
 
@@ -93,6 +93,7 @@ export default function CustomBlocksPage() {
 export function CustomBlocksContent() {
   const [blocks, setBlocks] = useState<CustomBlock[]>([]);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [isLoading, setIsLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR);
@@ -103,6 +104,8 @@ export function CustomBlocksContent() {
   const [usageById, setUsageById] = useState<Record<number, BlockUsage>>({});
   const [confirmUsage, setConfirmUsage] = useState<BlockUsage | null>(null);
   const [confirmResolver, setConfirmResolver] = useState<((ok: boolean) => void) | null>(null);
+  // Task #200 — one-click "Add starter: Global Footer" in-flight state.
+  const [isAddingStarter, setIsAddingStarter] = useState(false);
   const { toast } = useToast();
 
   const loadUsage = async (blockId: number): Promise<BlockUsage> => {
@@ -123,13 +126,46 @@ export function CustomBlocksContent() {
     Promise.all([
       fetch(`${API}/lp/custom-blocks`).then(r => r.json() as Promise<CustomBlock[]>).catch(() => [] as CustomBlock[]),
       fetchBrandConfig().catch(() => DEFAULT_BRAND),
-    ]).then(([data, brand]) => {
+    ]).then(([data, b]) => {
       setBlocks(data);
-      setSegments(brand.segments ?? []);
+      setSegments(b.segments ?? []);
+      setBrand(b);
       // Prefetch usage for every schema block so cards render counts immediately.
-      data.filter(b => b.block_type === "schema").forEach(b => { void loadUsage(b.id); });
+      data.filter(blk => blk.block_type === "schema").forEach(blk => { void loadUsage(blk.id); });
     }).finally(() => setIsLoading(false));
   }, []);
+
+  const hasGlobalFooter = blocks.some(
+    b => b.block_type === "schema" && /^global footer$/i.test(b.name.trim())
+  );
+
+  const handleAddGlobalFooterStarter = async () => {
+    setIsAddingStarter(true);
+    try {
+      const body = buildGlobalFooterStarter(brand);
+      const created = await fetch(`${API}/lp/custom-blocks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<CustomBlock>;
+      });
+      setBlocks(prev => [...prev, created]);
+      toast({
+        title: "Global Footer added",
+        description: "Edit the master once and every page footer updates.",
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to add starter",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingStarter(false);
+    }
+  };
 
   const openCreate = () => {
     setEditor(EMPTY_EDITOR);
@@ -284,10 +320,22 @@ export function CustomBlocksContent() {
             Build reusable blocks with the rich text editor, custom HTML, or a schema-driven template with editable fields.
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2 shrink-0">
-          <Plus className="w-4 h-4" />
-          New Block
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={handleAddGlobalFooterStarter}
+            disabled={isAddingStarter || hasGlobalFooter}
+            className="gap-2"
+            title={hasGlobalFooter ? "You already have a Global Footer block" : "One-click starter: a global footer pre-populated for your brand"}
+          >
+            <Sparkles className="w-4 h-4" />
+            {hasGlobalFooter ? "Global Footer added" : "Add starter: Global Footer"}
+          </Button>
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="w-4 h-4" />
+            New Block
+          </Button>
+        </div>
       </div>
 
       {/* Block list */}
@@ -304,10 +352,20 @@ export function CustomBlocksContent() {
           <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-4 leading-relaxed">
             Create your first block using the rich text editor, custom HTML, or a reusable schema.
           </p>
-          <Button onClick={openCreate} variant="outline" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Create Custom Block
-          </Button>
+          <div className="flex items-center justify-center gap-2">
+            <Button onClick={openCreate} variant="outline" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Create Custom Block
+            </Button>
+            <Button
+              onClick={handleAddGlobalFooterStarter}
+              disabled={isAddingStarter || hasGlobalFooter}
+              className="gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Add starter: Global Footer
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -773,6 +831,83 @@ function UsedOnSection({ usage }: { usage?: BlockUsage }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Build the request body for a one-click "Global Footer" starter — a schema
+ * custom block (Task #198 global block) pre-populated with sensible fields and
+ * an HTML/CSS template. Editing the master once flows through to every page
+ * footer that links to it.
+ */
+function buildGlobalFooterStarter(brand: BrandConfig) {
+  const brandName = (brand.brandName || "Your Company").trim();
+  const primary = brand.primaryColor || "#0f172a";
+  const accent = brand.accentColor || "#3b82f6";
+  const year = new Date().getFullYear();
+
+  const schema: SchemaFieldDef[] = [
+    { id: "company_name", label: "Company name", type: "text", required: true },
+    { id: "tagline", label: "Tagline", type: "text", helpText: "Short line shown under the company name" },
+    { id: "address", label: "Address", type: "longText", helpText: "Street, city, postal code" },
+    { id: "phone", label: "Phone", type: "text" },
+    { id: "email", label: "Email", type: "text" },
+    { id: "twitter_url", label: "Twitter / X URL", type: "url" },
+    { id: "linkedin_url", label: "LinkedIn URL", type: "url" },
+    { id: "instagram_url", label: "Instagram URL", type: "url" },
+    { id: "facebook_url", label: "Facebook URL", type: "url" },
+    { id: "copyright", label: "Copyright text", type: "text" },
+    { id: "background_color", label: "Background color", type: "color" },
+    { id: "text_color", label: "Text color", type: "color" },
+    { id: "accent_color", label: "Accent color", type: "color" },
+  ];
+
+  const sample: Record<string, SchemaFieldValue> = {
+    company_name: brandName,
+    tagline: "",
+    address: "",
+    phone: "",
+    email: "",
+    twitter_url: "",
+    linkedin_url: "",
+    instagram_url: "",
+    facebook_url: "",
+    copyright: `© ${year} ${brandName}. All rights reserved.`,
+    background_color: primary,
+    text_color: "#ffffff",
+    accent_color: accent,
+  };
+
+  const template = `<footer style="background:{{background_color}};color:{{text_color}};padding:48px 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;">
+  <div style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:32px;">
+    <div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-0.01em;">{{company_name}}</div>
+      <div style="margin-top:8px;font-size:14px;opacity:0.75;">{{tagline}}</div>
+    </div>
+    <div style="font-size:14px;line-height:1.7;opacity:0.85;">
+      <div style="font-weight:600;margin-bottom:8px;opacity:1;">Contact</div>
+      <div style="white-space:pre-line;">{{address}}</div>
+      <div>{{phone}}</div>
+      <div><a href="mailto:{{email}}" style="color:{{accent_color}};text-decoration:none;">{{email}}</a></div>
+    </div>
+    <div style="font-size:14px;line-height:1.9;">
+      <div style="font-weight:600;margin-bottom:8px;">Follow</div>
+      <div><a href="{{twitter_url}}" style="color:{{accent_color}};text-decoration:none;">Twitter / X</a></div>
+      <div><a href="{{linkedin_url}}" style="color:{{accent_color}};text-decoration:none;">LinkedIn</a></div>
+      <div><a href="{{instagram_url}}" style="color:{{accent_color}};text-decoration:none;">Instagram</a></div>
+      <div><a href="{{facebook_url}}" style="color:{{accent_color}};text-decoration:none;">Facebook</a></div>
+    </div>
+  </div>
+  <div style="max-width:1100px;margin:32px auto 0;padding-top:20px;border-top:1px solid rgba(255,255,255,0.15);font-size:12px;opacity:0.7;">
+    {{copyright}}
+  </div>
+</footer>`;
+
+  return {
+    name: "Global Footer",
+    block_type: "schema",
+    segment: "core",
+    props: { schema, template, sample },
+  };
 }
 
 function TypeOption({ icon, title, desc, active, onClick }: { icon: React.ReactNode; title: string; desc: string; active: boolean; onClick: () => void }) {
