@@ -38,8 +38,11 @@ minimumReleaseAgeExclude:
   - stripe-replit-sync
 
 onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - msw
+  - unrs-resolver
   - sharp
-  - '@sentry/cli'
 
 overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
