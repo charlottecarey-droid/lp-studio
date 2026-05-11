@@ -162,12 +162,7 @@ export function IntegrationsContent() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-        <p className="text-sm text-muted-foreground mt-1">Connect LP Studio to external services. Leads are synced automatically after each form submission.</p>
-      </div>
-
+    <div className="max-w-2xl mx-auto space-y-10">
         {/* ── Google Sheets ── */}
         <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
@@ -381,7 +376,13 @@ export function IntegrationsContent() {
 export default function IntegrationsPage() {
   return (
     <AppLayout>
-      <IntegrationsContent />
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Integrations</h1>
+          <p className="text-sm text-muted-foreground mt-1">Connect LP Studio to external services. Leads are synced automatically after each form submission.</p>
+        </div>
+        <IntegrationsContent />
+      </div>
     </AppLayout>
   );
 }

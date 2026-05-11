@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
 
 const API_BASE = "/api";
@@ -689,6 +690,7 @@ Lead Source:LeadSource`}</pre>
 }
 
 export function FormsContent() {
+  const { toast } = useToast();
   const [forms, setForms] = useState<GlobalForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<GlobalForm | null>(null);
@@ -721,9 +723,17 @@ export function FormsContent() {
   const duplicateForm = async (e: React.MouseEvent, form: GlobalForm) => {
     e.stopPropagation();
     const r = await fetch(`${API_BASE}/lp/forms/${form.id}/duplicate`, { method: "POST" });
-    if (!r.ok) return;
+    if (!r.ok) {
+      toast({ title: "Couldn't duplicate form", variant: "destructive" });
+      return;
+    }
     const copy = await r.json() as GlobalForm;
     setForms(prev => [copy, ...prev]);
+    toast({ title: "Form duplicated", description: `Created "${copy.name}"` });
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-form-id="${copy.id}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   };
 
   const handleDelete = async () => {
@@ -750,16 +760,7 @@ export function FormsContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Forms</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Create global forms once, link them to any landing page block. Manage fields and integrations in one place.
-          </p>
-        </div>
-      </div>
-
+    <div className="max-w-3xl mx-auto">
       <div className="flex gap-2 mb-6">
         <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Form name (e.g. Demo Request)"
           className="max-w-xs" onKeyDown={e => { if (e.key === "Enter") createForm(); }} />
@@ -791,7 +792,7 @@ export function FormsContent() {
                   {(form.salesforceConfig || form.marketoConfig) ? " · CRM connected" : ""}
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0" data-form-id={form.id}>
                 <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5 font-mono">ID {form.id}</span>
                 <button
                   onClick={(e) => duplicateForm(e, form)}
@@ -813,7 +814,15 @@ export function FormsContent() {
 export default function FormsPage() {
   return (
     <AppLayout>
-      <FormsContent />
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Forms</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create global forms once, link them to any landing page block. Manage fields and integrations in one place.
+          </p>
+        </div>
+        <FormsContent />
+      </div>
     </AppLayout>
   );
 }

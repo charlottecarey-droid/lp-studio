@@ -192,11 +192,7 @@ export function LeadsContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Leads</h1>
-          <p className="text-muted-foreground text-sm mt-1">Form submissions from your live landing pages</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button variant="outline" size="sm" className="gap-1.5" onClick={reload}>
           <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
@@ -271,7 +267,13 @@ export function LeadsContent() {
 export default function LeadsPage() {
   return (
     <AppLayout>
-      <LeadsContent />
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Leads</h1>
+          <p className="text-sm text-muted-foreground mt-1">Form submissions from your live landing pages</p>
+        </div>
+        <LeadsContent />
+      </div>
     </AppLayout>
   );
 }
