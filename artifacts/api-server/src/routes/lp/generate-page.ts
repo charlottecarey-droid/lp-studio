@@ -602,7 +602,8 @@ RULES:
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
-13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.`;
+13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
+14. NO STANDALONE NAV BLOCK with "hero": the standard "hero" block already renders its own sticky navigation bar at the top. NEVER prepend a separate "nav-header" (or any other nav block) on a page that starts with "hero" — doing so produces two stacked navs. The page's first block should be the hero itself.`;
 
 const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
 
@@ -1167,7 +1168,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // These hero blocks render their own sticky navbar internally —
     // skip auto-injecting nav-header on top of them, otherwise the page
     // ends up with two stacked navs.
-    const SELF_NAV_TYPES = new Set(["full-bleed-hero", "dso-heartland-hero"]);
+    const SELF_NAV_TYPES = new Set(["full-bleed-hero", "dso-heartland-hero", "hero"]);
     const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string) || SELF_NAV_TYPES.has(b.type as string));
     if (!hasNav) {
       if (useDsoPractices) {
