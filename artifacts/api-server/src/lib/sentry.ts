@@ -79,7 +79,7 @@ function scrubObject(obj: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-function scrubPii(event: Sentry.Event): Sentry.Event {
+function scrubPii(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   // User context: keep id + tenantId only — never email/username/ip.
   if (event.user) {
     const { id, tenantId } = event.user as { id?: unknown; tenantId?: unknown };
@@ -107,13 +107,13 @@ function scrubPii(event: Sentry.Event): Sentry.Event {
     if (req.data && typeof req.data === "object") {
       req.data = scrubObject(req.data as Record<string, unknown>);
     }
-    event.request = req as Sentry.Event["request"];
+    event.request = req as Sentry.ErrorEvent["request"];
   }
-  if (event.extra) event.extra = scrubObject(event.extra) as Sentry.Event["extra"];
+  if (event.extra) event.extra = scrubObject(event.extra) as Sentry.ErrorEvent["extra"];
   if (event.contexts) {
     event.contexts = scrubObject(
       event.contexts as unknown as Record<string, unknown>,
-    ) as Sentry.Event["contexts"];
+    ) as Sentry.ErrorEvent["contexts"];
   }
   return event;
 }
