@@ -24,23 +24,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "artifacts/dandy-insights-video: web"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "e2e"
-
-[[workflows.workflow]]
-name = "artifacts/dandy-insights-video: web"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/dandy-insights-video run dev"
-waitForPort = 19876
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "e2e"
