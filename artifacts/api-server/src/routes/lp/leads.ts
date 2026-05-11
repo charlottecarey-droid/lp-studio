@@ -375,6 +375,31 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
   res.json({ leads: rows, page, limit });
 });
 
+// Most recent leads across every page in the tenant — used by the
+// dashboard "Recent leads" widget so users can see new activity without
+// drilling into a specific page first.
+router.get("/lp/leads/recent", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const limit = Math.max(1, Math.min(parseInt(req.query.limit as string || "5", 10) || 5, 25));
+
+  const rows = await db
+    .select({
+      id: lpLeadsTable.id,
+      pageId: lpLeadsTable.pageId,
+      pageTitle: lpPagesTable.title,
+      pageSlug: lpPagesTable.slug,
+      fields: lpLeadsTable.fields,
+      createdAt: lpLeadsTable.createdAt,
+    })
+    .from(lpLeadsTable)
+    .leftJoin(lpPagesTable, eq(lpLeadsTable.pageId, lpPagesTable.id))
+    .where(eq(lpLeadsTable.tenantId, tenantId))
+    .orderBy(desc(lpLeadsTable.createdAt))
+    .limit(limit);
+
+  res.json({ leads: rows });
+});
+
 router.get("/lp/leads/export", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = parseInt(req.query.pageId as string, 10);
