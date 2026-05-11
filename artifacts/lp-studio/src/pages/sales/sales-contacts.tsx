@@ -788,7 +788,7 @@ function ContactListView() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Contacts</h1>
+            <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Browse all contacts across your target accounts. {(totalCount ?? contacts.length).toLocaleString()} contact{(totalCount ?? contacts.length) !== 1 ? "s" : ""} found.
             </p>
@@ -1334,7 +1334,7 @@ function ContactDetailView({ id }: { id: string }) {
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-display font-bold text-foreground">
+                  <h1 className="text-2xl font-bold text-foreground">
                     {contact.firstName} {contact.lastName}
                   </h1>
                   {(() => {

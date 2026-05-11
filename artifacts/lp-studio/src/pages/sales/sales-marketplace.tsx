@@ -202,8 +202,8 @@ export default function SalesMarketplace() {
     <SalesLayout>
       <div className="space-y-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Template Library</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Template Library</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Clone a template and customize it in the builder — no account required
           </p>
         </div>

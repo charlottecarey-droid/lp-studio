@@ -332,8 +332,8 @@ export default function SalesGuide() {
               <BookOpen className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Sales Console Guide</h1>
-              <p className="text-slate-500 mt-1">How to use every feature in the Dandy Sales Console to find, engage, and close accounts faster.</p>
+              <h1 className="text-2xl font-bold text-foreground">Sales Console Guide</h1>
+              <p className="text-sm text-muted-foreground mt-1">How to use every feature in the Dandy Sales Console to find, engage, and close accounts faster.</p>
             </div>
           </div>
 

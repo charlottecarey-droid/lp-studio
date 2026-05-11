@@ -1688,7 +1688,7 @@ export default function SalesOutreach() {
       <div className="flex flex-col gap-6 pb-12">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Campaigns</h1>
+            <h1 className="text-2xl font-bold text-foreground">Campaigns</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {outerMode === "single"
                 ? "Build audiences, compose templated emails, and track campaign performance."

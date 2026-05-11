@@ -531,7 +531,7 @@ export default function SalesCampaignDetail() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-display font-bold text-foreground">{campaign.name}</h1>
+                  <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${campaignStatusColor(campaign.status)}`}>
                     {campaign.status}
                   </span>

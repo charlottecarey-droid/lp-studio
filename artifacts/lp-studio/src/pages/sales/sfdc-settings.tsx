@@ -242,8 +242,8 @@ export default function SfdcSettingsPage() {
       <SalesLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Salesforce Settings</h1>
-            <p className="text-muted-foreground mt-2">Manage your Salesforce connection and sync settings</p>
+            <h1 className="text-2xl font-bold text-foreground">Salesforce Settings</h1>
+            <p className="text-sm text-muted-foreground mt-1">Manage your Salesforce connection and sync settings</p>
           </div>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -262,8 +262,8 @@ export default function SfdcSettingsPage() {
     <SalesLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Salesforce Settings</h1>
-          <p className="text-muted-foreground mt-2">Manage your Salesforce connection and sync settings</p>
+          <h1 className="text-2xl font-bold text-foreground">Salesforce Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your Salesforce connection and sync settings</p>
         </div>
 
         {/* Connection Status Card */}

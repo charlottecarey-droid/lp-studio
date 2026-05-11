@@ -372,8 +372,8 @@ export default function SalesDashboard() {
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-2">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{getGreeting()}</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Here's what needs your attention today.</p>
+            <h1 className="text-2xl font-bold text-foreground">{getGreeting()}</h1>
+            <p className="text-sm text-muted-foreground mt-1">Here's what needs your attention today.</p>
           </div>
           <Link href="/sales/accounts" className="hidden sm:block">
             <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
