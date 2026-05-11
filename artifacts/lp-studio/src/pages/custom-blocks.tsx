@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment } from "@/lib/brand-config";
 import { Link } from "wouter";
@@ -27,6 +27,18 @@ interface CustomBlock {
   sort_order: number;
   created_at: string;
   updated_at: string;
+}
+
+interface UsagePage {
+  id: number;
+  title: string;
+  status: string;
+}
+
+interface BlockUsage {
+  count: number;
+  publishedCount: number;
+  pages: UsagePage[];
 }
 
 type BlockEditorType = "rich-text" | "custom-html" | "schema";
@@ -85,7 +97,27 @@ export function CustomBlocksContent() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR);
   const [isSaving, setIsSaving] = useState(false);
+  // Task #199 — usage map keyed by block id, populated for schema blocks so
+  // each card can show "Used on N pages" and the save-confirm dialog can
+  // surface the affected pages with status badges + builder links.
+  const [usageById, setUsageById] = useState<Record<number, BlockUsage>>({});
+  const [confirmUsage, setConfirmUsage] = useState<BlockUsage | null>(null);
+  const [confirmResolver, setConfirmResolver] = useState<((ok: boolean) => void) | null>(null);
   const { toast } = useToast();
+
+  const loadUsage = async (blockId: number): Promise<BlockUsage> => {
+    try {
+      const res = await fetch(`${API}/lp/custom-blocks/${blockId}/usage`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as BlockUsage;
+      setUsageById(prev => ({ ...prev, [blockId]: data }));
+      return data;
+    } catch {
+      const empty: BlockUsage = { count: 0, publishedCount: 0, pages: [] };
+      setUsageById(prev => ({ ...prev, [blockId]: empty }));
+      return empty;
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -94,6 +126,8 @@ export function CustomBlocksContent() {
     ]).then(([data, brand]) => {
       setBlocks(data);
       setSegments(brand.segments ?? []);
+      // Prefetch usage for every schema block so cards render counts immediately.
+      data.filter(b => b.block_type === "schema").forEach(b => { void loadUsage(b.id); });
     }).finally(() => setIsLoading(false));
   }, []);
 
@@ -119,26 +153,17 @@ export function CustomBlocksContent() {
 
   const handleSave = async () => {
     if (!editor.name.trim()) return;
-    // Task #198 — affected-pages warning. Schema-block edits flow live to
-    // every linked instance, so confirm with the editor before saving when
-    // pages depend on this master.
+    // Task #198/#199 — affected-pages warning. Schema-block edits flow live
+    // to every linked instance, so we surface the affected pages (with status
+    // badges + builder links) in a confirmation dialog before saving.
     if (editor.id && editor.block_type === "schema") {
-      try {
-        const usage = await fetch(`${API}/lp/custom-blocks/${editor.id}/usage`)
-          .then(r => r.ok ? r.json() as Promise<{ count: number; publishedCount: number }> : { count: 0, publishedCount: 0 });
-        if (usage.count > 0) {
-          const lines = [
-            `This block is used on ${usage.count} page${usage.count === 1 ? "" : "s"}` +
-              (usage.publishedCount > 0 ? ` (${usage.publishedCount} published).` : "."),
-            "",
-            "Saving will update the schema, template, and shared default values everywhere this block is used. Per-page field overrides are kept.",
-            "",
-            "Continue?",
-          ];
-          if (!confirm(lines.join("\n"))) return;
-        }
-      } catch {
-        // Don't block saving on a usage-fetch failure.
+      const usage = await loadUsage(editor.id);
+      if (usage.count > 0) {
+        const ok = await new Promise<boolean>(resolve => {
+          setConfirmUsage(usage);
+          setConfirmResolver(() => resolve);
+        });
+        if (!ok) return;
       }
     }
     setIsSaving(true);
@@ -163,6 +188,7 @@ export function CustomBlocksContent() {
           return r.json() as Promise<CustomBlock>;
         });
         setBlocks(prev => prev.map(b => b.id === updated.id ? updated : b));
+        if (updated.block_type === "schema") void loadUsage(updated.id);
         toast({ title: "Block updated" });
       } else {
         const created = await fetch(`${API}/lp/custom-blocks`, {
@@ -174,6 +200,7 @@ export function CustomBlocksContent() {
           return r.json() as Promise<CustomBlock>;
         });
         setBlocks(prev => [...prev, created]);
+        if (created.block_type === "schema") void loadUsage(created.id);
         toast({ title: "Custom block saved" });
       }
       setEditorOpen(false);
@@ -347,6 +374,11 @@ export function CustomBlocksContent() {
                 )}
                 <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/30 to-transparent pointer-events-none" />
               </div>
+
+              {/* Task #199 — "Used on" section for schema (master) blocks. */}
+              {block.block_type === "schema" && (
+                <UsedOnSection usage={usageById[block.id]} />
+              )}
             </div>
           ))}
         </div>
@@ -617,6 +649,128 @@ export function CustomBlocksContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Task #199 — Affected-pages confirm dialog. Replaces native confirm()
+          with a list of pages (status badge + open-in-new-tab link) so editors
+          can preview the impact before saving a master schema-block change. */}
+      <Dialog
+        open={confirmUsage !== null}
+        onOpenChange={open => {
+          if (!open && confirmResolver) {
+            confirmResolver(false);
+            setConfirmResolver(null);
+            setConfirmUsage(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update {confirmUsage?.count ?? 0} page{confirmUsage?.count === 1 ? "" : "s"}?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground leading-snug">
+              This block is used on {confirmUsage?.count ?? 0} page{confirmUsage?.count === 1 ? "" : "s"}
+              {confirmUsage && confirmUsage.publishedCount > 0 ? ` (${confirmUsage.publishedCount} published)` : ""}.
+              Saving will update the schema, template, and shared default values everywhere it's used.
+              Per-page field overrides are kept.
+            </p>
+            <div className="border border-border rounded-md divide-y divide-border max-h-64 overflow-y-auto">
+              {confirmUsage?.pages.map(p => (
+                <a
+                  key={p.id}
+                  href={`/builder/${p.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted/50"
+                >
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate text-foreground">{p.title || `Page ${p.id}`}</span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] capitalize",
+                      p.status === "published" && "bg-green-50 text-green-700 border-green-200",
+                      p.status === "draft" && "bg-amber-50 text-amber-700 border-amber-200",
+                    )}
+                  >
+                    {p.status}
+                  </Badge>
+                  <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                </a>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirmResolver) confirmResolver(false);
+                setConfirmResolver(null);
+                setConfirmUsage(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (confirmResolver) confirmResolver(true);
+                setConfirmResolver(null);
+                setConfirmUsage(null);
+              }}
+            >
+              Save and update {confirmUsage?.count ?? 0} page{confirmUsage?.count === 1 ? "" : "s"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function UsedOnSection({ usage }: { usage?: BlockUsage }) {
+  if (!usage) {
+    return (
+      <div className="text-[11px] text-muted-foreground">Checking usage…</div>
+    );
+  }
+  if (usage.count === 0) {
+    return (
+      <div className="text-[11px] text-muted-foreground">Not used on any pages yet</div>
+    );
+  }
+  const preview = usage.pages.slice(0, 3);
+  const extra = usage.count - preview.length;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-medium text-muted-foreground">
+        Used on {usage.count} page{usage.count === 1 ? "" : "s"}
+        {usage.publishedCount > 0 ? ` · ${usage.publishedCount} published` : ""}
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {preview.map(p => (
+          <a
+            key={p.id}
+            href={`/builder/${p.id}`}
+            target="_blank"
+            rel="noreferrer"
+            title={`${p.title} (${p.status})`}
+            className={cn(
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] max-w-[140px] hover:bg-muted/50",
+              p.status === "published"
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-amber-50 text-amber-700 border-amber-200",
+            )}
+          >
+            <span className="truncate">{p.title || `Page ${p.id}`}</span>
+            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+          </a>
+        ))}
+        {extra > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-border text-[10px] text-muted-foreground">
+            +{extra} more
+          </span>
+        )}
+      </div>
     </div>
   );
 }
