@@ -595,12 +595,21 @@ export default function PagesGallery() {
   // saved tenant templates / superadmin global-template edits show up
   // immediately. `cache: "no-store"` mirrors the layout-defaults fix.
   useEffect(() => {
-    if (!showCreateModal) return;
+    if (!showCreateModal && !briefModalOpen) return;
     fetch(`${API_BASE}/lp/templates/enriched`, { cache: "no-store", credentials: "include" })
       .then(r => (r.ok ? r.json() : []))
       .then((rows: ApiTemplate[]) => setApiTemplates(Array.isArray(rows) ? rows : []))
       .catch(() => setApiTemplates([]));
-  }, [showCreateModal]);
+  }, [showCreateModal, briefModalOpen]);
+
+  // The brief modal can be opened directly from the toolbar (skipping the
+  // create modal), so also load segments here for audience-aware template
+  // filtering inside the brief flow.
+  useEffect(() => {
+    if (briefModalOpen && segments.length === 0) {
+      fetchBrandConfig().then(b => setSegments(b.segments ?? [])).catch(() => {});
+    }
+  }, [briefModalOpen]);
 
   // Fetch performance scores once pages load
   useEffect(() => {
@@ -809,9 +818,18 @@ export default function PagesGallery() {
     }
   };
 
-  const handleGeneratePageFromBrief = async (prompt: string, seg?: AudienceSegment) => {
-    await generatePageFromPrompt(prompt, seg ?? selectedSegment);
+  const handleGeneratePageFromBrief = async (prompt: string, seg?: AudienceSegment, templateId?: number | null) => {
+    await generatePageFromPrompt(prompt, seg ?? selectedSegment, templateId ?? null);
   };
+
+  const briefTemplateOptions = useMemo(
+    () => visibleApiTemplates.map(t => ({
+      id: t.id,
+      label: t.templateLabel || t.title,
+      isGlobal: t.isGlobal,
+    })),
+    [visibleApiTemplates],
+  );
 
   const handleDelete = async (page: Page) => {
     if (!confirm(`Delete "${page.title}"? This cannot be undone.`)) return;
@@ -1336,6 +1354,7 @@ export default function PagesGallery() {
         open={briefModalOpen}
         onClose={() => setBriefModalOpen(false)}
         onGeneratePage={handleGeneratePageFromBrief}
+        templates={briefTemplateOptions}
       />
 
       {/* Create Page Modal */}

@@ -28,13 +28,27 @@ export interface ContentBrief {
   ctaSuggestions: string[];
 }
 
+export interface BriefTemplateOption {
+  id: number;
+  label: string;
+  isGlobal?: boolean;
+}
+
 interface ContentBriefModalProps {
   open: boolean;
   onClose: () => void;
   onApply?: (brief: ContentBrief, company: string, objective: string, segment?: AudienceSegment) => void;
-  onGeneratePage?: (prompt: string, segment?: AudienceSegment) => Promise<void>;
+  onGeneratePage?: (prompt: string, segment?: AudienceSegment, templateId?: number | null) => Promise<void>;
   initialSegmentId?: string;
   initialCompany?: string;
+  /**
+   * Optional list of templates the user can pick to seed the page structure.
+   * When provided AND `onGeneratePage` is set, a "Starting Point" picker is
+   * shown in the "Generate page from brief" section. Mirrors the AI page
+   * generator's template picker — when a template is chosen the AI rewrites
+   * its copy from the brief instead of generating block structure from scratch.
+   */
+  templates?: BriefTemplateOption[];
 }
 
 function isDsoPracticesSegment(segment: AudienceSegment | null): boolean {
@@ -102,7 +116,7 @@ function buildBrandContext(brand: BrandConfig | null) {
   return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
-export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId, initialCompany }: ContentBriefModalProps) {
+export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId, initialCompany, templates }: ContentBriefModalProps) {
   const [company, setCompany] = useState(initialCompany ?? "");
   const [objective, setObjective] = useState("");
   const [loading, setLoading] = useState(false);
@@ -115,6 +129,7 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
   const [expandedPersona, setExpandedPersona] = useState<number | null>(0);
   const [brand, setBrand] = useState<BrandConfig | null>(null);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>(initialSegmentId ?? "");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
   const segments: AudienceSegment[] = brand?.segments ?? [];
   const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
@@ -227,7 +242,8 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
     setError(null);
     try {
       const prompt = buildBriefPrompt(brief, briefCompany, briefObjective, selectedSegment);
-      await onGeneratePage(prompt, selectedSegment ?? undefined);
+      const tplId = selectedTemplateId ? Number(selectedTemplateId) : null;
+      await onGeneratePage(prompt, selectedSegment ?? undefined, tplId);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate page");
@@ -469,26 +485,54 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
               {/* Action buttons */}
               <div className="space-y-2">
                 {onGeneratePage && (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Generate page from brief</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                        Builds a full landing page using the brief's audience, headline, value props, and block structure.
-                      </p>
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Generate page from brief</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                          Builds a full landing page using the brief's audience, headline, value props, and block structure.
+                        </p>
+                      </div>
+                      <Button onClick={handleGeneratePage} disabled={generating} className="gap-2 shrink-0">
+                        {generating ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Building…
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className="w-3.5 h-3.5" />
+                            Generate
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Button onClick={handleGeneratePage} disabled={generating} className="gap-2 shrink-0">
-                      {generating ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Building…
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="w-3.5 h-3.5" />
-                          Generate
-                        </>
-                      )}
-                    </Button>
+                    {templates && templates.length > 0 && (
+                      <div className="border-t border-primary/20 pt-3">
+                        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <Layout className="w-3 h-3" />
+                          Starting Point
+                        </Label>
+                        <select
+                          className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          value={selectedTemplateId}
+                          onChange={e => setSelectedTemplateId(e.target.value)}
+                          disabled={generating}
+                        >
+                          <option value="">Generate from scratch (AI chooses blocks)</option>
+                          <optgroup label="Use a template (AI fills copy only)">
+                            {templates.map(t => (
+                              <option key={t.id} value={String(t.id)}>{t.label}</option>
+                            ))}
+                          </optgroup>
+                        </select>
+                        <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+                          {selectedTemplateId
+                            ? "AI will preserve the template's block layout and only rewrite copy using the brief."
+                            : "AI will design the page structure from scratch using the brief's recommended blocks."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
                 {onApply && (
