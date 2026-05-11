@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 
 const API_BASE = "/api";
 
@@ -241,10 +242,10 @@ export default function SfdcSettingsPage() {
     return (
       <SalesLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Salesforce Settings</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage your Salesforce connection and sync settings</p>
-          </div>
+          <SalesPageHeader
+            title="Salesforce Settings"
+            description="Manage your Salesforce connection and sync settings"
+          />
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="p-6">
@@ -261,10 +262,10 @@ export default function SfdcSettingsPage() {
   return (
     <SalesLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Salesforce Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your Salesforce connection and sync settings</p>
-        </div>
+        <SalesPageHeader
+          title="Salesforce Settings"
+          description="Manage your Salesforce connection and sync settings"
+        />
 
         {/* Connection Status Card */}
         <Card className="p-6 border border-border/40 bg-card/50 backdrop-blur-sm">

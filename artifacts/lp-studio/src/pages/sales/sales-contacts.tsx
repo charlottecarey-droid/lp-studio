@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import DraftEmailModal from "./DraftEmailModal";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
@@ -786,13 +787,11 @@ function ContactListView() {
       <div className="flex flex-col gap-6 pb-12">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Browse all contacts across your target accounts. {(totalCount ?? contacts.length).toLocaleString()} contact{(totalCount ?? contacts.length) !== 1 ? "s" : ""} found.
-            </p>
-          </div>
+        <SalesPageHeader
+          title="Contacts"
+          description={`Browse all contacts across your target accounts. ${(totalCount ?? contacts.length).toLocaleString()} contact${(totalCount ?? contacts.length) !== 1 ? "s" : ""} found.`}
+        />
+        <div className="flex items-center justify-end -mt-4">
           <div className="flex items-center gap-2">
             {/* View toggle */}
             <div className="flex items-center rounded-lg border border-input bg-background overflow-hidden">

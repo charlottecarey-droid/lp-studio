@@ -48,6 +48,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
@@ -924,25 +925,17 @@ export function CampaignPagesContent() {
       )}
 
       <div className="flex flex-col gap-6 pb-12">
-        <div className="flex items-center justify-between">
-          <div>
-            <button
-              onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales")}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-              Back
-            </button>
-            <h1 className="text-2xl font-bold text-foreground">Quick Campaigns</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Build one page, define an audience, and send it to multiple accounts at once — each version personalized automatically
-            </p>
-          </div>
-          <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
-            <Plus className="w-4 h-4" />
-            New Campaign Page
-          </Button>
-        </div>
+        <SalesPageHeader
+          title="Quick Campaigns"
+          description="Build one page, define an audience, and send it to multiple accounts at once — each version personalized automatically"
+          back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
+          actions={
+            <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
+              <Plus className="w-4 h-4" />
+              New Campaign Page
+            </Button>
+          }
+        />
 
         {/* How it works */}
         <Card className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-gradient-to-br from-violet-50/70 to-background dark:from-violet-950/20 p-5">

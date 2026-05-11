@@ -11,6 +11,7 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -201,12 +202,10 @@ export default function SalesMarketplace() {
   return (
     <SalesLayout>
       <div className="space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-foreground">Template Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Clone a template and customize it in the builder — no account required
-          </p>
-        </div>
+        <SalesPageHeader
+          title="Template Library"
+          description="Clone a template and customize it in the builder — no account required"
+        />
 
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">

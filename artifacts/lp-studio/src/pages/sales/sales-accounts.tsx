@@ -46,6 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import DraftEmailModal from "./DraftEmailModal";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import {
@@ -680,22 +681,16 @@ function AccountListView() {
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Accounts</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Manage your target accounts and track engagement
-            </p>
-          </div>
-          <Button
-            onClick={() => setShowNewForm(!showNewForm)}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Account
-          </Button>
-        </div>
+        <SalesPageHeader
+          title="Accounts"
+          description="Manage your target accounts and track engagement"
+          actions={
+            <Button onClick={() => setShowNewForm(!showNewForm)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              New Account
+            </Button>
+          }
+        />
 
         {/* PageHint Banner */}
         <PageHint

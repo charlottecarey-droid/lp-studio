@@ -39,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
@@ -637,37 +638,28 @@ export default function SalesPages() {
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <button
-              onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales")}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-              Back
-            </button>
-            <h1 className="text-2xl font-bold text-foreground">Microsites</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              AI-generated pages for your accounts, with per-contact personalized links
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={selectMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-              className="gap-1.5"
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              {selectMode ? "Cancel" : "Select"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5" />
-              Refresh
-            </Button>
-          </div>
-        </div>
+        <SalesPageHeader
+          title="Microsites"
+          description="AI-generated pages for your accounts, with per-contact personalized links"
+          back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
+          actions={
+            <>
+              <Button
+                variant={selectMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+                className="gap-1.5"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                {selectMode ? "Cancel" : "Select"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5" />
+                Refresh
+              </Button>
+            </>
+          }
+        />
 
         {/* View filter bar */}
         <div className="flex items-center gap-2 flex-wrap">

@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { PageHint } from "@/components/ui/page-hint";
@@ -213,51 +214,43 @@ export default function SalesSignals() {
   return (
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <button
-              onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales")}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-              Back
-            </button>
-            <h1 className="text-2xl font-bold text-foreground">Activity</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Real-time engagement feed{acctFilterActive ? " — filtered to your active view" : " across all accounts"}
-            </p>
-          </div>
-          {signals.length > 0 && (
-            confirmClear ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm text-muted-foreground">Clear all {signals.length} signals?</span>
+        <SalesPageHeader
+          title="Activity"
+          description={`Real-time engagement feed${acctFilterActive ? " — filtered to your active view" : " across all accounts"}`}
+          back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
+          actions={
+            signals.length > 0 ? (
+              confirmClear ? (
+                <>
+                  <span className="text-sm text-muted-foreground">Clear all {signals.length} signals?</span>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleClearAll}
+                    disabled={clearing}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {clearing ? "Clearing…" : "Yes, clear all"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmClear(false)} className="text-xs">
+                    Cancel
+                  </Button>
+                </>
+              ) : (
                 <Button
                   size="sm"
-                  variant="destructive"
-                  onClick={handleClearAll}
-                  disabled={clearing}
-                  className="gap-1.5 text-xs"
+                  variant="outline"
+                  onClick={() => setConfirmClear(true)}
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  {clearing ? "Clearing…" : "Yes, clear all"}
+                  Clear all
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfirmClear(false)} className="text-xs">
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setConfirmClear(true)}
-                className="gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive shrink-0"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Clear all
-              </Button>
-            )
-          )}
-        </div>
+              )
+            ) : null
+          }
+        />
 
         {/* Page Hint */}
         <PageHint
