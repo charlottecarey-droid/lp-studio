@@ -151,7 +151,7 @@ export default function BlockDefaultsPage() {
           <div className="px-4 pt-5 pb-3 border-b border-border shrink-0">
             <h2 className="text-sm font-semibold text-foreground">Block Defaults</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {savedCount > 0 ? `${savedCount} default${savedCount !== 1 ? "s" : ""} saved` : "No defaults saved yet"}
+              {savedCount > 0 ? `${savedCount} default${savedCount !== 1 ? "s" : ""} saved.` : "No defaults saved yet."}
             </p>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-4">
@@ -383,7 +383,7 @@ export function BlockDefaultsContent() {
         <div className="px-4 pt-5 pb-3 border-b border-border shrink-0">
           <h2 className="text-sm font-semibold text-foreground">Block Defaults</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {savedCount > 0 ? `${savedCount} default${savedCount !== 1 ? "s" : ""} saved` : "No defaults saved yet"}
+            {savedCount > 0 ? `${savedCount} default${savedCount !== 1 ? "s" : ""} saved.` : "No defaults saved yet."}
           </p>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
