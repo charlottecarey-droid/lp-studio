@@ -526,31 +526,59 @@ function StickyNav({
         </div>
       )}
 
-      <motion.a
-        href={navCtaHref}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.97 }}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          padding: "0.6rem 1.25rem",
-          backgroundColor: C.primary,
-          color: C.bg,
-          fontFamily: C.bodyFont,
-          fontWeight: 500,
-          fontSize: "0.7rem",
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          textDecoration: "none",
-          borderRadius: "999px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {subscribeOn ? <Send size={13} /> : null}
-        {navCtaLabel}
-        {!subscribeOn && <ArrowRight size={14} />}
-      </motion.a>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+        {p.navSecondaryCtaText && (
+          <motion.a
+            href={p.navSecondaryCtaUrl || "#"}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.55rem 1.1rem",
+              backgroundColor: "transparent",
+              color: C.navText,
+              border: `1px solid ${C.borderDim}`,
+              fontFamily: C.bodyFont,
+              fontWeight: 500,
+              fontSize: "0.7rem",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              borderRadius: "999px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {p.navSecondaryCtaText}
+          </motion.a>
+        )}
+        <motion.a
+          href={navCtaHref}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.6rem 1.25rem",
+            backgroundColor: C.primary,
+            color: C.bg,
+            fontFamily: C.bodyFont,
+            fontWeight: 500,
+            fontSize: "0.7rem",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            borderRadius: "999px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {subscribeOn ? <Send size={13} /> : null}
+          {navCtaLabel}
+          {!subscribeOn && <ArrowRight size={14} />}
+        </motion.a>
+      </div>
     </motion.nav>
   );
 }

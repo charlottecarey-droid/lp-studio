@@ -538,6 +538,12 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
           <Field label="Nav CTA URL">
             <Input value={p.navCtaUrl ?? ""} onChange={e => set({ navCtaUrl: e.target.value })} className="text-xs h-7 font-mono" />
           </Field>
+          <Field label="Secondary CTA Text">
+            <Input value={p.navSecondaryCtaText ?? ""} onChange={e => set({ navSecondaryCtaText: e.target.value })} className="text-xs h-7" placeholder="Apply to be a Guest" />
+          </Field>
+          <Field label="Secondary CTA URL">
+            <Input value={p.navSecondaryCtaUrl ?? ""} onChange={e => set({ navSecondaryCtaUrl: e.target.value })} className="text-xs h-7 font-mono" placeholder="#apply" />
+          </Field>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Links</Label>

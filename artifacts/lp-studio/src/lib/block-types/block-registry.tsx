@@ -4354,6 +4354,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ],
       navCtaText: "Listen Now",
       navCtaUrl: "https://podcasts.apple.com/us/podcast/the-margin-line/id1853120971",
+      navSecondaryCtaText: "Apply to be a Guest",
+      navSecondaryCtaUrl: "#apply",
       heroLayout: "half-bleed",
       heroEyebrow: "NEW EPISODE",
       heroImageUrl: "/images/margin-line-cover.webp",

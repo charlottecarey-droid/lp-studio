@@ -1310,6 +1310,9 @@ export interface ContentSeriesBlockProps {
   navLinks?: ContentSeriesNavLink[];
   navCtaText?: string;
   navCtaUrl?: string;
+  /** Optional secondary nav CTA — renders as an outline pill before the primary CTA. */
+  navSecondaryCtaText?: string;
+  navSecondaryCtaUrl?: string;
 
   /** Section visibility toggles — all default to true when absent. */
   showNav?: boolean;
