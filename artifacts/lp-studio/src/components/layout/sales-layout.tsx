@@ -397,7 +397,7 @@ export function SalesTopNav() {
 
 export function SalesLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-background to-background/95 selection:bg-primary/20 flex flex-col">
+    <div className="sales-console min-h-screen w-full bg-gradient-to-b from-background to-background/95 selection:bg-primary/20 flex flex-col">
       <SalesTopNav />
       <main className="flex-1 overflow-auto px-5 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
         <div className="max-w-[1200px] mx-auto w-full">{children}</div>

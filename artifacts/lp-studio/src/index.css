@@ -341,4 +341,15 @@
   [style*="--blk-body-color"] li {
     color: var(--blk-body-color) !important;
   }
+
+  /* Sales Console: ensure buttons sitting on the dark brand chrome
+     (e.g. #1B4332 / #122B21 backgrounds) always render with light text
+     so they read consistently against the dark Sales Console chrome.
+     Scoped to .sales-console so it never bleeds into other artifacts. */
+  .sales-console button[class*="bg-[#1B4332]"],
+  .sales-console button[class*="bg-[#122B21]"],
+  .sales-console button[style*="#1B4332"],
+  .sales-console button[style*="#122B21"] {
+    color: #fff;
+  }
 }

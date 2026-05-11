@@ -376,7 +376,7 @@ export default function SalesDashboard() {
             <p className="text-sm text-muted-foreground mt-1">Here's what needs your attention today.</p>
           </div>
           <Link href="/sales/accounts" className="hidden sm:block">
-            <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
+            <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "#fff" }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />New account
             </Button>
           </Link>
@@ -839,7 +839,7 @@ export default function SalesDashboard() {
                           {/* Quick actions — hidden on mobile, hover-reveal on desktop */}
                           <div className="hidden sm:flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <Link href={`/sales/draft-email?accountId=${acct.id}`} onClick={e => e.stopPropagation()}>
-                              <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-lg" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
+                              <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-lg" style={{ backgroundColor: "#1B4332", color: "#fff" }}>
                                 <PenTool className="w-3 h-3" />Email
                               </Button>
                             </Link>
@@ -965,7 +965,7 @@ export default function SalesDashboard() {
                           <div className="flex items-center gap-1.5 mt-auto pt-1">
                             {noMicrosite ? (
                               <Link href={`/sales/accounts?highlight=${acct.id}`}>
-                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full rounded-lg" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
+                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full rounded-lg" style={{ backgroundColor: "#1B4332", color: "#fff" }}>
                                   <Sparkles className="w-3 h-3" />Generate microsite
                                 </Button>
                               </Link>
