@@ -95,17 +95,17 @@
   --elevate-1: rgba(0,0,0, .025);
   --elevate-2: rgba(0,0,0, .05);
 
-  /* Linear/Vercel — Clean Neutral Light */
-  --background: 0 0% 99%;
+  /* Notion/Linear — Clean White, Prettier */
+  --background: 0 0% 98%;
   --foreground: 0 0% 9%;
 
   --card: 0 0% 100%;
   --card-foreground: 0 0% 9%;
-  --card-border: 0 0% 91%;
+  --card-border: 0 0% 93%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 9%;
-  --popover-border: 0 0% 91%;
+  --popover-border: 0 0% 93%;
 
   /* Primary — near-black (Linear style) */
   --primary: 0 0% 9%;
@@ -123,23 +123,24 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 0 0% 92%;
-  --input: 0 0% 92%;
+  --border: 0 0% 93%;
+  --input: 0 0% 93%;
   --ring: 0 0% 9%;
 
   /* Accent warm — violet tint for highlights */
   --accent-warm: 262 83% 58%;
   --accent-warm-foreground: 0 0% 100%;
 
-  /* Sidebar — near-black, Linear-style */
-  --sidebar: 0 0% 7%;
-  --sidebar-foreground: 0 0% 88%;
-  --sidebar-border: 0 0% 14%;
-  --sidebar-primary: 0 0% 100%;
-  --sidebar-primary-foreground: 0 0% 7%;
-  --sidebar-accent: 0 0% 14%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-ring: 0 0% 40%;
+  /* Sidebar — clean white, slightly brighter than the page so it reads
+     as a distinct surface without needing a heavy border. */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 0 0% 25%;
+  --sidebar-border: 0 0% 93%;
+  --sidebar-primary: 0 0% 9%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 95%;
+  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-ring: 0 0% 70%;
 
   /* Chart palette — muted, modern */
   --chart-1: 0 0% 15%;
@@ -309,9 +310,10 @@
     }
   }
 
-  /* Sidebar logo: invert to white since sidebar is dark */
+  /* Sidebar logo: keep original colors on the white sidebar.
+     (Was previously inverted to white when the sidebar was dark.) */
   .sidebar-logo {
-    filter: brightness(0) invert(1);
+    filter: none;
   }
 
   /* Block background override: the wrapper sets --blk-bg, the section reads it.
