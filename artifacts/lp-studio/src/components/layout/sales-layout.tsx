@@ -109,6 +109,26 @@ function SettingsDropdown() {
             </DropdownMenuItem>
           </Link>
         )}
+        {(hasPerm("sales_campaigns") || user?.isAdmin) && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2">
+              Sales Templates
+            </DropdownMenuLabel>
+            <Link href="/sales/one-pager-templates">
+              <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/one-pager-templates") ? "bg-accent" : ""}`}>
+                <Wrench className="w-4 h-4 text-muted-foreground" />
+                <span>One-Pager Templates</span>
+              </DropdownMenuItem>
+            </Link>
+            <Link href="/sales/marketplace">
+              <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketplace") ? "bg-accent" : ""}`}>
+                <LayoutTemplate className="w-4 h-4 text-muted-foreground" />
+                <span>Template Library</span>
+              </DropdownMenuItem>
+            </Link>
+          </>
+        )}
         {(hasPerm("team") || user?.isAdmin) && (
           <>
             <DropdownMenuSeparator />
@@ -205,32 +225,11 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/roi-calculator",
     },
     {
-      label: "One-Pager Generator",
+      label: "One-Pager",
       href: "/sales/one-pager",
       icon: <FileText className="w-4 h-4" />,
       permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/one-pager",
-    },
-    {
-      label: "Interactive One Pager",
-      href: "/sales/web-one-pager",
-      icon: <Globe className="w-4 h-4" />,
-      permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/web-one-pager",
-    },
-    {
-      label: "One-Pager Templates",
-      href: "/sales/one-pager-templates",
-      icon: <Wrench className="w-4 h-4" />,
-      permission: "sales_campaigns",
-      matchFn: (loc) => loc === "/sales/one-pager-templates",
-    },
-    {
-      label: "Template Library",
-      href: "/sales/marketplace",
-      icon: <LayoutTemplate className="w-4 h-4" />,
-      permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/marketplace",
+      matchFn: (loc) => loc === "/sales/one-pager" || loc === "/sales/web-one-pager",
     },
     {
       label: "User Guide",

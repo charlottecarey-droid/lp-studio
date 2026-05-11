@@ -130,7 +130,6 @@ const SalesRoiCalculator = lazy(() => import("@/pages/sales/sales-roi-calculator
 const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
 const SalesOnePagerEditor = lazy(() => import("@/pages/sales/sales-one-pager-editor"));
 const SalesOnePagerTemplates = lazy(() => import("@/pages/sales/sales-one-pager-templates"));
-const SalesWebOnePager = lazy(() => import("@/pages/sales/sales-web-one-pager"));
 const SalesMarketplace = lazy(() => import("@/pages/sales/sales-marketplace"));
 const SalesGuide = lazy(() => import("@/pages/sales/sales-guide"));
 
@@ -280,16 +279,16 @@ function AppRouter() {
         <Route path="/sales/accounts">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
         <Route path="/sales/contacts/:id">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/contacts">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
-        <Route path="/sales/pages">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
+        <Route path="/sales/pages">{() => <Redirect to="/sales/microsites" />}</Route>
         <Route path="/sales/campaign-pages">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignPages /></PermRoute>}</Route>
-        <Route path="/sales/outreach">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
+        <Route path="/sales/outreach">{() => <Redirect to="/sales/campaigns" />}</Route>
         <Route path="/sales/signals">{() => <PermRoute perm="sales_signals" fallback="/"><SalesSignals /></PermRoute>}</Route>
         <Route path="/sales/roi-calculator">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesRoiCalculator /></PermRoute>}</Route>
         <Route path="/sales/guide"><SalesGuide /></Route>
         <Route path="/sales/one-pager/editor">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePagerEditor /></PermRoute>}</Route>
         <Route path="/sales/one-pager">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePager /></PermRoute>}</Route>
         <Route path="/sales/one-pager-templates">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOnePagerTemplates /></PermRoute>}</Route>
-        <Route path="/sales/web-one-pager">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesWebOnePager /></PermRoute>}</Route>
+        <Route path="/sales/web-one-pager">{() => <Redirect to="/sales/one-pager" />}</Route>
         <Route path="/sales/marketplace">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesMarketplace /></PermRoute>}</Route>
         <Route path="/sales/sfdc">{() => <PermRoute perm="settings" fallback="/sales"><SfdcSettings /></PermRoute>}</Route>
 

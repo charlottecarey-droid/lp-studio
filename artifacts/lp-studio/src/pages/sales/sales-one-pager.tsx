@@ -6,8 +6,9 @@ import headerImgPracticeManagerUrl from "@/assets/dandy-dso-enterprise-data.webp
 import dandyScannerUrl from "@/assets/dandy-scanner-transparent.png?url";
 import { useLocation, Link as RouterLink } from "wouter";
 import {
-  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2, RotateCcw
+  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2, RotateCcw, Globe, Copy, Check, ExternalLink
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
@@ -593,6 +594,62 @@ const SalesOnePager = () => {
     }));
   };
 
+  // Web link generation (merged from sales-web-one-pager)
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [linkResult, setLinkResult] = useState<{ url: string; slug: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleGenerateLink = async () => {
+    if (!dsoName.trim()) return;
+    setGeneratingLink(true);
+    setLinkResult(null);
+    try {
+      const teamMembers = teamContacts
+        .filter(c => c.name?.trim())
+        .map(c => ({
+          name: c.name,
+          role: c.role || "",
+          email: c.email || undefined,
+          photo: undefined,
+        }));
+      const res = await fetch("/api/sales/web-one-pager", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          dsoName: dsoName.trim(),
+          audience,
+          phone: phoneNumber || undefined,
+          ctaUrl: customLinkUrl || undefined,
+          teamMembers,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const url = `${window.location.origin}/lp-studio/p/${data.slug}`;
+      setLinkResult({ url, slug: data.slug });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to create link";
+      toast({ title: "Couldn't create link", description: msg, variant: "destructive" });
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyLink = async () => {
+    if (!linkResult) return;
+    try {
+      await navigator.clipboard.writeText(linkResult.url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1800);
+    } catch {
+      toast({ title: "Couldn't copy", variant: "destructive" });
+    }
+  };
+
   const handleGenerate = async () => {
     // Agreement Summary doesn't need a DSO name — it ships with default copy.
     if (template !== "agreement-summary" && !dsoName.trim()) return;
@@ -1172,18 +1229,78 @@ const SalesOnePager = () => {
               </div>
             )}
 
-            <button
-              onClick={handleGenerate}
-              disabled={!dsoName.trim() || generating}
-              className="w-full rounded-full bg-primary py-3.5 text-sm font-bold uppercase tracking-widest text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
-            >
-              {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FileDown className="w-4 h-4" />
+            <div className={`grid gap-3 ${template === "pilot" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+              <button
+                onClick={handleGenerate}
+                disabled={!dsoName.trim() || generating || generatingLink}
+                className="rounded-full bg-primary py-3.5 text-sm font-bold uppercase tracking-widest text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
+              >
+                {generating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileDown className="w-4 h-4" />
+                )}
+                Download PDF
+              </button>
+
+              {template === "pilot" && (
+                <button
+                  onClick={handleGenerateLink}
+                  disabled={!dsoName.trim() || generating || generatingLink}
+                  className="rounded-full border-2 border-primary py-3.5 text-sm font-bold uppercase tracking-widest text-primary hover:bg-primary/5 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
+                  title="Create a shareable web one-pager"
+                >
+                  {generatingLink ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Globe className="w-4 h-4" />
+                  )}
+                  Get Shareable Link
+                </button>
               )}
-              Generate & Download PDF
-            </button>
+            </div>
+
+            {template !== "pilot" && (
+              <p className="text-[11px] text-muted-foreground text-center -mt-2">
+                Shareable web links available on the 90-Day Pilot template.
+              </p>
+            )}
+
+            {linkResult && (
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
+                    Your shareable link is ready
+                  </span>
+                </div>
+                <div className="flex items-stretch gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={linkResult.url}
+                    onFocus={(e) => e.target.select()}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  />
+                  <button
+                    onClick={copyLink}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted/40 transition-colors"
+                  >
+                    {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {linkCopied ? "Copied" : "Copy"}
+                  </button>
+                  <a
+                    href={linkResult.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted/40 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
