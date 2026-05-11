@@ -147,9 +147,12 @@ export function BuilderTopBar({
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1 border border-border rounded-lg p-0.5">
+      <div className="flex items-center gap-1 border border-border rounded-lg p-0.5" role="group" aria-label="Preview viewport">
         <button
           onClick={() => onSetMobile(false)}
+          aria-label="Desktop preview"
+          aria-pressed={!isMobile}
+          title="Desktop preview"
           className={cn(
             "p-1.5 rounded-md transition-colors",
             !isMobile ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
@@ -159,6 +162,9 @@ export function BuilderTopBar({
         </button>
         <button
           onClick={() => onSetMobile(true)}
+          aria-label="Mobile preview"
+          aria-pressed={isMobile}
+          title="Mobile preview"
           className={cn(
             "p-1.5 rounded-md transition-colors",
             isMobile ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",

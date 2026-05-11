@@ -258,8 +258,12 @@ function AppRouter() {
 
         {/* Legacy routes — keep working for bookmarks/links */}
         <Route path="/live-pages" component={LivePages} />
-        <Route path="/leads" component={LeadsPage} />
-        <Route path="/forms" component={FormsPage} />
+        {/* Legacy bookmarks → consolidated Forms & Leads page */}
+        <Route path="/leads">{() => <Redirect to="/forms-and-leads" />}</Route>
+        <Route path="/forms">{() => <Redirect to="/forms-and-leads" />}</Route>
+        {/* Kept for direct deep-links/tests */}
+        <Route path="/leads/legacy" component={LeadsPage} />
+        <Route path="/forms/legacy" component={FormsPage} />
         <Route path="/integrations" component={IntegrationsPage} />
         <Route path="/library" component={ContentLibrary} />
         <Route path="/block-defaults" component={BlockDefaultsPage} />

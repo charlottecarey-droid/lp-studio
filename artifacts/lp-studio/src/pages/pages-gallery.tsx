@@ -1007,7 +1007,7 @@ export default function PagesGallery() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search pages or authors…"
+                placeholder="Search by title, slug, or author…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-8 py-1.5 text-[13px] border border-border rounded-lg bg-background outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"

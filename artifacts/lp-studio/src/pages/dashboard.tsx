@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
+import { NewLauncher } from "@/components/NewLauncher";
 import { getLpPageUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { PendingReviewWidget } from "@/components/dashboard/PendingReviewWidget";
@@ -212,12 +213,9 @@ export default function Dashboard() {
                 : (() => { const liveCount = running.length + allPages.filter(p => p.status === "published").length; return `${liveCount} page${liveCount !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`; })()}
             </p>
           </div>
-          <Link href="/pages?new=1" className="shrink-0">
-            <Button size="sm" className="rounded-md font-medium text-[13px]">
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-              New Page
-            </Button>
-          </Link>
+          <div className="shrink-0">
+            <NewLauncher size="sm" className="rounded-md font-medium text-[13px]" />
+          </div>
         </div>
 
         {/* ── Stat tiles ─────────────────────────────────────── */}

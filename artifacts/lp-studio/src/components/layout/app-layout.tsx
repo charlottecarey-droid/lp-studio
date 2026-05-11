@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
   FlaskConical,
-  PlusCircle,
   LayoutGrid,
   CheckCircle2,
   BarChart2,
@@ -22,6 +21,7 @@ import {
   Link2,
   Wand2,
   Sparkles,
+  Search,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +50,9 @@ import {
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import { CommandPalette, useCommandPalette } from "@/components/CommandPalette";
+import { NewLauncher } from "@/components/NewLauncher";
+import { usePendingReviewCount } from "@/hooks/use-pending-review-count";
 
 function UserFooter() {
   const { user, logout } = useAuth();
@@ -116,7 +119,7 @@ function OptimizeBetaMenu({ location }: { location: string }) {
         className="text-[10px] font-medium text-sidebar-foreground/30 uppercase tracking-[0.06em] mb-0.5 px-4"
         style={{ fontFamily: "var(--app-font-mono)" }}
       >
-        Optimize
+        Labs
       </SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
@@ -125,7 +128,7 @@ function OptimizeBetaMenu({ location }: { location: string }) {
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton className="font-medium">
                   <Sparkles className="w-4 h-4" />
-                  <span className="flex-1">Optimize Beta</span>
+                  <span className="flex-1">Labs</span>
                   <span className="ml-auto mr-1 text-[9px] font-semibold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded">
                     Beta
                   </span>
@@ -156,15 +159,24 @@ function OptimizeBetaMenu({ location }: { location: string }) {
   );
 }
 
-export function AppSidebar() {
+export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const [location] = useLocation();
-  const { hasPerm, user } = useAuth();
+  const { hasPerm, user, canReview } = useAuth();
   // Task #132 — read from the shared BrandConfigProvider so the sidebar
   // logo / brand name update the moment OnboardingWizard or BrandSettings
   // calls refreshBrand() — no hard refresh required.
   const { brand } = useBrandConfig();
   const brandLogoUrl = brand.logoUrl ?? "";
   const brandName = brand.brandName ?? "";
+  const { count: pendingReviewCount } = usePendingReviewCount();
+  // Show Approvals when the user can review (so they can land on the
+  // empty state / history) OR when there's anything pending OR when they
+  // own pages/tests that might be in review.
+  const showApprovals =
+    canReview ||
+    pendingReviewCount > 0 ||
+    hasPerm("pages") ||
+    hasPerm("tests");
 
   const showMarketing =
     hasPerm("pages") || hasPerm("tests") || hasPerm("analytics") || hasPerm("forms_leads");
@@ -195,6 +207,20 @@ export function AppSidebar() {
             </Link>
           </div>
           <ModeToggle />
+          {/* Global ⌘K search — single discoverable entry to every page. */}
+          <button
+            type="button"
+            onClick={onOpenCommand}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-sidebar-foreground/10 text-sidebar-foreground/55 hover:text-sidebar-foreground hover:border-sidebar-foreground/20 hover:bg-sidebar-accent/50 transition-colors text-left text-[12px]"
+            aria-label="Open search palette (Cmd+K)"
+          >
+            <Search className="w-3.5 h-3.5 opacity-60" />
+            <span className="flex-1">Search…</span>
+            <kbd
+              className="text-[10px] font-medium tracking-wider text-sidebar-foreground/40 bg-sidebar-foreground/[0.06] px-1.5 py-0.5 rounded border border-sidebar-foreground/10"
+              style={{ fontFamily: "var(--app-font-mono)" }}
+            >⌘K</kbd>
+          </button>
         </div>
 
         {showMarketing && (
@@ -251,14 +277,24 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/reviews"}>
-                    <Link href="/reviews" className="font-medium">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Approvals</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {showApprovals && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/reviews"}>
+                      <Link href="/reviews" className="font-medium">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="flex-1">Approvals</span>
+                        {pendingReviewCount > 0 && (
+                          <span
+                            className="ml-auto text-[10px] font-semibold tabular-nums text-amber-700 bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300 px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none"
+                            aria-label={`${pendingReviewCount} pending`}
+                          >
+                            {pendingReviewCount > 99 ? "99+" : pendingReviewCount}
+                          </span>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {hasPerm("analytics") && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/analytics"}>
@@ -368,17 +404,12 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {hasPerm("tests") && (
+        {(hasPerm("tests") || hasPerm("pages")) && (
           <div className="px-3 pb-2 pt-1">
-            <Link href="/tests/new">
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2 rounded-md text-[13px] font-medium border-sidebar-foreground/10 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent bg-transparent transition-colors group"
-              >
-                <PlusCircle className="w-3.5 h-3.5 opacity-50 group-hover:opacity-80 transition-opacity" />
-                New Experiment
-              </Button>
-            </Link>
+            <NewLauncher
+              variant="outline"
+              className="w-full justify-start gap-2 rounded-md text-[13px] font-medium border-sidebar-foreground/10 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent bg-transparent transition-colors"
+            />
           </div>
         )}
 
@@ -394,19 +425,38 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     "--sidebar-width-icon": "4rem",
   } as React.CSSProperties;
 
+  // Global ⌘K palette — bound at the layout level so every authenticated
+  // page inherits the shortcut without each route having to wire it up.
+  const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
+
   return (
     <SidebarProvider style={style}>
       <div className="flex min-h-screen w-full bg-background selection:bg-primary/10">
-        <AppSidebar />
+        <AppSidebar onOpenCommand={() => setCmdOpen(true)} />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="h-11 flex items-center justify-between px-5 border-b border-border bg-background sticky top-0 z-50">
             <SidebarTrigger className="hover:bg-muted transition-colors rounded-md p-1.5" />
+            <button
+              type="button"
+              onClick={() => setCmdOpen(true)}
+              aria-label="Open command palette (Cmd+K)"
+              title="Search · ⌘K"
+              className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search</span>
+              <kbd
+                className="text-[10px] font-medium tracking-wider text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded border border-border/60 ml-1"
+                style={{ fontFamily: "var(--app-font-mono)" }}
+              >⌘K</kbd>
+            </button>
           </header>
           <main className="flex-1 overflow-auto px-6 py-6 md:px-8 md:py-8">
             <div className="max-w-[1200px] mx-auto w-full">{children}</div>
           </main>
         </div>
       </div>
+      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
     </SidebarProvider>
   );
 }
