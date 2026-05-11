@@ -71,6 +71,8 @@ import {
   type BlockLibraryPrefs,
 } from "@/lib/block-library-prefs";
 import { CustomizeBlockLibraryDialog } from "@/components/CustomizeBlockLibraryDialog";
+import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
+import { useKeyboardShortcuts, type Shortcut } from "@/lib/keyboard-shortcuts";
 import { Settings2 } from "lucide-react";
 import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience, canUseGridPieces } from "@/lib/audience-gating";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
@@ -959,25 +961,7 @@ export default function BuilderEditor() {
       return next;
     });
   }, []);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
-      if (!isMod) return;
-      const target = e.target as HTMLElement | null;
-      // Ignore keystrokes that originate inside an editable surface — the
-      // surface owns its own undo stack.
-      if (target && (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
-      if (e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
-        e.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [undo, redo]);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "pending_review" | "published">("draft");
@@ -1538,6 +1522,30 @@ export default function BuilderEditor() {
     if (selectedBlockId === id) setSelectedBlockId(null);
   };
 
+  // Deep-clone a block subtree, regenerating every id so the duplicate
+  // doesn't collide with the original (or its nested children).
+  const cloneBlockWithNewIds = (block: PageBlock): PageBlock => {
+    const cloned = structuredClone(block);
+    const reId = (b: PageBlock) => {
+      b.id = genBlockId(b.type);
+      b.children?.forEach(reId);
+    };
+    reId(cloned);
+    return cloned;
+  };
+
+  const duplicateBlock = useCallback((id: string) => {
+    const path = findPathById(blocks, id);
+    if (!path) return;
+    const block = getAtPath(blocks, path);
+    if (!block) return;
+    const cloned = cloneBlockWithNewIds(block);
+    const parentPath = path.slice(0, -1);
+    const idx = path[path.length - 1] + 1;
+    setBlocks(prev => insertAtPath(prev, parentPath, idx, cloned));
+    setSelectedBlockId(cloned.id);
+  }, [blocks, setBlocks]);
+
   const updateBlock = (updated: PageBlock) => {
     setBlocks(prev => {
       const path = findPathById(prev, updated.id);
@@ -1729,12 +1737,70 @@ export default function BuilderEditor() {
       await savePage(pageId, getPageData());
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
+      toast({ title: "Saved", description: "Page saved." });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Central registry of builder keyboard shortcuts. The help dialog renders
+  // straight from this list so adding a shortcut here automatically appears
+  // there. ⌘K (CommandPalette) is intentionally NOT registered here — its
+  // own hook owns it globally.
+  const builderShortcuts: Shortcut[] = useMemo(() => [
+    {
+      id: "save",
+      keys: "mod+s",
+      label: "Save page",
+      group: "Page",
+      handler: () => { void handleSave(); },
+    },
+    {
+      id: "undo",
+      keys: "mod+z",
+      label: "Undo",
+      group: "Edit",
+      handler: () => undo(),
+    },
+    {
+      id: "redo",
+      keys: "mod+shift+z",
+      label: "Redo",
+      group: "Edit",
+      handler: () => redo(),
+    },
+    {
+      id: "redo-y",
+      keys: "mod+y",
+      label: "Redo (alt)",
+      group: "Edit",
+      handler: () => redo(),
+    },
+    {
+      id: "duplicate",
+      keys: "mod+d",
+      label: "Duplicate selected block",
+      group: "Edit",
+      handler: () => { if (selectedBlockId) duplicateBlock(selectedBlockId); },
+    },
+    {
+      id: "deselect",
+      keys: "esc",
+      label: "Deselect block",
+      group: "Selection",
+      handler: () => setSelectedBlockId(null),
+    },
+    {
+      id: "help",
+      keys: "mod+/",
+      label: "Show keyboard shortcuts",
+      group: "Help",
+      handler: () => setShortcutsHelpOpen(o => !o),
+    },
+  ], [handleSave, undo, redo, selectedBlockId, duplicateBlock]);
+  useKeyboardShortcuts(builderShortcuts);
 
   const [showOutreachBanner, setShowOutreachBanner] = useState(false);
 
@@ -1977,6 +2043,7 @@ export default function BuilderEditor() {
 
   return (
     <CustomBlocksProvider blocks={customBlockSources}>
+    <KeyboardShortcutsHelp open={shortcutsHelpOpen} onOpenChange={setShortcutsHelpOpen} shortcuts={builderShortcuts} />
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
       {/* Top Bar */}
