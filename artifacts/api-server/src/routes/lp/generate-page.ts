@@ -642,7 +642,7 @@ RULES:
 13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-pilot-steps, dso-network-map, dso-comparison, dso-scroll-story-hero). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl AND set primaryCtaMode: "chilipiper".
 14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.
 15. dso-ai-feature VIDEO: If — and only if — the brand context lists an AI Scan Review video URL under "DANDY-INTERNAL VIDEO ASSETS", set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, scanner, or clinical close-up). NEVER invent a videoUrl.
-16. NO STANDALONE NAV BLOCK: dso-heartland-hero and dso-scroll-story-hero already render their own sticky navigation bar at the top. NEVER prepend a separate nav block (no "nav-header", no other navbar block) on a page that starts with one of these heroes. The page's first block should be the hero itself.
+16. NO STANDALONE NAV BLOCK with dso-heartland-hero: dso-heartland-hero already renders its own sticky navigation bar at the top. NEVER prepend a separate nav block (no "nav-header", no other navbar block) on a page that starts with dso-heartland-hero. The page's first block should be the hero itself.
 17. CASE STUDIES = 3: When you use "dso-success-stories", the cases array MUST have EXACTLY 3 items — not 2, not 4. Pick the three strongest case studies for the segment and stop.`;
 
 const DSO_PRACTICES_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in dental practice enablement pages for DSO networks. You generate complete page structures as JSON for Dandy's "DSO Practices" block library.
@@ -1165,7 +1165,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // These hero blocks render their own sticky navbar internally —
     // skip auto-injecting nav-header on top of them, otherwise the page
     // ends up with two stacked navs.
-    const SELF_NAV_TYPES = new Set(["full-bleed-hero", "dso-heartland-hero", "dso-scroll-story-hero"]);
+    const SELF_NAV_TYPES = new Set(["full-bleed-hero", "dso-heartland-hero"]);
     const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string) || SELF_NAV_TYPES.has(b.type as string));
     if (!hasNav) {
       if (useDsoPractices) {
