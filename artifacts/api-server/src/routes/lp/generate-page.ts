@@ -1,7 +1,7 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable, lpMediaTable, lpPagesTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { eq, desc, and, or } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 
@@ -610,7 +610,7 @@ AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only t
 - "dso-heartland-hero": Hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), layout ("full-bleed"|"split" — use "split" when you have a clear hero image to showcase, otherwise "full-bleed"), backgroundImageUrl (string — for full-bleed layout: a wide landscape photo that overlays behind the hero), heroImageUrl (string — for split layout: a tall/portrait-friendly clinical or team photo; leave blank "" for full-bleed), heroImageSide ("left"|"right" — default "right"; flip to "left" for visual variety), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
 - "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), imagePosition ("left"|"right"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), chapters (array 2–4 of {headline, body, imageUrl})
 - "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array 3–6 of {icon, title, desc}). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[], optional). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
-- "dso-ai-feature": AI feature showcase with stats + image. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
+- "dso-ai-feature": AI feature showcase with stats + visual. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string), videoUrl (string, OPTIONAL — see rule 15 below). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"). The visual area renders the videoUrl if set, otherwise the imageUrl, otherwise it collapses — so this block needs at least one of videoUrl or imageUrl to look right.
 - "dso-stat-showcase": Premium stats section. Props: eyebrow (string), headline (string), stats (array 3–5 of {value, label, description}). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-scroll-story": Scroll-driven narrative with chapters. Props: eyebrow (string), chapters (array 3–5 of {headline, body, imageUrl})
 - "dso-network-map": Animated network / geography visualization. Props: eyebrow (string), headline (string), body (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
@@ -640,7 +640,8 @@ RULES:
 11. When the user provides specific numbers or stats, use those EXACT numbers. Do not invent different statistics.
 12. Make backgroundStyle "dandy-green" or "black" for dramatic blocks (hero, cta, particle); use "white" or "light-gray" for lighter content blocks. Include backgroundStyle in props for blocks that support it.
 13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-pilot-steps, dso-network-map, dso-comparison, dso-scroll-story-hero). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl AND set primaryCtaMode: "chilipiper".
-14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.`;
+14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.
+15. dso-ai-feature VIDEO: If — and only if — the brand context lists an AI Scan Review video URL under "DANDY-INTERNAL VIDEO ASSETS", set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, scanner, or clinical close-up). NEVER invent a videoUrl.`;
 
 const DSO_PRACTICES_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in dental practice enablement pages for DSO networks. You generate complete page structures as JSON for Dandy's "DSO Practices" block library.
 
@@ -723,8 +724,21 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   }
 
   const tenantId = req.authUser?.tenantId ?? null;
-  const [brand, mediaCatalog] = await Promise.all([fetchBrand(tenantId), fetchMediaCatalog()]);
+  const [brand, mediaCatalog, tenantSlugRow] = await Promise.all([
+    fetchBrand(tenantId),
+    fetchMediaCatalog(tenantId),
+    tenantId != null
+      ? db.select({ slug: tenantsTable.slug }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
+      : Promise.resolve([] as { slug: string }[]),
+  ]);
   const brandContext = buildBrandContext(brand);
+  // The AI Scan Review motion video is a Dandy-only internal asset (it shows
+  // Dandy product UI). It must NEVER be exposed to partner / customer
+  // tenants. Storage layer also gates this video by tenant slug.
+  const isDandyTenant = tenantSlugRow[0]?.slug === "dandy";
+  const dandyInternalVideosSection = isDandyTenant
+    ? `DANDY-INTERNAL VIDEO ASSETS (Dandy tenant only — safe to use):\n- AI Scan Review video URL: /videos/ai-scan-review.mp4 (use this for any dso-ai-feature videoUrl)`
+    : "";
 
   // ── Template-driven mode ──────────────────────────────────────────────
   // When the caller picks a template as the starting point, we skip the
@@ -930,6 +944,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     );
   }
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
+  if (dandyInternalVideosSection) userPromptParts.push(dandyInternalVideosSection);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
     useDsoPractices
