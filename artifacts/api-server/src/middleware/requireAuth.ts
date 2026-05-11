@@ -79,11 +79,28 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // tenant MUST match. Hosts that don't map to any tenant (the canonical
     // app URL, Replit dev domain, localhost) are exempt.
     //
-    // Superadmins (isAdmin=true) are exempt from this check: they need to be
-    // able to use the cross-tenant Switch Tenant tool (and access /superadmin
-    // endpoints) from any domain. Tenant data isolation for normal users is
-    // still enforced via getTenantId() / req.authUser.tenantId in each route.
-    if (!user.isAdmin) {
+    // Two classes of operator are exempt from this check:
+    //
+    //   - Per-tenant admins (`user.isAdmin`, sourced from
+    //     `tenant_roles.is_admin`) — historical exemption, not the one that
+    //     matters for this bug.
+    //   - Global Dandy operators (`user.appUserRole === "superadmin"`,
+    //     sourced from `app_users.role`) — these users are explicitly
+    //     designed to act across tenants via the `/superadmin/switch-tenant`
+    //     tool (task #108). Once they switch tenants, their `session.tenantId`
+    //     points at the target tenant, NOT tenant 1 (Dandy). Without this
+    //     exemption, every request they make back to `ent.meetdandy.com`
+    //     (which resolves to tenant id=1) returns 403 with
+    //     "Session does not belong to this domain's tenant" — the canonical
+    //     Dandy admin host becomes unreachable for Dandy admins. That is the
+    //     production failure mode this branch is fixing (task #189): for
+    //     Dandy operators "ENT 403 on every request" matches exactly the
+    //     point where they last used Switch Tenant.
+    //
+    // Tenant data isolation for normal users is still enforced via
+    // `getTenantId()` / `req.authUser.tenantId` in each route.
+    const isSuperadmin = user.appUserRole === "superadmin";
+    if (!user.isAdmin && !isSuperadmin) {
       const host = getRequestHost(req);
       if (host) {
         try {

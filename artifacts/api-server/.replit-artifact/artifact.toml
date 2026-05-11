@@ -21,8 +21,24 @@ args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
 NODE_ENV = "production"
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+# we don't run through pnpm to make startup faster in production.
+#
+# `--import .../dist/instrument.mjs` MUST be present and MUST come before the
+# main entrypoint. instrument.mjs initializes Sentry (and loads dotenv);
+# Sentry's express/http auto-instrumentation only works if it hooks Node's
+# module loader BEFORE express is imported, which only happens via this
+# `--import` flag. See `src/instrument.ts` for the full rationale.
+#
+# This flag drifted out once already (task #189) and shipped to prod with
+# Sentry effectively disabled. `build.mjs` now fails the build if the args
+# below stop matching the contract — keep it in sync.
+args = [
+  "node",
+  "--enable-source-maps",
+  "--import",
+  "./artifacts/api-server/dist/instrument.mjs",
+  "artifacts/api-server/dist/index.mjs",
+]
 
 [services.production.run.env]
 PORT = "8080"

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, stat, readFile } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -137,7 +137,94 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   });
 }
 
-buildAll().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+/**
+ * Regression guard for task #189.
+ *
+ * The production deployment is launched by the args declared in
+ * `.replit-artifact/artifact.toml` → `[services.production.run]`, NOT by
+ * `package.json`'s `start` script. The two have drifted out of sync once
+ * already: prod shipped without `--import dist/instrument.mjs`, which meant
+ * Sentry's express auto-instrumentation never registered (it has to hook
+ * Node's module loader BEFORE `express` is imported — see
+ * `src/instrument.ts`). That kind of silent contract drift is exactly what
+ * we want the build to catch.
+ *
+ * This check fails the build if either:
+ *   1. esbuild didn't actually emit both required entrypoints, or
+ *   2. the prod run command in artifact.toml doesn't `--import` the
+ *      instrument bundle ahead of the main entrypoint.
+ *
+ * Intentionally string-based on the TOML — pulling in a TOML parser as a
+ * build-time dep just to assert two substrings would be overkill, and the
+ * substrings we look for are unambiguous.
+ */
+async function assertProductionEntrypointsWired(distDir) {
+  const indexPath = path.join(distDir, "index.mjs");
+  const instrumentPath = path.join(distDir, "instrument.mjs");
+  for (const p of [indexPath, instrumentPath]) {
+    try {
+      const st = await stat(p);
+      if (!st.isFile()) throw new Error("not a file");
+    } catch (err) {
+      throw new Error(
+        `Build output missing required entrypoint: ${p} (${err.message}). ` +
+          `Both dist/index.mjs and dist/instrument.mjs must be emitted — ` +
+          `the prod runner --imports instrument.mjs before index.mjs.`,
+      );
+    }
+  }
+
+  const tomlPath = path.resolve(
+    artifactDir,
+    ".replit-artifact",
+    "artifact.toml",
+  );
+  let toml;
+  try {
+    toml = await readFile(tomlPath, "utf8");
+  } catch (err) {
+    throw new Error(
+      `Could not read ${tomlPath} to validate prod run args: ${err.message}`,
+    );
+  }
+
+  const runSectionMatch = toml.match(
+    /\[services\.production\.run\][\s\S]*?(?=\n\[|$)/,
+  );
+  if (!runSectionMatch) {
+    throw new Error(
+      `artifact.toml is missing [services.production.run] — production has no run command.`,
+    );
+  }
+  const runSection = runSectionMatch[0];
+
+  const hasImportFlag = /"--import"/.test(runSection);
+  const hasInstrumentRef = /instrument\.mjs/.test(runSection);
+  const hasIndexRef = /index\.mjs/.test(runSection);
+  if (!hasImportFlag || !hasInstrumentRef || !hasIndexRef) {
+    throw new Error(
+      `artifact.toml [services.production.run].args must launch with ` +
+        `\`--import .../dist/instrument.mjs\` before \`.../dist/index.mjs\`. ` +
+        `Without it Sentry's express auto-instrumentation never registers ` +
+        `in production (see src/instrument.ts and task #189). Current args:\n` +
+        runSection,
+    );
+  }
+  // Ordering: --import + instrument.mjs must come before index.mjs.
+  const instrumentIdx = runSection.indexOf("instrument.mjs");
+  const indexIdx = runSection.indexOf("index.mjs");
+  if (instrumentIdx === -1 || indexIdx === -1 || instrumentIdx > indexIdx) {
+    throw new Error(
+      `artifact.toml [services.production.run].args must reference ` +
+        `instrument.mjs BEFORE index.mjs (Sentry must hook the module ` +
+        `loader before express is imported). Current args:\n${runSection}`,
+    );
+  }
+}
+
+buildAll()
+  .then(() => assertProductionEntrypointsWired(path.resolve(artifactDir, "dist")))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
