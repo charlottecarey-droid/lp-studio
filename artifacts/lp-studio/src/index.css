@@ -95,48 +95,56 @@
   --elevate-1: rgba(0,0,0, .025);
   --elevate-2: rgba(0,0,0, .05);
 
-  /* Notion/Linear — Clean White, Prettier */
-  --background: 0 0% 98%;
-  --foreground: 0 0% 9%;
+  /* Studio + Coral — warm cream canvas, white cards, indigo-violet
+     primary, and a coral spark used sparingly for "live" / positive
+     signals. The cream/violet/coral trio gives the app a marketing-tool
+     warmth without losing the Linear-style restraint. */
+  --background: 36 33% 97%;
+  --foreground: 262 21% 12%;
 
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 9%;
-  --card-border: 0 0% 93%;
+  --card-foreground: 262 21% 12%;
+  --card-border: 36 25% 89%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 9%;
-  --popover-border: 0 0% 93%;
+  --popover-foreground: 262 21% 12%;
+  --popover-border: 36 25% 89%;
 
   /* Primary — confident indigo-violet (Linear/Vercel territory). Reads
      premium without leaning lavender or feminine. */
   --primary: 258 70% 54%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
+  --secondary: 36 25% 94%;
+  --secondary-foreground: 262 21% 12%;
 
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
+  --muted: 36 25% 94%;
+  --muted-foreground: 262 8% 43%;
 
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 9%;
+  --accent: 36 25% 94%;
+  --accent-foreground: 262 21% 12%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 0 0% 93%;
-  --input: 0 0% 93%;
+  --border: 36 25% 89%;
+  --input: 36 25% 89%;
   --ring: 258 70% 54%;
 
-  /* Accent warm — violet tint for highlights */
-  --accent-warm: 262 83% 58%;
+  /* Accent warm — coral spark, paired with violet primary. Used for the
+     "live" pulse, positive deltas, and other small "alive" moments so
+     the dashboard feels warm without overwhelming the violet. The
+     `-strong` variant is a darker coral reserved for small text (deltas,
+     captions) so it clears WCAG AA at <= 12px against cream/white. */
+  --accent-warm: 11 75% 60%;
   --accent-warm-foreground: 0 0% 100%;
+  --accent-warm-strong: 11 78% 38%;
 
-  /* Sidebar — clean white, slightly brighter than the page so it reads
-     as a distinct surface without needing a heavy border. */
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 0 0% 25%;
-  --sidebar-border: 0 0% 93%;
+  /* Sidebar — same warm cream as the page so the sidebar reads as part
+     of the canvas, with white cards floating on top. */
+  --sidebar: 36 33% 97%;
+  --sidebar-foreground: 262 8% 35%;
+  --sidebar-border: 36 25% 89%;
   --sidebar-primary: 258 70% 54%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 258 60% 96%;
@@ -226,8 +234,13 @@
   --chart-4: 38 92% 60%;
   --chart-5: 0 72% 60%;
 
-  --accent-warm: 262 83% 65%;
+  /* Accent warm — coral spark for dark mode (slightly lighter for contrast
+     against the near-black canvas). Paired with the violet primary. The
+     `-strong` variant lifts further so small coral text reads cleanly on
+     near-black surfaces. */
+  --accent-warm: 11 80% 65%;
   --accent-warm-foreground: 0 0% 100%;
+  --accent-warm-strong: 11 85% 72%;
 }
 
 @layer base {

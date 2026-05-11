@@ -148,6 +148,29 @@ function getGreeting() {
   return "Good evening";
 }
 
+// Heuristic for "this looks like a test submission". The leads table
+// has no test flag, so we sniff the common throw-away patterns:
+// example.com / test.com / mailinator domains, "test" / "+test" local
+// parts, or filler names like "Test User" / "John Doe". Used by the
+// dashboard to keep the Recent Leads widget hidden until a real lead
+// arrives — a half-empty widget full of QA traffic looks worse than no
+// widget at all.
+function isTestLead(fields: Record<string, unknown>): boolean {
+  const str = (k: string) => typeof fields[k] === "string" ? (fields[k] as string).trim().toLowerCase() : "";
+  const email = str("email") || str("workEmail") || str("work_email");
+  if (email) {
+    if (/@(example\.(com|org|net)|test\.com|mailinator\.com|tempmail\.[a-z]+|10minutemail\.[a-z]+|yopmail\.com)$/i.test(email)) return true;
+    const local = email.split("@")[0] ?? "";
+    if (/^test(\d+)?$/.test(local) || /\+test/.test(local) || /^qa([._+-]|\d|$)/.test(local) || local === "demo") return true;
+  }
+  const name = str("name") || str("fullName") || str("full_name") || `${str("firstName") || str("first_name")} ${str("lastName") || str("last_name")}`.trim();
+  if (name) {
+    if (/^(test( user)?|testing|john doe|jane doe|asdf+|qwerty|foo( bar)?)$/i.test(name)) return true;
+    if (/\btest\b/.test(name) && name.length < 20) return true;
+  }
+  return false;
+}
+
 // Pulls the best human label out of a lead's submitted fields. Forms
 // vary, so we try common shapes (name, email, company) before falling
 // back to "Anonymous".
@@ -180,6 +203,10 @@ export default function Dashboard() {
   const { data: overview, loading: overviewLoading } = useOverview7d();
   const { pages: topPages, loading: topPagesLoading } = useTopPages();
   const { leads: recentLeads, loading: leadsLoading } = useRecentLeads();
+  // Only surface real submissions on the dashboard. The Recent Leads widget
+  // is meant to show genuine activity worth acting on; QA traffic clutters
+  // the signal and makes a fresh workspace look noisy.
+  const realLeads = recentLeads.filter(l => !isTestLead(l.fields ?? {}));
 
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
@@ -198,7 +225,7 @@ export default function Dashboard() {
     {
       label: "Live pages",
       value: pagesLoading ? null : publishedCount,
-      icon: <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />,
+      icon: <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--accent-warm))] animate-pulse inline-block" />,
       href: "/live-pages",
     },
     {
@@ -330,7 +357,7 @@ export default function Dashboard() {
                       {stat.value.toLocaleString()}
                     </p>
                     {typeof stat.trend === "number" && stat.trend !== 0 && Number.isFinite(stat.trend) && (
-                      <span className={`text-[11px] font-medium tabular-nums flex items-center gap-0.5 ${stat.trend > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      <span className={`text-[11px] font-medium tabular-nums flex items-center gap-0.5 ${stat.trend > 0 ? "text-[hsl(var(--accent-warm-strong))]" : "text-rose-600"}`}>
                         {stat.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                         {Math.abs(Math.round(stat.trend))}%
                       </span>
@@ -475,7 +502,7 @@ export default function Dashboard() {
                             aria-label={`Open ${item.name}`}
                             className="absolute inset-0 rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           />
-                          <div className={`relative flex-shrink-0 w-2 h-2 rounded-full ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
+                          <div className={`relative flex-shrink-0 w-2 h-2 rounded-full ${isRunning ? "bg-[hsl(var(--accent-warm))] animate-pulse" : "bg-muted-foreground/20"}`} />
 
                           <div className="relative flex-1 min-w-0 pointer-events-none">
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -556,27 +583,22 @@ export default function Dashboard() {
                   </Card>
                 </div>
 
-                {/* Recent leads */}
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Recent leads</h2>
-                    <Link href="/leads">
-                      <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
-                        All leads <ArrowUpRight className="w-3 h-3" />
-                      </span>
-                    </Link>
-                  </div>
-                  <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                    {leadsLoading ? (
-                      <div className="p-4 flex flex-col gap-3">
-                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-md" />)}
-                      </div>
-                    ) : recentLeads.length === 0 ? (
-                      <div className="p-4 text-xs text-muted-foreground/70">
-                        No leads yet. Add a form block to a published page to start capturing them.
-                      </div>
-                    ) : (
-                      recentLeads.map(lead => (
+                {/* Recent leads — hidden until a real (non-test) lead arrives.
+                    A widget full of QA submissions reads as noise on a fresh
+                    workspace and undersells the dashboard. Once a genuine lead
+                    lands, the section appears with only real entries. */}
+                {!leadsLoading && realLeads.length > 0 && (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Recent leads</h2>
+                      <Link href="/leads">
+                        <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
+                          All leads <ArrowUpRight className="w-3 h-3" />
+                        </span>
+                      </Link>
+                    </div>
+                    <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                      {realLeads.map(lead => (
                         <Link href="/leads" key={lead.id}>
                           <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer group">
                             <Users className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
@@ -591,10 +613,10 @@ export default function Dashboard() {
                             </span>
                           </div>
                         </Link>
-                      ))
-                    )}
-                  </Card>
-                </div>
+                      ))}
+                    </Card>
+                  </div>
+                )}
               </div>
             </div>
 
