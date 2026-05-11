@@ -112,6 +112,52 @@ async function findAccountByDomain(
 }
 
 /**
+ * Fallback account matcher by company name. Letterdrop frequently identifies
+ * a lead by company name without a clean domain, so we try a case-insensitive
+ * exact match on the account name within the tenant. Returns the account id,
+ * or null. Always tenant-scoped to prevent cross-tenant linking.
+ */
+async function findAccountByName(
+  tenantId: number,
+  name: string | null,
+): Promise<number | null> {
+  if (!name) return null;
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const [row] = await db
+    .select({ id: salesAccountsTable.id })
+    .from(salesAccountsTable)
+    .where(
+      and(
+        eq(salesAccountsTable.tenantId, tenantId),
+        ilike(salesAccountsTable.name, trimmed),
+      ),
+    )
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/**
+ * Returns true if the lead is from Dandy itself (internal employee browsing
+ * our own LPs). We don't want these polluting the sales console.
+ */
+function isInternalDandyLead(
+  companyDomain: string | null,
+  companyName: string,
+  email: string | null,
+): boolean {
+  const dandyDomains = ["meetdandy.com", "dandy.com", "meetdandy-lp.com"];
+  if (companyDomain && dandyDomains.some(d => companyDomain === d || companyDomain.endsWith("." + d))) return true;
+  if (email) {
+    const emailDomain = email.split("@")[1]?.toLowerCase().trim();
+    if (emailDomain && dandyDomains.some(d => emailDomain === d || emailDomain.endsWith("." + d))) return true;
+  }
+  const n = companyName.toLowerCase().trim();
+  if (n === "dandy" || n === "meet dandy" || n === "meetdandy") return true;
+  return false;
+}
+
+/**
  * Try to find a matching contact by LinkedIn URL or email, scoped to a
  * single tenant. Same isolation rationale as findAccountByDomain — emails
  * and LinkedIn URLs can legitimately appear in multiple tenants' CRMs and
@@ -422,10 +468,20 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
       const postUrl: string        = props.last_engaged_linkedin_post_url ?? props.post_url ?? "";
       const lastEngagedDate: string = props.last_engaged_date ?? "";
 
-      const [accountId, contactId] = await Promise.all([
-        findAccountByDomain(tenantId, companyDomain),
-        findContact(tenantId, linkedinUrl, email),
-      ]);
+      if (isInternalDandyLead(companyDomain, companyName, email)) {
+        logger.info(
+          { tenantId, source: "letterdrop", companyName, companyDomain, email },
+          "letterdrop lead skipped — internal dandy",
+        );
+        continue;
+      }
+
+      const contactPromise = findContact(tenantId, linkedinUrl, email);
+      let accountId = await findAccountByDomain(tenantId, companyDomain);
+      if (accountId == null) {
+        accountId = await findAccountByName(tenantId, companyName);
+      }
+      const contactId = await contactPromise;
 
       logger.info(
         {
