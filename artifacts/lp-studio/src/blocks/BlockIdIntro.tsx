@@ -100,11 +100,15 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
   const letterReveal = props.letterReveal !== false;
   const tokens = tokenize(props.statement ?? "");
   const totalLetters = tokens.reduce((acc, t) => acc + (t.kind === "word" ? t.letters.length : 0), 0);
+  // Speed multiplier: >1 lights letters faster (finishes earlier in the
+  // scroll), <1 stretches the reveal so visitors see each letter light up
+  // more gradually. Clamped to a sensible range.
+  const speed = Math.max(0.25, Math.min(4, props.letterRevealSpeed ?? 1));
   // Each letter lights up over a small slice of total progress. The 1.15
   // multiplier ensures the last letter is fully lit slightly before scroll
   // exits, so the statement reads as "complete" before fading away.
   // When the reveal animation is disabled, treat every letter as lit.
-  const litUntil = isEditor || !letterReveal ? totalLetters : Math.ceil(progress * totalLetters * 1.15);
+  const litUntil = isEditor || !letterReveal ? totalLetters : Math.ceil(progress * totalLetters * 1.15 * speed);
 
   return (
     <section ref={sectionRef} className="id-block id-intro">

@@ -1479,6 +1479,10 @@ export interface IdIntroBlockProps {
   /** Per-letter scroll-driven light-up animation. Defaults to true. When
    *  false, the statement renders fully lit with no animation. */
   letterReveal?: boolean;
+  /** Speed multiplier for the letter-by-letter reveal. 1.0 = default,
+   *  values > 1 light letters faster (less scroll needed), values < 1
+   *  slow it down. Clamped to [0.25, 4]. Defaults to 1. */
+  letterRevealSpeed?: number;
 }
 
 export interface IdCinemaPillar {
