@@ -990,7 +990,6 @@ export default function BuilderEditor() {
   const [customizeLibraryOpen, setCustomizeLibraryOpen] = useState(false);
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -2051,7 +2050,6 @@ export default function BuilderEditor() {
         title={title}
         titleRef={titleRef as RefObject<HTMLInputElement>}
         status={status}
-        isMobile={isMobile}
         isSaving={isSaving}
         saveSuccess={saveSuccess}
         commentMode={commentMode}
@@ -2059,7 +2057,6 @@ export default function BuilderEditor() {
         unresolvedComments={commentBlocks.reduce((sum, b) => sum + b.threads.filter(t => !t.comment.resolved).length, 0)}
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
-        onSetMobile={setIsMobile}
         liveUrl={getLpPageUrl(slug, micrositeDomain)}
         previewUrl={getLpPreviewUrl(slug, micrositeDomain)}
         onSave={handleSave}
@@ -2383,10 +2380,7 @@ export default function BuilderEditor() {
             ) : (
               <div
                 ref={canvasRef}
-                className={cn(
-                  "w-full bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300",
-                  isMobile ? "max-w-[390px]" : "max-w-5xl"
-                )}
+                className="w-full max-w-5xl bg-white rounded-xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_12px_40px_-8px_rgba(15,23,42,0.12)] transition-all duration-300"
                 style={getBrandStyleVars(brand)}
                 data-lp-page
               >
