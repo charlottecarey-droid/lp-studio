@@ -5,6 +5,7 @@ import { salesAccountsTable, salesBriefingsTable, lpPagesTable, lpBrandSettingsT
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 import rateLimit from "express-rate-limit";
+import { pickExemplars, formatExemplarsSection } from "./microsite-exemplars";
 
 const router = Router();
 
@@ -935,6 +936,11 @@ function buildSystemPrompt(
   const matchedSegment  = findMatchingSegment(segments, accountSegment);
   const productCatalog  = buildProductCatalogSection(productLines);
   const segmentSection  = buildSegmentSection(matchedSegment);
+  // Phase B: few-shot examples — pick up to 2 hand-curated exemplars
+  // matching the requested audience (and boosted by segment hints).
+  // Returns "" when no exemplars apply (e.g. independent-practice audience
+  // for which we don't ship an exemplar yet) so the prompt stays clean.
+  const exemplarsSection = formatExemplarsSection(pickExemplars(audience, accountSegment));
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
   const coreForbidden = [
@@ -1028,6 +1034,7 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
     productCatalog ? `\n${productCatalog}` : "",
     segmentSection ? `\n${segmentSection}` : "",
+    exemplarsSection ? `\n${exemplarsSection}` : "",
     "",
     copyPrinciples,
     "",
