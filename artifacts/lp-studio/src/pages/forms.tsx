@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch, Copy } from "lucide-react";
 import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
 
 const API_BASE = "/api";
@@ -718,6 +718,14 @@ export function FormsContent() {
     setSelected(updated);
   };
 
+  const duplicateForm = async (e: React.MouseEvent, form: GlobalForm) => {
+    e.stopPropagation();
+    const r = await fetch(`${API_BASE}/lp/forms/${form.id}/duplicate`, { method: "POST" });
+    if (!r.ok) return;
+    const copy = await r.json() as GlobalForm;
+    setForms(prev => [copy, ...prev]);
+  };
+
   const handleDelete = async () => {
     if (!selected) return;
     if (!confirm(`Delete form "${selected.name}"? This cannot be undone.`)) return;
@@ -785,6 +793,13 @@ export function FormsContent() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5 font-mono">ID {form.id}</span>
+                <button
+                  onClick={(e) => duplicateForm(e, form)}
+                  title="Duplicate form"
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </div>
             </button>

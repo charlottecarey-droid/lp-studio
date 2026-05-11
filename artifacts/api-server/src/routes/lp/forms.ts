@@ -126,6 +126,36 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
   res.json(form);
 });
 
+router.post("/lp/forms/:id/duplicate", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
+  const [src] = await db.select().from(lpFormsTable).where(
+    and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, id))
+  );
+  if (!src) { res.status(404).json({ error: "Form not found" }); return; }
+  const [copy] = await db
+    .insert(lpFormsTable)
+    .values({
+      tenantId,
+      name: `${src.name} (copy)`,
+      description: src.description,
+      steps: src.steps,
+      multiStep: src.multiStep,
+      submitButtonText: src.submitButtonText,
+      successMessage: src.successMessage,
+      redirectUrl: src.redirectUrl,
+      backgroundStyle: src.backgroundStyle,
+      emailRecipients: src.emailRecipients,
+      webhookUrl: src.webhookUrl,
+      marketoConfig: src.marketoConfig,
+      salesforceConfig: src.salesforceConfig,
+      chiliPiperConfig: src.chiliPiperConfig,
+    })
+    .returning();
+  res.status(201).json(copy);
+});
+
 router.delete("/lp/forms/:id", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
