@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
+import { Plus, X, ArrowUp, ArrowDown } from "lucide-react";
 import { VideoPicker } from "@/components/VideoPicker";
 
 interface Props {
@@ -36,6 +36,13 @@ export function IdCinemaPillarsPanel({ props, onChange }: Props) {
   const setPillars = (next: IdCinemaPillar[]) => onChange({ ...props, pillars: next });
   const update = (i: number, patch: Partial<IdCinemaPillar>) =>
     setPillars(pillars.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= pillars.length || from === to) return;
+    const next = pillars.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setPillars(next);
+  };
   const holdVh = props.pillarHoldVh ?? 1.5;
   const stackedScroll = props.pillarStackedScroll !== false;
 
@@ -98,7 +105,37 @@ export function IdCinemaPillarsPanel({ props, onChange }: Props) {
           <div key={i} className="border rounded-md p-3 space-y-2">
             <div className="flex justify-between items-center">
               <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pillar {i + 1}</div>
-              <Button size="sm" variant="ghost" onClick={() => setPillars(pillars.filter((_, idx) => idx !== i))}><X className="w-3 h-3" /></Button>
+              <div className="flex items-center gap-0.5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  disabled={i === 0}
+                  title="Move up"
+                  onClick={() => move(i, i - 1)}
+                >
+                  <ArrowUp className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  disabled={i === pillars.length - 1}
+                  title="Move down"
+                  onClick={() => move(i, i + 1)}
+                >
+                  <ArrowDown className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  title="Remove pillar"
+                  onClick={() => setPillars(pillars.filter((_, idx) => idx !== i))}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
