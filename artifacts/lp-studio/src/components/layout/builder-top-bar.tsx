@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
-  Clock,
+  Clock, Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ interface BuilderTopBarProps {
   onSave: () => void;
   onSaveAsTemplate: () => void;
   onOpenAbTest: () => void;
+  onOpenAdCopy?: () => void;
   onPublish: () => void;
   onToggleCommentMode: () => void;
   onShareForReview: () => void;
@@ -70,6 +71,7 @@ export function BuilderTopBar({
   onSave,
   onSaveAsTemplate,
   onOpenAbTest,
+  onOpenAdCopy,
   onPublish,
   onToggleCommentMode,
   onShareForReview,
@@ -232,6 +234,19 @@ export function BuilderTopBar({
         <FlaskConical className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">A/B Test</span>
       </Button>
+
+      {onOpenAdCopy && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
+          onClick={onOpenAdCopy}
+          data-testid="open-ad-copy-button"
+        >
+          <Megaphone className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Ad Copy</span>
+        </Button>
+      )}
 
       {/*
         Page-review buttons (task #108).

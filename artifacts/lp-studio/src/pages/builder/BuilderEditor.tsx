@@ -52,6 +52,7 @@ import { NestedChild, EmptyContainerSlot, TailDropSlot } from "./NestedChildren"
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
+import { AdCopyDialog } from "@/components/builder/AdCopyDialog";
 import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
@@ -995,6 +996,7 @@ export default function BuilderEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [abTestModalOpen, setAbTestModalOpen] = useState(false);
+  const [adCopyDialogOpen, setAdCopyDialogOpen] = useState(false);
   const [abTestName, setAbTestName] = useState("");
   const [abTestSlug, setAbTestSlug] = useState("");
   const [abTestCreating, setAbTestCreating] = useState(false);
@@ -2086,6 +2088,7 @@ export default function BuilderEditor() {
         onSave={handleSave}
         onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
         onOpenAbTest={() => setAbTestModalOpen(true)}
+        onOpenAdCopy={Number.isFinite(pageIdNum) ? () => setAdCopyDialogOpen(true) : undefined}
         onPublish={handlePublish}
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
         onShareForReview={() => setShareModalOpen(true)}
@@ -2144,6 +2147,15 @@ export default function BuilderEditor() {
             ×
           </button>
         </div>
+      )}
+
+      {Number.isFinite(pageIdNum) && (
+        <AdCopyDialog
+          open={adCopyDialogOpen}
+          onClose={() => setAdCopyDialogOpen(false)}
+          pageId={pageIdNum}
+          pageTitle={title}
+        />
       )}
 
       <Dialog open={abTestModalOpen} onOpenChange={setAbTestModalOpen}>

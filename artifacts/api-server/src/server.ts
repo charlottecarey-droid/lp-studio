@@ -217,6 +217,37 @@ async function runMigrations(): Promise<void> {
       ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_at timestamptz;
       ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_summary jsonb;
 
+      -- Task #209: per-page ad copy generation history. One row per
+      -- generation run; the latest row populates the panel on open and the
+      -- "previous runs" dropdown lists older runs for revisit/restore.
+      CREATE TABLE IF NOT EXISTS lp_page_ad_copy_runs (
+        id serial PRIMARY KEY,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        tenant_id integer NOT NULL,
+        input_summary jsonb NOT NULL DEFAULT '{}',
+        output jsonb NOT NULL DEFAULT '{}',
+        created_by text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS lp_page_ad_copy_runs_page_idx ON lp_page_ad_copy_runs (page_id);
+      CREATE INDEX IF NOT EXISTS lp_page_ad_copy_runs_tenant_idx ON lp_page_ad_copy_runs (tenant_id);
+      -- If the table already existed (created in a prior boot) without the FK,
+      -- attach it now. The DO block lets us no-op when the constraint is
+      -- already in place.
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'lp_page_ad_copy_runs_page_id_fkey'
+        ) THEN
+          BEGIN
+            ALTER TABLE lp_page_ad_copy_runs
+              ADD CONSTRAINT lp_page_ad_copy_runs_page_id_fkey
+              FOREIGN KEY (page_id) REFERENCES lp_pages(id) ON DELETE CASCADE;
+          EXCEPTION WHEN others THEN NULL;
+          END;
+        END IF;
+      END$$;
+
       -- Page review workflow (task #108). All columns are nullable; only populated
       -- while a review is in flight or right after a decision is recorded.
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS submitted_for_review_at timestamptz;

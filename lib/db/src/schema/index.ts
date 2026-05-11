@@ -9,6 +9,7 @@ export * from "./lpMedia";
 export * from "./lpPageVisits";
 export * from "./lpLeads";
 export * from "./lpForms";
+export * from "./lpPageAdCopyRuns";
 export * from "./lpSmartTraffic";
 export * from "./lpHeatmapEvents";
 
