@@ -62,6 +62,7 @@ import type {
   IdParallaxShowcaseBlockProps,
   IdStatsBlockProps,
   IdInvitationBlockProps,
+  IdGridBlockProps,
   IdSpotlightBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
@@ -3664,6 +3665,38 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "id-grid" as const,
+    label: "Inside Dandy · Numbered Grid",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdGridBlockProps => ({
+      eyebrow: "Step inside",
+      headline: "Four ways to step <em>inside</em>.",
+      subheading: "Choose the format that fits — every path is hosted by the people who run the lab.",
+      cards: [
+        { eyebrow: "IN PERSON · PROVO", headline: "Lab tour, <em>two days</em>.", body: "Twice a year we open our Provo facility. Walk the floor with our master technicians and AI engineers, no script.", ctaText: "Request invitation", ctaUrl: "#" },
+        { eyebrow: "VIRTUAL · LIVE", headline: "Quarterly <em>open house</em>.", body: "A 60-minute live walkthrough with Q&A. See the AI tools in action and ask the team anything.", ctaText: "Save a seat", ctaUrl: "#" },
+        { eyebrow: "ON DEMAND", headline: "Watch the <em>film</em>.", body: "A cinematic tour of the lab — every step from scan to ship, narrated by the people behind the work.", ctaText: "Watch now", ctaUrl: "#" },
+        { eyebrow: "1:1 · PRIVATE", headline: "Bring your <em>team</em>.", body: "DSO leadership and clinical groups can request a private session built around your specific workflow.", ctaText: "Book a private tour", ctaUrl: "#" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <text x="60" y="14" fontSize="6" fill="#C7E738" opacity="0.8" textAnchor="middle" fontFamily="Georgia, serif" letterSpacing="1">STEP INSIDE</text>
+        <text x="60" y="24" fontSize="7" fill="#fff" fontFamily="Georgia, serif" textAnchor="middle">Four ways to step</text>
+        <text x="60" y="32" fontSize="7" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif" textAnchor="middle">inside.</text>
+        <line x1="14" y1="38" x2="106" y2="38" stroke="#fff" strokeOpacity="0.18" />
+        <line x1="60" y1="38" x2="60" y2="64" stroke="#fff" strokeOpacity="0.18" />
+        <line x1="14" y1="51" x2="106" y2="51" stroke="#fff" strokeOpacity="0.18" />
+        <line x1="14" y1="64" x2="106" y2="64" stroke="#fff" strokeOpacity="0.18" />
+        <text x="18" y="46" fontSize="4" fill="#C7E738" fontFamily="Georgia, serif">01</text>
+        <text x="64" y="46" fontSize="4" fill="#C7E738" fontFamily="Georgia, serif">02</text>
+        <text x="18" y="59" fontSize="4" fill="#C7E738" fontFamily="Georgia, serif">03</text>
+        <text x="64" y="59" fontSize="4" fill="#C7E738" fontFamily="Georgia, serif">04</text>
+      </svg>
+    ),
+  },
+  {
     type: "id-spotlight" as const,
     label: "Inside Dandy · Spotlight (Video Feature)",
     category: "Showcase" as BlockCategory,
@@ -4488,6 +4521,7 @@ export function createBlock(type: "id-cinema-pillars"): Extract<PageBlock, { typ
 export function createBlock(type: "id-parallax-showcase"): Extract<PageBlock, { type: "id-parallax-showcase" }>;
 export function createBlock(type: "id-stats"): Extract<PageBlock, { type: "id-stats" }>;
 export function createBlock(type: "id-invitation"): Extract<PageBlock, { type: "id-invitation" }>;
+export function createBlock(type: "id-grid"): Extract<PageBlock, { type: "id-grid" }>;
 export function createBlock(type: "id-spotlight"): Extract<PageBlock, { type: "id-spotlight" }>;
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
@@ -4712,6 +4746,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "id-parallax-showcase": return { id, type: "id-parallax-showcase", props: props as IdParallaxShowcaseBlockProps };
     case "id-stats": return { id, type: "id-stats", props: props as IdStatsBlockProps };
     case "id-invitation": return { id, type: "id-invitation", props: props as IdInvitationBlockProps };
+    case "id-grid": return { id, type: "id-grid", props: props as IdGridBlockProps };
     case "id-spotlight": return { id, type: "id-spotlight", props: props as IdSpotlightBlockProps };
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };

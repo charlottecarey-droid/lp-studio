@@ -81,6 +81,7 @@ import { IdSpotlightPanel } from "./IdSpotlightPanel";
 import { IdParallaxShowcasePanel } from "./IdParallaxShowcasePanel";
 import { IdStatsPanel } from "./IdStatsPanel";
 import { IdInvitationPanel } from "./IdInvitationPanel";
+import { IdGridPanel } from "./IdGridPanel";
 import { GradientPricingPanel } from "./GradientPricingPanel";
 import { EditorialCarouselPanel } from "./EditorialCarouselPanel";
 import { MenuSectionPanel } from "./MenuSectionPanel";
@@ -5266,6 +5267,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <IdStatsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-invitation":
         return <IdInvitationPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-grid":
+        return <IdGridPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-spotlight":
         return <IdSpotlightPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "gradient-pricing":

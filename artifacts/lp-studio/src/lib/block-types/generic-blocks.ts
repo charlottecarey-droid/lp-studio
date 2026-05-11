@@ -1586,6 +1586,29 @@ export interface IdInvitationMeta {
   text: string;
 }
 
+export interface IdGridCard {
+  /** Small uppercase eyebrow line, e.g. "IN PERSON · PROVO". */
+  eyebrow?: string;
+  /** Card headline. Wrap accent words in <em>…</em> for citron highlight. */
+  headline: string;
+  /** Body paragraph. */
+  body?: string;
+  /** Optional CTA link label. */
+  ctaText?: string;
+  /** Optional CTA href. */
+  ctaUrl?: string;
+}
+
+export interface IdGridBlockProps {
+  eyebrow?: string;
+  /** Centered heading. Wrap accent words in <em>…</em>. */
+  headline: string;
+  /** Centered subheading paragraph. */
+  subheading?: string;
+  /** Exactly four cards rendered in a 2x2 grid (numbered 01–04). */
+  cards: IdGridCard[];
+}
+
 export interface IdInvitationBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;

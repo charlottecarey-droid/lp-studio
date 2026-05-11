@@ -302,6 +302,38 @@ const CSS = `
 .id-invite .id-meta-row .id-item { font-size:11px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); font-weight:500; }
 .id-invite .id-meta-row .id-item b { display:block; font-family:var(--id-display); font-size:24px; letter-spacing:-0.01em; color:var(--id-cit); font-weight:400; text-transform:none; margin-bottom:6px; }
 
+/* CENTERED NUMBERED GRID — premium variant of the invitation pattern.
+   Centered eyebrow / heading / subheading at the top, followed by a fixed
+   2x2 grid of numbered cards. Built with the same teal background, citron
+   accents, Bagoss display type, and hairline dividers as the rest of the
+   ID suite. */
+.id-grid { position:relative; background:var(--id-teal-deep); padding:200px 40px 220px; overflow:hidden; }
+.id-grid::before { content:""; position:absolute; left:50%; top:-10%; transform:translateX(-50%); width:120vh; height:120vh; border-radius:50%; background:radial-gradient(circle at 50% 50%,rgba(199,231,56,0.06) 0%,rgba(199,231,56,0) 60%); pointer-events:none; z-index:0; }
+.id-grid .id-inner { position:relative; z-index:1; max-width:1240px; margin:0 auto; }
+.id-grid .id-grid-intro { text-align:center; max-width:820px; margin:0 auto 120px; display:flex; flex-direction:column; align-items:center; gap:32px; }
+.id-grid .id-grid-intro .id-eyebrow { justify-content:center; margin:0; }
+.id-grid .id-grid-intro h2 { font-size:clamp(40px,5.4vw,80px); line-height:1.02; letter-spacing:-0.022em; color:#fff; margin:0; max-width:18ch; }
+.id-grid .id-grid-intro h2 em { color:var(--id-cit); }
+.id-grid .id-grid-intro .id-grid-sub { font-size:clamp(16px,1.4vw,20px); line-height:1.55; color:rgba(255,255,255,0.72); max-width:58ch; margin:0; font-weight:300; }
+.id-grid .id-grid-cards { display:grid; grid-template-columns:repeat(2,1fr); gap:0; border-top:1px solid var(--id-line); border-left:1px solid var(--id-line); }
+.id-grid .id-grid-card { position:relative; padding:64px 56px 56px; border-right:1px solid var(--id-line); border-bottom:1px solid var(--id-line); display:flex; flex-direction:column; gap:20px; min-height:340px; background:transparent; transition:background 320ms var(--id-ease); }
+.id-grid .id-grid-card:hover { background:rgba(199,231,56,0.025); }
+.id-grid .id-grid-card .id-grid-num { font-family:var(--id-display); font-size:18px; line-height:1; letter-spacing:0.04em; color:var(--id-cit); font-feature-settings:"tnum"; font-weight:400; }
+.id-grid .id-grid-card .id-grid-eyebrow { font-size:10px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.55); font-weight:500; }
+.id-grid .id-grid-card .id-grid-headline { font-family:var(--id-display); font-weight:400; font-size:clamp(24px,2.2vw,32px); line-height:1.12; letter-spacing:-0.012em; color:#fff; margin:0; }
+.id-grid .id-grid-card .id-grid-headline em { color:var(--id-cit); font-style:italic; }
+.id-grid .id-grid-card .id-grid-body { font-size:15px; line-height:1.55; color:rgba(255,255,255,0.7); margin:0; font-weight:300; }
+.id-grid .id-grid-card .id-grid-cta { margin-top:auto; display:inline-flex; align-items:center; gap:10px; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:var(--id-cit); text-decoration:none; font-weight:500; padding-top:8px; transition:gap 280ms var(--id-ease), color 280ms var(--id-ease); align-self:flex-start; }
+.id-grid .id-grid-card .id-grid-cta::after { content:"→"; display:inline-block; transition:transform 280ms var(--id-ease); }
+.id-grid .id-grid-card:hover .id-grid-cta { gap:14px; }
+.id-grid .id-grid-card:hover .id-grid-cta::after { transform:translateX(4px); }
+@media (max-width:780px) {
+  .id-grid { padding:120px 24px 140px; }
+  .id-grid .id-grid-intro { margin-bottom:64px; gap:24px; }
+  .id-grid .id-grid-cards { grid-template-columns:1fr; border-left:none; border-top:1px solid var(--id-line); }
+  .id-grid .id-grid-card { padding:48px 8px 40px; min-height:0; border-right:none; }
+}
+
 @media (max-width:980px) {
   .id-showcase .id-head { grid-template-columns:1fr; }
   .id-stats .id-inner { grid-template-columns:repeat(2,1fr); }

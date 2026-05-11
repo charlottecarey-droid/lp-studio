@@ -110,6 +110,7 @@ import { BlockIdCinemaPillars } from "./BlockIdCinemaPillars";
 import { BlockIdParallaxShowcase } from "./BlockIdParallaxShowcase";
 import { BlockIdStats } from "./BlockIdStats";
 import { BlockIdInvitation } from "./BlockIdInvitation";
+import { BlockIdGrid } from "./BlockIdGrid";
 import { BlockIdSpotlight } from "./BlockIdSpotlight";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
@@ -928,6 +929,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockIdStats props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-invitation":
         return <BlockIdInvitation props={block.props} onCtaClick={onCtaClick} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-grid":
+        return <BlockIdGrid props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-spotlight":
         return <BlockIdSpotlight props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "bento-showcase":

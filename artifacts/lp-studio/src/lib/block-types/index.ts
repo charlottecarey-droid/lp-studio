@@ -109,6 +109,8 @@ export type {
   IdStatItem,
   IdInvitationBlockProps,
   IdInvitationMeta,
+  IdGridBlockProps,
+  IdGridCard,
   IdSpotlightBlockProps,
   IdSpotlightResult,
   IdSpotlightStep,
