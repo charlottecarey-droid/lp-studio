@@ -1,0 +1,69 @@
+
+Prompt 1 — Renumber colliding migrations
+Task title: Resolve duplicate 0009_* migration filename collision
+Context. Three migration files in lib/db/migrations/ share the 0009 prefix:
+0009_sales_sfdc_tenant_id.sql
+0009_tenant_slug_redirects_notified_at.sql
+0009_tenant_webhook_secrets.sql
+Replit Agent created them in parallel during recent work without coordinating sequence numbers. Migrations run in alphabetical order so all three execute, but the convention is broken and a future migration scripting tool (or a new contributor) will get confused. Each migration appears idempotent (uses IF NOT EXISTS / IF EXISTS), so there's no production data risk — this is hygiene only.
+Task:
+
+Determine which of the three 0009 files should keep that number. Pick the one with the earliest commit timestamp (use git log --diff-filter=A -- lib/db/migrations/0009_*.sql to check). The other two get renumbered to 0010 and 0011.
+Rename the files to the new numbers, preserving the rest of the filename. Use git mv so history is preserved.
+Verify each renumbered migration's content is still idempotent (re-running on a DB that already has the changes should be a no-op). If any are NOT idempotent, add IF NOT EXISTS / IF EXISTS guards.
+If there's a _meta directory or version-tracking file inside lib/db/migrations/ that records applied migration filenames, update those references too.
+Confirm the production deploy will still work: the renumbered migrations either match what was already applied (by content), or get applied fresh on the next deploy because their new filenames don't appear in the tracked-migrations list.
+Document the resolution in a one-line comment at the top of each renumbered file: -- Renumbered from 0009_* on [date] to resolve numbering collision; original logic unchanged.
+
+Acceptance criteria:
+
+Exactly one migration file per integer prefix in lib/db/migrations/.
+All three previously-named-0009 migrations preserved by content, just renamed.
+pnpm run typecheck passes clean.
+Document briefly in commit message which file kept 0009 and which moved to 0010 / 0011.
+
+Estimate: 15 minutes.
+
+Prompt 2 — Fix tsc --build exit code masking
+Task title: Make tsc --build actually fail when sub-packages have type errors
+Context. Running pnpm run typecheck (which is tsc --build at the workspace root) returns exit code 0 even when real TypeScript errors exist in sub-packages.
+To reproduce in current code (after deleting tsbuildinfo caches):
+bashcd /Users/charlotte.carey/lp-studio
+find . -name "*.tsbuildinfo" -not -path "*/node_modules/*" -delete
+pnpm run typecheck
+echo "EXIT=$?"   # → 0
+But running tsc --noEmit directly inside artifacts/api-server:
+bashcd artifacts/api-server
+../../node_modules/.bin/tsc -p tsconfig.json --noEmit
+echo "EXIT=$?"   # → non-zero with real errors surfaced
+The errors that should be failing the root build but aren't (after a fresh pnpm install):
+
+src/routes/lp/podcast-availability.ts:10 — imports @replit/connectors-sdk which doesn't resolve.
+(Plus any errors from packages not currently in the build graph.)
+
+tsconfig.base.json has noEmitOnError: true and skipLibCheck: true. The composite-projects setup uses tsc --build, which is supposed to honor these per-package.
+Hypotheses to test:
+
+Some sub-packages (notably artifacts/api-server) are not listed in the root tsconfig.json references array, so tsc --build never typechecks them.
+skipLibCheck: true is masking real errors in generated files like lib/api-zod/src/generated/.
+The root typecheck script is tsc --build but should be tsc --build --force or a wider invocation that includes the leaf application packages.
+noEmitOnError doesn't apply when emitDeclarationOnly: true (the setting used by lib packages).
+
+Task:
+
+Run a fresh pnpm install to make sure all deps are resolved (including the recently-added csrf-csrf, @sentry/node, @sentry/react).
+Verify the reproduction: delete tsbuildinfo files, run pnpm run typecheck, confirm exit 0.
+Investigate which packages are in the root tsconfig.json references. List all packages that have a tsconfig.json with composite: true — confirm each is referenced from root.
+Identify which of the four hypotheses above is correct (it may be more than one).
+Fix the root cause so that pnpm run typecheck returns non-zero whenever any package in the workspace has a real TypeScript error.
+Verify by introducing a deliberate type error in artifacts/api-server/src/app.ts (e.g. const x: number = "string";), running pnpm run typecheck, confirming it returns non-zero, then reverting the deliberate error.
+If the fix involves changing the typecheck script in root package.json, also update the corresponding script in artifacts/api-server/package.json and the leaf application packages so per-package typecheck stays correct.
+
+Acceptance criteria:
+
+A deliberate type error anywhere in the workspace causes pnpm run typecheck to exit non-zero.
+The previously-existing errors (e.g. @replit/connectors-sdk resolution if the file is still in the build) either surface and get fixed, or get explicitly documented as acceptable with a comment.
+CI configuration (if applicable in .replit or anywhere else) runs the same typecheck command so the build pipeline catches these too.
+Commit message documents the root cause finding so future contributors understand why this was a problem.
+
+Estimate: ½ day. Bulk of the work is the investigation; the fix is usually small (add missing project references or change the typecheck script).
