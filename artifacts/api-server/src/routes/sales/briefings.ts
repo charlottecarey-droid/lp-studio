@@ -3,20 +3,9 @@ import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesBriefingsTable, salesAccountsTable, lpBrandSettingsTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
-import OpenAI from "openai";
+import { callAIChat, AIChatError, aiErrorMessage, fetchWithTimeout } from "../../lib/ai-utils";
 
 const router = Router();
-
-function getOpenAIClient(): OpenAI | null {
-  const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (integrationBase && integrationKey) {
-    return new OpenAI({ apiKey: integrationKey, baseURL: integrationBase });
-  }
-  const directKey = process.env.OPENAI_API_KEY;
-  if (directKey) return new OpenAI({ apiKey: directKey });
-  return null;
-}
 
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY ?? "";
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY ?? "";
@@ -41,7 +30,6 @@ interface AccountContext {
 async function perplexityResearch(account: AccountContext): Promise<{ text: string; sources: string[] }> {
   if (!PERPLEXITY_API_KEY) return { text: "", sources: [] };
 
-  // Build disambiguating context to prevent wrong-company matches
   const contextParts: string[] = [];
   if (account.domain) contextParts.push(`website: ${account.domain}`);
   if (account.city && account.state) contextParts.push(`headquartered in ${account.city}, ${account.state}`);
@@ -51,13 +39,11 @@ async function perplexityResearch(account: AccountContext): Promise<{ text: stri
   if (account.numLocations) contextParts.push(`${account.numLocations} locations`);
   if (account.privateEquityFirm) contextParts.push(`PE-backed by ${account.privateEquityFirm}`);
 
-  // Derive industry label from: account.industry → brand.targetAudience → brand.companyDescription → fallback
   const industryCtx = account.industry
     ?? (account.brandTargetAudience ? `company serving ${account.brandTargetAudience}` : null)
     ?? (account.brandCompanyDescription ? "company" : null)
     ?? "B2B company";
 
-  // Disambiguation hint — tell Perplexity what kind of company this is so it doesn't match the wrong one
   const industryHint = account.industry
     ?? account.brandTargetAudience
     ?? (account.brandCompanyDescription ? account.brandCompanyDescription : null)
@@ -76,30 +62,32 @@ async function perplexityResearch(account: AccountContext): Promise<{ text: stri
   ].filter(Boolean).join(" ");
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-
-    const resp = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+    const resp = await fetchWithTimeout(
+      "https://api.perplexity.ai/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "sonar-pro",
+          messages: [{ role: "user", content: query }],
+        }),
       },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [{ role: "user", content: query }],
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    if (!resp.ok) return { text: "", sources: [] };
+      12000,
+    );
+    if (!resp.ok) {
+      console.warn("[briefings] Perplexity returned", resp.status);
+      return { text: "", sources: [] };
+    }
     const data = await resp.json() as { choices?: { message?: { content?: string } }[]; citations?: string[] };
     return {
       text: data.choices?.[0]?.message?.content ?? "",
       sources: data.citations ?? [],
     };
-  } catch {
+  } catch (err) {
+    console.warn("[briefings] Perplexity research failed (continuing without it):", err instanceof Error ? err.message : err);
     return { text: "", sources: [] };
   }
 }
@@ -110,25 +98,27 @@ async function scrapeWebsite(url: string): Promise<string> {
   if (!FIRECRAWL_API_KEY || !url) return "";
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+    const resp = await fetchWithTimeout(
+      "https://api.firecrawl.dev/v1/scrape",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+        },
+        body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
       },
-      body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    if (!resp.ok) return "";
+      8000,
+    );
+    if (!resp.ok) {
+      console.warn("[briefings] Firecrawl returned", resp.status);
+      return "";
+    }
     const data = await resp.json() as { data?: { markdown?: string } };
     const md = data.data?.markdown ?? "";
     return md.slice(0, 8000);
-  } catch {
+  } catch (err) {
+    console.warn("[briefings] Firecrawl scrape failed (continuing without it):", err instanceof Error ? err.message : err);
     return "";
   }
 }
@@ -141,10 +131,6 @@ async function synthesizeBriefing(
   websiteContent: string,
   sources: string[],
 ): Promise<Record<string, unknown>> {
-  const openai = getOpenAIClient();
-  if (!openai) return buildFallbackBriefing(account.name);
-
-  // Build a dynamic analyst identity from brand context
   const sellerDesc = account.brandCompanyDescription
     ?? (account.brandName && account.brandTargetAudience
       ? `${account.brandName}, which sells to ${account.brandTargetAudience}`
@@ -206,41 +192,29 @@ async function synthesizeBriefing(
     sources.length > 0 ? `\n--- Sources ---\n${sources.join("\n")}` : "",
   ].filter(Boolean).join("\n");
 
+  const raw = await callAIChat({
+    model: "gpt-4o",
+    temperature: 0.3,
+    responseFormat: { type: "json_object" },
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    timeoutMs: 60000,
+  });
+
+  let parsed: Record<string, unknown>;
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
-
-    const raw = completion.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
-    parsed.sources = sources;
-    return parsed;
+    parsed = JSON.parse(raw);
   } catch (err) {
-    console.error("Briefing synthesis error:", err);
-    return buildFallbackBriefing(account.name);
+    throw new AIChatError(
+      "ai_parse",
+      `AI returned non-JSON for briefing: ${err instanceof Error ? err.message : String(err)}`,
+      502,
+    );
   }
-}
-
-function buildFallbackBriefing(companyName: string): Record<string, unknown> {
-  return {
-    companyName,
-    overview: `Research data for ${companyName} is not yet available. Generate a briefing to populate.`,
-    tier: "Unknown",
-    leadership: [],
-    sizeAndLocations: { locationCount: null, regions: [], headquarters: null },
-    recentNews: [],
-    buyingCommittee: [],
-    fitAnalysis: { primaryValueProp: "", keyPainPoints: [], proofPoints: [], potentialObjections: [] },
-    talkingPoints: [],
-    pageRecommendations: {},
-    sources: [],
-  };
+  parsed.sources = sources;
+  return parsed;
 }
 
 // ─── Routes ─────────────────────────────────────────────────
@@ -276,19 +250,18 @@ router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Prom
     return;
   }
   try {
-    // Load account scoped to caller's tenant — guards against cross-tenant
-    // access via a guessed accountId.
     const [account] = await db.select().from(salesAccountsTable)
       .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
-    if (!account) { res.status(404).json({ error: "Account not found" }); return; }
+    if (!account) {
+      res.status(404).json({ error: "Account not found for this tenant" });
+      return;
+    }
 
-    // Load brand settings scoped to this tenant
     const [brandRow] = await db.select().from(lpBrandSettingsTable)
       .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
       .limit(1);
     const brandConfig = (brandRow?.config as Record<string, unknown> | undefined) ?? {};
 
-    // Build enriched account context with brand-derived industry info
     const accountCtx: AccountContext = {
       ...account,
       brandCompanyDescription: (brandConfig.companyDescription as string | undefined) || null,
@@ -296,26 +269,43 @@ router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Prom
       brandName: (brandConfig.brandName as string | undefined) || null,
     };
 
-    // Normalize domain → scrape URL (handle cases where domain already has https://)
     const scrapeUrl = account.domain
       ? (account.domain.startsWith("http") ? account.domain : `https://${account.domain}`)
       : null;
 
-    // Run research pipeline in parallel
+    // Best-effort enrichment: failures here must not kill the request.
+    // perplexityResearch and scrapeWebsite already swallow their own errors,
+    // but Promise.all would reject if either ever escapes — so guard it.
     const [research, website] = await Promise.all([
-      perplexityResearch(accountCtx),
-      scrapeUrl ? scrapeWebsite(scrapeUrl) : Promise.resolve(""),
+      perplexityResearch(accountCtx).catch((err) => {
+        console.warn("[briefings] perplexity wrapper threw:", err);
+        return { text: "", sources: [] as string[] };
+      }),
+      scrapeUrl
+        ? scrapeWebsite(scrapeUrl).catch((err) => {
+            console.warn("[briefings] scrape wrapper threw:", err);
+            return "";
+          })
+        : Promise.resolve(""),
     ]);
 
-    // Synthesize with AI — pass full account + brand context for disambiguation
-    const briefingData = await synthesizeBriefing(
-      accountCtx,
-      research.text,
-      website,
-      research.sources,
-    );
+    let briefingData: Record<string, unknown>;
+    try {
+      briefingData = await synthesizeBriefing(
+        accountCtx,
+        research.text,
+        website,
+        research.sources,
+      );
+    } catch (err) {
+      // AI synthesis is the only step that *must* succeed — surface a precise
+      // error to the client instead of a generic 500.
+      const { status, message } = aiErrorMessage(err, "Failed to generate briefing");
+      console.error("[briefings] synthesis failed:", err);
+      res.status(status).json({ error: message });
+      return;
+    }
 
-    // Check if briefing exists (scoped to tenant)
     const existing = await db.select({ id: salesBriefingsTable.id })
       .from(salesBriefingsTable)
       .where(and(
@@ -345,7 +335,8 @@ router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Prom
     res.json(result);
   } catch (err) {
     console.error("POST briefing error:", err);
-    res.status(500).json({ error: "Failed to generate briefing" });
+    const message = err instanceof Error ? err.message : "Failed to generate briefing";
+    res.status(500).json({ error: `Failed to generate briefing: ${message}` });
   }
 });
 

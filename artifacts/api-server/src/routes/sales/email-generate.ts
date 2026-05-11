@@ -1,41 +1,28 @@
 import { Router } from "express";
-import OpenAI from "openai";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
+import { callAIChat, aiErrorMessage } from "../../lib/ai-utils";
 
 const router = Router();
 
-function getOpenAIClient(): OpenAI | null {
-  const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (integrationBase && integrationKey) {
-    return new OpenAI({ apiKey: integrationKey, baseURL: integrationBase });
-  }
-  const directKey = process.env.OPENAI_API_KEY;
-  if (directKey) return new OpenAI({ apiKey: directKey });
-  return null;
-}
+router.post("/generate-email", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
 
-// ─── AI email generation ────────────────────────────────────
-
-router.post("/generate-email", async (req, res): Promise<void> => {
   const { contactId, accountId, purpose, tone, additionalContext, includesMicrositeLink } = req.body;
 
-  const openai = getOpenAIClient();
-  if (!openai) {
-    res.status(503).json({ error: "AI not configured. Set OPENAI_API_KEY." });
-    return;
-  }
-
   try {
-    // Gather context
     let contactContext = "";
     let accountContext = "";
 
     if (contactId) {
       const [contact] = await db.select().from(salesContactsTable)
-        .where(eq(salesContactsTable.id, Number(contactId)));
+        .where(and(
+          eq(salesContactsTable.id, Number(contactId)),
+          eq(salesContactsTable.tenantId, tenantId),
+        ));
       if (contact) {
         const firstName = contact.firstName ?? "";
         const lastName = contact.lastName ?? "";
@@ -48,7 +35,10 @@ router.post("/generate-email", async (req, res): Promise<void> => {
 
     if (accountId) {
       const [account] = await db.select().from(salesAccountsTable)
-        .where(eq(salesAccountsTable.id, Number(accountId)));
+        .where(and(
+          eq(salesAccountsTable.id, Number(accountId)),
+          eq(salesAccountsTable.tenantId, tenantId),
+        ));
       if (account) {
         accountContext = `Company: ${account.name}`;
         if (account.segment) accountContext += ` (${account.segment})`;
@@ -77,26 +67,44 @@ router.post("/generate-email", async (req, res): Promise<void> => {
       additionalContext ? `Additional context: ${additionalContext}` : "",
     ].filter(Boolean).join("\n");
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.8,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
+    let raw: string;
+    try {
+      raw = await callAIChat({
+        model: "gpt-4o",
+        temperature: 0.8,
+        responseFormat: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        timeoutMs: 45000,
+      });
+    } catch (err) {
+      const { status, message } = aiErrorMessage(err, "Failed to generate email");
+      console.error("[generate-email] AI call failed:", err);
+      res.status(status).json({ error: message });
+      return;
+    }
 
-    const raw = completion.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
+    let parsed: { subject?: string; bodyHtml?: string };
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      console.error("[generate-email] AI response was not JSON:", err, raw.slice(0, 500));
+      res.status(502).json({ error: "AI returned a malformed response. Please try again." });
+      return;
+    }
 
-    res.json({
-      subject: parsed.subject ?? "",
-      bodyHtml: parsed.bodyHtml ?? "",
-    });
+    const subject = parsed.subject ?? "";
+    const bodyHtml = parsed.bodyHtml ?? "";
+    // Strip HTML tags for clients that prefer/expect plain text.
+    const bodyText = bodyHtml.replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim();
+
+    res.json({ subject, bodyHtml, bodyText });
   } catch (err) {
     console.error("POST /sales/generate-email error:", err);
-    res.status(500).json({ error: "Failed to generate email" });
+    const message = err instanceof Error ? err.message : "Failed to generate email";
+    res.status(500).json({ error: `Failed to generate email: ${message}` });
   }
 });
 

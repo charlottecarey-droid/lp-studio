@@ -1316,6 +1316,7 @@ function BriefingPanel({ accountId }: { accountId: number }) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/sales/accounts/${accountId}/briefing`)
@@ -1327,15 +1328,18 @@ function BriefingPanel({ accountId }: { accountId: number }) {
 
   async function generateBriefing() {
     setGenerating(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/sales/accounts/${accountId}/briefing`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setBriefing(data);
         setExpanded(true);
+      } else {
+        setError(data?.error ?? `Briefing failed (${res.status}). Please try again.`);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -1375,6 +1379,11 @@ function BriefingPanel({ accountId }: { accountId: number }) {
             )}
           </Button>
         </div>
+        {error && (
+          <div className="mt-3 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-xs text-red-700 leading-snug dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400">
+            {error}
+          </div>
+        )}
       </Card>
     );
   }

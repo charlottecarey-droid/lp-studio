@@ -5,6 +5,16 @@ import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefi
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 
+/** Best-effort wrapper: log + return a default if the promise rejects. */
+async function bestEffort<T>(label: string, p: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await p;
+  } catch (err) {
+    console.warn(`[draft-email] ${label} failed (continuing):`, err instanceof Error ? err.message : err);
+    return fallback;
+  }
+}
+
 const router = Router();
 
 // ─── Simple in-memory rate limiter for AI routes ────────────
@@ -269,15 +279,19 @@ Find their career background, current role details, any public posts or professi
 Only report what you can confirm from public sources.`;
 
       researchTasks.push(
-        perplexitySearch(PERPLEXITY_KEY, personQuery).then(r => { personResearch = r.content; allCitations.push(...r.citations); }),
-        perplexitySearch(PERPLEXITY_KEY, companyQuery).then(r => { companyResearch = r.content; allCitations.push(...r.citations); }),
-        perplexitySearch(PERPLEXITY_KEY, linkedinQuery).then(r => { linkedinResearch = r.content; allCitations.push(...r.citations); }),
+        bestEffort("perplexity person", perplexitySearch(PERPLEXITY_KEY, personQuery), { content: "", citations: [] as string[] })
+          .then(r => { personResearch = r.content; allCitations.push(...r.citations); }),
+        bestEffort("perplexity company", perplexitySearch(PERPLEXITY_KEY, companyQuery), { content: "", citations: [] as string[] })
+          .then(r => { companyResearch = r.content; allCitations.push(...r.citations); }),
+        bestEffort("perplexity linkedin", perplexitySearch(PERPLEXITY_KEY, linkedinQuery), { content: "", citations: [] as string[] })
+          .then(r => { linkedinResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
 
     if (FIRECRAWL_KEY && domain) {
       researchTasks.push(
-        firecrawlScrape(FIRECRAWL_KEY, domain).then(r => { siteResearch = r; }),
+        bestEffort("firecrawl scrape", firecrawlScrape(FIRECRAWL_KEY, domain), "")
+          .then(r => { siteResearch = r; }),
       );
     } else if (PERPLEXITY_KEY && domain && accountName) {
       // Fallback: use Perplexity for site if no Firecrawl key
@@ -289,7 +303,8 @@ Only report what you can confirm from public sources.`;
 - Key leadership or brand positioning
 Be factual and specific. Only include what's on the site.`;
       researchTasks.push(
-        perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]).then(r => { siteResearch = r.content; allCitations.push(...r.citations); }),
+        bestEffort("perplexity site", perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]), { content: "", citations: [] as string[] })
+          .then(r => { siteResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
 
@@ -605,16 +620,16 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
         );
         if (!geminiRes.ok) {
           const err = await geminiRes.text();
-          console.error("Gemini fallback also failed:", err);
-          res.status(500).json({ error: "AI request failed" });
+          console.error("Gemini fallback also failed:", geminiRes.status, err.slice(0, 500));
+          res.status(502).json({ error: `AI provider error (OpenAI ${response.status}, Gemini ${geminiRes.status}). Please try again.` });
           return;
         }
         const geminiData = await geminiRes.json() as { choices?: Array<{ message?: { content?: string } }> };
         raw = geminiData.choices?.[0]?.message?.content ?? "";
       } else {
         const err = await response.text();
-        console.error("AI error:", err);
-        res.status(500).json({ error: "AI request failed" });
+        console.error("AI error:", response.status, err.slice(0, 500));
+        res.status(502).json({ error: `AI provider error (${response.status}). Please try again in a moment.` });
         return;
       }
     } else {
@@ -709,7 +724,8 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
     });
   } catch (err) {
     console.error("POST /sales/draft-email error:", err);
-    res.status(500).json({ error: "Failed to generate email draft" });
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Failed to generate email draft: ${message}` });
   }
 });
 

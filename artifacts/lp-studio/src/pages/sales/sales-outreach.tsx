@@ -263,6 +263,7 @@ function SingleSendTab() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [emailFormat, setEmailFormat] = useState<"plain" | "styled">("plain");
 
   // Sender & delivery fields
@@ -333,6 +334,7 @@ function SingleSendTab() {
   async function handleGenerate() {
     if (!selectedContactId) return;
     setGenerating(true);
+    setGenerateError(null);
     try {
       const res = await fetch(`${API_BASE}/sales/generate-email`, {
         method: "POST",
@@ -344,8 +346,8 @@ function SingleSendTab() {
           includesMicrositeLink: true,
         }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setSubject(data.subject ?? "");
         if (emailFormat === "styled") {
           const html = data.bodyHtml ?? "";
@@ -354,7 +356,11 @@ function SingleSendTab() {
         } else {
           setBodyText(data.bodyText ?? data.bodyHtml?.replace(/<[^>]+>/g, "") ?? "");
         }
+      } else {
+        setGenerateError(data?.error ?? `Generation failed (${res.status}). Please try again.`);
       }
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -537,6 +543,11 @@ function SingleSendTab() {
             {generating ? "Generating…" : "Generate with AI"}
           </Button>
         </div>
+        {generateError && (
+          <div className="mb-4 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-xs text-red-700 leading-snug dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400">
+            {generateError}
+          </div>
+        )}
         <div className="flex flex-col gap-4">
           {/* Format toggle */}
           <FormatToggle value={emailFormat} onChange={handleFormatChange} />
@@ -920,6 +931,7 @@ function TemplatesTab() {
   const [emailFormat, setEmailFormat] = useState<"plain" | "styled">("plain");
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGenerateError, setAiGenerateError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [showTestEmail, setShowTestEmail] = useState(false);
   const [testEmailBody, setTestEmailBody] = useState<{ html?: string; text?: string }>({});
@@ -1047,14 +1059,15 @@ function TemplatesTab() {
 
   async function handleAiGenerate() {
     setAiGenerating(true);
+    setAiGenerateError(null);
     try {
       const res = await fetch(`${API_BASE}/sales/generate-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ purpose: category === "follow-up" ? "follow-up" : "intro outreach", includesMicrositeLink: true }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         if (data.subject) setTplSubject(data.subject);
         if (emailFormat === "styled" && data.bodyHtml) {
           setBodyHtml(data.bodyHtml);
@@ -1064,7 +1077,11 @@ function TemplatesTab() {
         } else if (data.bodyHtml) {
           setBodyText(data.bodyHtml.replace(/<[^>]+>/g, ""));
         }
+      } else {
+        setAiGenerateError(data?.error ?? `Generation failed (${res.status}). Please try again.`);
       }
+    } catch (err) {
+      setAiGenerateError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setAiGenerating(false);
     }
@@ -1110,6 +1127,12 @@ function TemplatesTab() {
                   </Button>
                 </div>
               </div>
+
+              {aiGenerateError && (
+                <div className="px-3 py-2 rounded-md bg-red-50 border border-red-200 text-xs text-red-700 leading-snug dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400">
+                  {aiGenerateError}
+                </div>
+              )}
 
               {/* Format toggle */}
               <FormatToggle value={emailFormat} onChange={handleFormatChange} />
