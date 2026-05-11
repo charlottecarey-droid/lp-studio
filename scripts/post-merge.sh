@@ -30,3 +30,13 @@ psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_hea
 
 # lp_page_presence: indexed on page_id (queried by page_id for live presence tracking)
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_page_presence_page_id ON lp_page_presence (page_id);"
+
+# Task #191 — post-deploy smoke test: hit every active tenant host on
+# /api/auth/domain-context and fail (set -e propagates) if any returns 403/5xx.
+# This is the deploy-time guard for host-level outages (DNS / custom-domain
+# registration / edge worker route changes) that build-time checks can't see.
+# Set SMOKE_SKIP_TENANT_HOSTS=1 to skip (e.g. when deploying to an environment
+# where the live hosts aren't yet pointed at this build).
+if [ "${SMOKE_SKIP_TENANT_HOSTS:-0}" != "1" ]; then
+  pnpm --filter @workspace/scripts run smoke-tenant-hosts
+fi
