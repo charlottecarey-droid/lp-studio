@@ -291,7 +291,7 @@ export function BuilderTopBar({
           className="gap-1.5 text-xs"
           onClick={onPublish}
           disabled={isSaving}
-          variant={status === "published" ? "outline" : "default"}
+          variant={status === "published" ? "outline" : "brand"}
           data-testid="publish-button"
         >
           <Globe className="w-3.5 h-3.5" />

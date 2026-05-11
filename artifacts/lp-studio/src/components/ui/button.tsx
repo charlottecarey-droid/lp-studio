@@ -11,7 +11,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-           // @replit: no hover, and add primary border
+           // Default = near-black neutral. Use `brand` for the high-emphasis purple action.
+           "bg-zinc-900 text-zinc-50 border border-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-100",
+        brand:
+           // High-emphasis brand action (e.g. Publish). Original purple primary.
            "bg-primary text-primary-foreground border border-primary-border",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
