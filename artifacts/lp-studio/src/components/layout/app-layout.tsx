@@ -272,7 +272,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     >
                       <Link href="/tests" className="font-medium">
                         <FlaskConical className="w-4 h-4" />
-                        <span>Experiments</span>
+                        <span>Tests</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

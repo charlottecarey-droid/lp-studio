@@ -78,7 +78,7 @@ export function NewLauncher({
           <DropdownMenuItem onClick={() => go("/tests/new")} className="gap-2.5 py-2.5">
             <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex-1">
-              <div className="text-sm font-medium">New experiment</div>
+              <div className="text-sm font-medium">New test</div>
               <div className="text-[11px] text-muted-foreground">A/B test or variant</div>
             </div>
           </DropdownMenuItem>

@@ -99,7 +99,7 @@ export default function Dashboard() {
       href: "/live-pages",
     },
     {
-      label: "Experiments",
+      label: "Tests",
       value: isLoading ? null : (tests?.length ?? 0),
       icon: <FlaskConical className="w-3 h-3" />,
       color: "text-foreground",
@@ -184,7 +184,7 @@ export default function Dashboard() {
       return {
         message: "No pages are live yet — set one running",
         href: "/tests",
-        cta: "View experiments",
+        cta: "View tests",
       };
     }
     return {
@@ -210,7 +210,7 @@ export default function Dashboard() {
                 ? "Loading your workspace…"
                 : isEmpty
                 ? "Set up your first landing page to get started."
-                : (() => { const liveCount = running.length + allPages.filter(p => p.status === "published").length; return `${liveCount} page${liveCount !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`; })()}
+                : (() => { const liveCount = running.length + allPages.filter(p => p.status === "published").length; return `${liveCount} page${liveCount !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total test${tests?.length !== 1 ? "s" : ""}`; })()}
             </p>
           </div>
           <div className="shrink-0">
@@ -256,9 +256,9 @@ export default function Dashboard() {
                 },
                 {
                   step: "2",
-                  title: "Create an experiment",
+                  title: "Create a test",
                   desc: "Pick a template or start from scratch. Run an A/B test or serve a single variant.",
-                  cta: "Create Experiment",
+                  cta: "Create Test",
                   href: "/tests/new",
                   icon: <Plus className="w-4 h-4" />,
                   primary: true,
@@ -266,7 +266,7 @@ export default function Dashboard() {
                 {
                   step: "3",
                   title: "Share & track",
-                  desc: "Set your experiment to Running and share the URL. Impressions are tracked automatically.",
+                  desc: "Set your test to Running and share the URL. Impressions are tracked automatically.",
                   cta: "View Live Pages",
                   href: "/live-pages",
                   icon: <Radio className="w-4 h-4" />,
@@ -301,7 +301,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-4">
                   <Link href="/tests">
                     <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
-                      Experiments <ArrowUpRight className="w-3 h-3" />
+                      Tests <ArrowUpRight className="w-3 h-3" />
                     </span>
                   </Link>
                   <Link href="/pages">
@@ -324,7 +324,7 @@ export default function Dashboard() {
                         <Plus className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                       </div>
                       <div>
-                        <p className="font-medium text-foreground text-sm">Create your first experiment</p>
+                        <p className="font-medium text-foreground text-sm">Create your first test</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Build a landing page and run an A/B test</p>
                       </div>
                       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-foreground ml-auto transition-colors" />
@@ -350,7 +350,7 @@ export default function Dashboard() {
                             <span className="font-medium text-foreground text-[13px]">{item.name}</span>
                             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium ${isExperiment ? "bg-muted text-muted-foreground" : "bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-400"}`}>
                               {isExperiment ? (
-                                <><FlaskConical className="w-2.5 h-2.5" /> Experiment</>
+                                <><FlaskConical className="w-2.5 h-2.5" /> Test</>
                               ) : (
                                 <><LayoutGrid className="w-2.5 h-2.5" /> Page</>
                               )}

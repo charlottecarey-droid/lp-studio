@@ -63,14 +63,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   const quick: Item[] = [
     { label: "New page", icon: <Plus className="w-4 h-4" />, href: "/pages?new=1", perm: "pages", keywords: "create blank brief ai template" },
-    { label: "New experiment", icon: <Plus className="w-4 h-4" />, href: "/tests/new", perm: "tests", keywords: "create ab test variant" },
+    { label: "New test", icon: <Plus className="w-4 h-4" />, href: "/tests/new", perm: "tests", keywords: "create ab test variant" },
   ];
 
   const platform: Item[] = [
     { label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" />, href: "/", keywords: "home overview" },
     { label: "Pages", icon: <LayoutGrid className="w-4 h-4" />, href: "/pages", perm: "pages" },
     { label: "Templates", icon: <Store className="w-4 h-4" />, href: "/templates", perm: "pages", keywords: "library marketplace" },
-    { label: "Experiments", icon: <FlaskConical className="w-4 h-4" />, href: "/tests", perm: "tests", keywords: "ab tests variants" },
+    { label: "Tests", icon: <FlaskConical className="w-4 h-4" />, href: "/tests", perm: "tests", keywords: "ab tests variants" },
     { label: "Approvals", icon: <CheckCircle2 className="w-4 h-4" />, href: "/reviews", keywords: "review pending" },
     { label: "Analytics", icon: <BarChart2 className="w-4 h-4" />, href: "/analytics", perm: "analytics" },
     { label: "Forms & Leads", icon: <FormInput className="w-4 h-4" />, href: "/forms-and-leads", perm: "forms_leads" },

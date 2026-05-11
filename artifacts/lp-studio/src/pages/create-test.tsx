@@ -90,7 +90,7 @@ export default function CreateTest() {
         </Button>
 
         <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold">Create New Experiment</h1>
+          <h1 className="text-3xl font-display font-bold">Create New Test</h1>
           <p className="text-muted-foreground mt-2">Configure the baseline settings for your new A/B or multivariate test.</p>
         </div>
 

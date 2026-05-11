@@ -363,7 +363,7 @@ function TeamContent() {
                         Marketing
                       </span>
                       <span className="text-[10px] text-muted-foreground leading-tight">
-                        Pages, experiments, analytics
+                        Pages, tests, analytics
                       </span>
                     </button>
                     <button

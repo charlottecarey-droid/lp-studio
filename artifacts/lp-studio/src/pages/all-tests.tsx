@@ -83,7 +83,7 @@ export default function AllTests() {
           <div>
             <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Tests</h1>
             <p className="text-muted-foreground mt-1">
-              {isLoading ? "Loading…" : `${counts.all} experiment${counts.all !== 1 ? "s" : ""} · ${counts.running} live`}
+              {isLoading ? "Loading…" : `${counts.all} test${counts.all !== 1 ? "s" : ""} · ${counts.running} live`}
             </p>
           </div>
           <Link href="/tests/new">
@@ -153,7 +153,7 @@ export default function AllTests() {
             </h3>
             <p className="text-muted-foreground text-sm max-w-xs mb-6">
               {activeFilter === "all"
-                ? "Create your first test to start running A/B experiments on your landing pages."
+                ? "Create your first test to start running A/B tests on your landing pages."
                 : `You have no tests in ${activeFilter} state right now.`}
             </p>
             <div className="flex items-center gap-2">

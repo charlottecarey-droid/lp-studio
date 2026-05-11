@@ -344,7 +344,7 @@ export default function ReviewsOverview() {
         <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/15 rounded-xl">
           <Share2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <p className="text-sm text-muted-foreground leading-relaxed">
-            <strong className="text-foreground font-semibold">How reviews work:</strong> Click the Share icon on any experiment to generate a review link. Reviewers open the link, see the live page, and can approve it or request changes — no account needed.
+            <strong className="text-foreground font-semibold">How reviews work:</strong> Click the Share icon on any test to generate a review link. Reviewers open the link, see the live page, and can approve it or request changes — no account needed.
           </p>
         </div>
       </div>

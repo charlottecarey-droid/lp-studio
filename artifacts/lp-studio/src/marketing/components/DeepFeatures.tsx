@@ -156,7 +156,7 @@ function ABTestVisual() {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FAFAFA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="m13 2-3 7h5l-3 7" />
         </svg>
-        <div className="text-[12px] font-medium text-white">Experiment</div>
+        <div className="text-[12px] font-medium text-white">Test</div>
         <div className="ml-auto flex items-center gap-1.5 text-[10px]" style={{ color: LIME }}>
           <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: LIME }} />
           live · day 3

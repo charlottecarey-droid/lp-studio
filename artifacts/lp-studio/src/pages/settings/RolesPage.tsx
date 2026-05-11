@@ -35,7 +35,7 @@ const PERMISSION_GROUPS = [
       // reject pages submitted for review by editors.
       { key: "pages.publish", label: "Pages — Publish" },
       { key: "pages.review", label: "Pages — Review (approve/reject)" },
-      { key: "tests", label: "Experiments" },
+      { key: "tests", label: "Tests" },
       { key: "analytics", label: "Analytics" },
       { key: "forms_leads", label: "Forms & Leads" },
       { key: "brand", label: "Brand & Content" },
