@@ -9,9 +9,9 @@ export default function FormsAndLeadsPage() {
     <AppLayout>
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold">Forms & Leads</h1>
+          <h1 className="text-2xl font-bold text-foreground">Forms & Leads</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage forms, view submissions, and configure integrations all in one place.
+            Manage forms, view submissions, and configure integrations in one place.
           </p>
         </div>
 

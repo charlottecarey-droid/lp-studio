@@ -232,7 +232,7 @@ export function CustomBlocksContent() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Custom Blocks</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Build reusable blocks with the Rich Text editor, custom HTML, or a schema-driven template with editable fields.
+            Build reusable blocks with the rich text editor, custom HTML, or a schema-driven template with editable fields.
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2 shrink-0">
@@ -253,7 +253,7 @@ export function CustomBlocksContent() {
           </div>
           <h3 className="text-base font-semibold text-foreground mb-1">No custom blocks yet</h3>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-4 leading-relaxed">
-            Create your first block using the Rich Text editor, custom HTML, or a reusable schema.
+            Create your first block using the rich text editor, custom HTML, or a reusable schema.
           </p>
           <Button onClick={openCreate} variant="outline" className="gap-2">
             <Plus className="w-4 h-4" />

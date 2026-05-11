@@ -329,10 +329,10 @@ export default function TemplateMarketplace() {
     <AppLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Template Marketplace</h1>
-          <p className="text-muted-foreground">
-            Clone a template to get started quickly, then customize it in the builder
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Templates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Clone a ready-made layout to get started quickly, then customize it in the builder.
           </p>
         </div>
 
@@ -440,9 +440,8 @@ export default function TemplateMarketplace() {
           <Card className="p-12 text-center">
             <LayoutTemplate className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-semibold mb-2">No templates yet</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Mark any of your existing pages as a template to make them available here.
-              Go to a page, open settings, and toggle "Save as Template."
+            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+              Mark any existing page as a template to make it available here. Open a page, go to settings, and toggle "Save as Template."
             </p>
             <Button variant="outline" onClick={() => navigate("/pages")}>
               <Plus className="h-4 w-4 mr-2" />
@@ -456,7 +455,7 @@ export default function TemplateMarketplace() {
           <div className="text-center py-16">
             <Search className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
             <h3 className="text-lg font-semibold mb-2">No templates match your search</h3>
-            <p className="text-muted-foreground">Try a different search term</p>
+            <p className="text-sm text-muted-foreground">Try a different search term.</p>
           </div>
         )}
 
