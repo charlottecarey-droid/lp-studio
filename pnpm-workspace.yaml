@@ -6,14 +6,6 @@ packages:
 
 autoInstallPeers: false
 
-supportedArchitectures:
-  os:
-    - linux
-    - darwin
-  cpu:
-    - x64
-    - arm64
-
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.1
   '@replit/vite-plugin-dev-banner': ^0.1.1
@@ -37,17 +29,15 @@ catalog:
   vite: ^7.3.0
   zod: ^3.25.76
 
+ignoredBuiltDependencies: '[]'
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
   - '@replit/*'
   - stripe-replit-sync
 
-onlyBuiltDependencies:
-  - '@swc/core'
-  - esbuild
-  - msw
-  - unrs-resolver
+onlyBuiltDependencies: '["sharp","@sentry/cli"]'
 
 overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
@@ -123,3 +113,7 @@ overrides:
   rollup>@rollup/rollup-win32-ia32-msvc: '-'
   rollup>@rollup/rollup-win32-x64-gnu: '-'
   rollup>@rollup/rollup-win32-x64-msvc: '-'
+
+supportedArchitectures:
+  cpu: [x64, arm64]
+  os: [linux, darwin]

@@ -2,6 +2,8 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import dns from "dns/promises";
 import net from "net";
+import sharp from "sharp";
+import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import {
   buildPromptForSection,
@@ -80,6 +82,63 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
     return await fetch(url, { ...init, signal: ctl.signal });
   } finally {
     clearTimeout(t);
+  }
+}
+
+// ─── Screenshot color sampling ────────────────────────────────────────────
+// Downloads the firecrawl screenshot, downsamples it, and groups pixels into
+// coarse 16-step RGB buckets. The most-populated buckets become palette
+// hints we feed back into the LLM so primary/accent/background extraction
+// is grounded in real rendered pixels rather than CSS strings the model
+// might have hallucinated from the markdown.
+async function samplePalette(screenshotUrl: string): Promise<string[]> {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 10000);
+    let buf: Buffer;
+    try {
+      const res = await fetch(screenshotUrl, { signal: ctl.signal });
+      if (!res.ok) return [];
+      const ab = await res.arrayBuffer();
+      if (ab.byteLength > 8 * 1024 * 1024) return []; // 8MB cap
+      buf = Buffer.from(ab);
+    } finally {
+      clearTimeout(t);
+    }
+
+    // Resize to 200px wide raw RGB so we have ~30k pixels — enough signal
+    // for a reliable histogram, fast enough to run synchronously.
+    const { data, info } = await sharp(buf)
+      .resize(200, null, { fit: "inside", withoutEnlargement: true })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const STEP = 16; // 16 buckets per channel = 4096 buckets total
+    const counts = new Map<number, number>();
+    for (let i = 0; i < data.length; i += info.channels) {
+      const r = Math.floor(data[i] / STEP);
+      const g = Math.floor(data[i + 1] / STEP);
+      const b = Math.floor(data[i + 2] / STEP);
+      const key = (r << 8) | (g << 4) | b;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const swatches: string[] = [];
+    const seen = new Set<string>();
+    for (const [key] of sorted) {
+      const r = ((key >> 8) & 0xf) * STEP + STEP / 2;
+      const g = ((key >> 4) & 0xf) * STEP + STEP / 2;
+      const b = (key & 0xf) * STEP + STEP / 2;
+      const hex = `#${[r, g, b].map((c) => Math.min(255, Math.round(c)).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+      if (seen.has(hex)) continue;
+      seen.add(hex);
+      swatches.push(hex);
+      if (swatches.length >= 8) break;
+    }
+    return swatches;
+  } catch {
+    return [];
   }
 }
 
@@ -181,6 +240,10 @@ router.post("/lp/brand-import/from-url", requireAuth, async (req, res): Promise<
     return;
   }
 
+  // Sample dominant colors directly from the screenshot pixels so the LLM
+  // grounds primary/accent/background choices in real rendered evidence.
+  const sampledPalette = screenshotUrl ? await samplePalette(screenshotUrl) : [];
+
   let openai;
   try {
     openai = getOpenAIClient();
@@ -189,13 +252,16 @@ router.post("/lp/brand-import/from-url", requireAuth, async (req, res): Promise<
     return;
   }
 
+  const paletteHint = sampledPalette.length
+    ? `\n\nPixel-sampled palette from the screenshot (most → least frequent): ${sampledPalette.join(", ")}. When choosing color fields, prefer values from this palette (or close neighbors) over any CSS strings you see in the markdown. Treat the lightest near-white swatch as the most likely page background, the darkest near-black as the most likely text color, and the most saturated swatches as candidates for primary / accent / CTA fill.`
+    : "";
+
   const systemPrompt =
     buildPromptForSection("all") +
-    `\n\nThe input is the markdown of the brand's website (homepage + sub-pages) plus a viewport screenshot when available. Use the screenshot to sample real rendered colors (primary/accent/text/background, button fills) — prefer pixel evidence over CSS strings in the markdown. Infer brand voice from copy. Set confidence "high" only when the value is directly observable; "medium" when reasonably inferred from multiple signals; "low" when guessed. Return strict JSON.`;
+    `\n\nThe input is the markdown of the brand's website (homepage + sub-pages), a viewport screenshot when available, and a pixel-sampled palette extracted from that screenshot. Infer brand voice from copy. Set confidence "high" only when the value is directly observable (e.g. a color matches the sampled palette, or copy literally states the value); "medium" when reasonably inferred from multiple signals; "low" when guessed. Return strict JSON.${paletteHint}`;
 
-  type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
-  const userParts: ContentPart[] = [
-    { type: "text", text: `Source: ${homeUrl}\n\n${combined || "(no markdown — rely on screenshot)"}` },
+  const userParts: ChatCompletionContentPart[] = [
+    { type: "text", text: `Source: ${homeUrl}\n\n${combined || "(no markdown — rely on screenshot and palette)"}` },
   ];
   if (screenshotUrl) {
     userParts.push({ type: "image_url", image_url: { url: screenshotUrl } });
@@ -209,9 +275,7 @@ router.post("/lp/brand-import/from-url", requireAuth, async (req, res): Promise<
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
-        // Vision-capable content array; the OpenAI SDK accepts mixed parts here.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { role: "user", content: userParts as any },
+        { role: "user", content: userParts },
       ],
     });
     raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
@@ -254,6 +318,7 @@ router.post("/lp/brand-import/from-url", requireAuth, async (req, res): Promise<
     sourceUrl: homeUrl,
     pagesScraped,
     hasScreenshot: !!screenshotUrl,
+    sampledPalette,
   });
 });
 
