@@ -653,7 +653,21 @@ router.get("/lp/media", async (req: Request, res: Response) => {
         createdAt: r.createdAt.toISOString(),
       }));
 
-    const preloaded = PRELOADED_VIDEOS.filter(v => v.mediaType === mediaTypeFilter);
+    // Resolve tenant slug so we can gate Dandy-internal-only preloaded
+    // assets (currently just `preloaded-ai-scan-review`, which is a
+    // Dandy-branded UI feature video that should not appear in any
+    // partner / customer media library).
+    const tenantRow = await db
+      .select({ slug: tenantsTable.slug })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, scope.tenantId))
+      .limit(1);
+    const tenantSlug = tenantRow[0]?.slug ?? null;
+    const isDandyTenant = tenantSlug === "dandy";
+
+    const preloaded = PRELOADED_VIDEOS
+      .filter(v => v.mediaType === mediaTypeFilter)
+      .filter(v => v.id !== "preloaded-ai-scan-review" || isDandyTenant);
 
     res.json({ items: [...preloaded, ...uploadedItems] });
   } catch (error) {

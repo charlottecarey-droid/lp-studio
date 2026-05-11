@@ -5,7 +5,6 @@ import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
-import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
 import { WordReveal } from "./WordReveal";
 import { StatCounter } from "./StatCounter";
 import { InlineText } from "@/components/InlineText";
@@ -242,38 +241,50 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
         </div>
       </div>
 
-      {/* ── Full-width landscape video / animation ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        style={{
-          overflow: "hidden",
-          background: imgBg,
-          aspectRatio: "16/9",
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {videoUrl ? (
-          <>
-            <video
-              ref={attachVideo}
-              src={videoUrl}
-              autoPlay
-              loop
-              playsInline
+      {/* ── Full-width landscape video or image ──
+        Renders only when a real videoUrl OR imageUrl is supplied. We used to
+        fall back to a synthetic "AI Scan Review" motion graphic, but it
+        looked off-brand and the AI was reaching for it constantly — see the
+        sibling AiScanReviewAnimation file (deleted). When neither is set the
+        section just collapses below the header, which reads cleaner. */}
+      {(videoUrl || imageUrl) && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          style={{
+            overflow: "hidden",
+            background: imgBg,
+            aspectRatio: "16/9",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          {videoUrl ? (
+            <>
+              <video
+                ref={attachVideo}
+                src={videoUrl}
+                autoPlay
+                loop
+                playsInline
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+              <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
+            </>
+          ) : (
+            <img
+              src={imageUrl}
+              alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
-            <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
-          </>
-        ) : (
-          <AiScanReviewAnimation imageUrl={imageUrl} />
-        )}
-      </motion.div>
+          )}
+        </motion.div>
+      )}
 
       {/* ── Bullets row below video ── */}
       {bullets.length > 0 && (
