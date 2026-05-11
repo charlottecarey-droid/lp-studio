@@ -222,8 +222,47 @@ async function assertProductionEntrypointsWired(distDir) {
   }
 }
 
+/**
+ * Regression guard for task #195.
+ *
+ * Task #190 added a 5-minute Sentry heartbeat (see
+ * `src/lib/sentryHeartbeat.ts`) that the prod "no events for N hours"
+ * Sentry alert depends on. If a future refactor of `server.ts` accidentally
+ * drops the `startSentryHeartbeat()` call (the same class of regression
+ * #189 caught for `initSentry()`), the alarm goes blind silently — Sentry
+ * just stops receiving heartbeats and the alert can no longer distinguish
+ * "no errors" from "ingestion broken".
+ *
+ * Source-level check on purpose: the heartbeat must be wired up at
+ * application boot (top-level call in `server.ts`), not buried inside a
+ * route handler or feature flag, so a substring match on the source is
+ * exactly the contract we want to enforce.
+ */
+async function assertSentryHeartbeatWired() {
+  const serverPath = path.resolve(artifactDir, "src", "server.ts");
+  let src;
+  try {
+    src = await readFile(serverPath, "utf8");
+  } catch (err) {
+    throw new Error(
+      `Could not read ${serverPath} to validate Sentry heartbeat wiring: ${err.message}`,
+    );
+  }
+  const hasImport = /from\s+["']\.\/lib\/sentryHeartbeat["']/.test(src);
+  const hasCall = /startSentryHeartbeat\s*\(/.test(src);
+  if (!hasImport || !hasCall) {
+    throw new Error(
+      `src/server.ts must import and call startSentryHeartbeat() at boot ` +
+        `(task #195). Without it the prod Sentry "no events" alert (see ` +
+        `src/lib/SENTRY_PROD_ALERT_VERIFICATION.md) goes blind. ` +
+        `Detected: import=${hasImport}, call=${hasCall}.`,
+    );
+  }
+}
+
 buildAll()
   .then(() => assertProductionEntrypointsWired(path.resolve(artifactDir, "dist")))
+  .then(() => assertSentryHeartbeatWired())
   .catch((err) => {
     console.error(err);
     process.exit(1);
