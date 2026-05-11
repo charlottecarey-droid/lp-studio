@@ -1,0 +1,514 @@
+/**
+ * Hand-curated microsite exemplars used as few-shot examples in the AI
+ * generation prompt. These represent the "gold standard" of what a great
+ * generated microsite looks like — the AI is asked to study them and match
+ * the register, specificity and structure (not copy them verbatim).
+ *
+ * Sources (anonymized DSO-partner microsites Dandy actually shipped):
+ *   - PDS regionals      → exemplar "pds-regionals"      (dso-corporate)
+ *   - DCA practices      → exemplar "dca-practices"      (dso-practice)
+ *   - Smilist pilot      → exemplar "smilist-pilot"      (dso-practice, pilot stage)
+ *
+ * Maintenance notes:
+ *   - Each exemplar's `blocks[].type` MUST match an entry in
+ *     BLOCK_PROP_SCHEMAS in generate-microsite.ts. If you rename a block
+ *     type, update both files.
+ *   - Image / video URLs are intentionally empty strings — the runtime
+ *     media-catalog instruction (added later in the prompt) tells the
+ *     model to ONLY use catalogued URLs, so example URLs would be
+ *     misleading.
+ *   - CTA URLs use placeholder "#" — the runtime layer rewrites these
+ *     to the brand's chilipiperUrl or defaultCtaUrl.
+ *   - When adding new exemplars, add a new entry below and (if the
+ *     scenario is novel) extend `segmentHints` so the selector can pick
+ *     it for the right accounts.
+ */
+
+import type { MicrositeAudience } from "./generate-microsite";
+
+export interface MicrositeExemplarPage {
+  title: string;
+  slug: string;
+  blocks: Array<{ type: string; props: Record<string, unknown> }>;
+}
+
+export interface MicrositeExemplar {
+  /** Stable id used for logging which exemplars were sent for a given run. */
+  id: string;
+  /** Which audience prompt-variant this exemplar applies to. */
+  audience: MicrositeAudience;
+  /**
+   * Lowercase substrings to match against the account's `segment` field.
+   * The selector boosts exemplars whose hints appear in the segment
+   * string (case-insensitive). Empty array = no segment-specific boost.
+   */
+  segmentHints: string[];
+  /** Human-readable scenario label inserted into the prompt header. */
+  scenario: string;
+  /** The example microsite payload (matches the Block[] return shape). */
+  page: MicrositeExemplarPage;
+}
+
+/* ─── EXEMPLAR 1 — DSO corporate / regional leadership ───────────────────── */
+const PDS_REGIONALS: MicrositeExemplar = {
+  id: "pds-regionals",
+  audience: "dso-corporate",
+  segmentHints: ["regional", "regional manager", "leadership", "operations"],
+  scenario: "Enterprise DSO regional leadership — coaching with data, multi-site visibility",
+  page: {
+    title: "Dandy for PDS Health regionals — more visibility, faster workflows",
+    slug: "pds-regionals",
+    blocks: [
+      {
+        type: "dso-heartland-hero",
+        props: {
+          eyebrow: "Built for PDS Health",
+          headline: "More visibility. Faster workflows. Better results.",
+          companyName: "PDS Health",
+          subheadline: "Dandy gives regional leaders real-time data on clinical performance, lab workflows, and provider activity — so you can coach with evidence, not assumptions.",
+          primaryCtaText: "Talk to us",
+          primaryCtaUrl: "#",
+          secondaryCtaText: "See how it works",
+          secondaryCtaUrl: "#",
+          stats: [
+            { value: "30%", label: "Avg case acceptance lift" },
+            { value: "89%", label: "Fewer remakes with AI Scan Review" },
+            { value: "50%", label: "Denture appointments saved" },
+            { value: "$0", label: "CAPEX to get started" },
+          ],
+        },
+      },
+      {
+        type: "dso-stat-bar",
+        props: {
+          stats: [
+            { value: "2.67%", label: "Remake rate" },
+            { value: "$0", label: "CAPEX to get started" },
+            { value: "30%", label: "Case acceptance lift" },
+          ],
+          backgroundStyle: "dark",
+        },
+      },
+      {
+        type: "dso-challenges",
+        props: {
+          eyebrow: "The problem",
+          headline: "You can't coach what you can't see.",
+          backgroundStyle: "white",
+          layout: "4-col",
+          challenges: [
+            { title: "No visibility into clinical performance", desc: "You see the numbers — but not what's driving them. Who's scanning, who's not, and where quality varies." },
+            { title: "Inconsistent workflows across locations", desc: "Every office runs removables differently. No standard process means unpredictable quality and efficiency." },
+            { title: "Coaching without data", desc: "You're accountable for performance across your region — but coaching without real-time clinical data is guesswork." },
+            { title: "Capacity lost to inefficient processes", desc: "4-6 appointments per denture case. That's chair time your providers could be using on higher-value production." },
+          ],
+        },
+      },
+      {
+        type: "dso-insights-dashboard",
+        props: {
+          eyebrow: "Dandy Insights",
+          headline: "One dashboard. Every location.",
+          subheadline: "Real-time scan analysis, AI-flagged margin errors, feature usage and adoption, lab spend and revenue — every scan, every prep, every provider, all in one place.",
+          practiceLabel: "PDS Health",
+          backgroundStyle: "dark",
+          dashboardVariant: "dark",
+        },
+      },
+      {
+        type: "dso-success-stories",
+        props: {
+          eyebrow: "Customer story",
+          headline: "DCA went from flat denture adoption to 16x volume growth in 6 months.",
+          backgroundStyle: "light-gray",
+          cases: [
+            { name: "Dental Care Alliance", stat: "16x", label: "Denture volume growth in 6 months", quote: "They've changed the mindset for so many providers to go in and try dentures with the time savings.", author: "Jamie Dunkley, Division President, DCA" },
+            { name: "Dental Care Alliance", stat: "1,446", label: "Appointments saved", quote: "Cases always come in time. Excellent customer service.", author: "VA Smiles / Advanced Dental, DCA" },
+          ],
+        },
+      },
+      {
+        type: "dso-pilot-steps",
+        props: {
+          eyebrow: "How it works",
+          headline: "Start small. Prove it out. Then scale.",
+          subheadline: "Growth should be proven before it's scaled. Dandy helps validate impact with a small number of locations and then scale with confidence.",
+          backgroundStyle: "white",
+          steps: [
+            {
+              title: "Launch a pilot",
+              subtitle: "Start with 15–20 offices",
+              desc: "Dandy deploys premium scanners, onboards doctors with hands-on training, and integrates into existing workflows — no CAPEX, no disruption.",
+              details: [
+                "Premium hardware included for every operatory",
+                "Dedicated field team manages change management",
+                "Doctors trained and scanning within days",
+              ],
+            },
+            {
+              title: "Validate impact",
+              subtitle: "Measure results in 60–90 days",
+              desc: "Track remake reduction, chair time recovered, and same-store revenue lift in real time — proving ROI before you scale.",
+              details: [
+                "Live dashboard tracks pilot KPIs",
+                "Compare pilot offices vs. control group",
+                "Executive-ready reporting for leadership review",
+              ],
+            },
+            {
+              title: "Scale with confidence",
+              subtitle: "Roll out across the network",
+              desc: "Expand across your entire network with the same standard, same playbook, and same results — predictable execution at enterprise scale.",
+              details: [
+                "Consistent onboarding across all locations",
+                "One standard across every office and brand",
+                "MSA ensures network-wide alignment at scale",
+              ],
+            },
+          ],
+        },
+      },
+      {
+        type: "dso-final-cta",
+        props: {
+          eyebrow: "Next steps",
+          headline: "Better dentistry starts with Dandy.",
+          subheadline: "Schedule an intro call to see if Dandy is right for your region.",
+          primaryCtaText: "Get started",
+          primaryCtaUrl: "#",
+          secondaryCtaText: "",
+          secondaryCtaUrl: "",
+          backgroundStyle: "dark",
+        },
+      },
+    ],
+  },
+};
+
+/* ─── EXEMPLAR 2 — DSO practice (mature partnership) ─────────────────────── */
+const DCA_PRACTICES: MicrositeExemplar = {
+  id: "dca-practices",
+  audience: "dso-practice",
+  segmentHints: ["dca", "dental care alliance", "established", "rollout"],
+  scenario: "Established DSO partnership rolled out to individual practices in the network",
+  page: {
+    title: "DCA × Dandy — see why 150+ DCA practices choose Dandy",
+    slug: "dca-practices",
+    blocks: [
+      {
+        type: "dso-practice-nav",
+        props: {
+          dsoName: "Dental Care Alliance",
+          links: [
+            { label: "Perks", anchor: "#perks" },
+            { label: "Workflow", anchor: "#workflow" },
+            { label: "Get started", anchor: "#cta" },
+          ],
+          ctaText: "Get started",
+          ctaUrl: "#",
+        },
+      },
+      {
+        type: "dso-practice-hero",
+        props: {
+          eyebrow: "DCA × Dandy",
+          headline: "See why 150+ DCA practices choose Dandy.",
+          subheadline: "Dandy empowers your practice to deliver exceptional patient care through industry-leading turnaround times, AI-powered technology, and preferred partner pricing.",
+          primaryCtaText: "Get started",
+          primaryCtaUrl: "#",
+          secondaryCtaText: "",
+          secondaryCtaUrl: "",
+          trustLine: "Trusted by 8,000 practices",
+          backgroundStyle: "dark",
+        },
+      },
+      {
+        type: "dso-stat-row",
+        props: {
+          eyebrow: "By the numbers",
+          headline: "Real results across the DCA network.",
+          items: [
+            { value: "61", label: "DCA practices net promoter score", detail: "Based on partner-practice NPS surveys" },
+            { value: "$0", label: "Scanner included for DCA practices", detail: "TRIOS or Dandy Vision in every operatory" },
+            { value: "1,226+", label: "Trainings delivered to DCA teams", detail: "Hands-on, CE-accredited" },
+            { value: "97%", label: "Retention rate for DCA practices", detail: "Year-over-year" },
+          ],
+          backgroundStyle: "white",
+        },
+      },
+      {
+        type: "dso-partnership-perks",
+        props: {
+          eyebrow: "Partnership perks & benefits",
+          headline: "Exclusive to DCA practices.",
+          subheadline: "Real perks DCA negotiated for every practice in the network.",
+          backgroundStyle: "light-gray",
+          perks: [
+            { icon: "DollarSign", title: "$2,000 lab credit for new customers", desc: "Exclusive, discounted pricing available only to DCA practices." },
+            { icon: "Scan", title: "Best-in-class scanners, included", desc: "Access to TRIOS or Dandy Vision scanners across your practices for free." },
+            { icon: "MessageSquare", title: "Live clinical support", desc: "Chat with technicians, join video calls, and get scans reviewed in two minutes or less." },
+            { icon: "GraduationCap", title: "Free CE credits", desc: "Accredited courses on digital dentistry and scanning workflows." },
+            { icon: "Users", title: "Dedicated DCA team", desc: "Account manager, trainer, and DSO partnerships lead overseeing every DCA practice." },
+            { icon: "Truck", title: "5-day zirconia crowns", desc: "Standard turnaround for DCA practices, every case." },
+          ],
+        },
+      },
+      {
+        type: "dso-split-feature",
+        props: {
+          eyebrow: "The Dandy way",
+          headline: "Smarter workflows start here.",
+          body: "Dandy transforms your practice with AI-powered tools and reliable results — saving chair time and improving patient care. Old way: juggling multiple vendors, limited to one scanner, issues caught only after the case comes back, dentures requiring 4–6 appointments. Dandy way: one trusted partner, a free scanner for every operatory, AI catches issues while the patient is still in the chair, dentures in 2 visits.",
+          bullets: [
+            "One partner managing your entire digital workflow",
+            "A free scanner for every operatory",
+            "AI Scan Review flags issues chairside, not after the case comes back",
+            "Digital dentures in 2 visits instead of 4–6",
+            "Premium-quality restorations without the premium price",
+          ],
+          ctaText: "Get started",
+          ctaUrl: "#",
+          imagePosition: "right",
+          backgroundStyle: "white",
+        },
+      },
+      {
+        type: "dso-software-showcase",
+        props: {
+          eyebrow: "DCA × Dandy",
+          headline: "Elevating patient care together.",
+          body: "Real outcomes from DCA practices already on Dandy.",
+          features: [
+            { icon: "Clock", label: "5-day zirconia crowns" },
+            { icon: "Calendar", label: "2-appointment dentures" },
+            { icon: "MessageSquare", label: "Clinical support in under 2 minutes" },
+            { icon: "Award", label: "97% case retention" },
+          ],
+          ctaText: "Get started",
+          ctaUrl: "#",
+          backgroundStyle: "dark",
+          layout: "grid",
+        },
+      },
+      {
+        type: "dso-faq",
+        props: {
+          eyebrow: "Common questions",
+          headline: "What DCA practices ask before getting started.",
+          subheadline: "",
+          backgroundStyle: "white",
+          items: [
+            { question: "What's the cost to get started as a DCA practice?", answer: "$0 CAPEX. Scanners and onboarding are included as part of the DCA × Dandy partnership. Plus a $2,000 lab credit for new customers." },
+            { question: "Which scanner do we get?", answer: "TRIOS or Dandy Vision — your choice. Both are best-in-class intraoral scanners, configured and calibrated for your operatory before they ship." },
+            { question: "How fast is onboarding?", answer: "Most DCA practices are scanning real cases within days of equipment delivery. Hands-on training is led by your dedicated trainer at your pace." },
+            { question: "What happens if a case doesn't fit?", answer: "Free remakes. Dandy backs every case with a guarantee — and AI Scan Review flags prep issues chairside before the case ever ships to the lab." },
+            { question: "Who supports our practice day-to-day?", answer: "A dedicated DCA team: an account manager, a trainer, and a DSO partnerships lead — all overseeing your practice and the broader DCA network." },
+          ],
+        },
+      },
+      {
+        type: "dso-activation-steps",
+        props: {
+          eyebrow: "Getting started",
+          headline: "Four steps to going live with Dandy.",
+          subheadline: "Our onboarding team handles every detail — from scanner delivery to your first case.",
+          backgroundStyle: "light-gray",
+          steps: [
+            { step: "1", title: "Schedule your kickoff", desc: "Meet your dedicated Dandy account manager to align on rollout timeline, goals, and discuss any questions." },
+            { step: "2", title: "Equipment setup & delivery", desc: "We ship and install your intraoral scanners and laptops — every operatory fully configured, calibrated, and ready to scan." },
+            { step: "3", title: "Clinical team training", desc: "Hands-on training for doctors and staff covering scan technique, case submission, and workflow integration — at your pace." },
+            { step: "4", title: "First cases & go live", desc: "Submit your first cases and experience the Dandy difference — real-time case tracking and dedicated support from day one." },
+          ],
+          ctaText: "Get started",
+          ctaUrl: "#",
+        },
+      },
+      {
+        type: "dso-final-cta",
+        props: {
+          eyebrow: "Limited time offer",
+          headline: "Get a $2,000 lab credit when you get started.",
+          subheadline: "See why 8,000+ dentists and 150+ DCA practices choose Dandy.",
+          primaryCtaText: "Get started",
+          primaryCtaUrl: "#",
+          secondaryCtaText: "",
+          secondaryCtaUrl: "",
+          backgroundStyle: "dark",
+        },
+      },
+    ],
+  },
+};
+
+/* ─── EXEMPLAR 3 — DSO practice (early pilot) ────────────────────────────── */
+const SMILIST_PILOT: MicrositeExemplar = {
+  id: "smilist-pilot",
+  audience: "dso-practice",
+  segmentHints: ["pilot", "trial", "smilist", "early"],
+  scenario: "DSO practice in early pilot stage — leaner deck, smaller credit, prove-it-out tone",
+  page: {
+    title: "Built for The Smilist — Dandy pilot",
+    slug: "smilist-pilot",
+    blocks: [
+      {
+        type: "dso-practice-nav",
+        props: {
+          dsoName: "The Smilist",
+          links: [
+            { label: "Perks", anchor: "#perks" },
+            { label: "Steps", anchor: "#steps" },
+            { label: "Get started", anchor: "#cta" },
+          ],
+          ctaText: "Get started — Smilist pilot",
+          ctaUrl: "#",
+        },
+      },
+      {
+        type: "dso-practice-hero",
+        props: {
+          eyebrow: "Built for The Smilist",
+          headline: "You don't have to choose between clinical quality and enterprise value.",
+          subheadline: "Dandy gives dentists tools they actually use — and operators visibility across every practice.",
+          primaryCtaText: "Get started — Smilist pilot",
+          primaryCtaUrl: "#",
+          secondaryCtaText: "",
+          secondaryCtaUrl: "",
+          trustLine: "8,000+ practices already on Dandy",
+          backgroundStyle: "dark",
+        },
+      },
+      {
+        type: "dso-partnership-perks",
+        props: {
+          eyebrow: "Partnership perks & benefits",
+          headline: "What pilot practices get on day one.",
+          subheadline: "Negotiated specifically for The Smilist pilot.",
+          backgroundStyle: "white",
+          perks: [
+            { icon: "DollarSign", title: "$800 lab credit for Smilist pilot customers", desc: "Exclusive, discounted pricing available only to Smilist affiliated practices." },
+            { icon: "Scan", title: "Best-in-class scanners, included", desc: "Access to TRIOS or Dandy Vision scanners across your practices for free." },
+            { icon: "MessageSquare", title: "Live clinical support", desc: "Chat with technicians, join video calls, and get scans reviewed in two minutes or less." },
+            { icon: "GraduationCap", title: "Free CE credits", desc: "Accredited courses on digital dentistry and scanning workflows." },
+            { icon: "Truck", title: "5-day crown turnaround", desc: "Standard for every Smilist pilot case." },
+            { icon: "Shield", title: "Free remakes, no questions", desc: "If a case doesn't fit, we make it again." },
+          ],
+        },
+      },
+      {
+        type: "dso-activation-steps",
+        props: {
+          eyebrow: "Getting started",
+          headline: "Four steps to going live with Dandy.",
+          subheadline: "Our onboarding team handles every detail — from scanner delivery to your first case.",
+          backgroundStyle: "light-gray",
+          steps: [
+            { step: "1", title: "Schedule your kickoff", desc: "Meet your dedicated Dandy account manager to align on rollout timeline, goals, and discuss any questions." },
+            { step: "2", title: "Equipment setup & delivery", desc: "We ship and install your intraoral scanners and laptops — every operatory fully configured, calibrated, and ready to scan." },
+            { step: "3", title: "Clinical team training", desc: "Hands-on training for doctors and staff covering scan technique, case submission, and workflow integration — at your pace." },
+            { step: "4", title: "First cases & go live", desc: "Submit your first cases and experience the Dandy difference — real-time case tracking and dedicated support from day one." },
+          ],
+          ctaText: "Get started — Smilist pilot",
+          ctaUrl: "#",
+        },
+      },
+      {
+        type: "dso-split-feature",
+        props: {
+          eyebrow: "The Dandy way",
+          headline: "Smarter workflows start here.",
+          body: "Dandy transforms your practice with AI-powered tools and reliable results — saving chair time and improving patient care.",
+          bullets: [
+            "One partner managing your entire digital workflow",
+            "A free scanner for every operatory",
+            "AI catches issues chairside, not after the case comes back",
+            "Digital dentures in 2 visits instead of 4–6",
+            "Premium-quality restorations without the premium price",
+          ],
+          ctaText: "Get started — Smilist pilot",
+          ctaUrl: "#",
+          imagePosition: "left",
+          backgroundStyle: "white",
+        },
+      },
+      {
+        type: "dso-final-cta",
+        props: {
+          eyebrow: "Limited time offer",
+          headline: "Get an $800 lab credit when you get started.",
+          subheadline: "See why 8,000+ dentists choose Dandy.",
+          primaryCtaText: "Get started — Smilist pilot",
+          primaryCtaUrl: "#",
+          secondaryCtaText: "",
+          secondaryCtaUrl: "",
+          backgroundStyle: "dark",
+        },
+      },
+    ],
+  },
+};
+
+export const EXEMPLARS: MicrositeExemplar[] = [
+  PDS_REGIONALS,
+  DCA_PRACTICES,
+  SMILIST_PILOT,
+];
+
+/**
+ * Pick the exemplars most relevant to a given audience + account segment.
+ *
+ * Strategy:
+ *  1. Filter EXEMPLARS to those matching the requested audience.
+ *  2. If accountSegment matches any exemplar's segmentHints (case-insensitive
+ *     substring on either side), boost those to the front.
+ *  3. Cap at `max` (default 2) to keep token usage in check.
+ *
+ * Returns an empty array when no exemplars exist for the audience — caller
+ * should fall back gracefully (e.g. omit the EXEMPLARS section entirely).
+ */
+export function pickExemplars(
+  audience: MicrositeAudience,
+  accountSegment: string | null | undefined,
+  max = 2,
+): MicrositeExemplar[] {
+  const eligible = EXEMPLARS.filter(e => e.audience === audience);
+  if (eligible.length === 0) return [];
+
+  const seg = (accountSegment ?? "").trim().toLowerCase();
+  if (!seg) return eligible.slice(0, max);
+
+  const matches = (e: MicrositeExemplar) =>
+    e.segmentHints.some(h => {
+      const hint = h.trim().toLowerCase();
+      return hint.length > 0 && (seg.includes(hint) || hint.includes(seg));
+    });
+
+  const boosted = eligible.filter(matches);
+  const others = eligible.filter(e => !matches(e));
+  return [...boosted, ...others].slice(0, max);
+}
+
+/**
+ * Format the picked exemplars as a prompt section. Returns "" when the
+ * input array is empty so the prompt builder can drop the section
+ * cleanly via filter(Boolean).
+ */
+export function formatExemplarsSection(exemplars: MicrositeExemplar[]): string {
+  if (exemplars.length === 0) return "";
+
+  const intro = [
+    "EXEMPLARS — these are the gold standard for what a great microsite looks like. Study them. Match this register, this level of specificity, this structure. Do NOT copy them — write something equally good for the new account.",
+    "",
+  ].join("\n");
+
+  const blocks = exemplars.map((e, i) => {
+    const json = JSON.stringify(e.page, null, 2);
+    return `EXAMPLE ${i + 1} — ${e.scenario}:\n${json}`;
+  }).join("\n\n");
+
+  const outro = [
+    "",
+    "The microsite you generate should feel like it belongs alongside these. If yours doesn't measure up, rewrite it before returning.",
+  ].join("\n");
+
+  return [intro, blocks, outro].join("\n");
+}
