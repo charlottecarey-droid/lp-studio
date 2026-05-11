@@ -8,6 +8,7 @@ import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
+import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
 
 const SLUG_REDIRECT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
 // Task #152 — warn admins ~7 days before an old workspace URL stops working.
@@ -1244,6 +1245,13 @@ runMigrations()
       setInterval(() => {
         void notifyExpiringSlugRedirects();
       }, SLUG_REDIRECT_NOTIFY_INTERVAL_MS).unref();
+
+      // Task #190 — emit a periodic Sentry "heartbeat" event in production so
+      // the project always has a known signal. The matching Sentry alert
+      // (see lib/SENTRY_PROD_ALERT_VERIFICATION.md) fires when these
+      // heartbeats stop arriving, catching DSN/network/quota outages that
+      // would otherwise be invisible. No-op in non-production.
+      startSentryHeartbeat();
     });
   })
   .catch((err) => {
