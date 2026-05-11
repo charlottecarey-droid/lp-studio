@@ -123,14 +123,6 @@ function SettingsDropdown() {
                 </DropdownMenuItem>
               </Link>
             )}
-            {(hasPerm("sales_accounts") || user?.isAdmin) && (
-              <Link href="/sales/marketplace">
-                <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketplace") ? "bg-accent" : ""}`}>
-                  <LayoutTemplate className="w-4 h-4 text-muted-foreground" />
-                  <span>Template Library</span>
-                </DropdownMenuItem>
-              </Link>
-            )}
           </>
         )}
         {(hasPerm("team") || user?.isAdmin) && (
@@ -234,6 +226,13 @@ export function SalesTopNav() {
       icon: <FileText className="w-4 h-4" />,
       permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/one-pager" || loc === "/sales/web-one-pager",
+    },
+    {
+      label: "Template Library",
+      href: "/sales/marketplace",
+      icon: <LayoutTemplate className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/marketplace",
     },
     {
       label: "User Guide",
