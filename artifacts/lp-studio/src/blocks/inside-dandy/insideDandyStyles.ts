@@ -307,8 +307,15 @@ const CSS = `
   .id-stats .id-inner { grid-template-columns:repeat(2,1fr); }
   .id-stats .id-stat { border-left:none; border-top:1px solid var(--id-line); padding:32px 0; }
   .id-cinema-text .id-meta { flex-direction:column; align-items:flex-start; gap:24px; }
+  .id-cinema-text .id-num em { font-style:normal; }
   .id-cinema-text .id-right { text-align:left; margin-left:0; }
   .id-cinema-stepper { display:none; }
+  /* Network Analytics (bars) pillar: stack art on top, text below so the
+     headline / label / body don't overlap the animated bars. Other pillars
+     keep their default centered art + bottom text overlay. */
+  .id-cinema-art .id-layer.id-pillar-bars { align-items:flex-start; padding-top:64px; }
+  .id-cinema-art .id-layer.id-pillar-bars .id-art-bars { height:200px; max-width:92vw; padding:0 12px; }
+  .id-cinema-text .id-panel.id-pillar-bars { align-items:flex-end; padding-bottom:48px; }
   .id-showcase .id-frame.id-f2, .id-showcase .id-frame.id-f3 { margin-left:auto; margin-right:auto; margin-top:48px; }
 }
 

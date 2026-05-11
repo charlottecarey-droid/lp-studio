@@ -187,20 +187,23 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
           ))}
         </div>
         <div className="id-cinema-art" aria-hidden>
-          {pillars.map((p, i) => (
-            <div key={i} className={`id-layer${i === active ? " id-active" : ""}`}>
-              <PillarArt
-                kind={normalizeArt(p.art)}
-                videoSrc={p.videoSrc}
-                videoPosition={p.videoPosition}
-                isActive={i === active}
-              />
-            </div>
-          ))}
+          {pillars.map((p, i) => {
+            const kind = normalizeArt(p.art);
+            return (
+              <div key={i} className={`id-layer${i === active ? " id-active" : ""}${kind === "bars" ? " id-pillar-bars" : ""}`}>
+                <PillarArt
+                  kind={kind}
+                  videoSrc={p.videoSrc}
+                  videoPosition={p.videoPosition}
+                  isActive={i === active}
+                />
+              </div>
+            );
+          })}
         </div>
         <div className="id-cinema-text">
           {pillars.map((p, i) => (
-            <div key={i} className={`id-panel${i === active ? " id-active" : ""}`}>
+            <div key={i} className={`id-panel${i === active ? " id-active" : ""}${normalizeArt(p.art) === "bars" ? " id-pillar-bars" : ""}`}>
               <div className="id-meta">
                 <EditableEm
                   as="div"
