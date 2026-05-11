@@ -10,6 +10,28 @@ export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+// Count `custom-schema` block instances on a page that are linked to a
+// shared/global master (have a `customBlockId`). Master block edits flow
+// into every linked instance via the CustomBlocksProvider lookup, so the
+// page list surfaces this so authors understand why their page can change
+// without a direct page edit (task #201). Walks nested container children.
+export function countLinkedGlobalBlocks(blocks: PageBlock[] | undefined): number {
+  if (!blocks || blocks.length === 0) return 0;
+  let count = 0;
+  for (const b of blocks) {
+    if (
+      b.type === "custom-schema" &&
+      typeof (b.props as { customBlockId?: number } | undefined)?.customBlockId === "number"
+    ) {
+      count += 1;
+    }
+    if (b.children && b.children.length > 0) {
+      count += countLinkedGlobalBlocks(b.children);
+    }
+  }
+  return count;
+}
+
 // "blank" is always first; dental-only built-in templates are appended at
 // render time when the tenant's industry is "dental". Generic tenants get
 // their starting templates from the API (industry-filtered global templates),

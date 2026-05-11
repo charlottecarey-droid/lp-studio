@@ -4,6 +4,7 @@ import {
   Edit2,
   ExternalLink,
   Globe,
+  Link2,
   MessageSquare,
   Star,
 } from "lucide-react";
@@ -13,7 +14,7 @@ import { cn, getLpPageUrl } from "@/lib/utils";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import { CopyButton } from "./copy-button";
 import { PageActionsMenu } from "./page-actions-menu";
-import { formatDate } from "./utils";
+import { countLinkedGlobalBlocks, formatDate } from "./utils";
 import type { Page, PerfScore } from "./types";
 
 interface Props {
@@ -53,6 +54,18 @@ export function PageRow({
 }: Props) {
   const isPublished = page.status === "published";
   const liveUrl = isPublished || isRunning ? getLpPageUrl(page.slug, micrositeDomain) : null;
+  const linkedCount = countLinkedGlobalBlocks(page.blocks);
+  const linkedBadge = linkedCount > 0 ? (
+    <Link href={`/builder/${page.id}`}>
+      <span
+        className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full hover:bg-indigo-100 transition-colors shrink-0"
+        title={`${linkedCount} block${linkedCount === 1 ? "" : "s"} linked to a shared master — edits to the master change this page`}
+      >
+        <Link2 className="w-2.5 h-2.5" />
+        Linked: {linkedCount}
+      </span>
+    </Link>
+  ) : null;
   let seoScore: ScoreResult | null = null;
   try {
     if (page.blocks?.length > 0) {
@@ -102,6 +115,7 @@ export function PageRow({
                   </span>
                 </Link>
               )}
+              {linkedBadge}
               {statusBadge}
             </div>
             <code className="text-[11px] text-muted-foreground/70 font-mono mt-0.5 block truncate">
@@ -179,6 +193,7 @@ export function PageRow({
                   </span>
                 </Link>
               )}
+              {linkedBadge}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <code className="text-[11px] text-muted-foreground/70 font-mono truncate">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</code>

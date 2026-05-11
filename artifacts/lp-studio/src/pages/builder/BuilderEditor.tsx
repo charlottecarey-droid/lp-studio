@@ -1072,6 +1072,28 @@ export default function BuilderEditor() {
       .filter(cb => canGridPieces || cb.block_type !== "schema"),
     [customBlocks, pageAudienceType, canGridPieces],
   );
+  // Names of every shared/global master block this page links to via its
+  // `custom-schema` instances (task #201). Walks the nested block tree so
+  // masters used inside containers still surface. Falls back to the stored
+  // `customBlockName` (or "Master block #id") when the source row hasn't
+  // loaded yet — this keeps the banner stable while customBlocks is fetching.
+  const linkedMasterNames = useMemo<string[]>(() => {
+    const names: string[] = [];
+    const walk = (list: PageBlock[]) => {
+      for (const b of list) {
+        if (b.type === "custom-schema") {
+          const props = b.props as { customBlockId?: number; customBlockName?: string };
+          if (typeof props.customBlockId === "number") {
+            const source = customBlocks.find(c => c.id === props.customBlockId);
+            names.push(source?.name ?? props.customBlockName ?? `Master block #${props.customBlockId}`);
+          }
+        }
+        if (b.children && b.children.length > 0) walk(b.children);
+      }
+    };
+    walk(blocks);
+    return names;
+  }, [blocks, customBlocks]);
   const [appliedSegment, setAppliedSegment] = useState<AudienceSegment | null>(() => {
     const ctx = getBriefContext();
     if (ctx?.segmentContext) {
@@ -2074,6 +2096,29 @@ export default function BuilderEditor() {
         onRejectReview={handleRejectReview}
         reviewWorkflowEnabled={reviewWorkflowEnabled}
       />
+
+      {/* Linked-blocks banner — explains that any custom-schema instance with
+          a `customBlockId` follows its master; edits there flow into this page
+          (task #201). Names duplicate when a master is used multiple times so
+          authors see the actual instance count. */}
+      {linkedMasterNames.length > 0 && (
+        <div className="mx-4 mt-2 flex items-start gap-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/40 px-4 py-3">
+          <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+            <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">
+              {linkedMasterNames.length === 1
+                ? "1 block on this page is linked to a shared master"
+                : `${linkedMasterNames.length} blocks on this page are linked to a shared master`}
+            </p>
+            <p className="text-[11px] text-indigo-700/80 dark:text-indigo-400/80 mt-0.5 leading-relaxed">
+              Edits to {linkedMasterNames.length === 1 ? "this master" : "these masters"} flow into this page automatically:{" "}
+              <span className="font-medium">{linkedMasterNames.join(", ")}</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Post-publish outreach banner */}
       {showOutreachBanner && (
