@@ -1,3 +1,4 @@
+-- Renumbered from 0009_* on 2026-05-10 to resolve numbering collision; original logic unchanged.
 -- Tenant-scoped webhook secrets (task #147)
 --
 -- Why
