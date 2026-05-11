@@ -762,7 +762,164 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "video-section": "{ headline, subheadline, videoUrl, backgroundStyle }",
 };
 
-function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, unknown>, templateBlockTypes?: string[]): string {
+// ── Brand catalog types (server-side mirrors of lp-studio brand-config) ────
+// We intentionally duplicate these shapes here rather than cross-importing
+// from the lp-studio package — the brand row is stored as JSON in
+// lp_brand_settings.config so the server only needs the read shape.
+interface BrandProductLine {
+  name?: string;
+  description?: string;
+  valueProps?: string[];
+  claims?: string[];
+  keywords?: string[];
+}
+interface BrandSegmentPersona {
+  role?: string;
+  painPoints?: string[];
+}
+interface BrandSegmentChallenge {
+  title?: string;
+  desc?: string;
+}
+interface BrandSegmentStat {
+  value?: string;
+  label?: string;
+}
+interface BrandSegmentComparisonRow {
+  need?: string;
+  us?: string;
+  them?: string;
+}
+interface BrandAudienceSegment {
+  id?: string;
+  name?: string;
+  description?: string;
+  messagingAngle?: string;
+  uniqueContext?: string;
+  valueProps?: string[];
+  segmentProducts?: string[];
+  personas?: BrandSegmentPersona[];
+  challenges?: BrandSegmentChallenge[];
+  stats?: BrandSegmentStat[];
+  comparisonRows?: BrandSegmentComparisonRow[];
+}
+
+/**
+ * Format productLines into a structured PRODUCT CATALOG section. Returns
+ * empty string when no products are defined so the prompt stays clean for
+ * tenants who haven't filled this in yet.
+ */
+function buildProductCatalogSection(productLines: BrandProductLine[] | undefined): string {
+  if (!Array.isArray(productLines) || productLines.length === 0) return "";
+  const valid = productLines.filter(p => p?.name?.trim());
+  if (valid.length === 0) return "";
+
+  const blocks = valid.map(p => {
+    const lines: string[] = [`• ${p.name!.trim()}`];
+    if (p.description?.trim()) lines.push(`  Description: ${p.description.trim()}`);
+    if (p.valueProps?.length) lines.push(`  Value props: ${p.valueProps.filter(v => v?.trim()).join("; ")}`);
+    if (p.claims?.length) lines.push(`  Claims: ${p.claims.filter(c => c?.trim()).join("; ")}`);
+    if (p.keywords?.length) lines.push(`  Keywords: ${p.keywords.filter(k => k?.trim()).join(", ")}`);
+    return lines.join("\n");
+  }).join("\n\n");
+
+  return [
+    "PRODUCT CATALOG — use the relevant product's value props, claims, and keywords when writing copy:",
+    "",
+    blocks,
+  ].join("\n");
+}
+
+/**
+ * Find the brand segment that matches the account's segment field. Matches
+ * by name or id, case-insensitive after trim. Returns undefined if no
+ * match (caller should fall back gracefully — no empty section markers).
+ */
+function findMatchingSegment(
+  segments: BrandAudienceSegment[] | undefined,
+  accountSegment: string | null | undefined,
+): BrandAudienceSegment | undefined {
+  if (!Array.isArray(segments) || segments.length === 0) return undefined;
+  if (!accountSegment) return undefined;
+  const target = accountSegment.trim().toLowerCase();
+  if (!target) return undefined;
+  return segments.find(s =>
+    (s?.name?.trim().toLowerCase() === target) ||
+    (s?.id?.trim().toLowerCase() === target),
+  );
+}
+
+/**
+ * Format the matched segment into a TARGET SEGMENT section with personas,
+ * challenges, stats and comparison rows. Returns empty string when no
+ * segment matches.
+ */
+function buildSegmentSection(segment: BrandAudienceSegment | undefined): string {
+  if (!segment) return "";
+  const lines: string[] = [
+    `TARGET SEGMENT — ${segment.name?.trim() || "this account's segment"} (use this segment's specific data in copy):`,
+    "",
+  ];
+
+  if (segment.messagingAngle?.trim()) {
+    lines.push(`Messaging angle: ${segment.messagingAngle.trim()}`);
+  }
+  if (segment.uniqueContext?.trim()) {
+    lines.push(`What makes this segment unique: ${segment.uniqueContext.trim()}`);
+  }
+  if (segment.valueProps?.length) {
+    const vp = segment.valueProps.filter(v => v?.trim());
+    if (vp.length) lines.push(`Segment-specific value props: ${vp.join("; ")}`);
+  }
+
+  const validPersonas = (segment.personas ?? []).filter(p => p?.role?.trim());
+  if (validPersonas.length) {
+    lines.push("");
+    lines.push("Key personas (use their pain points when writing pain-section copy):");
+    validPersonas.forEach(p => {
+      const pains = (p.painPoints ?? []).filter(pp => pp?.trim()).join(", ");
+      lines.push(`• ${p.role!.trim()}${pains ? ` — ${pains}` : ""}`);
+    });
+  }
+
+  const validChallenges = (segment.challenges ?? []).filter(c => c?.title?.trim());
+  if (validChallenges.length) {
+    lines.push("");
+    lines.push("Industry challenges (reference these as the problems we solve):");
+    validChallenges.forEach(c => {
+      lines.push(`• ${c.title!.trim()}${c.desc?.trim() ? `: ${c.desc.trim()}` : ""}`);
+    });
+  }
+
+  const validStats = (segment.stats ?? []).filter(s => s?.value?.trim());
+  if (validStats.length) {
+    lines.push("");
+    lines.push("Pre-validated stats — use ONLY these in any stats block:");
+    validStats.forEach(s => {
+      lines.push(`• ${s.value!.trim()}${s.label?.trim() ? `: ${s.label.trim()}` : ""}`);
+    });
+  }
+
+  const validRows = (segment.comparisonRows ?? []).filter(r => r?.need?.trim());
+  if (validRows.length) {
+    lines.push("");
+    lines.push("Pre-validated comparisons — use these in any comparison block:");
+    validRows.forEach(r => {
+      const us = r.us?.trim() ?? "";
+      const them = r.them?.trim() ?? "";
+      lines.push(`• ${r.need!.trim()} — Us: ${us} · Them: ${them}`);
+    });
+  }
+
+  return lines.join("\n");
+}
+
+function buildSystemPrompt(
+  audience: MicrositeAudience,
+  brand: Record<string, unknown>,
+  templateBlockTypes?: string[],
+  accountSegment?: string | null,
+): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
   const taglines        = brand.taglines as string[] | undefined;
@@ -773,6 +930,11 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
   const brandName       = (brand.brandName as string | undefined) ?? "Dandy";
   const companyDescription = brand.companyDescription as string | undefined;
   const targetAudience  = brand.targetAudience as string | undefined;
+  const productLines    = brand.productLines as BrandProductLine[] | undefined;
+  const segments        = brand.segments as BrandAudienceSegment[] | undefined;
+  const matchedSegment  = findMatchingSegment(segments, accountSegment);
+  const productCatalog  = buildProductCatalogSection(productLines);
+  const segmentSection  = buildSegmentSection(matchedSegment);
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
   const coreForbidden = [
@@ -835,7 +997,12 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
    BAD: "Powerful, comprehensive, industry-leading digital solutions"
    GOOD: "A lab that backs every case with a guarantee"
 
-9. CAPITALIZATION — Two absolute rules that BOTH apply at all times:
+${matchedSegment ? `9. VALIDATED FACTS ONLY — when this prompt includes a TARGET SEGMENT section with pre-validated stats, comparisons, and persona pain points, you MUST use ONLY those exact facts:
+   a) STATS: Pull every number, percentage, dollar amount, and time-frame ONLY from the "Pre-validated stats" list. Never invent statistics. Never round, embellish, or extrapolate. If no stat fits a slot, write a different sentence rather than fabricating a number.
+   b) COMPARISONS: In any comparison block (oldWayBullets/newWayBullets, comparison rows, "us vs them" tables), use ONLY the "Pre-validated comparisons" entries. Never invent contrasts.
+   c) PERSONA PAIN POINTS: When writing pain-section copy or addressing buyer concerns, use ONLY the pain points listed under "Key personas". Never fabricate a persona or invent a pain point not on the list.
+
+10. CAPITALIZATION — Two absolute rules that BOTH apply at all times:` : `9. CAPITALIZATION — Two absolute rules that BOTH apply at all times:`}
    a) ALWAYS start every sentence, headline, eyebrow, bullet point, step title, card title, FAQ question, and label with a capital letter. Every piece of text that starts a new thought begins with a capital. Never begin any text with a lowercase letter.
    b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official Dandy product names (AI Scan Review, Smile Simulation) get capitals.
    WRONG (all lowercase start): "more cases. zero lab drama." → WRONG: sentence starts with lowercase
@@ -859,6 +1026,8 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     `You are an expert B2B copywriter for ${sellerIdentity}. You write personalized microsites for ${audienceDescription}.`,
     "",
     brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
+    productCatalog ? `\n${productCatalog}` : "",
+    segmentSection ? `\n${segmentSection}` : "",
     "",
     copyPrinciples,
     "",
@@ -1006,7 +1175,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     const briefingData = briefing?.briefingData as Record<string, unknown> | undefined;
-    const systemPrompt = buildSystemPrompt(audience, brand, templateBlockTypes);
+    const systemPrompt = buildSystemPrompt(audience, brand, templateBlockTypes, account.segment);
 
     const contextParts: string[] = [];
     contextParts.push(`ACCOUNT: ${account.displayName ?? account.name}`);
