@@ -338,7 +338,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground font-medium mt-0.5 flex items-center gap-1.5">
-                  {stat.icon}
+                  <span className="text-primary/70">{stat.icon}</span>
                   {stat.label}
                 </p>
               </div>

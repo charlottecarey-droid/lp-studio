@@ -186,26 +186,28 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
   return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarContent>
-        <div className="px-3 pt-4 pb-2 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between px-1">
-            <Link href="/">
-              <div className="flex items-center gap-2 cursor-pointer group">
-                {brandLogoUrl && (
-                  <img
-                    src={brandLogoUrl}
-                    alt={brandName || "Logo"}
-                    className="h-4 w-auto sidebar-logo opacity-80 group-hover:opacity-100 transition-opacity"
-                  />
-                )}
-                <span
-                  className="text-[10px] font-medium tracking-[0.08em] uppercase text-sidebar-foreground/35 group-hover:text-sidebar-foreground/55 transition-colors"
-                  style={{ fontFamily: "var(--app-font-mono)" }}
-                >
-                  {brandName || "LP Studio"}
-                </span>
-              </div>
-            </Link>
-          </div>
+        <div className="px-3 pt-5 pb-3 flex flex-col gap-3">
+          {/* Studio brand mark — always reads "LP Studio" regardless of
+              tenant brand. The tenant's own logo (if uploaded) sits on
+              top, centered, so the workspace identity stays consistent
+              across every tenant. */}
+          <Link href="/">
+            <div className="flex flex-col items-center justify-center gap-1.5 cursor-pointer group py-1">
+              {brandLogoUrl && (
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName || "Logo"}
+                  className="h-7 w-auto max-w-[120px] sidebar-logo opacity-90 group-hover:opacity-100 transition-opacity"
+                />
+              )}
+              <span
+                className="text-[10px] font-medium tracking-[0.12em] uppercase text-sidebar-foreground/45 group-hover:text-sidebar-foreground/70 transition-colors"
+                style={{ fontFamily: "var(--app-font-mono)" }}
+              >
+                LP Studio
+              </span>
+            </div>
+          </Link>
           <ModeToggle />
           {/* Global ⌘K search — single discoverable entry to every page. */}
           <button
