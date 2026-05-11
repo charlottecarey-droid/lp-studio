@@ -25,6 +25,14 @@ export interface CustomBlockSource {
   name: string;
   schema: SchemaFieldDef[];
   template: string;
+  /**
+   * Master "shared" field values (task #198). Stored on the source's
+   * `props.sample` for backwards compatibility — these are the defaults
+   * that flow into every linked instance unless that instance has an
+   * explicit per-field override in its own `values`.
+   */
+  sharedValues: Record<string, SchemaFieldValue>;
+  /** @deprecated alias of sharedValues, kept for any prior callsites. */
   sample?: Record<string, SchemaFieldValue>;
 }
 
@@ -63,13 +71,15 @@ export function customBlockRowToSource(row: {
 }): CustomBlockSource | null {
   if (row.block_type !== "schema") return null;
   const props = (row.props ?? {}) as { schema?: unknown; template?: unknown; sample?: unknown };
+  const sharedValues = (props.sample && typeof props.sample === "object")
+    ? (props.sample as Record<string, SchemaFieldValue>)
+    : {};
   return {
     id: row.id,
     name: row.name,
     schema: Array.isArray(props.schema) ? (props.schema as SchemaFieldDef[]) : [],
     template: typeof props.template === "string" ? props.template : "",
-    sample: (props.sample && typeof props.sample === "object")
-      ? (props.sample as Record<string, SchemaFieldValue>)
-      : undefined,
+    sharedValues,
+    sample: sharedValues,
   };
 }

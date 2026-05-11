@@ -37,7 +37,14 @@ function collectIds(blocks: unknown, out: Set<number>): void {
   }
 }
 
-function applyHydration(blocks: unknown, sources: Map<number, { schema: unknown; template: unknown; name: string }>): unknown {
+interface HydratedSource {
+  schema: unknown;
+  template: unknown;
+  name: string;
+  sharedValues: Record<string, unknown>;
+}
+
+function applyHydration(blocks: unknown, sources: Map<number, HydratedSource>): unknown {
   if (!Array.isArray(blocks)) return blocks;
   return blocks.map(raw => {
     if (!raw || typeof raw !== "object") return raw;
@@ -54,6 +61,7 @@ function applyHydration(blocks: unknown, sources: Map<number, { schema: unknown;
             schema: src.schema,
             template: src.template,
             customBlockName: src.name,
+            sharedValues: src.sharedValues,
           },
         };
       }
@@ -78,13 +86,20 @@ export async function hydrateCustomSchemaBlocks(blocks: unknown, tenantId: numbe
           AND block_type = 'schema'
           AND id = ANY(${idList}::int[])`,
   );
-  const sources = new Map<number, { schema: unknown; template: unknown; name: string }>();
+  const sources = new Map<number, HydratedSource>();
   for (const row of rows.rows as Array<{ id: number; name: string; props: Record<string, unknown> | null }>) {
     const props = row.props ?? {};
+    // Task #198: `props.sample` doubles as the master's shared field values.
+    // Per-instance `props.values` overrides win per-field at render time;
+    // unset fields fall through to these shared defaults (Figma-style master).
+    const sample = (props.sample && typeof props.sample === "object")
+      ? (props.sample as Record<string, unknown>)
+      : {};
     sources.set(row.id, {
       name: row.name,
       schema: Array.isArray(props.schema) ? props.schema : [],
       template: typeof props.template === "string" ? props.template : "",
+      sharedValues: sample,
     });
   }
   return applyHydration(blocks, sources);

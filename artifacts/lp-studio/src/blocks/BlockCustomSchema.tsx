@@ -59,9 +59,18 @@ export function BlockCustomSchema({ props }: Props) {
   // fall back to anything snapshotted on the instance for resilience.
   const schema: SchemaFieldDef[] = source?.schema ?? props.schema ?? [];
   const template: string = source?.template ?? props.template ?? "";
+  // Task #198: master "shared" values flow into every linked instance.
+  // Per-instance values win per-field, so editors can override one field
+  // without losing the master defaults for the rest.
+  const sharedValues: Record<string, SchemaFieldValue> =
+    source?.sharedValues ?? (props.sharedValues as Record<string, SchemaFieldValue> | undefined) ?? {};
 
   const html = useMemo(() => {
-    const merged = { ...defaultsFromSchema(schema), ...(props.values || {}) };
+    const merged = {
+      ...defaultsFromSchema(schema),
+      ...sharedValues,
+      ...(props.values || {}),
+    };
     const body = interpolate(template, merged);
     return `<!DOCTYPE html>
 <html>
@@ -74,7 +83,7 @@ export function BlockCustomSchema({ props }: Props) {
 </head>
 <body>${body}</body>
 </html>`;
-  }, [schema, template, props.values]);
+  }, [schema, template, props.values, sharedValues]);
 
   useEffect(() => {
     const iframe = iframeRef.current;

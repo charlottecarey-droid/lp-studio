@@ -121,6 +121,58 @@ router.put("/lp/custom-blocks/:id", requireManageBlocks(), async (req, res): Pro
   }
 });
 
+/**
+ * Task #198 — affected-pages count for a master custom block.
+ *
+ * Returns how many pages reference this custom block via a `custom-schema`
+ * PageBlock so the library editor can warn before saving ("this affects N
+ * pages"). Walks the stored blocks JSON with a recursive jsonb scan so
+ * nested containers (Section/Columns/Grid/Stack) count too.
+ */
+router.get("/lp/custom-blocks/:id/usage", requireManageBlocks(), async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "invalid id" });
+    return;
+  }
+  try {
+    const result = await db.execute(
+      sql`WITH RECURSIVE walk(page_id, page_title, page_status, node) AS (
+            SELECT id, title, status, jsonb_array_elements(blocks)
+            FROM lp_pages
+            WHERE tenant_id = ${tenantId}
+              AND jsonb_typeof(blocks) = 'array'
+          UNION ALL
+            SELECT page_id, page_title, page_status,
+                   jsonb_array_elements(node->'children')
+            FROM walk
+            WHERE jsonb_typeof(node->'children') = 'array'
+          )
+          SELECT page_id, page_title, page_status
+          FROM walk
+          WHERE node->>'type' = 'custom-schema'
+            -- Guard against malformed JSON: only cast values that are pure
+            -- digits (jsonb_typeof = 'number' would also work but text
+            -- pages may have stored numeric ids as strings historically).
+            AND node->'props'->>'customBlockId' ~ '^[0-9]+$'
+            AND (node->'props'->>'customBlockId')::int = ${id}
+          GROUP BY page_id, page_title, page_status
+          ORDER BY page_status DESC, page_title ASC`,
+    );
+    const pages = (result.rows as Array<{ page_id: number; page_title: string; page_status: string }>).map(r => ({
+      id: r.page_id, title: r.page_title, status: r.page_status,
+    }));
+    res.json({
+      count: pages.length,
+      publishedCount: pages.filter(p => p.status === "published").length,
+      pages,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 router.delete("/lp/custom-blocks/:id", requireManageBlocks(), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { id } = req.params;

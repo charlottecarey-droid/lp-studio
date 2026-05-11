@@ -273,9 +273,18 @@ export type SchemaFieldValue = string | number | boolean;
 export interface CustomSchemaBlockProps {
   schema: SchemaFieldDef[];
   template: string;
+  /**
+   * Per-instance overrides. Any field in `values` wins over the master's
+   * `sharedValues`; fields absent from `values` follow the master (task #198).
+   */
   values: Record<string, SchemaFieldValue>;
   customBlockId?: number;
   customBlockName?: string;
+  /**
+   * Server-stamped at render time from the source's master values
+   * (task #198). Not persisted on the page block itself.
+   */
+  sharedValues?: Record<string, SchemaFieldValue>;
 }
 
 export interface SpacerBlockProps {

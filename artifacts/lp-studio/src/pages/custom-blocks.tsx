@@ -119,6 +119,28 @@ export function CustomBlocksContent() {
 
   const handleSave = async () => {
     if (!editor.name.trim()) return;
+    // Task #198 — affected-pages warning. Schema-block edits flow live to
+    // every linked instance, so confirm with the editor before saving when
+    // pages depend on this master.
+    if (editor.id && editor.block_type === "schema") {
+      try {
+        const usage = await fetch(`${API}/lp/custom-blocks/${editor.id}/usage`)
+          .then(r => r.ok ? r.json() as Promise<{ count: number; publishedCount: number }> : { count: 0, publishedCount: 0 });
+        if (usage.count > 0) {
+          const lines = [
+            `This block is used on ${usage.count} page${usage.count === 1 ? "" : "s"}` +
+              (usage.publishedCount > 0 ? ` (${usage.publishedCount} published).` : "."),
+            "",
+            "Saving will update the schema, template, and shared default values everywhere this block is used. Per-page field overrides are kept.",
+            "",
+            "Continue?",
+          ];
+          if (!confirm(lines.join("\n"))) return;
+        }
+      } catch {
+        // Don't block saving on a usage-fetch failure.
+      }
+    }
     setIsSaving(true);
     try {
       const props =
@@ -526,12 +548,12 @@ export function CustomBlocksContent() {
                   />
                 </div>
 
-                {/* Sample / default values */}
+                {/* Shared default values — flow live to every linked instance (task #198). */}
                 {editor.schema.length > 0 && (
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">Sample values</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      These pre-fill the block when an editor inserts it from the palette.
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+                    <Label className="text-sm font-medium mb-1 block">Shared content (master values)</Label>
+                    <p className="text-xs text-muted-foreground mb-3 leading-snug">
+                      These values appear on every page that uses this block. Editing them updates all linked instances at once. Pages can override individual fields locally — those overrides win for that page only.
                     </p>
                     <div className="space-y-2">
                       {editor.schema.map(f => (

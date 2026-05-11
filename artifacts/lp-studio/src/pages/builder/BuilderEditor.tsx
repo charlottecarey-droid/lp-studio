@@ -1366,12 +1366,14 @@ export default function BuilderEditor() {
         // values. Schema/template are looked up live from the source block
         // at render time (CustomBlocksContext) so existing instances pick
         // up template/schema edits automatically.
-        const cbProps = (customBlock.props ?? {}) as { sample?: Record<string, SchemaFieldValue> };
+        // Task #198: new instances start with empty `values` so they FOLLOW
+        // the master's shared values out of the gate. Editors override
+        // individual fields explicitly via the property panel.
         const newBlock = createBlock("custom-schema");
         newBlock.props = {
           schema: [],
           template: "",
-          values: cbProps.sample ?? {},
+          values: {},
           customBlockId: customBlock.id,
           customBlockName: customBlock.name,
         };
@@ -1434,12 +1436,12 @@ export default function BuilderEditor() {
         const custom = customBlocks.find(b => b.id === customId);
         if (custom) {
           if (custom.block_type === "schema") {
-            const cbProps = (custom.props ?? {}) as { sample?: Record<string, SchemaFieldValue> };
+            // Task #198: empty values = follow master.
             const cs = createBlock("custom-schema");
             cs.props = {
               schema: [],
               template: "",
-              values: cbProps.sample ?? {},
+              values: {},
               customBlockId: custom.id,
               customBlockName: custom.name,
             };
