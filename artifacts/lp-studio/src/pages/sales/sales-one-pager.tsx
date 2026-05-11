@@ -604,14 +604,19 @@ const SalesOnePager = () => {
     setGeneratingLink(true);
     setLinkResult(null);
     try {
+      const tenantId = (user as { tenantId?: number } | null)?.tenantId ?? 1;
       const teamMembers = teamContacts
         .filter(c => c.name?.trim())
-        .map(c => ({
-          name: c.name,
-          role: c.role || "",
-          email: c.email || undefined,
-          photo: undefined,
-        }));
+        .map(c => {
+          const ci = (c.contactInfo || "").trim();
+          const isEmail = /@/.test(ci);
+          return {
+            name: c.name,
+            role: c.title || "",
+            email: isEmail ? ci : undefined,
+            photo: undefined,
+          };
+        });
       const res = await fetch("/api/sales/web-one-pager", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -622,6 +627,7 @@ const SalesOnePager = () => {
           phone: phoneNumber || undefined,
           ctaUrl: customLinkUrl || undefined,
           teamMembers,
+          tenantId,
         }),
       });
       if (!res.ok) {

@@ -109,24 +109,28 @@ function SettingsDropdown() {
             </DropdownMenuItem>
           </Link>
         )}
-        {(hasPerm("sales_campaigns") || user?.isAdmin) && (
+        {((hasPerm("sales_campaigns") || hasPerm("sales_accounts")) || user?.isAdmin) && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2">
               Sales Templates
             </DropdownMenuLabel>
-            <Link href="/sales/one-pager-templates">
-              <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/one-pager-templates") ? "bg-accent" : ""}`}>
-                <Wrench className="w-4 h-4 text-muted-foreground" />
-                <span>One-Pager Templates</span>
-              </DropdownMenuItem>
-            </Link>
-            <Link href="/sales/marketplace">
-              <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketplace") ? "bg-accent" : ""}`}>
-                <LayoutTemplate className="w-4 h-4 text-muted-foreground" />
-                <span>Template Library</span>
-              </DropdownMenuItem>
-            </Link>
+            {(hasPerm("sales_campaigns") || user?.isAdmin) && (
+              <Link href="/sales/one-pager-templates">
+                <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/one-pager-templates") ? "bg-accent" : ""}`}>
+                  <Wrench className="w-4 h-4 text-muted-foreground" />
+                  <span>One-Pager Templates</span>
+                </DropdownMenuItem>
+              </Link>
+            )}
+            {(hasPerm("sales_accounts") || user?.isAdmin) && (
+              <Link href="/sales/marketplace">
+                <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketplace") ? "bg-accent" : ""}`}>
+                  <LayoutTemplate className="w-4 h-4 text-muted-foreground" />
+                  <span>Template Library</span>
+                </DropdownMenuItem>
+              </Link>
+            )}
           </>
         )}
         {(hasPerm("team") || user?.isAdmin) && (
