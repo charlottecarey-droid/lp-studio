@@ -183,6 +183,13 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/accounts" || loc.startsWith("/sales/accounts/"),
     },
     {
+      label: "Microsites",
+      href: "/sales/microsites",
+      icon: <Globe className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/microsites" || loc === "/sales/pages",
+    },
+    {
       label: "Activity",
       href: "/sales/signals",
       icon: <Activity className="w-4 h-4" />,
@@ -206,13 +213,6 @@ export function SalesTopNav() {
       icon: <Mail className="w-4 h-4" />,
       permission: "sales_outreach",
       matchFn: (loc) => loc === "/sales/draft-email" || loc.startsWith("/sales/draft-email/"),
-    },
-    {
-      label: "Microsites",
-      href: "/sales/microsites",
-      icon: <Globe className="w-4 h-4" />,
-      permission: "sales_accounts",
-      matchFn: (loc) => loc === "/sales/microsites",
     },
     {
       label: "Campaigns",

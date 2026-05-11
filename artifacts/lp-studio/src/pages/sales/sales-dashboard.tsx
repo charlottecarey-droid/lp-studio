@@ -6,6 +6,7 @@ import {
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
   AlertCircle, ArrowUpRight, Contact, Sparkles, Calculator,
   ChevronDown, SlidersHorizontal, Bookmark, BookmarkCheck, Trash2, X,
+  Brain, Search,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { SalesLayout } from "@/components/layout/sales-layout";
@@ -26,6 +35,7 @@ const API_BASE = "/api";
 interface Account {
   id: number;
   name: string;
+  displayName?: string;
   domain?: string;
   segment?: string;
   practiceSegment?: string;
@@ -57,6 +67,78 @@ interface SavedView {
   name: string;
   filters: { ownerFilters: string[]; abmTierFilters: string[]; abmStageFilters: string[]; segmentFilters: string[] };
   createdAt: string;
+}
+
+// ── Account briefing picker (header CTA) ──────────────────────────────────────
+
+function BriefingPickerButton({ accounts }: { accounts: Account[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const sorted = [...accounts].sort((a, b) =>
+      (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name)
+    );
+    if (!q) return sorted.slice(0, 8);
+    return sorted
+      .filter(a =>
+        (a.displayName ?? a.name).toLowerCase().includes(q) ||
+        (a.domain ?? "").toLowerCase().includes(q)
+      )
+      .slice(0, 12);
+  }, [accounts, query]);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline" className="rounded-lg font-medium text-[13px]">
+          <Brain className="w-3.5 h-3.5 mr-1.5" />
+          Account briefing
+          <ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 p-1.5">
+        <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2 py-1">
+          Generate briefing for…
+        </DropdownMenuLabel>
+        <div className="px-1.5 py-1">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+            <Input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search accounts…"
+              className="h-8 pl-7 text-[13px]"
+            />
+          </div>
+        </div>
+        <DropdownMenuSeparator />
+        {filtered.length === 0 ? (
+          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+            No matching accounts
+          </div>
+        ) : (
+          filtered.map(a => (
+            <Link key={a.id} href={`/sales/accounts/${a.id}`}>
+              <DropdownMenuItem className="gap-2.5 cursor-pointer rounded-md mx-0.5" onSelect={() => setOpen(false)}>
+                <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="truncate">{a.displayName ?? a.name}</span>
+              </DropdownMenuItem>
+            </Link>
+          ))
+        )}
+        <DropdownMenuSeparator />
+        <Link href="/sales/accounts">
+          <DropdownMenuItem className="gap-2.5 cursor-pointer rounded-md mx-0.5 text-muted-foreground" onSelect={() => setOpen(false)}>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            <span className="text-[12px]">View all accounts</span>
+          </DropdownMenuItem>
+        </Link>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 // ── Engagement scoring (mirrors server-side logic) ────────────────────────────
@@ -375,11 +457,20 @@ export default function SalesDashboard() {
             <h1 className="text-2xl font-bold text-foreground">{getGreeting()}</h1>
             <p className="text-sm text-muted-foreground mt-1">Here's what needs your attention today.</p>
           </div>
-          <Link href="/sales/accounts" className="hidden sm:block">
-            <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "#fff" }}>
-              <Plus className="w-3.5 h-3.5 mr-1.5" />New account
-            </Button>
-          </Link>
+          {/* Primary action cluster — daily-driver CTAs */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Link href="/sales/microsites">
+              <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "#fff" }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" />New microsite
+              </Button>
+            </Link>
+            <BriefingPickerButton accounts={accounts} />
+            <Link href="/sales/accounts">
+              <Button size="sm" variant="outline" className="rounded-lg font-medium text-[13px]">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />New account
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* ── PageHint banner ────────────────────────────────────────── */}
@@ -705,12 +796,8 @@ export default function SalesDashboard() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { id: "accounts",   icon: <Building2 className="w-4 h-4" />, title: "Accounts",       href: "/sales/accounts" },
               { id: "draft",      icon: <PenTool className="w-4 h-4" />,   title: "Draft Email",     href: "/sales/draft-email" },
-              { id: "microsites", icon: <Globe className="w-4 h-4" />,     title: "Microsites",      href: "/sales/microsites" },
               { id: "campaigns",  icon: <Send className="w-4 h-4" />,      title: "Campaigns",       href: "/sales/campaigns" },
-              { id: "activity",   icon: <Zap className="w-4 h-4" />,       title: "Activity",        href: "/sales/signals" },
-              { id: "contacts",   icon: <Contact className="w-4 h-4" />,   title: "Contacts",        href: "/sales/contacts" },
               { id: "roi-calc",   icon: <Calculator className="w-4 h-4" />, title: "ROI Calculator", href: "/sales/roi-calculator" },
               { id: "one-pager",  icon: <FileText className="w-4 h-4" />,  title: "One-Pager",       href: "/sales/one-pager" },
             ].map(tool => (
