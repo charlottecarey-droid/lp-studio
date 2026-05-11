@@ -20,7 +20,6 @@ import {
   Target,
   Gauge,
   Link2,
-  Zap,
   Wand2,
   Sparkles,
 } from "lucide-react";
@@ -104,7 +103,6 @@ const OPTIMIZE_ITEMS = [
   { label: "Conversion Scoring", href: "/conversion-scoring", icon: Target },
   { label: "Page Speed", href: "/page-speed", icon: Gauge },
   { label: "AdMap", href: "/ad-map", icon: Link2 },
-  { label: "AMP Pages", href: "/amp", icon: Zap },
   { label: "Programmatic", href: "/programmatic", icon: Wand2 },
 ];
 

@@ -139,7 +139,6 @@ const TemplateMarketplace = lazy(() => import("@/pages/template-marketplace"));
 const ConversionScoring = lazy(() => import("@/pages/conversion-scoring"));
 const PageSpeed = lazy(() => import("@/pages/page-speed"));
 const AdMap = lazy(() => import("@/pages/ad-map"));
-const AmpPages = lazy(() => import("@/pages/amp-pages"));
 const ProgrammaticPages = lazy(() => import("@/pages/programmatic-pages"));
 
 // Settings pages
@@ -243,7 +242,6 @@ function AppRouter() {
         <Route path="/conversion-scoring" component={ConversionScoring} />
         <Route path="/page-speed" component={PageSpeed} />
         <Route path="/ad-map" component={AdMap} />
-        <Route path="/amp" component={AmpPages} />
         <Route path="/programmatic" component={ProgrammaticPages} />
 
         {/* Consolidated Routes */}
