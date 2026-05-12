@@ -27,6 +27,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
 import { useAuth } from "@/context/AuthContext";
+import { NewMicrositeModal } from "@/components/NewMicrositeModal";
 
 const API_BASE = "/api";
 
@@ -249,6 +250,7 @@ export default function SalesDashboard() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveViewName, setSaveViewName] = useState("");
   const [showViewsDropdown, setShowViewsDropdown] = useState(false);
+  const [showNewMicrosite, setShowNewMicrosite] = useState(false);
   const viewsDropdownRef = useRef<HTMLDivElement>(null);
 
   // Persist filter changes back to localStorage so Accounts page picks them up too
@@ -459,11 +461,14 @@ export default function SalesDashboard() {
           </div>
           {/* Primary action cluster — daily-driver CTAs */}
           <div className="hidden sm:flex items-center gap-2">
-            <Link href="/sales/microsites">
-              <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "#fff" }}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" />New microsite
-              </Button>
-            </Link>
+            <Button
+              size="sm"
+              className="rounded-lg font-medium text-[13px] shadow-sm"
+              style={{ backgroundColor: "#1B4332", color: "#fff" }}
+              onClick={() => setShowNewMicrosite(true)}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />New microsite
+            </Button>
             <BriefingPickerButton accounts={accounts} />
             <Link href="/sales/accounts">
               <Button size="sm" variant="outline" className="rounded-lg font-medium text-[13px]">
@@ -821,10 +826,10 @@ export default function SalesDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 { step: "1", title: "Add an account", desc: "Create your first target account — a DSO, practice, or company you want to engage.", cta: "Add Account", href: "/sales/accounts", icon: <Building2 className="w-4 h-4" />, primary: true },
-                { step: "2", title: "Build a microsite", desc: "Use the page builder to create a personalized microsite for the account.", cta: "Create Microsite", href: "/sales/microsites", icon: <FileText className="w-4 h-4" /> },
+                { step: "2", title: "Build a microsite", desc: "Use the page builder to create a personalized microsite for the account.", cta: "Create Microsite", href: "/sales/microsites", icon: <FileText className="w-4 h-4" />, action: "newMicrosite" as const },
                 { step: "3", title: "Send outreach", desc: "Generate a personalized email, attach the microsite link, and send it.", cta: "Start Outreach", href: "/sales/draft-email", icon: <Mail className="w-4 h-4" /> },
-              ].map(item => (
-                <Link href={item.href} key={item.step}>
+              ].map(item => {
+                const card = (
                   <Card className={`group h-full flex flex-col gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-sm ${item.primary ? "border-[#1B4332]/20 bg-[#1B4332]/[0.03] hover:border-[#1B4332]/30" : "border-border/50 bg-card hover:border-border"}`}>
                     <div className="flex items-start justify-between">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.primary ? "bg-[#1B4332] text-[var(--brand-accent)]" : "bg-muted/60 text-muted-foreground group-hover:bg-muted transition-colors"}`}>{item.icon}</div>
@@ -836,8 +841,20 @@ export default function SalesDashboard() {
                     </div>
                     <div className="mt-auto flex items-center gap-1 text-[13px] font-medium text-[#1B4332] dark:text-[var(--brand-accent)]">{item.cta} <ChevronRight className="w-3.5 h-3.5" /></div>
                   </Card>
-                </Link>
-              ))}
+                );
+                if (item.action === "newMicrosite") {
+                  return (
+                    <button key={item.step} type="button" onClick={() => setShowNewMicrosite(true)} className="text-left">
+                      {card}
+                    </button>
+                  );
+                }
+                return (
+                  <Link href={item.href} key={item.step}>
+                    {card}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -880,11 +897,14 @@ export default function SalesDashboard() {
                         <p className="font-medium text-foreground text-sm">No engagement yet</p>
                         <p className="text-xs text-muted-foreground mt-1">Accounts will appear here when contacts open emails or visit microsites.</p>
                       </div>
-                      <Link href="/sales/microsites">
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-lg">
-                          <Globe className="w-3.5 h-3.5" />Create a microsite
-                        </Button>
-                      </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs rounded-lg"
+                        onClick={() => setShowNewMicrosite(true)}
+                      >
+                        <Globe className="w-3.5 h-3.5" />Create a microsite
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex-1 overflow-y-auto divide-y divide-border/40">
@@ -1075,6 +1095,7 @@ export default function SalesDashboard() {
           </>
         )}
       </div>
+      <NewMicrositeModal open={showNewMicrosite} onClose={() => setShowNewMicrosite(false)} />
     </SalesLayout>
   );
 }

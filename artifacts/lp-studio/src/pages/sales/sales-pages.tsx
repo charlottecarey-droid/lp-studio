@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
+import { NewMicrositeModal } from "@/components/NewMicrositeModal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
@@ -145,6 +146,7 @@ export default function SalesPages() {
   const [sortBy, setSortBy] = useState<"recent" | "name" | "status">("recent");
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showNewMicrosite, setShowNewMicrosite] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -644,6 +646,15 @@ export default function SalesPages() {
           back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
           actions={
             <>
+              <Button
+                size="sm"
+                onClick={() => setShowNewMicrosite(true)}
+                className="gap-1.5"
+                style={{ backgroundColor: "#1B4332", color: "#fff" }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New microsite
+              </Button>
               <Button
                 variant={selectMode ? "default" : "outline"}
                 size="sm"
@@ -1709,6 +1720,7 @@ export default function SalesPages() {
         </DialogContent>
       </Dialog>
 
+      <NewMicrositeModal open={showNewMicrosite} onClose={() => { setShowNewMicrosite(false); load(); }} />
     </SalesLayout>
   );
 }

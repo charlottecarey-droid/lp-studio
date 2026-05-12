@@ -23,11 +23,35 @@ export function BlockCustomHtml({ props }: Props) {
     const raw = (props.html || "").trim();
     const isFullDoc = /^<!doctype/i.test(raw) || /^<html[\s>]/i.test(raw);
 
+    // every link inside the iframe should navigate the *top* window, not the
+    // iframe itself — otherwise clicking a footer/menu link reloads the page
+    // inside the embed and looks broken. <base target="_top"> handles links
+    // that don't set their own target. paired with the
+    // `allow-top-navigation-by-user-activation` sandbox token below, this lets
+    // user-clicked links escape the frame while still blocking script-driven
+    // top navigation.
+    const baseTag = `<base target="_top">`;
+    // for full HTML docs, inject the <base> right after <head> if the user
+    // didn't already supply one — keeping their styling intact.
+    const ensureBase = (doc: string): string => {
+      if (/<base\s/i.test(doc)) return doc;
+      if (/<head[^>]*>/i.test(doc)) {
+        return doc.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+      }
+      // no <head> at all — prepend a minimal one inside <html> so the base tag
+      // is honoured.
+      if (/<html[^>]*>/i.test(doc)) {
+        return doc.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
+      }
+      return baseTag + doc;
+    };
+
     const content = isFullDoc
-      ? raw
+      ? ensureBase(raw)
       : `<!DOCTYPE html>
 <html>
 <head>
+${baseTag}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -89,7 +113,7 @@ export function BlockCustomHtml({ props }: Props) {
       <iframe
         ref={iframeRef}
         title="Custom HTML Block"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
         className="w-full border-0"
         style={{ minHeight: "60px", display: "block" }}
         scrolling="no"
