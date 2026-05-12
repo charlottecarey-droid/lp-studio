@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { sendInviteEmail } from "../lib/notifications";
+import { TOP_TIER_PLANS } from "../lib/tenantSettings";
 import {
   validateDomain,
   findDomainConflict,
@@ -1019,22 +1020,39 @@ router.delete("/roles/:id", async (req, res): Promise<void> => {
 interface TenantSettingsPayload {
   /** Page-review workflow toggle. true = preserve task #108 behaviour. */
   requireReviewBeforePublish: boolean;
+  /**
+   * Task #219 follow-up — AI image generation in the custom-block flow.
+   * Top-tier-plan-only feature, defaults OFF even when available so we
+   * never silently spend image-API credits.
+   */
+  aiImageGenEnabled: boolean;
+  /**
+   * Read-only — true when the tenant's plan permits the AI-image-gen
+   * feature. The toggle is hidden / disabled when this is false; the UI
+   * surfaces an upgrade hint instead.
+   */
+  aiImageGenAvailable: boolean;
 }
 
 router.get("/tenant-settings", async (req, res): Promise<void> => {
   const tenantId = req.authUser?.tenantId;
   if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
   try {
-    const r = await pool.query<{ settings: Record<string, unknown> | null }>(
-      `SELECT settings FROM tenants WHERE id = $1`,
+    const r = await pool.query<{ plan: string | null; settings: Record<string, unknown> | null }>(
+      `SELECT plan, settings FROM tenants WHERE id = $1`,
       [tenantId],
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     const settings = r.rows[0].settings ?? {};
+    const aiImageGenAvailable = TOP_TIER_PLANS.has(r.rows[0].plan ?? "trial");
     const payload: TenantSettingsPayload = {
       // Default TRUE so any tenant the boot backfill hasn't touched preserves
       // the #108 review behaviour. Only an explicit `false` opts a tenant out.
       requireReviewBeforePublish: settings.requireReviewBeforePublish !== false,
+      aiImageGenAvailable,
+      // Effective enabled state — gated on plan so a stale settings.* flag
+      // from a downgrade can't keep the feature alive.
+      aiImageGenEnabled: aiImageGenAvailable && settings.aiImageGenEnabled === true,
     };
     res.json(payload);
   } catch (err) {
@@ -1043,9 +1061,11 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
   }
 });
 
-// PATCH /api/admin/tenant-settings — admins only. Currently accepts only the
-// requireReviewBeforePublish flag; we ignore unknown keys instead of 400ing
-// so the client can post a partial payload from a future settings UI.
+// PATCH /api/admin/tenant-settings — admins only. Accepts a partial payload
+// of the writable flags; unknown keys (and the read-only aiImageGenAvailable)
+// are ignored. Toggling aiImageGenEnabled on a tenant whose plan doesn't
+// permit it is rejected with 402 (Payment Required) so the UI can prompt
+// for an upgrade.
 router.patch("/tenant-settings", async (req, res): Promise<void> => {
   const tenantId = req.authUser?.tenantId;
   if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
@@ -1058,23 +1078,45 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
   if (typeof body?.requireReviewBeforePublish === "boolean") {
     merge.requireReviewBeforePublish = body.requireReviewBeforePublish;
   }
+  if (typeof body?.aiImageGenEnabled === "boolean") {
+    if (body.aiImageGenEnabled) {
+      // Verify plan eligibility BEFORE writing so we never persist a flag
+      // the runtime gate is just going to ignore.
+      const planRow = await pool.query<{ plan: string | null }>(
+        `SELECT plan FROM tenants WHERE id = $1`,
+        [tenantId],
+      );
+      if (!planRow.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+      if (!TOP_TIER_PLANS.has(planRow.rows[0].plan ?? "trial")) {
+        res.status(402).json({
+          error: "AI image generation is a top-tier feature. Upgrade your plan to enable it.",
+          code: "plan_upgrade_required",
+        });
+        return;
+      }
+    }
+    merge.aiImageGenEnabled = body.aiImageGenEnabled;
+  }
   if (Object.keys(merge).length === 0) {
     res.status(400).json({ error: "No recognised settings to update" });
     return;
   }
   try {
-    const r = await pool.query<{ settings: Record<string, unknown> }>(
+    const r = await pool.query<{ plan: string | null; settings: Record<string, unknown> }>(
       `UPDATE tenants
           SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb,
               updated_at = now()
         WHERE id = $2
-        RETURNING settings`,
+        RETURNING plan, settings`,
       [JSON.stringify(merge), tenantId],
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     const settings = r.rows[0].settings ?? {};
+    const aiImageGenAvailable = TOP_TIER_PLANS.has(r.rows[0].plan ?? "trial");
     res.json({
       requireReviewBeforePublish: settings.requireReviewBeforePublish !== false,
+      aiImageGenAvailable,
+      aiImageGenEnabled: aiImageGenAvailable && settings.aiImageGenEnabled === true,
     } satisfies TenantSettingsPayload);
   } catch (err) {
     console.error("[admin] PATCH /tenant-settings error:", err);

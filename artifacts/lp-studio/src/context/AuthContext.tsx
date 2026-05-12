@@ -21,6 +21,15 @@ export interface AuthUser {
   // Submit-for-Review / Approve / Reject UI is hidden and `pages` perm
   // holders publish directly.
   requireReviewBeforePublish?: boolean;
+  // Task #219 follow-up — tenant plan + AI-image-generation gate fields.
+  // `aiImageGenAvailable` is true when the plan permits the feature; the
+  // toggle UI uses it to show an upgrade hint. `aiImageGenEnabled` is the
+  // effective gate (available AND tenant has flipped it on) — when false
+  // the dialog hides the AI-image controls and the backend rejects with
+  // 402 so URL-based image swaps still work without consuming credits.
+  tenantPlan?: string | null;
+  aiImageGenAvailable?: boolean;
+  aiImageGenEnabled?: boolean;
   // Task #132 — canonical tenant login URL fields. The wizard's welcome
   // step, AuthGate auto-redirect, and Settings → General all read these
   // so the wildcard base host is never hardcoded on the client.

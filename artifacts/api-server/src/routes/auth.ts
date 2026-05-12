@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
+import { TOP_TIER_PLANS } from "../lib/tenantSettings";
 
 /**
  * Pick the user-facing wildcard base host for building tenant login URLs
@@ -433,6 +434,14 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     // any tenant the boot backfill hasn't yet touched preserves the #108
     // behaviour (Submit-for-Review / Approve / Reject UI visible).
     let requireReviewBeforePublish = true;
+    // Task #219 follow-up — tenant-level AI image generation toggle. Top-tier
+    // plans only; defaults OFF so we never silently spend image-API credits.
+    // The frontend uses these to hide the per-page "Generate AI images"
+    // toggle and per-image regenerate buttons unless the workspace has both
+    // the eligible plan AND turned the feature on.
+    let aiImageGenEnabled = false;
+    let aiImageGenAvailable = false;
+    let tenantPlan: string | null = null;
     // Task #132 — surface the canonical tenant login URL (custom domain or
     // wildcard subdomain) so the onboarding wizard, AuthGate auto-redirect,
     // and Settings → General can hand users off to / display their
@@ -443,7 +452,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     let tenantLoginUrl: string | null = null;
     if (sess.tenantId) {
       const tenantResult = await pool.query(
-        `SELECT onboarding_completed_at, settings, slug, domain FROM tenants WHERE id = $1`,
+        `SELECT onboarding_completed_at, settings, slug, domain, plan FROM tenants WHERE id = $1`,
         [sess.tenantId]
       );
       if (tenantResult.rows.length > 0) {
@@ -457,6 +466,9 @@ router.get("/auth/me", async (req, res): Promise<void> => {
         tenantDomain = row.domain ?? null;
         tenantHost = getCanonicalTenantHost({ slug: tenantSlug, domain: tenantDomain });
         tenantLoginUrl = tenantHost ? `https://${tenantHost}` : null;
+        tenantPlan = row.plan ?? null;
+        aiImageGenAvailable = TOP_TIER_PLANS.has(tenantPlan ?? "trial");
+        aiImageGenEnabled = aiImageGenAvailable && settings.aiImageGenEnabled === true;
       }
     }
 
@@ -516,6 +528,9 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       tenantHost,
       tenantLoginUrl,
       shouldRedirectToTenantHost,
+      tenantPlan,
+      aiImageGenAvailable,
+      aiImageGenEnabled,
     });
   } catch (err) {
     console.error("[auth] /me error:", err);

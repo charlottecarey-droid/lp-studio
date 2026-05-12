@@ -5,8 +5,8 @@
 // the same sandboxed iframe used everywhere else, and hands the result off to
 // the existing editor on Save so all existing flows (segments, link/master,
 // affected-pages confirm) work unchanged.
-import { useEffect, useRef, useState } from "react";
-import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2, ChevronUp, ChevronDown, Trash2, Layers } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2, Image as ImageIcon, ChevronUp, ChevronDown, Trash2, Layers } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 import { SchemaPreviewFrame } from "@/components/blocks/SchemaPreviewFrame";
 import type { SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 
@@ -42,6 +43,12 @@ interface GenerateResponse {
   valid: boolean;
   referenceUrl: string | null;
   usedScreenshot: boolean;
+  imageGen: { generated: string[]; failed: string[] } | null;
+}
+
+interface GenerateImageResponse {
+  url: string;
+  aspectRatio: string;
 }
 
 interface ValidateResponse {
@@ -115,11 +122,18 @@ async function fileToDataUrl(f: File): Promise<string> {
 
 export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatch, pages }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  // Task #219 follow-up — tenant-level AI image generation gate. When the
+  // feature is disabled (or the tenant's plan can't access it), we hide the
+  // "Generate AI images" toggle and the per-image regenerate buttons. URL
+  // swap stays available so editors can still drop in their own images.
+  const aiImageGenEnabled = user?.aiImageGenEnabled === true;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [useBrandVars, setUseBrandVars] = useState(true);
+  const [generateImages, setGenerateImages] = useState(false);
   const [screenshotName, setScreenshotName] = useState<string | null>(null);
   const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null);
 
@@ -128,6 +142,14 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
   const [isValidating, setIsValidating] = useState(false);
   const [block, setBlock] = useState<GeneratedBlock | null>(null);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
+  /** Per-field flags so we can show a spinner on the image being regenerated. */
+  const [regeneratingField, setRegeneratingField] = useState<string | null>(null);
+  const [imageGenStatus, setImageGenStatus] = useState<{ generated: string[]; failed: string[] } | null>(null);
+
+  const imageFields = useMemo(
+    () => (block?.schema ?? []).filter(f => f.type === "image"),
+    [block?.schema],
+  );
 
   // Task #220 — Compose section (multi-block) state.
   const [composeMode, setComposeMode] = useState(false);
@@ -143,6 +165,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
     setPrompt("");
     setReferenceUrl("");
     setUseBrandVars(true);
+    setGenerateImages(false);
     setScreenshotName(null);
     setScreenshotDataUrl(null);
     setRefineInstruction("");
@@ -151,6 +174,8 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
     setComposed(null);
     setSectionName("");
     setTargetPageId(null);
+    setRegeneratingField(null);
+    setImageGenStatus(null);
   };
 
   // Re-validate edited block server-side (debounced) so token/field/safety
@@ -198,12 +223,14 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
 
   const callGenerate = async (opts: { refine?: string; prior?: GeneratedBlock | null }) => {
     setIsGenerating(true);
+    setImageGenStatus(null);
     try {
       const body = {
         prompt,
         referenceUrl: referenceUrl.trim() || undefined,
         screenshotDataUrl: screenshotDataUrl ?? undefined,
         useBrandVars,
+        generateImages,
         refineInstruction: opts.refine,
         prior: opts.prior ?? undefined,
       };
@@ -223,7 +250,14 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
       }
       setBlock(data.block);
       setIssues(data.issues ?? []);
+      setImageGenStatus(data.imageGen ?? null);
       setRefineInstruction("");
+      if (data.imageGen && data.imageGen.failed.length > 0) {
+        toast({
+          title: "Some images couldn't be generated",
+          description: `Kept the placeholder for: ${data.imageGen.failed.join(", ")}`,
+        });
+      }
     } catch (err) {
       toast({
         title: "Generation failed",
@@ -343,6 +377,59 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
 
   const updateBlock = (patch: Partial<GeneratedBlock>) => {
     setBlock(prev => (prev ? { ...prev, ...patch } : prev));
+  };
+
+  const setImageSampleValue = (fieldId: string, url: string) => {
+    setBlock(prev => (prev ? { ...prev, sample: { ...prev.sample, [fieldId]: url } } : prev));
+  };
+
+  /**
+   * Regenerate a single image field via the dedicated endpoint. Aspect ratio
+   * is inferred server-side from the current template, so any layout edits
+   * the user has already made are respected.
+   */
+  const handleRegenerateImage = async (fieldId: string) => {
+    if (!block) return;
+    const field = block.schema.find(f => f.id === fieldId);
+    if (!field) return;
+    setRegeneratingField(fieldId);
+    try {
+      const res = await fetch(`${API}/lp/custom-blocks/generate-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fieldId,
+          fieldLabel: field.label,
+          blockName: block.name,
+          blockDescription: block.description,
+          template: block.template,
+          useBrandVars,
+        }),
+      });
+      const data = (await res.json()) as Partial<GenerateImageResponse> & { error?: string };
+      if (!res.ok || !data.url) {
+        toast({
+          title: "Image generation failed",
+          description: data.error ?? `HTTP ${res.status}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      setImageSampleValue(fieldId, data.url);
+      setImageGenStatus(prev => {
+        const generated = Array.from(new Set([...(prev?.generated ?? []), fieldId]));
+        const failed = (prev?.failed ?? []).filter(id => id !== fieldId);
+        return { generated, failed };
+      });
+    } catch (err) {
+      toast({
+        title: "Image generation failed",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingField(null);
+    }
   };
 
   // Final server-side check before handoff so the user can't bypass the
@@ -490,15 +577,29 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm select-none">
-            <input
-              type="checkbox"
-              checked={useBrandVars}
-              onChange={(e) => setUseBrandVars(e.target.checked)}
-              className="h-3.5 w-3.5"
-            />
-            Use brand colors and fonts
-          </label>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <label className="flex items-center gap-2 text-sm select-none">
+              <input
+                type="checkbox"
+                checked={useBrandVars}
+                onChange={(e) => setUseBrandVars(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Use brand colors and fonts
+            </label>
+            {aiImageGenEnabled && (
+              <label className="flex items-center gap-2 text-sm select-none">
+                <input
+                  type="checkbox"
+                  checked={generateImages}
+                  onChange={(e) => setGenerateImages(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                Generate AI images for image fields
+                <span className="text-[11px] text-muted-foreground">(slower, costs more)</span>
+              </label>
+            )}
+          </div>
 
           {((composeMode && !composed) || (!composeMode && !block)) && (
             <div className="flex justify-end">
@@ -724,6 +825,85 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
                   </div>
                 </div>
               </div>
+
+              {/* Per-image regenerate / swap controls — only when the block declares image fields. */}
+              {imageFields.length > 0 && (
+                <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      Images
+                    </Label>
+                    {imageGenStatus && imageGenStatus.generated.length > 0 && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {imageGenStatus.generated.length} AI-generated
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {imageFields.map((field) => {
+                      const value = String(block.sample[field.id] ?? "");
+                      const isAi = imageGenStatus?.generated.includes(field.id) ?? false;
+                      const isFailed = imageGenStatus?.failed.includes(field.id) ?? false;
+                      const isLoading = regeneratingField === field.id;
+                      return (
+                        <div key={field.id} className="rounded border border-border p-2 flex gap-2">
+                          <div className="w-16 h-16 shrink-0 rounded bg-muted overflow-hidden flex items-center justify-center">
+                            {value ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={value}
+                                alt={field.label}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : (
+                              <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-xs font-medium truncate" title={field.label}>{field.label}</span>
+                              {isAi && (
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">AI</Badge>
+                              )}
+                              {isFailed && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-amber-300 text-amber-700">retry</Badge>
+                              )}
+                            </div>
+                            <Input
+                              className="h-7 text-[11px]"
+                              placeholder="https://… or /api/storage/objects/…"
+                              value={value}
+                              onChange={(e) => setImageSampleValue(field.id, e.target.value)}
+                              spellCheck={false}
+                            />
+                            {aiImageGenEnabled && (
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] gap-1"
+                                  disabled={isLoading || isGenerating}
+                                  onClick={() => { void handleRegenerateImage(field.id); }}
+                                >
+                                  {isLoading ? (
+                                    <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Wand2 className="w-3 h-3" />
+                                  )}
+                                  {isLoading ? "Generating…" : isAi ? "Regenerate" : "Generate AI image"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Editable schema + template */}
               <details className="rounded-md border border-border bg-muted/10">

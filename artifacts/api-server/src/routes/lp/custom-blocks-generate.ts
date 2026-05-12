@@ -17,11 +17,14 @@ import { lpBrandSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getOpenAIClient } from "./brand-import";
+import { ObjectStorageService } from "../../lib/objectStorage";
+import { getAiImageGenStatus } from "../../lib/tenantSettings";
 import {
   SCHEMA_FIELD_TYPES,
   splitIssues,
   validateRawSchemaBlock,
   type SchemaBlockPayload,
+  type SchemaFieldDef,
   type ValidationIssue,
 } from "./custom-blocks-validator";
 
@@ -139,6 +142,171 @@ function buildUserPrompt(opts: {
   return parts.join("\n\n---\n\n");
 }
 
+// ── Image generation helpers ──────────────────────────────────────────────
+//
+// Image fields are filled with on-brand AI-generated images on demand, when
+// the editor toggles "AI-generated images" or clicks the per-field
+// regenerate button. Default behaviour leaves the AI's stock placeholder
+// (an Unsplash URL) in place so the cheap path stays cheap.
+
+type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
+
+const objectStorageSvc = new ObjectStorageService();
+
+function ratioFromNumber(r: number): AspectRatio {
+  if (!isFinite(r) || r <= 0) return "16:9";
+  if (r >= 1.6) return "16:9";
+  if (r >= 1.2) return "4:3";
+  if (r >= 0.85) return "1:1";
+  if (r >= 0.65) return "3:4";
+  return "9:16";
+}
+
+/**
+ * Infer a sensible aspect ratio for an image field by looking at the
+ * surrounding template markup near its first {{token}} occurrence.
+ * Falls back to 16:9 — the most common landing-page hero shape.
+ */
+export function inferImageAspectRatio(template: string, fieldId: string): AspectRatio {
+  if (!fieldId) return "16:9";
+  const token = `{{${fieldId}}}`;
+  const idx = template.indexOf(token);
+  if (idx < 0) return "16:9";
+  const win = template.slice(Math.max(0, idx - 800), Math.min(template.length, idx + 400));
+
+  // 1) Explicit CSS aspect-ratio: "16 / 9", "1.5", "4/3"
+  const arMatch = win.match(/aspect-ratio\s*:\s*([\d.]+)\s*(?:\/\s*([\d.]+))?/i);
+  if (arMatch) {
+    const a = parseFloat(arMatch[1]);
+    const b = arMatch[2] ? parseFloat(arMatch[2]) : 1;
+    if (a > 0 && b > 0) return ratioFromNumber(a / b);
+  }
+
+  // 2) <img width=W height=H>
+  const imgWh = win.match(/<img\b[^>]*\bwidth\s*=\s*["']?(\d+)[^>]*\bheight\s*=\s*["']?(\d+)/i);
+  if (imgWh) return ratioFromNumber(parseInt(imgWh[1], 10) / parseInt(imgWh[2], 10));
+
+  // 3) Inline style width/height in pixels nearby.
+  const stylePx = win.match(/width\s*:\s*(\d+)px[^;}{]*;\s*height\s*:\s*(\d+)px/i);
+  if (stylePx) return ratioFromNumber(parseInt(stylePx[1], 10) / parseInt(stylePx[2], 10));
+
+  // 4) Class/keyword hints around the token.
+  if (/\b(hero|banner|cover|masthead|wide|landscape)\b/i.test(win)) return "16:9";
+  if (/\b(avatar|logo|icon|thumbnail|square)\b/i.test(win)) return "1:1";
+  if (/\b(portrait|profile|tall|story)\b/i.test(win)) return "3:4";
+  if (/\b(card|tile)\b/i.test(win)) return "4:3";
+
+  return "16:9";
+}
+
+function aspectRatioToSize(ar: AspectRatio): "1024x1024" | "1536x1024" | "1024x1536" {
+  switch (ar) {
+    case "1:1": return "1024x1024";
+    case "16:9":
+    case "4:3": return "1536x1024";
+    case "9:16":
+    case "3:4": return "1024x1536";
+  }
+}
+
+interface ImagePromptCtx {
+  fieldId: string;
+  fieldLabel?: string;
+  blockName?: string;
+  blockDescription?: string;
+  brand?: BrandHints | null;
+  instruction?: string;
+}
+
+function buildImagePrompt(ctx: ImagePromptCtx): string {
+  const lines: string[] = [];
+  const subject = ctx.fieldLabel?.trim() || ctx.fieldId.replace(/[_-]+/g, " ");
+  lines.push(`On-brand editorial photograph for a landing-page section: "${subject}".`);
+  if (ctx.blockName) lines.push(`Block context: ${ctx.blockName}.`);
+  if (ctx.blockDescription) lines.push(ctx.blockDescription);
+  if (ctx.instruction) lines.push(`Direction: ${ctx.instruction}`);
+  if (ctx.brand) {
+    const tones: string[] = [];
+    if (ctx.brand.primaryColor) tones.push(`primary ${ctx.brand.primaryColor}`);
+    if (ctx.brand.accentColor) tones.push(`accent ${ctx.brand.accentColor}`);
+    if (tones.length) lines.push(`Brand palette to echo subtly: ${tones.join(", ")}.`);
+  }
+  lines.push("Style: clean, modern, well-lit, photographic, no text overlays, no watermarks, no logos.");
+  return lines.join(" ");
+}
+
+/**
+ * Generate one AI image and upload it to object storage. Returns the
+ * served-from-our-API URL ("/api/storage/objects/uploads/<id>") on success
+ * or null on failure. Failures are deliberately swallowed so the caller can
+ * keep the AI placeholder rather than 500 the whole flow.
+ */
+async function generateAndStoreImage(
+  ctx: ImagePromptCtx,
+  aspectRatio: AspectRatio,
+): Promise<string | null> {
+  let openai;
+  try { openai = getOpenAIClient(); } catch { return null; }
+
+  const prompt = buildImagePrompt(ctx);
+  const size = aspectRatioToSize(aspectRatio);
+  try {
+    const result = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      size,
+      n: 1,
+    });
+    const b64 = result.data?.[0]?.b64_json;
+    if (!b64) return null;
+    const buffer = Buffer.from(b64, "base64");
+    const objectPath = await objectStorageSvc.uploadObjectEntity(buffer, "image/png");
+    return `/api/storage${objectPath}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find every "image" field in the schema and (if missing or replacement
+ * requested) fill its sample value with an AI-generated image. Mutates
+ * `sample` in place. Generations run in parallel.
+ */
+async function fillImageFields(
+  block: SchemaBlockPayload,
+  brand: BrandHints | null,
+): Promise<{ generated: string[]; failed: string[] }> {
+  const generated: string[] = [];
+  const failed: string[] = [];
+  const imageFields = (block.schema ?? []).filter(
+    (f): f is SchemaFieldDef => f && f.type === "image",
+  );
+  if (imageFields.length === 0) return { generated, failed };
+
+  await Promise.all(
+    imageFields.map(async (field) => {
+      const ar = inferImageAspectRatio(block.template ?? "", field.id);
+      const url = await generateAndStoreImage(
+        {
+          fieldId: field.id,
+          fieldLabel: field.label,
+          blockName: block.name,
+          blockDescription: block.description,
+          brand,
+        },
+        ar,
+      );
+      if (url) {
+        block.sample[field.id] = url;
+        generated.push(field.id);
+      } else {
+        failed.push(field.id);
+      }
+    }),
+  );
+  return { generated, failed };
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────
 
 interface GenerateBody {
@@ -146,6 +314,8 @@ interface GenerateBody {
   referenceUrl?: string;
   screenshotDataUrl?: string; // data: URL of an uploaded screenshot
   useBrandVars?: boolean;
+  /** When true, fill every "image" field with an AI-generated image (uploaded to object storage) before returning. */
+  generateImages?: boolean;
   refineInstruction?: string;
   prior?: SchemaBlockPayload | null;
 }
@@ -348,6 +518,29 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
   const { payload, issues } = validateRawSchemaBlock(parsedJson);
   const { errors, warnings } = splitIssues(issues);
 
+  // Optional: replace any "image" sample values with on-brand AI images
+  // before responding. Off by default — generation is opt-in per page.
+  // Tenant-level gate (task #219 follow-up): only honour the request when
+  // the tenant is on a top-tier plan AND has explicitly enabled the
+  // feature in Settings → General. Otherwise return 402 so the dialog can
+  // surface an upgrade prompt instead of silently dropping the toggle.
+  let imageGen: { generated: string[]; failed: string[] } | undefined;
+  if (body.generateImages && payload && errors.length === 0) {
+    const status = await getAiImageGenStatus(tenantId);
+    if (!status.enabled) {
+      res.status(402).json({
+        error: status.available
+          ? "AI image generation is disabled for this workspace. Enable it in Settings → General."
+          : "AI image generation requires a top-tier plan.",
+        code: status.available ? "feature_disabled" : "plan_upgrade_required",
+        plan: status.plan,
+        available: status.available,
+      });
+      return;
+    }
+    imageGen = await fillImageFields(payload, brand);
+  }
+
   res.json({
     block: payload,
     issues,
@@ -356,6 +549,7 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
     valid: errors.length === 0,
     referenceUrl: scraped?.url ?? null,
     usedScreenshot: !!visionImage,
+    imageGen: imageGen ?? null,
   });
 });
 
@@ -451,6 +645,82 @@ router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<
     referenceUrl: scraped?.url ?? null,
     usedScreenshot: !!visionImage,
   });
+});
+
+// ── POST /lp/custom-blocks/generate-image ─────────────────────────────────
+//
+// Per-field image regeneration. Used by the dialog's per-image "Regenerate"
+// button so editors can swap a single image without re-running the whole
+// block generation. Aspect ratio is inferred from the surrounding template
+// markup (or can be supplied explicitly), and the resulting PNG is uploaded
+// to object storage. Returns the served URL the caller should drop into the
+// sample value.
+interface GenerateImageBody {
+  fieldId?: string;
+  fieldLabel?: string;
+  blockName?: string;
+  blockDescription?: string;
+  template?: string;
+  aspectRatio?: AspectRatio;
+  instruction?: string;
+  useBrandVars?: boolean;
+}
+
+const VALID_ASPECT_RATIOS: AspectRatio[] = ["1:1", "16:9", "9:16", "4:3", "3:4"];
+
+router.post("/lp/custom-blocks/generate-image", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+
+  const body = (req.body ?? {}) as GenerateImageBody;
+  const fieldId = typeof body.fieldId === "string" ? body.fieldId.trim() : "";
+  if (!fieldId) {
+    res.status(400).json({ error: "fieldId is required" });
+    return;
+  }
+
+  // Tenant-level gate (task #219 follow-up). Mirrors the gate in /generate
+  // so editors can't bypass the feature toggle by hitting the per-field
+  // regenerate endpoint directly.
+  const status = await getAiImageGenStatus(tenantId);
+  if (!status.enabled) {
+    res.status(402).json({
+      error: status.available
+        ? "AI image generation is disabled for this workspace. Enable it in Settings → General."
+        : "AI image generation requires a top-tier plan.",
+      code: status.available ? "feature_disabled" : "plan_upgrade_required",
+      plan: status.plan,
+      available: status.available,
+    });
+    return;
+  }
+
+  const explicitAr = body.aspectRatio && VALID_ASPECT_RATIOS.includes(body.aspectRatio)
+    ? body.aspectRatio
+    : null;
+  const aspectRatio: AspectRatio = explicitAr
+    ?? inferImageAspectRatio(typeof body.template === "string" ? body.template : "", fieldId);
+
+  const brand = body.useBrandVars ? await loadBrandHints(tenantId) : null;
+
+  const url = await generateAndStoreImage(
+    {
+      fieldId,
+      fieldLabel: typeof body.fieldLabel === "string" ? body.fieldLabel : undefined,
+      blockName: typeof body.blockName === "string" ? body.blockName : undefined,
+      blockDescription: typeof body.blockDescription === "string" ? body.blockDescription : undefined,
+      brand,
+      instruction: typeof body.instruction === "string" ? body.instruction : undefined,
+    },
+    aspectRatio,
+  );
+
+  if (!url) {
+    res.status(502).json({ error: "Image generation failed" });
+    return;
+  }
+
+  res.json({ url, aspectRatio });
 });
 
 export default router;

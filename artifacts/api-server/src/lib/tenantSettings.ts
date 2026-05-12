@@ -30,3 +30,46 @@ export async function tenantRequiresReview(
   // null, malformed) keeps the safe-by-default review-required behaviour.
   return raw !== false;
 }
+
+/**
+ * Tenant-wide AI image generation toggle (task #219 follow-up).
+ *
+ * AI image generation in the custom-block flow is a paid, top-tier-only
+ * feature. Two gates apply:
+ *
+ *   1. The tenant's `plan` must be one of TOP_TIER_PLANS — otherwise the
+ *      feature is "unavailable" and cannot be turned on at all.
+ *   2. The tenant must have explicitly flipped `settings.aiImageGenEnabled`
+ *      to true. Defaults to false even on top-tier plans, so we never
+ *      silently spend image-API credits.
+ *
+ * `available` lets the UI surface an upgrade prompt; `enabled` is the gate
+ * the backend image-generation routes use to decide whether to honour a
+ * request.
+ */
+export const TOP_TIER_PLANS: ReadonlySet<string> = new Set(["pro", "enterprise"]);
+
+export interface AiImageGenStatus {
+  /** True when the tenant's plan permits the feature (regardless of toggle). */
+  available: boolean;
+  /** True when the tenant has the feature both available AND turned on. */
+  enabled: boolean;
+  /** Raw plan value, surfaced for upgrade messaging. */
+  plan: string;
+}
+
+export async function getAiImageGenStatus(
+  tenantId: number | null | undefined,
+): Promise<AiImageGenStatus> {
+  if (tenantId == null) return { available: false, enabled: false, plan: "" };
+  const r = await pool.query<{ plan: string | null; settings: { aiImageGenEnabled?: unknown } | null }>(
+    `SELECT plan, settings FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  const row = r.rows[0];
+  if (!row) return { available: false, enabled: false, plan: "" };
+  const plan = row.plan ?? "trial";
+  const available = TOP_TIER_PLANS.has(plan);
+  const enabled = available && row.settings?.aiImageGenEnabled === true;
+  return { available, enabled, plan };
+}
