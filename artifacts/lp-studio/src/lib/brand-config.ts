@@ -481,11 +481,10 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
           ? `APPROVED SEGMENT STATS (use ONLY these — do not invent percentages or counts):\n${segLines.join("\n")}`
           : `Segment stats:\n${segLines.join("\n")}`,
       );
-    } else if (strict) {
-      parts.push(
-        "APPROVED SEGMENT STATS: (none) — for any stat slot, use the literal placeholder \"\u2014 add a stat in Brand Settings\" instead of inventing numbers.",
-      );
     }
+    // Strict mode + no approved stats → omit the section entirely. The
+    // STRICT_FACTS_INSTRUCTION block appended below already tells the model
+    // to emit the placeholder for any stat slot it can't fill.
   }
   if (brand.aiStrictFactsMode) {
     parts.push(STRICT_FACTS_INSTRUCTION);

@@ -37,7 +37,22 @@ interface BrandHints {
   backgroundColor?: string;
   headingFont?: string;
   bodyFont?: string;
+  /** Task #253 — locked-down fact pool surfaced to the model when the
+   *  tenant has `aiStrictFactsMode` on. We always pass the approved subset
+   *  so the model can quote it; the strict toggle just gates whether the
+   *  "do not invent" instruction is appended. */
+  aiStrictFactsMode?: boolean;
+  approvedClaims?: string[];
+  approvedStats?: string[];
 }
+
+/** Task #253 — keep wording in sync with lp-studio/brand-config.ts and
+ *  api-server/routes/lp/generate-page.ts. */
+const STRICT_FACTS_INSTRUCTION =
+  "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
+  "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
+  "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
+  "or proof point that is not provided, omit it rather than making one up.";
 
 function isHexLike(s: unknown): s is string {
   return typeof s === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s.trim());
@@ -142,6 +157,21 @@ function buildUserPrompt(opts: {
     if (b.bodyFont) lines.push(`body font: ${b.bodyFont}`);
     if (lines.length > 0) {
       parts.push(`BRAND PALETTE — emit literal hex values matching these in any color fields and in inline <style> defaults. Use these font-families when emitting text styles.\n${lines.join("\n")}`);
+    }
+    // Task #253 — surface the approved fact pool. In strict mode, append
+    // the non-invention instruction.
+    if (b.approvedClaims?.length) {
+      parts.push(
+        `${b.aiStrictFactsMode ? "APPROVED CLAIMS (use ONLY these for proof points)" : "Approved claims"}:\n${b.approvedClaims.map((c) => `- ${c}`).join("\n")}`,
+      );
+    }
+    if (b.approvedStats?.length) {
+      parts.push(
+        `${b.aiStrictFactsMode ? "APPROVED STATS (use ONLY these — do not invent numbers)" : "Stats"}:\n${b.approvedStats.map((s) => `- ${s}`).join("\n")}`,
+      );
+    }
+    if (b.aiStrictFactsMode) {
+      parts.push(STRICT_FACTS_INSTRUCTION);
     }
   }
   if (opts.scraped) {
@@ -697,6 +727,42 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
     const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
     const cfg = rows[0]?.config as Record<string, unknown> | undefined;
     if (!cfg) return null;
+    // Task #253 — collect approved claims + per-segment stats so the
+    // generator has the same locked-down fact pool the page-level route
+    // uses. Filtering rules:
+    //   - claims may be legacy strings (treated as approved) or
+    //     {text, approvedForAi} objects.
+    //   - stats: skip when approvedForAi === false.
+    const strict = cfg.aiStrictFactsMode === true;
+    const approvedClaims: string[] = [];
+    const productLines = Array.isArray(cfg.productLines) ? cfg.productLines as Array<Record<string, unknown>> : [];
+    for (const pl of productLines) {
+      const claims = Array.isArray(pl.claims) ? pl.claims as unknown[] : [];
+      for (const c of claims) {
+        if (typeof c === "string") {
+          const t = c.trim();
+          if (t) approvedClaims.push(t);
+        } else if (c && typeof c === "object") {
+          const obj = c as { text?: unknown; approvedForAi?: unknown };
+          if (strict && obj.approvedForAi === false) continue;
+          const t = typeof obj.text === "string" ? obj.text.trim() : "";
+          if (t) approvedClaims.push(t);
+        }
+      }
+    }
+    const approvedStats: string[] = [];
+    const segments = Array.isArray(cfg.segments) ? cfg.segments as Array<Record<string, unknown>> : [];
+    for (const seg of segments) {
+      const stats = Array.isArray(seg.stats) ? seg.stats as Array<Record<string, unknown>> : [];
+      for (const s of stats) {
+        if (strict && s.approvedForAi === false) continue;
+        const v = typeof s.value === "string" ? s.value.trim() : "";
+        const l = typeof s.label === "string" ? s.label.trim() : "";
+        if (!v && !l) continue;
+        approvedStats.push(`${v} ${l}`.trim());
+      }
+    }
+
     return {
       primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
       accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
@@ -704,6 +770,9 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
       backgroundColor: isHexLike(cfg.backgroundColor) ? cfg.backgroundColor.trim() : undefined,
       headingFont: typeof cfg.headingFont === "string" ? cfg.headingFont : undefined,
       bodyFont: typeof cfg.bodyFont === "string" ? cfg.bodyFont : undefined,
+      aiStrictFactsMode: strict,
+      approvedClaims: approvedClaims.length ? approvedClaims.slice(0, 24) : undefined,
+      approvedStats: approvedStats.length ? approvedStats.slice(0, 24) : undefined,
     };
   } catch { return null; }
 }

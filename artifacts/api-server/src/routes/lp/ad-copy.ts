@@ -115,7 +115,40 @@ interface BrandConfig {
   avoidPhrases?: string[];
   targetAudience?: string;
   copyExamples?: string[];
-  segments?: { id: string; name: string; description?: string; messagingAngle?: string }[];
+  segments?: {
+    id: string;
+    name: string;
+    description?: string;
+    messagingAngle?: string;
+    /** Task #253 — per-segment approved-only stat pool. */
+    stats?: { value?: string; label?: string; approvedForAi?: boolean }[];
+  }[];
+  productLines?: {
+    name?: string;
+    claims?: Array<string | { text?: string; approvedForAi?: boolean }>;
+  }[];
+  /** Task #253 — when true, only approved claims/stats may be used and the
+   *  model is instructed not to invent numeric facts. */
+  aiStrictFactsMode?: boolean;
+}
+
+/** Task #253 — mirrors `STRICT_FACTS_INSTRUCTION` in lp-studio/brand-config
+ *  and api-server/routes/lp/generate-page.ts. Keep wording in sync. */
+const STRICT_FACTS_INSTRUCTION =
+  "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
+  "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
+  "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
+  "or proof point that is not provided, omit it rather than making one up.";
+
+function getClaimText(c: string | { text?: string } | null | undefined): string {
+  if (!c) return "";
+  if (typeof c === "string") return c.trim();
+  return (c.text ?? "").trim();
+}
+function isClaimApproved(c: string | { approvedForAi?: boolean } | null | undefined): boolean {
+  if (!c) return false;
+  if (typeof c === "string") return true; // legacy unmigrated rows are trusted
+  return c.approvedForAi !== false;
 }
 
 async function fetchBrand(tenantId: number): Promise<BrandConfig> {
@@ -141,6 +174,38 @@ function buildBrandPrompt(brand: BrandConfig, segmentName?: string, toneOverride
     if (seg?.messagingAngle) parts.push(`Messaging angle: ${seg.messagingAngle}.`);
   }
   if (brand.copyExamples?.length) parts.push(`Style references: ${brand.copyExamples.slice(0, 6).join(" | ")}.`);
+
+  // Task #253 — surface approved facts (claims + per-segment stats) and, in
+  // strict mode, instruct the model not to invent numbers. We always show
+  // approved facts (so the model can quote them) but only emit the strict
+  // instruction when the toggle is on.
+  const strict = brand.aiStrictFactsMode === true;
+  const approvedClaims: string[] = [];
+  for (const pl of brand.productLines ?? []) {
+    for (const c of pl.claims ?? []) {
+      if (strict && !isClaimApproved(c)) continue;
+      const t = getClaimText(c);
+      if (t) approvedClaims.push(t);
+    }
+  }
+  if (approvedClaims.length) {
+    parts.push(`${strict ? "APPROVED CLAIMS (use ONLY these for proof points)" : "Approved claims"}: ${approvedClaims.slice(0, 12).join(" | ")}.`);
+  }
+  const segStats: string[] = [];
+  for (const seg of brand.segments ?? []) {
+    for (const s of seg.stats ?? []) {
+      if (strict && s.approvedForAi === false) continue;
+      const v = (s.value ?? "").trim();
+      const l = (s.label ?? "").trim();
+      if (!v && !l) continue;
+      segStats.push(`${v} ${l}`.trim());
+    }
+  }
+  if (segStats.length) {
+    parts.push(`${strict ? "APPROVED STATS (use ONLY these — do not invent numbers)" : "Stats"}: ${segStats.slice(0, 12).join(" | ")}.`);
+  }
+  if (strict) parts.push(STRICT_FACTS_INSTRUCTION);
+
   return parts.join("\n");
 }
 
