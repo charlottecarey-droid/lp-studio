@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type { CustomSchemaBlockProps, SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useCustomBlock } from "@/lib/custom-blocks-context";
@@ -18,10 +18,13 @@ import { useCustomBlock } from "@/lib/custom-blocks-context";
  * mounted outside the context, or the source block was deleted), we fall
  * back to whatever schema/template is stored on the instance.
  *
- * Templates are rendered inside a sandboxed iframe (same approach as
- * BlockCustomHtml) so authored CSS/scripts can't escape into the host page.
- * Field values are HTML-escaped before substitution to defend against
- * placeholder-based XSS.
+ * Templates render inline via dangerouslySetInnerHTML — no iframe — so the
+ * block flows naturally with the surrounding page (no scroll-height hacks,
+ * no awkward reflow). Safety is enforced server-side by the schema-block
+ * validator (task #210), which rejects <script>, <iframe>, on*= handlers,
+ * javascript: URLs, and external <link>/<script src> before the template
+ * can ever land in the database. Field values are HTML-escaped before
+ * substitution to defend against placeholder-based XSS.
  */
 
 function escapeHtml(s: string): string {
@@ -52,7 +55,6 @@ interface Props {
 }
 
 export function BlockCustomSchema({ props }: Props) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const source = useCustomBlock(props.customBlockId);
 
   // Live schema/template come from the source custom block when available;
@@ -71,38 +73,8 @@ export function BlockCustomSchema({ props }: Props) {
       ...sharedValues,
       ...(props.values || {}),
     };
-    const body = interpolate(template, merged);
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body { margin: 0; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #0f172a; }
-</style>
-</head>
-<body>${body}</body>
-</html>`;
+    return interpolate(template, merged);
   }, [schema, template, props.values, sharedValues]);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) return;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    const resize = () => {
-      try {
-        const h = doc.documentElement?.scrollHeight ?? 200;
-        iframe.style.height = `${h}px`;
-      } catch { /* same-origin srcdoc shouldn't throw, but be defensive */ }
-    };
-    resize();
-    const t = setTimeout(resize, 60);
-    return () => clearTimeout(t);
-  }, [html]);
 
   if (!template.trim()) {
     return (
@@ -113,12 +85,9 @@ export function BlockCustomSchema({ props }: Props) {
   }
 
   return (
-    <iframe
-      ref={iframeRef}
-      title={source?.name || props.customBlockName || "Custom block"}
-      sandbox="allow-same-origin"
-      className="w-full block border-0"
-      style={{ minHeight: 80 }}
+    <div
+      className="lp-custom-schema-block w-full"
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }

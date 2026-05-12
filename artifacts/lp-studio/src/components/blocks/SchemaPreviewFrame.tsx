@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type { SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 
 /**
- * Standalone iframe preview for schema-driven custom blocks (task #202).
+ * Inline preview for schema-driven custom blocks (task #202, refactored to
+ * drop the iframe wrapper).
  *
- * Renders the given template/schema/values combination inside a sandboxed
- * iframe so authored CSS/scripts can't escape into the host page. Used by
- * the schema-block editor to show a live "before/after" preview of the
- * change before saving and again inside the affected-pages confirm dialog
- * as a thumbnail diff.
+ * Renders the given template/schema/values combination directly via
+ * dangerouslySetInnerHTML so the preview matches the runtime exactly (which
+ * also no longer iframes). Safety is enforced server-side by the validator
+ * (task #210) that runs on both the generate and the save paths — no
+ * <script>/<iframe>/on*=/javascript:/external <link>/<script src> can reach
+ * here. CSS scoping is the template's responsibility (the AI prompt
+ * instructs a unique root class on every selector).
  *
  * Mirrors the substitution + escaping rules used by BlockCustomSchema so
  * the preview matches what editors will actually see on rendered pages.
@@ -50,49 +53,21 @@ interface Props {
   schema: SchemaFieldDef[];
   template: string;
   values: Record<string, SchemaFieldValue>;
-  /** Display height — when "auto" the iframe expands to fit content. */
+  /**
+   * "auto" lets the rendered block size to its natural height.
+   * "thumbnail" caps height + clips overflow for compact previews
+   * (e.g. the affected-pages confirm dialog).
+   */
   mode?: "auto" | "thumbnail";
   className?: string;
 }
 
 export function SchemaPreviewFrame({ schema, template, values, mode = "auto", className }: Props) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
   const html = useMemo(() => {
+    if (!template.trim()) return "";
     const merged = { ...defaultsFromSchema(schema), ...values };
-    const body = template.trim() ? interpolate(template, merged) : "";
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body { margin: 0; padding: 12px; font-family: system-ui, -apple-system, sans-serif; color: #0f172a; }
-</style>
-</head>
-<body>${body}</body>
-</html>`;
+    return interpolate(template, merged);
   }, [schema, template, values]);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) return;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    if (mode !== "auto") return;
-    const resize = () => {
-      try {
-        const h = doc.documentElement?.scrollHeight ?? 200;
-        iframe.style.height = `${h}px`;
-      } catch { /* ignore */ }
-    };
-    resize();
-    const t = setTimeout(resize, 60);
-    return () => clearTimeout(t);
-  }, [html, mode]);
 
   if (!template.trim()) {
     return (
@@ -102,13 +77,16 @@ export function SchemaPreviewFrame({ schema, template, values, mode = "auto", cl
     );
   }
 
+  const style: React.CSSProperties =
+    mode === "thumbnail"
+      ? { height: 180, overflow: "hidden" }
+      : {};
+
   return (
-    <iframe
-      ref={iframeRef}
-      title="Schema block preview"
-      sandbox="allow-same-origin"
-      className={`w-full block border-0 ${className ?? ""}`}
-      style={mode === "thumbnail" ? { height: 180 } : { minHeight: 80 }}
+    <div
+      className={`lp-schema-preview w-full ${className ?? ""}`}
+      style={style}
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }
