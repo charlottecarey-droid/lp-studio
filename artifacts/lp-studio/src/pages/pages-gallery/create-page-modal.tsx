@@ -27,6 +27,11 @@ type CreateMode = "template" | "ai" | "brief";
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Which tab to land on when the dialog opens. Defaults to "template".
+   *  Read on every false→true transition so launchers (NewLauncher entries
+   *  like "With AI") jump straight to the matching tab instead of always
+   *  showing the template picker first. */
+  initialMode?: CreateMode;
   segments: AudienceSegment[];
   selectedSegmentId: string;
   setSelectedSegmentId: (id: string) => void;
@@ -49,6 +54,7 @@ interface Props {
 export function CreatePageModal({
   open,
   onClose,
+  initialMode,
   segments,
   selectedSegmentId,
   setSelectedSegmentId,
@@ -60,7 +66,7 @@ export function CreatePageModal({
   onAiGenerate,
   onOpenBriefModal,
 }: Props) {
-  const [createMode, setCreateMode] = useState<CreateMode>("template");
+  const [createMode, setCreateMode] = useState<CreateMode>(initialMode ?? "template");
   const [newTitle, setNewTitle] = useState("");
   const [newSlug, setNewSlug] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("blank");
@@ -73,14 +79,18 @@ export function CreatePageModal({
   const [aiGenerating, setAiGenerating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Reset transient internal state whenever the dialog closes so reopening
-  // starts from a clean slate (matches the legacy behaviour).
+  // Reset transient state on close, and honour `initialMode` on every
+  // false→true transition so callers (e.g. the NewLauncher dropdown) can
+  // jump straight to the AI / Brief tab on subsequent openings instead of
+  // always landing on Template.
   useEffect(() => {
-    if (!open) {
+    if (open) {
       setCreateError(null);
-      setCreateMode("template");
+      setCreateMode(initialMode ?? "template");
+    } else {
+      setCreateError(null);
     }
-  }, [open]);
+  }, [open, initialMode]);
 
   const handleTitleChange = (v: string) => {
     setNewTitle(v);

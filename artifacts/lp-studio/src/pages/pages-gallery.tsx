@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Plus, BookOpen } from "lucide-react";
@@ -43,11 +43,26 @@ import { CreatePageModal } from "./pages-gallery/create-page-modal";
 export default function PagesGallery() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(() => new URLSearchParams(window.location.search).get("new") === "1");
+  // `?new=` controls which entry point the gallery should open on mount:
+  //   - "brief"            → open ContentBriefModal directly
+  //   - "ai" | "template"  → open CreatePageModal pre-selected to that tab
+  //   - "1"                → legacy alias for "template" (kept for old links)
+  // Anything else means "don't auto-open".
+  const initialNewParam = useMemo(() => {
+    const v = new URLSearchParams(window.location.search).get("new");
+    if (v === "ai" || v === "brief" || v === "template") return v;
+    if (v === "1") return "template" as const;
+    return null;
+  }, []);
+  const [createModalMode, setCreateModalMode] = useState<"template" | "ai" | null>(
+    initialNewParam === "ai" || initialNewParam === "template" ? initialNewParam : null,
+  );
+  const showCreateModal = createModalMode !== null;
+  const setShowCreateModal = (v: boolean) => setCreateModalMode(v ? "template" : null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
   const [abTestPage, setAbTestPage] = useState<{ id: number; title: string; slug: string } | null>(null);
   const [personalizedLinksPage, setPersonalizedLinksPage] = useState<{ id: number; title: string; slug: string } | null>(null);
-  const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [briefModalOpen, setBriefModalOpen] = useState(initialNewParam === "brief");
   const [cloningPageId, setCloningPageId] = useState<number | null>(null);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const segmentNameById = useMemo(() => {
@@ -67,6 +82,32 @@ export default function PagesGallery() {
     window.history.replaceState({}, "", url.toString());
   };
   const [, navigate] = useLocation();
+  const search = useSearch();
+
+  // React to `?new=` changes after mount so clicking a NewLauncher entry
+  // while already on /pages still opens the matching modal/tab. Without
+  // this, only the initial mount value (read once via useMemo) would take
+  // effect and subsequent in-app navigations would be no-ops.
+  useEffect(() => {
+    const v = new URLSearchParams(search).get("new");
+    if (v === "brief") {
+      setBriefModalOpen(true);
+      setCreateModalMode(null);
+    } else if (v === "ai" || v === "template") {
+      setCreateModalMode(v);
+      setBriefModalOpen(false);
+    } else if (v === "1") {
+      setCreateModalMode("template");
+      setBriefModalOpen(false);
+    }
+    // Strip the `?new=` param after consuming it so that closing the modal
+    // and reopening it doesn't immediately re-trigger this effect.
+    if (v !== null) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [search]);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [searchQuery, setSearchQuery] = useState("");
@@ -498,6 +539,7 @@ export default function PagesGallery() {
 
       <CreatePageModal
         open={showCreateModal}
+        initialMode={createModalMode ?? undefined}
         onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); }}
         segments={segments}
         selectedSegmentId={selectedSegmentId}

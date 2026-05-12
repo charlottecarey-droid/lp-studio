@@ -50,11 +50,18 @@ export function NewLauncher({
       <DropdownMenuContent align="end" className="w-60">
         {canPages && (
           <>
-            <DropdownMenuItem onClick={() => go("/pages?new=1")} className="gap-2.5 py-2.5">
+            <DropdownMenuItem onClick={() => go("/pages?new=ai")} className="gap-2.5 py-2.5">
               <Sparkles className="w-4 h-4 text-violet-500 shrink-0" />
               <div className="flex-1">
-                <div className="text-sm font-medium">From a brief (AI)</div>
-                <div className="text-[11px] text-muted-foreground">Describe the audience, get a draft</div>
+                <div className="text-sm font-medium">With AI</div>
+                <div className="text-[11px] text-muted-foreground">Describe the page, get a draft</div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => go("/pages?new=brief")} className="gap-2.5 py-2.5">
+              <FileText className="w-4 h-4 text-violet-500 shrink-0" />
+              <div className="flex-1">
+                <div className="text-sm font-medium">From a brief</div>
+                <div className="text-[11px] text-muted-foreground">Answer a few questions, get a draft</div>
               </div>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => go("/templates")} className="gap-2.5 py-2.5">
@@ -64,7 +71,7 @@ export function NewLauncher({
                 <div className="text-[11px] text-muted-foreground">Browse and clone</div>
               </div>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => go("/pages/new")} className="gap-2.5 py-2.5">
+            <DropdownMenuItem onClick={() => go("/pages?new=template")} className="gap-2.5 py-2.5">
               <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
               <div className="flex-1">
                 <div className="text-sm font-medium">Blank page</div>
