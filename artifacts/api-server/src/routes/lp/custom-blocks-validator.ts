@@ -7,8 +7,9 @@
 //
 // Task #227 widened the template engine to support a tiny Handlebars subset:
 //   {{field}}, {{this.subfield}}, {{#each list}}, {{#if field}}…{{else}}…{{/if}}
-// and added a new "list" field type (array of objects with a scalar
-// itemSchema). The validator now parses the template via
+//   {{#each this.subList}} (one level of nesting, e.g. nav_columns → links)
+// and added a new "list" field type (array of objects with a scalar or
+// one-level-list itemSchema). The validator now parses the template via
 // `schema-template-engine.parseAndValidate` and carries those issues through
 // the existing ValidationIssue shape so the dialog/UI can keep displaying
 // them inline.
@@ -30,7 +31,8 @@ export const SCHEMA_FIELD_TYPES = [
 ] as const;
 export type SchemaFieldType = (typeof SCHEMA_FIELD_TYPES)[number];
 const FIELD_TYPE_SET = new Set<string>(SCHEMA_FIELD_TYPES);
-const SCALAR_TYPE_SET = new Set<string>(SCHEMA_FIELD_TYPES.filter(t => t !== "list"));
+/** Max nesting depth for "list" fields. 1 = top-level list, 2 = list inside list. */
+const MAX_LIST_DEPTH = 2;
 
 export interface SchemaFieldDef {
   id: string;
@@ -41,7 +43,11 @@ export interface SchemaFieldDef {
   placeholder?: string;
   helpText?: string;
   required?: boolean;
-  /** Only valid when `type === "list"`. Sub-fields must be scalar (no nested list). */
+  /**
+   * Only valid when `type === "list"`. Sub-fields are scalar or — at the
+   * outermost list only — another "list" (one level of nesting; engine
+   * caps total #each depth at 2).
+   */
   itemSchema?: SchemaFieldDef[];
 }
 
@@ -96,16 +102,17 @@ function coerceScalar(v: unknown): Scalar | undefined {
 }
 
 /**
- * Coerce a single field def. `parentPath` is used for nested issue paths
- * (item subfields). When `allowList` is false (i.e. inside an itemSchema)
- * the "list" type is rejected so we never recurse.
+ * Coerce a single field def. `parentPath` is used for nested issue paths.
+ * `depth` tracks list-nesting (0 at top, 1 inside a top-level list, etc).
+ * Lists are rejected when `depth >= MAX_LIST_DEPTH`, so the resulting tree
+ * is at most two levels deep (e.g. nav_columns → links → scalars).
  */
 function coerceField(
   raw: unknown,
   idx: number,
   issues: ValidationIssue[],
   parentPath: string,
-  allowList: boolean,
+  depth: number,
 ): SchemaFieldDef | null {
   if (!raw || typeof raw !== "object") {
     issues.push({ level: "error", path: `${parentPath}.${idx}`, code: "field.invalid", message: `${parentPath}[${idx}] is not an object` });
@@ -127,12 +134,12 @@ function coerceField(
     });
     return null;
   }
-  if (type === "list" && !allowList) {
+  if (type === "list" && depth >= MAX_LIST_DEPTH) {
     issues.push({
       level: "error",
       path: `${parentPath}.${id}`,
       code: "field.nested_list",
-      message: `field "${id}" cannot be type "list" inside another list — nested lists are not supported`,
+      message: `field "${id}" is too deeply nested — list fields can be nested at most ${MAX_LIST_DEPTH - 1} level deep`,
     });
     return null;
   }
@@ -152,7 +159,7 @@ function coerceField(
     const subOut: SchemaFieldDef[] = [];
     const subSeen = new Set<string>();
     subRaw.forEach((s, sIdx) => {
-      const sub = coerceField(s, sIdx, issues, `schema.field.${id}.item`, false);
+      const sub = coerceField(s, sIdx, issues, `schema.field.${id}.item`, depth + 1);
       if (!sub) return;
       if (subSeen.has(sub.id)) {
         issues.push({ level: "error", path: `schema.field.${id}.item.${sub.id}`, code: "subfield.duplicate", message: `duplicate subfield id "${sub.id}" in list "${id}"` });
@@ -197,7 +204,7 @@ export function coerceSchema(raw: unknown, issues: ValidationIssue[]): SchemaFie
   const out: SchemaFieldDef[] = [];
   const seen = new Set<string>();
   raw.forEach((f, idx) => {
-    const def = coerceField(f, idx, issues, "schema.field", true);
+    const def = coerceField(f, idx, issues, "schema.field", 0);
     if (!def) return;
     if (seen.has(def.id)) {
       issues.push({ level: "error", path: `schema.field.${def.id}`, code: "field.duplicate", message: `duplicate field id "${def.id}"` });
@@ -217,8 +224,12 @@ function coerceListValue(raw: unknown, itemSchema: SchemaFieldDef[]): ListItem[]
     const r = row as Record<string, unknown>;
     const item: ListItem = {};
     for (const sub of itemSchema) {
-      const sv = coerceScalar(r[sub.id]);
-      if (sv !== undefined) item[sub.id] = sv;
+      if (sub.type === "list") {
+        item[sub.id] = coerceListValue(r[sub.id], sub.itemSchema ?? []);
+      } else {
+        const sv = coerceScalar(r[sub.id]);
+        if (sv !== undefined) item[sub.id] = sv;
+      }
     }
     out.push(item);
   }
@@ -274,32 +285,38 @@ export function validateSchemaBlock(payload: SchemaBlockPayload): ValidationIssu
   for (const { re, code, msg } of UNSAFE_TEMPLATE_PATTERNS) {
     if (re.test(tpl)) issues.push({ level: "error", path: "template", code, message: `template: ${msg}` });
   }
-  // Defensive per-field check: scalar fields must not declare itemSchema;
-  // list fields must declare it (already enforced in coerceField, but guard
-  // here in case a payload was constructed in code).
-  for (const f of payload.schema) {
-    if (f.type === "list") {
+  // Defensive per-field check: list fields must declare itemSchema and may
+  // not nest more than one level deep (already enforced in coerceField, but
+  // guard here in case a payload was constructed in code).
+  function checkListShape(fields: SchemaFieldDef[], depth: number, parentPath: string): void {
+    for (const f of fields) {
+      if (f.type !== "list") continue;
       if (!f.itemSchema || f.itemSchema.length === 0) {
         issues.push({
           level: "error",
-          path: `schema.field.${f.id}`,
+          path: `${parentPath}.${f.id}`,
           code: "list.empty_item_schema",
           message: `list field "${f.id}" must declare at least one subfield in itemSchema`,
         });
-      } else {
+        continue;
+      }
+      if (depth + 1 >= MAX_LIST_DEPTH) {
+        // Nested-list children at this depth would push us past the cap.
         for (const sub of f.itemSchema) {
-          if (!SCALAR_TYPE_SET.has(sub.type)) {
+          if (sub.type === "list") {
             issues.push({
               level: "error",
-              path: `schema.field.${f.id}.item.${sub.id}`,
-              code: "subfield.non_scalar",
-              message: `subfield "${f.id}.${sub.id}" must be a scalar type, got "${sub.type}"`,
+              path: `${parentPath}.${f.id}.item.${sub.id}`,
+              code: "subfield.too_deep",
+              message: `subfield "${f.id}.${sub.id}" is too deeply nested — only ${MAX_LIST_DEPTH - 1} level of list nesting is allowed`,
             });
           }
         }
       }
+      checkListShape(f.itemSchema, depth + 1, `${parentPath}.${f.id}.item`);
     }
   }
+  checkListShape(payload.schema, 0, "schema.field");
   // Engine-driven parse + schema-aware validation. Replaces the old
   // flat-{{token}} regex check.
   const { issues: engineIssues } = parseAndValidate(tpl, payload.schema as EngineFieldDef[]);

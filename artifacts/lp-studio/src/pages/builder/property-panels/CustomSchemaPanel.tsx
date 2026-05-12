@@ -144,7 +144,10 @@ function isEmpty(field: SchemaFieldDef, v: SchemaFieldValue | undefined): boolea
 function defaultRow(itemSchema: SchemaFieldDef[]): SchemaListItem {
   const row: SchemaListItem = {};
   for (const sub of itemSchema) {
-    row[sub.id] = sub.type === "boolean" ? false : sub.type === "number" ? 0 : "";
+    row[sub.id] = sub.type === "boolean" ? false
+      : sub.type === "number" ? 0
+      : sub.type === "list" ? []
+      : "";
   }
   return row;
 }
@@ -296,7 +299,7 @@ function ListFieldEditor({
         : [];
 
   const setRows = (rows: SchemaListItem[]) => onChange(rows);
-  const setCell = (rowIdx: number, subId: string, v: string | number | boolean) => {
+  const setCell = (rowIdx: number, subId: string, v: string | number | boolean | SchemaListItem[]) => {
     const next = effective.map((r, i) => i === rowIdx ? { ...r, [subId]: v } : r);
     setRows(next);
   };
@@ -356,7 +359,20 @@ function ListFieldEditor({
                 </Button>
               </div>
             </div>
-            {itemSchema.map(sub => (
+            {itemSchema.map(sub => {
+              if (sub.type === "list") {
+                const nested = Array.isArray(row[sub.id]) ? (row[sub.id] as SchemaListItem[]) : [];
+                return (
+                  <NestedListCell
+                    key={sub.id}
+                    label={sub.label}
+                    itemSchema={sub.itemSchema ?? []}
+                    rows={nested}
+                    onChange={next => setCell(rIdx, sub.id, next)}
+                  />
+                );
+              }
+              return (
               <div key={sub.id}>
                 <Label className="text-[11px] text-muted-foreground">{sub.label}</Label>
                 {sub.type === "longText" ? (
@@ -380,7 +396,8 @@ function ListFieldEditor({
                   <Input className="mt-0.5 h-8 text-xs" value={String(row[sub.id] ?? "")} onChange={e => setCell(rIdx, sub.id, e.target.value)} placeholder={sub.placeholder} />
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         ))}
         <Button type="button" size="sm" variant="outline" className="w-full gap-1 h-7 text-xs" onClick={addRow}>
@@ -394,6 +411,86 @@ function ListFieldEditor({
         </p>
       )}
       {showRequiredWarning && <p className="text-xs text-red-600 mt-1">At least one row is required.</p>}
+    </div>
+  );
+}
+
+/**
+ * Compact editor for a "list"-typed cell inside a row of an outer list
+ * (one level of nesting, e.g. nav_columns → links). Add/remove/reorder
+ * inner rows; per-cell scalar inputs only — deeper nesting is forbidden
+ * by the validator and the schema editor.
+ */
+function NestedListCell({
+  label,
+  itemSchema,
+  rows,
+  onChange,
+}: {
+  label: string;
+  itemSchema: SchemaFieldDef[];
+  rows: SchemaListItem[];
+  onChange: (next: SchemaListItem[]) => void;
+}) {
+  const blank = (): SchemaListItem => {
+    const r: SchemaListItem = {};
+    for (const s of itemSchema) r[s.id] = s.type === "boolean" ? false : s.type === "number" ? 0 : "";
+    return r;
+  };
+  const setCell = (i: number, sid: string, v: string | number | boolean) =>
+    onChange(rows.map((r, idx) => idx === i ? { ...r, [sid]: v } : r));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  return (
+    <div className="border-l-2 border-amber-200 pl-2 ml-1 space-y-1">
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px] text-muted-foreground">{label} <span className="text-[10px]">({rows.length})</span></Label>
+        <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 text-xs" onClick={() => onChange([...rows, blank()])}>
+          <Plus className="w-3 h-3" /> Add
+        </Button>
+      </div>
+      {rows.map((row, rIdx) => (
+        <div key={rIdx} className="border border-border rounded-md p-1.5 bg-background space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Item {rIdx + 1}</span>
+            <div className="flex items-center gap-0.5">
+              <Button type="button" size="icon" variant="ghost" className="h-5 w-5" onClick={() => move(rIdx, -1)} disabled={rIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
+              <Button type="button" size="icon" variant="ghost" className="h-5 w-5" onClick={() => move(rIdx, 1)} disabled={rIdx === rows.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+              <Button type="button" size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => onChange(rows.filter((_, i) => i !== rIdx))}><Trash2 className="w-3 h-3" /></Button>
+            </div>
+          </div>
+          {itemSchema.map(sub => (
+            <div key={sub.id}>
+              <Label className="text-[10px] text-muted-foreground">{sub.label}</Label>
+              {sub.type === "longText" ? (
+                <Textarea rows={2} className="mt-0.5 text-xs" value={String(row[sub.id] ?? "")} onChange={e => setCell(rIdx, sub.id, e.target.value)} />
+              ) : sub.type === "boolean" ? (
+                <div className="mt-0.5"><Switch checked={Boolean(row[sub.id])} onCheckedChange={c => setCell(rIdx, sub.id, c)} /></div>
+              ) : sub.type === "number" ? (
+                <Input type="number" className="mt-0.5 h-7 text-xs" value={String(row[sub.id] ?? 0)} onChange={e => setCell(rIdx, sub.id, Number(e.target.value))} />
+              ) : sub.type === "color" ? (
+                <Input type="color" className="mt-0.5 h-7" value={String(row[sub.id] ?? "#000000")} onChange={e => setCell(rIdx, sub.id, e.target.value)} />
+              ) : sub.type === "image" ? (
+                <ImagePicker label="" value={String(row[sub.id] ?? "")} onChange={url => setCell(rIdx, sub.id, url)} />
+              ) : sub.type === "select" ? (
+                <Select value={String(row[sub.id] ?? "")} onValueChange={v => setCell(rIdx, sub.id, v)}>
+                  <SelectTrigger className="mt-0.5 h-7 text-xs"><SelectValue placeholder="Choose…" /></SelectTrigger>
+                  <SelectContent>
+                    {(sub.options ?? []).map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input className="mt-0.5 h-7 text-xs" value={String(row[sub.id] ?? "")} onChange={e => setCell(rIdx, sub.id, e.target.value)} placeholder={sub.placeholder} />
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

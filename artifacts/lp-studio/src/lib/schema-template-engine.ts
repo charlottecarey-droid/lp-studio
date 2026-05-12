@@ -8,21 +8,33 @@
  * Keep the two copies in sync. Pure TS, no DOM/React deps.
  *
  * Supported syntax:
- *   {{field}}                      — scalar field, HTML-escaped
- *   {{this.subfield}}              — inside #each, current item subfield
- *   {{#each list}}…{{/each}}       — iterate a "list" field (array of objects)
- *   {{#if field}}…{{else}}…{{/if}} — boolean branch on a scalar field
- *   {{#if this.subfield}}…{{/if}}  — same, inside #each
+ *   {{field}}                              — scalar field, HTML-escaped
+ *   {{this.subfield}}                      — inside #each, current row subfield
+ *   {{#each list}}…{{/each}}               — iterate a top-level "list" field
+ *   {{#each this.subList}}…{{/each}}       — iterate a nested list subfield
+ *                                            (only valid one level deep, e.g.
+ *                                            nav_columns → links)
+ *   {{#if field}}…{{else}}…{{/if}}         — boolean branch on a scalar
+ *   {{#if this.subfield}}…{{/if}}          — same, inside #each
  *
- * Forbidden: any other helper, partial (>), comment (!), nested #each,
- * dotted paths other than `this.<id>`. Existing flat {{field}} templates
- * continue to work unchanged.
+ * Nesting depth is capped at 2 levels of #each (depth 1 = top-level list,
+ * depth 2 = a nested list inside that). Forbidden: any other helper,
+ * partial (>), comment (!), 3+ levels of #each, dotted paths other than
+ * `this.<id>`. Existing flat {{field}} templates continue to work unchanged.
  */
 
 export type Scalar = string | number | boolean;
-export type ListItem = Record<string, Scalar>;
+/**
+ * A row inside a list field. Each cell is either a scalar or — when the
+ * list's itemSchema declares a nested "list" subfield — another array of
+ * rows. Nesting is capped at one level inside any given list (engine
+ * enforces a max #each depth of 2).
+ */
+export type ListItem = { [k: string]: Scalar | ListItem[] };
 export type FieldValue = Scalar | ListItem[];
 export type ValuesMap = Record<string, FieldValue>;
+/** Max nesting depth of `#each` — see file header. */
+export const MAX_EACH_DEPTH = 2;
 
 /**
  * Minimal field-def shape the engine needs. Both api-server's
@@ -39,7 +51,8 @@ export interface EngineFieldDef {
 export type TemplateNode =
   | { kind: "text"; text: string }
   | { kind: "var"; name: string; isThis: boolean }
-  | { kind: "each"; list: string; body: TemplateNode[] }
+  /** When `isThis`, the iterated list is `currentItem[list]`; else `values[list]`. */
+  | { kind: "each"; list: string; isThis: boolean; body: TemplateNode[] }
   | { kind: "if"; field: string; isThis: boolean; then: TemplateNode[]; els: TemplateNode[] };
 
 export interface EngineIssue {
@@ -106,12 +119,23 @@ export function parseTemplate(template: string): { ast: TemplateNode[]; issues: 
       }
 
       if (inner.startsWith("#each")) {
-        const list = inner.slice(5).trim();
+        const expr = inner.slice(5).trim();
+        let isThis = false;
+        let list = expr;
+        const tm = THIS_VAR_RE.exec(expr);
+        if (tm) { isThis = true; list = tm[1]; }
         if (!VAR_NAME_RE.test(list)) {
           issues.push({ code: "template.invalid_each", message: `invalid #each list name: ${t.raw}`, path: "template" });
         }
-        if (eachDepth > 0) {
-          issues.push({ code: "template.each_nesting", message: `nested #each is not supported: ${t.raw}`, path: "template" });
+        if (eachDepth >= MAX_EACH_DEPTH) {
+          issues.push({
+            code: "template.each_nesting",
+            message: `#each can be nested at most ${MAX_EACH_DEPTH - 1} level deep — too deep at ${t.raw}`,
+            path: "template",
+          });
+        }
+        if (isThis && eachDepth === 0) {
+          issues.push({ code: "template.this_outside_each", message: `${t.raw} only allowed inside an outer #each`, path: "template" });
         }
         i++;
         eachDepth++;
@@ -120,9 +144,9 @@ export function parseTemplate(template: string): { ast: TemplateNode[]; issues: 
         if (i < tokens.length && tokens[i].type === "tag" && (tokens[i] as { inner: string }).inner === "/each") {
           i++;
         } else {
-          issues.push({ code: "template.unclosed_each", message: `missing {{/each}} for {{#each ${list}}}`, path: "template" });
+          issues.push({ code: "template.unclosed_each", message: `missing {{/each}} for {{#each ${expr}}}`, path: "template" });
         }
-        out.push({ kind: "each", list, body });
+        out.push({ kind: "each", list, isThis, body });
         continue;
       }
 
@@ -205,15 +229,27 @@ export function validateAst(ast: TemplateNode[], schema: EngineFieldDef[]): Engi
   const issues: EngineIssue[] = [];
   const byId = new Map<string, EngineFieldDef>();
   for (const f of schema) byId.set(f.id, f);
+
+  /**
+   * Each list-field node's "used subfield ids" are tracked under a dotted
+   * path so nested lists don't collide. Keys look like:
+   *   "nav_columns"                  (top-level list)
+   *   "nav_columns.links"            (nested list inside nav_columns)
+   */
   const usedFields = new Set<string>();
   const usedSubs = new Map<string, Set<string>>();
+  const ensure = (k: string): Set<string> => {
+    let s = usedSubs.get(k);
+    if (!s) { s = new Set<string>(); usedSubs.set(k, s); }
+    return s;
+  };
 
-  function walk(nodes: TemplateNode[], currentList: EngineFieldDef | null): void {
+  function walk(nodes: TemplateNode[], currentList: EngineFieldDef | null, currentPath: string | null): void {
     for (const n of nodes) {
       if (n.kind === "text") continue;
       if (n.kind === "var") {
         if (n.isThis) {
-          if (!currentList) {
+          if (!currentList || !currentPath) {
             issues.push({ code: "template.this_outside_each", message: `{{this.${n.name}}} used outside an #each block`, path: "template" });
             continue;
           }
@@ -221,22 +257,20 @@ export function validateAst(ast: TemplateNode[], schema: EngineFieldDef[]): Engi
           if (!sub) {
             issues.push({
               code: "template.unknown_subfield",
-              message: `{{this.${n.name}}} but list "${currentList.id}" has no subfield with that id`,
-              path: `template.token.${currentList.id}.${n.name}`,
+              message: `{{this.${n.name}}} but list "${currentPath}" has no subfield with that id`,
+              path: `template.token.${currentPath}.${n.name}`,
             });
             continue;
           }
           if (sub.type === "list") {
             issues.push({
               code: "template.subfield_is_list",
-              message: `{{this.${n.name}}} references a nested list — nested lists are not supported`,
-              path: `template.token.${currentList.id}.${n.name}`,
+              message: `{{this.${n.name}}} references a nested list — wrap it in {{#each this.${n.name}}}…{{/each}}`,
+              path: `template.token.${currentPath}.${n.name}`,
             });
             continue;
           }
-          let s = usedSubs.get(currentList.id);
-          if (!s) { s = new Set(); usedSubs.set(currentList.id, s); }
-          s.add(n.name);
+          ensure(currentPath).add(n.name);
         } else {
           const f = byId.get(n.name);
           if (!f) {
@@ -260,46 +294,72 @@ export function validateAst(ast: TemplateNode[], schema: EngineFieldDef[]): Engi
         continue;
       }
       if (n.kind === "each") {
-        const f = byId.get(n.list);
-        if (!f) {
-          issues.push({
-            code: "token.unknown_field",
-            message: `{{#each ${n.list}}} but no field with that id exists`,
-            path: `template.token.${n.list}`,
-          });
-          continue;
+        if (n.isThis) {
+          if (!currentList || !currentPath) {
+            issues.push({ code: "template.this_outside_each", message: `{{#each this.${n.list}}} used outside an outer #each`, path: "template" });
+            continue;
+          }
+          const sub = (currentList.itemSchema ?? []).find(f => f.id === n.list);
+          if (!sub) {
+            issues.push({
+              code: "template.unknown_subfield",
+              message: `{{#each this.${n.list}}} but list "${currentPath}" has no subfield with that id`,
+              path: `template.token.${currentPath}.${n.list}`,
+            });
+            continue;
+          }
+          if (sub.type !== "list") {
+            issues.push({
+              code: "template.each_non_list",
+              message: `{{#each this.${n.list}}} requires a "list" subfield, but "${currentPath}.${n.list}" is type "${sub.type}"`,
+              path: `template.token.${currentPath}.${n.list}`,
+            });
+            continue;
+          }
+          ensure(currentPath).add(n.list);
+          const nestedPath = `${currentPath}.${n.list}`;
+          ensure(nestedPath);
+          walk(n.body, sub, nestedPath);
+        } else {
+          const f = byId.get(n.list);
+          if (!f) {
+            issues.push({
+              code: "token.unknown_field",
+              message: `{{#each ${n.list}}} but no field with that id exists`,
+              path: `template.token.${n.list}`,
+            });
+            continue;
+          }
+          if (f.type !== "list") {
+            issues.push({
+              code: "template.each_non_list",
+              message: `{{#each ${n.list}}} requires a "list" field, but "${n.list}" is type "${f.type}"`,
+              path: `template.token.${n.list}`,
+            });
+            continue;
+          }
+          usedFields.add(n.list);
+          ensure(n.list);
+          walk(n.body, f, n.list);
         }
-        if (f.type !== "list") {
-          issues.push({
-            code: "template.each_non_list",
-            message: `{{#each ${n.list}}} requires a "list" field, but "${n.list}" is type "${f.type}"`,
-            path: `template.token.${n.list}`,
-          });
-          continue;
-        }
-        usedFields.add(n.list);
-        if (!usedSubs.has(n.list)) usedSubs.set(n.list, new Set());
-        walk(n.body, f);
         continue;
       }
       if (n.kind === "if") {
         if (n.isThis) {
-          if (!currentList) {
+          if (!currentList || !currentPath) {
             issues.push({ code: "template.this_outside_each", message: `{{#if this.${n.field}}} used outside #each`, path: "template" });
           } else {
             const sub = (currentList.itemSchema ?? []).find(f => f.id === n.field);
             if (!sub) {
               issues.push({
                 code: "template.unknown_subfield",
-                message: `{{#if this.${n.field}}} but list "${currentList.id}" has no subfield with that id`,
-                path: `template.token.${currentList.id}.${n.field}`,
+                message: `{{#if this.${n.field}}} but list "${currentPath}" has no subfield with that id`,
+                path: `template.token.${currentPath}.${n.field}`,
               });
             } else if (sub.type === "list") {
               issues.push({ code: "template.if_non_scalar", message: `{{#if this.${n.field}}} requires a scalar subfield`, path: "template" });
             } else {
-              let s = usedSubs.get(currentList.id);
-              if (!s) { s = new Set(); usedSubs.set(currentList.id, s); }
-              s.add(n.field);
+              ensure(currentPath).add(n.field);
             }
           }
         } else {
@@ -320,38 +380,47 @@ export function validateAst(ast: TemplateNode[], schema: EngineFieldDef[]): Engi
             usedFields.add(n.field);
           }
         }
-        walk(n.then, currentList);
-        walk(n.els, currentList);
+        walk(n.then, currentList, currentPath);
+        walk(n.els, currentList, currentPath);
         continue;
       }
     }
   }
 
-  walk(ast, null);
+  walk(ast, null, null);
 
-  for (const f of schema) {
-    if (!usedFields.has(f.id)) {
-      issues.push({
-        code: "field.unused",
-        message: `field "${f.id}" is defined but never used in the template`,
-        path: `schema.field.${f.id}`,
-      });
-      continue;
-    }
-    if (f.type === "list") {
-      const subs = f.itemSchema ?? [];
-      const used = usedSubs.get(f.id) ?? new Set<string>();
-      for (const s of subs) {
-        if (!used.has(s.id)) {
+  // Recursive parity check for unused fields/subfields at every level.
+  function checkUnused(fields: EngineFieldDef[], path: string | null): void {
+    for (const f of fields) {
+      const isTop = path === null;
+      const fullPath = isTop ? f.id : `${path}.${f.id}`;
+      if (isTop) {
+        if (!usedFields.has(f.id)) {
+          issues.push({
+            code: "field.unused",
+            message: `field "${f.id}" is defined but never used in the template`,
+            path: `schema.field.${f.id}`,
+          });
+          continue;
+        }
+      } else {
+        const used = usedSubs.get(path!) ?? new Set<string>();
+        if (!used.has(f.id)) {
           issues.push({
             code: "subfield.unused",
-            message: `subfield "${f.id}.${s.id}" is defined but never used in the template`,
-            path: `schema.field.${f.id}.item.${s.id}`,
+            message: `subfield "${fullPath}" is defined but never used in the template`,
+            path: `schema.field.${path!.split(".")[0]}.item.${f.id}`,
           });
+          continue;
         }
+      }
+      if (f.type === "list") {
+        checkUnused(f.itemSchema ?? [], fullPath);
       }
     }
   }
+  checkUnused(schema, null);
+
   return issues;
 }
 
@@ -402,9 +471,11 @@ export function renderAst(
       continue;
     }
     if (n.kind === "each") {
-      const list = values[n.list];
-      if (Array.isArray(list)) {
-        for (const item of list) {
+      const raw = n.isThis
+        ? (currentItem ? currentItem[n.list] : undefined)
+        : values[n.list];
+      if (Array.isArray(raw)) {
+        for (const item of raw) {
           out += renderAst(n.body, values, { currentItem: item });
         }
       }

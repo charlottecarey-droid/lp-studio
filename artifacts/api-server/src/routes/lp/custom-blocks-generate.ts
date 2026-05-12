@@ -89,17 +89,26 @@ function buildSystemPrompt(): string {
 ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(", ")}.
 - "text" / "longText" → string. "number" → number. "boolean" → bool.
 - "color" → CSS hex like "#0f172a". "image" → image URL. "url" → URL. "select" → string from "options".
-- "list" → array of objects (rows). REQUIRED extra key "itemSchema" — an array of scalar sub-field defs (same shape, but type must NOT be "list"). Use list for repeating content like nav links, social icons, pricing tiers, feature rows, FAQ entries.
+- "list" → array of objects (rows). REQUIRED extra key "itemSchema" — an array of sub-field defs. Sub-fields are normally scalar, but a top-level list may contain ONE nested "list" subfield (e.g. nav_columns → links). No deeper nesting. Use list for repeating content like nav links, social icons, pricing tiers, feature rows, FAQ entries.
 
 TEMPLATE RULES:
 - Plain HTML + inline <style> only. No <script>, no <iframe>, no on* handlers, no javascript: URLs, no external <link>/<script src>.
 - The template engine is a tiny Handlebars subset. Supported placeholders ONLY:
     * {{field_id}}                              — scalar field, HTML-escaped
-    * {{#each list_id}} … {{/each}}             — iterate a "list" field
-    * {{this.sub_id}}                           — inside #each, current row's subfield
+    * {{#each list_id}} … {{/each}}             — iterate a top-level "list" field
+    * {{#each this.sub_list}} … {{/each}}       — iterate a nested list subfield (only inside an outer #each; one level only)
+    * {{this.sub_id}}                           — inside #each, current row's scalar subfield
     * {{#if field_id}} … {{else}} … {{/if}}     — conditional on a scalar
     * {{#if this.sub_id}} … {{/if}}             — same, inside #each
-  No other helpers, no partials, no comments, no nested #each, no dotted paths beyond {{this.x}}.
+  No other helpers, no partials, no comments, more than 2 #each levels, or dotted paths beyond {{this.x}}.
+  Example two-level structure (nav columns of links):
+    schema: [{ id: "columns", type: "list", itemSchema: [
+      { id: "heading", type: "text" },
+      { id: "links", type: "list", itemSchema: [
+        { id: "label", type: "text" }, { id: "url", type: "url" }
+      ]}
+    ]}]
+    template: {{#each columns}}<div>{{this.heading}}<ul>{{#each this.links}}<li><a href="{{this.url}}">{{this.label}}</a></li>{{/each}}</ul></div>{{/each}}
 - For repeating content (nav links, social icons, pricing tiers, etc.) PREFER a single "list" field with #each over many numbered scalar fields.
 - Every {{token}} MUST map to a declared field/subfield id, AND every schema field (and every list subfield) MUST appear in the template at least once. Do not declare unused fields.
 - Scope CSS by wrapping the block in a single root element with a unique class (e.g. .blk-{kebab-of-name}) and prefixing every selector inside <style> with that class. Never use bare element selectors that would bleed (e.g. "h1 { ... }" — use ".blk-foo h1 { ... }").
@@ -366,15 +375,16 @@ Output strict JSON only with this shape:
 ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(", ")}.
 - "text" / "longText" → string. "number" → number. "boolean" → bool.
 - "color" → CSS hex like "#0f172a". "image" → image URL. "url" → URL. "select" → string from "options".
-- "list" → array of objects (rows). REQUIRED extra key "itemSchema" — array of scalar sub-field defs (type must NOT be "list"). Use list for nav links, social icons, pricing tiers, feature rows, FAQ entries.
+- "list" → array of objects (rows). REQUIRED extra key "itemSchema" — array of sub-field defs. Sub-fields are normally scalar, but a top-level list may contain ONE nested "list" subfield (e.g. nav_columns → links). No deeper nesting. Use list for nav links, social icons, pricing tiers, feature rows, FAQ entries.
 
 TEMPLATE PLACEHOLDERS (apply to every block.template) — only these forms are supported:
   * {{field_id}}                              — scalar, HTML-escaped
-  * {{#each list_id}} … {{/each}}             — iterate a "list" field
-  * {{this.sub_id}}                           — inside #each, current row's subfield
+  * {{#each list_id}} … {{/each}}             — iterate a top-level "list" field
+  * {{#each this.sub_list}} … {{/each}}       — iterate a nested list subfield (one level only)
+  * {{this.sub_id}}                           — inside #each, current row's scalar subfield
   * {{#if field_id}} … {{else}} … {{/if}}     — conditional on a scalar
   * {{#if this.sub_id}} … {{/if}}             — inside #each
-No other helpers, no partials/comments, no nested #each, no dotted paths beyond {{this.x}}. Use a "list" field + #each for repeating content rather than numbered scalar fields.
+No other helpers, no partials/comments, more than 2 #each levels, or dotted paths beyond {{this.x}}. Use a "list" field + #each for repeating content rather than numbered scalar fields.
 
 BLOCKS RULES:
 - Emit between 2 and 5 blocks. Order them as they should appear on the page (e.g. hero first, CTA last).

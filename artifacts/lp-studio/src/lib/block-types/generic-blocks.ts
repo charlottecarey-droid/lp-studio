@@ -261,8 +261,12 @@ export type SchemaFieldType =
   // for nav columns, social links, pricing tiers, etc.
   | "list";
 
-/** A single row inside a "list" field. Sub-fields are scalar only. */
-export type SchemaListItem = Record<string, string | number | boolean>;
+/**
+ * A single row inside a "list" field. Sub-fields are scalar or — for the
+ * outermost list only — another array of rows (one level of nesting,
+ * e.g. nav_columns → links).
+ */
+export type SchemaListItem = { [k: string]: string | number | boolean | SchemaListItem[] };
 
 export interface SchemaFieldDef {
   id: string;
@@ -275,8 +279,9 @@ export interface SchemaFieldDef {
   /** When true, the property panel marks this field as required. */
   required?: boolean;
   /**
-   * Only valid when `type === "list"`. Defines the scalar sub-fields each
-   * row exposes. Nested lists are not supported.
+   * Only valid when `type === "list"`. Defines the sub-fields each row
+   * exposes. Sub-fields are scalar or — at the outermost list only —
+   * another "list" (one level of nesting).
    */
   itemSchema?: SchemaFieldDef[];
 }
