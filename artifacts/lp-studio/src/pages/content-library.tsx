@@ -260,9 +260,16 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Default
             </Badge>
           )}
-          {/* Task #253 — surface "AI off" status at-a-glance for case studies */}
+          {/* Task #253 — show an "AI" pill on case studies that are approved
+              for AI use so the approved set is visible at a glance. Defaults
+              to true on existing rows. */}
+          {type === "case_study" && item.approved_for_ai !== false && (
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-300 text-emerald-600 shrink-0">
+              AI
+            </Badge>
+          )}
           {type === "case_study" && item.approved_for_ai === false && (
-            <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-500 shrink-0">
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-400 shrink-0">
               AI off
             </Badge>
           )}
@@ -296,17 +303,24 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
   );
 }
 
-function AddItemForm({ type, onCreate }: { type: LibraryType; onCreate: (name: string, content: Record<string, unknown>) => Promise<void> }) {
+function AddItemForm({ type, onCreate }: {
+  type: LibraryType;
+  /** Task #253 — case_study creates now also forward approved_for_ai so the
+   *  tenant can set the AI flag at creation time, not only after the fact. */
+  onCreate: (name: string, content: Record<string, unknown>, approved_for_ai?: boolean) => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [content, setContent] = useState<Record<string, unknown>>(getDefaultContent(type));
+  const [approvedForAi, setApprovedForAi] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const handleCreate = async () => {
     setSaving(true);
-    await onCreate(name, content);
+    await onCreate(name, content, type === "case_study" ? approvedForAi : undefined);
     setName("");
     setContent(getDefaultContent(type));
+    setApprovedForAi(true);
     setOpen(false);
     setSaving(false);
   };
@@ -326,6 +340,23 @@ function AddItemForm({ type, onCreate }: { type: LibraryType; onCreate: (name: s
         <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Crown & Bridge" />
       </div>
       <ContentForm type={type} value={content} onChange={setContent} />
+      {/* Task #253 — Approved-for-AI toggle on the create form (case_study only) */}
+      {type === "case_study" && (
+        <label className="flex items-start gap-2 text-xs cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            checked={approvedForAi}
+            onChange={(e) => setApprovedForAi(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5"
+          />
+          <span className="text-slate-600">
+            Approved for AI use
+            <span className="block text-[11px] text-slate-400">
+              When Strict Facts Mode is on (Brand Settings), only approved case studies are shared with AI generation.
+            </span>
+          </span>
+        </label>
+      )}
       <div className="flex gap-2">
         <Button size="sm" className="h-7 text-xs gap-1" onClick={handleCreate} disabled={saving}>
           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Add to Library

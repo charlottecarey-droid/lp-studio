@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { ContentLibraryContent } from "@/pages/content-library";
 import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
@@ -240,7 +241,8 @@ function TagInput({ value, onChange, placeholder, max }: {
   );
 }
 
-function ProductLineCard({ product, onChange, onRemove }: {
+function ProductLineCard({ product, onChange, onRemove, strictMode }: {
+  strictMode?: boolean;
   product: ProductLine;
   onChange: (key: keyof ProductLine, value: unknown) => void;
   onRemove: () => void;
@@ -300,7 +302,20 @@ function ProductLineCard({ product, onChange, onRemove }: {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Claims</Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Label className="text-xs">Claims</Label>
+              {/* Task #253 — claims availability readout + strict-mode badge */}
+              {(product.claims?.length ?? 0) > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  ({(product.claims ?? []).filter((c) => isClaimApproved(c)).length} of {product.claims?.length ?? 0} claims available to AI)
+                </span>
+              )}
+              {!strictMode && (product.claims?.length ?? 0) > 0 && (
+                <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-500 font-normal">
+                  Strict mode off
+                </Badge>
+              )}
+            </div>
             <p className="text-[11px] text-muted-foreground -mt-0.5">
               Provable statements AI can cite (e.g. "50% faster turnaround"). Toggle "AI" to lock individual claims to Strict Facts Mode.
             </p>
@@ -379,10 +394,11 @@ function ProductLineCard({ product, onChange, onRemove }: {
   );
 }
 
-function SegmentCard({ segment, onChange, onRemove }: {
+function SegmentCard({ segment, onChange, onRemove, strictMode }: {
   segment: AudienceSegment;
   onChange: (updated: AudienceSegment) => void;
   onRemove: () => void;
+  strictMode?: boolean;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -618,14 +634,19 @@ function SegmentCard({ segment, onChange, onRemove }: {
           {/* Stats */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <BarChart2 className="w-3.5 h-3.5 text-muted-foreground" />
                 <Label className="text-xs">Key Stats / Metrics</Label>
-                {/* Task #253 — at-a-glance approval count */}
+                {/* Task #253 — at-a-glance approval count + strict-mode badge */}
                 {segment.stats.length > 0 && (
                   <span className="text-[11px] text-muted-foreground">
-                    ({segment.stats.filter((s) => s.approvedForAi !== false).length} of {segment.stats.length} approved for AI)
+                    ({segment.stats.filter((s) => s.approvedForAi !== false).length} of {segment.stats.length} stats available to AI)
                   </span>
+                )}
+                {!strictMode && segment.stats.length > 0 && (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-500 font-normal">
+                    Strict mode off
+                  </Badge>
                 )}
               </div>
               <Button
@@ -2015,6 +2036,7 @@ export default function BrandSettings() {
                   <ProductLineCard
                     key={i}
                     product={product}
+                    strictMode={config.aiStrictFactsMode === true}
                     onChange={(key, value) => updateProductLine(i, key, value)}
                     onRemove={() => removeProductLine(i)}
                   />
@@ -2056,6 +2078,7 @@ export default function BrandSettings() {
                   <SegmentCard
                     key={seg.id || i}
                     segment={seg}
+                    strictMode={config.aiStrictFactsMode === true}
                     onChange={(updated) => updateSegment(i, updated)}
                     onRemove={() => removeSegment(i)}
                   />

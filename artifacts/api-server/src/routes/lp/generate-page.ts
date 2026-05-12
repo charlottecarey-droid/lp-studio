@@ -52,6 +52,10 @@ interface BrandConfig {
   ctaBackground?: string;
   ctaTextColor?: string;
   productLines?: ProductLine[];
+  /** Task #253 — minimal mirror of the client `AudienceSegment` shape so we
+   *  can pull approved per-segment stats into the strict-mode pool. Only the
+   *  fields actually consumed here are typed; the rest are tolerated. */
+  segments?: Array<{ name?: string; stats?: SegmentStat[] }>;
   chilipiperUrl?: string;
   defaultCtaUrl?: string;
   defaultCtaText?: string;
@@ -747,6 +751,80 @@ async function fetchApprovedCaseStudies(
   }
 }
 
+/** Task #253 — strict-mode hard constraint: scan AI-generated blocks for
+ *  stat-bearing fields and replace any value that is not in the approved
+ *  pool with a literal placeholder. This is a belt-and-suspenders enforcement
+ *  layer on top of the prompt instruction so that, even if the model
+ *  hallucinates, no unapproved numbers ship in the page. */
+const STAT_PLACEHOLDER = "\u2014 add a stat in Brand Settings";
+
+function buildApprovedStatSet(
+  brand: BrandConfig,
+  segmentContext: SegmentContext | undefined,
+): Set<string> {
+  const out = new Set<string>();
+  const add = (raw: string | undefined) => {
+    if (!raw) return;
+    const v = String(raw).trim().toLowerCase();
+    if (!v) return;
+    out.add(v);
+  };
+  for (const p of brand.productLines ?? []) {
+    for (const c of p.claims ?? []) {
+      if (!isClaimApproved(c)) continue;
+      add(getClaimText(c));
+    }
+  }
+  for (const seg of brand.segments ?? []) {
+    for (const s of seg.stats ?? []) {
+      if (s.approvedForAi === false) continue;
+      add(s.value);
+    }
+  }
+  for (const s of segmentContext?.stats ?? []) {
+    if (s.approvedForAi === false) continue;
+    add(s.value);
+  }
+  return out;
+}
+
+function isApprovedStat(value: string, pool: Set<string>): boolean {
+  const v = value.trim().toLowerCase();
+  if (!v) return true;
+  if (!/\d/.test(v)) return true; // not a numeric stat — leave alone
+  if (pool.has(v)) return true;
+  for (const approved of pool) {
+    if (!approved) continue;
+    if (v.includes(approved) || approved.includes(v)) return true;
+  }
+  return false;
+}
+
+const STAT_FIELD_KEYS = new Set([
+  "value", "stat", "metric", "stat1Value", "stat2Value", "stat3Value",
+]);
+
+function sanitizeBlocksStrict(
+  blocks: Array<{ type?: string; props?: Record<string, unknown> }> | unknown,
+  pool: Set<string>,
+): void {
+  if (!Array.isArray(blocks)) return;
+  const walk = (node: unknown): void => {
+    if (!node) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== "object") return;
+    const obj = node as Record<string, unknown>;
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === "string" && STAT_FIELD_KEYS.has(k)) {
+        if (!isApprovedStat(v, pool)) obj[k] = STAT_PLACEHOLDER;
+      } else if (v && typeof v === "object") {
+        walk(v);
+      }
+    }
+  };
+  for (const b of blocks) walk(b.props);
+}
+
 /** Detect if the user prompt is targeting practice-level staff within a DSO network */
 function isDsoPracticesPrompt(prompt: string): boolean {
   const lower = prompt.toLowerCase();
@@ -1168,6 +1246,13 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
+
+      // Task #253 — strict mode: scrub any unapproved numeric stats the model
+      // may have invented despite the instruction.
+      if (strict) {
+        const pool = buildApprovedStatSet(brand, segmentContext);
+        sanitizeBlocksStrict(mergedBlocks, pool);
+      }
 
       res.json({
         title: parsed.title,
@@ -1628,6 +1713,13 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     }
 
     parsed.blocks = blocks;
+
+    // Task #253 — strict mode: scrub any unapproved numeric stats from the
+    // free-form generation path before shipping the response.
+    if (strict) {
+      const pool = buildApprovedStatSet(brand, segmentContext);
+      sanitizeBlocksStrict(parsed.blocks, pool);
+    }
 
     res.json({
       title: parsed.title,

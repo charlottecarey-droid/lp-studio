@@ -461,6 +461,32 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
       }).join("\n");
     parts.push(`Product lines:\n${productInfo}`);
   }
+  // Task #253 — surface approved segment stats in the copy system prompt so
+  // copy generated outside the page-level flow (ad copy, single-block
+  // regenerations, etc.) is also bound to the approved pool. In strict mode
+  // we filter to approved entries; otherwise we list everything for context.
+  if (brand.segments?.length) {
+    const strict = brand.aiStrictFactsMode === true;
+    const segLines: string[] = [];
+    for (const seg of brand.segments) {
+      const stats = (seg.stats ?? []).filter((s) => s.value || s.label);
+      const filtered = strict ? stats.filter((s) => s.approvedForAi !== false) : stats;
+      if (filtered.length === 0) continue;
+      const lines = filtered.map((s) => `  - ${s.value} ${s.label}`.trim()).join("\n");
+      segLines.push(`${seg.name || "Segment"}:\n${lines}`);
+    }
+    if (segLines.length) {
+      parts.push(
+        strict
+          ? `APPROVED SEGMENT STATS (use ONLY these — do not invent percentages or counts):\n${segLines.join("\n")}`
+          : `Segment stats:\n${segLines.join("\n")}`,
+      );
+    } else if (strict) {
+      parts.push(
+        "APPROVED SEGMENT STATS: (none) — for any stat slot, use the literal placeholder \"\u2014 add a stat in Brand Settings\" instead of inventing numbers.",
+      );
+    }
+  }
   if (brand.aiStrictFactsMode) {
     parts.push(STRICT_FACTS_INSTRUCTION);
   }
