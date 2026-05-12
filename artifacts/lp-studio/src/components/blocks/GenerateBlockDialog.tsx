@@ -148,6 +148,13 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
   const [imageGenStatus, setImageGenStatus] = useState<{ generated: string[]; failed: string[] } | null>(null);
   /** Task #224 — which image field, if any, is currently picking from the media library. */
   const [libraryFieldId, setLibraryFieldId] = useState<string | null>(null);
+  /**
+   * Task #225 — per-image "Tweak" briefs. Keyed by field id so each image's
+   * direction sticks while the dialog is open and repeated regenerates iterate
+   * on the same nudge ("a dentist smiling at a patient", "macro shot, soft
+   * light"). Cleared by `reset()` when the dialog closes.
+   */
+  const [imageInstructions, setImageInstructions] = useState<Record<string, string>>({});
 
   const imageFields = useMemo(
     () => (block?.schema ?? []).filter(f => f.type === "image"),
@@ -180,6 +187,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
     setRegeneratingField(null);
     setImageGenStatus(null);
     setLibraryFieldId(null);
+    setImageInstructions({});
   };
 
   // Re-validate edited block server-side (debounced) so token/field/safety
@@ -398,6 +406,9 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
     if (!field) return;
     setRegeneratingField(fieldId);
     try {
+      // Task #225 — pass the editor's per-image "Tweak" brief along with the
+      // existing context so each regenerate iterates on their direction.
+      const instruction = imageInstructions[fieldId]?.trim() || undefined;
       const res = await fetch(`${API}/lp/custom-blocks/generate-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -408,6 +419,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
           blockDescription: block.description,
           template: block.template,
           useBrandVars,
+          instruction,
         }),
       });
       const data = (await res.json()) as Partial<GenerateImageResponse> & { error?: string };
@@ -882,6 +894,25 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
                               onChange={(e) => setImageSampleValue(field.id, e.target.value)}
                               spellCheck={false}
                             />
+                            {aiImageGenEnabled && (
+                              /* Task #225 — short brief that nudges the image
+                                 model. Sticks while the dialog is open so
+                                 repeated regenerates iterate on it. */
+                              <Input
+                                className="h-7 text-[11px]"
+                                placeholder='Tweak (e.g. "macro shot, soft light")'
+                                value={imageInstructions[field.id] ?? ""}
+                                onChange={(e) => setImageInstructions(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && !isLoading && !isGenerating) {
+                                    e.preventDefault();
+                                    void handleRegenerateImage(field.id);
+                                  }
+                                }}
+                                spellCheck={false}
+                                aria-label={`Tweak direction for ${field.label}`}
+                              />
+                            )}
                             <div className="flex justify-end gap-1">
                               <Button
                                 type="button"
