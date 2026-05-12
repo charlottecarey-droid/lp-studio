@@ -13,7 +13,7 @@
 import { Router } from "express";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getOpenAIClient } from "./brand-import";
@@ -261,6 +261,7 @@ function buildImagePrompt(ctx: ImagePromptCtx): string {
 async function generateAndStoreImage(
   ctx: ImagePromptCtx,
   aspectRatio: AspectRatio,
+  tenantId: number,
 ): Promise<string | null> {
   let openai;
   try { openai = getOpenAIClient(); } catch { return null; }
@@ -278,7 +279,34 @@ async function generateAndStoreImage(
     if (!b64) return null;
     const buffer = Buffer.from(b64, "base64");
     const objectPath = await objectStorageSvc.uploadObjectEntity(buffer, "image/png");
-    return `/api/storage${objectPath}`;
+    const serveUrl = `/api/storage${objectPath}`;
+
+    // Task #224 — also persist into the tenant's media library so the editor
+    // can re-pick this generation later (via the standard image picker)
+    // instead of paying to regenerate. Best-effort: never fail the caller
+    // because of bookkeeping. Scoped to the requesting tenant only.
+    try {
+      const subject = ctx.fieldLabel?.trim() || ctx.fieldId.replace(/[_-]+/g, " ");
+      const titleParts: string[] = [];
+      if (ctx.blockName) titleParts.push(ctx.blockName);
+      if (subject) titleParts.push(subject);
+      const title = `AI: ${titleParts.join(" — ") || "Generated image"}`.slice(0, 200);
+      const tags = Array.from(new Set([
+        "ai-generated",
+        ctx.fieldId ? ctx.fieldId.toLowerCase() : "",
+      ].filter(Boolean)));
+      await db.insert(lpMediaTable).values({
+        tenantId,
+        title,
+        url: serveUrl,
+        mediaType: "image",
+        mimeType: "image/png",
+        sizeBytes: buffer.byteLength,
+        tags,
+      });
+    } catch { /* best-effort */ }
+
+    return serveUrl;
   } catch {
     return null;
   }
@@ -292,6 +320,7 @@ async function generateAndStoreImage(
 async function fillImageFields(
   block: SchemaBlockPayload,
   brand: BrandHints | null,
+  tenantId: number,
 ): Promise<{ generated: string[]; failed: string[] }> {
   const generated: string[] = [];
   const failed: string[] = [];
@@ -312,6 +341,7 @@ async function fillImageFields(
           brand,
         },
         ar,
+        tenantId,
       );
       if (url) {
         block.sample[field.id] = url;
@@ -565,7 +595,7 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
       });
       return;
     }
-    imageGen = await fillImageFields(payload, brand);
+    imageGen = await fillImageFields(payload, brand, tenantId);
   }
 
   res.json({
@@ -740,6 +770,7 @@ router.post("/lp/custom-blocks/generate-image", requireAuth, async (req, res): P
       instruction: typeof body.instruction === "string" ? body.instruction : undefined,
     },
     aspectRatio,
+    tenantId,
   );
 
   if (!url) {

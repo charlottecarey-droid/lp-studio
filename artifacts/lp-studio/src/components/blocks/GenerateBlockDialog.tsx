@@ -6,7 +6,7 @@
 // the existing editor on Save so all existing flows (segments, link/master,
 // affected-pages confirm) work unchanged.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2, Image as ImageIcon, ChevronUp, ChevronDown, Trash2, Layers } from "lucide-react";
+import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2, Image as ImageIcon, ChevronUp, ChevronDown, Trash2, Layers, FolderOpen } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { SchemaPreviewFrame } from "@/components/blocks/SchemaPreviewFrame";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import type { SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 
 const API = "/api";
@@ -145,6 +146,8 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
   /** Per-field flags so we can show a spinner on the image being regenerated. */
   const [regeneratingField, setRegeneratingField] = useState<string | null>(null);
   const [imageGenStatus, setImageGenStatus] = useState<{ generated: string[]; failed: string[] } | null>(null);
+  /** Task #224 — which image field, if any, is currently picking from the media library. */
+  const [libraryFieldId, setLibraryFieldId] = useState<string | null>(null);
 
   const imageFields = useMemo(
     () => (block?.schema ?? []).filter(f => f.type === "image"),
@@ -176,6 +179,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
     setTargetPageId(null);
     setRegeneratingField(null);
     setImageGenStatus(null);
+    setLibraryFieldId(null);
   };
 
   // Re-validate edited block server-side (debounced) so token/field/safety
@@ -878,8 +882,20 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
                               onChange={(e) => setImageSampleValue(field.id, e.target.value)}
                               spellCheck={false}
                             />
-                            {aiImageGenEnabled && (
-                              <div className="flex justify-end">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[11px] gap-1"
+                                disabled={isLoading || isGenerating}
+                                onClick={() => setLibraryFieldId(field.id)}
+                                title="Pick from media library"
+                              >
+                                <FolderOpen className="w-3 h-3" />
+                                Pick from library
+                              </Button>
+                              {aiImageGenEnabled && (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -895,8 +911,8 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
                                   )}
                                   {isLoading ? "Generating…" : isAi ? "Regenerate" : "Generate AI image"}
                                 </Button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1039,6 +1055,25 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
           )}
         </DialogFooter>
       </DialogContent>
+      {/* Task #224 — Reuse a previously-generated (or uploaded) image
+          for an image field instead of paying to regenerate it. */}
+      <MediaLibraryDrawer
+        open={libraryFieldId !== null}
+        onOpenChange={(v) => { if (!v) setLibraryFieldId(null); }}
+        onSelect={(url) => {
+          if (libraryFieldId) {
+            setImageSampleValue(libraryFieldId, url);
+            setImageGenStatus(prev => {
+              if (!prev) return prev;
+              return {
+                generated: prev.generated.filter(id => id !== libraryFieldId),
+                failed: prev.failed.filter(id => id !== libraryFieldId),
+              };
+            });
+          }
+          setLibraryFieldId(null);
+        }}
+      />
     </Dialog>
   );
 }
