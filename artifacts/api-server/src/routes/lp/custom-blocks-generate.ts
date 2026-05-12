@@ -253,30 +253,58 @@ function hexToMoodWords(hex: string): string | null {
   if (!m) return null;
   let h = m[1];
   if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  // Quick HSL approximation.
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  const lightness = (max + min) / 2 / 255;
-  const saturation = max === min ? 0 : (max - min) / (max + min);
-  const words: string[] = [];
-  if (lightness < 0.25) words.push("deep");
-  else if (lightness > 0.8) words.push("airy");
-  else if (lightness > 0.6) words.push("light");
-  else words.push("rich");
-  if (saturation < 0.15) words.push("neutral");
-  else {
-    // Hue bucket → temperature/family word.
-    if (max === r && g >= b) words.push("warm coral");
-    else if (max === r) words.push("warm magenta");
-    else if (max === g && r >= b) words.push("earthy olive");
-    else if (max === g) words.push("verdant green");
-    else if (max === b && r >= g) words.push("cool violet");
-    else words.push("cool blue");
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  // Hue in degrees [0, 360) — full HSL conversion so the family word
+  // actually matches the colour (e.g. pure red → "crimson", not "coral").
+  let hue = 0;
+  if (delta > 0) {
+    if (max === r) hue = ((g - b) / delta) % 6;
+    else if (max === g) hue = (b - r) / delta + 2;
+    else hue = (r - g) / delta + 4;
+    hue *= 60;
+    if (hue < 0) hue += 360;
   }
-  return words.join(" ") + " tones";
+
+  // Lightness word: airy/light/rich/deep.
+  let lightWord: string;
+  if (lightness < 0.2) lightWord = "deep";
+  else if (lightness > 0.85) lightWord = "airy";
+  else if (lightness > 0.65) lightWord = "light";
+  else lightWord = "rich";
+
+  // Saturation < 0.15 → no chroma; describe by lightness only so we
+  // don't emit oxymoronic "rich neutral" combos.
+  if (saturation < 0.15) {
+    if (lightness < 0.2) return "deep charcoal tones";
+    if (lightness > 0.85) return "soft off-white tones";
+    if (lightness > 0.65) return "warm grey tones";
+    return "muted slate tones";
+  }
+
+  // Hue → family word. Buckets chosen to match common brand colours.
+  let family: string;
+  if (hue < 12 || hue >= 345) family = saturation > 0.7 ? "vivid crimson" : "warm red";
+  else if (hue < 30) family = "warm coral";
+  else if (hue < 50) family = "warm amber";
+  else if (hue < 65) family = "golden yellow";
+  else if (hue < 95) family = "fresh chartreuse";
+  else if (hue < 150) family = "verdant green";
+  else if (hue < 180) family = "cool teal";
+  else if (hue < 210) family = "cool sky blue";
+  else if (hue < 245) family = "cool blue";
+  else if (hue < 275) family = "cool indigo";
+  else if (hue < 305) family = "cool violet";
+  else if (hue < 330) family = "warm magenta";
+  else family = "warm rose";
+
+  return `${lightWord} ${family} tones`;
 }
 
 type SubjectCategory = "portrait" | "team" | "product" | "food" | "interior" | "exterior" | "scene";
