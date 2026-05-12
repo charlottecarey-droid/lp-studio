@@ -28,7 +28,29 @@ export function NoPagesEmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-export function NoFilteredPagesEmptyState({ filterStatus, onReset }: { filterStatus: FilterStatus; onReset: () => void }) {
+export function NoFilteredPagesEmptyState({
+  filterStatus,
+  onReset,
+  segmentName,
+  onClearSegment,
+}: {
+  filterStatus: FilterStatus;
+  onReset: () => void;
+  segmentName?: string | null;
+  onClearSegment?: () => void;
+}) {
+  if (segmentName && onClearSegment) {
+    return (
+      <div className="border border-border rounded-lg p-12 text-center">
+        <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+        <h3 className="text-sm font-semibold text-foreground mb-1">No pages tailored for {segmentName} yet</h3>
+        <p className="text-xs text-muted-foreground mb-4">Clear the segment filter to see all pages, or create a new one.</p>
+        <Button variant="outline" size="sm" className="rounded-lg text-xs" onClick={onClearSegment}>
+          Clear segment filter
+        </Button>
+      </div>
+    );
+  }
   return (
     <div className="border border-border rounded-lg p-12 text-center">
       <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />

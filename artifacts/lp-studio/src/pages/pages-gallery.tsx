@@ -425,7 +425,12 @@ export default function PagesGallery() {
         ) : pages.length === 0 ? (
           <NoPagesEmptyState onCreate={() => setShowCreateModal(true)} />
         ) : filteredPages.length === 0 ? (
-          <NoFilteredPagesEmptyState filterStatus={filterStatus} onReset={() => setFilterStatus("All")} />
+          <NoFilteredPagesEmptyState
+            filterStatus={filterStatus}
+            onReset={() => setFilterStatus("All")}
+            segmentName={segmentFilterId ? segmentNameById[segmentFilterId] ?? null : null}
+            onClearSegment={() => setSegmentFilterId("")}
+          />
         ) : (
           <>
             {selectedIds.size > 0 && (
