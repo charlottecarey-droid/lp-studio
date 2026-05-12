@@ -10,11 +10,12 @@ import { useToast } from "@/hooks/use-toast";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText, Sparkles, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment, type BrandConfig } from "@/lib/brand-config";
 import { Link } from "wouter";
 import type { SchemaFieldDef, SchemaFieldType, SchemaFieldValue } from "@/lib/block-types";
+import { SchemaPreviewFrame } from "@/components/blocks/SchemaPreviewFrame";
 
 const API = "/api";
 
@@ -106,6 +107,21 @@ export function CustomBlocksContent() {
   const [confirmResolver, setConfirmResolver] = useState<((ok: boolean) => void) | null>(null);
   // Task #200 — one-click "Add starter: Global Footer" in-flight state.
   const [isAddingStarter, setIsAddingStarter] = useState(false);
+  // Task #202 — snapshot of the saved block (when editing) so the preview
+  // panel can render a side-by-side "current vs new" diff. Null for create.
+  const [savedSnapshot, setSavedSnapshot] = useState<{
+    schema: SchemaFieldDef[];
+    template: string;
+    sample: Record<string, SchemaFieldValue>;
+  } | null>(null);
+  // Task #202 — editor toggle to show/hide the live preview panel without
+  // leaving the editor. Defaults on for schema blocks since that's the
+  // primary failure mode the preview is meant to catch.
+  const [showPreview, setShowPreview] = useState(true);
+  // Task #202 — when the affected-pages confirm dialog is open, optionally
+  // include a thumbnail diff for the first matching page. Editors can
+  // collapse it if they only care about the page list.
+  const [showConfirmDiff, setShowConfirmDiff] = useState(true);
   const { toast } = useToast();
 
   const loadUsage = async (blockId: number): Promise<BlockUsage> => {
@@ -169,21 +185,28 @@ export function CustomBlocksContent() {
 
   const openCreate = () => {
     setEditor(EMPTY_EDITOR);
+    setSavedSnapshot(null);
     setEditorOpen(true);
   };
 
   const openEdit = (block: CustomBlock) => {
     const t = block.block_type as BlockEditorType;
+    const schema = Array.isArray(block.props?.schema) ? block.props.schema : [];
+    const template = typeof block.props?.template === "string" ? block.props.template : "";
+    const sample = (block.props?.sample as Record<string, SchemaFieldValue>) ?? {};
     setEditor({
       id: block.id,
       name: block.name,
       block_type: t,
       segment: block.segment ?? "core",
       html: typeof block.props?.html === "string" ? block.props.html : "",
-      schema: Array.isArray(block.props?.schema) ? block.props.schema : [],
-      template: typeof block.props?.template === "string" ? block.props.template : "",
-      sample: (block.props?.sample as Record<string, SchemaFieldValue>) ?? {},
+      schema,
+      template,
+      sample,
     });
+    // Task #202 — snapshot what's saved so the preview panel can show a
+    // before/after diff against the editor's pending changes.
+    setSavedSnapshot({ schema, template, sample });
     setEditorOpen(true);
   };
 
@@ -638,6 +661,73 @@ export function CustomBlocksContent() {
                   />
                 </div>
 
+                {/* Task #202 — Live before/after preview. Renders the proposed
+                    template/schema against the master sample values so editors
+                    can catch breaking changes (missing fields, broken HTML)
+                    without round-tripping through every linked page. */}
+                <div className="rounded-md border border-border bg-background">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Preview change</Label>
+                      <span className="text-[11px] text-muted-foreground">
+                        Rendered with the shared (master) values below.
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={() => setShowPreview(v => !v)}
+                    >
+                      {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPreview ? "Hide" : "Show"}
+                    </Button>
+                  </div>
+                  {showPreview && (
+                    savedSnapshot ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+                        <div className="p-2">
+                          <div className="flex items-center justify-between mb-1.5 px-1">
+                            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Current</span>
+                            <Badge variant="outline" className="text-[10px]">Saved</Badge>
+                          </div>
+                          <div className="border border-border rounded bg-white overflow-hidden">
+                            <SchemaPreviewFrame
+                              schema={savedSnapshot.schema}
+                              template={savedSnapshot.template}
+                              values={savedSnapshot.sample}
+                            />
+                          </div>
+                        </div>
+                        <div className="p-2">
+                          <div className="flex items-center justify-between mb-1.5 px-1">
+                            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">New</span>
+                            <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">Pending</Badge>
+                          </div>
+                          <div className="border border-primary/30 rounded bg-white overflow-hidden ring-1 ring-primary/10">
+                            <SchemaPreviewFrame
+                              schema={editor.schema}
+                              template={editor.template}
+                              values={editor.sample}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2">
+                        <div className="border border-border rounded bg-white overflow-hidden">
+                          <SchemaPreviewFrame
+                            schema={editor.schema}
+                            template={editor.template}
+                            values={editor.sample}
+                          />
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+
                 {/* Shared default values — flow live to every linked instance (task #198). */}
                 {editor.schema.length > 0 && (
                   <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
@@ -721,17 +811,77 @@ export function CustomBlocksContent() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[88vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Update {confirmUsage?.count ?? 0} page{confirmUsage?.count === 1 ? "" : "s"}?</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-sm overflow-y-auto pr-1">
             <p className="text-muted-foreground leading-snug">
               This block is used on {confirmUsage?.count ?? 0} page{confirmUsage?.count === 1 ? "" : "s"}
               {confirmUsage && confirmUsage.publishedCount > 0 ? ` (${confirmUsage.publishedCount} published)` : ""}.
               Saving will update the schema, template, and shared default values everywhere it's used.
               Per-page field overrides are kept.
             </p>
+
+            {/* Task #202 — optional thumbnail diff for the first matching page,
+                so editors get a final before/after sanity check inline with
+                the impact list. Rendered with the master sample values; pages
+                with per-field overrides will look slightly different. */}
+            {savedSnapshot && confirmUsage && confirmUsage.pages.length > 0 && (
+              <div className="rounded-md border border-border">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      Preview · {confirmUsage.pages[0].title || `Page ${confirmUsage.pages[0].id}`}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Rendered with shared values — per-page overrides may differ.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 gap-1.5 text-xs shrink-0"
+                    onClick={() => setShowConfirmDiff(v => !v)}
+                  >
+                    {showConfirmDiff ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showConfirmDiff ? "Hide" : "Show"}
+                  </Button>
+                </div>
+                {showConfirmDiff && (
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1.5 px-1">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Current</span>
+                      </div>
+                      <div className="border border-border rounded bg-white overflow-hidden">
+                        <SchemaPreviewFrame
+                          mode="thumbnail"
+                          schema={savedSnapshot.schema}
+                          template={savedSnapshot.template}
+                          values={savedSnapshot.sample}
+                        />
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1.5 px-1">
+                        <span className="text-[10px] font-medium text-primary uppercase tracking-wide">New</span>
+                      </div>
+                      <div className="border border-primary/30 rounded bg-white overflow-hidden ring-1 ring-primary/10">
+                        <SchemaPreviewFrame
+                          mode="thumbnail"
+                          schema={editor.schema}
+                          template={editor.template}
+                          values={editor.sample}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="border border-border rounded-md divide-y divide-border max-h-64 overflow-y-auto">
               {confirmUsage?.pages.map(p => (
                 <a
