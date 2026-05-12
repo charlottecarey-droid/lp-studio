@@ -56,6 +56,16 @@ export default function PagesGallery() {
     return m;
   }, [segments]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
+  const [segmentFilterId, setSegmentFilterIdState] = useState<string>(
+    () => new URLSearchParams(window.location.search).get("segment") ?? ""
+  );
+  const setSegmentFilterId = (id: string) => {
+    setSegmentFilterIdState(id);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("segment", id);
+    else url.searchParams.delete("segment");
+    window.history.replaceState({}, "", url.toString());
+  };
   const [, navigate] = useLocation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
@@ -329,6 +339,7 @@ export default function PagesGallery() {
       if (filterStatus === "Published" && page.status !== "published") return false;
       if (filterStatus === "Running" && !runningTests.some(t => t.slug === page.slug)) return false;
       if (filterStatus === "Templates" && !page.isTemplate) return false;
+      if (segmentFilterId && page.segmentId !== segmentFilterId) return false;
       if (filterStatus === "Mine") {
         const me = (user?.name ?? "").trim().toLowerCase();
         if (!me) return false;
@@ -403,6 +414,9 @@ export default function PagesGallery() {
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             showMine={!!user?.name}
+            segments={segments}
+            segmentFilterId={segmentFilterId}
+            setSegmentFilterId={setSegmentFilterId}
           />
         )}
 

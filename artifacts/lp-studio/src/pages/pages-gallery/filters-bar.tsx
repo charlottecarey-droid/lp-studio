@@ -1,5 +1,6 @@
 import { Search, Star, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AudienceSegment } from "@/lib/brand-config";
 import type { FilterStatus, SortBy } from "./types";
 
 interface Props {
@@ -10,6 +11,9 @@ interface Props {
   searchQuery: string;
   setSearchQuery: (s: string) => void;
   showMine: boolean;
+  segments: AudienceSegment[];
+  segmentFilterId: string;
+  setSegmentFilterId: (id: string) => void;
 }
 
 export function FiltersBar({
@@ -20,6 +24,9 @@ export function FiltersBar({
   searchQuery,
   setSearchQuery,
   showMine,
+  segments,
+  segmentFilterId,
+  setSegmentFilterId,
 }: Props) {
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -44,7 +51,26 @@ export function FiltersBar({
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+      {segments.length > 0 && (
+        <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+          <label className="text-[12px] text-muted-foreground shrink-0" htmlFor="pages-segment-filter">
+            Segment
+          </label>
+          <select
+            id="pages-segment-filter"
+            value={segmentFilterId}
+            onChange={e => setSegmentFilterId(e.target.value)}
+            className="text-[13px] border border-border rounded-lg bg-background py-1.5 pl-2.5 pr-7 outline-none focus:ring-1 focus:ring-ring"
+            title="Filter by audience segment"
+          >
+            <option value="">All segments</option>
+            {segments.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className={cn("flex items-center gap-2 w-full sm:w-auto", segments.length === 0 && "sm:ml-auto")}>
         <label className="text-[12px] text-muted-foreground shrink-0" htmlFor="pages-sort-by">
           Sort
         </label>
