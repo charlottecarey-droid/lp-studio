@@ -82,8 +82,11 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number>(0);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiTemplateId, setAiTemplateId] = useState<string>("");
-  // AI mode only — empty string means "Auto / no specific segment".
+  // Empty string means "Auto / no specific segment". Used by both AI mode
+  // and Template mode — when a segment is chosen with a template, we route
+  // through the AI template-rewrite path to lightly retune copy.
   const [aiSegmentId, setAiSegmentId] = useState<string>("");
+  const [templateSegmentId, setTemplateSegmentId] = useState<string>("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       setAiPrompt("");
       setAiTemplateId("");
       setAiSegmentId("");
+      setTemplateSegmentId("");
       setError(null);
       setSubmitting(false);
     }
@@ -154,13 +158,12 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       let createdTitle = title.trim();
       let createdSlug = slug.trim();
 
-      if (mode === "ai") {
-        if (!aiPrompt.trim()) throw new Error("Add a prompt for the AI.");
-        const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : undefined;
-        // Mirror the segmentContext shape used by pages-gallery.tsx so the
-        // generator tailors copy to this audience.
-        const seg = aiSegmentId ? segments.find(s => s.id === aiSegmentId) : null;
-        const segmentContext = seg ? {
+      // Mirror the segmentContext shape used by pages-gallery.tsx so the
+      // generator tailors copy to this audience. Shared by AI mode and
+      // template-mode-with-segment.
+      const buildSegmentContext = (segId: string) => {
+        const seg = segId ? segments.find(s => s.id === segId) : null;
+        return seg ? {
           name: seg.name,
           description: seg.description,
           messagingAngle: seg.messagingAngle,
@@ -169,6 +172,12 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           personas: seg.personas?.map(p => ({ role: p.role, painPoints: p.painPoints })),
           challenges: seg.challenges?.map(c => ({ title: c.title, desc: c.desc })),
         } : undefined;
+      };
+
+      if (mode === "ai") {
+        if (!aiPrompt.trim()) throw new Error("Add a prompt for the AI.");
+        const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : undefined;
+        const segmentContext = buildSegmentContext(aiSegmentId);
         const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -212,26 +221,79 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       } else {
         // Template / Blank mode — POST /lp/pages and let the server clone
         // blocks from the template when fromTemplateId is set.
+        //
+        // Exception: when a real template is chosen AND the rep picked an
+        // audience segment, route through /lp/generate-page in template-rewrite
+        // mode so the AI lightly retunes the template's copy for that segment.
+        // Block structure (ids, types, layout, images, colors) is preserved
+        // verbatim — only human-readable text fields are rewritten.
         if (!createdTitle) throw new Error("Give the microsite a name.");
         if (!createdSlug) throw new Error("Slug is required.");
-        const body: Record<string, unknown> = {
-          title: createdTitle,
-          slug: createdSlug,
-          status: "draft",
-        };
-        if (selectedTemplateId > 0) body.fromTemplateId = selectedTemplateId;
-        else body.blocks = [];
-        const res = await fetch(`${API_BASE}/lp/pages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Could not create page" }));
-          throw new Error((err as { error?: string }).error ?? "Could not create page");
+
+        const tplSegmentContext = selectedTemplateId > 0
+          ? buildSegmentContext(templateSegmentId)
+          : undefined;
+
+        if (tplSegmentContext) {
+          // Synthesise a short prompt — the endpoint requires `prompt`, and
+          // it gives the AI a clear instruction alongside the segment data.
+          const synthPrompt =
+            `Tailor this template's copy for the ${tplSegmentContext.name} audience` +
+            (selectedAccount ? `, for ${selectedAccount.name}.` : ".");
+          const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: synthPrompt,
+              templateId: selectedTemplateId,
+              segmentContext: tplSegmentContext,
+            }),
+          });
+          if (!genRes.ok) {
+            const err = await genRes.json().catch(() => ({ error: "Template tailoring failed" }));
+            throw new Error((err as { error?: string }).error ?? "Template tailoring failed");
+          }
+          const generated = (await genRes.json()) as {
+            title?: string;
+            slug?: string;
+            blocks?: unknown[];
+          };
+          const saveRes = await fetch(`${API_BASE}/lp/pages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: createdTitle,
+              slug: createdSlug,
+              blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
+              status: "draft",
+            }),
+          });
+          if (!saveRes.ok) {
+            const err = await saveRes.json().catch(() => ({ error: "Could not save page" }));
+            throw new Error((err as { error?: string }).error ?? "Could not save page");
+          }
+          const page = (await saveRes.json()) as { id: number };
+          pageId = page.id;
+        } else {
+          const body: Record<string, unknown> = {
+            title: createdTitle,
+            slug: createdSlug,
+            status: "draft",
+          };
+          if (selectedTemplateId > 0) body.fromTemplateId = selectedTemplateId;
+          else body.blocks = [];
+          const res = await fetch(`${API_BASE}/lp/pages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: "Could not create page" }));
+            throw new Error((err as { error?: string }).error ?? "Could not create page");
+          }
+          const page = (await res.json()) as { id: number };
+          pageId = page.id;
         }
-        const page = (await res.json()) as { id: number };
-        pageId = page.id;
       }
 
       // When an account is attached, bulk-create personalised hotlinks for
@@ -429,6 +491,32 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                       No saved templates yet. Marketing can save any page as a template from the Builder.
                     </p>
                   )}
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">
+                    Audience segment{" "}
+                    <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <select
+                    className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={templateSegmentId}
+                    onChange={(e) => setTemplateSegmentId(e.target.value)}
+                    disabled={selectedTemplateId === 0}
+                  >
+                    <option value="">Auto / no specific segment</option>
+                    {segments.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {selectedTemplateId === 0
+                      ? "Pick a template above to tailor copy for an audience."
+                      : templateSegmentId
+                        ? "AI will lightly retune the template's copy for this audience. Layout, images, and links stay the same."
+                        : "Leave on Auto to use the template's copy as-is."}
+                  </p>
                 </div>
               </>
             ) : (
