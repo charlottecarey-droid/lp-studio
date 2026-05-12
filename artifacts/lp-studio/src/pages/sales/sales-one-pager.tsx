@@ -1030,6 +1030,40 @@ const SalesOnePager = () => {
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
                     />
                   </div>
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Linked text</label>
+                    <input
+                      type="text"
+                      value={agreementContent.footerLinkText ?? ""}
+                      onChange={e => setAgreementContent(p => ({ ...p, footerLinkText: e.target.value }))}
+                      placeholder="e.g. Dandy Practice Agreement"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Link URL</label>
+                    <input
+                      type="url"
+                      value={agreementContent.footerLinkUrl ?? ""}
+                      onChange={e => setAgreementContent(p => ({ ...p, footerLinkUrl: e.target.value }))}
+                      placeholder="https://example.com"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                  </div>
+                  {(() => {
+                    const linkText = (agreementContent.footerLinkText ?? "").trim();
+                    const footerText = agreementContent.footer ?? "";
+                    if (linkText.length > 0 && !footerText.includes(linkText)) {
+                      return (
+                        <div className="sm:col-span-2 -mt-1">
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                            Linked text must appear inside the footer text for the link to render. The footer will still print without a link until they match.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
             )}
@@ -1366,7 +1400,7 @@ const SalesOnePager = () => {
             <div className={`grid gap-3 ${template === "pilot" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
               <button
                 onClick={handleGenerate}
-                disabled={!dsoName.trim() || generating || generatingLink}
+                disabled={(template !== "agreement-summary" && !dsoName.trim()) || generating || generatingLink}
                 className="rounded-full bg-primary py-3.5 text-sm font-bold uppercase tracking-widest text-primary-foreground hover:brightness-110 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
               >
                 {generating ? (
