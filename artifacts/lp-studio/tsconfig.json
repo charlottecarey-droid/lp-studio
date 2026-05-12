@@ -20,6 +20,9 @@
     },
     {
       "path": "../../lib/one-pager-types"
+    },
+    {
+      "path": "../../lib/lp-template-engine"
     }
   ]
 }
