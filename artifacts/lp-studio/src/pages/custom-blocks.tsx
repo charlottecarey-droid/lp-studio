@@ -110,6 +110,9 @@ export function CustomBlocksContent() {
   const [isAddingStarter, setIsAddingStarter] = useState(false);
   // Task #210 — "Generate from prompt" dialog state.
   const [generateOpen, setGenerateOpen] = useState(false);
+  // Task #220 — list of pages so the Compose-section flow can optionally
+  // append the generated section to a target page in one batch.
+  const [pagesForInsert, setPagesForInsert] = useState<{ id: number; title: string }[]>([]);
   // Task #202 — snapshot of the saved block (when editing) so the preview
   // panel can render a side-by-side "current vs new" diff. Null for create.
   const [savedSnapshot, setSavedSnapshot] = useState<{
@@ -190,6 +193,110 @@ export function CustomBlocksContent() {
     setEditor(EMPTY_EDITOR);
     setSavedSnapshot(null);
     setEditorOpen(true);
+  };
+
+  // Task #220 — load the page list when opening the dialog so the
+  // Compose-section flow can offer "insert into page" without an extra trip
+  // to the builder. Best-effort: an empty list just hides the picker.
+  useEffect(() => {
+    if (!generateOpen) return;
+    let cancelled = false;
+    fetch(`${API}/lp/pages`)
+      .then(r => r.ok ? r.json() as Promise<Array<{ id: number; title: string; isTemplate?: boolean }>> : [])
+      .then(rows => {
+        if (cancelled) return;
+        setPagesForInsert(
+          (Array.isArray(rows) ? rows : [])
+            .filter(p => !p.isTemplate)
+            .map(p => ({ id: p.id, title: p.title })),
+        );
+      })
+      .catch(() => { if (!cancelled) setPagesForInsert([]); });
+    return () => { cancelled = true; };
+  }, [generateOpen]);
+
+  // Task #220 — accept a composed multi-block section: create each block via
+  // the existing custom-blocks endpoint, then optionally append matching
+  // custom-schema instances to the target page in order. Failures partway
+  // through still surface the blocks that did save so the editor can recover
+  // without losing work.
+  const handleAcceptBatch = async (
+    generated: GeneratedBlock[],
+    opts: { sectionName: string; targetPageId: number | null },
+  ) => {
+    const created: CustomBlock[] = [];
+    for (let i = 0; i < generated.length; i++) {
+      const g = generated[i];
+      const body = {
+        name: (g.name?.trim() || `${opts.sectionName} – Block ${i + 1}`).slice(0, 120),
+        block_type: "schema",
+        segment: "core",
+        props: { schema: g.schema, template: g.template, sample: g.sample },
+      };
+      const res = await fetch(`${API}/lp/custom-blocks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        // Task #220 — surface partial progress so the UI reflects what already
+        // landed on the server before the failure (the loop creates blocks
+        // sequentially; earlier ones are committed and shouldn't be hidden).
+        if (created.length > 0) {
+          setBlocks(prev => [...prev, ...created]);
+          created.forEach(b => { if (b.block_type === "schema") void loadUsage(b.id); });
+        }
+        throw new Error(`Block ${i + 1} failed: ${detail || `HTTP ${res.status}`}`);
+      }
+      created.push(await res.json() as CustomBlock);
+    }
+    setBlocks(prev => [...prev, ...created]);
+    created.forEach(b => { if (b.block_type === "schema") void loadUsage(b.id); });
+
+    if (opts.targetPageId) {
+      try {
+        const pageRes = await fetch(`${API}/lp/pages/${opts.targetPageId}`);
+        if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`);
+        const page = await pageRes.json() as { id: number; blocks?: unknown[] };
+        const existing = Array.isArray(page.blocks) ? page.blocks : [];
+        const newInstances = created.map(cb => ({
+          // Mirror the BuilderEditor's `addBlock` shape for schema custom
+          // blocks (task #198): empty per-instance values so the page renders
+          // the master's shared values until edited.
+          id: `custom-schema-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${cb.id}`,
+          type: "custom-schema",
+          props: {
+            schema: [],
+            template: "",
+            values: {},
+            customBlockId: cb.id,
+            customBlockName: cb.name,
+          },
+        }));
+        const putRes = await fetch(`${API}/lp/pages/${opts.targetPageId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blocks: [...existing, ...newInstances] }),
+        });
+        if (!putRes.ok) throw new Error(`HTTP ${putRes.status}`);
+        toast({
+          title: `Added ${created.length} block${created.length === 1 ? "" : "s"} to page`,
+          description: `"${opts.sectionName}" appended in order.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Saved blocks, but couldn't append to page",
+          description: err instanceof Error ? err.message : undefined,
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: `Saved ${created.length} block${created.length === 1 ? "" : "s"}`,
+        description: `"${opts.sectionName}" is ready to drop into a page.`,
+      });
+    }
   };
 
   // Task #210 — accept a generated block and open the existing editor with
@@ -395,6 +502,8 @@ export function CustomBlocksContent() {
         open={generateOpen}
         onOpenChange={setGenerateOpen}
         onAccept={handleAcceptGenerated}
+        onAcceptBatch={handleAcceptBatch}
+        pages={pagesForInsert}
       />
 
       {/* Block list */}

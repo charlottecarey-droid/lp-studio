@@ -152,6 +152,89 @@ interface ValidateBody {
   block?: unknown;
 }
 
+// Task #220 — Compose mode: one prompt → 2-5 ordered blocks.
+interface ComposeBody {
+  prompt?: string;
+  referenceUrl?: string;
+  screenshotDataUrl?: string;
+  useBrandVars?: boolean;
+  /** Soft target — model picks the actual count, clamped to [2,5]. */
+  targetCount?: number;
+}
+
+function buildComposeSystemPrompt(): string {
+  return `You design a SECTION made of 2 to 5 reusable landing-page blocks that flow naturally top-to-bottom (e.g. "hero + 3 trust logos + a 3-up benefits grid").
+
+Output strict JSON only with this shape:
+
+{
+  "name": short title for the whole section (3-6 words),
+  "description": 1-sentence purpose of the section,
+  "blocks": [
+    {
+      "name": short block title (2-5 words),
+      "description": 1-sentence purpose,
+      "schema": [
+        { "id": "snake_case_id", "label": "Human Label", "type": <allowed type>, "options"?: [...], "helpText"?: "...", "required"?: bool }
+      ],
+      "template": HTML/CSS string with {{field_id}} placeholders,
+      "sample": { "field_id": value, ... }
+    }
+  ]
+}
+
+ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(", ")}.
+- "text" / "longText" → string. "number" → number. "boolean" → bool.
+- "color" → CSS hex like "#0f172a". "image" → image URL. "url" → URL. "select" → string from "options".
+
+BLOCKS RULES:
+- Emit between 2 and 5 blocks. Order them as they should appear on the page (e.g. hero first, CTA last).
+- Each block is independent and self-contained. Do NOT share field ids across blocks; scope ids per block.
+- Vary the role: avoid emitting two near-identical blocks. Pick distinct roles (hero, social proof, benefits, testimonial, CTA, FAQ, etc.) that match the user's prompt.
+- Match the visual rhythm: alternate dense/airy where appropriate so the section reads top-to-bottom.
+
+PER-BLOCK TEMPLATE RULES (apply to every block.template):
+- Plain HTML + inline <style> only. No <script>, no <iframe>, no on* handlers, no javascript: URLs, no external <link>/<script src>.
+- Every {{token}} MUST map to that block's schema field id, AND every schema field MUST appear as a {{token}} at least once. Do not declare unused fields.
+- Scope CSS by wrapping each block in a single root element with a unique class (e.g. .blk-{kebab-of-name}-{index}) and prefix every selector inside <style> with that class. Never use bare element selectors.
+- Keep layouts responsive — flexbox/grid + relative units. Add a @media (max-width: 720px) breakpoint when a block has multiple columns.
+- Use placeholder/library images (e.g. https://images.unsplash.com/...) for any "image" sample value. Do not generate base64.
+
+PER-BLOCK SAMPLE RULES:
+- Provide a realistic value for every schema field id so the block renders nicely without further input.
+- For "boolean" use true/false. For "number" use a number. For "color" use hex. For "select" pick one of "options".`;
+}
+
+function buildComposeUserPrompt(opts: {
+  prompt: string;
+  brand?: BrandHints | null;
+  scraped?: { url: string; markdown: string } | null;
+  targetCount?: number;
+}): string {
+  const parts: string[] = [];
+  parts.push(`SECTION PROMPT:\n${opts.prompt.slice(0, 2000)}`);
+  if (opts.targetCount && opts.targetCount >= 2 && opts.targetCount <= 5) {
+    parts.push(`TARGET BLOCK COUNT: ${opts.targetCount} (you may produce ±1 if the section calls for it, but stay within 2-5).`);
+  }
+  if (opts.brand) {
+    const b = opts.brand;
+    const lines: string[] = [];
+    if (b.primaryColor) lines.push(`primary: ${b.primaryColor}`);
+    if (b.accentColor) lines.push(`accent: ${b.accentColor}`);
+    if (b.textColor) lines.push(`text: ${b.textColor}`);
+    if (b.backgroundColor) lines.push(`background: ${b.backgroundColor}`);
+    if (b.headingFont) lines.push(`heading font: ${b.headingFont}`);
+    if (b.bodyFont) lines.push(`body font: ${b.bodyFont}`);
+    if (lines.length > 0) {
+      parts.push(`BRAND PALETTE — emit literal hex values matching these in any color fields and in inline <style> defaults. Use these font-families for text styles.\n${lines.join("\n")}`);
+    }
+  }
+  if (opts.scraped) {
+    parts.push(`REFERENCE PAGE TEXT (${opts.scraped.url}):\n${opts.scraped.markdown}\n\nUse this to ground copy and structure.`);
+  }
+  return parts.join("\n\n---\n\n");
+}
+
 router.post("/lp/custom-blocks/validate", requireAuth, (req, res): void => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
@@ -167,6 +250,35 @@ router.post("/lp/custom-blocks/validate", requireAuth, (req, res): void => {
   });
 });
 
+async function loadBrandHints(tenantId: number): Promise<BrandHints | null> {
+  try {
+    const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
+    const cfg = rows[0]?.config as Record<string, unknown> | undefined;
+    if (!cfg) return null;
+    return {
+      primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
+      accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
+      textColor: isHexLike(cfg.textColor) ? cfg.textColor.trim() : undefined,
+      backgroundColor: isHexLike(cfg.backgroundColor) ? cfg.backgroundColor.trim() : undefined,
+      headingFont: typeof cfg.headingFont === "string" ? cfg.headingFont : undefined,
+      bodyFont: typeof cfg.bodyFont === "string" ? cfg.bodyFont : undefined,
+    };
+  } catch { return null; }
+}
+
+async function maybeScrapeRef(refUrl: string | undefined): Promise<{ scraped: { url: string; markdown: string } | null; screenshotUrl?: string }> {
+  const trimmed = (refUrl ?? "").trim();
+  if (!trimmed) return { scraped: null };
+  let parsed: URL | null = null;
+  try { parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`); } catch { return { scraped: null }; }
+  if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return { scraped: null };
+  const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
+  if (!FIRECRAWL_KEY) return { scraped: null };
+  const got = await firecrawlScrape(FIRECRAWL_KEY, parsed.toString());
+  if (!got?.markdown) return { scraped: null };
+  return { scraped: { url: parsed.toString(), markdown: got.markdown }, screenshotUrl: got.screenshotUrl };
+}
+
 router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
@@ -178,43 +290,8 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
     return;
   }
 
-  // Optional: pull tenant brand hints when toggle is on.
-  let brand: BrandHints | null = null;
-  if (body.useBrandVars) {
-    try {
-      const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
-      const cfg = rows[0]?.config as Record<string, unknown> | undefined;
-      if (cfg) {
-        brand = {
-          primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
-          accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
-          textColor: isHexLike(cfg.textColor) ? cfg.textColor.trim() : undefined,
-          backgroundColor: isHexLike(cfg.backgroundColor) ? cfg.backgroundColor.trim() : undefined,
-          headingFont: typeof cfg.headingFont === "string" ? cfg.headingFont : undefined,
-          bodyFont: typeof cfg.bodyFont === "string" ? cfg.bodyFont : undefined,
-        };
-      }
-    } catch { /* brand is best-effort */ }
-  }
-
-  // Optional: scrape reference URL with firecrawl.
-  let scraped: { url: string; markdown: string } | null = null;
-  let scrapedScreenshotUrl: string | undefined;
-  const refUrl = (body.referenceUrl ?? "").trim();
-  if (refUrl) {
-    let parsed: URL | null = null;
-    try { parsed = new URL(refUrl.startsWith("http") ? refUrl : `https://${refUrl}`); } catch { /* ignore */ }
-    if (parsed && (parsed.protocol === "http:" || parsed.protocol === "https:")) {
-      const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
-      if (FIRECRAWL_KEY) {
-        const got = await firecrawlScrape(FIRECRAWL_KEY, parsed.toString());
-        if (got?.markdown) {
-          scraped = { url: parsed.toString(), markdown: got.markdown };
-          scrapedScreenshotUrl = got.screenshotUrl;
-        }
-      }
-    }
-  }
+  const brand: BrandHints | null = body.useBrandVars ? await loadBrandHints(tenantId) : null;
+  const { scraped, screenshotUrl: scrapedScreenshotUrl } = await maybeScrapeRef(body.referenceUrl);
 
   // Build vision parts: uploaded screenshot wins; else firecrawl screenshot if present.
   const visionImage: string | undefined =
@@ -275,6 +352,100 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
     errors,
     warnings,
     valid: errors.length === 0,
+    referenceUrl: scraped?.url ?? null,
+    usedScreenshot: !!visionImage,
+  });
+});
+
+// Task #220 — Compose mode. One higher-level prompt → 2-5 ordered blocks,
+// each individually validated with the same validator the single-block flow
+// uses, so the dialog can preview the section in order before saving.
+router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+
+  const body = (req.body ?? {}) as ComposeBody;
+  const prompt = (body.prompt ?? "").trim();
+  if (!prompt) {
+    res.status(400).json({ error: "prompt is required" });
+    return;
+  }
+
+  const brand: BrandHints | null = body.useBrandVars ? await loadBrandHints(tenantId) : null;
+  const { scraped, screenshotUrl: scrapedScreenshotUrl } = await maybeScrapeRef(body.referenceUrl);
+
+  const visionImage: string | undefined =
+    typeof body.screenshotDataUrl === "string" && body.screenshotDataUrl.startsWith("data:image/")
+      ? body.screenshotDataUrl
+      : scrapedScreenshotUrl;
+
+  let openai;
+  try { openai = getOpenAIClient(); } catch (e) {
+    res.status(503).json({ error: String(e) });
+    return;
+  }
+
+  const targetCount = typeof body.targetCount === "number" && Number.isFinite(body.targetCount)
+    ? Math.min(5, Math.max(2, Math.round(body.targetCount)))
+    : undefined;
+
+  const userText = buildComposeUserPrompt({ prompt, brand, scraped, targetCount });
+  const userParts: ChatCompletionContentPart[] = [{ type: "text", text: userText }];
+  if (visionImage) userParts.push({ type: "image_url", image_url: { url: visionImage } });
+
+  let raw = "{}";
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      temperature: 0.7,
+      // Sections are 2-5 blocks; raise the cap so we don't truncate JSON.
+      max_completion_tokens: 9000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: buildComposeSystemPrompt() },
+        { role: "user", content: userParts },
+      ],
+    });
+    raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+  } catch (err) {
+    res.status(502).json({ error: `AI generation failed: ${err instanceof Error ? err.message : String(err)}` });
+    return;
+  }
+
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  let parsedJson: Record<string, unknown> = {};
+  try { parsedJson = JSON.parse(cleaned); } catch {
+    res.status(502).json({ error: "AI returned invalid JSON", raw: cleaned.slice(0, 1000) });
+    return;
+  }
+
+  const rawBlocks = Array.isArray(parsedJson.blocks) ? parsedJson.blocks : [];
+  if (rawBlocks.length < 2) {
+    res.status(502).json({ error: "AI returned fewer than 2 blocks for the section" });
+    return;
+  }
+  // Clamp to the 2-5 contract — drop overflow rather than fail so the user
+  // still gets a usable section preview.
+  const limited = rawBlocks.slice(0, 5);
+
+  const validated = limited.map((rb) => {
+    const { payload, issues } = validateRawSchemaBlock(rb);
+    const { errors, warnings } = splitIssues(issues);
+    return {
+      block: payload,
+      issues,
+      errors,
+      warnings,
+      valid: errors.length === 0,
+    };
+  });
+
+  res.json({
+    composition: {
+      name: typeof parsedJson.name === "string" ? parsedJson.name.trim().slice(0, 120) : "Generated Section",
+      description: typeof parsedJson.description === "string" ? parsedJson.description.trim().slice(0, 400) : "",
+    },
+    blocks: validated,
     referenceUrl: scraped?.url ?? null,
     usedScreenshot: !!visionImage,
   });

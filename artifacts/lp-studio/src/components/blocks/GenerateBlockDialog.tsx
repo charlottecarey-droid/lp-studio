@@ -6,7 +6,7 @@
 // the existing editor on Save so all existing flows (segments, link/master,
 // affected-pages confirm) work unchanged.
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2 } from "lucide-react";
+import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2, ChevronUp, ChevronDown, Trash2, Layers } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,11 +52,49 @@ interface ValidateResponse {
   valid: boolean;
 }
 
+/**
+ * Result of a "Compose section" generation — N validated blocks plus the
+ * section's name/description. Each entry tracks its own validation state
+ * so the dialog can flag bad blocks individually before the batch save.
+ */
+export interface ComposedBlock {
+  block: GeneratedBlock;
+  issues: ValidationIssue[];
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
+  valid: boolean;
+}
+
+interface ComposeResponse {
+  composition: { name: string; description: string };
+  blocks: ComposedBlock[];
+  referenceUrl: string | null;
+  usedScreenshot: boolean;
+}
+
+export interface PageOption {
+  id: number;
+  title: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called when the user accepts a generated block — opens the existing editor with these prefilled values. */
+  /** Called when the user accepts a single generated block — opens the existing editor with these prefilled values. */
   onAccept: (block: GeneratedBlock) => void;
+  /**
+   * Task #220 — called when the user accepts a composed multi-block section.
+   * The handler is responsible for batch-creating the custom blocks and (if
+   * `targetPageId` is provided) appending custom-schema instances to that
+   * page in the same order. Returning a promise lets the dialog show a
+   * spinner and stay open until the batch resolves.
+   */
+  onAcceptBatch?: (
+    blocks: GeneratedBlock[],
+    opts: { sectionName: string; targetPageId: number | null },
+  ) => Promise<void>;
+  /** Optional list of pages the editor can choose to insert the section into. */
+  pages?: PageOption[];
 }
 
 const QUICK_REFINES: Array<{ label: string; instruction: string }> = [
@@ -75,7 +113,7 @@ async function fileToDataUrl(f: File): Promise<string> {
   });
 }
 
-export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
+export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatch, pages }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +129,13 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
   const [block, setBlock] = useState<GeneratedBlock | null>(null);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
 
+  // Task #220 — Compose section (multi-block) state.
+  const [composeMode, setComposeMode] = useState(false);
+  const [composed, setComposed] = useState<ComposedBlock[] | null>(null);
+  const [sectionName, setSectionName] = useState("");
+  const [targetPageId, setTargetPageId] = useState<number | null>(null);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
+
   const errors = issues.filter(i => i.level === "error");
   const warnings = issues.filter(i => i.level === "warning");
 
@@ -103,6 +148,9 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
     setRefineInstruction("");
     setBlock(null);
     setIssues([]);
+    setComposed(null);
+    setSectionName("");
+    setTargetPageId(null);
   };
 
   // Re-validate edited block server-side (debounced) so token/field/safety
@@ -187,9 +235,111 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
     }
   };
 
-  const handleGenerate = () => callGenerate({ prior: null });
+  const handleGenerate = () => {
+    if (composeMode) {
+      void callCompose();
+      return;
+    }
+    void callGenerate({ prior: null });
+  };
   const handleRegenerate = () => callGenerate({ prior: null });
   const handleRefine = (instruction: string) => callGenerate({ refine: instruction, prior: block });
+
+  // Task #220 — Compose section: one prompt → 2-5 ordered blocks. The whole
+  // batch is rendered as previews with reorder controls. Refine targets the
+  // section as a whole (regenerate); per-block refine is intentionally
+  // out-of-scope to keep the dialog focused on accept-or-regenerate.
+  const callCompose = async () => {
+    setIsGenerating(true);
+    try {
+      const body = {
+        prompt,
+        referenceUrl: referenceUrl.trim() || undefined,
+        screenshotDataUrl: screenshotDataUrl ?? undefined,
+        useBrandVars,
+      };
+      const res = await fetch(`${API}/lp/custom-blocks/compose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json() as Partial<ComposeResponse> & { error?: string };
+      if (!res.ok || !Array.isArray(data.blocks) || data.blocks.length < 2) {
+        toast({
+          title: "Section generation failed",
+          description: data.error ?? `HTTP ${res.status}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      setComposed(data.blocks);
+      setSectionName(data.composition?.name ?? "Generated Section");
+    } catch (err) {
+      toast({
+        title: "Section generation failed",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const moveComposed = (i: number, dir: -1 | 1) => {
+    setComposed(prev => {
+      if (!prev) return prev;
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = prev.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  };
+
+  const removeComposed = (i: number) => {
+    setComposed(prev => {
+      if (!prev) return prev;
+      // Maintain the 2-5 contract — refuse to drop below 2.
+      if (prev.length <= 2) {
+        toast({ title: "A section needs at least 2 blocks" });
+        return prev;
+      }
+      const next = prev.slice();
+      next.splice(i, 1);
+      return next;
+    });
+  };
+
+  const composedHasErrors = (composed ?? []).some(c => c.errors.length > 0);
+
+  const handleAcceptBatch = async () => {
+    if (!composed || composed.length === 0 || !onAcceptBatch) return;
+    if (composedHasErrors) {
+      toast({
+        title: "Fix validation errors first",
+        description: "One or more blocks have errors. Remove them or regenerate the section.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSavingBatch(true);
+    try {
+      await onAcceptBatch(composed.map(c => c.block), {
+        sectionName: sectionName.trim() || "Generated Section",
+        targetPageId,
+      });
+      reset();
+      onOpenChange(false);
+    } catch (err) {
+      toast({
+        title: "Failed to save section",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingBatch(false);
+    }
+  };
 
   const updateBlock = (patch: Partial<GeneratedBlock>) => {
     setBlock(prev => (prev ? { ...prev, ...patch } : prev));
@@ -245,20 +395,47 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
-            Generate Custom Block from Prompt
+            {composeMode ? "Compose Section from Prompt" : "Generate Custom Block from Prompt"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
+          {/* Task #220 — mode toggle: single block vs multi-block section */}
+          {onAcceptBatch && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  if (composeMode) { setComposeMode(false); setComposed(null); }
+                }}
+                className={`flex-1 px-3 py-1.5 rounded transition-colors ${!composeMode ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Single block
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!composeMode) { setComposeMode(true); setBlock(null); setIssues([]); }
+                }}
+                className={`flex-1 px-3 py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 ${composeMode ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Compose section <span className="opacity-60">(2–5 blocks)</span>
+              </button>
+            </div>
+          )}
+
           {/* ── Inputs ─────────────────────────────────────────────────── */}
           <div>
-            <Label className="text-sm font-medium">Describe the block</Label>
+            <Label className="text-sm font-medium">{composeMode ? "Describe the section" : "Describe the block"}</Label>
             <Textarea
               className="mt-1.5 text-sm"
               rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder='e.g. "3-up pricing tier with monthly/yearly toggle and a Most Popular badge"'
+              placeholder={composeMode
+                ? 'e.g. "hero + 3 trust logos + a 3-up benefits grid + final CTA"'
+                : 'e.g. "3-up pricing tier with monthly/yearly toggle and a Most Popular badge"'}
               autoFocus
             />
           </div>
@@ -323,7 +500,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
             Use brand colors and fonts
           </label>
 
-          {!block && (
+          {((composeMode && !composed) || (!composeMode && !block)) && (
             <div className="flex justify-end">
               <Button onClick={handleGenerate} disabled={isGenerating || !prompt.trim()} className="gap-2">
                 {isGenerating ? (
@@ -331,13 +508,150 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
                 ) : (
                   <Wand2 className="w-4 h-4" />
                 )}
-                {isGenerating ? "Generating…" : "Generate"}
+                {isGenerating ? (composeMode ? "Composing…" : "Generating…") : (composeMode ? "Compose section" : "Generate")}
               </Button>
             </div>
           )}
 
-          {/* ── Result ────────────────────────────────────────────────── */}
-          {block && (
+          {/* ── Compose result: ordered list of block previews ──────────── */}
+          {composeMode && composed && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              {composedHasErrors && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Some blocks have validation errors — remove them or regenerate.
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-3">
+                <div>
+                  <Label className="text-sm font-medium">Section name</Label>
+                  <Input
+                    className="mt-1.5 text-sm"
+                    value={sectionName}
+                    onChange={(e) => setSectionName(e.target.value)}
+                  />
+                </div>
+                {pages && pages.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Insert into page (optional)</Label>
+                    <select
+                      className="mt-1.5 w-full text-sm rounded-md border border-input bg-background px-3 py-2 h-9"
+                      value={targetPageId === null ? "" : String(targetPageId)}
+                      onChange={(e) => setTargetPageId(e.target.value === "" ? null : Number(e.target.value))}
+                    >
+                      <option value="">— don&apos;t insert, just save the blocks —</option>
+                      {pages.map(p => (
+                        <option key={p.id} value={p.id}>{p.title || `Page ${p.id}`}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Appends each new block to the selected page in order.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <ol className="space-y-3">
+                {composed.map((c, i) => (
+                  <li
+                    key={i}
+                    className={`rounded-md border bg-background overflow-hidden ${c.errors.length > 0 ? "border-destructive/40" : "border-border"}`}
+                  >
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                      <Badge variant="outline" className="text-[10px] font-mono">#{i + 1}</Badge>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">{c.block.name || "Untitled block"}</div>
+                        {c.block.description && (
+                          <div className="text-[11px] text-muted-foreground truncate">{c.block.description}</div>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {c.block.schema.length} field{c.block.schema.length === 1 ? "" : "s"}
+                      </Badge>
+                      {c.errors.length > 0 && (
+                        <Badge variant="destructive" className="text-[10px] gap-1 shrink-0">
+                          <AlertTriangle className="w-3 h-3" />
+                          {c.errors.length} error{c.errors.length === 1 ? "" : "s"}
+                        </Badge>
+                      )}
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={i === 0 || isGenerating || isSavingBatch}
+                          onClick={() => moveComposed(i, -1)}
+                          aria-label="Move up"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={i === composed.length - 1 || isGenerating || isSavingBatch}
+                          onClick={() => moveComposed(i, 1)}
+                          aria-label="Move down"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          disabled={composed.length <= 2 || isGenerating || isSavingBatch}
+                          onClick={() => removeComposed(i)}
+                          aria-label="Remove block"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    {c.errors.length > 0 && (
+                      <ul className="px-3 py-2 text-[11px] text-destructive font-mono space-y-0.5 border-b border-border bg-destructive/5">
+                        {c.errors.slice(0, 4).map((e, idx) => (
+                          <li key={idx}><span className="opacity-70">[{e.path}]</span> {e.message}</li>
+                        ))}
+                        {c.errors.length > 4 && <li>…and {c.errors.length - 4} more</li>}
+                      </ul>
+                    )}
+                    <div className="p-2">
+                      <div className="border border-border rounded bg-white overflow-hidden">
+                        <SchemaPreviewFrame
+                          schema={c.block.schema}
+                          template={c.block.template}
+                          values={c.block.sample}
+                        />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-xs h-7"
+                  disabled={isGenerating || isSavingBatch}
+                  onClick={() => { void callCompose(); }}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? "animate-spin" : ""}`} />
+                  Regenerate section
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Single-block result ────────────────────────────────────── */}
+          {!composeMode && block && (
             <div className="space-y-3 pt-2 border-t border-border">
               {/* Validation banners (structured: path → message) */}
               {errors.length > 0 && (
@@ -513,17 +827,36 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
         </div>
 
         <DialogFooter className="shrink-0">
-          <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={isGenerating}>
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }} disabled={isGenerating || isSavingBatch}>
             Cancel
           </Button>
-          <Button
-            onClick={() => { void handleSave(); }}
-            disabled={!block || isGenerating || isValidating || errors.length > 0}
-            className="gap-2"
-          >
-            <Sparkles className="w-4 h-4" />
-            Use this block
-          </Button>
+          {composeMode ? (
+            <Button
+              onClick={() => { void handleAcceptBatch(); }}
+              disabled={!composed || composed.length === 0 || isGenerating || isSavingBatch || composedHasErrors}
+              className="gap-2"
+            >
+              {isSavingBatch ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              {isSavingBatch
+                ? "Saving…"
+                : composed
+                  ? `Use these ${composed.length} block${composed.length === 1 ? "" : "s"}`
+                  : "Use these blocks"}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => { void handleSave(); }}
+              disabled={!block || isGenerating || isValidating || errors.length > 0}
+              className="gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Use this block
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
