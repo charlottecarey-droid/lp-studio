@@ -3,10 +3,11 @@ import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
-  Clock, Megaphone, Users,
+  Clock, Megaphone, Users, ChevronDown, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { PresenceStrip } from "@/components/collaboration/presence-strip";
 import type { PresenceViewer } from "@/hooks/use-collaboration";
@@ -24,6 +25,18 @@ interface BuilderTopBarProps {
    * Surfaces a "Segment: <name>" badge next to the title so editors can tell
    * at a glance which audience the copy was generated for. */
   segmentName?: string | null;
+  /** Currently-assigned segment id, if any. Used to highlight the selected
+   * row in the segment popover by id (segment names are not guaranteed to
+   * be unique). */
+  segmentId?: string | null;
+  /** Available audience segments from brand settings. When provided alongside
+   * `onSegmentChange`, the segment badge becomes a popover that lets the
+   * editor reassign or clear the page's segment without leaving the builder
+   * (task #250). */
+  availableSegments?: { id: string; name: string }[];
+  /** Editor changed the page's segment from the badge popover. Pass `null`
+   * to clear. Persisting (PUT /lp/pages/:pageId) is the caller's job. */
+  onSegmentChange?: (segmentId: string | null) => void;
   /** Live public URL (e.g. partners.meetdandy.com/slug or /lp/slug) */
   liveUrl: string;
   /** In-app preview URL — the page viewer, visible even for drafts */
@@ -69,6 +82,9 @@ export function BuilderTopBar({
   viewers,
   unresolvedComments = 0,
   segmentName,
+  segmentId,
+  availableSegments,
+  onSegmentChange,
   liveUrl,
   previewUrl,
   onTitleChange,
@@ -135,16 +151,97 @@ export function BuilderTopBar({
         placeholder="Page Title"
       />
 
-      {segmentName && (
-        <span
-          className="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full shrink-0"
-          title={`Tailored for segment: ${segmentName}`}
-          data-testid="page-segment-badge"
-        >
-          <Users className="w-3 h-3" />
-          Segment: {segmentName}
-        </span>
-      )}
+      {(() => {
+        // Editors can reassign the page's segment when the parent passes both
+        // a list of segments AND a change handler. Without those props the
+        // badge falls back to a static label (legacy behaviour).
+        const editable = !!onSegmentChange && Array.isArray(availableSegments);
+        if (!editable && !segmentName) return null;
+
+        const triggerClass = cn(
+          "hidden md:inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 transition-colors",
+          segmentName
+            ? "text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100"
+            : "text-muted-foreground bg-muted/40 border border-dashed border-border hover:bg-muted",
+        );
+
+        if (!editable) {
+          return (
+            <span
+              className={triggerClass}
+              title={`Tailored for segment: ${segmentName}`}
+              data-testid="page-segment-badge"
+            >
+              <Users className="w-3 h-3" />
+              Segment: {segmentName}
+            </span>
+          );
+        }
+
+        return (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={triggerClass}
+                title={segmentName ? `Tailored for segment: ${segmentName} — click to change` : "Assign this page to a segment"}
+                data-testid="page-segment-badge"
+              >
+                <Users className="w-3 h-3" />
+                {segmentName ? `Segment: ${segmentName}` : "No segment"}
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="p-1 w-56" data-testid="page-segment-popover">
+              <div className="px-2 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Assign segment
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {(availableSegments ?? []).length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground italic">
+                    No segments defined. Add segments in Brand Settings.
+                  </p>
+                ) : (
+                  (availableSegments ?? []).map(seg => {
+                    const selected = segmentId === seg.id;
+                    return (
+                      <button
+                        key={seg.id}
+                        type="button"
+                        onClick={() => onSegmentChange?.(seg.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs hover:bg-muted",
+                          selected && "bg-violet-50 text-violet-800",
+                        )}
+                        data-testid={`page-segment-option-${seg.id}`}
+                      >
+                        <Users className={cn("w-3 h-3", selected ? "text-violet-600" : "text-muted-foreground")} />
+                        <span className="flex-1 truncate">{seg.name}</span>
+                        {selected && <Check className="w-3 h-3 text-violet-600" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <div className="border-t border-border mt-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => onSegmentChange?.(null)}
+                  disabled={!segmentName}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs",
+                    segmentName ? "hover:bg-muted text-foreground" : "text-muted-foreground/60 cursor-not-allowed",
+                  )}
+                  data-testid="page-segment-clear"
+                >
+                  <X className="w-3 h-3" />
+                  Clear segment
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      })()}
 
       <Badge
         variant={status === "published" ? "default" : "secondary"}

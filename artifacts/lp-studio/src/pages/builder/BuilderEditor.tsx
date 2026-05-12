@@ -1770,6 +1770,34 @@ export default function BuilderEditor() {
     }
   };
 
+  // Editor reassigned (or cleared) the page's segment from the top-bar
+  // popover (task #250). We update local state immediately so the badge
+  // reflects the change without a reload, then persist via PUT
+  // /lp/pages/:pageId — which already accepts segmentId. On failure we roll
+  // back so the badge can't lie about what's saved on the server.
+  const handleSegmentChange = async (nextSegmentId: string | null) => {
+    const previous = appliedSegment;
+    const next = nextSegmentId
+      ? (brand.segments ?? []).find(s => s.id === nextSegmentId) ?? null
+      : null;
+    if ((previous?.id ?? null) === (next?.id ?? null)) return;
+    setAppliedSegment(next);
+    try {
+      await savePage(pageId, getPageData({ segmentId: next?.id ?? null }));
+      toast({
+        title: next ? "Segment updated" : "Segment cleared",
+        description: next ? `Page is now tailored for ${next.name}.` : "This page is no longer tied to a segment.",
+      });
+    } catch (err) {
+      setAppliedSegment(previous);
+      toast({
+        title: "Couldn't update segment",
+        description: err instanceof Error ? err.message : "Failed to save",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Central registry of builder keyboard shortcuts. The help dialog renders
   // straight from this list so adding a shortcut here automatically appears
   // there. ⌘K (CommandPalette) is intentionally NOT registered here — its
@@ -2082,6 +2110,9 @@ export default function BuilderEditor() {
         viewers={viewers}
         unresolvedComments={commentBlocks.reduce((sum, b) => sum + b.threads.filter(t => !t.comment.resolved).length, 0)}
         segmentName={appliedSegment?.name ?? null}
+        segmentId={appliedSegment?.id ?? null}
+        availableSegments={(brand.segments ?? []).map(s => ({ id: s.id, name: s.name }))}
+        onSegmentChange={handleSegmentChange}
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
         liveUrl={getLpPageUrl(slug, micrositeDomain)}
