@@ -89,6 +89,8 @@ ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(
 
 TEMPLATE RULES:
 - Plain HTML + inline <style> only. No <script>, no <iframe>, no on* handlers, no javascript: URLs, no external <link>/<script src>.
+- The template engine is plain string interpolation — NOT Handlebars/Mustache/Liquid. The ONLY supported placeholder is {{field_id}} where field_id is a flat scalar field declared in the schema. FORBIDDEN: {{#each x}}…{{/each}}, {{#if x}}…{{/if}}, {{this.foo}}, {{x.y}}, {{>partial}}, {{!comment}}, or any other helper/section/dotted path. They will render literally and break the block.
+- For repeating content (nav links, social icons, pricing tiers, etc.) DO NOT try to loop. Either (a) declare a fixed number of separate fields like link_1_label, link_1_url, link_2_label, link_2_url, … and hard-code the markup for each, or (b) use a single longText field and have the editor type the whole list.
 - Every {{token}} MUST map to a schema field id, AND every schema field MUST appear as a {{token}} at least once. Do not declare unused fields.
 - Scope CSS by wrapping the block in a single root element with a unique class (e.g. .blk-{kebab-of-name}) and prefixing every selector inside <style> with that class. Never use bare element selectors that would bleed (e.g. "h1 { ... }" — use ".blk-foo h1 { ... }").
 - Keep the layout responsive — use flexbox/grid + relative units. Add a @media (max-width: 720px) breakpoint when the block has multiple columns.

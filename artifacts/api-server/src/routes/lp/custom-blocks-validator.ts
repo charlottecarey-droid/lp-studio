@@ -217,6 +217,20 @@ export function validateSchemaBlock(payload: SchemaBlockPayload): ValidationIssu
   for (const { re, code, msg } of UNSAFE_TEMPLATE_PATTERNS) {
     if (re.test(tpl)) issues.push({ level: "error", path: "template", code, message: `template: ${msg}` });
   }
+  // Reject Handlebars/Mustache-style helpers and dotted paths — the runtime
+  // engine is plain {{field_id}} interpolation only, so these would render
+  // literally and confuse editors (e.g. "{{#each columns}}" appearing on
+  // the page). Surface them as a clear error pointing at the offending
+  // placeholder so the regenerate-with-prior-errors loop can fix them.
+  for (const m of tpl.matchAll(/\{\{\s*([#/!>][^}]*|[a-zA-Z0-9_-]+\.[^}]+|this[^}]*)\s*\}\}/g)) {
+    const raw = m[0];
+    issues.push({
+      level: "error",
+      path: "template",
+      code: "template.unsupported_placeholder",
+      message: `template uses unsupported placeholder ${raw} — only flat {{field_id}} is supported (no #each/#if/this./dotted paths)`,
+    });
+  }
   validateTokenMapping(tpl, payload.schema, issues);
   dryRender(tpl, payload.schema, payload.sample, issues);
   return issues;
