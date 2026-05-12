@@ -553,9 +553,6 @@ function TenantRow({
         const parsed = JSON.parse(raw);
         if (parsed?.error) friendly = parsed.error;
       } catch { /* raw is plain text */ }
-      if (/Only superadmins/i.test(friendly)) {
-        friendly = "You're authenticated with the admin key, but your signed-in user isn't a superadmin. Ask an existing superadmin to set app_users.role='superadmin' for your account.";
-      }
       setAiFlagError(friendly);
     } finally {
       setSavingAiFlag(false);
