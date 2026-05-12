@@ -804,9 +804,77 @@ const STAT_FIELD_KEYS = new Set([
   "value", "stat", "metric", "stat1Value", "stat2Value", "stat3Value",
 ]);
 
+/** Task #253 — placeholder used when strict mode has no approved case-study
+ *  to substitute, so end-users immediately see what's missing instead of
+ *  shipping a hallucinated story. */
+const CASE_STUDY_PLACEHOLDER = "\u2014 add an approved case study in the Content Library";
+
+type ApprovedCaseStudy = { title: string; categories: string; url: string };
+
+/** Hard-enforce strict mode for case-study-bearing blocks: rebuild
+ *  `props.cases` (dso-success-stories) and the headline/quote/body fields
+ *  (dso-case-study) so they only ever quote rows from the approved pool —
+ *  or, when the pool is empty, an obvious placeholder. */
+function enforceApprovedCaseStudies(
+  block: { type?: string; props?: Record<string, unknown> },
+  pool: ApprovedCaseStudy[],
+): void {
+  const t = block.type;
+  const props = block.props;
+  if (!props || typeof props !== "object") return;
+
+  if (t === "dso-success-stories") {
+    // Block contract: cases array of EXACTLY 3 of {name, stat, label, quote, author, image}.
+    const targetCount = 3;
+    const next: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < targetCount; i += 1) {
+      const src = pool[i];
+      if (src) {
+        next.push({
+          name: src.title,
+          stat: STAT_PLACEHOLDER,
+          label: src.categories || "",
+          quote: "",
+          author: "",
+          image: "",
+        });
+      } else {
+        next.push({
+          name: CASE_STUDY_PLACEHOLDER,
+          stat: STAT_PLACEHOLDER,
+          label: "",
+          quote: "",
+          author: "",
+          image: "",
+        });
+      }
+    }
+    props.cases = next;
+    return;
+  }
+
+  if (t === "dso-case-study") {
+    // Single-case block: headline = approved title (or placeholder); blank
+    // out the long-form fields so unapproved prose can't ship.
+    const src = pool[0];
+    props.headline = src ? src.title : CASE_STUDY_PLACEHOLDER;
+    if ("subheadline" in props) props.subheadline = "";
+    if ("quote" in props) props.quote = "";
+    if ("challenge" in props && props.challenge && typeof props.challenge === "object") {
+      (props.challenge as Record<string, unknown>).body = "";
+    }
+    if ("solution" in props && props.solution && typeof props.solution === "object") {
+      (props.solution as Record<string, unknown>).body = "";
+    }
+    // stats[]/results[] still go through the numeric scrub below, which
+    // will replace any value field that isn't in the approved pool.
+  }
+}
+
 function sanitizeBlocksStrict(
   blocks: Array<{ type?: string; props?: Record<string, unknown> }> | unknown,
   pool: Set<string>,
+  caseStudies: ApprovedCaseStudy[] = [],
 ): void {
   if (!Array.isArray(blocks)) return;
   const walk = (node: unknown): void => {
@@ -822,7 +890,10 @@ function sanitizeBlocksStrict(
       }
     }
   };
-  for (const b of blocks) walk(b.props);
+  for (const b of blocks) {
+    enforceApprovedCaseStudies(b, caseStudies);
+    walk(b.props);
+  }
 }
 
 /** Detect if the user prompt is targeting practice-level staff within a DSO network */
@@ -1251,7 +1322,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       // may have invented despite the instruction.
       if (strict) {
         const pool = buildApprovedStatSet(brand, segmentContext);
-        sanitizeBlocksStrict(mergedBlocks, pool);
+        sanitizeBlocksStrict(mergedBlocks, pool, approvedCaseStudies);
       }
 
       res.json({
@@ -1718,7 +1789,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // free-form generation path before shipping the response.
     if (strict) {
       const pool = buildApprovedStatSet(brand, segmentContext);
-      sanitizeBlocksStrict(parsed.blocks, pool);
+      sanitizeBlocksStrict(parsed.blocks, pool, approvedCaseStudies);
     }
 
     res.json({
