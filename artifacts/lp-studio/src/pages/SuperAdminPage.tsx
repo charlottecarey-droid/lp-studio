@@ -533,16 +533,30 @@ function TenantRow({
   // Optimistic-ish: we just flip and re-fetch via onUpdate so the row reflects
   // server truth (tenants list is the source of truth for the checkbox state).
   const [savingAiFlag, setSavingAiFlag] = useState(false);
+  const [aiFlagError, setAiFlagError] = useState<string | null>(null);
   const toggleAiOutsideBuilder = async (next: boolean) => {
     setSavingAiFlag(true);
+    setAiFlagError(null);
     try {
       await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
         method: "PATCH",
         body: JSON.stringify({ aiImageGenOutsideBuilderEnabled: next }),
       });
       onUpdate();
-    } catch {
-      /* ignore */
+    } catch (err: any) {
+      // Surface the error inline. The most common cause is the acting
+      // session user not having app_users.role='superadmin' (the PATCH
+      // route enforces it on top of the admin key).
+      const raw = err?.message ?? "Failed to update";
+      let friendly = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.error) friendly = parsed.error;
+      } catch { /* raw is plain text */ }
+      if (/Only superadmins/i.test(friendly)) {
+        friendly = "You're authenticated with the admin key, but your signed-in user isn't a superadmin. Ask an existing superadmin to set app_users.role='superadmin' for your account.";
+      }
+      setAiFlagError(friendly);
     } finally {
       setSavingAiFlag(false);
     }
@@ -823,6 +837,11 @@ function TenantRow({
                   Tenant admins cannot see or change this — flip only after
                   the workspace is on the right billing arrangement.
                 </p>
+                {aiFlagError && (
+                  <p className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                    {aiFlagError}
+                  </p>
+                )}
               </div>
 
               {/* Brand settings copy */}
