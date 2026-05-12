@@ -4,10 +4,37 @@ import multer from "multer";
 import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
-import { db, lpMediaTable, tenantsTable } from "@workspace/db";
+import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
 import { desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
-import { getTenantId, requireAuth } from "../middleware/requireAuth";
+import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireAdminKey } from "../middleware/requireAdminKey";
+
+/**
+ * Read-only requester resolver for the storage serve route. Looks up the
+ * session cookie directly and returns the caller's tenantId, or null for any
+ * unauthenticated / invalid / expired-session case. Never writes to res, so
+ * anonymous callers fall through cleanly to the public-serve path used by
+ * published microsites embedding AI-generated images.
+ */
+async function resolveRequesterTenantId(req: Request): Promise<number | null> {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) return null;
+  try {
+    const result = await pool.query(
+      `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid],
+    );
+    if (!result.rows.length) return null;
+    const user = JSON.parse(result.rows[0].sess) as AuthUser;
+    return user.tenantId ?? null;
+  } catch {
+    // Treat any session lookup failure as anonymous. The route already
+    // applies the strictest fallback (allow public read for ACL'd objects)
+    // and tenant-mismatch denial only kicks in when we successfully prove
+    // the caller is a *different* tenant.
+    return null;
+  }
+}
 
 /**
  * Resolve the set of tenant ids whose media a given tenant should be allowed
@@ -814,29 +841,42 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
 
     const objectFile = await objectStorageService.getObjectEntityFile(`/objects/${wildcardPath}`);
 
-    // Tenant-scoped ACL enforcement (task #226). Objects uploaded by the AI
-    // image-generation flow (and any future tenant-scoped uploader) carry an
-    // ACL policy whose owner is `tenant:<id>`. For these objects we require
-    // an authenticated session whose tenant matches the owner — otherwise
-    // any logged-in user who guessed/leaked a UUID could fetch another
-    // tenant's generated image. Legacy objects with no ACL stay public-by-
-    // URL so existing /lp/upload + /lp/media/upload assets keep working.
+    // Tenant-scoped ACL enforcement (task #226, refined post-launch).
+    // Objects uploaded by the AI image-generation flow carry an ACL policy
+    // whose owner is `tenant:<id>`. The threat model is a *logged-in* user
+    // from a different tenant fetching another tenant's image via a leaked
+    // UUID. Anonymous viewers are NOT a threat: AI images are embedded in
+    // published microsites that are themselves public, so the asset has to
+    // be reachable without a session for the page to render.
+    //
+    // Policy:
+    //   anonymous     → 200 (public microsite consumption)
+    //   owner tenant  → 200
+    //   other tenant  → 403 (the actual leak vector)
+    //
+    // Legacy objects with no ACL stay fully public-by-URL so existing
+    // /lp/upload + /lp/media/upload assets keep working.
     const aclPolicy = await objectStorageService.getObjectAclPolicy(objectFile);
     if (aclPolicy && tenantIdFromAclOwner(aclPolicy.owner) != null) {
-      // Resolve the requester via requireAuth so this branch sees req.authUser.
-      const authed = await new Promise<boolean>((resolve) => {
-        requireAuth(req, res, () => resolve(true));
-        // requireAuth ends the response itself on failure; resolve(false)
-        // is only used when the response was already finished.
-        res.on("finish", () => resolve(false));
-        res.on("close", () => resolve(false));
-      });
-      if (!authed) return; // requireAuth already wrote 401/403/503.
-      const requesterTenantId = req.authUser?.tenantId ?? null;
-      const allowed = tenantCanReadAcl(aclPolicy, requesterTenantId);
-      if (allowed !== true) {
-        res.status(403).json({ error: "Access denied" });
-        return;
+      // The response varies by session cookie (anonymous → 200, owner →
+      // 200, other tenant → 403), so any shared cache (CDN, corporate
+      // proxy) MUST key on the cookie or it could hand a 200 anonymous
+      // payload to a sibling-tenant authed user — defeating the ACL.
+      // Set this BEFORE the branch can short-circuit with a 403 so the
+      // header is present on every ACL'd response.
+      res.setHeader("Vary", "Cookie");
+      // Resolve the caller's session WITHOUT failing the request when
+      // there is no session — anonymous must fall through to the serve
+      // path so the public microsite's <img> tag can load the asset.
+      const requesterTenantId = await resolveRequesterTenantId(req);
+      // Anonymous (no session) is allowed through. Only block authenticated
+      // callers from a *different* tenant.
+      if (requesterTenantId !== null) {
+        const allowed = tenantCanReadAcl(aclPolicy, requesterTenantId);
+        if (allowed !== true) {
+          res.status(403).json({ error: "Access denied" });
+          return;
+        }
       }
     }
 
