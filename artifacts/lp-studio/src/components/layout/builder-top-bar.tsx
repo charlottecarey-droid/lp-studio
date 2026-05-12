@@ -338,26 +338,35 @@ export function BuilderTopBar({
         <span className="hidden sm:inline">Template</span>
       </Button>
 
+      {/*
+        A/B Test and Ad Copy are now icon-only to free up horizontal
+        space in the top bar. Each carries an aria-label + title so the
+        action is still discoverable on hover and to screen readers.
+        Width is locked square (h-8 w-8 + p-0) so the icons don't drift
+        as the toolbar resizes.
+      */}
       <Button
         size="sm"
         variant="outline"
-        className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/5"
+        aria-label="A/B Test"
+        title="A/B Test"
+        className="h-8 w-8 p-0 text-primary border-primary/30 hover:bg-primary/5"
         onClick={onOpenAbTest}
       >
         <FlaskConical className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">A/B Test</span>
       </Button>
 
       {onOpenAdCopy && (
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5 text-xs text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
+          aria-label="Ad Copy"
+          title="Ad Copy"
+          className="h-8 w-8 p-0 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
           onClick={onOpenAdCopy}
           data-testid="open-ad-copy-button"
         >
           <Megaphone className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Ad Copy</span>
         </Button>
       )}
 
