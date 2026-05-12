@@ -1,11 +1,12 @@
 /**
  * Custom-block template engine — Handlebars-style subset (task #227).
  *
- * Shared between api-server (validator + dry-render) and lp-studio
- * (renderer + preview). NOTE: this module is duplicated verbatim in
- *   - artifacts/lp-studio/src/lib/schema-template-engine.ts   (canonical)
+ * Single source of truth for both api-server (validator + dry-render)
+ * and lp-studio (renderer + preview). The artifact-side files
+ *   - artifacts/lp-studio/src/lib/schema-template-engine.ts
  *   - artifacts/api-server/src/routes/lp/schema-template-engine.ts
- * Keep the two copies in sync. Pure TS, no DOM/React deps.
+ * are thin `export *` shims pointing at this module. Pure TS, no
+ * DOM/React deps.
  *
  * Supported syntax:
  *   {{field}}                              — scalar field, HTML-escaped
