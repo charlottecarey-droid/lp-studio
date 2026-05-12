@@ -12,7 +12,7 @@
 
 import { Router } from "express";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
-import { db, pool } from "@workspace/db";
+import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
@@ -233,177 +233,23 @@ interface ImagePromptCtx {
   blockDescription?: string;
   brand?: BrandHints | null;
   instruction?: string;
-  /**
-   * Tenant industry pulled from `tenants.settings.industry` (e.g. "dental",
-   * "saas", "restaurant"). Grounds the scene so a generic "team photo"
-   * becomes "team photo at a dental practice" — the #1 fix for the
-   * "wrong subject / wrong scene" complaint.
-   */
-  industry?: string;
 }
 
-/**
- * Translate a hex colour into a couple of human descriptors that
- * gpt-image-1 actually understands ("warm cream tone", "cool slate
- * tone"). The image model doesn't reliably honour raw hex codes, so we
- * pair them with mood words to nudge the actual rendered palette.
- */
-function hexToMoodWords(hex: string): string | null {
-  const m = hex.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (!m) return null;
-  let h = m[1];
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  // Quick HSL approximation.
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const lightness = (max + min) / 2 / 255;
-  const saturation = max === min ? 0 : (max - min) / (max + min);
-  const words: string[] = [];
-  if (lightness < 0.25) words.push("deep");
-  else if (lightness > 0.8) words.push("airy");
-  else if (lightness > 0.6) words.push("light");
-  else words.push("rich");
-  if (saturation < 0.15) words.push("neutral");
-  else {
-    // Hue bucket → temperature/family word.
-    if (max === r && g >= b) words.push("warm coral");
-    else if (max === r) words.push("warm magenta");
-    else if (max === g && r >= b) words.push("earthy olive");
-    else if (max === g) words.push("verdant green");
-    else if (max === b && r >= g) words.push("cool violet");
-    else words.push("cool blue");
-  }
-  return words.join(" ") + " tones";
-}
-
-type SubjectCategory = "portrait" | "team" | "product" | "food" | "interior" | "exterior" | "scene";
-
-/**
- * Heuristically classify what *kind* of photograph the field is asking
- * for, so we can attach category-appropriate composition cues
- * (lens/lighting/framing). gpt-image-1 hallucinates much less when the
- * prompt names the photographic genre instead of just the subject.
- */
-function subjectCategory(text: string): SubjectCategory {
-  const t = text.toLowerCase();
-  if (/\b(team|staff|crew|founders|employees|group)\b/.test(t)) return "team";
-  if (/\b(portrait|headshot|founder|ceo|doctor|dentist|advisor|host|profile|avatar)\b/.test(t)) return "portrait";
-  if (/\b(product|device|bottle|package|packaging|gadget|tool|laptop|phone|app screenshot)\b/.test(t)) return "product";
-  if (/\b(food|dish|meal|menu|drink|cocktail|coffee|plate|kitchen)\b/.test(t)) return "food";
-  if (/\b(interior|office|workspace|lobby|clinic|studio|room|cafe|restaurant)\b/.test(t)) return "interior";
-  if (/\b(exterior|building|storefront|facade|street|skyline|outdoor)\b/.test(t)) return "exterior";
-  return "scene";
-}
-
-const CATEGORY_CUES: Record<SubjectCategory, string> = {
-  portrait: "Tight editorial portrait, 85mm lens, soft natural window light, shallow depth of field, genuine candid expression, eyes sharp and in focus.",
-  team: "Candid environmental group photo, 35mm lens, natural office or workspace setting, real interactions (not posed lineup), even diffused light.",
-  product: "Product photography on a clean uncluttered surface, 50mm macro, soft directional studio lighting, subtle realistic shadow, sharp on the subject.",
-  food: "Overhead or 45-degree food photography, natural daylight, fresh ingredients visible, shallow depth of field, appetising and uncluttered styling.",
-  interior: "Architectural interior photo, wide 24mm, natural daylight from windows, lived-in but tidy, no people unless the subject calls for them.",
-  exterior: "Architectural exterior photo, golden-hour light, environmental context, clean composition, no visible street signage text.",
-  scene: "Editorial environmental photograph, natural lighting, a clear single focal subject, uncluttered background, real (not stocky) feel.",
-};
-
-export function buildImagePrompt(ctx: ImagePromptCtx): string {
-  // Pick the most explicit subject signal available. The user's free-form
-  // instruction ("Tweak" text or generic-endpoint brief) almost always
-  // describes the actual subject they want, so it wins. Field label is
-  // the next best signal; field id is a last-resort fallback.
-  const instruction = ctx.instruction?.trim();
-  const label = ctx.fieldLabel?.trim();
-  const subject =
-    instruction ||
-    label ||
-    ctx.fieldId.replace(/[_-]+/g, " ");
-
-  // Categorise from the broadest pool of signals so e.g. "founder" in the
-  // block name still pulls portrait composition cues even if the field is
-  // just labelled "Image".
-  const classifyText = [instruction, label, ctx.blockName, ctx.blockDescription, ctx.fieldId]
-    .filter(Boolean)
-    .join(" ");
-  const category = subjectCategory(classifyText);
-
+function buildImagePrompt(ctx: ImagePromptCtx): string {
   const lines: string[] = [];
-  // 1) Subject first, in a single concrete sentence — no preamble fluff.
-  const industryClause = ctx.industry && ctx.industry !== "generic"
-    ? ` for a ${ctx.industry} brand`
-    : "";
-  lines.push(`Subject: ${subject}${industryClause}.`);
-
-  // 2) Supporting context (block name + description) only if it adds info
-  //    beyond what's already in `subject`. Skip duplicates so we don't
-  //    confuse the model with restated ideas.
-  const subjLower = subject.toLowerCase();
-  if (ctx.blockName && !subjLower.includes(ctx.blockName.toLowerCase())) {
-    lines.push(`Used in a "${ctx.blockName}" landing-page section.`);
-  }
-  if (
-    ctx.blockDescription &&
-    ctx.blockDescription.trim() !== instruction &&
-    !subjLower.includes(ctx.blockDescription.toLowerCase().slice(0, 40))
-  ) {
-    lines.push(`Context: ${ctx.blockDescription}`);
-  }
-
-  // 3) Category-specific photography direction.
-  lines.push(CATEGORY_CUES[category]);
-
-  // 4) Brand styling — give the model both descriptive mood words AND the
-  //    literal hex. Mood words actually steer pixel output; hex serves as
-  //    a secondary anchor.
+  const subject = ctx.fieldLabel?.trim() || ctx.fieldId.replace(/[_-]+/g, " ");
+  lines.push(`On-brand editorial photograph for a landing-page section: "${subject}".`);
+  if (ctx.blockName) lines.push(`Block context: ${ctx.blockName}.`);
+  if (ctx.blockDescription) lines.push(ctx.blockDescription);
+  if (ctx.instruction) lines.push(`Direction: ${ctx.instruction}`);
   if (ctx.brand) {
-    const moodParts: string[] = [];
-    const hexParts: string[] = [];
-    if (ctx.brand.primaryColor) {
-      const m = hexToMoodWords(ctx.brand.primaryColor);
-      if (m) moodParts.push(m);
-      hexParts.push(`primary ${ctx.brand.primaryColor}`);
-    }
-    if (ctx.brand.accentColor) {
-      hexParts.push(`accent ${ctx.brand.accentColor}`);
-    }
-    if (moodParts.length || hexParts.length) {
-      const palette = [
-        moodParts.length ? `Brand palette: ${moodParts.join(", ")}` : "",
-        hexParts.length ? `(hex anchors: ${hexParts.join(", ")})` : "",
-      ].filter(Boolean).join(" ");
-      lines.push(`${palette}. Echo this palette in props, wardrobe, lighting, and background — not as overlays.`);
-    }
+    const tones: string[] = [];
+    if (ctx.brand.primaryColor) tones.push(`primary ${ctx.brand.primaryColor}`);
+    if (ctx.brand.accentColor) tones.push(`accent ${ctx.brand.accentColor}`);
+    if (tones.length) lines.push(`Brand palette to echo subtly: ${tones.join(", ")}.`);
   }
-
-  // 5) Universal style + explicit negatives. The negative list targets the
-  //    most common gpt-image-1 failure modes flagged by users.
-  lines.push("Style: photorealistic, modern editorial, natural colour grading, balanced composition.");
-  lines.push("Avoid: text or words anywhere in the image, watermarks, logos, distorted hands or faces, plastic skin, generic stock-photo posing, oversaturated HDR look, AI illustration style.");
-
+  lines.push("Style: clean, modern, well-lit, photographic, no text overlays, no watermarks, no logos.");
   return lines.join(" ");
-}
-
-/**
- * Read the tenant's industry hint from `tenants.settings.industry` (set
- * by task #226 and backfilled in server.ts). Returns null on missing /
- * malformed / "generic" / lookup failure so the prompt builder can decide
- * whether to add the industry clause.
- */
-async function loadIndustryHint(tenantId: number): Promise<string | null> {
-  try {
-    const r = await pool.query<{ settings: { industry?: unknown } | null }>(
-      `SELECT settings FROM tenants WHERE id = $1`,
-      [tenantId],
-    );
-    const ind = r.rows[0]?.settings?.industry;
-    if (typeof ind !== "string") return null;
-    const trimmed = ind.trim().toLowerCase();
-    if (!trimmed || trimmed === "generic") return null;
-    return trimmed.slice(0, 60);
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -432,15 +278,7 @@ export async function generateAndStoreImage(
   let openai;
   try { openai = getOpenAIClient(); } catch { return null; }
 
-  // Auto-fill industry from the calling tenant if the caller didn't
-  // already supply it. Keeps every callsite (custom blocks, generate
-  // page, generic ImagePicker) industry-aware without each having to
-  // remember to pass it.
-  const ctxWithIndustry: ImagePromptCtx = ctx.industry
-    ? ctx
-    : { ...ctx, industry: (await loadIndustryHint(tenantId)) ?? undefined };
-
-  const prompt = buildImagePrompt(ctxWithIndustry);
+  const prompt = buildImagePrompt(ctx);
   const size = aspectRatioToSize(aspectRatio);
   try {
     const result = await openai.images.generate({
