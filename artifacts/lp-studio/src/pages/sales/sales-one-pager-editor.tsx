@@ -70,6 +70,7 @@ interface HeaderConfig {
   subtitleFontSize: number; subtitleOffsetY: number; subtitleText: string; headerImage: string | null;
   imageCropAnchor: "top" | "center" | "bottom"; partnerLogoScale: number;
   partnerLogoOffsetX: number; partnerLogoOffsetY: number; titleLineSpacing: number;
+  prospectLogoScale: number;
 }
 interface BodyConfig {
   headlineText: string; headlineFontSize: number; introFontSize: number;
@@ -94,7 +95,7 @@ const defaultHeaderConfig: HeaderConfig = {
   subtitleText: "Your custom partnership overview — built for scale, savings & growth",
   headerImage: null,
   imageCropAnchor: "center", partnerLogoScale: 100, partnerLogoOffsetX: 0, partnerLogoOffsetY: 0,
-  titleLineSpacing: 1.32,
+  titleLineSpacing: 1.32, prospectLogoScale: 1.0,
 };
 const DEFAULT_QUOTE_TEXT = "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
 
@@ -217,6 +218,28 @@ function SliderRow({ label, value, min, max, step = 1, unit = "", onChange }: {
       <span className="text-[11px] font-medium text-muted-foreground w-40 shrink-0">{label}</span>
       <Slider value={[value]} min={min} max={max} step={step} onValueChange={([v]) => onChange(v)} className="flex-1" />
       <span className="text-xs font-mono text-foreground w-14 text-right">{value}{unit}</span>
+    </div>
+  );
+}
+
+// ── Prospect logo scale slider (0.5×–2.0×, 0.05 step, with reset) ────
+function ProspectLogoScaleRow({ value, onChange, defaultValue = 1.0, label = "Prospect Logo Scale" }: {
+  value: number; onChange: (v: number) => void; defaultValue?: number; label?: string;
+}) {
+  const snap = (v: number) => Math.round(v * 20) / 20;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[11px] font-medium text-muted-foreground w-40 shrink-0">{label}</span>
+      <Slider value={[value]} min={0.5} max={2.0} step={0.05} onValueChange={([v]) => onChange(snap(v))} className="flex-1" />
+      <span className="text-xs font-mono text-foreground w-12 text-right">{value.toFixed(2)}×</span>
+      <button
+        type="button"
+        onClick={() => onChange(defaultValue)}
+        title={`Reset to ${defaultValue.toFixed(2)}×`}
+        className="text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <RotateCcw className="w-3 h-3" />
+      </button>
     </div>
   );
 }
@@ -988,6 +1011,7 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={14} max={40} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
                     <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={8} max={18} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
                     <SliderRow label="Subtitle Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <ProspectLogoScaleRow value={headerCfg.prospectLogoScale} onChange={v => setHeaderCfg(p => ({ ...p, prospectLogoScale: v }))} />
                     <SliderRow label="Partner Logo Scale" value={headerCfg.partnerLogoScale} min={30} max={300} unit="%" onChange={v => setHeaderCfg(p => ({ ...p, partnerLogoScale: v }))} />
                     <SliderRow label="Partner Logo Offset X" value={headerCfg.partnerLogoOffsetX} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, partnerLogoOffsetX: v }))} />
                     <SliderRow label="Partner Logo Offset Y" value={headerCfg.partnerLogoOffsetY} min={-40} max={40} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, partnerLogoOffsetY: v }))} />
@@ -1107,6 +1131,7 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Headline Line Spacing" value={headerCfg.titleLineSpacing} min={0.8} max={3.0} step={0.01} unit="×" onChange={v => setHeaderCfg(p => ({ ...p, titleLineSpacing: v }))} />
                     <SliderRow label="Subheadline Font Size" value={headerCfg.subtitleFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
                     <SliderRow label="Subheadline Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <ProspectLogoScaleRow value={headerCfg.prospectLogoScale} onChange={v => setHeaderCfg(p => ({ ...p, prospectLogoScale: v }))} />
                     <div>
                       <span className="text-[11px] font-medium text-muted-foreground">Header Image</span>
                       <div className="flex items-center gap-3 mt-1.5">
@@ -1168,6 +1193,7 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={16} max={42} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
                     <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={8} max={24} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
                     <SliderRow label="Title Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <ProspectLogoScaleRow value={headerCfg.prospectLogoScale} onChange={v => setHeaderCfg(p => ({ ...p, prospectLogoScale: v }))} />
                     <div>
                       <span className="text-[11px] font-medium text-muted-foreground">Header Image</span>
                       <div className="flex items-center gap-3 mt-1.5">

@@ -198,6 +198,7 @@ export const generatePilotOnePager = async (
   customLinkText?: string,
   customLinkUrl?: string,
   layoutOverride?: Record<string, unknown>,
+  prospectLogoScale?: number,
 ) => {
   // When no override is passed (normal generation), load both the shared config AND the
   // per-audience body config — the editor saves bodyCfg to separate audience-specific keys.
@@ -234,6 +235,16 @@ export const generatePilotOnePager = async (
           : {}),
         // per-audience headerCfg overrides everything (most specific)
         ...(audienceData?.headerCfg as Record<string, unknown> ?? {}),
+      },
+    };
+  }
+  // Per-generation rep override for prospect logo scale wins over saved value.
+  if (typeof prospectLogoScale === "number") {
+    layoutOverrides = {
+      ...layoutOverrides,
+      headerCfg: {
+        ...(layoutOverrides.headerCfg as Record<string, unknown> ?? {}),
+        prospectLogoScale,
       },
     };
   }
@@ -277,8 +288,18 @@ export const generateComparisonOnePager = async (
   customLinkText?: string,
   customLinkUrl?: string,
   layoutOverride?: Record<string, unknown>,
+  prospectLogoScale?: number,
 ) => {
-  const layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_comparison_template_layout").catch(() => null) ?? {};
+  let layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_comparison_template_layout").catch(() => null) ?? {};
+  if (typeof prospectLogoScale === "number") {
+    layoutOverrides = {
+      ...layoutOverrides,
+      headerCfg: {
+        ...(layoutOverrides.headerCfg as Record<string, unknown> ?? {}),
+        prospectLogoScale,
+      },
+    };
+  }
   const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
 
   let logoPng: string | null = null;
@@ -309,8 +330,18 @@ export const generateNewPartnerOnePager = async (
   prospectLogoDims: { w: number; h: number },
   qrUrl: string,
   layoutOverride?: Record<string, unknown>,
+  prospectLogoScale?: number,
 ) => {
-  const saved = layoutOverride ?? await loadLayoutDefault("dandy_partner_template_layout").catch(() => null) ?? {};
+  let saved = layoutOverride ?? await loadLayoutDefault("dandy_partner_template_layout").catch(() => null) ?? {};
+  if (typeof prospectLogoScale === "number") {
+    saved = {
+      ...saved,
+      headerCfg: {
+        ...(saved.headerCfg as Record<string, unknown> ?? {}),
+        prospectLogoScale,
+      },
+    };
+  }
   const hCfg = (saved.headerCfg ?? {}) as { headerImage?: string };
 
   let logoPng: string | null = null;
@@ -408,10 +439,55 @@ const SalesOnePager = () => {
   const [prospectLogoName, setProspectLogoName] = useState<string>("");
   const [prospectLogoDims, setProspectLogoDims] = useState<{ w: number; h: number }>({ w: 200, h: 100 });
   const logoInputRef = useRef<HTMLInputElement>(null);
+  // Per-generation prospect logo scale override (sales rep can override the
+  // template-saved default for a single PDF). Defaults to the template's
+  // saved value when a template is selected; reset returns to that default.
+  const [prospectLogoScale, setProspectLogoScale] = useState<number>(1.0);
+  const [prospectLogoScaleDefault, setProspectLogoScaleDefault] = useState<number>(1.0);
+  const snapScale = (v: number) => Math.round(v * 20) / 20;
 
   const [editedContent, setEditedContent] = useState<Record<Audience, typeof defaultAudienceContent[Audience]>>(
     JSON.parse(JSON.stringify(defaultAudienceContent))
   );
+
+  // Load the template-saved prospectLogoScale default when the active
+  // template (or pilot audience) changes, so the slider starts at the
+  // admin-configured scale and "Reset" returns to that value.
+  useEffect(() => {
+    let cancelled = false;
+    const keyForTemplate = (): string | null => {
+      if (template === "pilot") return "dandy_pilot_template_layout";
+      if (template === "comparison") return "dandy_comparison_template_layout";
+      if (template === "new-partner" || template === "partner2") return "dandy_partner_template_layout";
+      return null;
+    };
+    const key = keyForTemplate();
+    if (!key) {
+      setProspectLogoScale(1.0);
+      setProspectLogoScaleDefault(1.0);
+      return;
+    }
+    const audienceKeyMap: Record<Audience, string> = {
+      executive: "dandy_pilot_executive_layout",
+      clinical: "dandy_pilot_clinical_layout",
+      "practice-manager": "dandy_pilot_practicemgr_layout",
+    };
+    Promise.all([
+      loadLayoutDefault(key).catch(() => null),
+      template === "pilot"
+        ? loadLayoutDefault(audienceKeyMap[audience]).catch(() => null)
+        : Promise.resolve(null),
+    ]).then(([shared, audienceData]) => {
+      if (cancelled) return;
+      const sharedHeader = (shared?.headerCfg ?? {}) as Record<string, unknown>;
+      const audienceHeader = (audienceData?.headerCfg ?? {}) as Record<string, unknown>;
+      const raw = (audienceHeader.prospectLogoScale ?? sharedHeader.prospectLogoScale) as number | undefined;
+      const dflt = typeof raw === "number" && raw > 0 ? snapScale(raw) : 1.0;
+      setProspectLogoScale(dflt);
+      setProspectLogoScaleDefault(dflt);
+    });
+    return () => { cancelled = true; };
+  }, [template, audience]);
 
   // Custom templates from Template Manager
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
@@ -720,16 +796,16 @@ const SalesOnePager = () => {
             }
           }
         } catch { /* use local editedContent */ }
-        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl);
+        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale);
         doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
       } else if (template === "comparison") {
-        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl);
+        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale);
         doc.save(`Dandy_Evolution_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       } else if (template === "new-partner") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com");
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com", undefined, prospectLogoScale);
         doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
       } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com");
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com", undefined, prospectLogoScale);
         doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +
@@ -1107,6 +1183,29 @@ const SalesOnePager = () => {
                   )}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1.5">PNG or JPG, transparent background recommended. Min 200×80px, max 800×400px.</p>
+                {prospectLogoData && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-24 shrink-0">Logo Scale</span>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={2.0}
+                      step={0.05}
+                      value={prospectLogoScale}
+                      onChange={(e) => setProspectLogoScale(snapScale(parseFloat(e.target.value)))}
+                      className="flex-1 accent-primary"
+                    />
+                    <span className="text-xs font-mono text-foreground w-12 text-right">{prospectLogoScale.toFixed(2)}×</span>
+                    <button
+                      type="button"
+                      onClick={() => setProspectLogoScale(prospectLogoScaleDefault)}
+                      title={`Reset to template default (${prospectLogoScaleDefault.toFixed(2)}×)`}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 {logoWarnings.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {logoWarnings.map((warning, i) => (

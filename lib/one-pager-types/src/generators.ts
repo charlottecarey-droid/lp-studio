@@ -596,9 +596,12 @@ export const generatePilotOnePager = async (
 
   if (prospectLogoData) {
     try {
-      const maxW = 135, maxH = 36;
+      const pScale = Math.max(0.3, Math.min(3, (hCfg.prospectLogoScale as number | undefined) ?? 1));
+      const maxW = 135 * pScale, maxH = 36 * pScale;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
-      doc.addImage(prospectLogoData, "PNG", logoEndX + 12, 64 - (prospectLogoDims.h * ratio) / 2, prospectLogoDims.w * ratio, prospectLogoDims.h * ratio);
+      const lw = prospectLogoDims.w * ratio;
+      const lh = prospectLogoDims.h * ratio;
+      doc.addImage(prospectLogoData, "PNG", logoEndX + 12, 64 - lh / 2, lw, lh);
     } catch { }
   } else {
     doc.setFont("helvetica", "italic");
@@ -871,7 +874,8 @@ export const generateComparisonOnePager = async (
     doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
     doc.line(logoEndX, 22, logoEndX, 46);
     try {
-      const maxW = 135, maxH = 30;
+      const pScale = Math.max(0.3, Math.min(3, (hCfg.prospectLogoScale as number | undefined) ?? 1));
+      const maxW = 135 * pScale, maxH = 30 * pScale;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
       const lw = prospectLogoDims.w * ratio;
       const lh = prospectLogoDims.h * ratio;
@@ -1080,7 +1084,9 @@ export const generateNewPartnerOnePager = async (
   drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
 
   const logoSepX = margin + 78;
-  const logoScale = ((hCfg.partnerLogoScale as number | undefined) ?? 100) / 100;
+  const legacyPartnerScale = ((hCfg.partnerLogoScale as number | undefined) ?? 100) / 100;
+  const newProspectScale = (hCfg.prospectLogoScale as number | undefined) ?? 1;
+  const logoScale = Math.max(0.3, Math.min(3, legacyPartnerScale * newProspectScale));
   const logoOffX = (hCfg.partnerLogoOffsetX as number | undefined) ?? 0;
   const logoOffY = (hCfg.partnerLogoOffsetY as number | undefined) ?? 0;
   if (prospectLogoData) {
