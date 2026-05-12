@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1141,6 +1141,20 @@ interface ProofPoint {
   sort_order: number;
 }
 
+// One row in the "review before save" list returned by either of the
+// /lp/proof-points/import-from-* endpoints. The UI lets the user toggle
+// each one off, edit value/label/source_url/as_of_date inline, then
+// hit "Save selected" to POST each accepted row through the existing
+// CRUD endpoint.
+interface ImportCandidate {
+  value: string;
+  label: string;
+  source_url: string;
+  as_of_date: string | null;
+  context: string;
+  selected: boolean;
+}
+
 function ProofPointsTab() {
   const [items, setItems] = useState<ProofPoint[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1150,6 +1164,17 @@ function ProofPointsTab() {
   });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<typeof draft>(draft);
+
+  // ── Import-from-URL / -from-text state ──────────────────────────────
+  const [importOpen, setImportOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"url" | "text">("url");
+  const [importUrl, setImportUrl] = useState("");
+  const [importText, setImportText] = useState("");
+  const [importTextSource, setImportTextSource] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<ImportCandidate[] | null>(null);
+  const [savingSelected, setSavingSelected] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -1214,6 +1239,89 @@ function ProofPointsTab() {
   const remove = async (id: number) => {
     await fetch(`${API_BASE}/lp/proof-points/${id}`, { method: "DELETE" });
     reload();
+  };
+
+  // Calls the new extract-only endpoint and pre-selects every returned row.
+  // Nothing is persisted until the user reviews + clicks "Save selected".
+  const runImport = async () => {
+    setImportError(null);
+    setCandidates(null);
+    setImporting(true);
+    try {
+      const endpoint = importMode === "url" ? "import-from-url" : "import-from-text";
+      const body = importMode === "url"
+        ? { url: importUrl }
+        : { text: importText, sourceUrl: importTextSource };
+      const r = await fetch(`${API_BASE}/lp/proof-points/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setImportError(typeof data?.error === "string" ? data.error : `Request failed (${r.status})`);
+        return;
+      }
+      const proposed = Array.isArray(data?.proposed) ? data.proposed : [];
+      if (proposed.length === 0) {
+        setImportError("No proof points found. Try a different page or paste more specific copy with numbers in it.");
+        return;
+      }
+      setCandidates(proposed.map((p: Record<string, unknown>) => ({
+        value: typeof p.value === "string" ? p.value : "",
+        label: typeof p.label === "string" ? p.label : "",
+        source_url: typeof p.source_url === "string" ? p.source_url : "",
+        as_of_date: typeof p.as_of_date === "string" ? p.as_of_date : null,
+        context: typeof p.context === "string" ? p.context : "",
+        selected: true,
+      })));
+    } catch (err) {
+      setImportError(String(err));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const saveSelectedCandidates = async () => {
+    if (!candidates) return;
+    const picked = candidates.filter((c) => c.selected && (c.value.trim() || c.label.trim()));
+    if (picked.length === 0) return;
+    setSavingSelected(true);
+    try {
+      // POST sequentially so the server-side sort_order auto-increment
+      // produces a deterministic order matching the on-screen list.
+      for (const c of picked) {
+        await fetch(`${API_BASE}/lp/proof-points`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            value: c.value,
+            label: c.label,
+            source_url: c.source_url,
+            as_of_date: c.as_of_date || null,
+            approved_for_ai: true,
+          }),
+        });
+      }
+      // Reset the import panel and reload the list so the new rows show up.
+      setCandidates(null);
+      setImportOpen(false);
+      setImportUrl("");
+      setImportText("");
+      setImportTextSource("");
+      reload();
+    } finally {
+      setSavingSelected(false);
+    }
+  };
+
+  const updateCandidate = (idx: number, patch: Partial<ImportCandidate>) => {
+    setCandidates((prev) => {
+      if (!prev) return prev;
+      const copy = prev.slice();
+      copy[idx] = { ...copy[idx], ...patch };
+      return copy;
+    });
   };
 
   if (loading) {
