@@ -12,6 +12,7 @@ import {
   Plus,
   Loader2,
   LayoutTemplate,
+  StarOff,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,16 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -79,6 +90,12 @@ function getGradient(index: number): string {
 }
 
 type SortOption = "Featured" | "Newest" | "Name" | "Most Blocks";
+// Owner filter for the template library. "all" = the full union (default,
+// matches existing behavior). "owned" = only templates this tenant created
+// (isGlobal=false). "starters" = only platform-seeded global templates. The
+// "owned" view is the primary tool for sales admins to audit and prune which
+// templates appear in the New Microsite modal.
+type OwnerFilter = "all" | "owned" | "starters";
 
 export default function TemplateMarketplace() {
   const { toast } = useToast();
@@ -88,6 +105,12 @@ export default function TemplateMarketplace() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("Featured");
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
+  // Track the in-flight un-template request and the template pending
+  // confirmation. We stash the full record (not just the id) so the dialog
+  // can show the label without re-querying state after the user clicks.
+  const [removingTemplateId, setRemovingTemplateId] = useState<number | null>(null);
+  const [removeConfirmTarget, setRemoveConfirmTarget] = useState<TemplatePage | null>(null);
   // Industry filter: `null` means "all industries" (default). A Set means
   // only show global templates whose industry is in the set. Tenant-saved
   // templates and universal globals (no industry) always pass through so
@@ -152,6 +175,15 @@ export default function TemplateMarketplace() {
       );
     }
 
+    // Owner filter: lets sales admins narrow the library to just the
+    // templates they own (so they can audit/prune what shows in the New
+    // Microsite modal) or to just the platform starter library.
+    if (ownerFilter === "owned") {
+      result = result.filter((t) => !t.isGlobal);
+    } else if (ownerFilter === "starters") {
+      result = result.filter((t) => t.isGlobal);
+    }
+
     // Industry filter: only restricts global, industry-tagged templates.
     // Tenant-owned templates and untagged globals always remain visible.
     if (selectedIndustries !== null) {
@@ -191,7 +223,7 @@ export default function TemplateMarketplace() {
     sorted.sort(compare);
 
     return sorted;
-  }, [templates, searchQuery, sortBy, selectedIndustries]);
+  }, [templates, searchQuery, sortBy, selectedIndustries, ownerFilter]);
 
   // Build display groups for the Featured sort. Tenant-owned templates
   // ALWAYS render first ("Your templates") so a tenant's own work stays
@@ -315,6 +347,46 @@ export default function TemplateMarketplace() {
     }
   };
 
+  // Counts shown next to the owner-filter buttons. Computed once per
+  // templates change so the badges stay accurate even as the user toggles
+  // between views, and so the "Yours" badge surfaces when the tenant has
+  // saved their own templates.
+  const ownedCount = useMemo(() => templates.filter((t) => !t.isGlobal).length, [templates]);
+  const starterCount = useMemo(() => templates.filter((t) => t.isGlobal).length, [templates]);
+
+  // Un-template: flips the page's is_template flag off via the existing
+  // PATCH /lp/pages/:id/mark-template route. Globals are guarded against in
+  // both UI (button hidden) and server (route enforces tenant ownership), so
+  // a sales admin can never accidentally remove another tenant's starter.
+  // After success we drop the row from local state so the grid refreshes
+  // immediately without a full refetch — matching the pages-gallery pattern.
+  const handleRemoveTemplate = async (template: TemplatePage) => {
+    if (template.isGlobal) return;
+    setRemovingTemplateId(template.id);
+    try {
+      const res = await fetch(`/api/lp/pages/${template.id}/mark-template`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTemplate: false, templateLabel: null, templateDescription: null }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      setTemplates((prev) => prev.filter((t) => t.id !== template.id));
+      toast({
+        title: "Removed from templates",
+        description: `"${template.templateLabel}" is now a regular page and won't show in the New Microsite modal.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to remove template";
+      toast({ title: "Couldn't remove template", description: message, variant: "destructive" });
+    } finally {
+      setRemovingTemplateId(null);
+      setRemoveConfirmTarget(null);
+    }
+  };
+
   const closePreview = () => {
     // Bump the token so any in-flight request becomes stale and can't
     // resurrect modal state after the user has closed it.
@@ -348,6 +420,40 @@ export default function TemplateMarketplace() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
+            {/* Owner filter — primary tool for sales admins to focus on the
+                tenant's own templates (the ones that show up in the New
+                Microsite modal). Defaults to "All" so existing users see no
+                behavior change. */}
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
+              {([
+                { key: "all" as const, label: "All", count: templates.length },
+                { key: "owned" as const, label: "Yours", count: ownedCount },
+                { key: "starters" as const, label: "Starters", count: starterCount },
+              ]).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setOwnerFilter(opt.key)}
+                  className={
+                    "px-3 h-9 text-sm font-medium transition-colors border-r last:border-r-0 border-border " +
+                    (ownerFilter === opt.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background hover:bg-muted")
+                  }
+                  aria-pressed={ownerFilter === opt.key}
+                >
+                  {opt.label}
+                  <span
+                    className={
+                      "ml-1.5 text-[10px] " +
+                      (ownerFilter === opt.key ? "opacity-80" : "text-muted-foreground")
+                    }
+                  >
+                    {opt.count}
+                  </span>
+                </button>
+              ))}
+            </div>
             {availableIndustries.length > 0 && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -559,6 +665,26 @@ export default function TemplateMarketplace() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {/* Un-template — only available on tenant-owned templates.
+                          Globals are platform-seeded and shared across tenants,
+                          so removing them from one tenant's library is both
+                          unauthorized server-side and undesirable UX. */}
+                      {!template.isGlobal && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRemoveConfirmTarget(template)}
+                          title="Remove from templates (page stays in your pages)"
+                          disabled={removingTemplateId === template.id}
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                        >
+                          {removingTemplateId === template.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <StarOff className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -656,6 +782,50 @@ export default function TemplateMarketplace() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Un-template confirmation. Pages aren't deleted — only the
+          is_template flag flips off — but we still confirm because the
+          template instantly disappears from the New Microsite modal for
+          every sales user, which is a meaningful behavior change. */}
+      <AlertDialog
+        open={removeConfirmTarget !== null}
+        onOpenChange={(open) => { if (!open) setRemoveConfirmTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from templates?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeConfirmTarget ? (
+                <>
+                  &quot;{removeConfirmTarget.templateLabel}&quot; will no longer appear in
+                  the template library or the New Microsite modal. The page itself
+                  stays in your pages — you can mark it as a template again at any time.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removingTemplateId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (removeConfirmTarget) handleRemoveTemplate(removeConfirmTarget);
+              }}
+              disabled={removingTemplateId !== null}
+              className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-600"
+            >
+              {removingTemplateId !== null ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove from templates"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
