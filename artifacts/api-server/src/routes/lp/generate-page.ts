@@ -55,7 +55,7 @@ interface BrandConfig {
   /** Task #253 — minimal mirror of the client `AudienceSegment` shape so we
    *  can pull approved per-segment stats into the strict-mode pool. Only the
    *  fields actually consumed here are typed; the rest are tolerated. */
-  segments?: Array<{ name?: string; stats?: SegmentStat[] }>;
+  segments?: Array<{ name?: string; stats?: BrandSegmentStat[] }>;
   chilipiperUrl?: string;
   defaultCtaUrl?: string;
   defaultCtaText?: string;
@@ -774,6 +774,7 @@ const STAT_PLACEHOLDER = "\u2014 add a stat in Brand Settings";
 function buildApprovedStatSet(
   brand: BrandConfig,
   segmentContext: SegmentContext | undefined,
+  proofPoints: ProofPoint[] = [],
 ): Set<string> {
   const out = new Set<string>();
   const add = (raw: string | undefined) => {
@@ -788,15 +789,39 @@ function buildApprovedStatSet(
       add(getClaimText(c));
     }
   }
+  // Task #256 — index proof points so segment stats with `linkProofPointId`
+  // can inherit approval / value from the linked entry.
+  const ppById = new Map<number, ProofPoint>();
+  for (const p of proofPoints) ppById.set(p.id, p);
+  const isStatApproved = (s: SegmentStat): boolean => {
+    if (typeof s.linkProofPointId === "number") {
+      const linked = ppById.get(s.linkProofPointId);
+      if (linked) return linked.approved_for_ai;
+    }
+    return s.approvedForAi !== false;
+  };
+  const valuesFor = (s: SegmentStat): string[] => {
+    const vals = [s.value];
+    if (typeof s.linkProofPointId === "number") {
+      const linked = ppById.get(s.linkProofPointId);
+      if (linked?.value) vals.push(linked.value);
+    }
+    return vals;
+  };
   for (const seg of brand.segments ?? []) {
     for (const s of seg.stats ?? []) {
-      if (s.approvedForAi === false) continue;
-      add(s.value);
+      if (!isStatApproved(s)) continue;
+      for (const v of valuesFor(s)) add(v);
     }
   }
   for (const s of segmentContext?.stats ?? []) {
-    if (s.approvedForAi === false) continue;
-    add(s.value);
+    if (!isStatApproved(s)) continue;
+    for (const v of valuesFor(s)) add(v);
+  }
+  // Task #256 — proof-point library entries flow straight into the pool.
+  for (const p of proofPoints) {
+    if (!p.approved_for_ai) continue;
+    add(p.value);
   }
   return out;
 }
@@ -1057,7 +1082,70 @@ RULES:
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.
 12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.`;
 
-interface SegmentStat { value: string; label: string; approvedForAi?: boolean }
+interface SegmentStat { value: string; label: string; approvedForAi?: boolean; linkProofPointId?: number }
+// Same shape on the BrandConfig side; extracted to avoid a forward-reference
+// to the SegmentContext-scoped `SegmentStat` (which is declared further down).
+type BrandSegmentStat = SegmentStat;
+
+/** Task #256 — proof point row as returned by the library route. Subset of
+ *  the DB columns we actually consume in the prompt + sanitize pool. */
+interface ProofPoint {
+  id: number;
+  value: string;
+  label: string;
+  source_url: string;
+  as_of_date: string | null;
+  approved_for_ai: boolean;
+}
+
+/** Task #256 — fetch the tenant's proof-point library so it can be injected
+ *  into the AI brief and the strict-mode approved-stat pool. Returns ALL
+ *  rows (the caller filters by approved_for_ai for prompt vs pool use). */
+async function fetchProofPoints(tenantId: number | null): Promise<ProofPoint[]> {
+  if (tenantId == null) return [];
+  try {
+    const rows = await db.execute(
+      sql`SELECT id, value, label, source_url, as_of_date, approved_for_ai
+          FROM lp_proof_points
+          WHERE tenant_id = ${tenantId}
+          ORDER BY sort_order ASC, id ASC`,
+    );
+    return (rows.rows as Array<{
+      id: number;
+      value: string;
+      label: string;
+      source_url: string;
+      as_of_date: string | null;
+      approved_for_ai: boolean;
+    }>).map((r) => ({
+      id: r.id,
+      value: r.value ?? "",
+      label: r.label ?? "",
+      source_url: r.source_url ?? "",
+      as_of_date: r.as_of_date,
+      approved_for_ai: r.approved_for_ai !== false,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function buildProofPointsSection(points: ProofPoint[], strict: boolean): string {
+  const usable = strict ? points.filter((p) => p.approved_for_ai) : points;
+  if (usable.length === 0) {
+    return strict
+      ? "APPROVED PROOF POINTS: (none) — for any stat slot in this page, use the literal placeholder \"\u2014 add a stat in Brand Settings\" instead of inventing numbers."
+      : "";
+  }
+  const lines = usable.map((p) => {
+    const date = p.as_of_date ? ` [as of ${p.as_of_date}]` : "";
+    const src = p.source_url ? ` (source: ${p.source_url})` : "";
+    return `- ${p.value} ${p.label}${date}${src}`.trim();
+  }).join("\n");
+  return strict
+    ? `APPROVED PROOF POINTS (use ONLY these — together with any APPROVED SEGMENT STATS — for any stat-bearing block; do not invent others):\n${lines}`
+    : `Proof Points (reusable across pages and segments):\n${lines}`;
+}
 
 interface SegmentContext {
   name?: string;
@@ -1072,7 +1160,10 @@ interface SegmentContext {
   stats?: SegmentStat[];
 }
 
-function buildSegmentSection(seg: SegmentContext, opts: { strict?: boolean } = {}): string {
+function buildSegmentSection(
+  seg: SegmentContext,
+  opts: { strict?: boolean; proofPoints?: ProofPoint[] } = {},
+): string {
   const parts: string[] = [];
   if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
   if (seg.description) parts.push(`Segment Description: ${seg.description}`);
@@ -1090,8 +1181,22 @@ function buildSegmentSection(seg: SegmentContext, opts: { strict?: boolean } = {
   // Task #253 — emit segment stats. In strict mode, only stats with
   // approvedForAi !== false are listed, and we add a hard "use only these"
   // line. Without strict mode, all stats are listed for context.
-  const stats = (seg.stats ?? []).filter((s) => s.value || s.label);
-  const filtered = opts.strict ? stats.filter((s) => s.approvedForAi !== false) : stats;
+  // Task #256 — when a stat links to a proof point, inherit approval +
+  // value from the linked entry so this prompt section stays consistent
+  // with `buildApprovedStatSet` (the strict sanitizer pool).
+  const ppById = new Map<number, ProofPoint>();
+  for (const p of opts.proofPoints ?? []) ppById.set(p.id, p);
+  const resolved = (seg.stats ?? [])
+    .filter((s) => s.value || s.label || (typeof s.linkProofPointId === "number" && ppById.has(s.linkProofPointId)))
+    .map((s) => {
+      const linked = typeof s.linkProofPointId === "number" ? ppById.get(s.linkProofPointId) : undefined;
+      return {
+        value: linked?.value || s.value,
+        label: s.label || linked?.label || "",
+        approved: linked ? linked.approved_for_ai : s.approvedForAi !== false,
+      };
+    });
+  const filtered = opts.strict ? resolved.filter((s) => s.approved) : resolved;
   if (filtered.length) {
     const pool = filtered.map((s) => `- ${s.value} ${s.label}`.trim()).join("\n");
     parts.push(
@@ -1128,12 +1233,13 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   }
 
   const tenantId = req.authUser?.tenantId ?? null;
-  const [brand, mediaCatalog, tenantSlugRow] = await Promise.all([
+  const [brand, mediaCatalog, tenantSlugRow, proofPoints] = await Promise.all([
     fetchBrand(tenantId),
     fetchMediaCatalog(tenantId),
     tenantId != null
       ? db.select({ slug: tenantsTable.slug }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
       : Promise.resolve([] as { slug: string }[]),
+    fetchProofPoints(tenantId),
   ]);
   const brandContext = buildBrandContext(brand);
   // Task #253 — when the brand has Strict Facts Mode on, fetch the tenant's
@@ -1141,6 +1247,10 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   // section. Otherwise this is skipped to keep prompts lean.
   const strict = brand.aiStrictFactsMode === true;
   const approvedCaseStudies = strict ? await fetchApprovedCaseStudies(tenantId) : [];
+  // Task #256 — proof-point library section. Always emit when there are
+  // points (it's useful context for non-strict generations too); strict
+  // mode upgrades the wording to a hard "use only these" instruction.
+  const proofPointsSection = buildProofPointsSection(proofPoints, strict);
   const caseStudiesSection = strict
     ? (approvedCaseStudies.length > 0
         ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${
@@ -1190,7 +1300,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       }
 
       const segmentSection = segmentContext && typeof segmentContext === "object"
-        ? buildSegmentSection(segmentContext, { strict })
+        ? buildSegmentSection(segmentContext, { strict, proofPoints })
         : "";
 
       const templateSystemPrompt = [
@@ -1217,6 +1327,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         );
       }
       if (caseStudiesSection) templateUserPromptParts.push(caseStudiesSection);
+      if (proofPointsSection) templateUserPromptParts.push(proofPointsSection);
       templateUserPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
       templateUserPromptParts.push(
         `TEMPLATE BLOCKS (preserve structure, rewrite copy only):\n${JSON.stringify(tplBlocks)}`
@@ -1333,8 +1444,9 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
       // Task #253 — strict mode: scrub any unapproved numeric stats the model
       // may have invented despite the instruction.
+      // Task #256 — proof-point values flow into the same approved pool.
       if (strict) {
-        const pool = buildApprovedStatSet(brand, segmentContext);
+        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
         sanitizeBlocksStrict(mergedBlocks, pool, approvedCaseStudies);
       }
 
@@ -1359,7 +1471,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   const segmentSection = segmentContext && typeof segmentContext === "object"
-    ? buildSegmentSection(segmentContext, { strict })
+    ? buildSegmentSection(segmentContext, { strict, proofPoints })
     : "";
 
   let userPromptParts: string[] = [];
@@ -1370,6 +1482,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     );
   }
   if (caseStudiesSection) userPromptParts.push(caseStudiesSection);
+  if (proofPointsSection) userPromptParts.push(proofPointsSection);
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   if (dandyInternalVideosSection) userPromptParts.push(dandyInternalVideosSection);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
@@ -1832,8 +1945,9 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
     // Task #253 — strict mode: scrub any unapproved numeric stats from the
     // free-form generation path before shipping the response.
+    // Task #256 — proof-point library values are part of the approved pool.
     if (strict) {
-      const pool = buildApprovedStatSet(brand, segmentContext);
+      const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
       sanitizeBlocksStrict(parsed.blocks, pool, approvedCaseStudies);
     }
 

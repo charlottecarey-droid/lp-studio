@@ -215,6 +215,23 @@ async function runMigrationsBody(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS lp_library_items_type_idx ON lp_library_items (type);
 
+      -- Task #256 — first-class, tenant-scoped proof-point library. One
+      -- approved entry can flow through every page and segment that needs
+      -- the same number, instead of re-typing it per segment.
+      CREATE TABLE IF NOT EXISTS lp_proof_points (
+        id              serial PRIMARY KEY,
+        tenant_id       integer NOT NULL,
+        value           text NOT NULL DEFAULT '',
+        label           text NOT NULL DEFAULT '',
+        source_url      text NOT NULL DEFAULT '',
+        as_of_date      date,
+        approved_for_ai boolean NOT NULL DEFAULT true,
+        sort_order      integer NOT NULL DEFAULT 0,
+        created_at      timestamptz NOT NULL DEFAULT now(),
+        updated_at      timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS lp_proof_points_tenant_idx ON lp_proof_points (tenant_id);
+
       CREATE TABLE IF NOT EXISTS lp_block_defaults (
         block_type text PRIMARY KEY,
         props jsonb NOT NULL DEFAULT '{}',

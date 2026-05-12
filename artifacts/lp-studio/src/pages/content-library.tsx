@@ -1128,7 +1128,198 @@ function LibraryTab({ type }: { type: LibraryType }) {
   );
 }
 
-type ActiveTab = LibraryType | "media";
+// Task #256 — first-class proof-point library row. Tenant-scoped, dated,
+// sourced. Approval here flows through every page and segment that links
+// to this row instead of being re-typed per segment.
+interface ProofPoint {
+  id: number;
+  value: string;
+  label: string;
+  source_url: string;
+  as_of_date: string | null;
+  approved_for_ai: boolean;
+  sort_order: number;
+}
+
+function ProofPointsTab() {
+  const [items, setItems] = useState<ProofPoint[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<{ value: string; label: string; source_url: string; as_of_date: string; approved_for_ai: boolean }>({
+    value: "", label: "", source_url: "", as_of_date: "", approved_for_ai: true,
+  });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<typeof draft>(draft);
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/lp/proof-points`);
+      const data = await r.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { reload(); }, []);
+
+  const create = async () => {
+    if (!draft.value.trim() && !draft.label.trim()) return;
+    await fetch(`${API_BASE}/lp/proof-points`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        value: draft.value,
+        label: draft.label,
+        source_url: draft.source_url,
+        as_of_date: draft.as_of_date || null,
+        approved_for_ai: draft.approved_for_ai,
+      }),
+    });
+    setDraft({ value: "", label: "", source_url: "", as_of_date: "", approved_for_ai: true });
+    setAdding(false);
+    reload();
+  };
+
+  const startEdit = (p: ProofPoint) => {
+    setEditingId(p.id);
+    setEditDraft({
+      value: p.value,
+      label: p.label,
+      source_url: p.source_url,
+      as_of_date: p.as_of_date ?? "",
+      approved_for_ai: p.approved_for_ai !== false,
+    });
+  };
+
+  const saveEdit = async (id: number) => {
+    await fetch(`${API_BASE}/lp/proof-points/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        value: editDraft.value,
+        label: editDraft.label,
+        source_url: editDraft.source_url,
+        as_of_date: editDraft.as_of_date || null,
+        approved_for_ai: editDraft.approved_for_ai,
+      }),
+    });
+    setEditingId(null);
+    reload();
+  };
+
+  const remove = async (id: number) => {
+    await fetch(`${API_BASE}/lp/proof-points/${id}`, { method: "DELETE" });
+    reload();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+        <span className="text-sm">Loading…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.length === 0 && !adding && (
+        <div className="text-center py-8 text-slate-400 text-sm">
+          <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p>No proof points yet. Add one below to share approved stats across every page and segment.</p>
+        </div>
+      )}
+
+      {items.map((p) => (
+        <div key={p.id} className="border rounded-lg p-4 bg-card">
+          {editingId === p.id ? (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input className="text-xs h-7 w-32 shrink-0" placeholder="Value e.g. 98%" value={editDraft.value} onChange={(e) => setEditDraft({ ...editDraft, value: e.target.value })} />
+                <Input className="text-xs h-7 flex-1" placeholder="Label e.g. acceptance rate" value={editDraft.label} onChange={(e) => setEditDraft({ ...editDraft, label: e.target.value })} />
+              </div>
+              <Input className="text-xs h-7" placeholder="Source URL (optional)" value={editDraft.source_url} onChange={(e) => setEditDraft({ ...editDraft, source_url: e.target.value })} />
+              <div className="flex items-center gap-2">
+                <Label className="text-[11px] text-slate-500 shrink-0">As of</Label>
+                <Input className="text-xs h-7 w-40" type="date" value={editDraft.as_of_date} onChange={(e) => setEditDraft({ ...editDraft, as_of_date: e.target.value })} />
+                <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer ml-auto">
+                  <input type="checkbox" className="h-3.5 w-3.5" checked={editDraft.approved_for_ai} onChange={(e) => setEditDraft({ ...editDraft, approved_for_ai: e.target.checked })} />
+                  Approved for AI
+                </label>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveEdit(p.id)}><Check className="w-3 h-3" /> Save</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEditingId(null)}><X className="w-3 h-3" /> Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap mb-0.5">
+                  <span className="text-sm font-semibold text-slate-800">{p.value || "(no value)"}</span>
+                  <span className="text-sm text-slate-600">{p.label}</span>
+                  {p.approved_for_ai !== false ? (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-300 text-emerald-600 shrink-0">AI</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-400 shrink-0">AI off</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
+                  {p.as_of_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{p.as_of_date}</span>}
+                  {p.source_url && (
+                    <a href={p.source_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-slate-700 truncate max-w-xs">
+                      <ExternalLink className="w-3 h-3" />{p.source_url}
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button title="Edit" onClick={() => startEdit(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button title="Delete" onClick={() => { if (confirm("Delete this proof point?")) remove(p.id); }} className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="border-2 border-dashed border-border rounded-lg p-4 space-y-2 bg-background">
+          <div className="flex gap-2">
+            <Input className="text-xs h-7 w-32 shrink-0" placeholder="Value e.g. 98%" value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} />
+            <Input className="text-xs h-7 flex-1" placeholder="Label e.g. acceptance rate" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
+          </div>
+          <Input className="text-xs h-7" placeholder="Source URL (optional)" value={draft.source_url} onChange={(e) => setDraft({ ...draft, source_url: e.target.value })} />
+          <div className="flex items-center gap-2">
+            <Label className="text-[11px] text-slate-500 shrink-0">As of</Label>
+            <Input className="text-xs h-7 w-40" type="date" value={draft.as_of_date} onChange={(e) => setDraft({ ...draft, as_of_date: e.target.value })} />
+            <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer ml-auto">
+              <input type="checkbox" className="h-3.5 w-3.5" checked={draft.approved_for_ai} onChange={(e) => setDraft({ ...draft, approved_for_ai: e.target.checked })} />
+              Approved for AI
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" className="h-7 text-xs gap-1" onClick={create}><Plus className="w-3 h-3" /> Add Proof Point</Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAdding(false)}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={() => setAdding(true)}>
+          <Plus className="w-3.5 h-3.5" /> Add Proof Point
+        </Button>
+      )}
+    </div>
+  );
+}
+
+type ActiveTab = LibraryType | "media" | "proof_points";
 
 const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: React.ReactNode }[] = [
   { id: "product_showcase", label: "Product Showcase", description: "Cards used in Product Showcase blocks" },
@@ -1136,6 +1327,7 @@ const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: Reac
   { id: "case_study", label: "Case Studies", description: "Case study cards across landing pages" },
   { id: "resource", label: "Resources", description: "Articles, guides, and resources" },
   { id: "team_member", label: "Sales Reps", description: "Sales reps and their booking links — pick from this list when building Meet the Team blocks.", icon: <Users className="w-3.5 h-3.5" /> },
+  { id: "proof_points", label: "Proof Points", description: "Reusable, dated, sourced stats. One approval flows through every page and segment that uses the same number — no more re-typing the same stat in every segment.", icon: <Sparkles className="w-3.5 h-3.5" /> },
   { id: "media", label: "Media", description: "Upload and manage images. AI auto-tags on upload — subfolders become tags when uploading a folder.", icon: <Image className="w-3.5 h-3.5" /> },
 ];
 
@@ -1169,7 +1361,9 @@ export function ContentLibraryContent() {
 
         {activeTab === "media"
           ? <MediaTab />
-          : <LibraryTab key={activeTab} type={activeTab as LibraryType} />
+          : activeTab === "proof_points"
+            ? <ProofPointsTab />
+            : <LibraryTab key={activeTab} type={activeTab as LibraryType} />
         }
       </motion.div>
     </div>

@@ -65,6 +65,11 @@ export interface SegmentStat {
    *  `aiStrictFactsMode` enabled, generation will only consider stats with
    *  `approvedForAi !== false`. */
   approvedForAi?: boolean;
+  /** Task #256 — optional link to a row in the tenant's proof-point library.
+   *  When set and the proof point is approved, the stat inherits the proof
+   *  point's approval state and value (so a single approval flows through
+   *  every segment that links to the same proof point). */
+  linkProofPointId?: number;
 }
 
 export interface SegmentComparisonRow {
