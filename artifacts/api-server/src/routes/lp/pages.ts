@@ -211,8 +211,15 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const ownedOnly = String(req.query.ownedOnly ?? "").toLowerCase() === "true";
+    // ownedOnly: tenant-owned AND not flagged is_global. The is_global=false
+    // guard is defensive — a tenant template should not normally also be a
+    // global starter, but if it ever is, we don't want it leaking into the
+    // sales-rep microsite generator's tenant-only picker.
     const visibility = ownedOnly
-      ? eq(lpPagesTable.tenantId, tenantId)
+      ? and(
+          eq(lpPagesTable.tenantId, tenantId),
+          eq(lpPagesTable.isGlobal, false),
+        )
       : or(
           eq(lpPagesTable.tenantId, tenantId),
           eq(lpPagesTable.isGlobal, true),

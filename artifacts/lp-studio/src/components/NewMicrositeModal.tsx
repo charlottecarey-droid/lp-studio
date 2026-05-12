@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AccountCombobox } from "@/components/AccountCombobox";
+import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
 
 const API_BASE = "/api";
@@ -66,6 +67,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [templates, setTemplates] = useState<TenantTemplate[]>([]);
+  const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   // Account selection state. `noAccount` true means the rep clicked the
@@ -80,6 +82,8 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number>(0);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiTemplateId, setAiTemplateId] = useState<string>("");
+  // AI mode only — empty string means "Auto / no specific segment".
+  const [aiSegmentId, setAiSegmentId] = useState<string>("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +100,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       setSelectedTemplateId(0);
       setAiPrompt("");
       setAiTemplateId("");
+      setAiSegmentId("");
       setError(null);
       setSubmitting(false);
     }
@@ -113,9 +118,13 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       fetch(`${API_BASE}/lp/templates?ownedOnly=true`)
         .then(r => (r.ok ? r.json() : []))
         .catch(() => []),
-    ]).then(([accts, tpls]: [Account[], TenantTemplate[]]) => {
+      // Audience segments come from the tenant's brand config — same source
+      // the page editor and Content Brief modal already use.
+      fetchBrandConfig().then(b => b.segments ?? []).catch(() => []),
+    ]).then(([accts, tpls, segs]: [Account[], TenantTemplate[], AudienceSegment[]]) => {
       setAccounts(Array.isArray(accts) ? accts : []);
       setTemplates(Array.isArray(tpls) ? tpls : []);
+      setSegments(Array.isArray(segs) ? segs : []);
       setLoadingData(false);
     });
   }, [open]);
@@ -148,12 +157,25 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       if (mode === "ai") {
         if (!aiPrompt.trim()) throw new Error("Add a prompt for the AI.");
         const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : undefined;
+        // Mirror the segmentContext shape used by pages-gallery.tsx so the
+        // generator tailors copy to this audience.
+        const seg = aiSegmentId ? segments.find(s => s.id === aiSegmentId) : null;
+        const segmentContext = seg ? {
+          name: seg.name,
+          description: seg.description,
+          messagingAngle: seg.messagingAngle,
+          uniqueContext: seg.uniqueContext,
+          valueProps: seg.valueProps,
+          personas: seg.personas?.map(p => ({ role: p.role, painPoints: p.painPoints })),
+          challenges: seg.challenges?.map(c => ({ title: c.title, desc: c.desc })),
+        } : undefined;
         const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: aiPrompt.trim(),
             ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
+            ...(segmentContext ? { segmentContext } : {}),
           }),
         });
         if (!genRes.ok) {
@@ -421,6 +443,27 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                       AI will draft the full page — you can edit anything in the builder afterwards.
                     </p>
                   </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium">Audience segment</Label>
+                  <select
+                    className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={aiSegmentId}
+                    onChange={(e) => setAiSegmentId(e.target.value)}
+                  >
+                    <option value="">Auto / no specific segment</option>
+                    {segments.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!loadingData && segments.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      No segments defined yet. Add them in Brand Settings to tailor copy by audience.
+                    </p>
+                  )}
                 </div>
 
                 <div>
