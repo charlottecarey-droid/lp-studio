@@ -700,6 +700,22 @@ function buildComposeUserPrompt(opts: {
     if (lines.length > 0) {
       parts.push(`BRAND PALETTE — emit literal hex values matching these in any color fields and in inline <style> defaults. Use these font-families for text styles.\n${lines.join("\n")}`);
     }
+    // Task #253 — same approved-fact wiring as the single-block prompt:
+    // surface approved claims/stats and append the strict instruction when
+    // `aiStrictFactsMode` is on so composed sections honor the lock.
+    if (b.approvedClaims?.length) {
+      parts.push(
+        `${b.aiStrictFactsMode ? "APPROVED CLAIMS (use ONLY these for proof points)" : "Approved claims"}:\n${b.approvedClaims.map((c) => `- ${c}`).join("\n")}`,
+      );
+    }
+    if (b.approvedStats?.length) {
+      parts.push(
+        `${b.aiStrictFactsMode ? "APPROVED STATS (use ONLY these — do not invent numbers)" : "Stats"}:\n${b.approvedStats.map((s) => `- ${s}`).join("\n")}`,
+      );
+    }
+    if (b.aiStrictFactsMode) {
+      parts.push(STRICT_FACTS_INSTRUCTION);
+    }
   }
   if (opts.scraped) {
     parts.push(`REFERENCE PAGE TEXT (${opts.scraped.url}):\n${opts.scraped.markdown}\n\nUse this to ground copy and structure.`);
