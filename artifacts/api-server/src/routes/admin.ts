@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
+import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
 import { TOP_TIER_PLANS } from "../lib/tenantSettings";
 import {
@@ -319,7 +320,7 @@ function requireAdminKey(req: any, res: any, next: any): void {
 }
 
 // GET /api/admin/superadmin/tenants
-router.get("/superadmin/tenants", requireAdminKey, async (req, res): Promise<void> => {
+router.get("/superadmin/tenants", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   try {
     const result = await pool.query(`
       SELECT
@@ -346,7 +347,7 @@ router.get("/superadmin/tenants", requireAdminKey, async (req, res): Promise<voi
 });
 
 // GET /api/admin/superadmin/tenants/:id/members
-router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res): Promise<void> => {
+router.get("/superadmin/tenants/:id/members", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   try {
     const result = await pool.query(`
       SELECT
@@ -367,7 +368,7 @@ router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res):
 });
 
 // GET /api/admin/superadmin/tenants/:id/roles — list roles available in a tenant.
-router.get("/superadmin/tenants/:id/roles", requireAdminKey, async (req, res): Promise<void> => {
+router.get("/superadmin/tenants/:id/roles", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   try {
@@ -384,7 +385,7 @@ router.get("/superadmin/tenants/:id/roles", requireAdminKey, async (req, res): P
 
 // POST /api/admin/superadmin/tenants/:id/members — invite/add a member to any tenant.
 // Body: { email: string, roleId: number, sendInvite?: boolean (default true) }
-router.post("/superadmin/tenants/:id/members", requireAdminKey, async (req, res): Promise<void> => {
+router.post("/superadmin/tenants/:id/members", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   const { email: rawEmail, roleId: rawRoleId, sendInvite } = req.body ?? {};
@@ -456,7 +457,7 @@ router.post("/superadmin/tenants/:id/members", requireAdminKey, async (req, res)
 });
 
 // DELETE /api/admin/superadmin/tenants/:tenantId/members/:memberId — remove a member.
-router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey, async (req, res): Promise<void> => {
+router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.tenantId);
   const memberId = Number(req.params.memberId);
   if (!tenantId || !memberId) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -474,7 +475,7 @@ router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey
 });
 
 // PATCH /api/admin/superadmin/tenants/:id
-router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
+router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   const { status, plan, domain, micrositeDomain, aiImageGenOutsideBuilderEnabled } = req.body ?? {};
@@ -567,7 +568,7 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promi
 // POST /api/admin/superadmin/tenants/:id/verify-domain — perform a real-world
 // DNS + HTTPS probe to confirm the configured domain points at this deployment
 // and resolves to the expected tenant. Body: { kind: "app" | "microsite" }.
-router.post("/superadmin/tenants/:id/verify-domain", requireAdminKey, async (req, res): Promise<void> => {
+router.post("/superadmin/tenants/:id/verify-domain", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   const { kind } = req.body ?? {};
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
@@ -691,7 +692,7 @@ router.post("/superadmin/tenants/:id/verify-domain", requireAdminKey, async (req
 
 // GET /api/admin/superadmin/domain-help — returns the deployment-level info
 // editors need to give customers (target CNAME, wildcard hosts, built-in URLs).
-router.get("/superadmin/domain-help", requireAdminKey, async (_req, res): Promise<void> => {
+router.get("/superadmin/domain-help", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
   res.json({
     targetCname: process.env.DEPLOYMENT_TARGET_CNAME ?? null,
     wildcardBaseHosts: WILDCARD_BASE_HOSTS,
@@ -699,7 +700,7 @@ router.get("/superadmin/domain-help", requireAdminKey, async (_req, res): Promis
 });
 
 // POST /api/admin/superadmin/tenants/:id/copy-brand
-router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, async (req, res): Promise<void> => {
+router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const targetId = Number(req.params.id);
   const { sourceTenantId } = req.body ?? {};
   if (!targetId || isNaN(targetId) || !sourceTenantId) {
@@ -738,7 +739,7 @@ router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, async (req, r
 });
 
 // DELETE /api/admin/superadmin/tenants/:id
-router.delete("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
+router.delete("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) {
     res.status(400).json({ error: "Invalid tenant ID" });
@@ -1408,11 +1409,7 @@ router.delete("/tenant-slug/redirects/:oldSlug", async (req, res): Promise<void>
 // GET /api/admin/superadmin/my-tenants
 // Returns all tenants for superadmin users (session-auth, no admin-key needed).
 // ─────────────────────────────────────────────────────────────────────────────
-router.get("/superadmin/my-tenants", requireAuth, async (req, res): Promise<void> => {
-  if (!req.authUser?.isAdmin) {
-    res.status(403).json({ error: "Superadmin access required" });
-    return;
-  }
+router.get("/superadmin/my-tenants", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const result = await pool.query(`
       SELECT
@@ -1438,12 +1435,7 @@ router.get("/superadmin/my-tenants", requireAuth, async (req, res): Promise<void
 // in the database so the caller's subsequent API calls run in the new tenant's
 // context. Returns the updated /me payload so the frontend can refresh its state.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post("/superadmin/switch-tenant", requireAuth, async (req, res): Promise<void> => {
-  if (!req.authUser?.isAdmin) {
-    res.status(403).json({ error: "Superadmin access required" });
-    return;
-  }
-
+router.post("/superadmin/switch-tenant", requireSuperadmin, async (req, res): Promise<void> => {
   const { tenantId } = req.body as { tenantId: number | null };
 
   try {

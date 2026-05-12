@@ -6,6 +6,7 @@
 import { Router } from "express";
 import { pool } from "@workspace/db";
 import { requireAdminKey } from "../../middleware/requireAdminKey";
+import { requireSuperadmin } from "../../middleware/requireSuperadmin";
 import { VALID_INDUSTRIES } from "../../lib/tenantIndustry";
 
 const router = Router();
@@ -29,7 +30,7 @@ interface TemplateRow {
 
 // GET /api/admin/lp/templates — list every template across every tenant,
 // joined with the owning tenant's name/slug for display.
-router.get("/admin/lp/templates", requireAdminKey, async (_req, res): Promise<void> => {
+router.get("/admin/lp/templates", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const r = await pool.query<TemplateRow>(`
       SELECT
@@ -63,7 +64,7 @@ router.get("/admin/lp/templates", requireAdminKey, async (_req, res): Promise<vo
 // fields: is_global, industry, template_label, template_description.
 // Body: { is_global?: boolean, industry?: "dental" | "generic" | null,
 //         template_label?: string, template_description?: string }
-router.put("/admin/lp/templates/:id", requireAdminKey, async (req, res): Promise<void> => {
+router.put("/admin/lp/templates/:id", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id) || id <= 0) {
     res.status(400).json({ error: "Invalid id" });

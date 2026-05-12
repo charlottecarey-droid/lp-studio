@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireAdminKey } from "../middleware/requireAdminKey";
+import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { getTenantIndustry as tenantIndustry, VALID_INDUSTRIES as INDUSTRY_SET } from "../lib/tenantIndustry";
 
 const router = Router();
@@ -37,7 +38,7 @@ router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
 // ─── Superadmin: full CRUD ───────────────────────────────────────────────────
 
 // GET /api/admin/block-catalog — list all rows (every industry)
-router.get("/admin/block-catalog", requireAdminKey, async (_req, res): Promise<void> => {
+router.get("/admin/block-catalog", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const result = await pool.query(
       `SELECT block_type, industry, label, category, default_props, is_enabled, sort_order, updated_at, updated_by
@@ -52,7 +53,7 @@ router.get("/admin/block-catalog", requireAdminKey, async (_req, res): Promise<v
 
 // PUT /api/admin/block-catalog — upsert a row
 // Body: { block_type, industry, label, category, default_props, is_enabled?, sort_order? }
-router.put("/admin/block-catalog", requireAdminKey, async (req, res): Promise<void> => {
+router.put("/admin/block-catalog", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const { block_type, industry, label, category, default_props, is_enabled, sort_order } = req.body ?? {};
   if (!block_type || !industry || !label || !category) {
     res.status(400).json({ error: "block_type, industry, label, category required" });
@@ -84,7 +85,7 @@ router.put("/admin/block-catalog", requireAdminKey, async (req, res): Promise<vo
 });
 
 // DELETE /api/admin/block-catalog/:blockType/:industry — remove a row
-router.delete("/admin/block-catalog/:blockType/:industry", requireAdminKey, async (req, res): Promise<void> => {
+router.delete("/admin/block-catalog/:blockType/:industry", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const blockType = String(req.params["blockType"] ?? "");
   const industry = String(req.params["industry"] ?? "");
   if (!VALID_INDUSTRIES.has(industry as never)) { res.status(400).json({ error: "Invalid industry" }); return; }
@@ -102,7 +103,7 @@ router.delete("/admin/block-catalog/:blockType/:industry", requireAdminKey, asyn
 
 // POST /api/admin/block-catalog/duplicate — copy a row to another industry
 // Body: { block_type, from_industry, to_industry }
-router.post("/admin/block-catalog/duplicate", requireAdminKey, async (req, res): Promise<void> => {
+router.post("/admin/block-catalog/duplicate", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const { block_type, from_industry, to_industry } = req.body ?? {};
   if (!block_type || !from_industry || !to_industry) {
     res.status(400).json({ error: "block_type, from_industry, to_industry required" });

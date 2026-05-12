@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
+import { useAuth } from "@/context/AuthContext";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -1034,6 +1035,14 @@ function TenantRow({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
+  // Gate the entire SuperAdmin platform on app_users.role = 'superadmin'.
+  // The shared admin password is no longer sufficient — the acting browser
+  // session must also belong to a Dandy operator with the superadmin role.
+  // The backend enforces this on every /api/admin/superadmin/* route via
+  // requireSuperadmin (defence in depth); this is the UX gate.
+  const { user, loading: authLoading } = useAuth();
+  const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
+
   const storedKey = sessionStorage.getItem("sa_key") ?? "";
   const [adminKey, setAdminKey] = useState(storedKey);
   const [input, setInput] = useState("");
@@ -1104,6 +1113,47 @@ export default function SuperAdminPage() {
     setTenants(null);
     setInput("");
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-full max-w-sm space-y-4 text-center">
+          <h1 className="text-xl font-semibold">Superadmin</h1>
+          <p className="text-sm text-muted-foreground">
+            You need to be signed in to access the superadmin platform.
+          </p>
+          <Button asChild>
+            <a href={`${BASE}/login?redirect=${encodeURIComponent(window.location.pathname + window.location.hash)}`}>
+              Sign in
+            </a>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSuperadmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-full max-w-sm space-y-3 text-center">
+          <ShieldAlert className="w-8 h-8 mx-auto text-destructive" />
+          <h1 className="text-xl font-semibold">Access denied</h1>
+          <p className="text-sm text-muted-foreground">
+            The superadmin platform is restricted to Dandy operators. Your
+            account ({user.email}) does not have the <code>superadmin</code> role.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!authed) {
     return (
