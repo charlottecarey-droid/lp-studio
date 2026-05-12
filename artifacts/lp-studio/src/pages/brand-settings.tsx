@@ -23,6 +23,7 @@ import {
   getButtonClasses, getSecondaryButtonClasses,
   getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass,
   isValidHex,
+  getClaimText, isClaimApproved,
 } from "@/lib/brand-config";
 import type {
   BrandConfig, ButtonRadius, ButtonShadow, ButtonPaddingX, ButtonPaddingY,
@@ -30,6 +31,7 @@ import type {
   HeadingWeight, HeadingLetterSpacing, BodyTextSize, HeadlineSize,
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
+  ClaimEntry,
 } from "@/lib/brand-config";
 import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
@@ -299,13 +301,66 @@ function ProductLineCard({ product, onChange, onRemove }: {
 
           <div className="space-y-1.5">
             <Label className="text-xs">Claims</Label>
-            <p className="text-[11px] text-muted-foreground -mt-0.5">Provable statements AI can cite (e.g. "50% faster turnaround")</p>
-            <TagInput
-              value={product.claims}
-              onChange={(v) => onChange("claims", v)}
-              placeholder="Add a claim and press Enter"
-              max={8}
-            />
+            <p className="text-[11px] text-muted-foreground -mt-0.5">
+              Provable statements AI can cite (e.g. "50% faster turnaround"). Toggle "AI" to lock individual claims to Strict Facts Mode.
+            </p>
+            {/* Task #253 — claims are now per-row {text, approvedForAi} so the
+                tenant can mark which numbers are safe for the AI to repeat. */}
+            <div className="space-y-2">
+              {(product.claims ?? []).map((c, i) => {
+                const text = getClaimText(c);
+                const approved = isClaimApproved(c);
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={text}
+                      onChange={(e) => {
+                        const next = [...(product.claims ?? [])] as ClaimEntry[];
+                        next[i] = { text: e.target.value, approvedForAi: approved };
+                        onChange("claims", next);
+                      }}
+                      placeholder="Claim e.g. 50% faster turnaround"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none shrink-0 px-1.5">
+                      <input
+                        type="checkbox"
+                        checked={approved}
+                        onChange={(e) => {
+                          const next = [...(product.claims ?? [])] as ClaimEntry[];
+                          next[i] = { text, approvedForAi: e.target.checked };
+                          onChange("claims", next);
+                        }}
+                        className="h-3.5 w-3.5"
+                      />
+                      AI
+                    </label>
+                    <Button
+                      variant="ghost" size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => {
+                        const next = (product.claims ?? []).filter((_, j) => j !== i);
+                        onChange("claims", next);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                );
+              })}
+              <Button
+                variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                disabled={(product.claims?.length ?? 0) >= 8}
+                onClick={() => {
+                  const next = [...(product.claims ?? []), { text: "", approvedForAi: true }] as ClaimEntry[];
+                  onChange("claims", next);
+                }}
+              >
+                <Plus className="w-3 h-3" />
+                Add Claim
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -350,7 +405,7 @@ function SegmentCard({ segment, onChange, onRemove }: {
   const removeChallenge = (i: number) => set("challenges", segment.challenges.filter((_, idx) => idx !== i));
 
   const addStat = () => set("stats", [...segment.stats, { value: "", label: "" }]);
-  const updateStat = (i: number, key: keyof SegmentStat, value: string) => {
+  const updateStat = (i: number, key: keyof SegmentStat, value: string | boolean) => {
     const arr = [...segment.stats];
     arr[i] = { ...arr[i], [key]: value };
     set("stats", arr);
@@ -566,6 +621,12 @@ function SegmentCard({ segment, onChange, onRemove }: {
               <div className="flex items-center gap-1.5">
                 <BarChart2 className="w-3.5 h-3.5 text-muted-foreground" />
                 <Label className="text-xs">Key Stats / Metrics</Label>
+                {/* Task #253 — at-a-glance approval count */}
+                {segment.stats.length > 0 && (
+                  <span className="text-[11px] text-muted-foreground">
+                    ({segment.stats.filter((s) => s.approvedForAi !== false).length} of {segment.stats.length} approved for AI)
+                  </span>
+                )}
               </div>
               <Button
                 variant="outline"
@@ -582,30 +643,44 @@ function SegmentCard({ segment, onChange, onRemove }: {
               <p className="text-[11px] text-muted-foreground italic">No stats yet — add proof points like "50% faster turnaround".</p>
             ) : (
               <div className="space-y-2">
-                {segment.stats.map((s, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Input
-                      value={s.value}
-                      onChange={(e) => updateStat(i, "value", e.target.value)}
-                      placeholder="Value (e.g. 50%)"
-                      className="h-8 text-sm w-32 shrink-0"
-                    />
-                    <Input
-                      value={s.label}
-                      onChange={(e) => updateStat(i, "label", e.target.value)}
-                      placeholder="Label (e.g. faster delivery)"
-                      className="h-8 text-sm flex-1"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
-                      onClick={() => removeStat(i)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                {segment.stats.map((s, i) => {
+                  const approved = s.approvedForAi !== false;
+                  return (
+                    <div key={i} className="flex gap-2 items-center">
+                      <Input
+                        value={s.value}
+                        onChange={(e) => updateStat(i, "value", e.target.value)}
+                        placeholder="Value (e.g. 50%)"
+                        className="h-8 text-sm w-32 shrink-0"
+                      />
+                      <Input
+                        value={s.label}
+                        onChange={(e) => updateStat(i, "label", e.target.value)}
+                        placeholder="Label (e.g. faster delivery)"
+                        className="h-8 text-sm flex-1"
+                      />
+                      {/* Task #253 — per-stat AI approval. Only enforced when
+                          Strict Facts Mode is ON; the muted note explains why. */}
+                      <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none shrink-0 px-1.5">
+                        <input
+                          type="checkbox"
+                          checked={approved}
+                          onChange={(e) => updateStat(i, "approvedForAi", e.target.checked)}
+                          className="h-3.5 w-3.5"
+                        />
+                        AI
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => removeStat(i)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1153,6 +1228,38 @@ export default function BrandSettings() {
           </TabsList>
 
           <TabsContent value="brand-settings" className="space-y-8">
+
+            {/* Task #253 — Strict Facts Mode toggle. Off by default; turning it
+                on filters AI prompts to approved stats / claims / case studies
+                and tells the model not to invent numbers. */}
+            <div className="rounded-xl border border-border bg-card px-5 py-4 flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold">Strict Facts Mode</h3>
+                  <span className={cn(
+                    "text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-mono",
+                    config.aiStrictFactsMode
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}>
+                    {config.aiStrictFactsMode ? "On" : "Off"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  When on, AI generation may only use stats, product claims, and case studies you have explicitly marked as <span className="font-medium">Approved for AI</span>. The model is also instructed not to invent percentages or customer counts.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={config.aiStrictFactsMode === true}
+                  onChange={(e) => update("aiStrictFactsMode", e.target.checked)}
+                />
+                <div className="w-10 h-6 bg-muted rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-4" />
+              </label>
+            </div>
 
             {/* Live preview strip */}
             <div className="rounded-2xl overflow-hidden border border-border shadow-sm">

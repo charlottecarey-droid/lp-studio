@@ -24,11 +24,27 @@ export interface MessagingPillar {
   description: string;
 }
 
+/** Task #253 — claims can be plain strings (legacy) or `{text, approvedForAi}`
+ * objects. Helpers `getClaimText` / `isClaimApproved` normalize both shapes
+ * so callers don't need to branch. New entries are written as objects. */
+export type ClaimEntry = string | { text: string; approvedForAi?: boolean };
+
+export function getClaimText(c: ClaimEntry): string {
+  return typeof c === "string" ? c : (c?.text ?? "");
+}
+
+/** Defaults to true (approved) when missing or when entry is a legacy string,
+ *  matching the rollout default of "no behaviour change for existing data". */
+export function isClaimApproved(c: ClaimEntry): boolean {
+  if (typeof c === "string") return true;
+  return c?.approvedForAi !== false;
+}
+
 export interface ProductLine {
   name: string;
   description: string;
   valueProps: string[];
-  claims: string[];
+  claims: ClaimEntry[];
   keywords: string[];
 }
 
@@ -45,6 +61,10 @@ export interface SegmentChallenge {
 export interface SegmentStat {
   value: string;
   label: string;
+  /** Task #253 — defaults to true on existing rows. When the brand has
+   *  `aiStrictFactsMode` enabled, generation will only consider stats with
+   *  `approvedForAi !== false`. */
+  approvedForAi?: boolean;
 }
 
 export interface SegmentComparisonRow {
@@ -131,6 +151,12 @@ export interface BrandConfig {
   chilipiperUrl?: string;
   logoUrl?: string;
   logoAutoRecolor?: boolean;
+  /** Task #253 — when true, AI generation is restricted to facts the brand
+   *  has explicitly approved (segment stats with `approvedForAi`, product-line
+   *  claims with `approvedForAi`, library case studies with `approved_for_ai`),
+   *  and an explicit "do not invent statistics" instruction is appended. Off
+   *  by default — existing tenants see no behaviour change. */
+  aiStrictFactsMode?: boolean;
   /** Per-brand label overrides for the section background dropdown shown on
    *  hero/cta/popup/etc property panels. Unset keys fall back to auto-derived
    *  labels (brand-name interpolated). See `getBgOptions` in `bg-styles.ts`. */
@@ -418,20 +444,36 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
     parts.push(brand.copyInstructions.trim());
   }
   if (brand.productLines?.length > 0) {
+    const strict = brand.aiStrictFactsMode === true;
     const productInfo = brand.productLines
       .filter((p) => p.name)
       .map((p) => {
         const bits = [`- ${p.name}`];
         if (p.description) bits.push(`  ${p.description}`);
         if (p.valueProps?.length) bits.push(`  Value props: ${p.valueProps.join(", ")}`);
-        if (p.claims?.length) bits.push(`  Claims: ${p.claims.join(", ")}`);
+        const claimsList = (p.claims ?? [])
+          .filter((c) => (strict ? isClaimApproved(c) : true))
+          .map(getClaimText)
+          .filter(Boolean);
+        if (claimsList.length) bits.push(`  Claims: ${claimsList.join(", ")}`);
         if (p.keywords?.length) bits.push(`  Keywords: ${p.keywords.join(", ")}`);
         return bits.join("\n");
       }).join("\n");
     parts.push(`Product lines:\n${productInfo}`);
   }
+  if (brand.aiStrictFactsMode) {
+    parts.push(STRICT_FACTS_INSTRUCTION);
+  }
   return parts.join("\n");
 }
+
+/** Task #253 — instruction appended to every AI prompt when strict mode is on.
+ *  Kept short and assertive so it survives token budgets. */
+export const STRICT_FACTS_INSTRUCTION =
+  "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
+  "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
+  "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
+  "or proof point that is not provided, write the placeholder \u2014 add a stat in Brand Settings \u2014 instead.";
 
 export function isValidHex(v: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(v);

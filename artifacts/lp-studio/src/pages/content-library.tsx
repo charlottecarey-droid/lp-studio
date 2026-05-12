@@ -20,6 +20,10 @@ interface LibraryItem {
   content: Record<string, unknown>;
   is_default: boolean;
   sort_order: number;
+  /** Task #253 — only meaningful for case_study today. Defaults true on
+   *  existing rows. When false AND the brand has Strict Facts Mode on, the
+   *  AI generation prompt will exclude this entry. */
+  approved_for_ai?: boolean;
 }
 
 function useLibrary(type: LibraryType) {
@@ -38,20 +42,23 @@ function useLibrary(type: LibraryType) {
 
   useEffect(() => { reload(); }, [type]);
 
-  const create = async (name: string, content: Record<string, unknown>) => {
+  const create = async (name: string, content: Record<string, unknown>, approved_for_ai = true) => {
     await fetch(`${API_BASE}/lp/library/${type}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, content, is_default: false }),
+      body: JSON.stringify({ name, content, is_default: false, approved_for_ai }),
     });
     reload();
   };
 
-  const update = async (id: number, name: string, content: Record<string, unknown>, is_default: boolean) => {
+  const update = async (
+    id: number, name: string, content: Record<string, unknown>, is_default: boolean,
+    approved_for_ai?: boolean,
+  ) => {
     await fetch(`${API_BASE}/lp/library/${type}/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, content, is_default }),
+      body: JSON.stringify({ name, content, is_default, approved_for_ai }),
     });
     reload();
   };
@@ -182,18 +189,19 @@ interface LibraryItemCardProps {
   type: LibraryType;
   onToggleDefault: () => void;
   onDelete: () => void;
-  onUpdate: (name: string, content: Record<string, unknown>, is_default: boolean) => void;
+  onUpdate: (name: string, content: Record<string, unknown>, is_default: boolean, approved_for_ai?: boolean) => void;
 }
 
 function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: LibraryItemCardProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
   const [content, setContent] = useState<Record<string, unknown>>(item.content);
+  const [approvedForAi, setApprovedForAi] = useState(item.approved_for_ai !== false);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     setSaving(true);
-    await onUpdate(name, content, item.is_default);
+    await onUpdate(name, content, item.is_default, approvedForAi);
     setSaving(false);
     setEditing(false);
   };
@@ -201,6 +209,7 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
   const cancel = () => {
     setName(item.name);
     setContent(item.content);
+    setApprovedForAi(item.approved_for_ai !== false);
     setEditing(false);
   };
 
@@ -212,6 +221,23 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
           <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Crown & Bridge" />
         </div>
         <ContentForm type={type} value={content} onChange={setContent} />
+        {/* Task #253 — Approved for AI gate on case_study only */}
+        {type === "case_study" && (
+          <label className="flex items-start gap-2 text-xs cursor-pointer select-none pt-1">
+            <input
+              type="checkbox"
+              checked={approvedForAi}
+              onChange={(e) => setApprovedForAi(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5"
+            />
+            <span className="text-slate-600">
+              Approved for AI use
+              <span className="block text-[11px] text-slate-400">
+                When Strict Facts Mode is on (Brand Settings), unapproved case studies will be hidden from AI generation.
+              </span>
+            </span>
+          </label>
+        )}
         <div className="flex gap-2 pt-1">
           <Button size="sm" className="h-7 text-xs gap-1" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Save
@@ -232,6 +258,12 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
           {item.is_default && (
             <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-400 text-amber-600 gap-0.5 shrink-0">
               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Default
+            </Badge>
+          )}
+          {/* Task #253 — surface "AI off" status at-a-glance for case studies */}
+          {type === "case_study" && item.approved_for_ai === false && (
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-500 shrink-0">
+              AI off
             </Badge>
           )}
         </div>

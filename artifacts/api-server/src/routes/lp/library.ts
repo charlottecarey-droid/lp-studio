@@ -18,7 +18,7 @@ router.get("/lp/library/:type", async (req, res): Promise<void> => {
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   try {
     const rows = await db.execute(
-      sql`SELECT id, type, name, content, is_default, sort_order, created_at, updated_at
+      sql`SELECT id, type, name, content, is_default, sort_order, approved_for_ai, created_at, updated_at
           FROM lp_library_items
           WHERE type = ${type} AND tenant_id = ${tenantId}
           ORDER BY sort_order ASC, id ASC`
@@ -33,11 +33,14 @@ router.post("/lp/library/:type", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
-  const { name, content, is_default } = req.body;
+  const { name, content, is_default, approved_for_ai } = req.body;
+  // Task #253 — `approved_for_ai` defaults to true so existing client code
+  // that does not send the flag keeps the same behaviour as before.
+  const approved = approved_for_ai === false ? false : true;
   try {
     const result = await db.execute(
-      sql`INSERT INTO lp_library_items (tenant_id, type, name, content, is_default, sort_order)
-          VALUES (${tenantId}, ${type}, ${name ?? ""}, ${JSON.stringify(content)}::jsonb, ${is_default ?? false},
+      sql`INSERT INTO lp_library_items (tenant_id, type, name, content, is_default, approved_for_ai, sort_order)
+          VALUES (${tenantId}, ${type}, ${name ?? ""}, ${JSON.stringify(content)}::jsonb, ${is_default ?? false}, ${approved},
                   COALESCE((SELECT MAX(sort_order) + 1 FROM lp_library_items WHERE type = ${type} AND tenant_id = ${tenantId}), 0))
           RETURNING *`
     );
@@ -51,13 +54,17 @@ router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type, id } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
-  const { name, content, is_default, sort_order } = req.body;
+  const { name, content, is_default, sort_order, approved_for_ai } = req.body;
+  // Task #253 — when the caller omits `approved_for_ai` (older client code),
+  // we leave the existing column value alone via COALESCE.
+  const approvedParam = typeof approved_for_ai === "boolean" ? approved_for_ai : null;
   try {
     const result = await db.execute(
       sql`UPDATE lp_library_items
           SET name = ${name ?? ""}, content = ${JSON.stringify(content)}::jsonb,
               is_default = ${is_default ?? false},
               sort_order = COALESCE(${sort_order ?? null}, sort_order),
+              approved_for_ai = COALESCE(${approvedParam}, approved_for_ai),
               updated_at = now()
           WHERE id = ${Number(id)} AND type = ${type} AND tenant_id = ${tenantId}
           RETURNING *`

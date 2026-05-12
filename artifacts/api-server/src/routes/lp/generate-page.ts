@@ -2,7 +2,7 @@ import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getAiImageGenOutsideBuilderEnabled } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
@@ -18,11 +18,23 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
+/** Task #253 — claims may be plain strings (legacy entries) or
+ *  `{text, approvedForAi}` objects. Helpers below normalize both. */
+type ClaimEntry = string | { text?: string; approvedForAi?: boolean };
+
+function getClaimText(c: ClaimEntry): string {
+  return typeof c === "string" ? c : (c?.text ?? "");
+}
+function isClaimApproved(c: ClaimEntry): boolean {
+  if (typeof c === "string") return true;
+  return c?.approvedForAi !== false;
+}
+
 interface ProductLine {
   name: string;
   description: string;
   valueProps: string[];
-  claims: string[];
+  claims: ClaimEntry[];
   keywords: string[];
 }
 
@@ -49,7 +61,18 @@ interface BrandConfig {
     instagram?: string;
     linkedin?: string;
   };
+  /** Task #253 — locks AI generation to approved facts only when true. */
+  aiStrictFactsMode?: boolean;
 }
+
+/** Task #253 — short, assertive instruction appended to AI prompts when
+ *  the brand has `aiStrictFactsMode` on. Mirrors the constant in the
+ *  client-side `brand-config.ts` so prompt copy stays in sync. */
+const STRICT_FACTS_INSTRUCTION =
+  "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
+  "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
+  "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
+  "or proof point that is not provided, write the placeholder \u2014 add a stat in Brand Settings \u2014 instead.";
 
 // ── Media library helpers ────────────────────────────────────────────────
 
@@ -678,19 +701,50 @@ function buildBrandContext(brand: BrandConfig): string {
   if (brand.copyExamples?.length) parts.push(`Example headlines: ${brand.copyExamples.join(" | ")}`);
   if (brand.copyInstructions?.trim()) parts.push(brand.copyInstructions.trim());
   if (brand.productLines?.length) {
+    const strict = brand.aiStrictFactsMode === true;
     const productInfo = brand.productLines
       .filter((p) => p.name)
       .map((p) => {
         const bits = [`- ${p.name}`];
         if (p.description) bits.push(`  ${p.description}`);
         if (p.valueProps?.length) bits.push(`  Value props: ${p.valueProps.join(", ")}`);
-        if (p.claims?.length) bits.push(`  Claims: ${p.claims.join(", ")}`);
+        const claimsList = (p.claims ?? [])
+          .filter((c) => (strict ? isClaimApproved(c) : true))
+          .map(getClaimText)
+          .filter(Boolean);
+        if (claimsList.length) bits.push(`  Claims: ${claimsList.join(", ")}`);
         if (p.keywords?.length) bits.push(`  Keywords: ${p.keywords.join(", ")}`);
         return bits.join("\n");
       }).join("\n");
     parts.push(`Product lines:\n${productInfo}\nUse these product details to make copy specific and credible.`);
   }
+  if (brand.aiStrictFactsMode) parts.push(STRICT_FACTS_INSTRUCTION);
   return parts.join("\n");
+}
+
+/** Task #253 — fetch tenant's approved case-studies from the content library
+ *  for injection into the AI brief when strict mode is on. Returns up to 12. */
+async function fetchApprovedCaseStudies(
+  tenantId: number | null,
+): Promise<Array<{ title: string; categories: string; url: string }>> {
+  if (tenantId == null) return [];
+  try {
+    const rows = await db.execute(
+      sql`SELECT name, content FROM lp_library_items
+          WHERE tenant_id = ${tenantId} AND type = 'case_study' AND approved_for_ai = true
+          ORDER BY sort_order ASC, id ASC LIMIT 12`,
+    );
+    return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>).map((r) => {
+      const c = (r.content ?? {}) as { title?: string; categories?: string; url?: string };
+      return {
+        title: r.name || c.title || "",
+        categories: c.categories ?? "",
+        url: c.url ?? "",
+      };
+    }).filter((r) => r.title);
+  } catch {
+    return [];
+  }
 }
 
 /** Detect if the user prompt is targeting practice-level staff within a DSO network */
@@ -841,6 +895,8 @@ RULES:
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.
 12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.`;
 
+interface SegmentStat { value: string; label: string; approvedForAi?: boolean }
+
 interface SegmentContext {
   name?: string;
   description?: string;
@@ -849,9 +905,12 @@ interface SegmentContext {
   valueProps?: string[];
   personas?: { role: string; painPoints: string[] }[];
   challenges?: { title: string; desc: string }[];
+  /** Task #253 — segment stats so strict-mode generations have an explicit
+   *  approved pool of numbers to draw from. */
+  stats?: SegmentStat[];
 }
 
-function buildSegmentSection(seg: SegmentContext): string {
+function buildSegmentSection(seg: SegmentContext, opts: { strict?: boolean } = {}): string {
   const parts: string[] = [];
   if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
   if (seg.description) parts.push(`Segment Description: ${seg.description}`);
@@ -865,6 +924,23 @@ function buildSegmentSection(seg: SegmentContext): string {
   if (seg.challenges?.length) {
     const cs = seg.challenges.map(c => `${c.title}: ${c.desc}`).join("\n");
     parts.push(`Key Challenges:\n${cs}`);
+  }
+  // Task #253 — emit segment stats. In strict mode, only stats with
+  // approvedForAi !== false are listed, and we add a hard "use only these"
+  // line. Without strict mode, all stats are listed for context.
+  const stats = (seg.stats ?? []).filter((s) => s.value || s.label);
+  const filtered = opts.strict ? stats.filter((s) => s.approvedForAi !== false) : stats;
+  if (filtered.length) {
+    const pool = filtered.map((s) => `- ${s.value} ${s.label}`.trim()).join("\n");
+    parts.push(
+      opts.strict
+        ? `APPROVED SEGMENT STATS (use ONLY these for any stat-bearing block — do not invent others):\n${pool}`
+        : `Segment Stats:\n${pool}`,
+    );
+  } else if (opts.strict) {
+    parts.push(
+      "APPROVED SEGMENT STATS: (none) — for any stat slot in this page, use the literal placeholder \"\u2014 add a stat in Brand Settings\" instead of inventing numbers.",
+    );
   }
   return parts.join("\n");
 }
@@ -898,6 +974,18 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       : Promise.resolve([] as { slug: string }[]),
   ]);
   const brandContext = buildBrandContext(brand);
+  // Task #253 — when the brand has Strict Facts Mode on, fetch the tenant's
+  // approved case studies so we can inject an explicit "use only these"
+  // section. Otherwise this is skipped to keep prompts lean.
+  const strict = brand.aiStrictFactsMode === true;
+  const approvedCaseStudies = strict ? await fetchApprovedCaseStudies(tenantId) : [];
+  const caseStudiesSection = strict
+    ? (approvedCaseStudies.length > 0
+        ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${
+            approvedCaseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
+          }`
+        : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"\u2014 add a case study in Brand Settings\" instead of inventing one.")
+    : "";
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
   // tenants. Storage layer also gates this video by tenant slug.
@@ -940,7 +1028,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       }
 
       const segmentSection = segmentContext && typeof segmentContext === "object"
-        ? buildSegmentSection(segmentContext)
+        ? buildSegmentSection(segmentContext, { strict })
         : "";
 
       const templateSystemPrompt = [
@@ -966,6 +1054,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
           `AUDIENCE SEGMENT — IMPORTANT: Tailor all copy to this segment. Do NOT use generic messaging.\n${segmentSection}`
         );
       }
+      if (caseStudiesSection) templateUserPromptParts.push(caseStudiesSection);
       templateUserPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
       templateUserPromptParts.push(
         `TEMPLATE BLOCKS (preserve structure, rewrite copy only):\n${JSON.stringify(tplBlocks)}`
@@ -1100,7 +1189,9 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
-  const segmentSection = segmentContext && typeof segmentContext === "object" ? buildSegmentSection(segmentContext) : "";
+  const segmentSection = segmentContext && typeof segmentContext === "object"
+    ? buildSegmentSection(segmentContext, { strict })
+    : "";
 
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
@@ -1109,6 +1200,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       `AUDIENCE SEGMENT — IMPORTANT: You MUST tailor all copy, headlines, value props, personas, and CTAs specifically to this segment. Do NOT use generic messaging.\n${segmentSection}`
     );
   }
+  if (caseStudiesSection) userPromptParts.push(caseStudiesSection);
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   if (dandyInternalVideosSection) userPromptParts.push(dandyInternalVideosSection);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
