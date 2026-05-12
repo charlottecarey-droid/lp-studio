@@ -262,10 +262,12 @@ test.describe("Custom blocks — perm gating on /lp/custom-blocks", () => {
       data: {
         name: "Admin schema block",
         block_type: "schema",
+        // Task #210 — schema-block payloads are server-validated for token<->
+        // field parity, so use a payload that round-trips cleanly.
         props: {
-          schema: [{ key: "headline", type: "text" }],
-          template: { type: "rich-text" },
-          sample: {},
+          schema: [{ id: "headline", label: "Headline", type: "text" }],
+          template: "<div>{{headline}}</div>",
+          sample: { headline: "Hi" },
         },
       },
     });
@@ -288,7 +290,11 @@ test.describe("Custom blocks — perm gating on /lp/custom-blocks", () => {
       data: {
         name: "Renamed",
         block_type: "schema",
-        props: { schema: [], template: {}, sample: {} },
+        props: {
+          schema: [{ id: "headline", label: "Headline", type: "text" }],
+          template: "<div>{{headline}}</div>",
+          sample: { headline: "Renamed" },
+        },
       },
     });
     expect(putRes.status()).toBe(200);
