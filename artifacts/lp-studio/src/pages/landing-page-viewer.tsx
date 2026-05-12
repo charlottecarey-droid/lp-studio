@@ -579,6 +579,25 @@ export default function LandingPageViewer() {
     );
   }
 
+  // Defensive: if the page query finished but produced no usable config
+  // (e.g. an empty 304 body, a transient network blip, or a query error),
+  // never fall through to the variant render branch — it dereferences
+  // `config.assignedVariant.config` and would throw a TypeError that
+  // surfaces as the top-level Sentry "Something went wrong" screen. Render
+  // the same neutral spinner the loading state shows so React Query has a
+  // chance to refetch in the background, and surface the underlying error
+  // to Sentry breadcrumbs so we can spot regressions.
+  if (!config || (!isBuilderPageResponse(config) && !config.assignedVariant)) {
+    if (error) {
+      console.warn("[LandingPageViewer] page config unavailable:", error);
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#0A0A0A" }} />
+      </div>
+    );
+  }
+
   // Handle builder pages (blocks array format)
   if (isBuilderPageResponse(config)) {
     const builderPage: BuilderPageResponse = config;

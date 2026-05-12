@@ -343,6 +343,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 
       // Cache published pages at the HTTP layer — browsers and CDNs can reuse
       // the response for 60 s. Draft pages are never cached so editors see changes immediately.
+      // ETag/conditional-GET is disabled globally in app.ts so this response
+      // is never returned as a 304 with an empty body (which would crash the
+      // viewer client — see app.ts comment).
       if (builderPage.status === "published" && !previewVariantId) {
         res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
       } else {

@@ -17,6 +17,18 @@ const app: Express = express();
 // behind a reverse proxy, and for rate-limiter key extraction.
 app.set("trust proxy", 1);
 
+// Disable Express's automatic ETag generation. We manage HTTP caching
+// explicitly per-route via Cache-Control headers. Auto-generated ETags
+// invite browsers / CDNs to send conditional GETs (`If-None-Match`) and
+// receive 304 Not Modified responses with empty bodies. Our codegen
+// fetch client (`lib/api-client-react/src/custom-fetch.ts`) treats a 304
+// as a successful empty payload (`data === null`), which then crashes
+// callers like LandingPageViewer that dereference fields on the response.
+// Disabling ETag here makes every successful GET return a full 200 body
+// — Cache-Control still lets browsers/CDNs reuse the cached body within
+// `max-age` without revalidation.
+app.set("etag", false);
+
 // Security headers — registered first so every response carries them.
 //
 // CSP is enabled in REPORT-ONLY mode with a permissive baseline. Violations
