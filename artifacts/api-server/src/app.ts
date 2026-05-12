@@ -10,6 +10,7 @@ import { logger } from "./lib/logger";
 import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost, invalidateTenantHostCache } from "./lib/tenantHosts";
 import { csrfProtection, csrfErrorHandler, generateCsrfToken } from "./lib/csrf";
 import { ObjectStorageService } from "./lib/objectStorage";
+import { isReady } from "./lib/readiness";
 
 const app: Express = express();
 
@@ -232,6 +233,21 @@ app.use(csrfProtection);
 app.get("/api/auth/csrf", (req, res) => {
   const csrfToken = generateCsrfToken(req, res);
   res.json({ csrfToken });
+});
+
+// Readiness gate — see lib/readiness.ts. The server binds its port BEFORE
+// migrations finish (so deploy health probes pass within their ~60s window),
+// but we don't want to serve real API traffic against a half-migrated schema.
+// Return a clean retryable 503 for /api/* until migrations complete. The
+// always-on `/healthz` below is what the deploy probe hits.
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ ok: true, ready: isReady() });
+});
+
+app.use("/api", (req, res, next) => {
+  if (isReady()) return next();
+  res.setHeader("Retry-After", "2");
+  res.status(503).json({ error: "server_warming_up" });
 });
 
 app.use("/api", router);

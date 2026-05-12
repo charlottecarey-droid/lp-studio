@@ -9,6 +9,7 @@ import { sql } from "drizzle-orm";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
+import { setReady } from "./lib/readiness";
 
 const SLUG_REDIRECT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
 // Task #152 — warn admins ~7 days before an old workspace URL stops working.
@@ -1407,43 +1408,54 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// Bind the port FIRST so deployment health probes (Replit autoscale waits
+// ~60s for the artifact port to open) succeed even on cold starts where the
+// idempotent migration/backfill batch in runMigrations() can take longer
+// than that window. The /api router is gated by lib/readiness.isReady()
+// (see app.ts) so we won't serve real traffic against a half-migrated
+// schema — clients get a retryable 503 with `Retry-After: 2` until
+// setReady() flips below.
+const httpServer = app.listen(port, (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
+  logger.info({ port }, "Server listening (warming up — migrations in progress)");
+});
+
 runMigrations()
   .then(() => {
-    app.listen(port, (err) => {
-      if (err) {
-        logger.error({ err }, "Error listening on port");
-        process.exit(1);
-      }
+    setReady();
+    logger.info("Migrations complete — API ready");
 
-      logger.info({ port }, "Server listening");
-
-      // Periodic cleanup of expired workspace URL redirects (task #136).
-      // Runs once at boot and then on a fixed interval. Failures are logged
-      // but never crash the server.
+    // Periodic cleanup of expired workspace URL redirects (task #136).
+    // Runs once at boot and then on a fixed interval. Failures are logged
+    // but never crash the server.
+    void cleanupExpiredSlugRedirects();
+    setInterval(() => {
       void cleanupExpiredSlugRedirects();
-      setInterval(() => {
-        void cleanupExpiredSlugRedirects();
-      }, SLUG_REDIRECT_CLEANUP_INTERVAL_MS).unref();
+    }, SLUG_REDIRECT_CLEANUP_INTERVAL_MS).unref();
 
-      // Task #152 — daily scan for slug redirects about to expire so admins
-      // get a heads-up email before their old URL stops working.
+    // Task #152 — daily scan for slug redirects about to expire so admins
+    // get a heads-up email before their old URL stops working.
+    void notifyExpiringSlugRedirects();
+    setInterval(() => {
       void notifyExpiringSlugRedirects();
-      setInterval(() => {
-        void notifyExpiringSlugRedirects();
-      }, SLUG_REDIRECT_NOTIFY_INTERVAL_MS).unref();
+    }, SLUG_REDIRECT_NOTIFY_INTERVAL_MS).unref();
 
-      // Task #190 — emit a periodic Sentry "heartbeat" event in production so
-      // the project always has a known signal. The matching Sentry alert
-      // (see lib/SENTRY_PROD_ALERT_VERIFICATION.md) fires when these
-      // heartbeats stop arriving, catching DSN/network/quota outages that
-      // would otherwise be invisible. No-op in non-production.
-      startSentryHeartbeat();
-    });
+    // Task #190 — emit a periodic Sentry "heartbeat" event in production so
+    // the project always has a known signal. The matching Sentry alert
+    // (see lib/SENTRY_PROD_ALERT_VERIFICATION.md) fires when these
+    // heartbeats stop arriving, catching DSN/network/quota outages that
+    // would otherwise be invisible. No-op in non-production.
+    startSentryHeartbeat();
   })
   .catch((err) => {
     // Concise: the underlying error has already been logged with its SQL
     // fragment by runMigrationsBody's catch. Avoid re-dumping the full
     // drizzle stack here so Playwright's webServer log stays scannable.
     logger.error(`Failed to start server: migrations failed: ${(err as Error).message ?? String(err)}`);
-    process.exit(1);
+    httpServer.close(() => process.exit(1));
+    // Hard fallback in case close() hangs on open sockets.
+    setTimeout(() => process.exit(1), 5_000).unref();
   });
