@@ -16,6 +16,7 @@ import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment, type BrandConfig
 import { Link } from "wouter";
 import type { SchemaFieldDef, SchemaFieldType, SchemaFieldValue } from "@/lib/block-types";
 import { SchemaPreviewFrame } from "@/components/blocks/SchemaPreviewFrame";
+import { GenerateBlockDialog, type GeneratedBlock } from "@/components/blocks/GenerateBlockDialog";
 
 const API = "/api";
 
@@ -107,6 +108,8 @@ export function CustomBlocksContent() {
   const [confirmResolver, setConfirmResolver] = useState<((ok: boolean) => void) | null>(null);
   // Task #200 — one-click "Add starter: Global Footer" in-flight state.
   const [isAddingStarter, setIsAddingStarter] = useState(false);
+  // Task #210 — "Generate from prompt" dialog state.
+  const [generateOpen, setGenerateOpen] = useState(false);
   // Task #202 — snapshot of the saved block (when editing) so the preview
   // panel can render a side-by-side "current vs new" diff. Null for create.
   const [savedSnapshot, setSavedSnapshot] = useState<{
@@ -185,6 +188,23 @@ export function CustomBlocksContent() {
 
   const openCreate = () => {
     setEditor(EMPTY_EDITOR);
+    setSavedSnapshot(null);
+    setEditorOpen(true);
+  };
+
+  // Task #210 — accept a generated block and open the existing editor with
+  // it prefilled, so the standard save path / segments / link-master flow all
+  // work unchanged.
+  const handleAcceptGenerated = (g: GeneratedBlock) => {
+    setEditor({
+      name: g.name || "Generated Block",
+      block_type: "schema",
+      segment: "core",
+      html: "",
+      schema: g.schema,
+      template: g.template,
+      sample: g.sample,
+    });
     setSavedSnapshot(null);
     setEditorOpen(true);
   };
@@ -354,12 +374,28 @@ export function CustomBlocksContent() {
             <Sparkles className="w-4 h-4" />
             {hasGlobalFooter ? "Global Footer added" : "Add starter: Global Footer"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setGenerateOpen(true)}
+            className="gap-2"
+            title="Describe a block in plain English and let AI draft it"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate from prompt
+          </Button>
           <Button onClick={openCreate} className="gap-2">
             <Plus className="w-4 h-4" />
             New Block
           </Button>
         </div>
       </div>
+
+      {/* Task #210 — Prompt → New Custom Block */}
+      <GenerateBlockDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        onAccept={handleAcceptGenerated}
+      />
 
       {/* Block list */}
       {isLoading ? (
