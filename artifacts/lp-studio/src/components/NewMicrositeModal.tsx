@@ -484,6 +484,11 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                       </optgroup>
                     )}
                   </select>
+                  {!loadingData && templates.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                      No saved templates yet. Marketing can save any page as a template from the Builder.
+                    </p>
+                  )}
                 </div>
 
                 <div>
