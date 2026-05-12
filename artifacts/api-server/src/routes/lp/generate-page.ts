@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
-import { getAiImageGenOutsideBuilderEnabled } from "../../lib/tenantSettings";
+import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 
 const router = Router();
@@ -445,12 +445,24 @@ async function aiFillEmptyImages(
   blocks: Array<Record<string, unknown>>,
   tenantId: number,
   brand: BrandConfig,
+  userPrompt?: string,
 ): Promise<Array<Record<string, unknown>>> {
   const MAX_GENS = 12;
+  // Build a small business summary out of brand product lines so the image
+  // model has a concrete "what does this company do?" anchor — without
+  // this, prompts default to bland office stock for non-tech brands.
+  const productSummary = (brand.productLines ?? [])
+    .filter((p) => p?.name)
+    .slice(0, 3)
+    .map((p) => (p.description ? `${p.name} — ${p.description}` : p.name))
+    .join("; ") || undefined;
   const brandHints = {
     primaryColor: brand.primaryColor,
     accentColor: brand.accentColor,
+    brandName: brand.brandName,
+    businessSummary: productSummary,
   };
+  const briefForSlots = userPrompt?.trim().slice(0, 280) || undefined;
 
   // Collect all empty-image positions as (apply) thunks so we can run
   // generations in parallel without mutating shared state mid-loop.
@@ -565,6 +577,7 @@ async function aiFillEmptyImages(
             blockName: "Generated landing page image",
             blockDescription: slot.blockContext,
             brand: brandHints,
+            pageBrief: briefForSlots,
           },
           slot.aspectRatio,
           tenantId,
@@ -1405,6 +1418,13 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
     // Force brand CTA color onto all blocks (safety net)
     const brandCtaColor = brand.ctaBackground || brand.accentColor || brand.primaryColor;
+    // Distinct from CTA color: accent props (decorative chrome — borders,
+    // highlights, marker bars) should follow the brand's *accent* hue,
+    // not the CTA button background. Many brands set CTA and accent to
+    // different colors on purpose; collapsing them flattens design intent.
+    // Falls back through accent → primary → CTA so we always have *some*
+    // brand-aligned value to override hardcoded defaults like Dandy green.
+    const brandAccentColor = brand.accentColor || brand.primaryColor || brand.ctaBackground;
     const brandChilipiperUrl = brand.chilipiperUrl;
 
     // DSO blocks that support optional ctaText/ctaUrl/ctaMode — ensure they get Chili Piper
@@ -1425,11 +1445,24 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       const b = block as Record<string, unknown>;
       if (!b.id) b.id = `block-${b.type ?? "unknown"}-${i}`;
 
-      // Inject brand CTA color into any block that has a ctaColor prop
+      // Inject brand CTA color into any block that has a ctaColor prop.
       if (brandCtaColor && b.props && typeof b.props === "object") {
         const props = b.props as Record<string, unknown>;
         if ("ctaColor" in props || b.type === "hero") {
           props.ctaColor = brandCtaColor;
+        }
+      }
+
+      // Force `accentColor` to the brand accent (NOT the CTA color) on any
+      // block that exposes one. Many block defaults hardcode Dandy green
+      // ("#C7E738") for accents, and the model usually keeps the default.
+      // Without this override, a non-Dandy brand (e.g. Max Car Wash) ends
+      // up with Dandy green chrome on the AI-generated page even when
+      // CTAs are correct.
+      if (brandAccentColor && b.props && typeof b.props === "object") {
+        const props = b.props as Record<string, unknown>;
+        if ("accentColor" in props) {
+          props.accentColor = brandAccentColor;
         }
       }
 
@@ -1575,11 +1608,23 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // is best-effort — failures fall through to the empty-string defaults
     // the editor already handles, so a billing/API blip never 500s the
     // whole generation flow.
-    if (await getAiImageGenOutsideBuilderEnabled(tenantId)) {
+    // Gate the AI image-fill pass on EITHER (a) the superadmin
+    // outside-builder flag (the original task #234 contract), OR
+    // (b) the standard top-tier `aiImageGenEnabled` flag. Tenants who pay
+    // for in-builder AI image generation expect AI-drafted pages to come
+    // with images too — without this branch, AI-page generation produced
+    // empty image slots for every non-superadmin-flagged tenant even
+    // though they had the feature turned on.
+    const [outsideBuilderOn, imageGenStatus] = await Promise.all([
+      getAiImageGenOutsideBuilderEnabled(tenantId),
+      getAiImageGenStatus(tenantId),
+    ]);
+    if (outsideBuilderOn || imageGenStatus.enabled) {
       parsed.blocks = await aiFillEmptyImages(
         parsed.blocks as Array<Record<string, unknown>>,
         tenantId!,
         brand,
+        prompt,
       );
     }
 

@@ -37,6 +37,14 @@ interface BrandHints {
   backgroundColor?: string;
   headingFont?: string;
   bodyFont?: string;
+  /** Brand display name — surfaced into image prompts so the model knows
+   *  *whose* page this is (e.g. "Max Car Wash") instead of generating a
+   *  generic stock subject divorced from the business. */
+  brandName?: string;
+  /** Short business descriptor (product line summary) — provides the
+   *  "what does this company do?" signal to the image model when industry
+   *  alone is too vague. */
+  businessSummary?: string;
   /** Task #253 — locked-down fact pool surfaced to the model when the
    *  tenant has `aiStrictFactsMode` on. We always pass the approved subset
    *  so the model can quote it; the strict toggle just gates whether the
@@ -266,6 +274,13 @@ interface ImagePromptCtx {
   brand?: BrandHints | null;
   instruction?: string;
   /**
+   * Optional one-liner describing the overall page brief (e.g. the user's
+   * original "create a landing page for our 5-minute tunnel wash" prompt).
+   * Used as supporting context so per-slot image prompts can ground in
+   * what the page is actually about, not just the slot's own field label.
+   */
+  pageBrief?: string;
+  /**
    * Tenant industry pulled from `tenants.settings.industry` (e.g. "dental",
    * "saas", "restaurant"). Grounds the scene so a generic "team photo"
    * becomes "team photo at a dental practice" — the #1 fix for the
@@ -390,10 +405,17 @@ export function buildImagePrompt(ctx: ImagePromptCtx): string {
 
   const lines: string[] = [];
   // 1) Subject first, in a single concrete sentence — no preamble fluff.
-  const industryClause = ctx.industry && ctx.industry !== "generic"
-    ? ` for a ${ctx.industry} brand`
-    : "";
-  lines.push(`Subject: ${subject}${industryClause}.`);
+  //    Pull brand name + industry into the subject line so the model knows
+  //    *whose* page this is and what business they're in. Without this the
+  //    image model defaults to bland office stock (the "lady at a laptop"
+  //    failure mode for non-tech brands).
+  const brandName = ctx.brand?.brandName?.trim();
+  const industry = ctx.industry && ctx.industry !== "generic" ? ctx.industry : "";
+  let forClause = "";
+  if (brandName && industry) forClause = ` for ${brandName}, a ${industry} business`;
+  else if (brandName) forClause = ` for ${brandName}`;
+  else if (industry) forClause = ` for a ${industry} brand`;
+  lines.push(`Subject: ${subject}${forClause}.`);
 
   // 2) Supporting context (block name + description) only if it adds info
   //    beyond what's already in `subject`. Skip duplicates so we don't
@@ -408,6 +430,22 @@ export function buildImagePrompt(ctx: ImagePromptCtx): string {
     !subjLower.includes(ctx.blockDescription.toLowerCase().slice(0, 40))
   ) {
     lines.push(`Context: ${ctx.blockDescription}`);
+  }
+  // 2b) Page-level brief (the original user prompt that drove the whole
+  //     generation) so individual slot prompts inherit the larger story.
+  //     Trimmed to keep the prompt lean; the subject + block context still
+  //     do the heavy lifting.
+  if (ctx.pageBrief && ctx.pageBrief.trim()) {
+    const brief = ctx.pageBrief.trim().slice(0, 280);
+    if (!subjLower.includes(brief.toLowerCase().slice(0, 40))) {
+      lines.push(`Page brief: ${brief}`);
+    }
+  }
+  // 2c) Business summary (product line snapshot) — gives the model a
+  //     concrete "what does this company sell?" anchor when the brand
+  //     name + industry alone are still ambiguous.
+  if (ctx.brand?.businessSummary?.trim()) {
+    lines.push(`Business: ${ctx.brand.businessSummary.trim().slice(0, 200)}`);
   }
 
   // 3) Category-specific photography direction.
@@ -781,6 +819,20 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
       }
     }
 
+    // Build a short business summary from product-line names + descriptions
+    // so image prompts have a concrete "what does this company do?" signal
+    // beyond just the brand name and industry word.
+    const businessBits: string[] = [];
+    for (const pl of productLines) {
+      const name = typeof pl.name === "string" ? pl.name.trim() : "";
+      const desc = typeof pl.description === "string" ? pl.description.trim() : "";
+      if (!name && !desc) continue;
+      businessBits.push(name && desc ? `${name} — ${desc}` : (name || desc));
+      if (businessBits.length >= 3) break;
+    }
+    const businessSummary = businessBits.length ? businessBits.join("; ") : undefined;
+    const brandName = typeof cfg.brandName === "string" ? cfg.brandName.trim() : "";
+
     return {
       primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
       accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
@@ -788,6 +840,8 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
       backgroundColor: isHexLike(cfg.backgroundColor) ? cfg.backgroundColor.trim() : undefined,
       headingFont: typeof cfg.headingFont === "string" ? cfg.headingFont : undefined,
       bodyFont: typeof cfg.bodyFont === "string" ? cfg.bodyFont : undefined,
+      brandName: brandName || undefined,
+      businessSummary,
       aiStrictFactsMode: strict,
       approvedClaims: approvedClaims.length ? approvedClaims.slice(0, 24) : undefined,
       approvedStats: approvedStats.length ? approvedStats.slice(0, 24) : undefined,
