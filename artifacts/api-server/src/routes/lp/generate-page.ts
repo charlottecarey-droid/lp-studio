@@ -4,6 +4,8 @@ import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { eq, desc, and, or } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import { getAiImageGenOutsideBuilderEnabled } from "../../lib/tenantSettings";
+import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 
 const router = Router();
 
@@ -396,6 +398,163 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     b.props = props;
     return b;
   });
+}
+
+/**
+ * Task #234 — second-pass image filler that uses the AI image-generation
+ * pipeline (the same one the in-builder "Generate" button uses) to fill
+ * any imageUrl slot still empty after the media-library pass. Walks the
+ * same shapes as fillEmptyImages: top-level imageUrl / heroImageUrl /
+ * backgroundImageUrl, plus rows[].imageUrl, chapters[].imageUrl,
+ * tiles[].imageUrl, cases[].image, items[].image, and images[].src.
+ *
+ * Best-effort: a failed generation leaves the field empty (the editor
+ * already renders empty image slots gracefully) rather than failing the
+ * whole page-generate request. Generations run in parallel, but capped
+ * to MAX_GENS so a 30-block page can't burn dozens of image-API credits
+ * in a single click.
+ */
+async function aiFillEmptyImages(
+  blocks: Array<Record<string, unknown>>,
+  tenantId: number,
+  brand: BrandConfig,
+): Promise<Array<Record<string, unknown>>> {
+  const MAX_GENS = 12;
+  const brandHints = {
+    primaryColor: brand.primaryColor,
+    accentColor: brand.accentColor,
+  };
+
+  // Collect all empty-image positions as (apply) thunks so we can run
+  // generations in parallel without mutating shared state mid-loop.
+  type Slot = {
+    aspectRatio: "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
+    fieldLabel: string;
+    blockContext: string;
+    apply: (url: string) => void;
+  };
+  const slots: Slot[] = [];
+
+  for (const block of blocks) {
+    const blockType = block.type as string;
+    const props = (block.props as Record<string, unknown>) ?? {};
+    if (typeof block.props !== "object" || block.props === null) continue;
+    const headline = (props.headline as string) ?? "";
+    const subheadline = (props.subheadline as string) ?? "";
+    const blockContext = `${blockType} ${headline} ${subheadline}`.trim();
+    // Hero-ish blocks → 16:9 hero shape; everything else → 4:3 feature card.
+    const heroAR: Slot["aspectRatio"] = "16:9";
+    const featureAR: Slot["aspectRatio"] = "4:3";
+    const isHero =
+      blockType === "hero" ||
+      blockType === "full-bleed-hero" ||
+      blockType === "dso-heartland-hero" ||
+      blockType === "dso-scroll-story-hero";
+
+    const SCALAR_FIELDS: Array<{ key: string; ar: Slot["aspectRatio"]; label: string }> = [
+      { key: "imageUrl", ar: isHero ? heroAR : featureAR, label: blockType + " image" },
+      { key: "heroImageUrl", ar: heroAR, label: "Hero image" },
+      { key: "backgroundImageUrl", ar: heroAR, label: "Background image" },
+    ];
+    for (const f of SCALAR_FIELDS) {
+      if (f.key in props && (typeof props[f.key] !== "string" || !(props[f.key] as string))) {
+        slots.push({
+          aspectRatio: f.ar,
+          fieldLabel: f.label,
+          blockContext,
+          apply: (url) => { (props as Record<string, unknown>)[f.key] = url; },
+        });
+      }
+    }
+
+    // Arrays of {imageUrl} (rows, chapters, tiles)
+    for (const arrKey of ["rows", "chapters", "tiles"] as const) {
+      const arr = props[arrKey];
+      if (!Array.isArray(arr)) continue;
+      arr.forEach((item, i) => {
+        const it = item as Record<string, unknown>;
+        if (typeof it !== "object" || it === null) return;
+        if ("imageUrl" in it && (typeof it.imageUrl !== "string" || !it.imageUrl)) {
+          // Skip non-photo bento tiles (only photo tiles have an image slot)
+          if (arrKey === "tiles" && it.type !== "photo") return;
+          const ctx = `${blockContext} ${it.headline ?? it.caption ?? ""} ${it.body ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} ${arrKey} ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).imageUrl = url; },
+          });
+        }
+      });
+    }
+
+    // Arrays of {image} (items, cases)
+    for (const arrKey of ["items", "cases"] as const) {
+      const arr = props[arrKey];
+      if (!Array.isArray(arr)) continue;
+      arr.forEach((item, i) => {
+        const it = item as Record<string, unknown>;
+        if (typeof it !== "object" || it === null) return;
+        if ("image" in it && (typeof it.image !== "string" || !it.image)) {
+          const ctx = `${blockContext} ${it.title ?? it.name ?? ""} ${it.description ?? it.author ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} ${arrKey} ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).image = url; },
+          });
+        }
+      });
+    }
+
+    // photo-strip images[].src
+    if (blockType === "photo-strip" && Array.isArray(props.images)) {
+      const arr = props.images as Array<Record<string, unknown>>;
+      arr.forEach((img, i) => {
+        if (typeof img !== "object" || img === null) return;
+        if (typeof img.src !== "string" || !img.src) {
+          const ctx = `${blockContext} ${img.alt ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `photo strip ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).src = url; },
+          });
+        }
+      });
+    }
+  }
+
+  if (slots.length === 0) return blocks;
+
+  const capped = slots.slice(0, MAX_GENS);
+  await Promise.all(
+    capped.map(async (slot) => {
+      try {
+        const result = await generateAndStoreImage(
+          {
+            fieldId: "image",
+            fieldLabel: slot.fieldLabel,
+            blockName: "Generated landing page image",
+            blockDescription: slot.blockContext,
+            brand: brandHints,
+          },
+          slot.aspectRatio,
+          tenantId,
+        );
+        if (result) slot.apply(result.url);
+      } catch {
+        /* best-effort — leave the slot empty so the editor renders normally */
+      }
+    }),
+  );
+
+  // `loadBrandHints` is imported above for the dedicated /lp/image/generate
+  // endpoint to reuse the same brand-loading path; we already have richer
+  // brand context here so we don't re-fetch.
+  void loadBrandHints;
+
+  return blocks;
 }
 
 /**
@@ -1160,6 +1319,21 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
     // Fill in any remaining empty image URLs from the media library
     parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images);
+
+    // Task #234 — when the workspace has the AI-image-gen-outside-builder
+    // flag flipped on, attempt to AI-generate any imageUrl slots that the
+    // media-library pass left empty (small libraries, or generations where
+    // the AI declared more image slots than the catalog could fill). This
+    // is best-effort — failures fall through to the empty-string defaults
+    // the editor already handles, so a billing/API blip never 500s the
+    // whole generation flow.
+    if (await getAiImageGenOutsideBuilderEnabled(tenantId)) {
+      parsed.blocks = await aiFillEmptyImages(
+        parsed.blocks as Array<Record<string, unknown>>,
+        tenantId!,
+        brand,
+      );
+    }
 
     // ── Guarantee nav, final CTA, and footer on every generated page ──────
     const blocks = parsed.blocks as Array<Record<string, unknown>>;

@@ -258,11 +258,23 @@ function buildImagePrompt(ctx: ImagePromptCtx): string {
  * or null on failure. Failures are deliberately swallowed so the caller can
  * keep the AI placeholder rather than 500 the whole flow.
  */
-async function generateAndStoreImage(
+/**
+ * Generate one AI image, upload to object storage, and persist to the
+ * tenant's media library. Returns the served URL (and the inserted media
+ * row id when bookkeeping succeeds) or null on failure. Most callers only
+ * read `.url`; task #234's `/lp/image/generate` endpoint also returns
+ * `mediaId` so the frontend can deep-link to the new media-library entry.
+ */
+export interface GeneratedImage {
+  url: string;
+  mediaId: number | null;
+}
+
+export async function generateAndStoreImage(
   ctx: ImagePromptCtx,
   aspectRatio: AspectRatio,
   tenantId: number,
-): Promise<string | null> {
+): Promise<GeneratedImage | null> {
   let openai;
   try { openai = getOpenAIClient(); } catch { return null; }
 
@@ -292,6 +304,7 @@ async function generateAndStoreImage(
     // can re-pick this generation later (via the standard image picker)
     // instead of paying to regenerate. Best-effort: never fail the caller
     // because of bookkeeping. Scoped to the requesting tenant only.
+    let mediaId: number | null = null;
     try {
       const subject = ctx.fieldLabel?.trim() || ctx.fieldId.replace(/[_-]+/g, " ");
       const titleParts: string[] = [];
@@ -302,7 +315,9 @@ async function generateAndStoreImage(
         "ai-generated",
         ctx.fieldId ? ctx.fieldId.toLowerCase() : "",
       ].filter(Boolean)));
-      await db.insert(lpMediaTable).values({
+      // Task #234 — capture the inserted row id so the new
+      // /lp/image/generate endpoint can return it to the frontend.
+      const inserted = await db.insert(lpMediaTable).values({
         tenantId,
         title,
         url: serveUrl,
@@ -310,10 +325,11 @@ async function generateAndStoreImage(
         mimeType: "image/png",
         sizeBytes: buffer.byteLength,
         tags,
-      });
+      }).returning({ id: lpMediaTable.id });
+      mediaId = inserted[0]?.id ?? null;
     } catch { /* best-effort */ }
 
-    return serveUrl;
+    return { url: serveUrl, mediaId };
   } catch {
     return null;
   }
@@ -339,7 +355,7 @@ async function fillImageFields(
   await Promise.all(
     imageFields.map(async (field) => {
       const ar = inferImageAspectRatio(block.template ?? "", field.id);
-      const url = await generateAndStoreImage(
+      const result = await generateAndStoreImage(
         {
           fieldId: field.id,
           fieldLabel: field.label,
@@ -350,8 +366,8 @@ async function fillImageFields(
         ar,
         tenantId,
       );
-      if (url) {
-        block.sample[field.id] = url;
+      if (result) {
+        block.sample[field.id] = result.url;
         generated.push(field.id);
       } else {
         failed.push(field.id);
@@ -486,7 +502,7 @@ router.post("/lp/custom-blocks/validate", requireAuth, (req, res): void => {
   });
 });
 
-async function loadBrandHints(tenantId: number): Promise<BrandHints | null> {
+export async function loadBrandHints(tenantId: number): Promise<BrandHints | null> {
   try {
     const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
     const cfg = rows[0]?.config as Record<string, unknown> | undefined;
@@ -767,7 +783,7 @@ router.post("/lp/custom-blocks/generate-image", requireAuth, async (req, res): P
 
   const brand = body.useBrandVars ? await loadBrandHints(tenantId) : null;
 
-  const url = await generateAndStoreImage(
+  const result = await generateAndStoreImage(
     {
       fieldId,
       fieldLabel: typeof body.fieldLabel === "string" ? body.fieldLabel : undefined,
@@ -780,12 +796,12 @@ router.post("/lp/custom-blocks/generate-image", requireAuth, async (req, res): P
     tenantId,
   );
 
-  if (!url) {
+  if (!result) {
     res.status(502).json({ error: "Image generation failed" });
     return;
   }
 
-  res.json({ url, aspectRatio });
+  res.json({ url: result.url, aspectRatio });
 });
 
 export default router;

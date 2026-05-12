@@ -37,6 +37,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
+    // Task #234 — send the session cookie alongside the admin key. The new
+    // `aiImageGenOutsideBuilderEnabled` PATCH branch additionally requires
+    // the acting user's session role to be "superadmin"; without
+    // credentials: "include", the cookie wouldn't flow on cross-origin
+    // dev/preview deployments and the toggle would always 403.
+    credentials: "include",
     headers: {
       "x-admin-key": adminKey,
       "content-type": "application/json",
@@ -62,6 +68,10 @@ interface Tenant {
   member_count: number;
   pending_count: number;
   page_count: number;
+  // Task #234 — superadmin-only AI-image-gen-outside-builder flag. Server
+  // returns false when missing from settings JSONB, so this is always a
+  // boolean. Tenant admins never see this — only this page can flip it.
+  ai_image_gen_outside_builder_enabled: boolean;
 }
 
 interface VerifyResult {
@@ -519,6 +529,25 @@ function TenantRow({
     }
   };
 
+  // Task #234 — toggle the superadmin-only AI-image-gen-outside-builder flag.
+  // Optimistic-ish: we just flip and re-fetch via onUpdate so the row reflects
+  // server truth (tenants list is the source of truth for the checkbox state).
+  const [savingAiFlag, setSavingAiFlag] = useState(false);
+  const toggleAiOutsideBuilder = async (next: boolean) => {
+    setSavingAiFlag(true);
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+        method: "PATCH",
+        body: JSON.stringify({ aiImageGenOutsideBuilderEnabled: next }),
+      });
+      onUpdate();
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingAiFlag(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (deleteConfirm !== tenant.name) return;
     setDeleting(true);
@@ -769,6 +798,31 @@ function TenantRow({
                     <code className="font-mono">{domainHelp.targetCname}</code>
                   </div>
                 )}
+              </div>
+
+              {/* Task #234 — AI image generation outside the builder.
+                  Superadmin-only toggle. Off by default. Distinct from
+                  the per-plan `aiImageGenEnabled` flag (which only gates
+                  the custom-block builder). */}
+              <div className="space-y-1 border-t pt-3" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI image generation</p>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={tenant.ai_image_gen_outside_builder_enabled}
+                    disabled={savingAiFlag}
+                    onChange={(e) => toggleAiOutsideBuilder(e.target.checked)}
+                  />
+                  <span>
+                    Enable "Generate / Tweak" on every image picker (and the
+                    /lp/image/generate endpoint).
+                  </span>
+                  {savingAiFlag && <Loader2 className="w-3 h-3 animate-spin" />}
+                </label>
+                <p className="text-[11px] text-muted-foreground">
+                  Tenant admins cannot see or change this — flip only after
+                  the workspace is on the right billing arrangement.
+                </p>
               </div>
 
               {/* Brand settings copy */}

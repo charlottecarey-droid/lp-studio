@@ -30,6 +30,12 @@ export interface AuthUser {
   tenantPlan?: string | null;
   aiImageGenAvailable?: boolean;
   aiImageGenEnabled?: boolean;
+  // Task #234 — independent flag that gates the "Generate / Tweak" buttons
+  // on every shared <ImagePicker> and the matching POST /lp/image/generate
+  // endpoint. Defaults OFF; only flippable by a Dandy operator on the
+  // SuperAdmin per-tenant detail panel — tenant admins cannot see/change it.
+  // Distinct from aiImageGenEnabled (which only gates the custom-block flow).
+  aiImageGenOutsideBuilderEnabled?: boolean;
   // Task #132 — canonical tenant login URL fields. The wizard's welcome
   // step, AuthGate auto-redirect, and Settings → General all read these
   // so the wildcard base host is never hardcoded on the client.

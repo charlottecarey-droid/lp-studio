@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { pool } from "@workspace/db";
-import { requireAuth } from "../middleware/requireAuth";
+import { requireAuth, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { sendInviteEmail } from "../lib/notifications";
 import { TOP_TIER_PLANS } from "../lib/tenantSettings";
 import {
@@ -324,6 +324,11 @@ router.get("/superadmin/tenants", requireAdminKey, async (req, res): Promise<voi
     const result = await pool.query(`
       SELECT
         t.id, t.name, t.slug, t.domain, t.microsite_domain, t.plan, t.status, t.created_at,
+        -- Task #234 — surface the superadmin-only AI-image-gen-outside-builder flag
+        -- so the SuperAdmin UI can render the per-tenant toggle without a second
+        -- round-trip. JSONB extraction returns NULL when the key is missing,
+        -- which the frontend treats as the safe-by-default OFF state.
+        COALESCE((t.settings->>'aiImageGenOutsideBuilderEnabled')::boolean, false) AS ai_image_gen_outside_builder_enabled,
         COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NOT NULL)::int AS member_count,
         COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NULL)::int     AS pending_count,
         COUNT(DISTINCT p.id)::int AS page_count
@@ -472,7 +477,7 @@ router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey
 router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
-  const { status, plan, domain, micrositeDomain } = req.body ?? {};
+  const { status, plan, domain, micrositeDomain, aiImageGenOutsideBuilderEnabled } = req.body ?? {};
   try {
     const updates: string[] = [];
     const values: any[] = [];
@@ -482,6 +487,49 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promi
 
     if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
     if (plan   !== undefined) { updates.push(`plan = $${idx++}`);   values.push(plan); }
+
+    // Task #234 — superadmin-only AI-image-gen-outside-builder toggle. Lives
+    // in tenants.settings JSONB so we don't need a schema change. The
+    // tenant-admin `PATCH /api/admin/tenant-settings` route deliberately does
+    // NOT accept this key — only this superadmin route can flip it.
+    //
+    // Defence in depth: requireAdminKey already enforces the shared
+    // ADMIN_PASSWORD header (only Dandy operators have it), but the task spec
+    // additionally requires that the *acting session user* carry
+    // `app_users.role === "superadmin"`. We resolve the session inline (this
+    // route does not run requireAuth, since the admin key is its primary
+    // gate) and reject otherwise. This means flipping the new flag also
+    // requires being signed in to a superadmin account in the same browser.
+    if (aiImageGenOutsideBuilderEnabled !== undefined) {
+      if (typeof aiImageGenOutsideBuilderEnabled !== "boolean") {
+        res.status(400).json({ error: "aiImageGenOutsideBuilderEnabled must be a boolean" });
+        return;
+      }
+      const sid = req.cookies?.[SESSION_COOKIE];
+      let sessionUser: AuthUser | null = null;
+      if (sid) {
+        try {
+          const sres = await pool.query(
+            `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+            [sid],
+          );
+          if (sres.rows.length) sessionUser = JSON.parse(sres.rows[0].sess) as AuthUser;
+          // Backfill appUserRole on legacy sessions (mirrors requireAuth).
+          if (sessionUser && sessionUser.appUserRole === undefined) {
+            try {
+              const r = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [sessionUser.userId]);
+              sessionUser.appUserRole = r.rows[0]?.role ?? null;
+            } catch { sessionUser.appUserRole = null; }
+          }
+        } catch { sessionUser = null; }
+      }
+      if (sessionUser?.appUserRole !== "superadmin") {
+        res.status(403).json({ error: "Only superadmins can change aiImageGenOutsideBuilderEnabled" });
+        return;
+      }
+      updates.push(`settings = COALESCE(settings, '{}'::jsonb) || $${idx++}::jsonb`);
+      values.push(JSON.stringify({ aiImageGenOutsideBuilderEnabled }));
+    }
 
     if (domain !== undefined) {
       const c = validateDomain(domain ?? "");

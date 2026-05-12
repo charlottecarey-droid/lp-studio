@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { Upload, X, Loader2, ImageIcon, Sparkles } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
+import { useAuth } from "@/context/AuthContext";
 
 interface ImagePickerProps {
   value: string;
@@ -11,6 +12,14 @@ interface ImagePickerProps {
   label?: string;
   placeholder?: string;
   className?: string;
+  /**
+   * Task #234 — short context phrase used as the default AI generation
+   * brief when the user clicks "Generate" without typing a Tweak prompt.
+   * Optional: callers should pass the surrounding field/section label
+   * (e.g. "Hero image", "Founder portrait") so default generations are
+   * on-topic. Falls back to the picker `label`, then a generic phrase.
+   */
+  aiHint?: string;
 }
 
 async function uploadImage(file: File): Promise<string> {
@@ -29,11 +38,20 @@ async function uploadImage(file: File): Promise<string> {
   return `/api/storage${url}`;
 }
 
-export function ImagePicker({ value, onChange, label, placeholder, className }: ImagePickerProps) {
+export function ImagePicker({ value, onChange, label, placeholder, className, aiHint }: ImagePickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
+
+  // Task #234 — Generate / Tweak controls. Hidden unless the workspace has
+  // the `aiImageGenOutsideBuilderEnabled` flag flipped on by a Dandy
+  // operator. The Tweak input is the user's freeform brief; when empty we
+  // fall back to `aiHint` (caller context) → `label` → a generic phrase.
+  const { user } = useAuth();
+  const aiEnabled = !!user?.aiImageGenOutsideBuilderEnabled;
+  const [tweak, setTweak] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -49,6 +67,30 @@ export function ImagePicker({ value, onChange, label, placeholder, className }: 
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const brief = (tweak.trim() || aiHint?.trim() || label?.trim() || "On-brand editorial image").slice(0, 1000);
+      const res = await fetch("/api/lp/image/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief, altHint: aiHint ?? label ?? undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" })) as { error?: string };
+        throw new Error(err.error ?? "Generation failed");
+      }
+      const { url } = await res.json() as { url: string };
+      onChange(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -118,6 +160,35 @@ export function ImagePicker({ value, onChange, label, placeholder, className }: 
           onChange={handleFileChange}
         />
       </div>
+
+      {aiEnabled && (
+        <div className="flex gap-1.5 items-center mt-1.5">
+          <Input
+            value={tweak}
+            onChange={e => setTweak(e.target.value)}
+            className="text-xs flex-1 h-8"
+            placeholder="Tweak (optional brief — e.g. 'sunlit dental clinic, warm tones')"
+            disabled={isGenerating}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 h-8 text-xs gap-1"
+            title="Generate an on-brand AI image"
+            disabled={isGenerating}
+            onClick={handleGenerate}
+          >
+            {isGenerating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            Generate
+          </Button>
+        </div>
+      )}
+
       {error && (
         <p className="text-xs text-red-500 mt-1">{error}</p>
       )}

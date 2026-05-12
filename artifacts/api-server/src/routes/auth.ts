@@ -441,6 +441,10 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     // the eligible plan AND turned the feature on.
     let aiImageGenEnabled = false;
     let aiImageGenAvailable = false;
+    // Task #234 — second, independent flag that gates the "Generate / Tweak"
+    // controls on every shared ImagePicker and the corresponding
+    // `POST /lp/image/generate` endpoint. Defaults OFF; superadmin-only toggle.
+    let aiImageGenOutsideBuilderEnabled = false;
     let tenantPlan: string | null = null;
     // Task #132 — surface the canonical tenant login URL (custom domain or
     // wildcard subdomain) so the onboarding wizard, AuthGate auto-redirect,
@@ -469,6 +473,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
         tenantPlan = row.plan ?? null;
         aiImageGenAvailable = TOP_TIER_PLANS.has(tenantPlan ?? "trial");
         aiImageGenEnabled = aiImageGenAvailable && settings.aiImageGenEnabled === true;
+        aiImageGenOutsideBuilderEnabled = settings.aiImageGenOutsideBuilderEnabled === true;
       }
     }
 
@@ -531,6 +536,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       tenantPlan,
       aiImageGenAvailable,
       aiImageGenEnabled,
+      aiImageGenOutsideBuilderEnabled,
     });
   } catch (err) {
     console.error("[auth] /me error:", err);

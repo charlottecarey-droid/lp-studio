@@ -73,3 +73,28 @@ export async function getAiImageGenStatus(
   const enabled = available && row.settings?.aiImageGenEnabled === true;
   return { available, enabled, plan };
 }
+
+/**
+ * Task #234 — second, independent AI-image-gen flag.
+ *
+ * Gates the "Generate / Tweak" buttons that appear on every shared
+ * `ImagePicker` (standard blocks, AI-generated landing pages, etc.) and the
+ * matching `POST /lp/image/generate` endpoint. Distinct from
+ * `aiImageGenEnabled` (which still only controls the custom-block flow):
+ * flipping one has no effect on the other.
+ *
+ * Defaults OFF and is ONLY flippable by a Dandy operator (superadmin) via
+ * the `/admin/superadmin/tenants/:id` PATCH route — there is no tenant-admin
+ * UI for it. No plan-tier check; superadmin owns gating since this will be
+ * sold as a paid add-on later.
+ */
+export async function getAiImageGenOutsideBuilderEnabled(
+  tenantId: number | null | undefined,
+): Promise<boolean> {
+  if (tenantId == null) return false;
+  const r = await pool.query<{ settings: { aiImageGenOutsideBuilderEnabled?: unknown } | null }>(
+    `SELECT settings FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  return r.rows[0]?.settings?.aiImageGenOutsideBuilderEnabled === true;
+}
