@@ -3,8 +3,28 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { splitIssues, validateRawSchemaBlock } from "./custom-blocks-validator";
 
 const router = Router();
+
+/**
+ * Task #210 — for `block_type === "schema"` we run the same structured
+ * validator the generate dialog uses, so user-edited templates can't smuggle
+ * unsafe HTML or token/field mismatches into the database. Returns null when
+ * the payload is valid; otherwise sends a 400 with structured `issues` and
+ * stops the request.
+ */
+function rejectInvalidSchemaBlock(res: Response, props: unknown): boolean {
+  const { issues } = validateRawSchemaBlock(props);
+  const { errors } = splitIssues(issues);
+  if (errors.length === 0) return false;
+  res.status(400).json({
+    error: "Custom block validation failed",
+    issues,
+    errors,
+  });
+  return true;
+}
 
 /**
  * Custom-block mutation gating (task #120).
@@ -71,6 +91,7 @@ router.post("/lp/custom-blocks", requireManageBlocks(), async (req, res): Promis
     return;
   }
   const resolvedSegment = (typeof segment === "string" && segment.trim()) ? segment.trim() : "core";
+  if (resolvedType === "schema" && rejectInvalidSchemaBlock(res, props)) return;
   try {
     const result = await db.execute(
       sql`INSERT INTO lp_custom_blocks (tenant_id, name, block_type, props, block_settings, segment, sort_order)
@@ -103,6 +124,7 @@ router.put("/lp/custom-blocks/:id", requireManageBlocks(), async (req, res): Pro
     return;
   }
   const resolvedSegment = (typeof segment === "string" && segment.trim()) ? segment.trim() : "core";
+  if (resolvedType === "schema" && rejectInvalidSchemaBlock(res, props)) return;
   try {
     const result = await db.execute(
       sql`UPDATE lp_custom_blocks

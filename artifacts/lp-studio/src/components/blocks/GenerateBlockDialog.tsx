@@ -5,7 +5,7 @@
 // the same sandboxed iframe used everywhere else, and hands the result off to
 // the existing editor on Save so all existing flows (segments, link/master,
 // affected-pages confirm) work unchanged.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, Upload, X, AlertTriangle, RefreshCw, Wand2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,29 @@ export interface GeneratedBlock {
   sample: Record<string, SchemaFieldValue>;
 }
 
+export interface ValidationIssue {
+  level: "error" | "warning";
+  path: string;
+  code: string;
+  message: string;
+}
+
 interface GenerateResponse {
   block: GeneratedBlock;
-  errors: string[];
-  warnings: string[];
+  issues: ValidationIssue[];
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
   valid: boolean;
   referenceUrl: string | null;
   usedScreenshot: boolean;
+}
+
+interface ValidateResponse {
+  block: GeneratedBlock;
+  issues: ValidationIssue[];
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
+  valid: boolean;
 }
 
 interface Props {
@@ -71,9 +87,12 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
 
   const [refineInstruction, setRefineInstruction] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [block, setBlock] = useState<GeneratedBlock | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [issues, setIssues] = useState<ValidationIssue[]>([]);
+
+  const errors = issues.filter(i => i.level === "error");
+  const warnings = issues.filter(i => i.level === "warning");
 
   const reset = () => {
     setPrompt("");
@@ -83,8 +102,34 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
     setScreenshotDataUrl(null);
     setRefineInstruction("");
     setBlock(null);
-    setErrors([]);
-    setWarnings([]);
+    setIssues([]);
+  };
+
+  // Re-validate edited block server-side (debounced) so token/field/safety
+  // errors that the user introduces by editing the JSON or template are
+  // surfaced before they can hit "Use this block".
+  useEffect(() => {
+    if (!block) return;
+    const handle = window.setTimeout(() => {
+      void revalidate(block);
+    }, 350);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block?.schema, block?.template, block?.sample]);
+
+  const revalidate = async (b: GeneratedBlock) => {
+    setIsValidating(true);
+    try {
+      const res = await fetch(`${API}/lp/custom-blocks/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ block: { schema: b.schema, template: b.template, sample: b.sample } }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as Partial<ValidateResponse>;
+      if (data.issues) setIssues(data.issues);
+    } catch { /* keep previous issues on transient error */ }
+    finally { setIsValidating(false); }
   };
 
   const handleScreenshot = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,8 +174,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
         return;
       }
       setBlock(data.block);
-      setErrors(data.errors ?? []);
-      setWarnings(data.warnings ?? []);
+      setIssues(data.issues ?? []);
       setRefineInstruction("");
     } catch (err) {
       toast({
@@ -151,15 +195,38 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
     setBlock(prev => (prev ? { ...prev, ...patch } : prev));
   };
 
-  const handleSave = () => {
+  // Final server-side check before handoff so the user can't bypass the
+  // debounced validator by clicking Save before it re-runs.
+  const handleSave = async () => {
     if (!block) return;
-    if (errors.length > 0) {
+    setIsValidating(true);
+    try {
+      const res = await fetch(`${API}/lp/custom-blocks/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ block: { schema: block.schema, template: block.template, sample: block.sample } }),
+      });
+      const data = (await res.json()) as Partial<ValidateResponse>;
+      const finalIssues = data.issues ?? [];
+      setIssues(finalIssues);
+      const finalErrors = finalIssues.filter(i => i.level === "error");
+      if (finalErrors.length > 0) {
+        toast({
+          title: "Fix validation errors first",
+          description: finalErrors[0]?.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    } catch (err) {
       toast({
-        title: "Fix validation errors first",
-        description: errors[0],
+        title: "Validation failed",
+        description: err instanceof Error ? err.message : undefined,
         variant: "destructive",
       });
       return;
+    } finally {
+      setIsValidating(false);
     }
     onAccept(block);
     reset();
@@ -272,26 +339,37 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
           {/* ── Result ────────────────────────────────────────────────── */}
           {block && (
             <div className="space-y-3 pt-2 border-t border-border">
-              {/* Validation banners */}
+              {/* Validation banners (structured: path → message) */}
               {errors.length > 0 && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive space-y-1">
                   <div className="flex items-center gap-1.5 font-medium">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {errors.length} validation error{errors.length === 1 ? "" : "s"} — fix before saving
                   </div>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {errors.slice(0, 6).map((e, i) => <li key={i}>{e}</li>)}
-                    {errors.length > 6 && <li>…and {errors.length - 6} more</li>}
+                  <ul className="space-y-0.5">
+                    {errors.slice(0, 8).map((e, i) => (
+                      <li key={i} className="font-mono">
+                        <span className="opacity-70">[{e.path}]</span> {e.message}
+                      </li>
+                    ))}
+                    {errors.length > 8 && <li>…and {errors.length - 8} more</li>}
                   </ul>
                 </div>
               )}
               {warnings.length > 0 && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
                   <div className="font-medium">{warnings.length} warning{warnings.length === 1 ? "" : "s"}</div>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {warnings.slice(0, 4).map((w, i) => <li key={i}>{w}</li>)}
+                  <ul className="space-y-0.5">
+                    {warnings.slice(0, 4).map((w, i) => (
+                      <li key={i} className="font-mono">
+                        <span className="opacity-70">[{w.path}]</span> {w.message}
+                      </li>
+                    ))}
                   </ul>
                 </div>
+              )}
+              {isValidating && (
+                <div className="text-[11px] text-muted-foreground">Re-validating…</div>
               )}
 
               {/* Name + description */}
@@ -439,8 +517,8 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept }: Props) {
             Cancel
           </Button>
           <Button
-            onClick={handleSave}
-            disabled={!block || isGenerating || errors.length > 0}
+            onClick={() => { void handleSave(); }}
+            disabled={!block || isGenerating || isValidating || errors.length > 0}
             className="gap-2"
           >
             <Sparkles className="w-4 h-4" />
