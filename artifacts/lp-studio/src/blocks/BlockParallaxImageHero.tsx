@@ -37,7 +37,18 @@ function renderHeadlineWithAccent(headline: string, accent: string | undefined, 
     <>
       {before}
       <em
-        style={{ color: accentColor, fontStyle: "italic", fontWeight: "inherit" }}
+        style={{
+          color: accentColor,
+          fontStyle: "italic",
+          fontWeight: "inherit",
+          // Bagoss Standard only ships a Regular face (no italic file).
+          // Safari (esp. iPad) refuses to synthesize italic by default
+          // when an @font-face exists for the family — the result is
+          // upright text inside <em>. Explicitly opt into style
+          // synthesis so the browser fakes an oblique slant from the
+          // regular face. Harmless for fonts that DO have a real italic.
+          fontSynthesis: "style",
+        }}
       >
         {accent}
       </em>
@@ -168,7 +179,10 @@ export function BlockParallaxImageHero({
 
       {/* Editor-only image picker */}
       {isEditor && (
-        <div className="absolute top-4 right-4 z-30">
+        // top-12 (48px) clears the per-block hover toolbar that sits at
+        // top-2 right-2 (BuilderEditor.SortableCanvasBlock). Previously
+        // top-4 caused both controls to stack at the same corner.
+        <div className="absolute top-12 right-4 z-30">
           <Popover open={bgPickerOpen} onOpenChange={setBgPickerOpen}>
             <PopoverTrigger asChild>
               <button

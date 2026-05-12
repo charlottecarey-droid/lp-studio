@@ -230,7 +230,11 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
                 type="button"
                 title="Replace background image"
                 onClick={(e) => e.stopPropagation()}
-                className="absolute top-4 right-4 z-30 inline-flex items-center gap-1 rounded-md bg-black/70 px-2.5 py-1.5 text-xs font-medium text-white shadow hover:bg-black/85 transition"
+                // top-12 (48px) clears the per-block hover toolbar that
+                // sits at top-2 right-2 (BuilderEditor.SortableCanvasBlock).
+                // Previously top-4 caused both controls to stack at the
+                // same corner of the canvas card.
+                className="absolute top-12 right-4 z-30 inline-flex items-center gap-1 rounded-md bg-black/70 px-2.5 py-1.5 text-xs font-medium text-white shadow hover:bg-black/85 transition"
               >
                 <ImageIcon className="w-3 h-3" />
                 Replace background
