@@ -317,7 +317,7 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
               )}
             </div>
             <p className="text-[11px] text-muted-foreground -mt-0.5">
-              Provable statements AI can cite (e.g. "50% faster turnaround"). Toggle "AI" to lock individual claims to Strict Facts Mode.
+              Provable statements AI can cite (e.g. "50% faster turnaround"). Toggle "Approved for AI" to lock individual claims to Strict AI facts mode.
             </p>
             {/* Task #253 — claims are now per-row {text, approvedForAi} so the
                 tenant can mark which numbers are safe for the AI to repeat. */}
@@ -337,7 +337,10 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
                       placeholder="Claim e.g. 50% faster turnaround"
                       className="h-8 text-sm flex-1"
                     />
-                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none shrink-0 px-1.5">
+                    <label
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none shrink-0 px-1.5"
+                      title="Approved for AI — when Strict AI facts mode is on, only checked claims are quoted by AI."
+                    >
                       <input
                         type="checkbox"
                         checked={approved}
@@ -347,8 +350,9 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
                           onChange("claims", next);
                         }}
                         className="h-3.5 w-3.5"
+                        aria-label="Approved for AI"
                       />
-                      AI
+                      Approved for AI
                     </label>
                     <Button
                       variant="ghost" size="sm"
@@ -682,14 +686,18 @@ function SegmentCard({ segment, onChange, onRemove, strictMode }: {
                       />
                       {/* Task #253 — per-stat AI approval. Only enforced when
                           Strict Facts Mode is ON; the muted note explains why. */}
-                      <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none shrink-0 px-1.5">
+                      <label
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none shrink-0 px-1.5"
+                        title="Approved for AI — when Strict AI facts mode is on, only checked stats are quoted by AI."
+                      >
                         <input
                           type="checkbox"
                           checked={approved}
                           onChange={(e) => updateStat(i, "approvedForAi", e.target.checked)}
                           className="h-3.5 w-3.5"
+                          aria-label="Approved for AI"
                         />
-                        AI
+                        Approved for AI
                       </label>
                       <Button
                         variant="ghost"
@@ -1257,7 +1265,7 @@ export default function BrandSettings() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold">Strict Facts Mode</h3>
+                  <h3 className="text-sm font-semibold">Strict AI facts mode</h3>
                   <span className={cn(
                     "text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-mono",
                     config.aiStrictFactsMode

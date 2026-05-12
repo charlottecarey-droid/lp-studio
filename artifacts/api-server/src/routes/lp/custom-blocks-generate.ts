@@ -47,12 +47,14 @@ interface BrandHints {
 }
 
 /** Task #253 — keep wording in sync with lp-studio/brand-config.ts and
- *  api-server/routes/lp/generate-page.ts. */
+ *  api-server/routes/lp/generate-page.ts. The placeholder string is the
+ *  literal that downstream sanitizers also emit when scrubbing unapproved
+ *  numeric values. */
 const STRICT_FACTS_INSTRUCTION =
   "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
   "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
   "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
-  "or proof point that is not provided, omit it rather than making one up.";
+  "or proof point that is not provided, write the placeholder \u2014 add a stat in Brand Settings \u2014 instead.";
 
 function isHexLike(s: unknown): s is string {
   return typeof s === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s.trim());

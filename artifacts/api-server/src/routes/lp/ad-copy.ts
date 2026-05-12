@@ -133,12 +133,13 @@ interface BrandConfig {
 }
 
 /** Task #253 — mirrors `STRICT_FACTS_INSTRUCTION` in lp-studio/brand-config
- *  and api-server/routes/lp/generate-page.ts. Keep wording in sync. */
+ *  and api-server/routes/lp/generate-page.ts. Keep wording in sync — the
+ *  same placeholder string is used everywhere strict mode applies. */
 const STRICT_FACTS_INSTRUCTION =
   "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
   "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
   "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
-  "or proof point that is not provided, omit it rather than making one up.";
+  "or proof point that is not provided, write the placeholder \u2014 add a stat in Brand Settings \u2014 instead.";
 
 function getClaimText(c: string | { text?: string } | null | undefined): string {
   if (!c) return "";
