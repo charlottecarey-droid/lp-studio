@@ -23,6 +23,7 @@ import {
   type ReviewWorkflowTenant,
 } from "./setup/review-workflow-tenant";
 import { newAuthedContext } from "./setup/csrf";
+import { assertApiHealthy } from "./setup/api-health";
 
 // Trailing slash is REQUIRED. Playwright's APIRequestContext resolves request
 // paths against baseURL using WHATWG URL semantics: a leading-slash path
@@ -45,6 +46,10 @@ let tenant: ReviewWorkflowTenant;
 let secondTenant: ReviewWorkflowTenant;
 
 test.beforeAll(async () => {
+  // Fast-fail if the api-server isn't actually up, so we report a clear
+  // "see api-server workflow logs" message instead of letting the first
+  // tenant insert + API call surface a bare ECONNREFUSED. See task #242.
+  await assertApiHealthy();
   await purgeStaleReviewWorkflowTenants(pool);
   tenant = await createReviewWorkflowTenant(pool);
   // Second tenant is used to verify the Dandy super-admin can publish into

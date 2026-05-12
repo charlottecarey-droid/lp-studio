@@ -34,6 +34,7 @@ import {
   type RoyalTenant,
 } from "./setup/royal-tenant";
 import { csrfHeaders } from "./setup/csrf";
+import { assertApiHealthy } from "./setup/api-health";
 
 const { Pool } = pg;
 
@@ -87,6 +88,10 @@ test.describe("Marketo → Chili Piper handoff", () => {
   let pageSlug: string;
 
   test.beforeAll(async ({ request }) => {
+    // Fast-fail with a clear pointer to the api-server log if startup crashed
+    // (see task #242), instead of letting the first /api/lp/pages POST
+    // surface a bare ECONNREFUSED.
+    await assertApiHealthy();
     pool = new Pool({ connectionString: getDatabaseUrl(), max: 4 });
     await purgeStaleRoyalTenants(pool);
     tenant = await createRoyalTenant(pool);

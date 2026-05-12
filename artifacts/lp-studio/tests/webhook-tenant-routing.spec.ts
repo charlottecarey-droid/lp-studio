@@ -20,6 +20,7 @@
 import pg from "pg";
 import { randomBytes } from "node:crypto";
 import { test, expect, request as pwRequest } from "@playwright/test";
+import { assertApiHealthy } from "./setup/api-health";
 
 const { Pool } = pg;
 
@@ -114,6 +115,10 @@ test.describe("tenant-aware webhook routing", () => {
   let apiBaseURL: string;
 
   test.beforeAll(async () => {
+    // Fast-fail with a clear pointer to the api-server log if startup crashed
+    // (see task #242), instead of letting the first /api/webhooks/... POST
+    // surface a bare ECONNREFUSED.
+    await assertApiHealthy();
     pool = new Pool({ connectionString: getDatabaseUrl(), max: 4 });
     await purgeStaleWebhookTenants(pool);
     tenant = await createWebhookTenant(pool);

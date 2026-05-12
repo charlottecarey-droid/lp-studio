@@ -158,7 +158,32 @@ async function notifyExpiringSlugRedirects(): Promise<void> {
   return slugRedirectNotifyInflight;
 }
 
-async function runMigrations(): Promise<void> {
+// Stable 64-bit key for the advisory lock that serializes migration runs
+// across processes sharing this database. Picked once and never changed —
+// any process running this codebase uses the same key so concurrent boots
+// (parallel agent runs, leftover api-server from a prior workflow) wait
+// instead of fighting over ACCESS EXCLUSIVE locks during the DDL batch.
+const MIGRATION_ADVISORY_LOCK_KEY = "7421894200310042319";
+
+async function runMigrationsLocked(): Promise<void> {
+  // Hold the advisory lock on a dedicated connection for the full DDL run.
+  // pg_advisory_lock is session-scoped, so the lock auto-releases if the
+  // process crashes — preventing permanently-stuck startups.
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query(`SELECT pg_advisory_lock($1::bigint)`, [MIGRATION_ADVISORY_LOCK_KEY]);
+    try {
+      await runMigrationsBody();
+    } finally {
+      await lockClient.query(`SELECT pg_advisory_unlock($1::bigint)`, [MIGRATION_ADVISORY_LOCK_KEY])
+        .catch(() => undefined);
+    }
+  } finally {
+    lockClient.release();
+  }
+}
+
+async function runMigrationsBody(): Promise<void> {
   try {
     await db.execute(sql`
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS city text;
@@ -1340,9 +1365,39 @@ async function runMigrations(): Promise<void> {
       logger.error({ err: seedErr }, "global_templates seed failed (non-fatal)");
     }
   } catch (err) {
-    logger.error({ err }, "Migration failed — halting server startup");
+    // Surface a single concise line that names the failing SQL fragment so the
+    // failure stands out in the api-server workflow log instead of being buried
+    // in a multi-screen drizzle stack trace. The verbose error stays available
+    // via the `cause` chain for anyone who needs the full payload.
+    const e = err as { message?: string; code?: string; position?: string | number; where?: string; query?: string };
+    const fragment = extractSqlFragment(e);
+    logger.error(
+      `Migration failed — halting server startup: ${e.code ? `[${e.code}] ` : ""}${e.message ?? String(err)}${fragment ? ` — near: ${fragment}` : ""}`,
+    );
     throw err;
   }
+}
+
+// Best-effort: pull a short snippet of the failing SQL out of a node-postgres
+// error envelope. `position` is a 1-based char offset into the original query;
+// `where` is Postgres' own context blurb. We prefer the explicit position when
+// both are present.
+function extractSqlFragment(e: { position?: string | number; where?: string; query?: string }): string {
+  const pos = typeof e.position === "string" ? Number(e.position) : e.position;
+  if (e.query && pos && Number.isFinite(pos)) {
+    const start = Math.max(0, pos - 60);
+    const end = Math.min(e.query.length, pos + 60);
+    return e.query.slice(start, end).replace(/\s+/g, " ").trim();
+  }
+  if (e.where) return e.where.replace(/\s+/g, " ").trim().slice(0, 200);
+  return "";
+}
+
+// Public entry — wraps the migration body in a Postgres advisory lock so two
+// processes booting against the same database don't deadlock fighting for
+// table-level ACCESS EXCLUSIVE locks during the DDL batch.
+async function runMigrations(): Promise<void> {
+  return runMigrationsLocked();
 }
 
 const rawPort = process.env["PORT"] ?? "3001";
@@ -1386,6 +1441,9 @@ runMigrations()
     });
   })
   .catch((err) => {
-    logger.error({ err }, "Failed to start server: migrations failed");
+    // Concise: the underlying error has already been logged with its SQL
+    // fragment by runMigrationsBody's catch. Avoid re-dumping the full
+    // drizzle stack here so Playwright's webServer log stays scannable.
+    logger.error(`Failed to start server: migrations failed: ${(err as Error).message ?? String(err)}`);
     process.exit(1);
   });
