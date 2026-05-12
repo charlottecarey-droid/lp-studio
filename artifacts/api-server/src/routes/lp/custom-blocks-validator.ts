@@ -1,30 +1,51 @@
-// Task #210 — Shared validator for AI-generated and user-edited schema blocks.
+// Task #210/#227 — Shared validator for AI-generated and user-edited schema blocks.
 //
 // Used by both the generate endpoint and the custom-blocks save endpoint so
 // that any block_type === "schema" payload that lands in the database has
 // passed the same checks (allowed field types, no unsafe HTML, strict
 // {{token}} ↔ schema field id parity, dry render).
 //
-// All issues are returned in a structured shape so the UI can attach errors
-// to a specific field/token instead of a generic banner.
+// Task #227 widened the template engine to support a tiny Handlebars subset:
+//   {{field}}, {{this.subfield}}, {{#each list}}, {{#if field}}…{{else}}…{{/if}}
+// and added a new "list" field type (array of objects with a scalar
+// itemSchema). The validator now parses the template via
+// `schema-template-engine.parseAndValidate` and carries those issues through
+// the existing ValidationIssue shape so the dialog/UI can keep displaying
+// them inline.
+
+import {
+  parseAndValidate,
+  defaultsFromSchema as engineDefaults,
+  renderAst,
+  parseTemplate,
+  type EngineFieldDef,
+  type FieldValue as EngineFieldValue,
+  type ListItem,
+  type Scalar,
+  type ValuesMap,
+} from "./schema-template-engine";
 
 export const SCHEMA_FIELD_TYPES = [
-  "text", "longText", "number", "color", "image", "url", "boolean", "select",
+  "text", "longText", "number", "color", "image", "url", "boolean", "select", "list",
 ] as const;
 export type SchemaFieldType = (typeof SCHEMA_FIELD_TYPES)[number];
 const FIELD_TYPE_SET = new Set<string>(SCHEMA_FIELD_TYPES);
+const SCALAR_TYPE_SET = new Set<string>(SCHEMA_FIELD_TYPES.filter(t => t !== "list"));
 
 export interface SchemaFieldDef {
   id: string;
   label: string;
   type: SchemaFieldType;
-  defaultValue?: string | number | boolean;
+  defaultValue?: Scalar | ListItem[];
   options?: string[];
   placeholder?: string;
   helpText?: string;
   required?: boolean;
+  /** Only valid when `type === "list"`. Sub-fields must be scalar (no nested list). */
+  itemSchema?: SchemaFieldDef[];
 }
-export type SchemaFieldValue = string | number | boolean;
+
+export type SchemaFieldValue = EngineFieldValue;
 
 export interface SchemaBlockPayload {
   name?: string;
@@ -38,19 +59,19 @@ export interface ValidationIssue {
   level: "error" | "warning";
   /**
    * Dotted path identifying *what* failed:
-   *   - "template"                   — template-wide error (safety, length)
-   *   - "template.token.<id>"        — token referenced but no field
-   *   - "schema"                     — schema-wide error (not array, etc.)
-   *   - "schema.field.<id>"          — per-field error or unused-field error
-   *   - "sample.<id>"                — sample value problem
-   *   - "name"                       — name field
+   *   - "template"                          — template-wide error (safety, length, parse)
+   *   - "template.token.<id>"               — token referenced but no field
+   *   - "template.token.<list>.<sub>"       — list subfield ref problems
+   *   - "schema"                            — schema-wide error (not array, etc.)
+   *   - "schema.field.<id>"                 — per-field error or unused-field error
+   *   - "schema.field.<id>.item.<sub>"      — per-list-subfield error
+   *   - "sample.<id>"                       — sample value problem
+   *   - "name"                              — name field
    */
   path: string;
   code: string;
   message: string;
 }
-
-const TEMPLATE_TOKEN_RE = /\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g;
 
 const UNSAFE_TEMPLATE_PATTERNS: Array<{ re: RegExp; code: string; msg: string }> = [
   { re: /<\s*script\b/i, code: "unsafe.script", msg: "<script> tags are not allowed" },
@@ -69,6 +90,101 @@ export function sanitizeFieldId(raw: unknown): string | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
+function coerceScalar(v: unknown): Scalar | undefined {
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+  return undefined;
+}
+
+/**
+ * Coerce a single field def. `parentPath` is used for nested issue paths
+ * (item subfields). When `allowList` is false (i.e. inside an itemSchema)
+ * the "list" type is rejected so we never recurse.
+ */
+function coerceField(
+  raw: unknown,
+  idx: number,
+  issues: ValidationIssue[],
+  parentPath: string,
+  allowList: boolean,
+): SchemaFieldDef | null {
+  if (!raw || typeof raw !== "object") {
+    issues.push({ level: "error", path: `${parentPath}.${idx}`, code: "field.invalid", message: `${parentPath}[${idx}] is not an object` });
+    return null;
+  }
+  const fobj = raw as Record<string, unknown>;
+  const id = sanitizeFieldId(fobj.id);
+  if (!id) {
+    issues.push({ level: "error", path: `${parentPath}.${idx}`, code: "field.invalid_id", message: `${parentPath}[${idx}] has invalid id ${JSON.stringify(fobj.id)}` });
+    return null;
+  }
+  const type = typeof fobj.type === "string" ? fobj.type.trim() : "";
+  if (!FIELD_TYPE_SET.has(type)) {
+    issues.push({
+      level: "error",
+      path: `${parentPath}.${id}`,
+      code: "field.unknown_type",
+      message: `field "${id}" has unknown type "${type}" (allowed: ${SCHEMA_FIELD_TYPES.join(", ")})`,
+    });
+    return null;
+  }
+  if (type === "list" && !allowList) {
+    issues.push({
+      level: "error",
+      path: `${parentPath}.${id}`,
+      code: "field.nested_list",
+      message: `field "${id}" cannot be type "list" inside another list — nested lists are not supported`,
+    });
+    return null;
+  }
+  const def: SchemaFieldDef = {
+    id,
+    label: typeof fobj.label === "string" && fobj.label.trim() ? fobj.label.trim().slice(0, 120) : id,
+    type: type as SchemaFieldType,
+  };
+  if (typeof fobj.placeholder === "string") def.placeholder = fobj.placeholder.slice(0, 200);
+  if (typeof fobj.helpText === "string") def.helpText = fobj.helpText.slice(0, 200);
+  if (fobj.required === true) def.required = true;
+  if (def.type === "select" && Array.isArray(fobj.options)) {
+    def.options = fobj.options.filter((o): o is string => typeof o === "string").map(o => o.slice(0, 80)).slice(0, 32);
+  }
+  if (def.type === "list") {
+    const subRaw = Array.isArray(fobj.itemSchema) ? fobj.itemSchema : [];
+    const subOut: SchemaFieldDef[] = [];
+    const subSeen = new Set<string>();
+    subRaw.forEach((s, sIdx) => {
+      const sub = coerceField(s, sIdx, issues, `schema.field.${id}.item`, false);
+      if (!sub) return;
+      if (subSeen.has(sub.id)) {
+        issues.push({ level: "error", path: `schema.field.${id}.item.${sub.id}`, code: "subfield.duplicate", message: `duplicate subfield id "${sub.id}" in list "${id}"` });
+        return;
+      }
+      subSeen.add(sub.id);
+      subOut.push(sub);
+    });
+    if (subOut.length === 0) {
+      issues.push({
+        level: "error",
+        path: `schema.field.${id}`,
+        code: "list.empty_item_schema",
+        message: `list field "${id}" must declare at least one subfield in itemSchema`,
+      });
+    }
+    def.itemSchema = subOut;
+  }
+  if (fobj.defaultValue !== undefined) {
+    if (def.type === "list") {
+      if (Array.isArray(fobj.defaultValue)) {
+        const items = coerceListValue(fobj.defaultValue, def.itemSchema ?? []);
+        def.defaultValue = items;
+      }
+    } else {
+      const sv = coerceScalar(fobj.defaultValue);
+      if (sv !== undefined) def.defaultValue = sv;
+    }
+  }
+  return def;
+}
+
 /**
  * Normalize a raw schema (e.g. from JSON) into a typed SchemaFieldDef[],
  * collecting structural issues (unknown types, dup ids, etc.).
@@ -81,48 +197,31 @@ export function coerceSchema(raw: unknown, issues: ValidationIssue[]): SchemaFie
   const out: SchemaFieldDef[] = [];
   const seen = new Set<string>();
   raw.forEach((f, idx) => {
-    if (!f || typeof f !== "object") {
-      issues.push({ level: "error", path: `schema.field.${idx}`, code: "field.invalid", message: `schema[${idx}] is not an object` });
+    const def = coerceField(f, idx, issues, "schema.field", true);
+    if (!def) return;
+    if (seen.has(def.id)) {
+      issues.push({ level: "error", path: `schema.field.${def.id}`, code: "field.duplicate", message: `duplicate field id "${def.id}"` });
       return;
     }
-    const fobj = f as Record<string, unknown>;
-    const id = sanitizeFieldId(fobj.id);
-    if (!id) {
-      issues.push({ level: "error", path: `schema.field.${idx}`, code: "field.invalid_id", message: `schema[${idx}] has invalid id ${JSON.stringify(fobj.id)}` });
-      return;
-    }
-    if (seen.has(id)) {
-      issues.push({ level: "error", path: `schema.field.${id}`, code: "field.duplicate", message: `duplicate field id "${id}"` });
-      return;
-    }
-    const type = typeof fobj.type === "string" ? fobj.type.trim() : "";
-    if (!FIELD_TYPE_SET.has(type)) {
-      issues.push({
-        level: "error",
-        path: `schema.field.${id}`,
-        code: "field.unknown_type",
-        message: `field "${id}" has unknown type "${type}" (allowed: ${SCHEMA_FIELD_TYPES.join(", ")})`,
-      });
-      return;
-    }
-    const def: SchemaFieldDef = {
-      id,
-      label: typeof fobj.label === "string" && fobj.label.trim() ? fobj.label.trim().slice(0, 120) : id,
-      type: type as SchemaFieldType,
-    };
-    if (typeof fobj.placeholder === "string") def.placeholder = fobj.placeholder.slice(0, 200);
-    if (typeof fobj.helpText === "string") def.helpText = fobj.helpText.slice(0, 200);
-    if (fobj.required === true) def.required = true;
-    if (def.type === "select" && Array.isArray(fobj.options)) {
-      def.options = fobj.options.filter((o): o is string => typeof o === "string").map(o => o.slice(0, 80)).slice(0, 32);
-    }
-    if (fobj.defaultValue !== undefined) {
-      const dv = fobj.defaultValue;
-      if (typeof dv === "string" || typeof dv === "number" || typeof dv === "boolean") def.defaultValue = dv;
-    }
-    seen.add(id);
+    seen.add(def.id);
     out.push(def);
   });
+  return out;
+}
+
+function coerceListValue(raw: unknown, itemSchema: SchemaFieldDef[]): ListItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ListItem[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const item: ListItem = {};
+    for (const sub of itemSchema) {
+      const sv = coerceScalar(r[sub.id]);
+      if (sv !== undefined) item[sub.id] = sv;
+    }
+    out.push(item);
+  }
   return out;
 }
 
@@ -133,31 +232,21 @@ export function coerceSample(raw: unknown, schema: SchemaFieldDef[]): Record<str
   for (const f of schema) {
     const v = rec[f.id];
     if (v === undefined || v === null) continue;
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") out[f.id] = v;
+    if (f.type === "list") {
+      out[f.id] = coerceListValue(v, f.itemSchema ?? []);
+    } else {
+      const sv = coerceScalar(v);
+      if (sv !== undefined) out[f.id] = sv;
+    }
   }
   return out;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
 function dryRender(template: string, schema: SchemaFieldDef[], sample: Record<string, SchemaFieldValue>, issues: ValidationIssue[]): void {
   try {
-    const merged: Record<string, SchemaFieldValue> = {};
-    for (const f of schema) {
-      if (f.defaultValue !== undefined) merged[f.id] = f.defaultValue;
-      else if (f.type === "boolean") merged[f.id] = false;
-      else if (f.type === "number") merged[f.id] = 0;
-      else merged[f.id] = "";
-    }
-    Object.assign(merged, sample);
-    template.replace(TEMPLATE_TOKEN_RE, (_, id: string) => {
-      const v = merged[id];
-      if (v === undefined || v === null) return "";
-      if (typeof v === "boolean") return v ? "true" : "false";
-      return escapeHtml(String(v));
-    });
+    const merged: ValuesMap = { ...engineDefaults(schema as EngineFieldDef[]), ...sample };
+    const { ast } = parseTemplate(template);
+    renderAst(ast, merged);
   } catch (e) {
     issues.push({
       level: "error",
@@ -165,38 +254,6 @@ function dryRender(template: string, schema: SchemaFieldDef[], sample: Record<st
       code: "template.dry_render_failed",
       message: `dry render failed: ${e instanceof Error ? e.message : String(e)}`,
     });
-  }
-}
-
-/**
- * Strict {{token}} ↔ schema field id parity:
- *   - tokens not backed by a field         → error  (template.token.<id>)
- *   - schema fields not used in template   → error  (schema.field.<id>)
- * (Both directions are errors per task #210 acceptance criteria.)
- */
-function validateTokenMapping(template: string, schema: SchemaFieldDef[], issues: ValidationIssue[]): void {
-  const ids = new Set(schema.map(f => f.id));
-  const found = new Set<string>();
-  for (const m of template.matchAll(TEMPLATE_TOKEN_RE)) found.add(m[1]);
-  for (const tok of found) {
-    if (!ids.has(tok)) {
-      issues.push({
-        level: "error",
-        path: `template.token.${tok}`,
-        code: "token.unknown_field",
-        message: `template uses {{${tok}}} but no field with that id exists`,
-      });
-    }
-  }
-  for (const id of ids) {
-    if (!found.has(id)) {
-      issues.push({
-        level: "error",
-        path: `schema.field.${id}`,
-        code: "field.unused",
-        message: `field "${id}" is defined but never used in the template`,
-      });
-    }
   }
 }
 
@@ -217,21 +274,43 @@ export function validateSchemaBlock(payload: SchemaBlockPayload): ValidationIssu
   for (const { re, code, msg } of UNSAFE_TEMPLATE_PATTERNS) {
     if (re.test(tpl)) issues.push({ level: "error", path: "template", code, message: `template: ${msg}` });
   }
-  // Reject Handlebars/Mustache-style helpers and dotted paths — the runtime
-  // engine is plain {{field_id}} interpolation only, so these would render
-  // literally and confuse editors (e.g. "{{#each columns}}" appearing on
-  // the page). Surface them as a clear error pointing at the offending
-  // placeholder so the regenerate-with-prior-errors loop can fix them.
-  for (const m of tpl.matchAll(/\{\{\s*([#/!>][^}]*|[a-zA-Z0-9_-]+\.[^}]+|this[^}]*)\s*\}\}/g)) {
-    const raw = m[0];
+  // Defensive per-field check: scalar fields must not declare itemSchema;
+  // list fields must declare it (already enforced in coerceField, but guard
+  // here in case a payload was constructed in code).
+  for (const f of payload.schema) {
+    if (f.type === "list") {
+      if (!f.itemSchema || f.itemSchema.length === 0) {
+        issues.push({
+          level: "error",
+          path: `schema.field.${f.id}`,
+          code: "list.empty_item_schema",
+          message: `list field "${f.id}" must declare at least one subfield in itemSchema`,
+        });
+      } else {
+        for (const sub of f.itemSchema) {
+          if (!SCALAR_TYPE_SET.has(sub.type)) {
+            issues.push({
+              level: "error",
+              path: `schema.field.${f.id}.item.${sub.id}`,
+              code: "subfield.non_scalar",
+              message: `subfield "${f.id}.${sub.id}" must be a scalar type, got "${sub.type}"`,
+            });
+          }
+        }
+      }
+    }
+  }
+  // Engine-driven parse + schema-aware validation. Replaces the old
+  // flat-{{token}} regex check.
+  const { issues: engineIssues } = parseAndValidate(tpl, payload.schema as EngineFieldDef[]);
+  for (const e of engineIssues) {
     issues.push({
       level: "error",
-      path: "template",
-      code: "template.unsupported_placeholder",
-      message: `template uses unsupported placeholder ${raw} — only flat {{field_id}} is supported (no #each/#if/this./dotted paths)`,
+      path: e.path ?? "template",
+      code: e.code,
+      message: e.message,
     });
   }
-  validateTokenMapping(tpl, payload.schema, issues);
   dryRender(tpl, payload.schema, payload.sample, issues);
   return issues;
 }

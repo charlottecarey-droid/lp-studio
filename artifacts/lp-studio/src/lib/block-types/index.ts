@@ -134,6 +134,7 @@ export type {
   SchemaFieldDef,
   SchemaFieldType,
   SchemaFieldValue,
+  SchemaListItem,
 } from "./generic-blocks";
 
 // DSO block types

@@ -80,28 +80,36 @@ function buildSystemPrompt(): string {
   "name": short title (2-5 words),
   "description": 1-sentence purpose,
   "schema": [
-    { "id": "snake_case_id", "label": "Human Label", "type": <allowed type>, "options"?: [...], "helpText"?: "...", "required"?: bool }
+    { "id": "snake_case_id", "label": "Human Label", "type": <allowed type>, "options"?: [...], "helpText"?: "...", "required"?: bool, "itemSchema"?: [...] }
   ],
-  "template": HTML/CSS string with {{field_id}} placeholders,
+  "template": HTML/CSS string with placeholders (see TEMPLATE RULES),
   "sample": { "field_id": value, ... }
 }
 
 ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(", ")}.
 - "text" / "longText" → string. "number" → number. "boolean" → bool.
 - "color" → CSS hex like "#0f172a". "image" → image URL. "url" → URL. "select" → string from "options".
+- "list" → array of objects (rows). REQUIRED extra key "itemSchema" — an array of scalar sub-field defs (same shape, but type must NOT be "list"). Use list for repeating content like nav links, social icons, pricing tiers, feature rows, FAQ entries.
 
 TEMPLATE RULES:
 - Plain HTML + inline <style> only. No <script>, no <iframe>, no on* handlers, no javascript: URLs, no external <link>/<script src>.
-- The template engine is plain string interpolation — NOT Handlebars/Mustache/Liquid. The ONLY supported placeholder is {{field_id}} where field_id is a flat scalar field declared in the schema. FORBIDDEN: {{#each x}}…{{/each}}, {{#if x}}…{{/if}}, {{this.foo}}, {{x.y}}, {{>partial}}, {{!comment}}, or any other helper/section/dotted path. They will render literally and break the block.
-- For repeating content (nav links, social icons, pricing tiers, etc.) DO NOT try to loop. Either (a) declare a fixed number of separate fields like link_1_label, link_1_url, link_2_label, link_2_url, … and hard-code the markup for each, or (b) use a single longText field and have the editor type the whole list.
-- Every {{token}} MUST map to a schema field id, AND every schema field MUST appear as a {{token}} at least once. Do not declare unused fields.
+- The template engine is a tiny Handlebars subset. Supported placeholders ONLY:
+    * {{field_id}}                              — scalar field, HTML-escaped
+    * {{#each list_id}} … {{/each}}             — iterate a "list" field
+    * {{this.sub_id}}                           — inside #each, current row's subfield
+    * {{#if field_id}} … {{else}} … {{/if}}     — conditional on a scalar
+    * {{#if this.sub_id}} … {{/if}}             — same, inside #each
+  No other helpers, no partials, no comments, no nested #each, no dotted paths beyond {{this.x}}.
+- For repeating content (nav links, social icons, pricing tiers, etc.) PREFER a single "list" field with #each over many numbered scalar fields.
+- Every {{token}} MUST map to a declared field/subfield id, AND every schema field (and every list subfield) MUST appear in the template at least once. Do not declare unused fields.
 - Scope CSS by wrapping the block in a single root element with a unique class (e.g. .blk-{kebab-of-name}) and prefixing every selector inside <style> with that class. Never use bare element selectors that would bleed (e.g. "h1 { ... }" — use ".blk-foo h1 { ... }").
 - Keep the layout responsive — use flexbox/grid + relative units. Add a @media (max-width: 720px) breakpoint when the block has multiple columns.
 - Use placeholder/library images (e.g. https://images.unsplash.com/...) for any "image" sample value. Do not generate base64.
 
 SAMPLE RULES:
 - Provide a realistic value for every schema field id so the block renders nicely without further input.
-- For "boolean" use true/false. For "number" use a number. For "color" use hex. For "select" pick one of "options".`;
+- For "boolean" use true/false. For "number" use a number. For "color" use hex. For "select" pick one of "options".
+- For "list" provide an array of 2-5 row objects, each with values for every subfield in itemSchema. Example: { "social_links": [{ "label": "Twitter", "url": "https://twitter.com/acme" }, { "label": "LinkedIn", "url": "https://linkedin.com/company/acme" }] }`;
 }
 
 function buildUserPrompt(opts: {
@@ -358,6 +366,15 @@ Output strict JSON only with this shape:
 ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(", ")}.
 - "text" / "longText" → string. "number" → number. "boolean" → bool.
 - "color" → CSS hex like "#0f172a". "image" → image URL. "url" → URL. "select" → string from "options".
+- "list" → array of objects (rows). REQUIRED extra key "itemSchema" — array of scalar sub-field defs (type must NOT be "list"). Use list for nav links, social icons, pricing tiers, feature rows, FAQ entries.
+
+TEMPLATE PLACEHOLDERS (apply to every block.template) — only these forms are supported:
+  * {{field_id}}                              — scalar, HTML-escaped
+  * {{#each list_id}} … {{/each}}             — iterate a "list" field
+  * {{this.sub_id}}                           — inside #each, current row's subfield
+  * {{#if field_id}} … {{else}} … {{/if}}     — conditional on a scalar
+  * {{#if this.sub_id}} … {{/if}}             — inside #each
+No other helpers, no partials/comments, no nested #each, no dotted paths beyond {{this.x}}. Use a "list" field + #each for repeating content rather than numbered scalar fields.
 
 BLOCKS RULES:
 - Emit between 2 and 5 blocks. Order them as they should appear on the page (e.g. hero first, CTA last).

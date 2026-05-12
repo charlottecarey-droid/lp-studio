@@ -254,21 +254,34 @@ export interface GridVideoBlockProps {
 
 /* ── Schema-driven custom blocks (task #120) ───────────────────────────── */
 
-export type SchemaFieldType = "text" | "longText" | "number" | "color" | "image" | "url" | "boolean" | "select";
+export type SchemaFieldType =
+  | "text" | "longText" | "number" | "color" | "image" | "url" | "boolean" | "select"
+  // Task #227 — array of objects with a scalar sub-schema. Renders via
+  // {{#each list}}…{{/each}} in templates so editors can add/remove rows
+  // for nav columns, social links, pricing tiers, etc.
+  | "list";
+
+/** A single row inside a "list" field. Sub-fields are scalar only. */
+export type SchemaListItem = Record<string, string | number | boolean>;
 
 export interface SchemaFieldDef {
   id: string;
   label: string;
   type: SchemaFieldType;
-  defaultValue?: string | number | boolean;
+  defaultValue?: string | number | boolean | SchemaListItem[];
   options?: string[];
   placeholder?: string;
   helpText?: string;
   /** When true, the property panel marks this field as required. */
   required?: boolean;
+  /**
+   * Only valid when `type === "list"`. Defines the scalar sub-fields each
+   * row exposes. Nested lists are not supported.
+   */
+  itemSchema?: SchemaFieldDef[];
 }
 
-export type SchemaFieldValue = string | number | boolean;
+export type SchemaFieldValue = string | number | boolean | SchemaListItem[];
 
 export interface CustomSchemaBlockProps {
   schema: SchemaFieldDef[];

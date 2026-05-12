@@ -10,11 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText, Sparkles, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Database, GripVertical, ExternalLink, FileText, Sparkles, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment, type BrandConfig } from "@/lib/brand-config";
 import { Link } from "wouter";
-import type { SchemaFieldDef, SchemaFieldType, SchemaFieldValue } from "@/lib/block-types";
+import type { SchemaFieldDef, SchemaFieldType, SchemaFieldValue, SchemaListItem } from "@/lib/block-types";
 import { SchemaPreviewFrame } from "@/components/blocks/SchemaPreviewFrame";
 import { GenerateBlockDialog, type GeneratedBlock } from "@/components/blocks/GenerateBlockDialog";
 
@@ -76,7 +76,13 @@ const FIELD_TYPES: { value: SchemaFieldType; label: string }[] = [
   { value: "image", label: "Image URL" },
   { value: "url", label: "URL" },
   { value: "select", label: "Select" },
+  // Task #227 — array of objects with a scalar sub-schema. Renders via
+  // {{#each list}}…{{/each}} so editors can add/remove rows.
+  { value: "list", label: "List (rows)" },
 ];
+
+// Sub-schema cannot include "list" (no nested lists) — keep the chooser tight.
+const SUBFIELD_TYPES = FIELD_TYPES.filter(t => t.value !== "list");
 
 function newFieldId(existing: SchemaFieldDef[]): string {
   let i = existing.length + 1;
@@ -768,6 +774,12 @@ export function CustomBlocksContent() {
                               placeholder="Options (comma-separated)"
                             />
                           )}
+                          {f.type === "list" && (
+                            <SubSchemaEditor
+                              field={f}
+                              onChange={patch => updateField(i, patch)}
+                            />
+                          )}
                           <Input
                             className="h-8 text-xs"
                             value={f.helpText ?? ""}
@@ -882,7 +894,19 @@ export function CustomBlocksContent() {
                     </p>
                     <div className="space-y-2">
                       {editor.schema.map(f => (
-                        <div key={f.id} className="grid grid-cols-[140px_1fr] gap-2 items-center">
+                        <div
+                          key={f.id}
+                          className={f.type === "list"
+                            ? "border-t border-primary/15 pt-2"
+                            : "grid grid-cols-[140px_1fr] gap-2 items-center"}
+                        >
+                          {f.type === "list" ? (
+                            <ListSampleEditor
+                              field={f}
+                              value={editor.sample[f.id] as SchemaListItem[] | undefined}
+                              onChange={rows => setSampleVal(f.id, rows)}
+                            />
+                          ) : (<>
                           <Label className="text-xs text-muted-foreground truncate">{f.label}</Label>
                           {f.type === "boolean" ? (
                             <Select value={String(editor.sample[f.id] ?? false)} onValueChange={v => setSampleVal(f.id, v === "true")}>
@@ -920,6 +944,7 @@ export function CustomBlocksContent() {
                               onChange={e => setSampleVal(f.id, e.target.value)}
                             />
                           )}
+                          </>)}
                         </div>
                       ))}
                     </div>
@@ -1222,5 +1247,179 @@ function TypeOption({ icon, title, desc, active, onClick }: { icon: React.ReactN
         <p className="text-xs opacity-70 mt-0.5 truncate">{desc}</p>
       </div>
     </button>
+  );
+}
+
+/**
+ * Sub-schema editor for "list" fields (task #227). Lets the block author
+ * declare the scalar sub-fields each row will expose. Mirrors the field
+ * editor above but constrained to scalar types (no nested lists).
+ */
+function SubSchemaEditor({
+  field,
+  onChange,
+}: {
+  field: SchemaFieldDef;
+  onChange: (patch: Partial<SchemaFieldDef>) => void;
+}) {
+  const subs = field.itemSchema ?? [];
+  const setSubs = (next: SchemaFieldDef[]) => onChange({ itemSchema: next });
+  const newSubId = () => {
+    let i = subs.length + 1;
+    while (subs.some(s => s.id === `sub_${i}`)) i++;
+    return `sub_${i}`;
+  };
+  const addSub = () => setSubs([...subs, { id: newSubId(), label: "New subfield", type: "text" }]);
+  const updateSub = (i: number, patch: Partial<SchemaFieldDef>) =>
+    setSubs(subs.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+  const removeSub = (i: number) => setSubs(subs.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50/40 p-2 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-amber-900">List rows — sub-fields</span>
+        <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 text-xs text-amber-900" onClick={addSub}>
+          <Plus className="w-3 h-3" /> Add sub-field
+        </Button>
+      </div>
+      {subs.length === 0 && (
+        <p className="text-[11px] text-amber-800/80">
+          A list field needs at least one sub-field. Each row will get one input per sub-field.
+        </p>
+      )}
+      {subs.map((s, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <Input
+            className="h-7 text-xs flex-1"
+            value={s.id}
+            onChange={e => updateSub(i, { id: e.target.value.replace(/[^a-zA-Z0-9_-]/g, "_") })}
+            placeholder="sub_id"
+          />
+          <Input
+            className="h-7 text-xs flex-1"
+            value={s.label}
+            onChange={e => updateSub(i, { label: e.target.value })}
+            placeholder="Label"
+          />
+          <Select value={s.type} onValueChange={v => updateSub(i, { type: v as SchemaFieldType })}>
+            <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {SUBFIELD_TYPES.map(ft => (
+                <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeSub(i)}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      ))}
+      <p className="text-[10px] text-amber-800/70">
+        Use in template via {"{{#each "}{field.id}{"}}…{{this.sub_id}}…{{/each}}"}.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Inline list editor for the master "shared content" panel (task #227).
+ * Renders one form per row with one scalar input per subfield. Add/remove/
+ * reorder rows. Fed into the block's `sample` so the values flow live to
+ * every linked instance via the existing master-values plumbing.
+ */
+function ListSampleEditor({
+  field,
+  value,
+  onChange,
+}: {
+  field: SchemaFieldDef;
+  value: SchemaListItem[] | undefined;
+  onChange: (rows: SchemaListItem[]) => void;
+}) {
+  const itemSchema = field.itemSchema ?? [];
+  const rows: SchemaListItem[] = Array.isArray(value) ? value : [];
+  const blank = (): SchemaListItem => {
+    const r: SchemaListItem = {};
+    for (const sub of itemSchema) {
+      r[sub.id] = sub.type === "boolean" ? false : sub.type === "number" ? 0 : "";
+    }
+    return r;
+  };
+  const setCell = (rIdx: number, subId: string, v: string | number | boolean) =>
+    onChange(rows.map((row, i) => i === rIdx ? { ...row, [subId]: v } : row));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-foreground">{field.label}
+          <span className="text-[10px] text-muted-foreground ml-1">({rows.length} {rows.length === 1 ? "row" : "rows"})</span>
+        </Label>
+        <Button type="button" size="sm" variant="outline" className="h-6 gap-1 text-xs" onClick={() => onChange([...rows, blank()])}>
+          <Plus className="w-3 h-3" /> Add row
+        </Button>
+      </div>
+      {itemSchema.length === 0 && (
+        <p className="text-[11px] text-amber-700">Define at least one sub-field above to enable row editing.</p>
+      )}
+      {itemSchema.length > 0 && rows.length === 0 && (
+        <div className="border border-dashed border-border rounded-md p-2 text-[11px] text-muted-foreground text-center">
+          No rows yet.
+        </div>
+      )}
+      {rows.map((row, rIdx) => (
+        <div key={rIdx} className="border border-border rounded-md p-2 bg-background space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Row {rIdx + 1}</span>
+            <div className="flex items-center gap-0.5">
+              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => move(rIdx, -1)} disabled={rIdx === 0}>
+                <ChevronUp className="w-3 h-3" />
+              </Button>
+              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => move(rIdx, 1)} disabled={rIdx === rows.length - 1}>
+                <ChevronDown className="w-3 h-3" />
+              </Button>
+              <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => onChange(rows.filter((_, i) => i !== rIdx))}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {itemSchema.map(sub => (
+            <div key={sub.id} className="grid grid-cols-[100px_1fr] gap-2 items-center">
+              <Label className="text-[11px] text-muted-foreground truncate">{sub.label}</Label>
+              {sub.type === "longText" ? (
+                <Textarea rows={2} className="text-xs" value={String(row[sub.id] ?? "")} onChange={e => setCell(rIdx, sub.id, e.target.value)} />
+              ) : sub.type === "number" ? (
+                <Input type="number" className="h-7 text-xs" value={String(row[sub.id] ?? 0)} onChange={e => setCell(rIdx, sub.id, Number(e.target.value))} />
+              ) : sub.type === "boolean" ? (
+                <Select value={String(row[sub.id] ?? false)} onValueChange={v => setCell(rIdx, sub.id, v === "true")}>
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Yes</SelectItem>
+                    <SelectItem value="false">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : sub.type === "color" ? (
+                <Input type="color" className="h-7" value={String(row[sub.id] ?? "#000000")} onChange={e => setCell(rIdx, sub.id, e.target.value)} />
+              ) : sub.type === "select" ? (
+                <Select value={String(row[sub.id] ?? "")} onValueChange={v => setCell(rIdx, sub.id, v)}>
+                  <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Choose…" /></SelectTrigger>
+                  <SelectContent>
+                    {(sub.options ?? []).map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input className="h-7 text-xs" value={String(row[sub.id] ?? "")} onChange={e => setCell(rIdx, sub.id, e.target.value)} placeholder={sub.placeholder} />
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

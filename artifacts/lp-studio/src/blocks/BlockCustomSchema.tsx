@@ -2,14 +2,25 @@ import { useMemo } from "react";
 import type { CustomSchemaBlockProps, SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useCustomBlock } from "@/lib/custom-blocks-context";
+import {
+  parseTemplate,
+  renderAst,
+  defaultsFromSchema,
+  type EngineFieldDef,
+  type ValuesMap,
+} from "@/lib/schema-template-engine";
 
 /**
- * Schema-driven custom block renderer (task #120).
+ * Schema-driven custom block renderer (task #120, extended in #227).
  *
- * The author defines an HTML/CSS template with `{{field_id}}` placeholders
- * plus a JSON schema describing the editable fields. Tenant editors fill in
- * the field values via the auto-generated property panel, and this renderer
- * substitutes the values into the template at render time.
+ * The author defines an HTML/CSS template with placeholders + a JSON schema
+ * describing the editable fields. Tenant editors fill values via the
+ * auto-generated property panel. Templates support:
+ *   - {{field}}                           scalar interpolation
+ *   - {{this.subfield}}                   inside #each, current item subfield
+ *   - {{#each list}}…{{/each}}            iterate a list field
+ *   - {{#if field}}…{{else}}…{{/if}}      conditional branch
+ * See `lib/schema-template-engine.ts` for the full grammar.
  *
  * Schema + template are looked up live from the source custom block via
  * CustomBlocksContext (keyed by `props.customBlockId`). This is what lets
@@ -26,28 +37,6 @@ import { useCustomBlock } from "@/lib/custom-blocks-context";
  * can ever land in the database. Field values are HTML-escaped before
  * substitution to defend against placeholder-based XSS.
  */
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function valueToString(v: SchemaFieldValue | undefined): string {
-  if (v === undefined || v === null) return "";
-  if (typeof v === "boolean") return v ? "true" : "false";
-  return String(v);
-}
-
-function interpolate(template: string, values: Record<string, SchemaFieldValue>): string {
-  return template.replace(/\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g, (_, id: string) => {
-    const raw = valueToString(values[id]);
-    return escapeHtml(raw);
-  });
-}
 
 interface Props {
   props: CustomSchemaBlockProps;
@@ -68,12 +57,13 @@ export function BlockCustomSchema({ props }: Props) {
     source?.sharedValues ?? (props.sharedValues as Record<string, SchemaFieldValue> | undefined) ?? {};
 
   const html = useMemo(() => {
-    const merged = {
-      ...defaultsFromSchema(schema),
+    const merged: ValuesMap = {
+      ...defaultsFromSchema(schema as EngineFieldDef[]),
       ...sharedValues,
       ...(props.values || {}),
     };
-    return interpolate(template, merged);
+    const { ast } = parseTemplate(template);
+    return renderAst(ast, merged);
   }, [schema, template, props.values, sharedValues]);
 
   if (!template.trim()) {
@@ -90,15 +80,4 @@ export function BlockCustomSchema({ props }: Props) {
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
-}
-
-function defaultsFromSchema(schema: SchemaFieldDef[]): Record<string, SchemaFieldValue> {
-  const out: Record<string, SchemaFieldValue> = {};
-  for (const f of schema || []) {
-    if (f.defaultValue !== undefined) out[f.id] = f.defaultValue;
-    else if (f.type === "boolean") out[f.id] = false;
-    else if (f.type === "number") out[f.id] = 0;
-    else out[f.id] = "";
-  }
-  return out;
 }
