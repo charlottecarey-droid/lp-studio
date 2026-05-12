@@ -62,6 +62,42 @@ function slugify(s: string) {
     .slice(0, 80);
 }
 
+// Per-account "last segment used" memory. Persisted in localStorage so the
+// segment picker can default to the rep's previous choice for the same
+// account, reinforcing consistent messaging and saving clicks.
+//
+// Shape: { [accountId: string]: string /* segmentId, "" means Auto */ }
+const LAST_SEGMENT_STORAGE_KEY = "lp-studio:lastSegmentByAccount";
+
+function readLastSegmentMap(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LAST_SEGMENT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberLastSegment(accountId: number, segmentId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const map = readLastSegmentMap();
+    map[String(accountId)] = segmentId;
+    window.localStorage.setItem(LAST_SEGMENT_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // best-effort — quota or disabled storage shouldn't break the flow
+  }
+}
+
+function recallLastSegment(accountId: string): string {
+  if (!accountId) return "";
+  const map = readLastSegmentMap();
+  return map[accountId] ?? "";
+}
+
 export function NewMicrositeModal({ open, onClose }: Props) {
   const [, navigate] = useLocation();
 
@@ -137,6 +173,17 @@ export function NewMicrositeModal({ open, onClose }: Props) {
     () => accounts.find(a => String(a.id) === accountId) ?? null,
     [accounts, accountId],
   );
+
+  // Prefill the segment pickers with the rep's last-used segment for this
+  // account. Only runs while the modal is open and an account is selected;
+  // clearing the account ("create without account" or switching) resets both
+  // pickers back to Auto so we don't carry stale preferences across accounts.
+  useEffect(() => {
+    if (!open) return;
+    const remembered = recallLastSegment(accountId);
+    setAiSegmentId(remembered);
+    setTemplateSegmentId(remembered);
+  }, [open, accountId]);
 
   // The user has committed to a path (account picked, or explicitly skipped)
   // before they're allowed to fill in title/template/AI fields.
@@ -294,6 +341,14 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           const page = (await res.json()) as { id: number };
           pageId = page.id;
         }
+      }
+
+      // Remember the segment the rep just used for this account so the next
+      // microsite they create against the same account defaults to it. The
+      // chosen segment depends on which mode they submitted from.
+      if (acctIdNum !== null) {
+        const chosenSegment = mode === "ai" ? aiSegmentId : templateSegmentId;
+        rememberLastSegment(acctIdNum, chosenSegment);
       }
 
       // When an account is attached, bulk-create personalised hotlinks for
