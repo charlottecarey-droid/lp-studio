@@ -1419,9 +1419,145 @@ function ProofPointsTab() {
           </div>
         </div>
       ) : (
-        <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={() => setAdding(true)}>
-          <Plus className="w-3.5 h-3.5" /> Add Proof Point
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs" onClick={() => setAdding(true)}>
+            <Plus className="w-3.5 h-3.5" /> Add Proof Point
+          </Button>
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs" onClick={() => { setImportOpen(true); setCandidates(null); setImportError(null); }}>
+            <Wand2 className="w-3.5 h-3.5" /> Import from URL or Doc
+          </Button>
+        </div>
+      )}
+
+      {importOpen && (
+        <div className="border-2 border-dashed border-violet-200 rounded-lg p-4 space-y-3 bg-violet-50/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <Sparkles className="w-4 h-4 text-violet-500" />
+              Pull proof points from a page or document
+            </div>
+            <button onClick={() => { setImportOpen(false); setCandidates(null); setImportError(null); }} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {!candidates && (
+            <>
+              <div className="flex gap-1 bg-white rounded-md p-1 border border-slate-200 w-fit">
+                <button
+                  className={`text-xs px-3 py-1 rounded gap-1.5 inline-flex items-center ${importMode === "url" ? "bg-violet-100 text-violet-700" : "text-slate-500 hover:text-slate-700"}`}
+                  onClick={() => setImportMode("url")}
+                >
+                  <Globe className="w-3.5 h-3.5" /> Website URL
+                </button>
+                <button
+                  className={`text-xs px-3 py-1 rounded gap-1.5 inline-flex items-center ${importMode === "text" ? "bg-violet-100 text-violet-700" : "text-slate-500 hover:text-slate-700"}`}
+                  onClick={() => setImportMode("text")}
+                >
+                  <FileText className="w-3.5 h-3.5" /> Paste Document
+                </button>
+              </div>
+
+              {importMode === "url" ? (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="https://yourcompany.com/about (or /press, /annual-report, etc.)"
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    className="text-sm"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    We'll scrape that page and pull every concrete stat we find. The page must be publicly reachable.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Paste the body of an annual report, press release, marketing page, or any document with numbers in it. Up to ~200KB."
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    className="text-sm min-h-[180px] font-mono"
+                  />
+                  <Input
+                    placeholder="Source URL (optional — used as the source link for every proof point pulled)"
+                    value={importTextSource}
+                    onChange={(e) => setImportTextSource(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+
+              {importError && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                  {importError}
+                </div>
+              )}
+
+              <Button
+                onClick={runImport}
+                disabled={importing || (importMode === "url" ? !importUrl.trim() : !importText.trim())}
+                className="gap-1.5"
+                size="sm"
+              >
+                {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                {importing ? "Extracting…" : "Extract proof points"}
+              </Button>
+            </>
+          )}
+
+          {candidates && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-600">
+                  Found <strong>{candidates.length}</strong> proof point{candidates.length === 1 ? "" : "s"}. Uncheck any you don't want, edit the rest, then save.
+                </p>
+                <div className="flex gap-1.5 text-[11px]">
+                  <button onClick={() => setCandidates(candidates.map((c) => ({ ...c, selected: true })))} className="px-2 py-0.5 rounded text-slate-500 hover:text-slate-700 hover:bg-slate-100">Select all</button>
+                  <button onClick={() => setCandidates(candidates.map((c) => ({ ...c, selected: false })))} className="px-2 py-0.5 rounded text-slate-500 hover:text-slate-700 hover:bg-slate-100">Clear</button>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                {candidates.map((c, idx) => (
+                  <div key={idx} className={`border rounded-lg p-3 bg-white space-y-2 ${c.selected ? "border-violet-300" : "border-slate-200 opacity-60"}`}>
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 mt-1 shrink-0"
+                        checked={c.selected}
+                        onChange={(e) => updateCandidate(idx, { selected: e.target.checked })}
+                      />
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex gap-2">
+                          <Input className="text-xs h-7 w-28 shrink-0 font-semibold" placeholder="Value" value={c.value} onChange={(e) => updateCandidate(idx, { value: e.target.value })} />
+                          <Input className="text-xs h-7 flex-1" placeholder="Label" value={c.label} onChange={(e) => updateCandidate(idx, { label: e.target.value })} />
+                        </div>
+                        <Input className="text-xs h-7" placeholder="Source URL" value={c.source_url} onChange={(e) => updateCandidate(idx, { source_url: e.target.value })} />
+                        <div className="flex items-center gap-2">
+                          <Label className="text-[11px] text-slate-500 shrink-0">As of</Label>
+                          <Input className="text-xs h-7 w-40" type="date" value={c.as_of_date ?? ""} onChange={(e) => updateCandidate(idx, { as_of_date: e.target.value || null })} />
+                        </div>
+                        {c.context && (
+                          <p className="text-[11px] text-slate-400 italic pt-0.5">"{c.context}"</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={saveSelectedCandidates} disabled={savingSelected || candidates.every((c) => !c.selected)} size="sm" className="gap-1.5">
+                  {savingSelected ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Save {candidates.filter((c) => c.selected).length} selected
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setCandidates(null); setImportError(null); }}>
+                  Back
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
