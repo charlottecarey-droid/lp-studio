@@ -3,9 +3,10 @@ import { Readable } from "stream";
 import multer from "multer";
 import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
 import { db, lpMediaTable, tenantsTable } from "@workspace/db";
 import { desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
-import { getTenantId } from "../middleware/requireAuth";
+import { getTenantId, requireAuth } from "../middleware/requireAuth";
 import { requireAdminKey } from "../middleware/requireAdminKey";
 
 /**
@@ -812,6 +813,32 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     }
 
     const objectFile = await objectStorageService.getObjectEntityFile(`/objects/${wildcardPath}`);
+
+    // Tenant-scoped ACL enforcement (task #226). Objects uploaded by the AI
+    // image-generation flow (and any future tenant-scoped uploader) carry an
+    // ACL policy whose owner is `tenant:<id>`. For these objects we require
+    // an authenticated session whose tenant matches the owner — otherwise
+    // any logged-in user who guessed/leaked a UUID could fetch another
+    // tenant's generated image. Legacy objects with no ACL stay public-by-
+    // URL so existing /lp/upload + /lp/media/upload assets keep working.
+    const aclPolicy = await objectStorageService.getObjectAclPolicy(objectFile);
+    if (aclPolicy && tenantIdFromAclOwner(aclPolicy.owner) != null) {
+      // Resolve the requester via requireAuth so this branch sees req.authUser.
+      const authed = await new Promise<boolean>((resolve) => {
+        requireAuth(req, res, () => resolve(true));
+        // requireAuth ends the response itself on failure; resolve(false)
+        // is only used when the response was already finished.
+        res.on("finish", () => resolve(false));
+        res.on("close", () => resolve(false));
+      });
+      if (!authed) return; // requireAuth already wrote 401/403/503.
+      const requesterTenantId = req.authUser?.tenantId ?? null;
+      const allowed = tenantCanReadAcl(aclPolicy, requesterTenantId);
+      if (allowed !== true) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 

@@ -9,6 +9,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost, invalidateTenantHostCache } from "./lib/tenantHosts";
 import { csrfProtection, csrfErrorHandler, generateCsrfToken } from "./lib/csrf";
+import { ObjectStorageService } from "./lib/objectStorage";
 
 const app: Express = express();
 
@@ -170,6 +171,39 @@ if (process.env.NODE_ENV !== "production") {
   app.post("/api/_test/invalidate-host-cache", (_req, res) => {
     invalidateTenantHostCache();
     res.json({ ok: true });
+  });
+
+  // Dev-only fixture used by e2e/tenant-image-acl.spec.ts (task #226).
+  // Uploads a tiny PNG buffer to object storage tagged with the supplied
+  // tenant id. Returned URL is the same `/api/storage/objects/uploads/<id>`
+  // shape the AI image-generation flow produces, so the spec can prove that
+  // a sibling tenant cannot fetch it even with the URL.
+  const _testObjectStorageSvc = new ObjectStorageService();
+  app.post("/api/_test/upload-tenant-object", async (req, res) => {
+    try {
+      const tenantIdRaw = req.body?.tenantId;
+      const tenantId = typeof tenantIdRaw === "number"
+        ? tenantIdRaw
+        : Number.parseInt(String(tenantIdRaw ?? ""), 10);
+      if (!Number.isFinite(tenantId) || tenantId <= 0) {
+        res.status(400).json({ error: "tenantId is required" });
+        return;
+      }
+      // 1×1 transparent PNG.
+      const buffer = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII=",
+        "base64",
+      );
+      const objectPath = await _testObjectStorageSvc.uploadObjectEntity(
+        buffer,
+        "image/png",
+        { tenantId },
+      );
+      res.json({ url: `/api/storage${objectPath}`, tenantId });
+    } catch (err) {
+      logger.error({ err }, "[_test/upload-tenant-object] failed");
+      res.status(500).json({ error: "Upload failed" });
+    }
   });
 }
 

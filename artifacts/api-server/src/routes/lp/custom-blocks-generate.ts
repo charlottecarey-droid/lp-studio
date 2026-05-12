@@ -278,7 +278,14 @@ async function generateAndStoreImage(
     const b64 = result.data?.[0]?.b64_json;
     if (!b64) return null;
     const buffer = Buffer.from(b64, "base64");
-    const objectPath = await objectStorageSvc.uploadObjectEntity(buffer, "image/png");
+    // Tag the object with the owning tenant so the /storage/objects/* serve
+    // route refuses cross-tenant reads even if the (unguessable) URL leaks
+    // (task #226).
+    const objectPath = await objectStorageSvc.uploadObjectEntity(
+      buffer,
+      "image/png",
+      { tenantId },
+    );
     const serveUrl = `/api/storage${objectPath}`;
 
     // Task #224 — also persist into the tenant's media library so the editor

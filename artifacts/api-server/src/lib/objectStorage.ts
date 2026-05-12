@@ -1,7 +1,12 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
-import { getObjectAclPolicy } from "./objectAcl";
+import {
+  ACL_METADATA_KEY,
+  getObjectAclPolicy,
+  tenantOwnerKey,
+  type ObjectAclPolicy,
+} from "./objectAcl";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
@@ -44,14 +49,45 @@ function parseObjectPath(path: string): { bucketName: string; objectName: string
   return { bucketName: parts[1], objectName: parts.slice(2).join("/") };
 }
 
+export interface UploadObjectOptions {
+  /**
+   * When set, the upload is tagged with an ACL policy whose owner is the
+   * given tenant id. The serve route refuses cross-tenant reads for any
+   * object that carries a tenant-owner ACL.
+   */
+  tenantId?: number;
+}
+
 export class ObjectStorageService {
-  async uploadObjectEntity(buffer: Buffer, contentType: string): Promise<string> {
+  async uploadObjectEntity(
+    buffer: Buffer,
+    contentType: string,
+    opts: UploadObjectOptions = {},
+  ): Promise<string> {
     const objectId = randomUUID();
     let dir = getPrivateObjectDir();
     if (!dir.endsWith("/")) dir = `${dir}/`;
     const { bucketName, objectName } = parseObjectPath(`${dir}uploads/${objectId}`);
     const file = storageClient.bucket(bucketName).file(objectName);
-    await file.save(buffer, { contentType, resumable: false });
+
+    const customMetadata: Record<string, string> = {};
+    if (opts.tenantId != null) {
+      const policy: ObjectAclPolicy = {
+        owner: tenantOwnerKey(opts.tenantId),
+        visibility: "private",
+      };
+      customMetadata[ACL_METADATA_KEY] = JSON.stringify(policy);
+    }
+
+    const saveOpts: Parameters<typeof file.save>[1] = {
+      contentType,
+      resumable: false,
+    };
+    if (Object.keys(customMetadata).length > 0) {
+      saveOpts.metadata = { metadata: customMetadata };
+    }
+
+    await file.save(buffer, saveOpts);
     return `/objects/uploads/${objectId}`;
   }
 
@@ -65,6 +101,10 @@ export class ObjectStorageService {
     const [exists] = await file.exists();
     if (!exists) throw new ObjectNotFoundError();
     return file;
+  }
+
+  async getObjectAclPolicy(file: File): Promise<ObjectAclPolicy | null> {
+    return getObjectAclPolicy(file);
   }
 
   async downloadObject(file: File, cacheTtlSec = 3600): Promise<Response> {
