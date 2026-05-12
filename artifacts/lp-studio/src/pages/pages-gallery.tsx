@@ -50,6 +50,11 @@ export default function PagesGallery() {
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [cloningPageId, setCloningPageId] = useState<number | null>(null);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
+  const segmentNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of segments) m[s.id] = s.name;
+    return m;
+  }, [segments]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
@@ -84,6 +89,12 @@ export default function PagesGallery() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Load brand segments up-front so we can render the "Segment: <name>" badge
+  // on every page card without waiting for the create dialog to be opened.
+  useEffect(() => {
+    fetchBrandConfig().then(b => setSegments(b.segments ?? [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (showCreateModal && segments.length === 0) {
@@ -418,6 +429,7 @@ export default function PagesGallery() {
               runningTests={runningTests}
               perfScores={perfScores}
               commentCounts={commentCounts}
+              segmentNameById={segmentNameById}
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
               onToggleSelect={toggleSelect}

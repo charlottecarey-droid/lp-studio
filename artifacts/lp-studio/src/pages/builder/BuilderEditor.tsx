@@ -2081,6 +2081,7 @@ export default function BuilderEditor() {
         commentMode={commentMode}
         viewers={viewers}
         unresolvedComments={commentBlocks.reduce((sum, b) => sum + b.threads.filter(t => !t.comment.resolved).length, 0)}
+        segmentName={appliedSegment?.name ?? null}
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
         liveUrl={getLpPageUrl(slug, micrositeDomain)}

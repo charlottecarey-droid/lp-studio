@@ -20,6 +20,7 @@ interface Props {
   runningTests: Test[];
   perfScores: Record<number, PerfScore>;
   commentCounts: Record<number, number>;
+  segmentNameById: Record<string, string>;
   selectedIds: Set<number>;
   setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
   onToggleSelect: (id: number) => void;
@@ -39,6 +40,7 @@ export function ResultsList({
   runningTests,
   perfScores,
   commentCounts,
+  segmentNameById,
   selectedIds,
   setSelectedIds,
   onToggleSelect,
@@ -87,6 +89,7 @@ export function ResultsList({
             isRunning={runningTests.some(t => t.slug === page.slug)}
             perf={perfScores[page.id]}
             commentCount={commentCounts[page.id] ?? 0}
+            segmentName={page.segmentId ? segmentNameById[page.segmentId] ?? null : null}
             selected={selectedIds.has(page.id)}
             onToggleSelect={() => onToggleSelect(page.id)}
             cloningPageId={cloningPageId}

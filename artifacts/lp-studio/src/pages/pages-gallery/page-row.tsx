@@ -7,6 +7,7 @@ import {
   Link2,
   MessageSquare,
   Star,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ interface Props {
   isRunning: boolean;
   perf: PerfScore | undefined;
   commentCount: number;
+  segmentName?: string | null;
   selected: boolean;
   onToggleSelect: () => void;
   cloningPageId: number | null;
@@ -42,6 +44,7 @@ export function PageRow({
   isRunning,
   perf,
   commentCount,
+  segmentName,
   selected,
   onToggleSelect,
   cloningPageId,
@@ -65,6 +68,15 @@ export function PageRow({
         Linked: {linkedCount}
       </span>
     </Link>
+  ) : null;
+  const segmentBadge = segmentName ? (
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full shrink-0"
+      title={`Tailored for segment: ${segmentName}`}
+    >
+      <Users className="w-2.5 h-2.5" />
+      Segment: {segmentName}
+    </span>
   ) : null;
   let seoScore: ScoreResult | null = null;
   try {
@@ -116,6 +128,7 @@ export function PageRow({
                 </Link>
               )}
               {linkedBadge}
+              {segmentBadge}
               {statusBadge}
             </div>
             <code className="text-[11px] text-muted-foreground/70 font-mono mt-0.5 block truncate">
@@ -194,6 +207,7 @@ export function PageRow({
                 </Link>
               )}
               {linkedBadge}
+              {segmentBadge}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <code className="text-[11px] text-muted-foreground/70 font-mono truncate">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</code>

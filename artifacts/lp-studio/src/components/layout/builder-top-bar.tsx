@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
-  Clock, Megaphone,
+  Clock, Megaphone, Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,10 @@ interface BuilderTopBarProps {
   commentMode: boolean;
   viewers: PresenceViewer[];
   unresolvedComments?: number;
+  /** Audience segment this page was tailored to at creation time, if any.
+   * Surfaces a "Segment: <name>" badge next to the title so editors can tell
+   * at a glance which audience the copy was generated for. */
+  segmentName?: string | null;
   /** Live public URL (e.g. partners.meetdandy.com/slug or /lp/slug) */
   liveUrl: string;
   /** In-app preview URL — the page viewer, visible even for drafts */
@@ -64,6 +68,7 @@ export function BuilderTopBar({
   commentMode,
   viewers,
   unresolvedComments = 0,
+  segmentName,
   liveUrl,
   previewUrl,
   onTitleChange,
@@ -129,6 +134,17 @@ export function BuilderTopBar({
         className="flex-1 max-w-xs bg-transparent text-sm font-semibold text-foreground outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors py-0.5"
         placeholder="Page Title"
       />
+
+      {segmentName && (
+        <span
+          className="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full shrink-0"
+          title={`Tailored for segment: ${segmentName}`}
+          data-testid="page-segment-badge"
+        >
+          <Users className="w-3 h-3" />
+          Segment: {segmentName}
+        </span>
+      )}
 
       <Badge
         variant={status === "published" ? "default" : "secondary"}

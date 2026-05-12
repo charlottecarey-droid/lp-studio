@@ -20,6 +20,8 @@ export interface Page {
   updatedBy?: string | null;
   createdByName?: string | null;
   updatedByName?: string | null;
+  segmentId?: string | null;
+  audienceType?: string | null;
 }
 
 export interface Test {
