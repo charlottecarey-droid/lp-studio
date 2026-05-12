@@ -942,6 +942,101 @@ async function runMigrations(): Promise<void> {
         ON tenant_webhook_secrets (tenant_id, integration);
       CREATE INDEX IF NOT EXISTS tenant_webhook_secrets_secret_idx
         ON tenant_webhook_secrets (secret);
+
+      -- Task #146 / #236 — explicit tenant_id on sales_briefings, sfdc_opportunities,
+      -- and sfdc_leads. The corresponding migration file
+      -- (lib/db/migrations/0009_sales_sfdc_tenant_id.sql) was renumbered on
+      -- 2026-05-10, which left the prod __drizzle_migrations row pointing at
+      -- the OLD content under hash 0009 — so the renumbered file was never
+      -- replayed on Neon prod. Result: every read of sales_briefings 500s,
+      -- which kills the AI account briefing endpoint and the AI microsite
+      -- generator (which reads the briefing first).
+      --
+      -- This block heals prod on the next deploy. It mirrors the migration's
+      -- backfill strategy, but expressed idempotently so it's safe on every
+      -- boot (matches how the rest of this file already handles structural
+      -- changes against Neon).
+      ALTER TABLE sales_briefings    ADD COLUMN IF NOT EXISTS tenant_id integer;
+      ALTER TABLE sfdc_opportunities ADD COLUMN IF NOT EXISTS tenant_id integer;
+      ALTER TABLE sfdc_leads         ADD COLUMN IF NOT EXISTS tenant_id integer;
+
+      -- Backfill: prefer the parent's tenant_id; fall back to tenant 1 only
+      -- if the parent vanished (the FK is ON DELETE CASCADE so this should
+      -- be a no-op in practice).
+      UPDATE sales_briefings sb
+      SET tenant_id = sa.tenant_id
+      FROM sales_accounts sa
+      WHERE sb.account_id = sa.id AND sb.tenant_id IS NULL;
+      UPDATE sales_briefings SET tenant_id = 1 WHERE tenant_id IS NULL;
+
+      UPDATE sfdc_opportunities so
+      SET tenant_id = sa.tenant_id
+      FROM sales_accounts sa
+      WHERE so.account_id = sa.id AND so.tenant_id IS NULL;
+      -- Opportunities without an account row: pin to the unique sfdc_connection
+      -- tenant if there's exactly one, else tenant 1.
+      UPDATE sfdc_opportunities
+      SET tenant_id = COALESCE(
+        (SELECT tenant_id FROM sfdc_connections WHERE tenant_id IS NOT NULL
+           GROUP BY tenant_id
+           HAVING COUNT(*) = (SELECT COUNT(*) FROM sfdc_connections WHERE tenant_id IS NOT NULL)
+           LIMIT 1),
+        1)
+      WHERE tenant_id IS NULL;
+
+      -- Leads have no FK path to a connection in the schema today; same
+      -- single-connection-or-tenant-1 fallback as the migration file.
+      UPDATE sfdc_leads
+      SET tenant_id = COALESCE(
+        (SELECT tenant_id FROM sfdc_connections WHERE tenant_id IS NOT NULL
+           GROUP BY tenant_id
+           HAVING COUNT(*) = (SELECT COUNT(*) FROM sfdc_connections WHERE tenant_id IS NOT NULL)
+           LIMIT 1),
+        1)
+      WHERE tenant_id IS NULL;
+
+      -- Flip to NOT NULL only if it's still nullable (re-runs are no-ops).
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='sales_briefings' AND column_name='tenant_id' AND is_nullable='YES') THEN
+          ALTER TABLE sales_briefings ALTER COLUMN tenant_id SET NOT NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='sfdc_opportunities' AND column_name='tenant_id' AND is_nullable='YES') THEN
+          ALTER TABLE sfdc_opportunities ALTER COLUMN tenant_id SET NOT NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='sfdc_leads' AND column_name='tenant_id' AND is_nullable='YES') THEN
+          ALTER TABLE sfdc_leads ALTER COLUMN tenant_id SET NOT NULL;
+        END IF;
+      END
+      $$;
+
+      -- Add FK constraint only if missing (ADD CONSTRAINT itself is not idempotent).
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_briefings_tenant_id_fkey') THEN
+          ALTER TABLE sales_briefings
+            ADD CONSTRAINT sales_briefings_tenant_id_fkey
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sfdc_opportunities_tenant_id_fkey') THEN
+          ALTER TABLE sfdc_opportunities
+            ADD CONSTRAINT sfdc_opportunities_tenant_id_fkey
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sfdc_leads_tenant_id_fkey') THEN
+          ALTER TABLE sfdc_leads
+            ADD CONSTRAINT sfdc_leads_tenant_id_fkey
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        END IF;
+      END
+      $$;
+
+      CREATE INDEX IF NOT EXISTS idx_sales_briefings_tenant_id    ON sales_briefings    (tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_sfdc_opportunities_tenant_id ON sfdc_opportunities (tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_sfdc_leads_tenant_id         ON sfdc_leads         (tenant_id);
     `);
     logger.info("Migrations applied successfully");
 
