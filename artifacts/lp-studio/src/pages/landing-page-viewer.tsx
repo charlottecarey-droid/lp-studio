@@ -583,13 +583,27 @@ export default function LandingPageViewer() {
   // (e.g. an empty 304 body, a transient network blip, or a query error),
   // never fall through to the variant render branch — it dereferences
   // `config.assignedVariant.config` and would throw a TypeError that
-  // surfaces as the top-level Sentry "Something went wrong" screen. Render
-  // the same neutral spinner the loading state shows so React Query has a
-  // chance to refetch in the background, and surface the underlying error
-  // to Sentry breadcrumbs so we can spot regressions.
+  // surfaces as the top-level Sentry "Something went wrong" screen.
+  //
+  // When the query finished with a hard error (e.g. /api/lp/page/:slug
+  // returned 404 because the slug was never published), show the proper
+  // "Page Not Found" screen instead of a perpetual spinner — the dedicated
+  // not-found branch further down was unreachable because this defensive
+  // branch was returning the spinner first.
+  //
+  // For the transient case (no error, just no data yet), keep the spinner
+  // so React Query has a chance to refetch in the background.
   if (!config || (!isBuilderPageResponse(config) && !config.assignedVariant)) {
     if (error) {
       console.warn("[LandingPageViewer] page config unavailable:", error);
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="text-center p-8 bg-card rounded-lg border border-border max-w-md">
+            <h1 className="text-2xl font-bold mb-2 text-foreground font-display">Page Not Found</h1>
+            <p className="text-slate-500">The landing page you're looking for doesn't exist or the test has ended.</p>
+          </div>
+        </div>
+      );
     }
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
