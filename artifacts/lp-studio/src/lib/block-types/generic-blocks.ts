@@ -1489,7 +1489,7 @@ export interface IdHeroBlockProps extends CtaModalConfig {
   cta2VideoUrl?: string;
   bgImage?: string;
   /** Horizontal alignment of the hero content. Defaults to "center". */
-  align?: "center" | "right";
+  align?: "center" | "left";
   /** Multiplier applied to the headline font-size, 0.5..1.5. Defaults to 1.
    *  Use this to shrink the headline so long words don't get clipped. */
   headlineScale?: number;

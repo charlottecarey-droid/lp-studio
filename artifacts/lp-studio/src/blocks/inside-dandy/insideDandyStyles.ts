@@ -67,11 +67,11 @@ const CSS = `
 .id-hero .id-ctas { display:flex; gap:24px; justify-content:center; align-items:center; flex-wrap:wrap; opacity:0; transform:translateY(8px); transition:opacity 1100ms 880ms var(--id-ease-out), transform 1100ms 880ms var(--id-ease-out); }
 .id-hero.id-ready .id-ctas { opacity:1; transform:translateY(0); }
 
-/* Right-aligned hero variant — text, lead and CTAs hug the right edge. */
-.id-hero.id-hero-align-right .id-hero-content { text-align:right; }
-.id-hero.id-hero-align-right .id-hero-eyebrow { justify-content:flex-end; }
-.id-hero.id-hero-align-right .id-lead { margin-left:auto; margin-right:0; }
-.id-hero.id-hero-align-right .id-ctas { justify-content:flex-end; }
+/* Left-aligned hero variant — text, lead and CTAs hug the left edge. */
+.id-hero.id-hero-align-left .id-hero-content { text-align:left; }
+.id-hero.id-hero-align-left .id-hero-eyebrow { justify-content:flex-start; }
+.id-hero.id-hero-align-left .id-lead { margin-left:0; margin-right:auto; }
+.id-hero.id-hero-align-left .id-ctas { justify-content:flex-start; }
 
 /* Bottom-right corner index marker. The original centered "Scroll" pip with
    an animated lime gradient line read as stock template; this anchors the
@@ -219,13 +219,16 @@ const CSS = `
 .id-cinema.id-cinema-editor .id-cinema-text .id-panel:nth-child(4) { background:radial-gradient(ellipse at 70% 40%,#0A4A3E 0%,#001814 70%); }
 .id-cinema.id-cinema-editor .id-cinema-spacer { display:none; }
 /* FLAT mode — toggle off the cinematic sticky scroll: stacked sections, normal scroll */
-.id-cinema.id-cinema-flat .id-cinema-sticky { position:relative; height:auto; min-height:auto; overflow:visible; }
+.id-cinema.id-cinema-flat .id-cinema-sticky { position:static; height:auto; min-height:auto; overflow:visible; }
 .id-cinema.id-cinema-flat .id-cinema-sticky::after { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-bg { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-stepper { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-art { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-text { position:relative; inset:auto; padding:0; display:flex; flex-direction:column; pointer-events:auto; }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel { position:relative; inset:auto; opacity:1; transform:none; padding:120px 60px; min-height:80vh; border-bottom:1px solid var(--id-line); pointer-events:auto; }
+.id-cinema.id-cinema-flat .id-cinema-text .id-panel { position:relative; inset:auto; opacity:1; transform:none; flex-direction:column; align-items:stretch; gap:48px; padding:96px 60px; min-height:auto; border-bottom:1px solid var(--id-line); pointer-events:auto; }
+.id-cinema.id-cinema-flat .id-panel-art { position:relative; width:100%; max-width:1100px; margin:0 auto; aspect-ratio:16/9; overflow:hidden; border-radius:8px; background:#001814; }
+.id-cinema.id-cinema-flat .id-panel-art > * { position:absolute; inset:0; width:100%; height:100%; opacity:1; transform:none; display:flex; align-items:center; justify-content:center; }
+.id-cinema.id-cinema-flat .id-panel-art .id-art-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(1) { background:radial-gradient(ellipse at 30% 60%,#0A4A3E 0%,#001814 70%); }
 .id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(2) { background:linear-gradient(135deg,#003A30 0%,#001814 100%); }
 .id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(3) { background:#001814; }
@@ -273,7 +276,8 @@ const CSS = `
    stagger so the columns read as a deliberate one-by-one measurement
    instead of a single wave. Soft overshoot at the top (settle, not
    bounce) plus a brief glow that fades after the bar lands. */
-.id-cinema-art .id-layer.id-active .id-art-bars .id-bar { animation:idBarRise 1.1s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
+.id-cinema-art .id-layer.id-active .id-art-bars .id-bar,
+.id-cinema.id-cinema-flat .id-panel-art .id-art-bars .id-bar { animation:idBarRise 1.1s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
 .id-art-bars .id-bar:nth-child(1){animation-delay:0.10s}
 .id-art-bars .id-bar:nth-child(2){animation-delay:0.32s}
 .id-art-bars .id-bar:nth-child(3){animation-delay:0.54s}

@@ -155,12 +155,12 @@ export function IdHeroPanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground">Content alignment</Label>
           <Select
             value={props.align ?? "center"}
-            onValueChange={(v) => u({ align: v as "center" | "right" })}
+            onValueChange={(v) => u({ align: v as "center" | "left" })}
           >
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="center" className="text-xs">Center</SelectItem>
-              <SelectItem value="right" className="text-xs">Right</SelectItem>
+              <SelectItem value="left" className="text-xs">Left</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -40,7 +40,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
   return (
     <section
       className={`id-block id-hero${ready ? " id-ready" : ""}${
-        props.align === "right" ? " id-hero-align-right" : ""
+        props.align === "left" ? " id-hero-align-left" : ""
       }`}
       style={{ ["--id-hero-h1-scale" as never]: String(headlineScale) }}
     >

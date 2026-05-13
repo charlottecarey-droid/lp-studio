@@ -202,37 +202,50 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
           })}
         </div>
         <div className="id-cinema-text">
-          {pillars.map((p, i) => (
-            <div key={i} className={`id-panel${i === active ? " id-active" : ""}${normalizeArt(p.art) === "bars" ? " id-pillar-bars" : ""}`}>
-              <div className="id-meta">
-                <EditableEm
-                  as="div"
-                  className="id-num"
-                  value={p.number ?? ""}
-                  onUpdate={onFieldChange ? (v) => updatePillar(i, { number: v }) : undefined}
-                />
-                <div className="id-right">
-                  <InlineText
+          {pillars.map((p, i) => {
+            const kind = normalizeArt(p.art);
+            return (
+              <div key={i} className={`id-panel${i === active ? " id-active" : ""}${kind === "bars" ? " id-pillar-bars" : ""}`}>
+                {flatMode && (
+                  <div className={`id-panel-art${kind === "bars" ? " id-pillar-bars" : ""}`} aria-hidden>
+                    <PillarArt
+                      kind={kind}
+                      videoSrc={p.videoSrc}
+                      videoPosition={p.videoPosition}
+                      isActive
+                    />
+                  </div>
+                )}
+                <div className="id-meta">
+                  <EditableEm
                     as="div"
-                    className="id-label"
-                    value={p.label ?? ""}
-                    onUpdate={onFieldChange ? (v) => updatePillar(i, { label: v }) : undefined}
+                    className="id-num"
+                    value={p.number ?? ""}
+                    onUpdate={onFieldChange ? (v) => updatePillar(i, { number: v }) : undefined}
                   />
-                  <EditableEm
-                    as="h3"
-                    value={p.headline ?? ""}
-                    onUpdate={onFieldChange ? (v) => updatePillar(i, { headline: v }) : undefined}
-                  />
-                  <EditableEm
-                    as="p"
-                    multiline
-                    value={p.body ?? ""}
-                    onUpdate={onFieldChange ? (v) => updatePillar(i, { body: v }) : undefined}
-                  />
+                  <div className="id-right">
+                    <InlineText
+                      as="div"
+                      className="id-label"
+                      value={p.label ?? ""}
+                      onUpdate={onFieldChange ? (v) => updatePillar(i, { label: v }) : undefined}
+                    />
+                    <EditableEm
+                      as="h3"
+                      value={p.headline ?? ""}
+                      onUpdate={onFieldChange ? (v) => updatePillar(i, { headline: v }) : undefined}
+                    />
+                    <EditableEm
+                      as="p"
+                      multiline
+                      value={p.body ?? ""}
+                      onUpdate={onFieldChange ? (v) => updatePillar(i, { body: v }) : undefined}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       {!isEditor && stackedScroll &&
