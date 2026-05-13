@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PresenceStrip } from "@/components/collaboration/presence-strip";
 import type { PresenceViewer } from "@/hooks/use-collaboration";
@@ -328,46 +329,63 @@ export function BuilderTopBar({
         <span className="hidden sm:inline">{saveSuccess ? "Saved!" : "Save"}</span>
       </Button>
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1.5 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
-        onClick={onSaveAsTemplate}
-      >
-        <Star className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Template</span>
-      </Button>
-
       {/*
-        A/B Test and Ad Copy are now icon-only to free up horizontal
-        space in the top bar. Each carries an aria-label + title so the
-        action is still discoverable on hover and to screen readers.
+        Template, A/B Test, and Ad Copy are icon-only square buttons. The
+        native `title` attribute is left in place as a fallback for
+        screen readers / no-JS, while the Radix Tooltip provides the
+        rich on-hover label that matches the rest of the app.
         Width is locked square (h-8 w-8 + p-0) so the icons don't drift
         as the toolbar resizes.
       */}
-      <Button
-        size="sm"
-        variant="outline"
-        aria-label="A/B Test"
-        title="A/B Test"
-        className="h-8 w-8 p-0 text-primary border-primary/30 hover:bg-primary/5"
-        onClick={onOpenAbTest}
-      >
-        <FlaskConical className="w-3.5 h-3.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label="Save as Template"
+            title="Save as Template"
+            className="h-8 w-8 p-0 text-amber-600 border-amber-200 hover:bg-amber-50"
+            onClick={onSaveAsTemplate}
+          >
+            <Star className="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Save as Template</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label="A/B Test"
+            title="A/B Test"
+            className="h-8 w-8 p-0 text-primary border-primary/30 hover:bg-primary/5"
+            onClick={onOpenAbTest}
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">A/B Test</TooltipContent>
+      </Tooltip>
 
       {onOpenAdCopy && (
-        <Button
-          size="sm"
-          variant="outline"
-          aria-label="Ad Copy"
-          title="Ad Copy"
-          className="h-8 w-8 p-0 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
-          onClick={onOpenAdCopy}
-          data-testid="open-ad-copy-button"
-        >
-          <Megaphone className="w-3.5 h-3.5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Ad Copy"
+              title="Ad Copy"
+              className="h-8 w-8 p-0 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
+              onClick={onOpenAdCopy}
+              data-testid="open-ad-copy-button"
+            >
+              <Megaphone className="w-3.5 h-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Ad Copy</TooltipContent>
+        </Tooltip>
       )}
 
       {/*
