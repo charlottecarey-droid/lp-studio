@@ -743,13 +743,23 @@ function buildBrandContext(brand: BrandConfig): string {
  *  for injection into the AI brief when strict mode is on. Returns up to 12. */
 async function fetchApprovedCaseStudies(
   tenantId: number | null,
+  /** When true, only rows with `approved_for_ai = true` are returned (used by
+   *  Strict Facts Mode). When false, every case study for the tenant is
+   *  returned so the prompt can surface them all in non-strict generation
+   *  (task #255). Defaults to true to preserve the historical strict-only
+   *  call site behavior. */
+  onlyApproved: boolean = true,
 ): Promise<Array<{ title: string; categories: string; url: string }>> {
   if (tenantId == null) return [];
   try {
     const rows = await db.execute(
-      sql`SELECT name, content FROM lp_library_items
-          WHERE tenant_id = ${tenantId} AND type = 'case_study' AND approved_for_ai = true
-          ORDER BY sort_order ASC, id ASC LIMIT 12`,
+      onlyApproved
+        ? sql`SELECT name, content FROM lp_library_items
+              WHERE tenant_id = ${tenantId} AND type = 'case_study' AND approved_for_ai = true
+              ORDER BY sort_order ASC, id ASC LIMIT 12`
+        : sql`SELECT name, content FROM lp_library_items
+              WHERE tenant_id = ${tenantId} AND type = 'case_study'
+              ORDER BY sort_order ASC, id ASC LIMIT 12`,
     );
     return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>).map((r) => {
       const c = (r.content ?? {}) as { title?: string; categories?: string; url?: string };
@@ -1213,10 +1223,16 @@ function buildSegmentSection(
 }
 
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
-  const { prompt, segmentContext, templateId } = req.body as {
+  const { prompt, segmentContext, templateId, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
     templateId?: number;
+    /** Task #255 — dev-only escape hatch used by the strict-facts-mode e2e
+     *  spec. When true (and NODE_ENV !== "production") the route assembles
+     *  the brand/segment/case-study sections and returns the system + user
+     *  prompt verbatim, without invoking OpenAI. Hard-gated below so this
+     *  flag is silently ignored in production. */
+    _captureOnly?: boolean;
   };
 
   if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
@@ -1224,12 +1240,16 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     return;
   }
 
-  let openai: OpenAI;
-  try {
-    openai = getOpenAIClient();
-  } catch (e) {
-    res.status(503).json({ error: String(e) });
-    return;
+  const captureOnly = _captureOnly === true && process.env.NODE_ENV !== "production";
+
+  let openai: OpenAI | null = null;
+  if (!captureOnly) {
+    try {
+      openai = getOpenAIClient();
+    } catch (e) {
+      res.status(503).json({ error: String(e) });
+      return;
+    }
   }
 
   const tenantId = req.authUser?.tenantId ?? null;
@@ -1242,22 +1262,29 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     fetchProofPoints(tenantId),
   ]);
   const brandContext = buildBrandContext(brand);
-  // Task #253 — when the brand has Strict Facts Mode on, fetch the tenant's
-  // approved case studies so we can inject an explicit "use only these"
-  // section. Otherwise this is skipped to keep prompts lean.
+  // Task #253 / #255 — case studies are always surfaced in the prompt so the
+  // AI can reference real customer stories. When Strict Facts Mode is ON we
+  // fetch ONLY the rows flagged `approved_for_ai` and badge the section as
+  // "APPROVED CASE STUDIES" with the locked-down "do not invent others"
+  // language. When OFF we fetch every case study and surface them under a
+  // neutral "CASE STUDIES" header (no exclusivity language).
   const strict = brand.aiStrictFactsMode === true;
-  const approvedCaseStudies = strict ? await fetchApprovedCaseStudies(tenantId) : [];
+  const caseStudies = await fetchApprovedCaseStudies(tenantId, strict);
   // Task #256 — proof-point library section. Always emit when there are
   // points (it's useful context for non-strict generations too); strict
   // mode upgrades the wording to a hard "use only these" instruction.
   const proofPointsSection = buildProofPointsSection(proofPoints, strict);
   const caseStudiesSection = strict
-    ? (approvedCaseStudies.length > 0
+    ? (caseStudies.length > 0
         ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${
-            approvedCaseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
+            caseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
           }`
         : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"\u2014 add a case study in Brand Settings\" instead of inventing one.")
-    : "";
+    : (caseStudies.length > 0
+        ? `CASE STUDIES (real customer stories you may reference by name):\n${
+            caseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
+          }`
+        : "");
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
   // tenants. Storage layer also gates this video by tenant slug.
@@ -1336,7 +1363,17 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         "Now return the JSON object { title, slug, blocks } where blocks is the same array with all copy rewritten to match the user's request."
       );
 
-      const completion = await openai.chat.completions.create({
+      if (captureOnly) {
+        res.json({
+          mode: "template",
+          systemPrompt: templateSystemPrompt,
+          userPrompt: templateUserPromptParts.join("\n\n"),
+          strict,
+        });
+        return;
+      }
+
+      const completion = await openai!.chat.completions.create({
         model: "gpt-4o",
         temperature: 0.7,
         max_completion_tokens: 8192,
@@ -1447,7 +1484,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       // Task #256 — proof-point values flow into the same approved pool.
       if (strict) {
         const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
-        sanitizeBlocksStrict(mergedBlocks, pool, approvedCaseStudies);
+        sanitizeBlocksStrict(mergedBlocks, pool, caseStudies);
       }
 
       res.json({
@@ -1496,8 +1533,18 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
   const userPrompt = userPromptParts.join("\n\n");
 
+  if (captureOnly) {
+    res.json({
+      mode: promptPath,
+      systemPrompt,
+      userPrompt,
+      strict,
+    });
+    return;
+  }
+
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await openai!.chat.completions.create({
       model: "gpt-4o",
       temperature: 0.7,
       max_completion_tokens: 4096,
@@ -1948,7 +1995,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // Task #256 — proof-point library values are part of the approved pool.
     if (strict) {
       const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
-      sanitizeBlocksStrict(parsed.blocks, pool, approvedCaseStudies);
+      sanitizeBlocksStrict(parsed.blocks, pool, caseStudies);
     }
 
     res.json({

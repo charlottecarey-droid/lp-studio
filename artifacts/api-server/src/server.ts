@@ -214,6 +214,10 @@ async function runMigrationsBody(): Promise<void> {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS lp_library_items_type_idx ON lp_library_items (type);
+      ALTER TABLE lp_library_items ADD COLUMN IF NOT EXISTS tenant_id integer;
+      -- Task #253 — "Approved for AI" flag (gated by Strict Facts Mode at
+      -- generation time). Defaults to TRUE so existing rows stay usable.
+      ALTER TABLE lp_library_items ADD COLUMN IF NOT EXISTS approved_for_ai boolean NOT NULL DEFAULT true;
 
       -- Task #256 — first-class, tenant-scoped proof-point library. One
       -- approved entry can flow through every page and segment that needs
