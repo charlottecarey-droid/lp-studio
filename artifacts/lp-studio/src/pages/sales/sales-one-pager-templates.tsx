@@ -1976,8 +1976,12 @@ export default function SalesOnePagerTemplates() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Page-level access guard — rendered after hooks to comply with React rules
-  if (user !== undefined && !isAdmin) {
+  // Page-level access guard — rendered after hooks to comply with React rules.
+  // `useAuth` returns `AuthUser | null` (never undefined), so we must wait until
+  // the user is non-null before deciding to gate; otherwise the page flashes
+  // "Access Restricted" before AuthGate has finished hydrating, which reads as
+  // a broken/blank page on first navigation.
+  if (user && !isAdmin) {
     return (
       <SalesLayout>
         <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">

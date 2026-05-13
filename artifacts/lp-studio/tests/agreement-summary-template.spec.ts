@@ -23,11 +23,15 @@ function getDatabaseUrl(): string {
 
 // Open the kebab menu on the Agreement Summary card and click "Generate PDF".
 async function openAgreementGenerateDialog(page: import("@playwright/test").Page) {
-  // The TemplateCard wraps everything in a `rounded-xl border bg-card`
-  // container. Pick the one whose footer paragraph reads "Agreement Summary".
-  const titleP = page.locator("p", { hasText: /^Agreement Summary$/ }).first();
-  await expect(titleP).toBeVisible({ timeout: 15000 });
-  const card = titleP.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+  // Wait for the templates list to finish loading (the page shows a spinner
+  // while `load()` resolves; the card only mounts after that). Then locate
+  // the card by its title text — match any element (Playwright will pick the
+  // first visible match) so we're robust to the title being a <p>, <span>,
+  // <div>, etc. depending on future markup changes.
+  await page.getByRole("heading", { name: "Built-in Templates" }).waitFor({ timeout: 15000 });
+  const title = page.getByText("Agreement Summary", { exact: true }).first();
+  await expect(title).toBeVisible({ timeout: 15000 });
+  const card = title.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
   await expect(card).toBeVisible();
 
   // Open the kebab — it's the last button on the card (visibility toggle + chevron).
@@ -166,7 +170,8 @@ test.describe("Agreement Summary one-pager template", () => {
     try {
       // 1. Toggle visibility OFF via the visibility switch on the card.
       await page.goto("/sales/one-pager-templates");
-      const titleP = page.locator("p", { hasText: /^Agreement Summary$/ }).first();
+      await page.getByRole("heading", { name: "Built-in Templates" }).waitFor({ timeout: 15000 });
+      const titleP = page.getByText("Agreement Summary", { exact: true }).first();
       await expect(titleP).toBeVisible({ timeout: 15000 });
       const card = titleP.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
       // Wait for the visibility-write PUT before navigating away so the API
@@ -197,7 +202,8 @@ test.describe("Agreement Summary one-pager template", () => {
       // "Hide from sales reps" and there is nothing to restore — guard with
       // a count check so cleanup never throws.
       await page.goto("/sales/one-pager-templates");
-      const titleP2 = page.locator("p", { hasText: /^Agreement Summary$/ }).first();
+      await page.getByRole("heading", { name: "Built-in Templates" }).waitFor({ timeout: 15000 });
+      const titleP2 = page.getByText("Agreement Summary", { exact: true }).first();
       await expect(titleP2).toBeVisible({ timeout: 15000 });
       const card2 = titleP2.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
       const showBtn = card2.locator('button[title="Show to sales reps"]');
