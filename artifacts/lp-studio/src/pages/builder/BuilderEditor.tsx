@@ -75,6 +75,7 @@ import {
 import { CustomizeBlockLibraryDialog } from "@/components/CustomizeBlockLibraryDialog";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/keyboard-shortcuts";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { Settings2 } from "lucide-react";
 import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience, canUseGridPieces } from "@/lib/audience-gating";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
@@ -1819,6 +1820,10 @@ export default function BuilderEditor() {
   }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables]);
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
+
+  // Task #267 — guard against losing work when the user closes the tab, hits
+  // browser back, or navigates within the app while edits are pending.
+  useUnsavedChangesWarning(isDirty);
 
   // Centralized "the server now matches our local state" hook. Every code
   // path that successfully persists the page (manual Save, Publish, Submit
