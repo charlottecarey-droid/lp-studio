@@ -23,21 +23,35 @@ const CSS = `
 .id-in-view .id-reveal-d3 { transition-delay:360ms; }
 .id-in-view .id-reveal-d4 { transition-delay:480ms; }
 
-/* HERO — centered cinematic with concentric signal-orb + smoky photo */
+/* HERO — editorial cinematic. Toned down from the original "AI demo" look:
+   no concentric pulsing rings, no chrome pill eyebrow, no rounded-pill CTAs,
+   no centered "Scroll" pip. Replaces those with a single soft halo, a hairline
+   editorial caption, sharp rectangular CTAs, and a corner index marker. */
 .id-hero { position:relative; min-height:100vh; height:auto; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--id-teal-deep); padding:120px 0 200px; }
-.id-hero .id-hero-bg { position:absolute; inset:-5%; background-size:cover; background-position:center; opacity:0; transform:scale(1.15); transition:opacity 1800ms var(--id-ease-out), transform 16000ms linear; filter:saturate(0.55) contrast(1.05); }
-.id-hero.id-ready .id-hero-bg { opacity:0.32; transform:scale(1); }
-.id-hero .id-hero-overlay { position:absolute; inset:0; z-index:2; background:radial-gradient(ellipse at 50% 70%,rgba(0,58,48,0.4) 0%,rgba(0,24,20,0.92) 60%),linear-gradient(180deg,rgba(0,24,20,0.6) 0%,rgba(0,24,20,0.3) 40%,rgba(0,24,20,0.95) 100%); }
-.id-hero .id-hero-grid { position:absolute; inset:0; z-index:3; background-image:linear-gradient(to right,rgba(199,231,56,0.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(199,231,56,0.04) 1px,transparent 1px); background-size:80px 80px; mask-image:radial-gradient(ellipse at 50% 50%,black 0%,transparent 80%); -webkit-mask-image:radial-gradient(ellipse at 50% 50%,black 0%,transparent 80%); }
-.id-hero .id-signal-orb { position:absolute; left:50%; top:50%; width:1100px; height:1100px; max-width:120vmin; max-height:120vmin; border-radius:50%; z-index:3; pointer-events:none; opacity:0; transform:translate(-50%,-50%) scale(0.6); transition:opacity 2000ms 400ms var(--id-ease-out), transform 2400ms 200ms var(--id-ease-out); background:radial-gradient(circle at 50% 50%,rgba(199,231,56,0) 30%,rgba(199,231,56,0.06) 30.5%,rgba(199,231,56,0.06) 31%,rgba(199,231,56,0) 31%),radial-gradient(circle at 50% 50%,rgba(199,231,56,0) 42%,rgba(199,231,56,0.10) 42%,rgba(199,231,56,0.10) 42.4%,rgba(199,231,56,0) 42.4%),radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 56%,rgba(255,255,255,0.07) 56%,rgba(255,255,255,0.07) 56.3%,rgba(255,255,255,0) 56.3%); }
+.id-hero .id-hero-bg { position:absolute; inset:-5%; background-size:cover; background-position:center; opacity:0; transform:scale(1.12); transition:opacity 1800ms var(--id-ease-out), transform 16000ms linear; filter:saturate(0.42) contrast(1.04) brightness(0.88); }
+.id-hero.id-ready .id-hero-bg { opacity:0.22; transform:scale(1); }
+/* Single restrained vignette + bottom fade. Drops the previous double-radial
+   stack that made the page feel CGI. */
+.id-hero .id-hero-overlay { position:absolute; inset:0; z-index:2; background:linear-gradient(180deg,rgba(0,24,20,0.55) 0%,rgba(0,24,20,0.18) 38%,rgba(0,24,20,0.92) 100%),radial-gradient(ellipse at 50% 100%,rgba(0,58,48,0.55) 0%,rgba(0,24,20,0) 65%); }
+/* Architectural hairline grid — neutral white instead of lime, larger cell,
+   masked toward the edges so it reads as structure not pattern. */
+.id-hero .id-hero-grid { position:absolute; inset:0; z-index:3; background-image:linear-gradient(to right,rgba(255,255,255,0.022) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.022) 1px,transparent 1px); background-size:140px 140px; mask-image:radial-gradient(ellipse at 50% 60%,black 0%,transparent 78%); -webkit-mask-image:radial-gradient(ellipse at 50% 60%,black 0%,transparent 78%); }
+/* Single soft backlit halo — no pulsing rings, no concentric stencils. */
+.id-hero .id-signal-orb { position:absolute; left:50%; top:54%; width:780px; height:780px; max-width:100vmin; max-height:100vmin; border-radius:50%; z-index:3; pointer-events:none; opacity:0; transform:translate(-50%,-50%) scale(0.86); transition:opacity 2200ms 300ms var(--id-ease-out), transform 2400ms 200ms var(--id-ease-out); background:radial-gradient(circle at 50% 50%,rgba(199,231,56,0.07) 0%,rgba(199,231,56,0.022) 38%,rgba(199,231,56,0) 65%); filter:blur(24px); }
 .id-hero.id-ready .id-signal-orb { opacity:1; transform:translate(-50%,-50%) scale(1); }
-.id-hero .id-signal-orb::before { content:""; position:absolute; inset:18%; border-radius:50%; background:radial-gradient(circle at 50% 40%,rgba(26,192,101,0.18),rgba(26,192,101,0) 70%); filter:blur(40px); animation:idHeroPulse 6s ease-in-out infinite; }
-@keyframes idHeroPulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
+/* Drop the pulsing inner glow — that breathing animation was the loudest
+   "made by AI" signal in the original hero. */
+.id-hero .id-signal-orb::before { content:none; }
+
 .id-hero .id-hero-content { position:relative; z-index:10; text-align:center; max-width:1100px; padding:0 40px; margin:0 auto; width:100%; }
-.id-hero .id-hero-eyebrow { display:inline-flex; align-items:center; gap:10px; margin:0 0 32px; padding:8px 18px; border:1px solid var(--id-line); border-radius:999px; background:rgba(0,0,0,0.2); color:rgba(255,255,255,0.72); font-size:11px; letter-spacing:0.28em; text-transform:uppercase; font-weight:500; opacity:0; transform:translateY(12px); transition:opacity 1000ms 100ms var(--id-ease-out), transform 1000ms 100ms var(--id-ease-out); }
-.id-hero .id-hero-eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--id-cit); box-shadow:0 0 12px var(--id-cit); flex-shrink:0; }
+/* Editorial caption — no pill chrome, no glowing dot. A short hairline rule
+   on each side flanks the label, mimicking a magazine kicker. */
+.id-hero .id-hero-eyebrow { display:inline-flex; align-items:center; justify-content:center; gap:14px; margin:0 0 36px; padding:0; border:0; border-radius:0; background:transparent; color:rgba(255,255,255,0.62); font-size:11px; letter-spacing:0.22em; text-transform:uppercase; font-weight:500; opacity:0; transform:translateY(8px); transition:opacity 1000ms 100ms var(--id-ease-out), transform 1000ms 100ms var(--id-ease-out); }
+.id-hero .id-hero-eyebrow::before { content:""; width:24px; height:1px; border-radius:0; background:var(--id-cit); box-shadow:none; flex-shrink:0; }
+.id-hero .id-hero-eyebrow::after { content:""; width:24px; height:1px; background:rgba(255,255,255,0.18); flex-shrink:0; }
 .id-hero.id-ready .id-hero-eyebrow { opacity:1; transform:translateY(0); }
-.id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:calc(clamp(48px,8vw,140px) * var(--id-hero-h1-scale, 1)); line-height:0.94; letter-spacing:-0.028em; color:#fff; margin:0; overflow-wrap:break-word; word-break:normal; hyphens:auto; }
+
+.id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:calc(clamp(48px,8vw,140px) * var(--id-hero-h1-scale, 1)); line-height:0.94; letter-spacing:-0.032em; color:#fff; margin:0; overflow-wrap:break-word; word-break:normal; hyphens:auto; }
 /* Each line uses a clip-path that only crops top/bottom — wide text can still
    bleed sideways without being chopped, while the translateY entrance animation
    stays hidden behind the clip. */
@@ -46,17 +60,25 @@ const CSS = `
 .id-hero.id-ready h1 .id-line:nth-child(1) .id-line-inner { transform:translateY(0); transition-delay:200ms; }
 .id-hero.id-ready h1 .id-line:nth-child(2) .id-line-inner { transform:translateY(0); transition-delay:340ms; }
 .id-hero.id-ready h1 .id-line:nth-child(3) .id-line-inner { transform:translateY(0); transition-delay:480ms; }
-.id-hero .id-lead { font-size:clamp(16px,1.5vw,21px); line-height:1.5; color:rgba(255,255,255,0.78); max-width:640px; margin:36px auto 48px; font-weight:300; opacity:0; transform:translateY(12px); transition:opacity 1100ms 720ms var(--id-ease-out), transform 1100ms 720ms var(--id-ease-out); }
+/* Slightly tighter, narrower lead — feels like editorial body copy not
+   marketing landing-page filler. */
+.id-hero .id-lead { font-size:clamp(15px,1.3vw,18px); line-height:1.65; color:rgba(255,255,255,0.72); max-width:560px; margin:40px auto 52px; font-weight:350; letter-spacing:0.005em; opacity:0; transform:translateY(8px); transition:opacity 1100ms 720ms var(--id-ease-out), transform 1100ms 720ms var(--id-ease-out); }
 .id-hero.id-ready .id-lead { opacity:1; transform:translateY(0); }
-.id-hero .id-ctas { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; opacity:0; transform:translateY(12px); transition:opacity 1100ms 880ms var(--id-ease-out), transform 1100ms 880ms var(--id-ease-out); }
+.id-hero .id-ctas { display:flex; gap:24px; justify-content:center; align-items:center; flex-wrap:wrap; opacity:0; transform:translateY(8px); transition:opacity 1100ms 880ms var(--id-ease-out), transform 1100ms 880ms var(--id-ease-out); }
 .id-hero.id-ready .id-ctas { opacity:1; transform:translateY(0); }
-.id-hero .id-scroll-hint { position:absolute; bottom:32px; left:50%; transform:translateX(-50%); z-index:10; font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.5); display:flex; flex-direction:column; align-items:center; gap:14px; opacity:0; transition:opacity 1500ms 1400ms var(--id-ease-out); pointer-events:none; }
+
 /* Right-aligned hero variant — text, lead and CTAs hug the right edge. */
 .id-hero.id-hero-align-right .id-hero-content { text-align:right; }
+.id-hero.id-hero-align-right .id-hero-eyebrow { justify-content:flex-end; }
 .id-hero.id-hero-align-right .id-lead { margin-left:auto; margin-right:0; }
 .id-hero.id-hero-align-right .id-ctas { justify-content:flex-end; }
+
+/* Bottom-right corner index marker. The original centered "Scroll" pip with
+   an animated lime gradient line read as stock template; this anchors the
+   composition like a magazine folio. */
+.id-hero .id-scroll-hint { position:absolute; bottom:36px; right:40px; left:auto; top:auto; transform:none; z-index:10; font-size:10px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.42); display:flex; flex-direction:column; align-items:flex-end; gap:14px; opacity:0; transition:opacity 1500ms 1400ms var(--id-ease-out); pointer-events:none; }
 .id-hero.id-ready .id-scroll-hint { opacity:1; }
-.id-hero .id-scroll-hint .id-scroll-line { width:1px; height:48px; background:linear-gradient(to bottom,var(--id-cit),transparent); animation:idScrollLine 2.4s ease-in-out infinite; }
+.id-hero .id-scroll-hint .id-scroll-line { width:1px; height:64px; background:linear-gradient(to bottom,rgba(255,255,255,0.45),transparent); animation:idScrollLine 2.6s ease-in-out infinite; }
 @keyframes idScrollLine { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform:scaleY(1);transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
 
 /* BUTTONS */
@@ -65,6 +87,22 @@ const CSS = `
 .id-btn-primary:hover { transform:translateY(-2px); box-shadow:0 16px 40px rgba(199,231,56,0.3); }
 .id-btn-ghost { background:transparent; color:#fff; border-color:rgba(255,255,255,0.2); }
 .id-btn-ghost:hover { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.4); }
+
+/* Hero-only CTA refinements — sharper rectangular geometry and an editorial
+   text-link as the secondary action. Scoped to .id-hero so other blocks
+   keep the existing pill defaults. */
+.id-hero .id-btn { padding:16px 26px; border-radius:6px; font-size:13px; letter-spacing:0.06em; gap:12px; }
+.id-hero .id-btn-primary { background:var(--id-cit); color:var(--id-teal-deep); box-shadow:0 1px 0 rgba(255,255,255,0.35) inset, 0 12px 32px rgba(199,231,56,0.18); }
+.id-hero .id-btn-primary:hover { transform:translateY(-1px); box-shadow:0 1px 0 rgba(255,255,255,0.4) inset, 0 18px 40px rgba(199,231,56,0.28); }
+/* The literal "→" character in the JSX lives inside an aria-hidden span — we
+   shrink it and slide it on hover so it reads as a refined cue, not a glyph. */
+.id-hero .id-btn-primary > [aria-hidden] { display:inline-block; transform:translateX(0); transition:transform 280ms var(--id-ease); font-size:14px; line-height:1; opacity:0.9; }
+.id-hero .id-btn-primary:hover > [aria-hidden] { transform:translateX(4px); opacity:1; }
+/* Ghost CTA → editorial text link with an animated underline rule. */
+.id-hero .id-btn-ghost { background:transparent; border:0; color:rgba(255,255,255,0.78); padding:16px 4px; border-radius:0; position:relative; }
+.id-hero .id-btn-ghost::after { content:""; position:absolute; left:4px; right:4px; bottom:10px; height:1px; background:rgba(255,255,255,0.32); transform-origin:left center; transition:background 280ms var(--id-ease), transform 320ms var(--id-ease); }
+.id-hero .id-btn-ghost:hover { background:transparent; color:#fff; transform:none; box-shadow:none; }
+.id-hero .id-btn-ghost:hover::after { background:var(--id-cit); transform:scaleX(1.04); }
 
 /* MARQUEE */
 .id-marquee { position:relative; background:var(--id-teal-deep); border-top:1px solid var(--id-line); border-bottom:1px solid var(--id-line); padding:28px 0; overflow:hidden; }
@@ -359,6 +397,9 @@ const CSS = `
   .id-hero .id-lead,
   .id-hero .id-ctas,
   .id-hero .id-scroll-hint,
+  .id-hero .id-scroll-hint .id-scroll-line,
+  .id-hero .id-btn-primary > [aria-hidden],
+  .id-hero .id-btn-ghost::after,
   .id-hero .id-signal-orb,
   .id-art-bars .id-bar,
   .id-showcase .id-frame .id-frame-img,
