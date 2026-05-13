@@ -10,6 +10,7 @@ import { usePagination } from "@/hooks/use-pagination";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { audienceBucket, templateContainsLeadershipContent } from "@/lib/audience-gating";
 import { setBriefContext } from "@/lib/brief-context";
+import { rememberStrictMismatches } from "@/lib/strictMismatches";
 import { useAuth } from "@/context/AuthContext";
 
 import {
@@ -273,7 +274,7 @@ export default function PagesGallery() {
       const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
       throw new Error((err as { error?: string }).error ?? "Generation failed");
     }
-    const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[] };
+    const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[]; strictMismatches?: unknown };
     const page = await createPage({
       title: generated.title,
       slug: generated.slug,
@@ -282,6 +283,9 @@ export default function PagesGallery() {
       segmentId: activeSeg?.id ?? null,
       audienceType: activeSeg ? inferAudienceType(activeSeg.name) : null,
     });
+    // Task #254 — stash strict-mode mismatches so the builder can show a
+    // one-time banner pointing the tenant back to Brand Settings.
+    rememberStrictMismatches(page.id, generated.strictMismatches);
     if (activeSeg) {
       setBriefContext({
         company: generated.title,

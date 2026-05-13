@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
+import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
@@ -991,6 +992,10 @@ export default function BuilderEditor() {
   const [customizeLibraryOpen, setCustomizeLibraryOpen] = useState(false);
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  // Task #254 — strict-mode mismatches stashed by the create flow. Read once
+  // on first mount and shown as a dismissable banner pointing at Brand Settings.
+  const [strictMismatches, setStrictMismatches] = useState<StrictMismatch[]>([]);
+  const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -1150,6 +1155,15 @@ export default function BuilderEditor() {
 
   useEffect(() => {
     if (!isNaN(pageIdNum)) trackView("page", pageIdNum);
+  }, [pageIdNum]);
+
+  // Task #254 — pull strict-mode mismatch list (if any) that the create
+  // flow stashed in sessionStorage. consumeStrictMismatches removes the
+  // entry so the banner only shows once per generation.
+  useEffect(() => {
+    if (isNaN(pageIdNum)) return;
+    const items = consumeStrictMismatches(pageIdNum);
+    if (items.length > 0) setStrictMismatches(items);
   }, [pageIdNum]);
 
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
@@ -2152,6 +2166,46 @@ export default function BuilderEditor() {
               <span className="font-medium">{linkedMasterNames.join(", ")}</span>
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Task #254 — Strict Facts Mode mismatch banner. Surfaces when the
+          most recent AI generation produced stat-like values that didn't
+          substring-match the tenant's approved pool, so editors can audit
+          and tighten Brand Settings. */}
+      {strictMismatches.length > 0 && !strictBannerDismissed && (
+        <div className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
+          <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+              {strictMismatches.length === 1
+                ? "AI used 1 unapproved stat in this page"
+                : `AI used ${strictMismatches.length} unapproved stats in this page`}
+            </p>
+            <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 leading-relaxed">
+              Strict Facts Mode replaced these values with the placeholder. Add the missing numbers to your approved pool so the AI can use them next time.{" "}
+              <span className="font-medium">
+                Examples: {strictMismatches.slice(0, 3).map(m => `"${m.value}"`).join(", ")}
+                {strictMismatches.length > 3 ? ` and ${strictMismatches.length - 3} more` : ""}
+              </span>
+            </p>
+            <Link
+              href="/brand"
+              className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
+            >
+              Open Brand Settings →
+            </Link>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setStrictBannerDismissed(true)}
+            className="text-amber-700/60 hover:text-amber-700 dark:text-amber-400/60 dark:hover:text-amber-300 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 

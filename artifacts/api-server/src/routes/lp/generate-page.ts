@@ -852,6 +852,87 @@ const STAT_FIELD_KEYS = new Set([
   "value", "stat", "metric", "stat1Value", "stat2Value", "stat3Value",
 ]);
 
+/** Task #254 — telemetry layer that flags any stat-like value the model
+ *  produced which doesn't substring-match an approved entry. We scan
+ *  before sanitization so the warnings reflect the model's raw output
+ *  (the sanitizer otherwise would have already rewritten the offending
+ *  value to STAT_PLACEHOLDER and we'd see nothing). Detection is
+ *  intentionally narrow:
+ *    - any string at a known stat field key (value/stat/metric/etc.), OR
+ *    - any string elsewhere that contains a digit + a stat-shaped suffix
+ *      (%, +, x, k/m/million/billion, "customers", "patients", etc.).
+ *  Substring approval — already used by the sanitizer — is reused so the
+ *  warning surface matches what gets scrubbed. */
+// Note: word-boundary `\b` doesn't sit next to `%` or `+` (non-word chars), so
+// we use lookahead `(?![A-Za-z0-9])` for those suffixes; for word suffixes we
+// keep `\b` so we don't false-match inside larger words.
+const STAT_LIKE_RX = /\b\d+(?:[.,]\d+)?\s*(?:%(?![A-Za-z0-9])|\+(?![A-Za-z0-9])|(?:x|k|m)\b|(?:million|billion|customers?|patients?|practices?|locations?|users?|members?|reviews?|stars?|days?|hours?|minutes?|years?|months?|weeks?)\b)/i;
+
+export interface StrictStatMismatch {
+  blockId?: string;
+  blockType?: string;
+  fieldPath: string;
+  value: string;
+}
+
+function scanForUnapprovedStats(
+  blocks: unknown,
+  pool: Set<string>,
+): StrictStatMismatch[] {
+  const out: StrictStatMismatch[] = [];
+  if (!Array.isArray(blocks)) return out;
+  for (const raw of blocks) {
+    if (!raw || typeof raw !== "object") continue;
+    const block = raw as Record<string, unknown>;
+    const blockId = typeof block.id === "string" ? block.id : undefined;
+    const blockType = typeof block.type === "string" ? block.type : undefined;
+    const walk = (node: unknown, path: string): void => {
+      if (!node) return;
+      if (Array.isArray(node)) {
+        node.forEach((child, i) => walk(child, `${path}[${i}]`));
+        return;
+      }
+      if (typeof node !== "object") return;
+      for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+        const childPath = path ? `${path}.${k}` : k;
+        if (typeof v === "string") {
+          if (!/\d/.test(v)) continue;
+          const isStatField = STAT_FIELD_KEYS.has(k);
+          const looksLikeStat = STAT_LIKE_RX.test(v);
+          if ((isStatField || looksLikeStat) && !isApprovedStat(v, pool)) {
+            out.push({ blockId, blockType, fieldPath: childPath, value: v });
+          }
+        } else if (v && typeof v === "object") {
+          walk(v, childPath);
+        }
+      }
+    };
+    walk(block.props, "props");
+  }
+  return out;
+}
+
+function logStrictMismatches(
+  mismatches: StrictStatMismatch[],
+  ctx: { tenantId: number | null; slug: string; promptPreview: string; promptPath: string },
+): void {
+  for (const m of mismatches) {
+    logger.warn(
+      {
+        tenantId: ctx.tenantId,
+        slug: ctx.slug,
+        promptPath: ctx.promptPath,
+        promptPreview: ctx.promptPreview,
+        blockId: m.blockId,
+        blockType: m.blockType,
+        fieldPath: m.fieldPath,
+        value: m.value,
+      },
+      "[generate-page] strict-mode: AI produced unapproved stat",
+    );
+  }
+}
+
 /** Task #253 — placeholder used when strict mode has no approved case-study
  *  to substitute, so end-users immediately see what's missing instead of
  *  shipping a hallucinated story. */
@@ -1482,8 +1563,21 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       // Task #253 — strict mode: scrub any unapproved numeric stats the model
       // may have invented despite the instruction.
       // Task #256 — proof-point values flow into the same approved pool.
+      // Task #254 — scan BEFORE sanitization so we capture (and warn about)
+      // the model's actual unapproved values; the sanitizer will then
+      // rewrite them to the placeholder for the live page.
+      let strictMismatches: StrictStatMismatch[] = [];
       if (strict) {
         const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
+        strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
+        if (strictMismatches.length > 0) {
+          logStrictMismatches(strictMismatches, {
+            tenantId,
+            slug,
+            promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
+            promptPath: "TEMPLATE",
+          });
+        }
         sanitizeBlocksStrict(mergedBlocks, pool, caseStudies);
       }
 
@@ -1491,6 +1585,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         title: parsed.title,
         slug,
         blocks: mergedBlocks,
+        strictMismatches,
       });
       return;
     } catch (err) {
@@ -1993,8 +2088,19 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // Task #253 — strict mode: scrub any unapproved numeric stats from the
     // free-form generation path before shipping the response.
     // Task #256 — proof-point library values are part of the approved pool.
+    // Task #254 — scan first so we can warn-log + return mismatches.
+    let strictMismatches: StrictStatMismatch[] = [];
     if (strict) {
       const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
+      strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
+      if (strictMismatches.length > 0) {
+        logStrictMismatches(strictMismatches, {
+          tenantId,
+          slug: parsed.slug,
+          promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
+          promptPath,
+        });
+      }
       sanitizeBlocksStrict(parsed.blocks, pool, caseStudies);
     }
 
@@ -2002,6 +2108,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       title: parsed.title,
       slug: parsed.slug,
       blocks: parsed.blocks,
+      strictMismatches,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
