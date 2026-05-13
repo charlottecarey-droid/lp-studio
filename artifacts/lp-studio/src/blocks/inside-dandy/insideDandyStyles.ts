@@ -225,10 +225,15 @@ const CSS = `
 .id-cinema.id-cinema-flat .id-cinema-stepper { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-art { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-text { position:relative; inset:auto; padding:0; display:flex; flex-direction:column; pointer-events:auto; }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel { position:relative; inset:auto; opacity:1; transform:none; flex-direction:column; align-items:stretch; gap:48px; padding:96px 60px; min-height:auto; border-bottom:1px solid var(--id-line); pointer-events:auto; }
-.id-cinema.id-cinema-flat .id-panel-art { position:relative; width:100%; max-width:1100px; margin:0 auto; aspect-ratio:16/9; overflow:hidden; border-radius:8px; background:#001814; }
+.id-cinema.id-cinema-flat .id-cinema-text .id-panel { position:relative; inset:auto; opacity:1; transform:none; flex-direction:column; align-items:stretch; gap:0; padding:0; min-height:auto; border-bottom:1px solid var(--id-line); pointer-events:auto; }
+/* Full-bleed art band — mirrors the 100vh viewport-filling video shown in
+   scroll-stacking mode so flat mode looks visually identical per panel. */
+.id-cinema.id-cinema-flat .id-panel-art { position:relative; width:100%; max-width:none; margin:0; aspect-ratio:auto; height:100vh; overflow:hidden; border-radius:0; background:#001814; }
 .id-cinema.id-cinema-flat .id-panel-art > * { position:absolute; inset:0; width:100%; height:100%; opacity:1; transform:none; display:flex; align-items:center; justify-content:center; }
 .id-cinema.id-cinema-flat .id-panel-art .id-art-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+/* Padding moved off the panel and onto the text block so the art can
+   bleed edge-to-edge while the copy keeps its breathing room. */
+.id-cinema.id-cinema-flat .id-cinema-text .id-panel .id-meta { padding:96px 60px; }
 .id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(1) { background:radial-gradient(ellipse at 30% 60%,#0A4A3E 0%,#001814 70%); }
 .id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(2) { background:linear-gradient(135deg,#003A30 0%,#001814 100%); }
 .id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(3) { background:#001814; }
