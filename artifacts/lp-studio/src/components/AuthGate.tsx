@@ -80,6 +80,42 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+/**
+ * Branded backdrop for the unauthenticated screens. A soft violet→coral
+ * gradient with two blurred decorative blobs and a faint grid sits behind
+ * the white sign-in card, so the page reads as "LP Studio" instead of a
+ * raw Tailwind shell. The gradient uses the same violet (--primary, hsl
+ * 258 70% 54%) and coral (--accent) tokens defined in `index.css`.
+ */
+function BrandBackdrop({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#f5f3ff] via-white to-[#fff5f1] px-4 py-10">
+      {/* Decorative blurred shapes — purely visual, hidden from a11y tree */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 -left-40 w-[480px] h-[480px] rounded-full bg-[hsl(258_70%_54%/0.18)] blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-40 -right-40 w-[520px] h-[520px] rounded-full bg-[hsl(14_88%_64%/0.18)] blur-3xl"
+      />
+      {/* Subtle grid overlay for texture */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.035]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #000 1px, transparent 1px), linear-gradient(to bottom, #000 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
+      <div className="relative z-10 w-full flex items-center justify-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SignInPanel() {
   const { refresh, domainContext } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -116,61 +152,76 @@ function SignInPanel() {
   const subtitle = isLocked ? "Sign in to continue" : "Sign in to your workspace";
 
   return (
-    <div className="w-full max-w-sm space-y-6 text-center">
-      {customLogoUrl ? (
-        <img src={customLogoUrl} alt={displayName || "Workspace"} className="mx-auto h-10 object-contain" />
-      ) : fallbackLogo ? (
-        <img src={fallbackLogo} alt={fallbackLogoAlt} className="mx-auto h-10" />
-      ) : displayName ? (
-        <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{displayName}</p>
-      ) : null}
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+    <div className="w-full max-w-md">
+      <div className="rounded-2xl border border-border/80 bg-white/90 backdrop-blur-xl shadow-[0_24px_60px_-20px_rgba(88,28,135,0.25)] px-8 py-10 space-y-7 text-center">
+        {customLogoUrl ? (
+          <img src={customLogoUrl} alt={displayName || "Workspace"} className="mx-auto h-11 object-contain" />
+        ) : fallbackLogo ? (
+          <img src={fallbackLogo} alt={fallbackLogoAlt} className="mx-auto h-11" />
+        ) : displayName ? (
+          <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{displayName}</p>
+        ) : null}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">{subtitle}</p>
+        </div>
+
+        <div className="space-y-3">
+          {!showPassword ? (
+            <>
+              <Button
+                variant="outline"
+                className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
+                onClick={() => { window.location.href = "/api/auth/google"; }}
+              >
+                <GoogleIcon />
+                Continue with Google
+              </Button>
+
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">or</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(true)}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Sign in with password
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </>
+          ) : (
+            <>
+              <PasswordForm onSuccess={refresh} />
+              <button
+                type="button"
+                onClick={() => setShowPassword(false)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ← Back to Google sign-in
+              </button>
+            </>
+          )}
+
+          {isDandyTenant && (
+            <a
+              href="https://www.meetdandy.com"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors pt-2"
+            >
+              Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {!showPassword ? (
-          <>
-            <Button
-              className="w-full gap-2"
-              onClick={() => { window.location.href = "/api/auth/google"; }}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => setShowPassword(true)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Sign in with password instead
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </>
-        ) : (
-          <>
-            <PasswordForm onSuccess={refresh} />
-            <button
-              type="button"
-              onClick={() => setShowPassword(false)}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ← Back to Google sign-in
-            </button>
-          </>
-        )}
-
-        {isDandyTenant && (
-          <a
-            href="https://www.meetdandy.com"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
-      </div>
+      {!isLocked && (
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          The fastest way to ship landing pages that convert.
+        </p>
+      )}
     </div>
   );
 }
@@ -300,9 +351,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <BrandBackdrop>
         <SignInPanel />
-      </div>
+      </BrandBackdrop>
     );
   }
 
@@ -310,9 +361,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // On an open domain (e.g. app.lpstudio.ai) — let the user create a workspace
     if (domainContext?.mode === "open") {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background px-4">
-          <div className="w-full max-w-sm">
-            <CreateWorkspaceForm email={user.email} onSuccess={refresh} />
+        <BrandBackdrop>
+          <div className="w-full max-w-md">
+            <div className="rounded-2xl border border-border/80 bg-white/90 backdrop-blur-xl shadow-[0_24px_60px_-20px_rgba(88,28,135,0.25)] px-8 py-10">
+              <CreateWorkspaceForm email={user.email} onSuccess={refresh} />
+            </div>
             <div className="mt-6 text-center">
               <Button
                 variant="ghost"
@@ -328,7 +381,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               </Button>
             </div>
           </div>
-        </div>
+        </BrandBackdrop>
       );
     }
 
@@ -337,37 +390,39 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const isDandyTenant = tenantSlug === "dandy";
     const tenantName = domainContext?.tenantName || "";
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm space-y-6 text-center">
-          {isDandyTenant ? (
-            <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
-          ) : tenantName ? (
-            <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{tenantName}</p>
-          ) : (
-            <img src={lpstudioLogo} alt="LP Studio" className="mx-auto h-10" />
-          )}
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Access Pending</h1>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              You're signed in as <span className="font-medium text-foreground">{user.email}</span>,
-              but you haven't been added to this workspace yet.
-              <br />
-              Ask an admin to invite you.
-            </p>
+      <BrandBackdrop>
+        <div className="w-full max-w-md">
+          <div className="rounded-2xl border border-border/80 bg-white/90 backdrop-blur-xl shadow-[0_24px_60px_-20px_rgba(88,28,135,0.25)] px-8 py-10 space-y-6 text-center">
+            {isDandyTenant ? (
+              <img src={dandyLogo} alt="Dandy" className="mx-auto h-11" />
+            ) : tenantName ? (
+              <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{tenantName}</p>
+            ) : (
+              <img src={lpstudioLogo} alt="LP Studio" className="mx-auto h-11" />
+            )}
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Access Pending</h1>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                You're signed in as <span className="font-medium text-foreground">{user.email}</span>,
+                but you haven't been added to this workspace yet.
+                <br />
+                Ask an admin to invite you.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={async () => {
+                await logout();
+                window.location.reload();
+              }}
+            >
+              <LogOut className="w-4 h-4" />
+              Sign out
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            className="w-full gap-2"
-            onClick={async () => {
-              await logout();
-              window.location.reload();
-            }}
-          >
-            <LogOut className="w-4 h-4" />
-            Sign out
-          </Button>
         </div>
-      </div>
+      </BrandBackdrop>
     );
   }
 
