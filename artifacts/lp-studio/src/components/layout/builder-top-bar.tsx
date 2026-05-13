@@ -257,6 +257,65 @@ export function BuilderTopBar({
         {status === "published" ? "Live" : status === "pending_review" ? "Pending Review" : "Draft"}
       </Badge>
 
+      {/*
+        Template, A/B Test, and Ad Copy are icon-only square buttons grouped
+        next to the Live/Draft chip so editors can jump to template/test/ad
+        flows from the page identity area instead of the action cluster on
+        the right. Native `title` is kept as a fallback for screen readers /
+        no-JS; the Radix Tooltip provides the rich on-hover label matching
+        the rest of the app. Width is locked square (h-8 w-8 + p-0).
+      */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label="Save as Template"
+            title="Save as Template"
+            className="h-8 w-8 p-0 text-amber-600 border-amber-200 hover:bg-amber-50"
+            onClick={onSaveAsTemplate}
+          >
+            <Star className="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Save as Template</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label="A/B Test"
+            title="A/B Test"
+            className="h-8 w-8 p-0 text-primary border-primary/30 hover:bg-primary/5"
+            onClick={onOpenAbTest}
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">A/B Test</TooltipContent>
+      </Tooltip>
+
+      {onOpenAdCopy && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Ad Copy"
+              title="Ad Copy"
+              className="h-8 w-8 p-0 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
+              onClick={onOpenAdCopy}
+              data-testid="open-ad-copy-button"
+            >
+              <Megaphone className="w-3.5 h-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Ad Copy</TooltipContent>
+        </Tooltip>
+      )}
+
       <div className="flex-1" />
 
       <PresenceStrip viewers={viewers} />
@@ -328,65 +387,6 @@ export function BuilderTopBar({
         {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
         <span className="hidden sm:inline">{saveSuccess ? "Saved!" : "Save"}</span>
       </Button>
-
-      {/*
-        Template, A/B Test, and Ad Copy are icon-only square buttons. The
-        native `title` attribute is left in place as a fallback for
-        screen readers / no-JS, while the Radix Tooltip provides the
-        rich on-hover label that matches the rest of the app.
-        Width is locked square (h-8 w-8 + p-0) so the icons don't drift
-        as the toolbar resizes.
-      */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="Save as Template"
-            title="Save as Template"
-            className="h-8 w-8 p-0 text-amber-600 border-amber-200 hover:bg-amber-50"
-            onClick={onSaveAsTemplate}
-          >
-            <Star className="w-3.5 h-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Save as Template</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="A/B Test"
-            title="A/B Test"
-            className="h-8 w-8 p-0 text-primary border-primary/30 hover:bg-primary/5"
-            onClick={onOpenAbTest}
-          >
-            <FlaskConical className="w-3.5 h-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">A/B Test</TooltipContent>
-      </Tooltip>
-
-      {onOpenAdCopy && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              aria-label="Ad Copy"
-              title="Ad Copy"
-              className="h-8 w-8 p-0 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
-              onClick={onOpenAdCopy}
-              data-testid="open-ad-copy-button"
-            >
-              <Megaphone className="w-3.5 h-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Ad Copy</TooltipContent>
-        </Tooltip>
-      )}
 
       {/*
         Page-review buttons (task #108).
