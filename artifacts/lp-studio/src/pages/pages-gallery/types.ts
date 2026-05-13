@@ -36,6 +36,20 @@ export interface Test {
 export type FilterStatus = "All" | "Mine" | "Draft" | "Published" | "Running" | "Templates";
 export type SortBy = "recent" | "author";
 
+export interface ColumnVisibility {
+  author: boolean;
+  lastEdited: boolean;
+  createdBy: boolean;
+}
+
+export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
+  author: false,
+  lastEdited: false,
+  createdBy: false,
+};
+
+export const COLUMN_VISIBILITY_STORAGE_KEY = "lpStudio.pagesGallery.columnVisibility.v1";
+
 export interface CreatePageData {
   title: string;
   slug: string;

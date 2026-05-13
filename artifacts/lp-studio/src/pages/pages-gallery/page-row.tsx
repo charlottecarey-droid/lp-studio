@@ -15,11 +15,13 @@ import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scori
 import { CopyButton } from "./copy-button";
 import { PageActionsMenu } from "./page-actions-menu";
 import { countLinkedGlobalBlocks, formatDate } from "./utils";
-import type { Page, PerfScore } from "./types";
+import type { ColumnVisibility, Page, PerfScore } from "./types";
 
 interface Props {
   page: Page;
   isAdmin: boolean;
+  columnVisibility: ColumnVisibility;
+  gridTemplate: string;
   micrositeDomain: string | null;
   isRunning: boolean;
   perf: PerfScore | undefined;
@@ -39,6 +41,8 @@ interface Props {
 export function PageRow({
   page,
   isAdmin,
+  columnVisibility,
+  gridTemplate,
   micrositeDomain,
   isRunning,
   perf,
@@ -168,7 +172,10 @@ export function PageRow({
       </div>
 
       {/* ── Desktop layout (hidden on mobile) ── */}
-      <div className={`hidden md:grid gap-3 items-center px-4 py-3.5 group ${isAdmin ? "grid-cols-[28px_1fr_100px_80px_80px_100px_130px_120px]" : "grid-cols-[28px_1fr_100px_80px_80px_100px_120px]"}`}>
+      <div
+        className="hidden md:grid gap-3 items-center px-4 py-3.5 group"
+        style={{ gridTemplateColumns: gridTemplate }}
+      >
         {/* Checkbox */}
         <div className="flex items-center">
           <input
@@ -238,8 +245,41 @@ export function PageRow({
         {/* Updated */}
         <span className="text-xs text-muted-foreground tabular-nums">{formatDate(page.updatedAt)}</span>
 
-        {/* Author (admin only) */}
-        {isAdmin && (
+        {/* Last edited (admin, optional) — who, plus updated date as tooltip */}
+        {isAdmin && columnVisibility.lastEdited && (
+          <div className="flex flex-col min-w-0">
+            {(page.updatedByName || page.updatedBy) ? (
+              <span
+                className="text-xs text-muted-foreground truncate"
+                title={`${page.updatedBy ?? page.updatedByName ?? ""} • ${formatDate(page.updatedAt)}`}
+              >
+                {page.updatedByName ?? page.updatedBy}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground/30">—</span>
+            )}
+          </div>
+        )}
+
+        {/* Created by (admin, optional) */}
+        {isAdmin && columnVisibility.createdBy && (
+          <div className="flex flex-col min-w-0">
+            {(page.createdByName || page.createdBy) ? (
+              <span
+                className="text-xs text-muted-foreground truncate"
+                title={`${page.createdBy ?? page.createdByName ?? ""} • ${formatDate(page.createdAt)}`}
+              >
+                {page.createdByName ?? page.createdBy}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground/30">—</span>
+            )}
+          </div>
+        )}
+
+        {/* Author (admin, optional) — combined fallback column kept for parity
+            with the previous behaviour: prefers last editor, falls back to creator. */}
+        {isAdmin && columnVisibility.author && (
           <div className="flex flex-col min-w-0">
             {(page.updatedByName || page.updatedBy) ? (
               <span className="text-xs text-muted-foreground truncate" title={page.updatedBy ?? ""}>

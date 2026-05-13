@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from "react";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { PageRow } from "./page-row";
-import type { Page, PerfScore, Test } from "./types";
+import type { ColumnVisibility, Page, PerfScore, Test } from "./types";
 
 interface PaginationLike {
   page: number;
@@ -16,6 +16,7 @@ interface PaginationLike {
 interface Props {
   pagesPag: PaginationLike;
   isAdmin: boolean;
+  columnVisibility: ColumnVisibility;
   micrositeDomain: string | null;
   runningTests: Test[];
   perfScores: Record<number, PerfScore>;
@@ -33,9 +34,24 @@ interface Props {
   onTemplateSaved: (updated: Page) => void;
 }
 
+// Build the desktop grid template based on which optional columns are visible.
+// Order: checkbox, page, status, blocks, score, updated,
+//        [lastEdited], [createdBy], [author], actions.
+// Returns an inline-style object so Tailwind JIT isn't involved (dynamic
+// arbitrary classnames don't work because the JIT only scans static source).
+export function buildGridTemplate(isAdmin: boolean, vis: ColumnVisibility): string {
+  const cols: string[] = ["28px", "1fr", "100px", "80px", "80px", "100px"];
+  if (isAdmin && vis.lastEdited) cols.push("150px");
+  if (isAdmin && vis.createdBy) cols.push("150px");
+  if (isAdmin && vis.author) cols.push("130px");
+  cols.push("120px");
+  return cols.join(" ");
+}
+
 export function ResultsList({
   pagesPag,
   isAdmin,
+  columnVisibility,
   micrositeDomain,
   runningTests,
   perfScores,
@@ -53,11 +69,18 @@ export function ResultsList({
   onTemplateSaved,
 }: Props) {
   const allOnPageSelected = pagesPag.pageItems.length > 0 && pagesPag.pageItems.every(p => selectedIds.has(p.id));
+  const gridTemplate = buildGridTemplate(isAdmin, columnVisibility);
+  const showLastEdited = isAdmin && columnVisibility.lastEdited;
+  const showCreatedBy = isAdmin && columnVisibility.createdBy;
+  const showAuthor = isAdmin && columnVisibility.author;
 
   return (
     <>
       {/* Table header */}
-      <div className={`hidden md:grid gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider ${isAdmin ? "grid-cols-[28px_1fr_100px_80px_80px_100px_130px_120px]" : "grid-cols-[28px_1fr_100px_80px_80px_100px_120px]"}`}>
+      <div
+        className="hidden md:grid gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider"
+        style={{ gridTemplateColumns: gridTemplate }}
+      >
         <span>
           <input
             type="checkbox"
@@ -74,7 +97,9 @@ export function ResultsList({
         <span>Blocks</span>
         <span>Score</span>
         <span>Updated</span>
-        {isAdmin && <span>Author</span>}
+        {showLastEdited && <span>Last edited</span>}
+        {showCreatedBy && <span>Created by</span>}
+        {showAuthor && <span>Author</span>}
         <span className="text-right">Actions</span>
       </div>
 
@@ -85,6 +110,8 @@ export function ResultsList({
             key={page.id}
             page={page}
             isAdmin={isAdmin}
+            columnVisibility={columnVisibility}
+            gridTemplate={gridTemplate}
             micrositeDomain={micrositeDomain}
             isRunning={runningTests.some(t => t.slug === page.slug)}
             perf={perfScores[page.id]}

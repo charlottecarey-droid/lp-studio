@@ -16,11 +16,15 @@ import { useAuth } from "@/context/AuthContext";
 import {
   API_BASE,
   type ApiTemplate,
+  type ColumnVisibility,
+  COLUMN_VISIBILITY_STORAGE_KEY,
+  DEFAULT_COLUMN_VISIBILITY,
   type FilterStatus,
   type Page,
   type PerfScore,
   type SortBy,
 } from "./pages-gallery/types";
+import { ColumnsMenu } from "./pages-gallery/columns-menu";
 import {
   createPage,
   deletePage,
@@ -112,6 +116,22 @@ export default function PagesGallery() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [searchQuery, setSearchQuery] = useState("");
+  // Column visibility for the desktop table — all optional columns default to
+  // hidden and admins can toggle them via the "Columns" menu. We persist the
+  // choice in localStorage so it survives reloads.
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<ColumnVisibility>;
+        return { ...DEFAULT_COLUMN_VISIBILITY, ...parsed };
+      }
+    } catch {}
+    return DEFAULT_COLUMN_VISIBILITY;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(columnVisibility)); } catch {}
+  }, [columnVisibility]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -438,6 +458,9 @@ export default function PagesGallery() {
             <p className="text-muted-foreground mt-1 text-sm">Build and publish landing pages with the drag-and-drop editor.</p>
           </div>
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <ColumnsMenu visibility={columnVisibility} setVisibility={setColumnVisibility} />
+            )}
             <Button variant="outline" size="sm" className="gap-1.5 text-[13px] rounded-lg" onClick={() => setBriefModalOpen(true)}>
               <BookOpen className="w-3.5 h-3.5" />
               Brief
@@ -489,6 +512,7 @@ export default function PagesGallery() {
             <ResultsList
               pagesPag={pagesPag}
               isAdmin={isAdmin}
+              columnVisibility={columnVisibility}
               micrositeDomain={micrositeDomain}
               runningTests={runningTests}
               perfScores={perfScores}
