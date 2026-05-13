@@ -172,6 +172,7 @@ export async function cleanupRoyalTenant(pool: pg.Pool, t: RoyalTenant): Promise
     // tenant_id, but we still drop pages / brand / users / session explicitly.
     await client.query(`DELETE FROM app_sessions WHERE sid = $1`, [t.sessionSid]);
     await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [t.tenantId]);
+    await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM app_users WHERE id = $1`, [t.userId]);
     await client.query(`DELETE FROM tenants WHERE id = $1`, [t.tenantId]);
@@ -196,6 +197,10 @@ export async function purgeStaleRoyalTenants(pool: pg.Pool): Promise<void> {
     );
     for (const row of rows) {
       await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [row.id]);
+      // lp_library_items.tenant_id has a FK on tenants — leftover rows from a
+      // crashed run hold the FK and block the tenant DELETE below, which
+      // poisons every subsequent test run until cleaned by hand.
+      await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [row.id]);
       await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [row.id]);
       // lp_forms.tenant_id has a FK on tenants — must be cleared before the
       // tenant row itself, otherwise DELETE FROM tenants raises a 23503 and
