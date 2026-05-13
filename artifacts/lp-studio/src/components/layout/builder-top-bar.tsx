@@ -1,14 +1,22 @@
-import { useState, type RefObject } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect, type RefObject } from "react";
+import { useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
-  Clock, Megaphone, Users, ChevronDown, X,
+  Clock, Megaphone, Users, ChevronDown, X, MoreHorizontal, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { PresenceStrip } from "@/components/collaboration/presence-strip";
 import type { PresenceViewer } from "@/hooks/use-collaboration";
@@ -19,28 +27,20 @@ interface BuilderTopBarProps {
   status: "draft" | "pending_review" | "published";
   isSaving: boolean;
   saveSuccess: boolean;
+  /** Task #266 — when false, the Save button dims and the indicator next to
+   *  it switches from "Unsaved changes" to "Saved". */
+  isDirty?: boolean;
+  /** Task #266 — Date.now() of the last successful save, surfaced as a
+   *  human-friendly "Saved 12s ago" hint when the page is clean. */
+  lastSavedAt?: number | null;
   commentMode: boolean;
   viewers: PresenceViewer[];
   unresolvedComments?: number;
-  /** Audience segment this page was tailored to at creation time, if any.
-   * Surfaces a "Segment: <name>" badge next to the title so editors can tell
-   * at a glance which audience the copy was generated for. */
   segmentName?: string | null;
-  /** Currently-assigned segment id, if any. Used to highlight the selected
-   * row in the segment popover by id (segment names are not guaranteed to
-   * be unique). */
   segmentId?: string | null;
-  /** Available audience segments from brand settings. When provided alongside
-   * `onSegmentChange`, the segment badge becomes a popover that lets the
-   * editor reassign or clear the page's segment without leaving the builder
-   * (task #250). */
   availableSegments?: { id: string; name: string }[];
-  /** Editor changed the page's segment from the badge popover. Pass `null`
-   * to clear. Persisting (PUT /lp/pages/:pageId) is the caller's job. */
   onSegmentChange?: (segmentId: string | null) => void;
-  /** Live public URL (e.g. partners.meetdandy.com/slug or /lp/slug) */
   liveUrl: string;
-  /** In-app preview URL — the page viewer, visible even for drafts */
   previewUrl: string;
   onTitleChange: (title: string) => void;
   onTitleBlur: () => void;
@@ -51,26 +51,23 @@ interface BuilderTopBarProps {
   onPublish: () => void;
   onToggleCommentMode: () => void;
   onShareForReview: () => void;
-  // Page-review workflow (task #108).
-  /** Whether the current user can publish (admin / pages.publish / superadmin). */
   canPublish?: boolean;
-  /** Whether the current user can approve / reject pending reviews. */
   canReview?: boolean;
-  /** Editor click — submit page for review. */
   onSubmitForReview?: () => void;
-  /** Reviewer click — approve a pending_review page. */
   onApproveReview?: () => void;
-  /** Reviewer click — reject a pending_review page (caller prompts for note). */
   onRejectReview?: () => void;
-  /**
-   * Task #113 — when false, hide all review-workflow buttons (Submit /
-   * Approve / Reject). Defaults to true so callers that don't pass it keep
-   * the existing behaviour. The "Pending Review" status badge is not
-   * explicitly gated by this flag because `pending_review` is unreachable
-   * in OFF mode (the submit-review endpoint returns 409), so existing pages
-   * always render as Draft or Live.
-   */
   reviewWorkflowEnabled?: boolean;
+}
+
+/** "Saved 12s ago" / "Saved 5m ago" / "Saved" copy. */
+function formatSavedAgo(ts: number, now: number): string {
+  const sec = Math.max(0, Math.floor((now - ts) / 1000));
+  if (sec < 5) return "Saved just now";
+  if (sec < 60) return `Saved ${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `Saved ${min}m ago`;
+  const hr = Math.floor(min / 60);
+  return `Saved ${hr}h ago`;
 }
 
 export function BuilderTopBar({
@@ -79,6 +76,8 @@ export function BuilderTopBar({
   status,
   isSaving,
   saveSuccess,
+  isDirty = true,
+  lastSavedAt,
   commentMode,
   viewers,
   unresolvedComments = 0,
@@ -106,6 +105,13 @@ export function BuilderTopBar({
 }: BuilderTopBarProps) {
   const [, navigate] = useLocation();
   const [copied, setCopied] = useState(false);
+  // Re-render the "Saved Ns ago" hint every 30s so it stays fresh while the
+  // editor sits idle. Cheap interval — it only ticks when the bar is mounted.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   function goBack() {
     if (window.history.length > 1) {
@@ -115,47 +121,64 @@ export function BuilderTopBar({
     }
   }
 
-  function handleViewLive(e: React.MouseEvent) {
-    // Copy URL to clipboard when clicking "View" on published pages
+  function handleViewLive() {
     navigator.clipboard.writeText(liveUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
-    // The anchor tag handles the navigation
   }
 
-  function handlePreviewDraft(e: React.MouseEvent) {
-    // Copy preview URL to clipboard when clicking "Preview" on drafts so
-    // editors can share it with internal reviewers without re-typing it.
-    // The preview URL is auth/token-gated server-side — see task-107.
+  function handlePreviewDraft() {
     navigator.clipboard.writeText(previewUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
   }
 
+  // Save button copy + state. We dim when there's nothing to save and
+  // surface the saved-just-now state directly on the button.
+  const saveLabel = isSaving
+    ? "Saving…"
+    : saveSuccess
+      ? "Saved!"
+      : isDirty
+        ? "Save"
+        : "Saved";
+  const saveIcon = isSaving
+    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+    : (saveSuccess || !isDirty)
+      ? <CheckCircle className="w-3.5 h-3.5" />
+      : <Save className="w-3.5 h-3.5" />;
+
+  // Subtle text hint to the LEFT of the Save button. Reflects autosave-like
+  // "Saved 12s ago" when clean, or "Unsaved changes" when dirty. Hidden on
+  // narrow screens to keep the bar uncluttered.
+  const savedHint = isDirty
+    ? "Unsaved changes"
+    : lastSavedAt
+      ? formatSavedAgo(lastSavedAt, now)
+      : "All changes saved";
+
   return (
-    <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
-      <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={goBack}>
+    <header className="h-14 flex items-center gap-2 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
+      {/* ── Left zone: back + page identity ───────────────────────────── */}
+      <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2" onClick={goBack}>
         <ArrowLeft className="w-4 h-4" />
         <span className="hidden sm:inline text-xs">Back</span>
       </Button>
 
-      <div className="h-4 w-px bg-border mx-1" />
+      <div className="h-5 w-px bg-border" />
 
       <input
         ref={titleRef}
         value={title}
         onChange={e => onTitleChange(e.target.value)}
         onBlur={onTitleBlur}
-        className="flex-1 max-w-xs bg-transparent text-sm font-semibold text-foreground outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors py-0.5"
+        className="min-w-0 flex-shrink max-w-xs bg-transparent text-sm font-semibold text-foreground outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors py-0.5"
         placeholder="Page Title"
       />
 
       {(() => {
-        // Editors can reassign the page's segment when the parent passes both
-        // a list of segments AND a change handler. Without those props the
-        // badge falls back to a static label (legacy behaviour).
         const editable = !!onSegmentChange && Array.isArray(availableSegments);
         if (!editable && !segmentName) return null;
 
@@ -168,11 +191,7 @@ export function BuilderTopBar({
 
         if (!editable) {
           return (
-            <span
-              className={triggerClass}
-              title={`Tailored for segment: ${segmentName}`}
-              data-testid="page-segment-badge"
-            >
+            <span className={triggerClass} title={`Tailored for segment: ${segmentName}`} data-testid="page-segment-badge">
               <Users className="w-3 h-3" />
               Segment: {segmentName}
             </span>
@@ -182,12 +201,7 @@ export function BuilderTopBar({
         return (
           <Popover>
             <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={triggerClass}
-                title={segmentName ? `Tailored for segment: ${segmentName} — click to change` : "Assign this page to a segment"}
-                data-testid="page-segment-badge"
-              >
+              <button type="button" className={triggerClass} title={segmentName ? `Tailored for segment: ${segmentName} — click to change` : "Assign this page to a segment"} data-testid="page-segment-badge">
                 <Users className="w-3 h-3" />
                 {segmentName ? `Segment: ${segmentName}` : "No segment"}
                 <ChevronDown className="w-3 h-3 opacity-60" />
@@ -247,7 +261,7 @@ export function BuilderTopBar({
       <Badge
         variant={status === "published" ? "default" : "secondary"}
         className={cn(
-          "text-xs shrink-0 gap-1",
+          "text-[10px] shrink-0 gap-1 h-5 px-2",
           status === "published" && "bg-green-500/10 text-green-700 border-green-200",
           status === "pending_review" && "bg-amber-500/10 text-amber-700 border-amber-200",
         )}
@@ -257,88 +271,97 @@ export function BuilderTopBar({
         {status === "published" ? "Live" : status === "pending_review" ? "Pending Review" : "Draft"}
       </Badge>
 
-      {/*
-        Template, A/B Test, and Ad Copy are icon-only square buttons grouped
-        next to the Live/Draft chip so editors can jump to template/test/ad
-        flows from the page identity area instead of the action cluster on
-        the right. Native `title` is kept as a fallback for screen readers /
-        no-JS; the Radix Tooltip provides the rich on-hover label matching
-        the rest of the app. Width is locked square (h-8 w-8 + p-0).
-      */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="Save as Template"
-            title="Save as Template"
-            className="h-8 w-8 p-0 text-amber-600 border-amber-200 hover:bg-amber-50"
-            onClick={onSaveAsTemplate}
-          >
-            <Star className="w-3.5 h-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Save as Template</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="A/B Test"
-            title="A/B Test"
-            className="h-8 w-8 p-0 text-primary border-primary/30 hover:bg-primary/5"
-            onClick={onOpenAbTest}
-          >
-            <FlaskConical className="w-3.5 h-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">A/B Test</TooltipContent>
-      </Tooltip>
-
-      {onOpenAdCopy && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              aria-label="Ad Copy"
-              title="Ad Copy"
-              className="h-8 w-8 p-0 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-50 dark:text-fuchsia-300 dark:border-fuchsia-900/50"
-              onClick={onOpenAdCopy}
-              data-testid="open-ad-copy-button"
-            >
-              <Megaphone className="w-3.5 h-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Ad Copy</TooltipContent>
-        </Tooltip>
-      )}
-
+      {/* Spacer pushes everything else to the right */}
       <div className="flex-1" />
+
+      {/* ── "Saved Ns ago" hint sits just left of the action cluster ─── */}
+      <span
+        className={cn(
+          "hidden lg:inline text-[11px] tabular-nums shrink-0 mr-1",
+          isDirty ? "text-amber-600" : "text-muted-foreground",
+        )}
+        data-testid="save-state-hint"
+      >
+        {savedHint}
+      </span>
 
       <PresenceStrip viewers={viewers} />
 
-      <Button
-        variant={commentMode ? "default" : "outline"}
-        size="sm"
-        className={cn("gap-1.5 text-xs relative", commentMode && "bg-amber-500 hover:bg-amber-600 text-white")}
-        onClick={onToggleCommentMode}
-      >
-        <MessageSquare className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Comments</span>
-        {unresolvedComments > 0 && !commentMode && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-            {unresolvedComments > 9 ? "9+" : unresolvedComments}
-          </span>
-        )}
-      </Button>
+      <div className="hidden md:block h-5 w-px bg-border mx-0.5" />
 
-      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onShareForReview}>
-        <Share2 className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Share</span>
-      </Button>
+      {/* ── Utility cluster: Comments + More overflow ──────────────────
+           Save-as-Template, A/B Test, and Ad Copy used to be three
+           always-visible square icons next to the page identity. They
+           were equal-weight with the primary save/publish row and
+           crowded the bar. Folded into a single "More" overflow menu
+           so the right cluster reads as Comments / Share / Preview /
+           Save / Publish — primary actions only. */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={commentMode ? "default" : "outline"}
+            size="sm"
+            className={cn(
+              "h-8 px-2 gap-1.5 text-xs relative",
+              commentMode && "bg-amber-500 hover:bg-amber-600 text-white",
+            )}
+            onClick={onToggleCommentMode}
+            data-testid="builder-comments-button"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span className="hidden xl:inline">Comments</span>
+            {unresolvedComments > 0 && !commentMode && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                {unresolvedComments > 9 ? "9+" : unresolvedComments}
+              </span>
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          {commentMode ? "Stop commenting" : "Comments"}
+        </TooltipContent>
+      </Tooltip>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            aria-label="More actions"
+            title="More actions"
+            data-testid="builder-more-button"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Page actions
+          </DropdownMenuLabel>
+          <DropdownMenuItem onClick={onSaveAsTemplate} className="gap-2 text-xs">
+            <Star className="w-3.5 h-3.5 text-amber-500" />
+            Save as Template
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenAbTest} className="gap-2 text-xs" data-testid="open-ab-test-button">
+            <FlaskConical className="w-3.5 h-3.5 text-primary" />
+            Create A/B Test
+          </DropdownMenuItem>
+          {onOpenAdCopy && (
+            <DropdownMenuItem onClick={onOpenAdCopy} className="gap-2 text-xs" data-testid="open-ad-copy-button">
+              <Megaphone className="w-3.5 h-3.5 text-fuchsia-600" />
+              Generate Ad Copy
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onShareForReview} className="gap-2 text-xs">
+            <Share2 className="w-3.5 h-3.5" />
+            Share for Review
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <div className="hidden md:block h-5 w-px bg-border mx-0.5" />
 
       {/* Preview / View button — adapts based on publish status */}
       {status === "published" ? (
@@ -347,7 +370,7 @@ export function BuilderTopBar({
             variant="outline"
             size="sm"
             className={cn(
-              "gap-1.5 text-xs transition-colors",
+              "h-8 gap-1.5 text-xs transition-colors",
               copied && "border-green-500 text-green-600",
             )}
           >
@@ -356,18 +379,12 @@ export function BuilderTopBar({
           </Button>
         </a>
       ) : (
-        <a
-          href={previewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handlePreviewDraft}
-          title={`Open and copy preview link: ${previewUrl}`}
-        >
+        <a href={previewUrl} target="_blank" rel="noopener noreferrer" onClick={handlePreviewDraft} title={`Open and copy preview link: ${previewUrl}`}>
           <Button
             variant="outline"
             size="sm"
             className={cn(
-              "gap-1.5 text-xs transition-colors",
+              "h-8 gap-1.5 text-xs transition-colors",
               copied && "border-green-500 text-green-600",
             )}
           >
@@ -378,29 +395,27 @@ export function BuilderTopBar({
       )}
 
       <Button
-        variant="outline"
+        variant={isDirty ? "default" : "outline"}
         size="sm"
-        className={cn("gap-1.5 text-xs", saveSuccess && "border-green-500 text-green-600")}
+        className={cn(
+          "h-8 gap-1.5 text-xs",
+          saveSuccess && "border-green-500 text-green-600 bg-transparent hover:bg-green-50",
+          !isDirty && !saveSuccess && "text-muted-foreground",
+        )}
         onClick={onSave}
-        disabled={isSaving}
+        disabled={isSaving || (!isDirty && !saveSuccess)}
+        data-testid="save-button"
       >
-        {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-        <span className="hidden sm:inline">{saveSuccess ? "Saved!" : "Save"}</span>
+        {saveIcon}
+        <span className="hidden sm:inline">{saveLabel}</span>
       </Button>
 
-      {/*
-        Page-review buttons (task #108).
-        - Reviewers see Approve/Reject when status=pending_review.
-        - Editors without publish perm see Submit-for-Review (or "In Review"
-          disabled while a request is open).
-        - Publishers see the original Publish/Unpublish button.
-      */}
       {reviewWorkflowEnabled && status === "pending_review" && canReview && (
         <>
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+            className="h-8 gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
             onClick={onRejectReview}
             disabled={isSaving}
             data-testid="reject-review-button"
@@ -410,7 +425,7 @@ export function BuilderTopBar({
           </Button>
           <Button
             size="sm"
-            className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
+            className="h-8 gap-1.5 text-xs bg-green-600 hover:bg-green-700"
             onClick={onApproveReview}
             disabled={isSaving}
             data-testid="approve-review-button"
@@ -421,16 +436,11 @@ export function BuilderTopBar({
         </>
       )}
 
-      {/* Submit for Review is always available on non-published pages so that
-          publish-capable users (admins / Content Managers / superadmins) can
-          still ask a peer to review before pushing to production. Editors who
-          lack publish rights also see this — for them it's the only path.
-          Task #113: hidden entirely when the tenant has the workflow off. */}
       {reviewWorkflowEnabled && status !== "published" && (
         <Button
           size="sm"
           variant={status === "pending_review" ? "outline" : "default"}
-          className="gap-1.5 text-xs"
+          className="h-8 gap-1.5 text-xs"
           onClick={onSubmitForReview}
           disabled={isSaving || status === "pending_review"}
           data-testid="submit-review-button"
@@ -443,7 +453,7 @@ export function BuilderTopBar({
       {canPublish && (
         <Button
           size="sm"
-          className="gap-1.5 text-xs"
+          className="h-8 gap-1.5 text-xs"
           onClick={onPublish}
           disabled={isSaving}
           variant={status === "published" ? "outline" : "brand"}

@@ -94,6 +94,7 @@ import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
+import { FocalPointPicker } from "@/components/FocalPointPicker";
 import { VideoPicker } from "@/components/VideoPicker";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -175,16 +176,12 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
             placeholder="City skyline at dusk"
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Focal point (e.g. "50% 30%")</Label>
-          <Input
-            value={props.backgroundFocalPoint ?? ""}
-            onChange={(e) => set("backgroundFocalPoint", e.target.value)}
-            className="h-8 text-xs"
-            placeholder="50% 50%"
-          />
-          <p className="text-[11px] text-muted-foreground">CSS object-position. Tip: drag the focal pin on the live image.</p>
-        </div>
+        <FocalPointPicker
+          label="Focal point"
+          value={props.backgroundFocalPoint ?? "50% 50%"}
+          onChange={(v) => set("backgroundFocalPoint", v)}
+          previewUrl={props.backgroundImage ?? undefined}
+        />
         <div className="grid grid-cols-2 gap-2">
           <ColorField
             label="Overlay color"
@@ -5524,6 +5521,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <div className="p-4 overflow-y-auto">
                 <BlockSettingsPanel
                   settings={block.blockSettings}
+                  blockType={block.type}
                   onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
                 />
                 {onDelete && (

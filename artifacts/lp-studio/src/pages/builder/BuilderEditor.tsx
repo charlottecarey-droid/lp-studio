@@ -998,6 +998,12 @@ export default function BuilderEditor() {
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  // Snapshot of the last saved page payload (JSON string). Used to derive a
+  // dirty flag so the Save button can dim and show "Saved" when nothing has
+  // changed (task #266 — make autosave/save behaviour clearer).
+  const lastSavedSnapshotRef = useRef<string>("");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [abTestModalOpen, setAbTestModalOpen] = useState(false);
@@ -1252,6 +1258,25 @@ export default function BuilderEditor() {
           }
         }
         if (p.audienceType) setPageAudienceType(p.audienceType);
+        // Seed the dirty-tracking baseline with what we just loaded from the
+        // server so the Save button starts in the "nothing to save" state.
+        try {
+          const baseline = JSON.stringify({
+            title: p.title,
+            slug: p.slug,
+            blocks: normalizeTree(p.blocks ?? []),
+            status: p.status,
+            customCss: p.customCss ?? "",
+            metaTitle: p.metaTitle ?? "",
+            metaDescription: p.metaDescription ?? "",
+            ogImage: p.ogImage ?? "",
+            animationsEnabled: p.animationsEnabled !== false,
+            smoothScroll: p.smoothScroll !== false,
+            pageVariables: p.pageVariables ?? {},
+          });
+          lastSavedSnapshotRef.current = baseline;
+          setSavedSnapshot(baseline);
+        } catch { /* ignore */ }
         setIsLoading(false);
       })
       .catch(err => {
@@ -1770,10 +1795,67 @@ export default function BuilderEditor() {
     ...overrides,
   });
 
+  // Snapshot of the current editable payload, used to derive isDirty by
+  // comparing to lastSavedSnapshotRef. Audience/segment fields are excluded
+  // because they're persisted via their own targeted handler.
+  const currentSnapshot = useMemo(() => {
+    try {
+      return JSON.stringify({
+        title,
+        slug,
+        blocks,
+        status,
+        customCss,
+        metaTitle,
+        metaDescription,
+        ogImage,
+        animationsEnabled,
+        smoothScroll,
+        pageVariables: pageVariables ?? {},
+      });
+    } catch {
+      return "";
+    }
+  }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables]);
+
+  const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
+
+  // Centralized "the server now matches our local state" hook. Every code
+  // path that successfully persists the page (manual Save, Publish, Submit
+  // for Review, Approve, Reject, Save-as-Template) must call this so the
+  // dirty flag/Save button correctly flip back to clean. `overrides` lets
+  // status-changing flows record the snapshot for the *new* status without
+  // racing React's setState (we can't read the post-setStatus value
+  // synchronously here).
+  const markSaved = (overrides: { status?: "draft" | "pending_review" | "published" } = {}) => {
+    let snap: string;
+    try {
+      snap = JSON.stringify({
+        title,
+        slug,
+        blocks,
+        status: overrides.status ?? status,
+        customCss,
+        metaTitle,
+        metaDescription,
+        ogImage,
+        animationsEnabled,
+        smoothScroll,
+        pageVariables: pageVariables ?? {},
+      });
+    } catch {
+      snap = currentSnapshot;
+    }
+    lastSavedSnapshotRef.current = snap;
+    setSavedSnapshot(snap);
+    setLastSavedAt(Date.now());
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
       await savePage(pageId, getPageData());
+      markSaved();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       toast({ title: "Saved", description: "Page saved." });
@@ -1798,6 +1880,10 @@ export default function BuilderEditor() {
     setAppliedSegment(next);
     try {
       await savePage(pageId, getPageData({ segmentId: next?.id ?? null }));
+      // Segment isn't part of the dirty snapshot, but the rest of the
+      // page payload was just persisted alongside it, so refresh the
+      // baseline to keep Save accurate.
+      markSaved();
       toast({
         title: next ? "Segment updated" : "Segment cleared",
         description: next ? `Page is now tailored for ${next.name}.` : "This page is no longer tied to a segment.",
@@ -1882,6 +1968,7 @@ export default function BuilderEditor() {
     try {
       await savePage(pageId, getPageData({ status: newStatus }));
       setStatus(newStatus);
+      markSaved({ status: newStatus });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       // Show outreach banner after publishing (not unpublishing)
@@ -1913,6 +2000,7 @@ export default function BuilderEditor() {
       }
       const data = await res.json() as { asanaWarning?: string | null };
       setStatus("pending_review");
+      markSaved({ status: "pending_review" });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       if (data.asanaWarning) {
@@ -1939,6 +2027,7 @@ export default function BuilderEditor() {
         throw new Error(j.error ?? `Approve failed (HTTP ${res.status})`);
       }
       setStatus("published");
+      markSaved({ status: "published" });
       setShowOutreachBanner(true);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -1965,6 +2054,7 @@ export default function BuilderEditor() {
         throw new Error(j.error ?? `Reject failed (HTTP ${res.status})`);
       }
       setStatus("draft");
+      markSaved({ status: "draft" });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
@@ -1979,6 +2069,7 @@ export default function BuilderEditor() {
     try {
       // Save current state first so the template reflects latest content
       await savePage(pageId, getPageData());
+      markSaved();
       const res = await fetch(`${API_BASE}/lp/pages/${pageId}/mark-template`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2120,6 +2211,8 @@ export default function BuilderEditor() {
         status={status}
         isSaving={isSaving}
         saveSuccess={saveSuccess}
+        isDirty={isDirty}
+        lastSavedAt={lastSavedAt}
         commentMode={commentMode}
         viewers={viewers}
         unresolvedComments={commentBlocks.reduce((sum, b) => sum + b.threads.filter(t => !t.comment.resolved).length, 0)}
