@@ -134,7 +134,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
                 controls
                 autoPlay
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain bg-black"
               />
             ) : activeItem.videoId ? (
               <iframe
