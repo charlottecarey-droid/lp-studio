@@ -41,8 +41,8 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
 
   const variant = p.variant ?? "split";
   const inputStyle = p.inputStyle ?? "rounded";
-  const buttonColor = p.buttonColor || accent;
-  const buttonHoverColor = p.buttonHoverColor || buttonColor;
+  const buttonColor = p.buttonColor || p.buttonHoverColor || accent;
+  const buttonHoverColor = p.buttonHoverColor || p.buttonColor || accent;
   const buttonTextColor = p.buttonTextColor || bg;
   const leftFr = p.leftColumnFr ?? 1.05;
   const rightFr = p.rightColumnFr ?? 1;
