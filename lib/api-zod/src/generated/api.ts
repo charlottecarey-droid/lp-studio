@@ -679,7 +679,7 @@ export const GetPageConfigResponse = zod.object({
 /**
  * Accepts multipart/form-data with a single "file" field. Returns a
 persistent serve URL that can be saved in block image properties.
-Allowed types: jpeg, png, gif, webp, avif, heic, heif. Max 20 MB.
+Allowed types: jpeg, png, gif, webp, avif, heic, heif. Max 30 MB.
 
  * @summary Upload an image for use in LP builder blocks
  */

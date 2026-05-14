@@ -1335,7 +1335,7 @@ export default function BrandSettings() {
                   <div className="flex flex-col gap-4">
                     <div>
                       <Label className="text-sm font-medium mb-1.5 block">Logo</Label>
-                      <p className="text-xs text-muted-foreground mb-2">SVG recommended for crispness and auto-recoloring on dark/light surfaces. Max 20 MB.</p>
+                      <p className="text-xs text-muted-foreground mb-2">SVG recommended for crispness and auto-recoloring on dark/light surfaces. Max 30 MB.</p>
                       <input
                         ref={logoFileInputRef}
                         type="file"

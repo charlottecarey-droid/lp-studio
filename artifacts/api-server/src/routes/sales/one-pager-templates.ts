@@ -8,7 +8,7 @@ const requireTemplateEdit = requireAnyPermission(["sales_campaigns", "one_pager_
 import multer from "multer";
 import { ObjectStorageService } from "../../lib/objectStorage";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 const objectStorage = new ObjectStorageService();
 
 const router = Router();

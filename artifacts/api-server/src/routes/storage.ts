@@ -104,7 +104,7 @@ const MAX_SIZE_BYTES = 200 * 1024 * 1024;
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: { fileSize: 30 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
       cb(new Error("Only image files are allowed"));
@@ -435,7 +435,7 @@ router.post("/lp/upload", (req: Request, res: Response) => {
   imageUpload.single("file")(req, res, async (err) => {
     if (err) {
       const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
-        ? "File too large. Maximum size is 20 MB."
+        ? "File too large. Maximum size is 30 MB."
         : (err as Error).message ?? "Upload failed";
       res.status(400).json({ error: message });
       return;
@@ -494,7 +494,7 @@ router.post("/lp/upload", (req: Request, res: Response) => {
  *   photos out of the JS bundle).
  *
  * Body (multipart/form-data):
- *   file:       the image (jpg/png/gif/webp/avif/heic/heif, max 20 MB)
+ *   file:       the image (jpg/png/gif/webp/avif/heic/heif, max 30 MB)
  *   title?:     friendly title (defaults to filename without extension)
  *   tags?:      comma-separated tag list (e.g. "workspace,team,office")
  *   tenantId?:  numeric tenant id to scope the upload to. Omit for shared.
@@ -503,7 +503,7 @@ router.post("/lp/media/shared/upload", requireAdminKey, (req: Request, res: Resp
   imageUpload.single("file")(req, res, async (err) => {
     if (err) {
       const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
-        ? "File too large. Maximum size is 20 MB."
+        ? "File too large. Maximum size is 30 MB."
         : (err as Error).message ?? "Upload failed";
       res.status(400).json({ error: message });
       return;
