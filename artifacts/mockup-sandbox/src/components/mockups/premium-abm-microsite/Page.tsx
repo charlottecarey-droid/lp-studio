@@ -42,7 +42,7 @@ function Hero() {
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        minHeight: "calc(100vh - 80px)",
+        minHeight: 760,
         background: PAPER,
       }}
     >
