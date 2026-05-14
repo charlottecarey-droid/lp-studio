@@ -62,7 +62,9 @@ app.use(
           "https://ddwl4m2hdecbv.cloudfront.net",
           "https://assets.apollo.io",
           // Marketo Forms2 loader (forms2.min.js is served from the
-          // tenant's app-XXX.marketo.com instance).
+          // Dandy Marketo instance, Munchkin ID 103-HKO-179).
+          // TODO: confirm the exact app-XXX.marketo.com subdomain from the
+          // form's Embed Code and replace this placeholder.
           "https://app-sj14.marketo.com",
         ],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
@@ -79,7 +81,8 @@ app.use(
           "https://www.google-analytics.com",
           "https://*.googletagmanager.com",
           // Marketo Forms2 — loader pings app-XXX.marketo.com, the actual
-          // form submit POSTs to <munchkinId>.mktoresp.com.
+          // form submit POSTs to <munchkinId>.mktoresp.com (Munchkin
+          // 103-HKO-179 → 103-hko-179.mktoresp.com). Wildcard covers it.
           "https://app-sj14.marketo.com",
           "https://*.mktoresp.com",
         ],
