@@ -248,7 +248,7 @@ const Sidebar = () => {
             Available offline.<br/>Includes 24 extra pages of methodology.
           </p>
           <a href="#download" className="text-sm font-sans font-semibold text-[#1A1A1A] hover:text-[#B91C1C] transition-colors border-b border-transparent hover:border-[#B91C1C]">
-            Download PDF PDF
+            Download PDF
           </a>
         </div>
       </div>
