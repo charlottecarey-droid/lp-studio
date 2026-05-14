@@ -32,6 +32,7 @@ export interface StickyHeroNavProps {
   theme?: "dark" | "light";
   /** Accent color for the CTA button. Defaults to Dandy primary. */
   accentColor?: string;
+  accentTextColor?: string;
   /** Position. "fixed" overlays content (premium hero feel). "sticky" stays in flow.
    *  "absolute" pins to nearest positioned ancestor (used in the page builder so
    *  the nav cannot escape the hero block's bounds). */
@@ -56,6 +57,7 @@ export function StickyHeroNav({
   scrollThreshold = 40,
   theme = "dark",
   accentColor = DEFAULT_ACCENT,
+  accentTextColor = "hsl(192, 30%, 6%)",
   position = "fixed",
   invertLogo,
 }: StickyHeroNavProps) {
@@ -221,7 +223,7 @@ export function StickyHeroNav({
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90"
                 style={{
                   background: accentColor,
-                  color: "hsl(192, 30%, 6%)",
+                  color: accentTextColor,
                   padding: "0.5rem 1.125rem",
                   fontSize: "0.8125rem",
                   fontWeight: 600,
@@ -290,7 +292,7 @@ export function StickyHeroNav({
                   className="inline-flex items-center justify-center gap-1.5 rounded-full mt-2"
                   style={{
                     background: accentColor,
-                    color: "hsl(192, 30%, 6%)",
+                    color: accentTextColor,
                     padding: "0.6rem 1.25rem",
                     fontSize: "0.875rem",
                     fontWeight: 600,

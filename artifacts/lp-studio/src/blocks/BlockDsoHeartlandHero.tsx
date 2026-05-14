@@ -320,8 +320,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
           className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
           style={{
-            background: PRIMARY,
-            color: "hsl(192, 30%, 6%)",
+            background: p.buttonColor || PRIMARY,
+            color: p.buttonTextColor || "hsl(192, 30%, 6%)",
             cursor: "pointer",
           }}
         >
@@ -357,7 +357,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       primaryCtaUrl={p.primaryCtaUrl}
       onPrimaryCtaClick={onCtaClick}
       theme="dark"
-      accentColor={PRIMARY}
+      accentColor={p.buttonColor || PRIMARY}
+      accentTextColor={p.buttonTextColor || "hsl(192, 30%, 6%)"}
       position={isBuilder ? "absolute" : "fixed"}
       invertLogo
     />
@@ -417,7 +418,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
           onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
           className="inline-flex items-center gap-1.5 rounded-full text-sm font-semibold transition-opacity hover:opacity-85"
-          style={{ background: PRIMARY, color: "hsl(192, 30%, 6%)", padding: "0.5rem 1.125rem", cursor: "pointer" }}
+          style={{ background: p.buttonColor || PRIMARY, color: p.buttonTextColor || "hsl(192, 30%, 6%)", padding: "0.5rem 1.125rem", cursor: "pointer" }}
         >
           {p.primaryCtaText}
           <ArrowRight className="w-3.5 h-3.5" />
@@ -897,7 +898,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                     href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
                     onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
                     className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
-                    style={{ background: PRIMARY, color: "hsl(192, 30%, 6%)", cursor: "pointer" }}
+                    style={{ background: p.buttonColor || PRIMARY, color: p.buttonTextColor || "hsl(192, 30%, 6%)", cursor: "pointer" }}
                   >
                     {p.primaryCtaText}
                     <ArrowRight className="w-4 h-4" />
