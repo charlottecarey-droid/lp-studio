@@ -61,6 +61,9 @@ app.use(
           "https://www.googletagmanager.com",
           "https://ddwl4m2hdecbv.cloudfront.net",
           "https://assets.apollo.io",
+          // Marketo Forms2 loader (forms2.min.js is served from the
+          // tenant's app-XXX.marketo.com instance).
+          "https://app-sj14.marketo.com",
         ],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
@@ -75,6 +78,10 @@ app.use(
           "https://*.apollo.io",
           "https://www.google-analytics.com",
           "https://*.googletagmanager.com",
+          // Marketo Forms2 — loader pings app-XXX.marketo.com, the actual
+          // form submit POSTs to <munchkinId>.mktoresp.com.
+          "https://app-sj14.marketo.com",
+          "https://*.mktoresp.com",
         ],
         "frame-ancestors": ["'self'", ...replitFrameAncestor],
         "frame-src": ["'self'", "https://www.googletagmanager.com"],
