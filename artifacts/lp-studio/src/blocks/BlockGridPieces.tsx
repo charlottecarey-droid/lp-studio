@@ -146,7 +146,8 @@ export function BlockGridCtaTile({ props }: { props: GridCtaTileBlockProps; bran
       {props.ctaText && (
         <a
           href={props.ctaUrl || "#"}
-          className="mt-4 inline-flex self-start items-center px-4 py-2 rounded-full text-sm font-semibold bg-[#C7E738] text-[#003A30] hover:opacity-90"
+          className="mt-4 inline-flex self-start items-center px-4 py-2 rounded-full text-sm font-semibold hover:opacity-90"
+          style={{ backgroundColor: "var(--brand-accent, #C7E738)", color: "var(--brand-primary, #003A30)" }}
         >
           {props.ctaText}
         </a>

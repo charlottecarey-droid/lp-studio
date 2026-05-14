@@ -68,7 +68,7 @@ function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind;
         <svg viewBox="0 0 680 480" aria-hidden>
           <defs>
             <linearGradient id="idWireGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#C7E738" />
+              <stop offset="0%" style={{ stopColor: "var(--brand-accent, #C7E738)" }} />
               <stop offset="100%" stopColor="#1AC065" />
             </linearGradient>
           </defs>

@@ -45,7 +45,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
         {(props.eyebrow || props.headline || props.subheadline) && (
           <div className="mb-12 max-w-2xl">
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--brand-primary)" }}>
                 <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
               </p>
             )}
@@ -107,7 +107,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
 
       {activeItem && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 md:p-8"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm p-4 md:p-8"
           onClick={() => setActiveIdx(null)}
         >
           <button
@@ -123,7 +123,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
           </button>
           <div
             className="relative bg-black rounded-2xl overflow-hidden shadow-2xl"
-            style={{ width: "min(92vw, 480px)", aspectRatio: "9/16", maxHeight: "92vh" }}
+            style={{ width: "min(92vw, 480px)", aspectRatio: "9/16", maxHeight: "82vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             {activeItem.videoSrc ? (
@@ -146,7 +146,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
               />
             ) : null}
           </div>
-          <div className="absolute bottom-6 left-0 right-0 text-center text-white pointer-events-none">
+          <div className="mt-4 text-center text-white pointer-events-none max-w-[480px]">
             <p className="text-base font-semibold">{activeItem.name}</p>
             {activeItem.practiceName && (
               <p className="text-white/65 text-sm mt-1">{activeItem.practiceName}</p>
