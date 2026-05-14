@@ -64,6 +64,10 @@ app.use(
           // Marketo Forms2 loader (forms2.min.js) — served from Dandy's
           // vanity CNAME for the Marketo instance (Munchkin 103-HKO-179).
           "https://go.meetdandy.com",
+          // Munchkin tracking script — required for the Forms2 ghost submit
+          // to associate the lead with the visitor's existing Munchkin
+          // cookie (without this the lead arrives but is treated as anon).
+          "https://munchkin.marketo.net",
         ],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
@@ -81,8 +85,10 @@ app.use(
           // Marketo Forms2 — loader pings go.meetdandy.com (Dandy's vanity
           // CNAME for the Marketo instance), the actual form submit POSTs
           // to <munchkinId>.mktoresp.com (103-HKO-179 → 103-hko-179.mktoresp.com).
+          // munchkin.marketo.net handles the visitor-tracking cookie association.
           "https://go.meetdandy.com",
           "https://*.mktoresp.com",
+          "https://munchkin.marketo.net",
         ],
         "frame-ancestors": ["'self'", ...replitFrameAncestor],
         "frame-src": ["'self'", "https://www.googletagmanager.com"],

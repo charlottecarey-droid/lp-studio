@@ -74,6 +74,13 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
     // Marketo creds and Salesforce/email-recipient/webhook config are
     // deliberately omitted — those are operator-side integrations, never the
     // public viewer's business.
+    //
+    // marketo_config is sanitised to a public-safe subset before sending: we
+    // expose `fieldMappings` (label → Marketo REST name) and the optional
+    // `forms2` ghost-submit triple (baseUrl/munchkinId/formId), both of
+    // which are needed by the front-end Forms2 ghost submission. Operator-
+    // facing fields (OAuth client id/secret, etc.) live elsewhere and never
+    // appear on this record.
     const host = getRequestHost(req);
     const tenantMatch = host ? await findTenantByHost(host) : null;
     if (!tenantMatch) {
@@ -89,15 +96,27 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
       redirectUrl: lpFormsTable.redirectUrl,
       backgroundStyle: lpFormsTable.backgroundStyle,
       chiliPiperConfig: lpFormsTable.chiliPiperConfig,
+      marketoConfig: lpFormsTable.marketoConfig,
     }).from(lpFormsTable).where(
       and(eq(lpFormsTable.tenantId, tenantMatch.tenantId), eq(lpFormsTable.id, id)),
     );
     if (!form) { res.status(404).json({ error: "Form not found" }); return; }
+    // Sanitise marketo_config to the public-safe subset before serialising.
+    const rawMkto = form.marketoConfig as
+      | { fieldMappings?: Record<string, string>; forms2?: { baseUrl: string; munchkinId: string; formId: number } }
+      | null
+      | undefined;
+    const publicMarketoConfig = rawMkto
+      ? {
+          ...(rawMkto.fieldMappings ? { fieldMappings: rawMkto.fieldMappings } : {}),
+          ...(rawMkto.forms2 ? { forms2: rawMkto.forms2 } : {}),
+        }
+      : null;
     // Vary on Host so the 60s edge cache doesn't serve tenantA's form
     // payload to a request that arrived on tenantB's hostname.
     res.set("Vary", "Host, X-Forwarded-Host, X-Original-Host");
     res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-    res.json(form);
+    res.json({ ...form, marketoConfig: publicMarketoConfig });
   }
 });
 

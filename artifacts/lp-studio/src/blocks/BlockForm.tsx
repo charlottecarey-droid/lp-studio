@@ -36,6 +36,24 @@ interface GlobalFormConfig {
    * record, never in app code, to preserve per-tenant isolation.
    */
   chiliPiperConfig?: ChiliPiperHandoffConfig | null;
+  /**
+   * Per-form Marketo config. `fieldMappings` (label → Marketo REST name)
+   * is used by the server-side REST sync AND by the client-side Forms2
+   * "ghost submit" below. When `forms2` is fully populated (baseUrl +
+   * munchkinId + formId), every standard-form submit on this global form
+   * also fires a hidden Marketo Forms2 submission so the lead lands in
+   * Marketo as if it had used the actual Marketo embed (Munchkin cookie
+   * association, Smart Campaign triggers, GA4 mktoFormSubmit event).
+   */
+  marketoConfig?: {
+    enabled?: boolean;
+    fieldMappings?: Record<string, string>;
+    forms2?: {
+      baseUrl: string;
+      munchkinId: string;
+      formId: number;
+    };
+  } | null;
 }
 
 interface Props {
@@ -363,6 +381,10 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   // the fetch 404s / errors, leaving the visitor staring at a dead block.
   const [globalFormFetched, setGlobalFormFetched] = useState(false);
   const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
+  // When set, mounts a hidden MarketoForm with these prefill values and
+  // auto-submits — the "ghost form" path. Set exactly once per successful
+  // standard submit to avoid double-firing on re-render.
+  const [ghostSubmitVals, setGhostSubmitVals] = useState<Record<string, string> | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
   // Stable per-mount session id for analytics. Required because BlockForm
@@ -580,6 +602,30 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         }
       }
 
+      // Marketo Forms2 "ghost submit". When the linked global form has
+      // `marketoConfig.forms2` configured (baseUrl + munchkinId + formId),
+      // translate the submitted field map (keyed by form label) through
+      // the form's `fieldMappings` into Marketo REST field names and fire
+      // a hidden MarketoForm. The server already syncs to Marketo via
+      // REST; the ghost form additionally lands the lead through the
+      // Forms2 path so Munchkin cookie association, Smart Campaign
+      // triggers and GA4 mktoFormSubmit all fire.
+      const mkto = globalForm?.marketoConfig;
+      if (mkto?.forms2?.baseUrl && mkto.forms2.munchkinId && mkto.forms2.formId) {
+        const mappings = mkto.fieldMappings ?? {};
+        const ghost: Record<string, string> = {};
+        for (const [label, value] of Object.entries(allFields)) {
+          if (!value) continue;
+          // Map by label; fall back to the label itself when there is no
+          // explicit mapping (Marketo will silently drop unknown fields).
+          const mktoKey = mappings[label] ?? label;
+          ghost[mktoKey] = value;
+        }
+        if (Object.keys(ghost).length > 0) {
+          setGhostSubmitVals(ghost);
+        }
+      }
+
       // Chili Piper handoff for native (non-Marketo) forms. Mirrors the
       // Marketo branch's behaviour so a global form with chiliPiperConfig
       // hands the visitor straight to the scheduler regardless of which
@@ -638,6 +684,23 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
 
   const isMarketo = props.formMode === "marketo";
 
+  // Hidden Marketo Forms2 "ghost submit". Mounted whenever a successful
+  // standard submit set `ghostSubmitVals` AND the linked global form has
+  // `marketoConfig.forms2` configured. Wrapped in display:none so the
+  // visitor never sees Marketo's own form HTML — Forms2 still POSTs.
+  const ghostMkto = globalForm?.marketoConfig?.forms2;
+  const ghostFormNode = ghostSubmitVals && ghostMkto?.baseUrl && ghostMkto.munchkinId && ghostMkto.formId ? (
+    <div aria-hidden="true" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", visibility: "hidden" }}>
+      <MarketoForm
+        baseUrl={ghostMkto.baseUrl}
+        munchkinId={ghostMkto.munchkinId}
+        formId={ghostMkto.formId}
+        prefill={ghostSubmitVals}
+        submitOnReady
+      />
+    </div>
+  ) : null;
+
   if (submitted) {
     return (
       <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={{ ...bgInlineStyle, ...(textOverride ? { color: textOverride } : null) }}>
@@ -654,12 +717,14 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {activeSuccessMessage || "Thank you!"}
           </h3>
         </div>
+        {ghostFormNode}
       </section>
     );
   }
 
   return (
     <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={{ ...bgInlineStyle, ...(textOverride ? { color: textOverride } : null) }}>
+      {ghostFormNode}
       <div className="max-w-xl mx-auto">
         {/* Hide the form headline/subheadline once the scheduler iframe has
             taken over — the scheduler should fill the available space without

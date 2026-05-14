@@ -13,6 +13,7 @@ interface MktoFormInstance {
   vals: (values: Record<string, string>) => void;
   getId: () => number;
   onSuccess: (cb: (values: unknown, followUpUrl: string) => boolean) => void;
+  submit: () => void;
 }
 
 declare global {
@@ -38,6 +39,16 @@ export interface MarketoFormProps {
    * — keys are the Marketo field names, e.g. `Email`, `FirstName`, `Phone`).
    */
   onSuccess?: (vals: Record<string, string>) => void;
+  /**
+   * "Ghost form" mode: as soon as the Marketo form has loaded and `vals` has
+   * been seeded with `prefill`, programmatically fire `form.submit()` so the
+   * submission lands in Marketo without the visitor ever seeing the embed.
+   * Caller is responsible for hiding the rendered container (e.g. wrapping
+   * in `display:none`) and for guaranteeing the same `prefill` object is
+   * only set once per intent — re-renders re-mount this component and
+   * would otherwise double-submit.
+   */
+  submitOnReady?: boolean;
   className?: string;
 }
 
@@ -75,9 +86,16 @@ export function MarketoForm({
   prefill,
   followUpUrl,
   onSuccess,
+  submitOnReady,
   className,
 }: MarketoFormProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // One-shot guard for `submitOnReady`: keyed by baseUrl+munchkinId+formId+
+  // stringified prefill, this ref records every (config, payload) pair we
+  // have already auto-submitted so a remount of the same hidden form (e.g.
+  // when BlockForm flips from the active branch to its `submitted` success
+  // branch carrying the same `ghostSubmitVals`) cannot fire a second submit.
+  const submittedKeysRef = useRef<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -111,6 +129,35 @@ export function MarketoForm({
               form.vals(prefill);
             } catch {
               // ignore
+            }
+          }
+          if (submitOnReady) {
+            // Build a stable key from the form coordinates AND the prefill
+            // payload, then short-circuit if we have already fired for it.
+            // Without this guard, an unmount/remount of the host (e.g.
+            // BlockForm switching to its `submitted` success branch with
+            // the same ghostSubmitVals in state) would auto-submit a
+            // second time.
+            const key = `${baseUrl}|${munchkinId}|${formId}|${JSON.stringify(prefill ?? {})}`;
+            if (!submittedKeysRef.current.has(key)) {
+              submittedKeysRef.current.add(key);
+              // Fire the hidden submit on the next tick so Marketo's own
+              // internal post-load wiring (validators, hidden field
+              // population, Munchkin association) has finished. Without
+              // the microtask gap, a too-early submit() can race the form
+              // setup and silently no-op.
+              try {
+                setTimeout(() => {
+                  try {
+                    form.submit();
+                  } catch {
+                    // ignore — visible UX has already moved on, the
+                    // server-side Marketo REST sync is the canonical record.
+                  }
+                }, 0);
+              } catch {
+                // ignore
+              }
             }
           }
           if (onSuccess || followUpUrl) {
@@ -161,7 +208,7 @@ export function MarketoForm({
     };
     // Stringify prefill so re-mount happens when values change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl, munchkinId, formId, JSON.stringify(prefill ?? {}), followUpUrl]);
+  }, [baseUrl, munchkinId, formId, JSON.stringify(prefill ?? {}), followUpUrl, submitOnReady]);
 
   return (
     <div className={className}>

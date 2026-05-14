@@ -35,6 +35,17 @@ interface GlobalForm {
 interface MarketoConfig {
   enabled?: boolean;
   fieldMappings: Record<string, string>;
+  /**
+   * Optional Marketo Forms2 "ghost submit" config. When all three are set,
+   * BlockForm fires a hidden Marketo Forms2 submission alongside the normal
+   * server-side REST sync, so the lead lands in Marketo through the Forms2
+   * path (Munchkin cookie association, Smart Campaign triggers, GA4 event).
+   */
+  forms2?: {
+    baseUrl: string;
+    munchkinId: string;
+    formId: number;
+  };
 }
 
 interface SalesforceConfig {
@@ -315,6 +326,15 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
 
   const setMarketoMappings = (m: Record<string, string>) =>
     set("marketoConfig", { ...(local.marketoConfig ?? { enabled: true, fieldMappings: {} }), fieldMappings: m });
+  const setMarketoForms2 = (patch: Partial<NonNullable<MarketoConfig["forms2"]>>) => {
+    const base = local.marketoConfig ?? { enabled: true, fieldMappings: {} };
+    const current = base.forms2 ?? { baseUrl: "", munchkinId: "", formId: 0 };
+    const next = { ...current, ...patch };
+    // If the operator clears all three, drop the forms2 sub-object entirely
+    // so the ghost-submit code path stays inert (no half-configured fires).
+    const cleared = !next.baseUrl && !next.munchkinId && !next.formId;
+    set("marketoConfig", { ...base, forms2: cleared ? undefined : next });
+  };
   const setSalesforceMappings = (m: Record<string, string>) =>
     set("salesforceConfig", { ...(local.salesforceConfig ?? { enabled: true, fieldMappings: {} }), fieldMappings: m });
   const toggleMarketo = (on: boolean) =>
@@ -482,6 +502,44 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                   <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
                     Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
                   </p>
+                  <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
+                    <div>
+                      <Label className={LABEL_CLS}>Forms2 "Ghost" Submit (optional)</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        When all three are set, every submit on this form also fires a hidden Marketo Forms2 submission so the lead is associated with the visitor's Munchkin cookie and triggers any Smart Campaigns wired to the form.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Base URL</Label>
+                        <Input
+                          className="text-sm font-mono"
+                          placeholder="//go.meetdandy.com"
+                          value={local.marketoConfig?.forms2?.baseUrl ?? ""}
+                          onChange={e => setMarketoForms2({ baseUrl: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Munchkin ID</Label>
+                        <Input
+                          className="text-sm font-mono"
+                          placeholder="103-HKO-179"
+                          value={local.marketoConfig?.forms2?.munchkinId ?? ""}
+                          onChange={e => setMarketoForms2({ munchkinId: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Form ID</Label>
+                        <Input
+                          type="number"
+                          className="text-sm font-mono"
+                          placeholder="3006"
+                          value={local.marketoConfig?.forms2?.formId || ""}
+                          onChange={e => setMarketoForms2({ formId: Number(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <div>
                     <Label className={LABEL_CLS}>Field Mappings</Label>
                     <p className="text-xs text-muted-foreground mb-2">Map form field labels to Marketo field names — one per line (Label:marketoFieldName)</p>
