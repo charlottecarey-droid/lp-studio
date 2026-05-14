@@ -1,0 +1,37 @@
+Yes, you can trigger a Marketo form submission in the background using a native Webflow form without visually displaying a Marketo form on your site. This is known as a "Ghost Form" submission or background submission.When the user submits your beautifully styled Webflow form, JavaScript interceptively injects the data into a hidden Marketo form container and pushes it to Marketo servers instantly.Step 1: Create a "Blank" Form in MarketoLog into Marketo and create a new form.Do not add any fields to it (leave it completely blank).Approve and close the form. Take note of its Form ID and your Marketo Munchkin ID from the embed code snippet.Step 2: Build the Webflow FormDesign a native Webflow form as you normally would.Select your input fields and make sure their Name attributes match the SOAP API names of your Marketo fields (e.g., Email, FirstName, LastName, Company).Step 3: Add the Custom Background script to WebflowGo to your Webflow Page Settings (or Site Settings) and paste this script into the Before body tag section:html<!-- Hidden Marketo Form Container -->
+<form id="mktoForm_YOUR_FORM_ID" style="display:none;"></form>
+<script src="//YOUR_MUNCHKIN_://mktoweb.com"></script>
+
+<script>
+// Replace with your actual Marketo Form ID and Munchkin Account ID
+const mktoFormId = YOUR_FORM_ID; 
+const munchkinId = "YOUR_MUNCHKIN_ID";
+
+// Load the Marketo script silently in the background
+MktoForms2.loadForm("//app-YOUR_SUBDOMAIN.marketo.com", munchkinId, mktoFormId);
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Replace with the HTML ID of your Webflow form
+  const webflowForm = document.getElementById("your-webflow-form-id");
+
+  if (webflowForm) {
+    webflowForm.addEventListener("submit", function(event) {
+      // 1. Capture values entered by the user in Webflow
+      const emailVal = document.getElementById("Email").value;
+      const firstNameVal = document.getElementById("FirstName").value;
+      const lastNameVal = document.getElementById("LastName").value;
+
+      // 2. Fetch the background Marketo form, inject data, and submit it
+      MktoForms2.getForm(mktoFormId).addHiddenFields({
+        "Email": emailVal,
+        "FirstName": firstNameVal,
+        "LastName": lastNameVal
+      }).submit();
+      
+      // Note: Do not use event.preventDefault() so that Webflow's native 
+      // success message/redirect mechanism continues to work normally.
+    });
+  }
+});
+</script>
+Use code with caution.Why this works best:No Styling Conflicts: You never have to handle messy Marketo CSS overrides on your Webflow elements.Native Experience: Webflow handles the loading spinners, validation, and success state layout natively.Full Automation Track: Because it utilizes the standard Forms2.js library, Marketo records this as a native Fills Out Form event activity, meaning your automated campaigns, lead scoring, and triggers will react flawlessly.If you are an Enterprise user, you can also native-map fields within your Webflow dashboard. Let me know:Are you on a Webflow Enterprise plan?Do you need help mapping specific custom Marketo fields?11 sitesMake a Marketo Form Submission in the Background via ...Apr 3, 2024 — Just for the sake of completeness, there's also a POST form submit REST API endpoint that you can use to register the form submit ...AdobeMake a Marketo Form Submission in the backgroundSep 30, 2015 — This post originally appears on the Marketo Developers Blog. When your organization has many different platforms for hosting web c...AdobeNon-Marketo form fills: tracking, getting notifications & setting ...Apr 19, 2022 — Best answer by Darshil_Shah1. You can use the submitForm API endpoint to make form submissions to Marketo - just that you need to ...AdobeShow all
