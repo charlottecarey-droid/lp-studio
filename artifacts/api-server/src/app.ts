@@ -61,11 +61,9 @@ app.use(
           "https://www.googletagmanager.com",
           "https://ddwl4m2hdecbv.cloudfront.net",
           "https://assets.apollo.io",
-          // Marketo Forms2 loader (forms2.min.js is served from the
-          // Dandy Marketo instance, Munchkin ID 103-HKO-179).
-          // TODO: confirm the exact app-XXX.marketo.com subdomain from the
-          // form's Embed Code and replace this placeholder.
-          "https://app-sj14.marketo.com",
+          // Marketo Forms2 loader (forms2.min.js) — served from Dandy's
+          // vanity CNAME for the Marketo instance (Munchkin 103-HKO-179).
+          "https://go.meetdandy.com",
         ],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
@@ -80,10 +78,10 @@ app.use(
           "https://*.apollo.io",
           "https://www.google-analytics.com",
           "https://*.googletagmanager.com",
-          // Marketo Forms2 — loader pings app-XXX.marketo.com, the actual
-          // form submit POSTs to <munchkinId>.mktoresp.com (Munchkin
-          // 103-HKO-179 → 103-hko-179.mktoresp.com). Wildcard covers it.
-          "https://app-sj14.marketo.com",
+          // Marketo Forms2 — loader pings go.meetdandy.com (Dandy's vanity
+          // CNAME for the Marketo instance), the actual form submit POSTs
+          // to <munchkinId>.mktoresp.com (103-HKO-179 → 103-hko-179.mktoresp.com).
+          "https://go.meetdandy.com",
           "https://*.mktoresp.com",
         ],
         "frame-ancestors": ["'self'", ...replitFrameAncestor],
