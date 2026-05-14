@@ -234,7 +234,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.35 }}
-      style={{ marginTop: "2rem", maxWidth: 480 }}
+      style={{ marginTop: "2rem", width: "100%", maxWidth: 480 }}
     >
     <form
       onSubmit={handleEmailSubmit}
@@ -473,8 +473,19 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         >
           <style>{`
             @media (max-width: 767px) {
-              .heartland-split .hl-split-row { flex-direction: column !important; }
-              .heartland-split .hl-split-content { flex: 1 1 100% !important; padding: 5.5rem 1.5rem 3.5rem !important; }
+              .heartland-split .hl-split-row {
+                flex-direction: column !important;
+                width: 100% !important;
+                max-width: 100% !important;
+              }
+              .heartland-split .hl-split-content {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+                padding: 5.5rem 1.5rem 3.5rem !important;
+              }
               .heartland-split .hl-split-image { display: none !important; }
             }
           `}</style>
