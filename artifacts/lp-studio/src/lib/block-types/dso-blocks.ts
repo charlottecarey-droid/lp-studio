@@ -112,6 +112,10 @@ export interface DsoHeartlandHeroBlockProps {
   stats: { value: string; label: string }[];
   showScrollIndicator?: boolean;
   /** When true, replaces the absolute nav with a premium sticky/blurring header. */
+  /** Override for the email-capture submit button background. Defaults to brand accent. */
+  buttonColor?: string;
+  /** Override for the email-capture submit button text color. Defaults to near-black. */
+  buttonTextColor?: string;
   stickyHeader?: boolean;
   /** Optional nav links (label + href) shown in the header. */
   navLinks?: { label: string; href: string }[];

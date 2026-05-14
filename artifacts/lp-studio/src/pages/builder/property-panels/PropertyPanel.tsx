@@ -2711,6 +2711,29 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </div>
               ))}
             </div>
+
+            {/* Button colors */}
+            <div className="space-y-3 border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Button Colors</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button background</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.buttonColor ?? "#C7E738" }}>
+                    <input type="color" value={p.buttonColor ?? "#C7E738"} onChange={e => onChange({ ...block, props: { ...p, buttonColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.buttonColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, buttonColor: e.target.value } })} placeholder="brand accent" className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button text color</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.buttonTextColor ?? "#0a1416" }}>
+                    <input type="color" value={p.buttonTextColor ?? "#0a1416"} onChange={e => onChange({ ...block, props: { ...p, buttonTextColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.buttonTextColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, buttonTextColor: e.target.value } })} placeholder="#0a1416" className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+            </div>
           </div>
         );
       }

@@ -272,8 +272,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         type="submit"
         className="inline-flex items-center justify-center rounded-full text-sm font-semibold"
         style={{
-          background: PRIMARY,
-          color: "hsl(192, 30%, 6%)",
+          background: p.buttonColor || PRIMARY,
+          color: p.buttonTextColor || "hsl(192, 30%, 6%)",
           padding: "0.75rem 1.5rem",
           border: "none",
           cursor: "pointer",
