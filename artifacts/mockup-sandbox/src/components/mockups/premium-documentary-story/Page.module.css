@@ -298,3 +298,7 @@
 .ctaButton:hover {
   opacity: 0.9;
 }
+
+.italic {
+  font-style: italic;
+}
