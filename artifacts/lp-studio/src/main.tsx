@@ -71,6 +71,32 @@ window.addEventListener("unhandledrejection", (e) => {
   if (isChunkLoadError(e.reason)) tryReloadOnce();
 });
 
+// Sentry's ErrorBoundary catches errors thrown by React.lazy() before our
+// global `error` / `unhandledrejection` listeners ever see them, so when a
+// stale tab loads a hashed chunk that no longer exists post-deploy, the user
+// gets stuck on the Sentry fallback screen until they manually refresh.
+// This fallback component checks the caught error and triggers the same
+// one-shot reload we use elsewhere.
+function RootErrorFallback({ error }: { error: unknown }) {
+  if (isChunkLoadError(error)) {
+    tryReloadOnce();
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-6 text-center bg-background">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading latest version…</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-6 text-center bg-background">
+      <p className="text-base font-medium">Something went wrong.</p>
+      <p className="text-sm text-muted-foreground">
+        The error has been reported. Please refresh the page to try again.
+      </p>
+    </div>
+  );
+}
+
 const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error(
@@ -79,16 +105,7 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(
-  <Sentry.ErrorBoundary
-    fallback={
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-6 text-center bg-background">
-        <p className="text-base font-medium">Something went wrong.</p>
-        <p className="text-sm text-muted-foreground">
-          The error has been reported. Please refresh the page to try again.
-        </p>
-      </div>
-    }
-  >
+  <Sentry.ErrorBoundary fallback={({ error }) => <RootErrorFallback error={error} />}>
     <App />
   </Sentry.ErrorBoundary>,
 );
