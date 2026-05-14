@@ -146,7 +146,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
               />
             ) : null}
           </div>
-          <div className="mt-4 text-center text-white pointer-events-none max-w-[480px]">
+          <div className="mt-2 text-center text-white pointer-events-none max-w-[480px]">
             <p className="text-base font-semibold">{activeItem.name}</p>
             {activeItem.practiceName && (
               <p className="text-white/65 text-sm mt-1">{activeItem.practiceName}</p>

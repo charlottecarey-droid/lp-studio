@@ -21,7 +21,7 @@ interface Props {
   variantId?: number;
 }
 
-const PRIMARY  = "hsl(72, 55%, 48%)";
+const PRIMARY  = "var(--brand-accent, #C7E738)";
 const MUTED_FG = "hsl(192, 10%, 55%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
