@@ -75,7 +75,13 @@ async function perplexityResearch(account: AccountContext): Promise<{ text: stri
           messages: [{ role: "user", content: query }],
         }),
       },
-      12000,
+      // 30s budget. sonar-pro routinely takes 15-20s when the account row is
+      // sparse (no domain/industry/state) because the model has to disambiguate
+      // the company name from public search results before it can answer. The
+      // old 12s timeout silently dropped most of those calls and left the
+      // synthesis LLM with nothing to chew on, producing the "skeleton" briefing
+      // bug (every array empty, every field null) we saw on imported accounts.
+      30000,
     );
     if (!resp.ok) {
       console.warn("[briefings] Perplexity returned", resp.status);
@@ -108,7 +114,10 @@ async function scrapeWebsite(url: string): Promise<string> {
         },
         body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
       },
-      8000,
+      // 15s — same reasoning as the Perplexity bump above. 8s is too tight for
+      // slow corporate marketing sites (heavy JS, CDN warmups), and a timeout
+      // here means the synthesis LLM loses the most reliable source of truth.
+      15000,
     );
     if (!resp.ok) {
       console.warn("[briefings] Firecrawl returned", resp.status);
