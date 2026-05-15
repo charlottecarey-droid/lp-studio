@@ -109,6 +109,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ownTenantId, setOwnTenantId] = useState<number | null | undefined>(undefined);
 
   const refresh = useCallback(async () => {
+    // Skip the session probe on public visitor-facing routes. The same
+    // React shell powers both the admin builder and the public landing
+    // page viewer, but anonymous visitors will never have a session
+    // cookie — so the probe always 401s and just adds console noise +
+    // a needless server hit per pageview. Routes covered:
+    //   /lp/:slug         — public landing page
+    //   /thank-you        — post-submit page
+    //   /p/:token         — personalized link resolver
+    //   /review/:token    — public review shell
+    // /preview/:slug is intentionally NOT in this list — it's an
+    // authenticated draft preview that needs the session.
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (
+        path.startsWith("/lp/") ||
+        path === "/thank-you" ||
+        path.startsWith("/p/") ||
+        path.startsWith("/review/")
+      ) {
+        setUser(null);
+        Sentry.setUser(null);
+        setLoading(false);
+        return;
+      }
+    }
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (res.ok) {

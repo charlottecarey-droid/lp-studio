@@ -206,6 +206,8 @@ function FieldInput({
   if (field.type === "textarea") {
     return (
       <textarea
+        id={field.id}
+        name={field.id}
         value={value}
         onChange={e => onChange(e.target.value)}
         onFocus={onFocus}
@@ -240,6 +242,8 @@ function FieldInput({
       .filter((o): o is { value: string; label: string } => o !== null);
     return (
       <select
+        id={field.id}
+        name={field.id}
         value={value}
         onChange={e => onChange(e.target.value)}
         onFocus={onFocus}
@@ -258,8 +262,10 @@ function FieldInput({
 
   if (field.type === "checkbox") {
     return (
-      <label className="flex items-center gap-2 cursor-pointer">
+      <label htmlFor={field.id} className="flex items-center gap-2 cursor-pointer">
         <input
+          id={field.id}
+          name={field.id}
           type="checkbox"
           checked={value === "true"}
           onChange={e => onChange(e.target.checked ? "true" : "")}
@@ -278,6 +284,8 @@ function FieldInput({
 
   return (
     <input
+      id={field.id}
+      name={field.id}
       type={inputType}
       value={value}
       // Phone inputs run through the live formatter so the visitor sees a
@@ -956,7 +964,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
-                  <label className={labelClass} style={textOverride ? { color: textOverride, opacity: 0.85 } : undefined}>
+                  <label htmlFor={field.id} className={labelClass} style={textOverride ? { color: textOverride, opacity: 0.85 } : undefined}>
                     {field.label}
                     {field.required && <span className="text-red-400 ml-0.5">*</span>}
                   </label>
@@ -980,7 +988,11 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             ))}
           </div>
 
-          <input ref={honeypotRef} type="text" name="_hp" className="hidden" tabIndex={-1} autoComplete="off" />
+          {/* Spam honeypot. aria-hidden + tabIndex=-1 keep it out of the
+              tab order and AT tree — but Chrome's Issues panel still flags
+              <input> without a visible label, so add a hidden label too. */}
+          <label htmlFor="_hp" className="hidden" aria-hidden="true">Leave blank</label>
+          <input ref={honeypotRef} id="_hp" type="text" name="_hp" className="hidden" tabIndex={-1} autoComplete="off" aria-hidden="true" />
 
           {submitError && (
             <p className="text-sm text-red-500 mt-4">{submitError}</p>
