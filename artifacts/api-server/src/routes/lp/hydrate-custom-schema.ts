@@ -1,6 +1,31 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
+/*
+ * NOTE on the IN-clause shape below.
+ *
+ * The previous version of this file used:
+ *
+ *   sql`... AND id = ANY(${idList}::int[])`
+ *
+ * which *looks* correct but silently fails at runtime. drizzle's `sql`
+ * template tag interpolates a JS array as a single positional parameter
+ * (`$2`), and node-postgres has no encoder that turns a JS array into a
+ * Postgres `int[]` for that param — the query throws with
+ *   "invalid input syntax for type integer: ..."
+ * The error was swallowed by the try/catch at every call site, so
+ * hydration silently returned the un-hydrated blocks. The visible symptom
+ * was every brand-new schema custom block on a public landing page
+ * rendering the placeholder "This schema custom block has no template
+ * yet" because the builder writes an empty per-instance snapshot
+ * (`schema: [], template: ""`) and relies on this hydration step to
+ * stamp the live source onto the response.
+ *
+ * The fix is to expand the array into individual parameter bindings via
+ * `sql.join`, producing `id IN ($2, $3, ...)`, which the driver can
+ * encode without help.
+ */
+
 /**
  * Server-side hydration of `custom-schema` blocks (task #120).
  *
@@ -79,12 +104,13 @@ export async function hydrateCustomSchemaBlocks(blocks: unknown, tenantId: numbe
   collectIds(blocks, ids);
   if (ids.size === 0) return blocks;
   const idList = Array.from(ids);
+  const idParams = sql.join(idList.map(n => sql`${n}`), sql`, `);
   const rows = await db.execute(
     sql`SELECT id, name, props
         FROM lp_custom_blocks
         WHERE tenant_id = ${tenantId}
           AND block_type = 'schema'
-          AND id = ANY(${idList}::int[])`,
+          AND id IN (${idParams})`,
   );
   const sources = new Map<number, HydratedSource>();
   for (const row of rows.rows as Array<{ id: number; name: string; props: Record<string, unknown> | null }>) {
