@@ -375,21 +375,38 @@
    hint at the additional stats off-screen.
    ───────────────────────────────────────────────────────────────────── */
 .dso-stats-row {
-  display: grid;
-  grid-template-columns: repeat(var(--dso-stats-count, 1), minmax(0, 1fr));
-  gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 2.5rem;
+}
+
+/* Below-video stat row is centered under the video, so center its items too. */
+.dso-stats-row--below-video {
+  justify-content: center;
+  gap: 3rem;
+}
+
+.dso-stats-row > .dso-stats-item {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 639px) {
-  /* 2 stats: keep them side-by-side, no scroll. */
+  /* 2 stats: even split, no scroll. */
   .dso-stats-row[data-stats-count="2"] {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .dso-stats-row[data-stats-count="2"] > .dso-stats-item {
+    flex: initial;
   }
 
   /* 3+ stats: horizontal scroll-snap row with peek + edge fade. */
   .dso-stats-row[data-stats-mode="scroll"] {
     display: flex;
-    grid-template-columns: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
