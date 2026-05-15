@@ -21,4 +21,15 @@ Omit alongside testId for non-A/B-test conversions.
   eventType: TrackEventInputEventType;
   /** Optional label for the conversion (e.g. "cta_click", "form_submit") */
   conversionType?: string;
+  /** Optional. The builder page the event fired on. Set so the
+analytics drill-down can attribute Marketo "ghost submit"
+failures to a specific page rather than only reporting a
+tenant-wide count.
+ */
+  pageId?: number;
+  /** Optional. The global form the event fired against. Used
+alongside pageId to attribute ghost-submit failures to the
+specific page + form pair that's broken.
+ */
+  formId?: number;
 }

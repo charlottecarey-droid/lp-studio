@@ -74,12 +74,29 @@ interface Overview {
 /*  Data hooks                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One row in the Marketo "ghost submit" drill-down. Each row attributes
+ * a (page, form) pair's hidden Forms2 attempts and failures over the
+ * active analytics window so admins can pinpoint which page/form is
+ * silently dropping leads (instead of bisecting across published pages).
+ */
+interface GhostSubmitRow {
+  pageId: number;
+  pageTitle: string;
+  pageSlug: string;
+  formId: number | null;
+  formName: string | null;
+  attempts: number;
+  failures: number;
+}
+
 function useAnalytics(days: number) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [traffic, setTraffic] = useState<TrafficDay[]>([]);
   const [pages, setPages] = useState<PageMetrics[]>([]);
   const [cities, setCities] = useState<CityRow[]>([]);
   const [countries, setCountries] = useState<CountryRow[]>([]);
+  const [ghostSubmits, setGhostSubmits] = useState<GhostSubmitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,20 +109,22 @@ function useAnalytics(days: number) {
       fetch(`${API_BASE}/lp/analytics/pages?days=${days}`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/locations`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/countries`).then(r => r.json()),
+      fetch(`${API_BASE}/lp/analytics/ghost-submits?days=${days}`).then(r => r.json()),
     ])
-      .then(([o, t, p, c, co]) => {
+      .then(([o, t, p, c, co, gs]) => {
         setOverview(o);
         setTraffic(t);
         setPages(p);
         setCities(c);
         setCountries(co);
+        setGhostSubmits(Array.isArray(gs) ? gs : []);
       })
       .catch(() => setError("Failed to load analytics data"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [days]);
-  return { overview, traffic, pages, cities, countries, loading, error, reload: load };
+  return { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload: load };
 }
 
 /* ------------------------------------------------------------------ */
@@ -418,7 +437,7 @@ function PagesTable({ pages, loading }: { pages: PageMetrics[]; loading: boolean
 /*  Conversion funnel                                                  */
 /* ------------------------------------------------------------------ */
 
-function ConversionFunnel({ overview, pages, loading }: { overview: Overview | null; pages: PageMetrics[]; loading: boolean }) {
+function ConversionFunnel({ overview, pages, ghostSubmits, loading }: { overview: Overview | null; pages: PageMetrics[]; ghostSubmits: GhostSubmitRow[]; loading: boolean }) {
   const totalImpressions = pages.reduce((s, p) => s + p.impressions, 0);
   const totalConversions = pages.reduce((s, p) => s + p.conversions, 0);
 
@@ -570,6 +589,69 @@ function ConversionFunnel({ overview, pages, loading }: { overview: Overview | n
                   <p className="text-[11px] text-muted-foreground">failed to load</p>
                 </div>
               </div>
+
+              {/* Drill-down: top failing (page, form) pairs. Without this
+                  list, a non-zero failure count above only tells the
+                  operator that *something* is broken — they'd still have
+                  to manually open every published page to find which
+                  form lost its Marketo wiring. Surface only rows with
+                  failures (attempts-only rows are healthy and would
+                  bury the actual offenders) and cap at five so the
+                  panel doesn't become a wall of text.
+
+                  Pre-migration ghost rows have no pageId/formId and are
+                  filtered out server-side, so the list can be empty
+                  even when the tenant-wide failure count is non-zero —
+                  in that case fall back to a hint pointing the admin
+                  at the upcoming attribution data. */}
+              {hasFailures && (
+                <div className="mt-3 pt-3 border-t border-red-200/60">
+                  {(() => {
+                    const failing = ghostSubmits.filter(g => g.failures > 0).slice(0, 5);
+                    if (failing.length === 0) {
+                      return (
+                        <p className="text-[11px] text-red-700/80">
+                          New failures will be attributed to a specific page and form. Older failures pre-date page/form attribution.
+                        </p>
+                      );
+                    }
+                    return (
+                      <>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-red-700/80 mb-2">
+                          Top failing pages
+                        </p>
+                        <div className="space-y-1.5">
+                          {failing.map(row => {
+                            const rate = row.attempts > 0 ? (row.failures / row.attempts) * 100 : 100;
+                            const formLabel = row.formName ?? (row.formId != null ? `Form #${row.formId}` : "—");
+                            return (
+                              <div
+                                key={`${row.pageId}|${row.formId ?? "none"}`}
+                                className="flex items-center justify-between gap-3 text-xs"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium text-red-900">{row.pageTitle}</p>
+                                  <p className="truncate text-red-700/70 text-[11px]">
+                                    /{row.pageSlug} · {formLabel}
+                                  </p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="font-semibold text-red-700 tabular-nums">
+                                    {row.failures.toLocaleString()} / {row.attempts.toLocaleString()}
+                                  </p>
+                                  <p className="text-[11px] text-red-700/70 tabular-nums">
+                                    {rate.toFixed(0)}% failed
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           );
         })()}
@@ -608,7 +690,7 @@ function ConversionFunnel({ overview, pages, loading }: { overview: Overview | n
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
-  const { overview, traffic, pages, cities, countries, loading, error, reload } = useAnalytics(days);
+  const { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload } = useAnalytics(days);
 
   const totalVisits = countries.reduce((s, r) => s + r.count, 0);
   const topCities = cities.slice(0, 20);
@@ -913,7 +995,7 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <ConversionFunnel overview={overview} pages={pages} loading={loading} />
+              <ConversionFunnel overview={overview} pages={pages} ghostSubmits={ghostSubmits} loading={loading} />
 
               {/* Lead trend chart */}
               <Card>

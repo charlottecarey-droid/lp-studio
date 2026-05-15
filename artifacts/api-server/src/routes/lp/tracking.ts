@@ -150,6 +150,13 @@ router.post("/lp/track", async (req, res): Promise<void> => {
     variantId: parsed.data.variantId ?? null,
     eventType: parsed.data.eventType,
     conversionType: parsed.data.conversionType ?? null,
+    // Page + form attribution. Both nullable in lp_events so callers
+    // that don't know either (legacy CTAs, impressions) keep working.
+    // The Marketo ghost-submit telemetry POSTs from BlockForm always
+    // send these so the analytics drill-down can pinpoint which page
+    // and form is silently dropping leads.
+    pageId: parsed.data.pageId ?? null,
+    formId: parsed.data.formId ?? null,
   }).returning();
 
   // Update smart traffic stats on conversion events (fire-and-forget). Smart

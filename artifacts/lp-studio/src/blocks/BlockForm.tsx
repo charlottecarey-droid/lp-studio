@@ -768,6 +768,12 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             };
             if (testId != null) trackBody.testId = testId;
             if (variantId != null) trackBody.variantId = variantId;
+            // Page + form attribution so the analytics drill-down can
+            // pinpoint *which* page/form is firing ghost submits — the
+            // tenant-wide count alone forced operators to manually
+            // bisect across published pages when a CSP / Marketo regression hit.
+            if (pageId != null) trackBody.pageId = pageId;
+            if (props.formId != null) trackBody.formId = props.formId;
             fetch(`${API_BASE}/lp/track`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -793,6 +799,11 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             };
             if (testId != null) trackBody.testId = testId;
             if (variantId != null) trackBody.variantId = variantId;
+            // Same attribution story as the _attempted branch above —
+            // attach pageId + formId so the failure can be charged to a
+            // specific page/form pair on the analytics drill-down.
+            if (pageId != null) trackBody.pageId = pageId;
+            if (props.formId != null) trackBody.formId = props.formId;
             fetch(`${API_BASE}/lp/track`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },

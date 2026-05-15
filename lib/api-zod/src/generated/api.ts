@@ -558,6 +558,18 @@ export const TrackEventBody = zod.object({
     .describe(
       'Optional label for the conversion (e.g. \"cta_click\", \"form_submit\")',
     ),
+  pageId: zod
+    .number()
+    .optional()
+    .describe(
+      'Optional. The builder page the event fired on. Set so the\nanalytics drill-down can attribute Marketo \"ghost submit\"\nfailures to a specific page rather than only reporting a\ntenant-wide count.\n',
+    ),
+  formId: zod
+    .number()
+    .optional()
+    .describe(
+      "Optional. The global form the event fired against. Used\nalongside pageId to attribute ghost-submit failures to the\nspecific page + form pair that's broken.\n",
+    ),
 });
 
 export const TrackEventResponse = zod.object({

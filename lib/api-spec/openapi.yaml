@@ -703,6 +703,19 @@ components:
         conversionType:
           type: string
           description: Optional label for the conversion (e.g. "cta_click", "form_submit")
+        pageId:
+          type: integer
+          description: |
+            Optional. The builder page the event fired on. Set so the
+            analytics drill-down can attribute Marketo "ghost submit"
+            failures to a specific page rather than only reporting a
+            tenant-wide count.
+        formId:
+          type: integer
+          description: |
+            Optional. The global form the event fired against. Used
+            alongside pageId to attribute ghost-submit failures to the
+            specific page + form pair that's broken.
       required:
         - sessionId
         - eventType

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { lpSessionsTable, lpPageVisitsTable, lpPagesTable, lpLeadsTable, lpEventsTable, lpVariantsTable, lpTestsTable } from "@workspace/db";
+import { lpSessionsTable, lpPageVisitsTable, lpPagesTable, lpLeadsTable, lpEventsTable, lpVariantsTable, lpTestsTable, lpFormsTable } from "@workspace/db";
 import { sql, eq, and, inArray } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 
@@ -544,6 +544,120 @@ router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
       ghostSubmitFailures: 0,
       period: "30d",
     });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/*  GET /lp/analytics/ghost-submits — drill-down for the ghost panel   */
+/*                                                                     */
+/*  Returns the top failing (page, form) pairs over the active period  */
+/*  so admins can pinpoint which page or form is silently dropping     */
+/*  Marketo leads — without this, a CSP / Marketo config regression    */
+/*  could only be caught by manually bisecting across published pages. */
+/* ------------------------------------------------------------------ */
+
+router.get("/lp/analytics/ghost-submits", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+
+  try {
+    const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "30", 10) || 30));
+    const dateFilter = sql`now() - make_interval(days => ${days})`;
+
+    // Tenant scope: lp_events has no direct tenant column. Page-attributed
+    // ghost rows can be filtered to this tenant's lp_pages cheaply via the
+    // new page_id column. Rows without a page_id (legacy pre-migration
+    // events) are intentionally excluded — they can't be attributed to a
+    // specific page anyway, so they belong only in the tenant-wide totals
+    // already returned by /lp/analytics/overview.
+    const tenantPages = await db
+      .select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId));
+
+    if (tenantPages.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const pageIds = tenantPages.map(p => p.id);
+    const pageById = new Map(tenantPages.map(p => [p.id, p]));
+
+    const rows = await db
+      .select({
+        pageId: lpEventsTable.pageId,
+        formId: lpEventsTable.formId,
+        conversionType: lpEventsTable.conversionType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(lpEventsTable)
+      .where(and(
+        eq(lpEventsTable.eventType, "conversion"),
+        inArray(lpEventsTable.conversionType, ["ghost_submit_attempted", "ghost_submit_failed"]),
+        sql`${lpEventsTable.createdAt} > ${dateFilter}`,
+        inArray(lpEventsTable.pageId, pageIds),
+      ))
+      .groupBy(lpEventsTable.pageId, lpEventsTable.formId, lpEventsTable.conversionType);
+
+    // Resolve form names. Restrict the lookup to forms owned by this
+    // tenant so a ghost-submit row carrying a stale formId from another
+    // tenant (shouldn't happen, but defence-in-depth) never leaks a name.
+    const formIds = Array.from(new Set(rows.map(r => r.formId).filter((id): id is number => id != null)));
+    const formNameById = new Map<number, string>();
+    if (formIds.length > 0) {
+      const forms = await db
+        .select({ id: lpFormsTable.id, name: lpFormsTable.name })
+        .from(lpFormsTable)
+        .where(and(eq(lpFormsTable.tenantId, tenantId), inArray(lpFormsTable.id, formIds)));
+      for (const f of forms) formNameById.set(f.id, f.name);
+    }
+
+    type Bucket = {
+      pageId: number;
+      pageTitle: string;
+      pageSlug: string;
+      formId: number | null;
+      formName: string | null;
+      attempts: number;
+      failures: number;
+    };
+    const merged = new Map<string, Bucket>();
+    for (const row of rows) {
+      if (row.pageId == null) continue;
+      const page = pageById.get(row.pageId);
+      if (!page) continue;
+      const key = `${row.pageId}|${row.formId ?? ""}`;
+      let bucket = merged.get(key);
+      if (!bucket) {
+        bucket = {
+          pageId: row.pageId,
+          pageTitle: page.title,
+          pageSlug: page.slug,
+          formId: row.formId,
+          formName: row.formId != null ? formNameById.get(row.formId) ?? null : null,
+          attempts: 0,
+          failures: 0,
+        };
+        merged.set(key, bucket);
+      }
+      if (row.conversionType === "ghost_submit_attempted") bucket.attempts += row.count;
+      if (row.conversionType === "ghost_submit_failed") bucket.failures += row.count;
+    }
+
+    // Surface the worst offenders first: rows with ANY failure ranked by
+    // raw failure count (not rate — a 100% failure rate on a single
+    // attempt is less urgent than 50% of a high-traffic form).
+    const result = [...merged.values()]
+      .filter(b => b.attempts > 0 || b.failures > 0)
+      .sort((a, b) => {
+        if (b.failures !== a.failures) return b.failures - a.failures;
+        return b.attempts - a.attempts;
+      });
+
+    res.json(result);
+  } catch (err) {
+    console.error("Ghost-submit drill-down error:", err);
+    res.json([]);
   }
 });
 

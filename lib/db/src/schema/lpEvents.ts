@@ -16,6 +16,14 @@ export const lpEventsTable = pgTable("lp_events", {
   variantId: integer("variant_id").references(() => lpVariantsTable.id, { onDelete: "cascade" }),
   eventType: text("event_type").notNull(),
   conversionType: text("conversion_type"),
+  // Page + form attribution for conversion telemetry. Both nullable so
+  // pre-existing rows and non-form events (impressions, cta_clicks)
+  // remain valid. No FK on purpose: a deleted page or form must not
+  // cascade-delete historical telemetry — the analytics drill-down has
+  // to keep showing "page #42 (deleted)" rather than losing the row
+  // entirely. See migration 0015_lp_events_page_form_id.sql.
+  pageId: integer("page_id"),
+  formId: integer("form_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
