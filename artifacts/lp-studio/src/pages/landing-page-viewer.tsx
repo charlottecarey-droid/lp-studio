@@ -28,6 +28,7 @@ import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
+import { useAuth } from "@/context/AuthContext";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BlockRenderer, NO_REVEAL } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
@@ -412,8 +413,16 @@ export default function LandingPageViewer() {
   // Live custom-block sources for `custom-schema` rendering (task #120).
   // Schema-driven custom blocks store only a customBlockId reference, so
   // the renderer needs the live schema/template to interpolate values.
+  //
+  // Anonymous public visitors don't need this fetch — `/api/lp/custom-blocks`
+  // is a tenant-scoped admin endpoint that 401s without a session, and the
+  // viewer falls back to the per-instance snapshot embedded in each block's
+  // props. Gating on `user` skips a wasted round-trip + console 401 noise on
+  // every public pageview (the dominant traffic on partners.meetdandy.com).
+  const { user: authUser } = useAuth();
   const [customBlockSources, setCustomBlockSources] = useState<CustomBlockSource[]>([]);
   useEffect(() => {
+    if (!authUser) return;
     let cancelled = false;
     fetch("/api/lp/custom-blocks")
       .then(r => (r.ok ? r.json() : []))
@@ -428,7 +437,7 @@ export default function LandingPageViewer() {
       })
       .catch(() => { /* viewer falls back to per-instance snapshot */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [authUser]);
 
   // ── Page-specific title + OG meta tags ──────────────────────────────────────
   // Updates the browser tab title and social media meta tags as soon as page

@@ -36,6 +36,12 @@ function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind;
     if (!videoSrc) {
       return <div className="id-art-video id-art-video-empty" aria-hidden />;
     }
+    // Only the *active* pillar's video preloads anything from the network on
+    // mount. Inactive pillars defer entirely (`preload="none"`) — the imperative
+    // play() in the effect above will trigger a load when the user scrolls to
+    // them. Without this, every pillar's video (5–10 MP4s, multi-MB each) hits
+    // the network in parallel during initial page load and competes with the
+    // hero's bg image, fonts, and JS chunks for bandwidth.
     return (
       <video
         ref={videoRef}
@@ -44,7 +50,7 @@ function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind;
         muted
         loop
         playsInline
-        preload="metadata"
+        preload={isActive ? "metadata" : "none"}
         style={{ objectPosition: videoPosition || "center" }}
         aria-hidden
       />
