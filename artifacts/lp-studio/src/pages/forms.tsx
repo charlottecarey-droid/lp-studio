@@ -8,9 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch, Copy } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch, Copy, AlertTriangle, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
+import { MarketoForm } from "@/components/MarketoForm";
 
 const API_BASE = "/api";
 
@@ -306,6 +307,32 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   const [marketoText, setMarketoText] = useState(mappingsToText(form.marketoConfig?.fieldMappings));
   const [salesforceText, setSalesforceText] = useState(mappingsToText(form.salesforceConfig?.fieldMappings));
 
+  // Marketo Forms2 ghost-submit test harness. We mount a hidden <MarketoForm>
+  // with `submitOnReady` whenever `testStatus === "sending"`, then resolve to
+  // "sent" / "error" via the component's onSuccess / onLoadError callbacks.
+  // `testKey` is bumped on every click so a follow-up test re-mounts the form
+  // (the component is one-shot per (config, prefill) pair).
+  const [testStatus, setTestStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testKey, setTestKey] = useState(0);
+
+  // Timeout fallback: a Forms2 submit that gets past the loader but never
+  // fires `onSuccess` (e.g. Marketo silently dropped the request, the form's
+  // own validators rejected the payload) would otherwise leave the test
+  // pinned at "sending" forever. After 15s, surface a generic failure so
+  // editors get a terminal state to react to.
+  useEffect(() => {
+    if (testStatus !== "sending") return;
+    const t = setTimeout(() => {
+      setTestStatus(prev => {
+        if (prev !== "sending") return prev;
+        setTestError("Marketo did not confirm the test submission within 15s. Check the Marketo activity log to see whether it landed.");
+        return "error";
+      });
+    }, 15000);
+    return () => clearTimeout(t);
+  }, [testStatus, testKey]);
+
   const [chiliPiperFieldMapText, setChiliPiperFieldMapText] = useState(mappingsToText(form.chiliPiperConfig?.fieldMap));
 
   useEffect(() => {
@@ -316,6 +343,8 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
     setMarketoText(mappingsToText(form.marketoConfig?.fieldMappings));
     setSalesforceText(mappingsToText(form.salesforceConfig?.fieldMappings));
     setChiliPiperFieldMapText(mappingsToText(form.chiliPiperConfig?.fieldMap));
+    setTestStatus("idle");
+    setTestError(null);
   }, [form.id]);
 
   const set = <K extends keyof GlobalForm>(k: K, v: GlobalForm[K]) => setLocal(p => ({ ...p, [k]: v }));
@@ -539,6 +568,103 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                         />
                       </div>
                     </div>
+                    {(() => {
+                      const f2 = local.marketoConfig?.forms2;
+                      const hasAny = !!(f2?.baseUrl || f2?.munchkinId || f2?.formId);
+                      const hasAll = !!(f2?.baseUrl && f2?.munchkinId && f2?.formId);
+                      const partial = hasAny && !hasAll;
+                      const mappingValues = Object.values(local.marketoConfig?.fieldMappings ?? {}).map(v => v.trim().toLowerCase());
+                      const formLabels = local.steps.flatMap(s => s.fields.map(f => (f.label ?? "").trim().toLowerCase()));
+                      // Mirrors BlockForm's ghost-submit logic: a field with an
+                      // explicit mapping to "email" works, and so does an
+                      // unmapped field whose label is literally "email".
+                      const hasEmailMapping = mappingValues.includes("email") || formLabels.includes("email");
+                      if (!partial && hasEmailMapping) return null;
+                      return (
+                        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 space-y-1.5">
+                          {partial && (
+                            <div className="flex items-start gap-2 text-[12px] text-amber-900">
+                              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                              <span>Forms2 ghost submit needs <strong>all three</strong> of Base URL, Munchkin ID and Form ID to fire. Until you fill the missing ones, submits skip the Forms2 path entirely.</span>
+                            </div>
+                          )}
+                          {!hasEmailMapping && (
+                            <div className="flex items-start gap-2 text-[12px] text-amber-900">
+                              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                              <span>No field maps to <code className="bg-amber-100 px-1 rounded">email</code>. Marketo uses email as the lead lookup key — submissions without it are dropped silently. Add a mapping like <code className="bg-amber-100 px-1 rounded">Email Address:email</code> below.</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    {(() => {
+                      const f2 = local.marketoConfig?.forms2;
+                      const hasAll = !!(f2?.baseUrl && f2?.munchkinId && f2?.formId);
+                      const sendTest = () => {
+                        setTestError(null);
+                        setTestStatus("sending");
+                        setTestKey(k => k + 1);
+                      };
+                      // Build a sample payload from the current mappings (so
+                      // editors test against fields they have actually wired
+                      // up). Intentionally NOT auto-injecting an email when no
+                      // mapping resolves to one — that would mask the
+                      // "no email mapping" warning above and let a broken
+                      // form pass the test.
+                      const samples: Record<string, string> = {
+                        email: "test+lp-studio@meetdandy.com",
+                        firstName: "Test",
+                        lastName: "Submission",
+                        company: "Inside Dandy",
+                        phone: "+15555550123",
+                      };
+                      const prefill: Record<string, string> = {};
+                      const mapped = Object.values(local.marketoConfig?.fieldMappings ?? {});
+                      for (const key of mapped) {
+                        if (!key) continue;
+                        prefill[key] = samples[key.toLowerCase()] ?? `test ${key}`;
+                      }
+                      const sampleEmail = Object.entries(prefill).find(([, v]) => v.includes("@"))?.[1] ?? samples.email;
+                      return (
+                        <div className="pt-2 border-t border-dashed border-border space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-xs"
+                              disabled={!hasAll || testStatus === "sending"}
+                              onClick={sendTest}
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              {testStatus === "sending" ? "Sending…" : "Send test submission"}
+                            </Button>
+                            {testStatus === "sent" && (
+                              <span className="text-xs text-green-700 inline-flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Marketo accepted the test lead.</span>
+                            )}
+                            {testStatus === "error" && (
+                              <span className="text-xs text-red-600 inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> {testError ?? "Test failed."}</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Posts a sample payload through the same hidden Forms2 path as live submits. Look for the lead under <code className="bg-muted px-1 rounded">{sampleEmail}</code> in Marketo's lead activity log.
+                          </p>
+                          {testStatus === "sending" && hasAll && (
+                            <div style={{ position: "absolute", left: -9999, top: -9999, width: 1, height: 1, overflow: "hidden" }} aria-hidden="true">
+                              <MarketoForm
+                                key={testKey}
+                                baseUrl={f2!.baseUrl}
+                                munchkinId={f2!.munchkinId}
+                                formId={f2!.formId}
+                                prefill={prefill}
+                                submitOnReady
+                                onSuccess={() => setTestStatus("sent")}
+                                onLoadError={msg => { setTestError(msg); setTestStatus("error"); }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div>
                     <Label className={LABEL_CLS}>Field Mappings</Label>

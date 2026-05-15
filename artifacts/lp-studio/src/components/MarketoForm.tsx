@@ -49,6 +49,12 @@ export interface MarketoFormProps {
    * would otherwise double-submit.
    */
   submitOnReady?: boolean;
+  /**
+   * Fires when the Marketo loader script (or `loadForm`) fails. Lets callers
+   * surface a "ghost submit failed" state in their own UI without having to
+   * scrape the internal error message.
+   */
+  onLoadError?: (message: string) => void;
   className?: string;
 }
 
@@ -87,6 +93,7 @@ export function MarketoForm({
   followUpUrl,
   onSuccess,
   submitOnReady,
+  onLoadError,
   className,
 }: MarketoFormProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,8 +108,10 @@ export function MarketoForm({
 
   useEffect(() => {
     if (!baseUrl || !munchkinId || !formId) {
-      setError("Marketo form is not configured.");
+      const msg = "Marketo form is not configured.";
+      setError(msg);
       setLoading(false);
+      onLoadError?.(msg);
       return;
     }
     setError(null);
@@ -199,8 +208,10 @@ export function MarketoForm({
       })
       .catch(() => {
         if (cancelled) return;
-        setError("Could not load the Marketo form. Please try again later.");
+        const msg = "Could not load the Marketo form. Please try again later.";
+        setError(msg);
         setLoading(false);
+        onLoadError?.(msg);
       });
 
     return () => {
