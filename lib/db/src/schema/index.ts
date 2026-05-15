@@ -21,6 +21,7 @@ export * from "./salesHotlinks";
 export * from "./salesEmails";
 export * from "./salesSignals";
 export * from "./salesBriefings";
+export * from "./salesContactBriefings";
 export * from "./salesInbound";
 export * from "./salesLayoutDefaults";
 export * from "./salesOnePagerTemplates";

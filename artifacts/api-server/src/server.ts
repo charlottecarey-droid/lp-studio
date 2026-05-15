@@ -1084,6 +1084,22 @@ async function runMigrationsBody(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_sales_briefings_tenant_id    ON sales_briefings    (tenant_id);
       CREATE INDEX IF NOT EXISTS idx_sfdc_opportunities_tenant_id ON sfdc_opportunities (tenant_id);
       CREATE INDEX IF NOT EXISTS idx_sfdc_leads_tenant_id         ON sfdc_leads         (tenant_id);
+
+      -- Per-contact AI call-prep briefs (mirrors sales_briefings but per
+      -- person). Persists the markdown brief produced by /api/sales/person-brief
+      -- so the contact-detail page can show yesterday's research without
+      -- regenerating. See lib/db/migrations/0016_sales_contact_briefings.sql.
+      CREATE TABLE IF NOT EXISTS sales_contact_briefings (
+        id          serial PRIMARY KEY,
+        tenant_id   integer NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        contact_id  integer NOT NULL REFERENCES sales_contacts(id) ON DELETE CASCADE,
+        brief_text  text NOT NULL DEFAULT '',
+        status      text NOT NULL DEFAULT 'complete',
+        created_at  timestamptz NOT NULL DEFAULT now(),
+        updated_at  timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX        IF NOT EXISTS idx_sales_contact_briefings_tenant_id     ON sales_contact_briefings (tenant_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_contact_briefings_tenant_contact ON sales_contact_briefings (tenant_id, contact_id);
     `);
     logger.info("Migrations applied successfully");
 

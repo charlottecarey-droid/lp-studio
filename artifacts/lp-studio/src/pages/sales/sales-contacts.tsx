@@ -32,6 +32,9 @@ import {
   Plus,
   MailX,
   AlertTriangle,
+  Brain,
+  RefreshCw,
+  ChevronUp,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -1216,6 +1219,201 @@ function ContactListView() {
 
 /* ─── Contact Detail View ────────────────────────────────────── */
 
+/* ─── Contact Briefing Panel ─────────────────────────────────
+ * Persistent AI call-prep brief, mirrors BriefingPanel on the account-
+ * detail page but for an individual contact. Brief text is plain
+ * markdown returned by /api/sales/contacts/:id/brief — we render the
+ * `**SECTION**` headers (and any inline bold) without pulling in a
+ * full markdown library.
+ */
+interface ContactBriefingRow {
+  id: number;
+  contactId: number;
+  briefText: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function renderBriefMarkdown(text: string): React.ReactNode {
+  // Split into paragraphs on blank lines so SECTION headers separate
+  // visually. Each paragraph keeps its internal newlines (bullets stay
+  // one-per-line) via `whitespace-pre-wrap`.
+  const paragraphs = text.trim().split(/\n\s*\n/);
+  return paragraphs.map((para, i) => {
+    // Detect a paragraph whose first line is a bare **HEADER** — render
+    // that header as a section title and the rest as body.
+    const lines = para.split("\n");
+    const headerMatch = lines[0].trim().match(/^\*\*(.+?)\*\*\s*(\*\(.+\)\*)?\s*$/);
+    if (headerMatch) {
+      const headerText = headerMatch[1];
+      const headerNote = headerMatch[2]?.replace(/^\*\((.+)\)\*$/, "$1");
+      const body = lines.slice(1).join("\n").trim();
+      return (
+        <div key={i} className="flex flex-col gap-1.5">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {headerText}
+            {headerNote && <span className="ml-1.5 normal-case font-normal text-[10px] text-muted-foreground/70">({headerNote})</span>}
+          </h4>
+          {body && (
+            <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+              {renderInlineBold(body)}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div key={i} className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+        {renderInlineBold(para)}
+      </div>
+    );
+  });
+}
+
+function renderInlineBold(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    const m = part.match(/^\*\*(.+)\*\*$/);
+    return m ? <strong key={i} className="font-semibold">{m[1]}</strong> : <span key={i}>{part}</span>;
+  });
+}
+
+function ContactBriefingPanel({ contactId }: { contactId: number }) {
+  const [brief, setBrief] = useState<ContactBriefingRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`${API_BASE}/sales/contacts/${contactId}/brief`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled) setBrief(data); })
+      .catch(() => { if (!cancelled) setBrief(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [contactId]);
+
+  async function generate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sales/contacts/${contactId}/brief`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setBrief(data);
+        setExpanded(true);
+      } else {
+        setError(data?.error ?? `Brief generation failed (${res.status}). Please try again.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  if (loading) {
+    return <Skeleton className="h-[80px] rounded-2xl" />;
+  }
+
+  // No brief yet — generate CTA
+  if (!brief || !brief.briefText.trim()) {
+    return (
+      <Card className="p-5 rounded-2xl border border-dashed border-primary/30 bg-primary/5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Brain className="w-6 h-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-foreground text-sm">AI Contact Brief</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Generate a pre-call brief with conversation starters, role-specific pain points, and the best Dandy angle for this person
+            </p>
+          </div>
+          <Button onClick={generate} disabled={generating} className="gap-2">
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Researching…
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Generate Brief
+              </>
+            )}
+          </Button>
+        </div>
+        {error && (
+          <div className="mt-3 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-xs text-red-700 leading-snug dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400">
+            {error}
+          </div>
+        )}
+      </Card>
+    );
+  }
+
+  // Brief exists — expandable summary card
+  // Use the first non-header line as the collapsed-state preview.
+  const previewLine = (() => {
+    for (const line of brief.briefText.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^\*\*.+\*\*\s*(\*\(.+\)\*)?$/.test(trimmed)) continue; // skip section headers
+      return trimmed.replace(/^[-*•\d.\s]+/, "").replace(/\*\*/g, "");
+    }
+    return "AI-generated call-prep brief";
+  })();
+
+  return (
+    <Card className="rounded-2xl border border-border/60 overflow-hidden">
+      <div
+        className="flex items-center gap-4 p-5 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Brain className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-foreground text-sm">AI Contact Brief</p>
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{previewLine}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={(e) => { e.stopPropagation(); generate(); }}
+          disabled={generating}
+          title="Refresh brief"
+        >
+          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+        </Button>
+        {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </div>
+
+      {expanded && (
+        <div className="px-5 pb-5 flex flex-col gap-4 border-t border-border/40 pt-5">
+          {renderBriefMarkdown(brief.briefText)}
+          {error && (
+            <div className="px-3 py-2 rounded-md bg-red-50 border border-red-200 text-xs text-red-700 leading-snug dark:bg-red-950/30 dark:border-red-900/50 dark:text-red-400">
+              {error}
+            </div>
+          )}
+          {brief.updatedAt && (
+            <p className="text-[10px] text-muted-foreground text-right">
+              Last updated {format(new Date(brief.updatedAt), "MMM d, yyyy 'at' h:mm a")}
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ContactDetailView({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const [contact, setContact] = useState<Contact | null>(null);
@@ -1430,6 +1628,9 @@ function ContactDetailView({ id }: { id: string }) {
             </div>
           </div>
         </Card>
+
+        {/* AI Contact Brief */}
+        <ContactBriefingPanel contactId={contact.id} />
 
         {/* Engagement Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
