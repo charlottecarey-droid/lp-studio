@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   CheckCircle2,
@@ -2614,7 +2614,66 @@ function FormModal({
   );
 }
 
-function FormSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void }) {
+/**
+ * Premium "lime hairline + glow" divider between the guest-form section and
+ * the subscribe CTA section. Self-contained so removing it is a one-line
+ * change in the parent. Inherits the brand-aware accent (`C.primary`) so
+ * future palette changes flow through automatically.
+ *
+ * Animation: a slow, low-amplitude glow breath that is dropped entirely when
+ * the visitor has `prefers-reduced-motion: reduce` set.
+ */
+function SectionTransition({ C }: { C: ResolvedTheme }) {
+  // Framer Motion's hook reads the media query on first render (SSR-safe),
+  // so animated users never see an initial frame before the static fallback
+  // kicks in for `prefers-reduced-motion: reduce`.
+  const reduceMotion = useReducedMotion() ?? false;
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "relative",
+        height: "clamp(96px, 14vw, 152px)",
+        backgroundColor: C.bg,
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "none",
+      }}
+    >
+      {/* Soft radial glow centered on the hairline */}
+      <motion.div
+        initial={false}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: [0.75, 1, 0.75] }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 6, ease: "easeInOut", repeat: Infinity }}
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          width: "min(720px, 90%)",
+          height: "260%",
+          transform: "translate(-50%, -50%)",
+          background: `radial-gradient(ellipse at center, ${rgba(C.primary, 0.28)} 0%, ${rgba(C.primary, 0.12)} 28%, transparent 62%)`,
+          filter: "blur(2px)",
+        }}
+      />
+      {/* Lime hairline with horizontal fade */}
+      <div
+        style={{
+          position: "relative",
+          height: "1px",
+          width: "100%",
+          maxWidth: "min(760px, 88%)",
+          background: `linear-gradient(90deg, transparent 0%, ${rgba(C.primary, 0.85)} 50%, transparent 100%)`,
+        }}
+      />
+    </div>
+  );
+}
+
+function FormSection({ p, C, onOpenForm, hasFollowingTransition }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void; hasFollowingTransition?: boolean }) {
   const steps = p.formSteps ?? [];
   if (!steps.length) return null;
 
@@ -2631,7 +2690,10 @@ function FormSection({ p, C, onOpenForm }: { p: ContentSeriesBlockProps; C: Reso
         style={{
           padding: "7rem 1.5rem",
           backgroundColor: C.bg,
-          borderBottom: `1px solid ${C.borderDim}`,
+          // When the SectionTransition follows, it owns the divider role.
+          // Otherwise we keep the original 1px hairline so other compositions
+          // (form section without a CTA below it) don't lose their separator.
+          borderBottom: hasFollowingTransition ? undefined : `1px solid ${C.borderDim}`,
           position: "relative",
           overflow: "hidden",
         }}
@@ -3058,7 +3120,8 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
         {(safeProps.showEpisodes !== false) && <EpisodeLibrary p={effective} C={C} />}
         {(safeProps.showHosts !== false) && <HostsSection p={effective} C={C} />}
         {(safeProps.showAbout !== false) && <AboutSection p={effective} C={C} />}
-        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openGuestForm()} />}
+        {(safeProps.showForm !== false) && <FormSection p={effective} C={C} onOpenForm={() => openGuestForm()} hasFollowingTransition={safeProps.showCta !== false} />}
+        {(safeProps.showForm !== false) && (safeProps.showCta !== false) && <SectionTransition C={C} />}
         {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onSubscribe={openSubscribeForm} />}
       </div>
       {formModalState.open && (
