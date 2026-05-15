@@ -1362,6 +1362,7 @@ export default function LandingPageViewer() {
                   ].map(([label, href]) => (
                     <li key={label}><a href={href} target="_blank" rel="noopener noreferrer" className="text-white/50 text-sm hover:text-white/80 transition-colors">{label}</a></li>
                   ))}
+                  <li id="ot-sdk-btn" className="ot-sdk-show-settings menu-item menu-item-type-custom menu-item-object-custom menu-item-15259 text-white/50 text-sm hover:text-white/80 transition-colors cursor-pointer"><span className="menu-item-without-link">Do Not Sell or Share My Personal Information</span></li>
                 </ul>
               </div>
               <div>
