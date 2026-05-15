@@ -244,12 +244,22 @@ test.describe("Marketo Forms2 ghost submit", () => {
     const ghostPosts: Array<{ url: string; body: unknown }> = [];
     await page.route("**/*.mktoresp.com/**", async (route) => {
       const req = route.request();
-      let body: unknown = null;
-      const raw = req.postData();
-      if (raw) {
-        try { body = JSON.parse(raw); } catch { body = raw; }
+      const url = req.url();
+      // The Munchkin tracking script (loaded via <MunchkinLoader> on every
+      // page that has a Marketo-configured form) fires its own visitor-
+      // tracking GETs to `<munchkinId>.mktoresp.com/webevents/visitWebPage`
+      // when `Munchkin.init()` runs. Those are intentional and unrelated
+      // to the ghost-submit code path under test, so stub them to 200 but
+      // do NOT count them against the "exactly one ghost POST" assertion.
+      const isGhostSubmit = url.includes("/leadCapture/save2");
+      if (isGhostSubmit) {
+        let body: unknown = null;
+        const raw = req.postData();
+        if (raw) {
+          try { body = JSON.parse(raw); } catch { body = raw; }
+        }
+        ghostPosts.push({ url, body });
       }
-      ghostPosts.push({ url: req.url(), body });
       await route.fulfill({
         status: 200,
         contentType: "application/json",
