@@ -141,6 +141,28 @@ export function MarketoForm({
             }
           }
           if (submitOnReady) {
+            // CRITICAL: register a guaranteed "cancel default redirect"
+            // handler BEFORE we queue form.submit(), and BEFORE the
+            // caller-provided onSuccess registration below. Marketo
+            // Forms2's default behaviour after a successful POST is to
+            // navigate the page to the form's configured Thank You /
+            // follow-up URL — for an approved form with no explicit
+            // follow-up URL this collapses to a full-page reload, which
+            // wipes out the Chili Piper handoff (the visitor watches the
+            // page refresh and the scheduler iframe never appears).
+            //
+            // Marketo cancels the redirect if ANY registered onSuccess
+            // returns false. Registering this no-op guard first means the
+            // cancel happens regardless of what BlockForm's resolver
+            // callback returns, and regardless of the order Marketo
+            // invokes the handlers in.
+            try {
+              form.onSuccess(() => false);
+            } catch {
+              // ignore
+            }
+          }
+          if (submitOnReady) {
             // Build a stable key from the form coordinates AND the prefill
             // payload, then short-circuit if we have already fired for it.
             // Without this guard, an unmount/remount of the host (e.g.
