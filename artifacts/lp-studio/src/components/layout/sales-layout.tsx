@@ -398,7 +398,16 @@ export function SalesLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="sales-console min-h-screen w-full bg-gradient-to-b from-background to-background/95 selection:bg-primary/20 flex flex-col">
       <SalesTopNav />
-      <main className="flex-1 overflow-auto px-5 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
+      {/*
+        NOTE: do NOT add `overflow-auto` (or `flex-1` height-trapping) to <main>.
+        The sticky top-nav sticks to the viewport on its own, so we let the
+        <body> scroll naturally. A previous version used
+        `<main className="flex-1 overflow-auto">` inside this `min-h-screen`
+        flex column, which trapped wheel events on main but never engaged
+        an internal scrollbar — long pages like the expanded Account
+        Briefing on /sales/accounts/:id became completely unscrollable.
+      */}
+      <main className="flex-1 px-5 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
         <div className="max-w-[1200px] mx-auto w-full">{children}</div>
       </main>
     </div>
