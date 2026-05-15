@@ -438,3 +438,16 @@
     padding-bottom: 3rem !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Template marketplace preview: disable in-page sticky headers (e.g.
+   BlockDsoPracticeNav, BlockNavHeader) so they don't escape the dialog
+   body and overlap the marketplace's own header / "Use this template"
+   button. Real public landing pages keep their sticky behavior; this
+   override is scoped to the .template-preview-root wrapper.
+   ───────────────────────────────────────────────────────────────────── */
+.template-preview-root .sticky,
+.template-preview-root [class*="sticky top-"] {
+  position: relative !important;
+  top: auto !important;
+}
