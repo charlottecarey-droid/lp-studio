@@ -102,9 +102,18 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
 
         {/* Bottom bar */}
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-slate-400">
-            <InlineText as="span" value={copyright} onUpdate={field("copyrightText")} />
-          </p>
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-5 text-sm text-slate-400">
+            <p>
+              <InlineText as="span" value={copyright} onUpdate={field("copyrightText")} />
+            </p>
+            <button
+              type="button"
+              id="ot-sdk-btn"
+              className="ot-sdk-show-settings text-sm text-slate-400 hover:text-[var(--brand-primary)] transition-colors bg-transparent border-0 p-0 cursor-pointer text-left"
+            >
+              Do Not Sell or Share My Personal Information
+            </button>
+          </div>
           <div className="flex items-center gap-3">
             {props.facebookUrl && (
               <a href={normalizeHref(props.facebookUrl)} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
