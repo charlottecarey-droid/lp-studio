@@ -548,7 +548,19 @@ const SalesRoiCalculator = () => {
             </div>
           </motion.div>
 
-          <p className="mt-8 text-[11px] text-muted-foreground/50 leading-relaxed text-center">
+          <p className="mt-8 text-[13px] text-muted-foreground text-center">
+            Need to see ROI on a unit level?{" "}
+            <a
+              href="https://partners.meetdandy.com/crown-calculator"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-[var(--brand-primary)] underline underline-offset-2 hover:opacity-80 transition-opacity"
+            >
+              View the crown calculator
+            </a>
+          </p>
+
+          <p className="mt-3 text-[11px] text-muted-foreground/50 leading-relaxed text-center">
             Calculations based on per-practice estimates. Actual results may vary based on case mix, clinical workflow, and lab partner quality.
           </p>
         </div>
