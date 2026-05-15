@@ -118,17 +118,21 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.5 }}
+      className="dso-stats-row"
+      data-stats-count={p.stats.length}
+      data-stats-mode={p.stats.length >= 3 ? "scroll" : "grid"}
+      role={p.stats.length >= 3 ? "region" : undefined}
+      aria-label={p.stats.length >= 3 ? "Key statistics" : undefined}
+      tabIndex={p.stats.length >= 3 ? 0 : undefined}
       style={{
         marginTop: isSplit ? "2rem" : "3.5rem",
-        display: "grid",
-        gridTemplateColumns: `repeat(${p.stats.length}, 1fr)`,
-        gap: "0.5rem",
+        ["--dso-stats-count" as string]: String(p.stats.length),
         borderTop: "1px solid rgba(255,255,255,0.10)",
         paddingTop: "1.5rem",
       }}
     >
       {p.stats.map((s, i) => (
-        <div key={i}>
+        <div key={i} className="dso-stats-item">
           <div
             style={{
               fontFamily: DISPLAY_FONT,
@@ -1030,19 +1034,22 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.6 }}
+                className="dso-stats-row dso-stats-row--below-video"
+                data-stats-count={Math.min(p.stats.length, 4)}
+                data-stats-mode={p.stats.length >= 3 ? "scroll" : "grid"}
+                role={p.stats.length >= 3 ? "region" : undefined}
+                aria-label={p.stats.length >= 3 ? "Key statistics" : undefined}
+                tabIndex={p.stats.length >= 3 ? 0 : undefined}
                 style={{
                   maxWidth: 1100,
                   margin: "0 auto",
-                  padding: "0 1.5rem 5rem",
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${Math.min(p.stats.length, 4)}, 1fr)`,
-                  gap: "0.5rem",
+                  padding: "1.5rem 1.5rem 5rem",
+                  ["--dso-stats-count" as string]: String(Math.min(p.stats.length, 4)),
                   borderTop: "1px solid rgba(255,255,255,0.10)",
-                  paddingTop: "1.5rem",
                 }}
               >
                 {p.stats.map((s, i) => (
-                  <div key={i} style={{ textAlign: "center" }}>
+                  <div key={i} className="dso-stats-item" style={{ textAlign: "center" }}>
                     <div
                       style={{
                         fontFamily: DISPLAY_FONT,

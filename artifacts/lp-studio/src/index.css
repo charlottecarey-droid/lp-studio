@@ -366,3 +366,58 @@
     color: #fff;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   DSO Heartland Hero — responsive stat row
+   Desktop: even-width grid (1 column per stat, capped at 4 above).
+   Mobile (<640px): horizontal scroll-snap when 3+ stats so numbers stay
+   large; falls back to a 2-up grid for 2 stats. The right edge fades to
+   hint at the additional stats off-screen.
+   ───────────────────────────────────────────────────────────────────── */
+.dso-stats-row {
+  display: grid;
+  grid-template-columns: repeat(var(--dso-stats-count, 1), minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 639px) {
+  /* 2 stats: keep them side-by-side, no scroll. */
+  .dso-stats-row[data-stats-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* 3+ stats: horizontal scroll-snap row with peek + edge fade. */
+  .dso-stats-row[data-stats-mode="scroll"] {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 1.25rem;
+    padding-right: 1.5rem;
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 2rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 2rem), transparent 100%);
+  }
+  .dso-stats-row[data-stats-mode="scroll"]::-webkit-scrollbar { display: none; }
+
+  .dso-stats-row[data-stats-mode="scroll"] > .dso-stats-item {
+    flex: 0 0 42%;
+    min-width: 9rem;
+    scroll-snap-align: start;
+  }
+
+  /* Visible focus ring for keyboard users on the scroll container. */
+  .dso-stats-row[data-stats-mode="scroll"]:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.65);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+
+  /* Below-video variant: relax bottom padding on mobile so the next
+     section doesn't get pushed too far down. */
+  .dso-stats-row--below-video {
+    padding-bottom: 3rem !important;
+  }
+}
