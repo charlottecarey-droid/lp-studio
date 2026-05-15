@@ -753,6 +753,64 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         formId={ghostMkto.formId}
         prefill={ghostSubmitVals}
         submitOnReady
+        onGhostSubmitAttempted={() => {
+          // Telemetry: a hidden Marketo Forms2 submit() has just been
+          // fired. Best-effort POST to /api/lp/track so the funnel report
+          // can compare attempts to actual Marketo deliveries — failures
+          // here must never break the submit path, so we swallow errors
+          // and use keepalive so the request survives an immediate
+          // navigation (Chili Piper / redirectUrl branches).
+          try {
+            const trackBody: Record<string, unknown> = {
+              sessionId: effectiveSessionId,
+              eventType: "conversion",
+              conversionType: "ghost_submit_attempted",
+            };
+            if (testId != null) trackBody.testId = testId;
+            if (variantId != null) trackBody.variantId = variantId;
+            fetch(`${API_BASE}/lp/track`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(trackBody),
+              keepalive: true,
+            }).catch(() => {});
+          } catch {
+            // ignore
+          }
+        }}
+        onLoadError={() => {
+          // Telemetry: the Marketo loader script (or loadForm) failed —
+          // CSP block, network error, rate-limited Forms2 endpoint, etc.
+          // The lead never reached Marketo via the Forms2 path. Surface
+          // it so the admin funnel report can alert on regressions
+          // instead of us learning from missing-leads complaints.
+          try {
+            console.warn("[lp-studio] Marketo ghost submit failed to load");
+            const trackBody: Record<string, unknown> = {
+              sessionId: effectiveSessionId,
+              eventType: "conversion",
+              conversionType: "ghost_submit_failed",
+            };
+            if (testId != null) trackBody.testId = testId;
+            if (variantId != null) trackBody.variantId = variantId;
+            fetch(`${API_BASE}/lp/track`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(trackBody),
+              keepalive: true,
+            }).catch(() => {});
+          } catch {
+            // ignore
+          }
+          // Also release the handleSubmit waiter — without this, a
+          // failed loader would block the visitor's success UX until
+          // the 2s timeout cap kicks in.
+          const r = ghostResolveRef.current;
+          if (r) {
+            ghostResolveRef.current = null;
+            r();
+          }
+        }}
         onSuccess={() => {
           // Release any handleSubmit branch that's blocked waiting for
           // the Forms2 POST to land. Cleared so the 2s timeout fallback

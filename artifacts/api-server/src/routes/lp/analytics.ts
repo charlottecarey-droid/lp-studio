@@ -454,6 +454,53 @@ router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
       .from(lpPagesTable)
       .where(eq(lpPagesTable.tenantId, tenantId));
 
+    // Marketo ghost-submit telemetry. Hidden Forms2 submits emit
+    // `ghost_submit_attempted` events when fired and `ghost_submit_failed`
+    // events when the loader/script errors out. We expose both so the
+    // funnel report can surface the failure count over time, and the
+    // attempt count gives us a denominator to compute the failure rate
+    // without us having to alert on raw counts (which scale with traffic).
+    //
+    // Tenant scoping: lp_events has no direct tenant column, so we join
+    // through the optional `session_id` → lp_sessions → lp_tests scope OR
+    // through (test_id → lp_tests). Since these telemetry events come from
+    // the standard FormBlock (not necessarily inside an A/B test), they
+    // typically have NULL test_id/variant_id. To scope by tenant cheaply
+    // we restrict to event rows whose `session_id` ALSO appears in this
+    // tenant's lp_page_visits within the same window — every ghost submit
+    // is preceded by a page visit on the same session.
+    const [ghostAttempts] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(lpEventsTable)
+      .where(and(
+        eq(lpEventsTable.eventType, "conversion"),
+        eq(lpEventsTable.conversionType, "ghost_submit_attempted"),
+        sql`${lpEventsTable.createdAt} > ${dateFilter}`,
+        sql`${lpEventsTable.sessionId} in (
+          select distinct ${lpPageVisitsTable.sessionId}
+          from ${lpPageVisitsTable}
+          inner join ${lpPagesTable} on ${lpPagesTable.id} = ${lpPageVisitsTable.pageId}
+          where ${lpPagesTable.tenantId} = ${tenantId}
+            and ${lpPageVisitsTable.createdAt} > ${dateFilter}
+        )`,
+      ));
+
+    const [ghostFailures] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(lpEventsTable)
+      .where(and(
+        eq(lpEventsTable.eventType, "conversion"),
+        eq(lpEventsTable.conversionType, "ghost_submit_failed"),
+        sql`${lpEventsTable.createdAt} > ${dateFilter}`,
+        sql`${lpEventsTable.sessionId} in (
+          select distinct ${lpPageVisitsTable.sessionId}
+          from ${lpPageVisitsTable}
+          inner join ${lpPagesTable} on ${lpPagesTable.id} = ${lpPageVisitsTable.pageId}
+          where ${lpPagesTable.tenantId} = ${tenantId}
+            and ${lpPageVisitsTable.createdAt} > ${dateFilter}
+        )`,
+      ));
+
     const totalV = currentVisits?.total ?? 0;
     const prevV = prevVisits?.total ?? 0;
     const totalL = currentLeads?.total ?? 0;
@@ -471,6 +518,14 @@ router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
       cvrTrend: Math.round((cvr - prevCvr) * 100) / 100,
       totalPages: pageCount?.total ?? 0,
       publishedPages: pageCount?.published ?? 0,
+      // Marketo ghost-submit health. `ghostSubmitAttempts` is the number
+      // of hidden Forms2 submits we *fired*; `ghostSubmitFailures` is the
+      // number that never got off the ground (loader/script error, CSP
+      // block, network failure). A non-zero failure count means leads are
+      // being silently dropped from Marketo — this is the signal task #279
+      // wants surfaced before marketing notices missing leads.
+      ghostSubmitAttempts: ghostAttempts?.total ?? 0,
+      ghostSubmitFailures: ghostFailures?.total ?? 0,
       period: `${days}d`,
     });
   } catch (err) {
@@ -485,6 +540,8 @@ router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
       cvrTrend: 0,
       totalPages: 0,
       publishedPages: 0,
+      ghostSubmitAttempts: 0,
+      ghostSubmitFailures: 0,
       period: "30d",
     });
   }

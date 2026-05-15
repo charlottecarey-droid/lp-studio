@@ -59,6 +59,14 @@ interface Overview {
   cvrTrend: number;
   totalPages: number;
   publishedPages: number;
+  /**
+   * Hidden Marketo Forms2 ("ghost submit") telemetry over the active
+   * period. Surfaced so admins notice silent Marketo dropouts (CSP block,
+   * loader/network failure, rate-limited Forms2 endpoint) before the
+   * marketing team complains about missing leads.
+   */
+  ghostSubmitAttempts?: number;
+  ghostSubmitFailures?: number;
   period: string;
 }
 
@@ -516,6 +524,55 @@ function ConversionFunnel({ overview, pages, loading }: { overview: Overview | n
             </p>
           </div>
         </div>
+
+        {/* Marketo ghost-submit health. Hidden Forms2 submits can fail
+            silently (CSP block, network error, rate-limited Forms2
+            endpoint, loader 404) and we'd otherwise only learn from
+            missing-leads complaints. Surface attempts + failures here so
+            admins can spot regressions early. Non-zero failures get a
+            red callout; the panel stays muted at 0/0 so it doesn't
+            scream at tenants who don't use the ghost path. */}
+        {(() => {
+          const attempts = overview?.ghostSubmitAttempts ?? 0;
+          const failures = overview?.ghostSubmitFailures ?? 0;
+          if (attempts === 0 && failures === 0) return null;
+          const failureRate = attempts > 0 ? (failures / attempts) * 100 : 0;
+          const hasFailures = failures > 0;
+          return (
+            <div className={`mt-6 rounded-lg p-3.5 border ${
+              hasFailures
+                ? "bg-red-50 border-red-200"
+                : "bg-muted/50 border-transparent"
+            }`}>
+              <div className="flex items-center justify-between mb-1">
+                <p className={`text-xs font-medium ${
+                  hasFailures ? "text-red-700" : "text-muted-foreground"
+                }`}>
+                  Marketo Ghost Submits ({overview?.period ?? "30d"})
+                </p>
+                {hasFailures && (
+                  <span className="text-xs font-semibold text-red-700">
+                    {failureRate.toFixed(1)}% failed
+                  </span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-4">
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{attempts.toLocaleString()}</p>
+                  <p className="text-[11px] text-muted-foreground">attempted</p>
+                </div>
+                <div>
+                  <p className={`text-lg font-bold tabular-nums ${
+                    hasFailures ? "text-red-700" : ""
+                  }`}>
+                    {failures.toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">failed to load</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Top converting pages */}
         {pages.filter(p => p.leads > 0).length > 0 && (

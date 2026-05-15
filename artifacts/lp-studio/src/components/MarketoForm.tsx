@@ -56,6 +56,15 @@ export interface MarketoFormProps {
    * scrape the internal error message.
    */
   onLoadError?: (message: string) => void;
+  /**
+   * Telemetry hook for the `submitOnReady` ("ghost submit") path. Fires
+   * exactly once per accepted submit attempt — i.e. right before the
+   * deferred `form.submit()` is invoked, AFTER the one-shot
+   * `submittedKeysRef` guard has accepted this (config + payload). Lets
+   * callers POST a `ghost_submit_attempted` telemetry event so we can
+   * compare attempts to actual Marketo deliveries and alert on regressions.
+   */
+  onGhostSubmitAttempted?: () => void;
   className?: string;
 }
 
@@ -104,6 +113,7 @@ export function MarketoForm({
   onSuccess,
   submitOnReady,
   onLoadError,
+  onGhostSubmitAttempted,
   className,
 }: MarketoFormProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -176,6 +186,16 @@ export function MarketoForm({
             const key = `${baseUrl}|${munchkinId}|${formId}|${JSON.stringify(prefill ?? {})}`;
             if (!ghostSubmittedKeys.has(key)) {
               ghostSubmittedKeys.add(key);
+              // Telemetry: report the *attempt* before we defer to the
+              // microtask. Reporting here (rather than inside the
+              // setTimeout) ensures the event is emitted exactly once per
+              // accepted (config, payload) pair regardless of whether the
+              // deferred submit() throws synchronously.
+              try {
+                onGhostSubmitAttempted?.();
+              } catch {
+                // ignore — telemetry must never break the submit path.
+              }
               // Fire the hidden submit on the next tick so Marketo's own
               // internal post-load wiring (validators, hidden field
               // population, Munchkin association) has finished. Without
