@@ -138,8 +138,17 @@ const CSS = `
 .id-cinema-stepper .id-step.id-active { color:#fff; }
 .id-cinema-stepper .id-step.id-active .id-dot { background:var(--id-cit); transform:scale(1.4); box-shadow:0 0 16px var(--id-cit); }
 .id-cinema-art { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; }
-.id-cinema-art .id-layer { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transform:scale(1.05); transition:opacity 900ms var(--id-ease), transform 1400ms var(--id-ease); pointer-events:none; }
-.id-cinema-art .id-layer.id-active { opacity:1; transform:scale(1); }
+/* Layer crossfade is now driven by a per-layer --p (0..1) CSS variable
+   that the JS scroll handler writes every rAF tick. No fixed transitions
+   here — the browser interpolates smoothly because --p itself is updated
+   continuously as the user scrolls. */
+.id-cinema-art .id-layer { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:var(--p,0); transform:scale(calc(1 + 0.05 * (1 - var(--p,0)))); pointer-events:none; will-change:opacity,transform; }
+/* Keep the .id-active class as a no-op fallback for environments where
+   the JS hasn't run (SSR / first paint / reduced motion users). */
+.id-cinema-art .id-layer.id-active { opacity:1; }
+@media (prefers-reduced-motion: reduce) {
+  .id-cinema-art .id-layer { transform:none; }
+}
 /* Video art: fills the layer; let the .id-cinema-bg radial gradient bleed
    through the top/edges for cinematic mood. The video itself is full-bleed
    while the layer's parent (.id-cinema-art) keeps the panel text readable
@@ -191,12 +200,19 @@ const CSS = `
   .id-sp-step { gap:6px; }
 }
 .id-cinema-text { position:absolute; inset:0; padding:0 60px 80px; z-index:5; pointer-events:none; }
-.id-cinema-text .id-panel { position:absolute; inset:0; display:flex; align-items:flex-end; padding:80px 60px; opacity:0; transform:translateY(40px); transition:opacity 900ms var(--id-ease), transform 900ms var(--id-ease); }
-.id-cinema-text .id-panel:nth-child(1) { transform:translateY(40px); }
-.id-cinema-text .id-panel:nth-child(2) { transform:translateX(-60px); }
-.id-cinema-text .id-panel:nth-child(3) { transform:scale(0.94); }
-.id-cinema-text .id-panel:nth-child(4) { transform:translateX(60px); }
-.id-cinema-text .id-panel.id-active { opacity:1; transform:translate(0,0) scale(1); pointer-events:auto; }
+/* Panels use the same scroll-driven --p (0..1) variable as the layers,
+   tweening their entrance offset toward 0 as the panel becomes active.
+   The .id-active class is still toggled by React (cheaply) so the active
+   panel can receive pointer events; opacity/transform are continuous. */
+.id-cinema-text .id-panel { position:absolute; inset:0; display:flex; align-items:flex-end; padding:80px 60px; opacity:var(--p,0); pointer-events:none; will-change:opacity,transform; }
+.id-cinema-text .id-panel:nth-child(1) { transform:translateY(calc(40px * (1 - var(--p,0)))); }
+.id-cinema-text .id-panel:nth-child(2) { transform:translateX(calc(-60px * (1 - var(--p,0)))); }
+.id-cinema-text .id-panel:nth-child(3) { transform:scale(calc(1 - 0.06 * (1 - var(--p,0)))); }
+.id-cinema-text .id-panel:nth-child(4) { transform:translateX(calc(60px * (1 - var(--p,0)))); }
+.id-cinema-text .id-panel.id-active { pointer-events:auto; }
+@media (prefers-reduced-motion: reduce) {
+  .id-cinema-text .id-panel { transform:none !important; }
+}
 .id-cinema-text .id-meta { display:flex; justify-content:space-between; align-items:flex-end; width:100%; gap:60px; flex-wrap:wrap; }
 .id-cinema-text .id-num { font-family:var(--id-display); font-size:clamp(96px,18vw,260px); line-height:0.85; letter-spacing:-0.04em; color:rgba(255,255,255,0.08); font-feature-settings:"tnum"; }
 .id-cinema-text .id-num em { font-style:italic; color:var(--id-cit); opacity:0.4; }
@@ -413,6 +429,57 @@ const CSS = `
   .id-art-bars .id-bar,
   .id-showcase .id-frame .id-frame-img,
   .id-intro h2 .id-word { opacity:1 !important; transform:none !important; transition:none !important; animation:none !important; }
+}
+
+/* ============================================================
+ * PAGE-WIDE POLISH (auto-applies to any landing page that
+ * contains an .id-block — scoped via :has() so non-Inside-Dandy
+ * pages are untouched).
+ * ============================================================ */
+
+/* Subtle film grain across the whole page. The same SVG noise the
+   cinema block uses, promoted to a fixed full-viewport overlay so
+   every Inside Dandy section shares the same grading. */
+/* z-index sits below the LP viewer's UI chrome (preview banner, sticky
+   nav, ChiliPiper modal, template marketplace dialog — all at z-50+).
+   pointer-events:none anyway, but keeping the visual tint off chrome
+   matters too. */
+[data-lp-page]:has(.id-block)::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:40;
+  pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+  opacity:0.35;
+  mix-blend-mode:overlay;
+}
+
+/* Editorial top scroll-progress bar in the brand citron. Pure CSS,
+   driven by the new scroll-driven animations API. Browsers without
+   support (older Safari) silently get nothing — pure enhancement. */
+@supports (animation-timeline: scroll()) {
+  [data-lp-page]:has(.id-block)::after {
+    content:"";
+    position:fixed;
+    top:0;
+    left:0;
+    height:2px;
+    width:100%;
+    background:#C7E738;
+    transform:scaleX(0);
+    transform-origin:left center;
+    z-index:49;
+    pointer-events:none;
+    animation:idScrollProgress linear both;
+    animation-timeline:scroll(root);
+  }
+  @keyframes idScrollProgress { to { transform:scaleX(1); } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lp-page]:has(.id-block)::before { display:none; }
+  [data-lp-page]:has(.id-block)::after { display:none; }
 }
 `;
 
