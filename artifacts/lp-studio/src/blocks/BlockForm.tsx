@@ -385,6 +385,13 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   // auto-submits — the "ghost form" path. Set exactly once per successful
   // standard submit to avoid double-firing on re-render.
   const [ghostSubmitVals, setGhostSubmitVals] = useState<Record<string, string> | null>(null);
+  // Resolver for the in-flight "Marketo ghost submit" promise. handleSubmit
+  // sets this before mounting the hidden MarketoForm so it can await the
+  // form's onSuccess callback (or a bounded timeout) before navigating —
+  // otherwise the Chili Piper / redirectUrl branches can fire before the
+  // Forms2 POST lands and silently drop the Munchkin-cookie association
+  // for that visitor on slow networks.
+  const ghostResolveRef = useRef<(() => void) | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
   // Stable per-mount session id for analytics. Required because BlockForm
@@ -610,6 +617,12 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
       // REST; the ghost form additionally lands the lead through the
       // Forms2 path so Munchkin cookie association, Smart Campaign
       // triggers and GA4 mktoFormSubmit all fire.
+      // Promise that resolves once the hidden Marketo Forms2 "ghost submit"
+      // has either reported success OR a bounded ~2s timeout has elapsed.
+      // Defaults to already-resolved so the non-ghost path doesn't pay a
+      // wait. Bound is intentional: a stuck Marketo response must never
+      // block the visitor's success UX longer than this.
+      let ghostSubmitDone: Promise<void> = Promise.resolve();
       const mkto = globalForm?.marketoConfig;
       if (mkto?.forms2?.baseUrl && mkto.forms2.munchkinId && mkto.forms2.formId) {
         const mappings = mkto.fieldMappings ?? {};
@@ -622,7 +635,20 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           ghost[mktoKey] = value;
         }
         if (Object.keys(ghost).length > 0) {
-          setGhostSubmitVals(ghost);
+          ghostSubmitDone = new Promise<void>((resolve) => {
+            ghostResolveRef.current = resolve;
+            setGhostSubmitVals(ghost);
+            // Hard cap — Marketo script load + Forms2 round-trip should
+            // comfortably finish in well under 2s on a healthy network;
+            // when it doesn't we'd rather hand the visitor off than have
+            // them stare at a stalled form.
+            setTimeout(() => {
+              if (ghostResolveRef.current === resolve) {
+                ghostResolveRef.current = null;
+                resolve();
+              }
+            }, 2000);
+          });
         }
       }
 
@@ -633,6 +659,10 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
       const cp = globalForm?.chiliPiperConfig;
       if (cp?.url) {
         const cpUrl = buildChiliPiperHandoffUrl(cp, allFields);
+        // Wait for the hidden Forms2 POST to land (or the timeout) before
+        // navigating away — otherwise the page can unload mid-request and
+        // silently drop the Munchkin-cookie association for this lead.
+        await ghostSubmitDone;
         if (cp.mode === "redirect") {
           // Open in a new tab so the visitor can return to the landing
           // page after booking; pop blockers degrade to current tab.
@@ -647,6 +677,9 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
 
       setSubmitted(true);
       if (activeRedirectUrl) {
+        // Same reasoning as the Chili Piper branch: hold the redirect
+        // until the ghost submit has either landed or hit the 2s cap.
+        await ghostSubmitDone;
         setTimeout(() => { safeNavigate(activeRedirectUrl); }, 1500);
       }
     } catch {
@@ -697,6 +730,16 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         formId={ghostMkto.formId}
         prefill={ghostSubmitVals}
         submitOnReady
+        onSuccess={() => {
+          // Release any handleSubmit branch that's blocked waiting for
+          // the Forms2 POST to land. Cleared so the 2s timeout fallback
+          // (which checks identity) becomes a no-op.
+          const r = ghostResolveRef.current;
+          if (r) {
+            ghostResolveRef.current = null;
+            r();
+          }
+        }}
       />
     </div>
   ) : null;
