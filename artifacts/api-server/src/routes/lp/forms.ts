@@ -89,6 +89,12 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
     }
     const [form] = await db.select({
       id: lpFormsTable.id,
+      // Expose `name` so the public viewer's Marketo embed can use it as
+      // the GTM dataLayer `formName` for the "Marketo Form Submission"
+      // event. The name is operator-authored display text (no creds), and
+      // already appears in the page block JSON when an author links the
+      // form, so this surfaces no new sensitive data.
+      name: lpFormsTable.name,
       steps: lpFormsTable.steps,
       multiStep: lpFormsTable.multiStep,
       submitButtonText: lpFormsTable.submitButtonText,

@@ -25,6 +25,13 @@ function evalCondition(cond: StepCondition, values: Record<string, string>): boo
 
 interface GlobalFormConfig {
   id: number;
+  /**
+   * Human-readable name from the lp_forms row. Surfaced on the public form
+   * fetch so the visible Marketo embed can use it as the GTM dataLayer
+   * `formName` for the "Marketo Form Submission" event. Optional because
+   * older cached payloads (and legacy non-Marketo callers) may not send it.
+   */
+  name?: string;
   steps: FormStep[];
   multiStep: boolean;
   submitButtonText: string;
@@ -937,6 +944,15 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   baseUrl={props.marketoBaseUrl}
                   munchkinId={props.marketoMunchkinId}
                   formId={props.marketoFormId}
+                  // GTM `Marketo Form Submission` formName: prefer the
+                  // linked lp_form's name, fall back to a stable label
+                  // keyed off the Marketo form id when no global form
+                  // is linked (Marketo coords come straight from props).
+                  formName={
+                    globalForm?.name && globalForm.name.length > 0
+                      ? globalForm.name
+                      : `Marketo Form ${props.marketoFormId}`
+                  }
                   // The Chili Piper hand-off owns post-submit navigation when
                   // configured, so we drop the redirect to avoid double-firing.
                   followUpUrl={globalForm?.chiliPiperConfig?.url ? undefined : (activeRedirectUrl || undefined)}

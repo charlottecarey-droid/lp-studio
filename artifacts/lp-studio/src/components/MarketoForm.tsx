@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MunchkinLoader } from "./MunchkinLoader";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 interface MktoFormsGlobal {
   loadForm: (
@@ -30,6 +31,14 @@ export interface MarketoFormProps {
   munchkinId: string;
   /** Numeric form ID. */
   formId: number;
+  /**
+   * Human-readable form name pushed into GTM's `dataLayer` on a successful
+   * submit (event: "Marketo Form Submission"). For linked global forms this
+   * is the lp_form's `name`; otherwise callers should pass a sensible
+   * fallback (the MarketoForm itself defaults to `"Marketo Form <id>"`
+   * when omitted) so GTM tags can still attribute the submission.
+   */
+  formName?: string;
   /** Pre-fill values keyed by Marketo field name (e.g. { Email: "x@y.com" }). */
   prefill?: Record<string, string>;
   /** Optional follow-up URL to redirect to on submit. */
@@ -108,6 +117,7 @@ export function MarketoForm({
   baseUrl,
   munchkinId,
   formId,
+  formName,
   prefill,
   followUpUrl,
   onSuccess,
@@ -214,6 +224,33 @@ export function MarketoForm({
                 // ignore
               }
             }
+          }
+          // Register the GTM `Marketo Form Submission` dataLayer push for
+          // visible Marketo embeds. We deliberately skip the `submitOnReady`
+          // ("ghost submit") path: there the visitor is interacting with
+          // a native lp-studio form and the Marketo POST is a
+          // fire-and-forget mirror — it's not a "Marketo form submission"
+          // from the visitor's perspective and marketing keys their tag
+          // off the visible embed only. Registered as a dedicated
+          // handler (independent of the caller-provided onSuccess /
+          // followUpUrl) so the push lands even when neither is wired.
+          // The helper itself dedupes per-formName per page load so
+          // remounts can't double-fire.
+          if (!submitOnReady) {
+            form.onSuccess(() => {
+              const resolvedName = formName && formName.length > 0
+                ? formName
+                : `Marketo Form ${formId}`;
+              try {
+                pushMarketoSubmissionToDataLayer(resolvedName);
+              } catch {
+                // Analytics must never break the submit path.
+              }
+              // Returning true leaves Marketo's redirect decision to the
+              // other handlers below (or its default if none) — Marketo
+              // honours the redirect only if every handler returns truthy.
+              return true;
+            });
           }
           if (onSuccess || followUpUrl) {
             form.onSuccess((rawVals, defaultFollowUp) => {
