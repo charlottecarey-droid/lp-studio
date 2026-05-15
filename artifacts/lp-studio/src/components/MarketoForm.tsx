@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { MunchkinLoader } from "./MunchkinLoader";
 
 interface MktoFormsGlobal {
   loadForm: (
@@ -61,6 +62,15 @@ export interface MarketoFormProps {
 const SCRIPT_ID = "marketo-forms2-script";
 const scriptLoadPromises = new Map<string, Promise<void>>();
 
+// Module-level "already auto-submitted" set keyed by baseUrl|munchkinId|
+// formId|payload. Hoisted out of the component (it used to live in a
+// useRef and was therefore instance-scoped) so that a parent unmount/
+// remount of the same hidden ghost form during its submit window cannot
+// fire a second submit. Required to keep the ghost-submit guarantee
+// invariant under React auto-batching edge cases and future host
+// refactors that might change the parent JSX structure.
+const ghostSubmittedKeys = new Set<string>();
+
 function loadMarketoScript(baseUrl: string): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   if (window.MktoForms2) return Promise.resolve();
@@ -97,12 +107,6 @@ export function MarketoForm({
   className,
 }: MarketoFormProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // One-shot guard for `submitOnReady`: keyed by baseUrl+munchkinId+formId+
-  // stringified prefill, this ref records every (config, payload) pair we
-  // have already auto-submitted so a remount of the same hidden form (e.g.
-  // when BlockForm flips from the active branch to its `submitted` success
-  // branch carrying the same `ghostSubmitVals`) cannot fire a second submit.
-  const submittedKeysRef = useRef<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -170,8 +174,8 @@ export function MarketoForm({
             // the same ghostSubmitVals in state) would auto-submit a
             // second time.
             const key = `${baseUrl}|${munchkinId}|${formId}|${JSON.stringify(prefill ?? {})}`;
-            if (!submittedKeysRef.current.has(key)) {
-              submittedKeysRef.current.add(key);
+            if (!ghostSubmittedKeys.has(key)) {
+              ghostSubmittedKeys.add(key);
               // Fire the hidden submit on the next tick so Marketo's own
               // internal post-load wiring (validators, hidden field
               // population, Munchkin association) has finished. Without
@@ -245,6 +249,10 @@ export function MarketoForm({
 
   return (
     <div className={className}>
+      {/* Initialise Munchkin alongside the form so the Forms2 submit
+          carries the visitor's _mkto_trk cookie. Idempotent — multiple
+          MarketoForm instances on the same page only init once. */}
+      {munchkinId ? <MunchkinLoader munchkinId={munchkinId} /> : null}
       {error ? (
         <p className="text-sm text-red-500">{error}</p>
       ) : (

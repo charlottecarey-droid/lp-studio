@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { MarketoForm } from "@/components/MarketoForm";
+import { MunchkinLoader } from "@/components/MunchkinLoader";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 
@@ -717,6 +718,20 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
 
   const isMarketo = props.formMode === "marketo";
 
+  // Munchkin tracking script. Loaded as soon as the linked global form
+  // config arrives so the visitor's _mkto_trk cookie is set well before
+  // they submit — without this the eventual Forms2 ghost-submit would
+  // land in Marketo as an anonymous lead and any "associate to existing
+  // visitor session" Smart Campaigns / GA4 listeners wouldn't fire.
+  // MarketoForm itself also mounts a MunchkinLoader, but for the ghost
+  // pattern that wouldn't run until *after* submit (which is too late).
+  const munchkinIdForPage =
+    globalForm?.marketoConfig?.forms2?.munchkinId ??
+    (props.formMode === "marketo" ? props.marketoMunchkinId : undefined);
+  const munchkinLoaderNode = munchkinIdForPage ? (
+    <MunchkinLoader munchkinId={munchkinIdForPage} />
+  ) : null;
+
   // Hidden Marketo Forms2 "ghost submit". Mounted whenever a successful
   // standard submit set `ghostSubmitVals` AND the linked global form has
   // `marketoConfig.forms2` configured. Wrapped in display:none so the
@@ -760,6 +775,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {activeSuccessMessage || "Thank you!"}
           </h3>
         </div>
+        {munchkinLoaderNode}
         {ghostFormNode}
       </section>
     );
@@ -767,6 +783,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
 
   return (
     <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={{ ...bgInlineStyle, ...(textOverride ? { color: textOverride } : null) }}>
+      {munchkinLoaderNode}
       {ghostFormNode}
       <div className="max-w-xl mx-auto">
         {/* Hide the form headline/subheadline once the scheduler iframe has
