@@ -146,6 +146,9 @@ export interface DsoHeartlandHeroBlockProps {
   modalMarketoBaseUrl?: string;
   modalMarketoMunchkinId?: string;
   modalMarketoFormId?: number;
+  /** Optional Chili Piper hand-off applied after Marketo modal submit. */
+  modalChiliPiperHandoffUrl?: string;
+  modalChiliPiperHandoffMode?: "modal" | "redirect";
 }
 
 /**
@@ -254,6 +257,9 @@ export interface DandyProductHeroBlockProps {
   modalMarketoBaseUrl?: string;
   modalMarketoMunchkinId?: string;
   modalMarketoFormId?: number;
+  /** Optional Chili Piper hand-off applied after Marketo modal submit. */
+  modalChiliPiperHandoffUrl?: string;
+  modalChiliPiperHandoffMode?: "modal" | "redirect";
 }
 
 export interface DsoSuccessStoriesBlockProps {

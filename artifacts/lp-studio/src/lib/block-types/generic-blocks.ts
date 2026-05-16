@@ -774,6 +774,9 @@ export interface EmailCaptureConfig {
   modalMarketoBaseUrl?: string;
   modalMarketoMunchkinId?: string;
   modalMarketoFormId?: number;
+  /** Optional Chili Piper hand-off applied after Marketo modal submit. */
+  modalChiliPiperHandoffUrl?: string;
+  modalChiliPiperHandoffMode?: "modal" | "redirect";
   /** Optional copy overrides for the modal. */
   modalHeadline?: string;
   modalSubheadline?: string;

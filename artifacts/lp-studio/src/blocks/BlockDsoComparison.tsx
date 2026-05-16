@@ -281,6 +281,8 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
               modalMarketoBaseUrl={props.modalMarketoBaseUrl}
               modalMarketoMunchkinId={props.modalMarketoMunchkinId}
               modalMarketoFormId={props.modalMarketoFormId}
+              modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
+              modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
               modalHeadline={props.modalHeadline}
               modalSubheadline={props.modalSubheadline}
               modalSubmitText={props.modalSubmitText}

@@ -149,6 +149,7 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
         marketoBaseUrl={props.modalMarketoBaseUrl}
         marketoMunchkinId={props.modalMarketoMunchkinId}
         marketoFormId={props.modalMarketoFormId}
+        chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal" } : null}
         formConfig={{
           headline: props.modalHeadline,
           subheadline: props.modalSubheadline,

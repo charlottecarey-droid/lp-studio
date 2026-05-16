@@ -164,6 +164,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
         marketoBaseUrl={props.modalMarketoBaseUrl}
         marketoMunchkinId={props.modalMarketoMunchkinId}
         marketoFormId={props.modalMarketoFormId}
+        chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal" } : null}
         formConfig={{
           headline: props.modalHeadline,
           subheadline: props.modalSubheadline,

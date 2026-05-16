@@ -129,6 +129,8 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
     modalMarketoBaseUrl: props.modalMarketoBaseUrl,
     modalMarketoMunchkinId: props.modalMarketoMunchkinId,
     modalMarketoFormId: props.modalMarketoFormId,
+    modalChiliPiperHandoffUrl: props.modalChiliPiperHandoffUrl,
+    modalChiliPiperHandoffMode: props.modalChiliPiperHandoffMode,
     modalHeadline: props.modalHeadline,
     modalSubheadline: props.modalSubheadline,
     modalSubmitText: props.modalSubmitText,
