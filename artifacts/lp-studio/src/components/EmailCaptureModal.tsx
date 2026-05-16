@@ -284,6 +284,12 @@ export function EmailCaptureModal({
                 baseUrl={marketoBaseUrl}
                 munchkinId={marketoMunchkinId}
                 formId={marketoFormId}
+                // Opt-in to the scoped brand restyle so the embedded Marketo
+                // form visually matches the rest of the modal's chrome.
+                // Inline (non-modal) MarketoForm renders deliberately leave
+                // this off and keep Marketo's default look — see
+                // MarketoForm `scopedStyles` doc-comment.
+                scopedStyles
                 // GTM `Marketo Form Submission` formName: the modal path
                 // doesn't have a linked global lp_form (it embeds Marketo
                 // directly via the CTA's modal config), so fall back to

@@ -80,6 +80,18 @@ export interface MarketoFormProps {
    */
   onGhostSubmitAttempted?: () => void;
   className?: string;
+  /**
+   * When true, emit the `data-lp-marketo-form` attribute on the wrapper so
+   * the scoped overrides in `marketo-form.css` apply (single-column rows,
+   * brand-token theming, brand submit button, native-style errors).
+   *
+   * Off by default so that non-modal MarketoForm renders (e.g. an inline
+   * FormBlock embed on a published page) keep Marketo's own visual treatment
+   * and we don't accidentally restyle every Marketo form a tenant ships.
+   * EmailCaptureModal opts in because the popup needs to match the rest of
+   * the modal's brand-aligned chrome.
+   */
+  scopedStyles?: boolean;
 }
 
 const SCRIPT_ID = "marketo-forms2-script";
@@ -130,6 +142,7 @@ export function MarketoForm({
   onLoadError,
   onGhostSubmitAttempted,
   className,
+  scopedStyles,
 }: MarketoFormProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -310,7 +323,7 @@ export function MarketoForm({
   }, [baseUrl, munchkinId, formId, JSON.stringify(prefill ?? {}), followUpUrl, submitOnReady]);
 
   return (
-    <div className={className} data-lp-marketo-form>
+    <div className={className} data-lp-marketo-form={scopedStyles ? "" : undefined}>
       {/* Initialise Munchkin alongside the form so the Forms2 submit
           carries the visitor's _mkto_trk cookie. Idempotent — multiple
           MarketoForm instances on the same page only init once. */}
