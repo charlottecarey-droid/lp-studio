@@ -537,8 +537,13 @@ test.describe("Marketo → Chili Piper handoff", () => {
     // The scoped restyle must be active on the modal's MarketoForm wrapper.
     // (Inline FormBlock MarketoForm renders deliberately do NOT set this
     // attribute — covered by the scopedStyles prop default in MarketoForm.)
+    // toBeAttached (not toBeVisible) — the wrapper is sometimes rendered
+    // with `loading…` placeholder text while the parent dialog finishes its
+    // entry animation, so visibility can briefly resolve "hidden". The
+    // contract we're asserting is "the scoped-restyle attribute is on the
+    // modal's MarketoForm DOM node", which is what `toBeAttached` checks.
     const scopedWrapper = page.locator("[data-lp-marketo-form]").first();
-    await expect(scopedWrapper).toBeVisible();
+    await expect(scopedWrapper).toBeAttached();
 
     // Fire the stubbed Marketo success with the canonical field map keys.
     await page.evaluate(() => {
