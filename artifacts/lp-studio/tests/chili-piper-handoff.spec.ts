@@ -466,4 +466,103 @@ test.describe("Marketo → Chili Piper handoff", () => {
       `expected every /api/lp/track POST to return 2xx, got ${JSON.stringify(trackStatuses)}`,
     ).toHaveLength(0);
   });
+
+  // Coverage for Task #289: per-CTA Marketo → Chili Piper handoff from a
+  // modal-form CTA button (BlockBottomCta, exemplary of every CTA block).
+  // Distinct surface from the FormBlock test above — this one proves the
+  // CtaButton → EmailCaptureModal → MarketoForm pipeline carries the new
+  // `modalChiliPiperHandoffUrl/Mode` props end-to-end. Also asserts the
+  // scoped Marketo restyle is applied via the `data-lp-marketo-form`
+  // attribute on the modal-rendered form (only the modal opts in — inline
+  // FormBlock embeds keep Marketo's default styling).
+  test("CTA modal-form Marketo submit swaps to a Chili Piper iframe with the per-CTA handoff URL, and the modal Marketo form is brand-scoped", async ({ page, baseURL, request }) => {
+    expect(baseURL, "playwright baseURL must be configured").toBeTruthy();
+
+    // Distinct page so it doesn't collide with the FormBlock page above.
+    const ctaSlug = `cp-cta-${Date.now().toString(36)}`;
+    const createRes = await request.post("/api/lp/pages", {
+      headers: {
+        ...(await csrfHeaders(request, tenant.sessionSid)),
+        "Content-Type": "application/json",
+      },
+      data: {
+        title: "CP CTA Page",
+        slug: ctaSlug,
+        status: "published",
+        blocks: [
+          {
+            id: "cta-1",
+            type: "bottom-cta",
+            props: {
+              headline: "Book a demo",
+              ctaText: "Get started",
+              ctaAction: "modal-form",
+              modalFormSource: "marketo",
+              modalMarketoBaseUrl: "https://example.marketo.com",
+              modalMarketoMunchkinId: "111-AAA-222",
+              modalMarketoFormId: 777,
+              modalChiliPiperHandoffUrl:
+                "https://example.chilipiper.com/router/cta?id=&existing=1",
+              modalChiliPiperHandoffMode: "modal",
+              modalHeadline: "Tell us about yourself",
+            },
+          },
+        ],
+      },
+    });
+    expect(
+      createRes.ok(),
+      `cta page create failed: ${createRes.status()} ${await createRes.text()}`,
+    ).toBe(true);
+
+    await page.addInitScript(MKTO_INIT_SCRIPT);
+
+    const viewerUrl = `/lp/${ctaSlug}`;
+    const response = await page.goto(viewerUrl, { waitUntil: "domcontentloaded" });
+    expect(response, `navigation to ${viewerUrl} returned no response`).not.toBeNull();
+    expect(response!.status(), `unexpected status for ${viewerUrl}`).toBeLessThan(400);
+
+    // Click the CTA — this is what opens EmailCaptureModal, which then
+    // mounts MarketoForm inside the dialog. Without the click the modal is
+    // closed and our stub never sees a loadForm call.
+    await page.getByRole("button", { name: /get started/i }).click();
+
+    // Wait for the MarketoForm in the modal to register with our stub.
+    await page.waitForFunction(
+      () => Boolean((window as Window).__mktoTestForm),
+      undefined,
+      { timeout: 30_000 },
+    );
+
+    // The scoped restyle must be active on the modal's MarketoForm wrapper.
+    // (Inline FormBlock MarketoForm renders deliberately do NOT set this
+    // attribute — covered by the scopedStyles prop default in MarketoForm.)
+    const scopedWrapper = page.locator("[data-lp-marketo-form]").first();
+    await expect(scopedWrapper).toBeVisible();
+
+    // Fire the stubbed Marketo success with the canonical field map keys.
+    await page.evaluate(() => {
+      window.__mktoTestForm!._trigger({
+        Email: "cta@example.com",
+        FirstName: "Cta",
+        LastName: "Tester",
+        Phone: "555-7777",
+        Company: "Acme CTA",
+      });
+    });
+
+    // Modal should now render the Chili Piper iframe with merged prefill.
+    const iframe = page.locator("iframe[src*='chilipiper.com']").first();
+    await expect(iframe).toBeVisible({ timeout: 10_000 });
+
+    const src = await iframe.getAttribute("src");
+    expect(src, "iframe should have a src").toBeTruthy();
+    const u = new URL(src!);
+    expect(u.searchParams.get("existing")).toBe("1");
+    expect(u.searchParams.get("email")).toBe("cta@example.com");
+    expect(u.searchParams.get("firstName")).toBe("Cta");
+    expect(u.searchParams.get("lastName")).toBe("Tester");
+    expect(u.searchParams.get("phone")).toBe("555-7777");
+    expect(u.searchParams.get("company")).toBe("Acme CTA");
+  });
 });
