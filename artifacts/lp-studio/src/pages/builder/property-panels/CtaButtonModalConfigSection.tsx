@@ -146,6 +146,38 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
                   />
                 </div>
               </div>
+              <div className="border-t border-slate-200 pt-2 mt-2 space-y-2">
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Chili Piper hand-off (after submit)
+                </Label>
+                <div>
+                  <Label className="text-[11px] font-medium mb-1.5 block">Chili Piper URL</Label>
+                  <Input
+                    value={cfg.modalChiliPiperHandoffUrl ?? ""}
+                    onChange={(e) => set({ modalChiliPiperHandoffUrl: e.target.value })}
+                    placeholder="https://meetdandy.chilipiper.com/router/your-router"
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-medium mb-1.5 block">Mode</Label>
+                  <Select
+                    value={cfg.modalChiliPiperHandoffMode ?? "modal"}
+                    onValueChange={(v) => set({ modalChiliPiperHandoffMode: v as "modal" | "redirect" })}
+                  >
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="modal" className="text-xs">Modal (in-page iframe)</SelectItem>
+                      <SelectItem value="redirect" className="text-xs">Redirect (open in new tab)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  After the visitor submits the Marketo form, they're handed off to this Chili Piper
+                  router with their first/last name, email, phone, and company prefilled. Leave blank
+                  to skip the hand-off.
+                </p>
+              </div>
             </div>
           )}
 

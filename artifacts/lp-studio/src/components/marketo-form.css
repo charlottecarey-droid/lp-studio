@@ -1,0 +1,223 @@
+/*
+ * Scoped restyle for embedded Marketo forms.
+ *
+ * Marketo's `MktoForms2.loadForm` injects its own CDN-hosted stylesheet
+ * (a 100+ rule reset built around 1990s table-style two-column rows) at
+ * runtime, AFTER React mounts the host. To win against that without
+ * fighting source order, we:
+ *   1. Scope every selector under `[data-lp-marketo-form]` so we only
+ *      affect Marketo embeds that opt in (set on MarketoForm's wrapper).
+ *   2. Use `!important` on the visual properties Marketo's CDN sheet
+ *      sets inline-equivalent rules for (widths, paddings, label
+ *      positioning, button colors). Logic-relevant properties
+ *      (display:none for honeypots, etc.) are left untouched.
+ *   3. Read brand tokens via the existing `--brand-*` CSS variables so
+ *      per-tenant theming is automatic — no per-block overrides needed.
+ *
+ * The result mirrors the native lp-studio form look from BlockForm /
+ * EmailCaptureModal: full-width rounded inputs, brand-colored submit,
+ * brand body font, single-column layout, brand-styled inline error text.
+ */
+
+[data-lp-marketo-form] .mktoForm {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  font-family: var(--brand-font-body, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif) !important;
+  color: var(--brand-text, #0f172a) !important;
+}
+
+/* Collapse Marketo's table-style two-column rows into a single column. */
+[data-lp-marketo-form] .mktoForm .mktoFormRow,
+[data-lp-marketo-form] .mktoForm .mktoFormCol,
+[data-lp-marketo-form] .mktoForm .mktoFieldWrap,
+[data-lp-marketo-form] .mktoForm .mktoFieldDescriptor {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+  margin-bottom: 14px !important;
+  float: none !important;
+  clear: both !important;
+}
+
+[data-lp-marketo-form] .mktoForm .mktoOffset,
+[data-lp-marketo-form] .mktoForm .mktoGutter,
+[data-lp-marketo-form] .mktoForm .mktoClear {
+  display: none !important;
+}
+
+/* Labels above inputs — match the native form's small uppercase pattern. */
+[data-lp-marketo-form] .mktoForm .mktoLabel {
+  display: block !important;
+  width: 100% !important;
+  float: none !important;
+  padding: 0 0 6px 0 !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: var(--brand-text-muted, #64748b) !important;
+  font-family: inherit !important;
+}
+
+/* Required asterisk */
+[data-lp-marketo-form] .mktoForm .mktoAsterix {
+  color: var(--brand-primary, #003a30) !important;
+  padding-left: 2px !important;
+  float: none !important;
+}
+
+/* Inputs / selects / textareas — full-width rounded brand-themed. */
+[data-lp-marketo-form] .mktoForm input[type="text"],
+[data-lp-marketo-form] .mktoForm input[type="email"],
+[data-lp-marketo-form] .mktoForm input[type="tel"],
+[data-lp-marketo-form] .mktoForm input[type="url"],
+[data-lp-marketo-form] .mktoForm input[type="number"],
+[data-lp-marketo-form] .mktoForm input[type="date"],
+[data-lp-marketo-form] .mktoForm select.mktoField,
+[data-lp-marketo-form] .mktoForm textarea.mktoField {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: 48px !important;
+  padding: 12px 16px !important;
+  border: 1px solid var(--brand-border, #e2e8f0) !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  color: var(--brand-text, #0f172a) !important;
+  font-family: inherit !important;
+  font-size: 16px !important;
+  line-height: 1.4 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+[data-lp-marketo-form] .mktoForm textarea.mktoField {
+  min-height: 96px !important;
+  resize: vertical !important;
+}
+
+[data-lp-marketo-form] .mktoForm input[type="text"]:focus,
+[data-lp-marketo-form] .mktoForm input[type="email"]:focus,
+[data-lp-marketo-form] .mktoForm input[type="tel"]:focus,
+[data-lp-marketo-form] .mktoForm input[type="url"]:focus,
+[data-lp-marketo-form] .mktoForm input[type="number"]:focus,
+[data-lp-marketo-form] .mktoForm input[type="date"]:focus,
+[data-lp-marketo-form] .mktoForm select.mktoField:focus,
+[data-lp-marketo-form] .mktoForm textarea.mktoField:focus {
+  border-color: var(--brand-primary, #003a30) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary, #003a30) 15%, transparent) !important;
+}
+
+[data-lp-marketo-form] .mktoForm input::placeholder,
+[data-lp-marketo-form] .mktoForm textarea::placeholder {
+  color: var(--brand-text-muted, #94a3b8) !important;
+  opacity: 1 !important;
+}
+
+/* Checkboxes / radios — keep native control but align spacing. */
+[data-lp-marketo-form] .mktoForm .mktoCheckboxList,
+[data-lp-marketo-form] .mktoForm .mktoRadioList {
+  width: 100% !important;
+  padding: 6px 0 !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoCheckboxList > label,
+[data-lp-marketo-form] .mktoForm .mktoRadioList > label {
+  font-size: 14px !important;
+  color: var(--brand-text, #0f172a) !important;
+  margin-left: 6px !important;
+}
+
+/* Submit button — brand primary, rounded, matches native CTA. */
+[data-lp-marketo-form] .mktoForm .mktoButtonRow {
+  display: block !important;
+  width: 100% !important;
+  margin-top: 8px !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap,
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoSimple,
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoRound,
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoInset,
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoGlow,
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoBright,
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoNoButtonWrap {
+  margin-left: 0 !important;
+  width: 100% !important;
+  display: block !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap button.mktoButton,
+[data-lp-marketo-form] .mktoForm button.mktoButton {
+  width: 100% !important;
+  min-height: 52px !important;
+  padding: 14px 24px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: var(--brand-primary, #003a30) !important;
+  background-image: none !important;
+  color: var(--brand-on-primary, #ffffff) !important;
+  font-family: inherit !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transition: filter 150ms ease, transform 150ms ease !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap button.mktoButton:hover,
+[data-lp-marketo-form] .mktoForm button.mktoButton:hover {
+  filter: brightness(1.08) !important;
+  background: var(--brand-primary, #003a30) !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoButtonWrap button.mktoButton:active,
+[data-lp-marketo-form] .mktoForm button.mktoButton:active {
+  transform: scale(0.98) !important;
+}
+
+/* Inline validation — replace Marketo's tooltip skin with native-style red text. */
+[data-lp-marketo-form] .mktoForm .mktoError {
+  position: static !important;
+  margin-top: 6px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  top: auto !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoError .mktoErrorArrowWrap,
+[data-lp-marketo-form] .mktoForm .mktoError .mktoErrorArrow {
+  display: none !important;
+}
+[data-lp-marketo-form] .mktoForm .mktoError .mktoErrorMsg {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #dc2626 !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  text-shadow: none !important;
+}
+
+/* Field-level help text */
+[data-lp-marketo-form] .mktoForm .mktoInstruction {
+  font-size: 12px !important;
+  color: var(--brand-text-muted, #64748b) !important;
+  margin-top: 4px !important;
+  font-family: inherit !important;
+}
+
+/* Hide Marketo's HTML-snippet "Tell us a bit about you" rich-text headers
+ * if the form template included them — the modal already shows our own
+ * headline/subheadline above the embed. Operators who *want* the embedded
+ * header can remove this rule per-tenant. */
+[data-lp-marketo-form] .mktoForm .mktoHtmlText {
+  font-family: inherit !important;
+  color: inherit !important;
+  font-size: 14px !important;
+}

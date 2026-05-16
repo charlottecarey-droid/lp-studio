@@ -65,6 +65,8 @@ export function CtaButton({
   modalMarketoBaseUrl,
   modalMarketoMunchkinId,
   modalMarketoFormId,
+  modalChiliPiperHandoffUrl,
+  modalChiliPiperHandoffMode,
   modalHeadline,
   modalSubheadline,
   modalSubmitText,
@@ -165,6 +167,11 @@ export function CtaButton({
         marketoBaseUrl={modalMarketoBaseUrl}
         marketoMunchkinId={modalMarketoMunchkinId}
         marketoFormId={modalMarketoFormId}
+        chiliPiperConfig={
+          modalFormSource === "marketo" && modalChiliPiperHandoffUrl
+            ? { url: modalChiliPiperHandoffUrl, mode: modalChiliPiperHandoffMode ?? "modal" }
+            : null
+        }
         formConfig={{
           headline: modalHeadline,
           subheadline: modalSubheadline,

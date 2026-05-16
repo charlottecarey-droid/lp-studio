@@ -23,6 +23,15 @@ export interface CtaModalConfig {
   modalMarketoBaseUrl?: string;
   modalMarketoMunchkinId?: string;
   modalMarketoFormId?: number;
+  /**
+   * Per-CTA Chili Piper hand-off applied AFTER a Marketo modal submit.
+   * Mirrors the lp_form `chiliPiperConfig` shape but is set on the CTA
+   * directly because Marketo embeds in this path don't go through a
+   * global form record. Currently consumed only when
+   * modalFormSource === "marketo".
+   */
+  modalChiliPiperHandoffUrl?: string;
+  modalChiliPiperHandoffMode?: "modal" | "redirect";
   /** Built-in ("simple") form copy + field toggles. */
   modalHeadline?: string;
   modalSubheadline?: string;

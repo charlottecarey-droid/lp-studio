@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { MunchkinLoader } from "./MunchkinLoader";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+// Scoped overlay that beats Marketo's CDN-injected stylesheet via
+// [data-lp-marketo-form] specificity + targeted !important. Imported
+// from the component (not a global stylesheet) so it only ships when
+// MarketoForm is actually rendered.
+import "./marketo-form.css";
 
 interface MktoFormsGlobal {
   loadForm: (
@@ -305,7 +310,7 @@ export function MarketoForm({
   }, [baseUrl, munchkinId, formId, JSON.stringify(prefill ?? {}), followUpUrl, submitOnReady]);
 
   return (
-    <div className={className}>
+    <div className={className} data-lp-marketo-form>
       {/* Initialise Munchkin alongside the form so the Forms2 submit
           carries the visitor's _mkto_trk cookie. Idempotent — multiple
           MarketoForm instances on the same page only init once. */}
