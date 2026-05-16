@@ -284,7 +284,18 @@ export default function LandingPageViewer() {
     {
       query: {
         enabled: !!slug && !isPreviewRoute && (isPreviewMode || !!sessionId),
-        retry: false,
+        // Retry transient failures (network blips, brief 5xx, edge cold-start)
+        // up to 3 times with exponential backoff capped at 8 s. 404s are
+        // surfaced immediately so a missing slug doesn't sit on a spinner.
+        // Without this, a single hiccup → "Page Not Found" / blank screen,
+        // which is one of the most common drivers of the
+        // "something went wrong, please refresh" reports.
+        retry: (failureCount, err) => {
+          const status = (err as { status?: number } | null)?.status;
+          if (status === 404 || status === 410) return false;
+          return failureCount < 3;
+        },
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
         staleTime: 60_000,
         queryKey: ["pageConfig", slug, apiParams],
       },
@@ -298,14 +309,35 @@ export default function LandingPageViewer() {
   const previewQuery = useQuery<BuilderPageResponse>({
     queryKey: ["lp-preview", slug, previewReviewToken ?? ""],
     enabled: !!slug && isPreviewRoute,
-    retry: false,
+    // Same retry policy as the public viewer: ride out transient 5xx /
+    // network blips, but surface 404/403 immediately so a missing draft
+    // doesn't spin forever.
+    retry: (failureCount, err) => {
+      const status = (err as { status?: number } | null)?.status;
+      if (status === 404 || status === 403 || status === 410) return false;
+      return failureCount < 3;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     staleTime: 0,
     queryFn: async () => {
       const url = previewReviewToken
         ? `/api/lp/preview/${encodeURIComponent(slug)}?reviewToken=${encodeURIComponent(previewReviewToken)}`
         : `/api/lp/preview/${encodeURIComponent(slug)}`;
-      const r = await fetch(url, { credentials: "include" });
-      if (!r.ok) throw new Error(`Preview unavailable (${r.status})`);
+      // 10 s hard timeout so a stalled connection doesn't leave the
+      // viewer on the loading spinner indefinitely.
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
+      let r: Response;
+      try {
+        r = await fetch(url, { credentials: "include", signal: controller.signal });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+      if (!r.ok) {
+        const err = new Error(`Preview unavailable (${r.status})`) as Error & { status: number };
+        err.status = r.status;
+        throw err;
+      }
       return (await r.json()) as BuilderPageResponse;
     },
   });
@@ -605,11 +637,37 @@ export default function LandingPageViewer() {
   if (!config || (!isBuilderPageResponse(config) && !config.assignedVariant)) {
     if (error) {
       console.warn("[LandingPageViewer] page config unavailable:", error);
+      // Distinguish 404 (slug really doesn't exist) from 5xx / network
+      // failures. Previously *any* error → "Page Not Found", which made
+      // transient API outages look like missing pages to visitors and was
+      // a major driver of "something went wrong, please refresh" reports.
+      const status = (error as { status?: number } | null)?.status;
+      const isNotFound = status === 404 || status === 410;
+      if (isNotFound) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="text-center p-8 bg-card rounded-lg border border-border max-w-md">
+              <h1 className="text-2xl font-bold mb-2 text-foreground font-display">Page Not Found</h1>
+              <p className="text-slate-500">The landing page you're looking for doesn't exist or the test has ended.</p>
+            </div>
+          </div>
+        );
+      }
+      // Transient failure — React Query already retried 3× with backoff
+      // before we got here. Offer a manual retry and keep the spinner UI
+      // calm rather than scaring the visitor with "Not Found".
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="text-center p-8 bg-card rounded-lg border border-border max-w-md">
-            <h1 className="text-2xl font-bold mb-2 text-foreground font-display">Page Not Found</h1>
-            <p className="text-slate-500">The landing page you're looking for doesn't exist or the test has ended.</p>
+          <div className="text-center p-8 bg-card rounded-lg border border-border max-w-md space-y-4">
+            <h1 className="text-xl font-semibold text-foreground font-display">Trouble loading this page</h1>
+            <p className="text-sm text-slate-500">We couldn't reach the server. Please check your connection and try again.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Try again
+            </button>
           </div>
         </div>
       );

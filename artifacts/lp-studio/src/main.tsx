@@ -12,6 +12,47 @@ installCsrfFetchInterceptor();
 void ensureCsrfToken();
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN_FRONTEND as string | undefined;
+// Third-party script origins/hosts whose errors we deliberately drop from
+// Sentry. These libraries throw inside their own internals (network blips,
+// extension interference, race conditions in their async loaders) and the
+// browser surfaces them as uncaught exceptions on OUR page, which then
+// trip the root ErrorBoundary and show visitors the
+// "Something went wrong, please refresh" fallback even though our app is
+// fine. Filtering at the Sentry layer also stops these errors from
+// drowning out real bugs in the issue tracker.
+const THIRD_PARTY_SCRIPT_HOSTS = [
+  "marketo.com",
+  "mktoresp.com",
+  "munchkin.marketo",
+  "chilipiper.com",
+  "googletagmanager.com",
+  "google-analytics.com",
+  "googleadservices.com",
+  "doubleclick.net",
+  "hsforms.com",
+  "hubspot.com",
+  "reb2b.com",
+  "getrb2b.com",
+  "sentry.io",
+];
+
+function isThirdPartyScriptError(event: Sentry.ErrorEvent): boolean {
+  const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
+  // Only filter when the error originated EXCLUSIVELY in third-party
+  // frames. If any of our own frames are in the stack, keep the event —
+  // it means our code called into the third party and we want to know.
+  if (frames.length === 0) return false;
+  const hasOurFrame = frames.some((f) => {
+    const file = f.filename ?? "";
+    return file.includes("/assets/") || file.includes(window.location.host);
+  });
+  if (hasOurFrame) return false;
+  return frames.some((f) => {
+    const file = f.filename ?? "";
+    return THIRD_PARTY_SCRIPT_HOSTS.some((host) => file.includes(host));
+  });
+}
+
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
@@ -20,6 +61,44 @@ if (sentryDsn) {
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
     sendDefaultPii: false,
+    // Drop common noise from browser extensions and cross-origin scripts
+    // we don't control. These never indicate a real bug in our app but
+    // pollute the issue tracker and (more importantly) used to bubble
+    // up to the root ErrorBoundary, blanking the visitor's page.
+    ignoreErrors: [
+      // Script error from a cross-origin file we can't introspect — almost
+      // always a browser extension or a third-party tag.
+      "Script error.",
+      // Safari's "this page is taking too long" idle error.
+      "Non-Error promise rejection captured",
+      // Common extension noise.
+      /extension:\/\//i,
+      /chrome-extension:\/\//i,
+      /moz-extension:\/\//i,
+      // ResizeObserver loop warnings are harmless and very chatty.
+      /ResizeObserver loop/i,
+      // AbortError from our own 10 s fetch timeout — expected, not a bug.
+      "AbortError",
+      // Marketo/Munchkin internal noise we can't fix from our side.
+      /MktoForms2/i,
+    ],
+    denyUrls: [
+      /\/\/.*\.marketo\.com\//,
+      /\/\/.*\.mktoresp\.com\//,
+      /\/\/.*munchkin\./,
+      /\/\/.*chilipiper\.com\//,
+      /\/\/.*googletagmanager\.com\//,
+      /\/\/.*google-analytics\.com\//,
+      /\/\/.*doubleclick\.net\//,
+      /\/\/.*hsforms\.com\//,
+      /\/\/.*hubspot\.com\//,
+      /\/\/.*reb2b\.com\//,
+      /\/\/.*getrb2b\.com\//,
+      /extensions?\//i,
+      /^chrome:\/\//i,
+      /^chrome-extension:\/\//i,
+      /^moz-extension:\/\//i,
+    ],
     beforeSend(event) {
       // Defense-in-depth: strip user PII even though we set sendDefaultPii=false.
       if (event.user) {
@@ -29,6 +108,10 @@ if (sentryDsn) {
           ...(tenantId !== undefined ? { tenantId: String(tenantId) } : {}),
         };
       }
+      // Stack-based filter for third-party errors that slipped past
+      // denyUrls/ignoreErrors (e.g. the error message itself looks like
+      // ours but every stack frame is from a vendor script).
+      if (isThirdPartyScriptError(event)) return null;
       return event;
     },
   });

@@ -354,7 +354,18 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       // is never returned as a 304 with an empty body (which would crash the
       // viewer client — see app.ts comment).
       if (builderPage.status === "published" && !previewVariantId) {
-        res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+        // Browser caches for 60 s (returning visitors get instant loads),
+        // CDN/edge caches for 5 min (s-maxage), and serves a stale
+        // response for up to 24 h while revalidating in the background.
+        // The long SWR window is the key reliability lever: during a brief
+        // API outage or a deploy, the edge keeps serving the last good
+        // JSON so visitors never see "Page Not Found" or the
+        // "something went wrong" fallback. ETag/conditional-GET is
+        // disabled globally in app.ts so 304s can't return empty bodies.
+        res.set(
+          "Cache-Control",
+          "public, max-age=60, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400",
+        );
       } else {
         res.set("Cache-Control", "no-store");
       }
