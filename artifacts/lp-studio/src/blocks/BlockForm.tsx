@@ -760,6 +760,15 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         prefill={ghostSubmitVals}
         submitOnReady
         onGhostSubmitAttempted={() => {
+          // Visible console log so operators (and the team) can verify
+          // the ghost-submit path is firing on the live site without
+          // needing GA / Webflow / Marketo dashboard access — open
+          // DevTools → Console, submit the form, and look for these
+          // two messages.
+          console.log(
+            "[lp-studio] Marketo ghost submit fired",
+            { pageId, formId: props.formId, marketoFormId: ghostMkto?.formId },
+          );
           // Telemetry: a hidden Marketo Forms2 submit() has just been
           // fired. Best-effort POST to /api/lp/track so the funnel report
           // can compare attempts to actual Marketo deliveries — failures
@@ -829,6 +838,14 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           }
         }}
         onSuccess={() => {
+          // Visible confirmation that Marketo Forms2 actually accepted
+          // the hidden submit (i.e. the lead landed via Forms2, not
+          // just the REST sync). Open DevTools → Console on the live
+          // site and look for this message after submitting a form.
+          console.log(
+            "[lp-studio] Marketo form submission fire successful",
+            { pageId, formId: props.formId, marketoFormId: ghostMkto?.formId },
+          );
           // Release any handleSubmit branch that's blocked waiting for
           // the Forms2 POST to land. Cleared so the 2s timeout fallback
           // (which checks identity) becomes a no-op.
