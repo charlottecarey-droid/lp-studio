@@ -7,7 +7,7 @@ export const modules: ModuleMap = {
   "./components/mockups/premium-abm-microsite/Page.tsx": () => import("../components/mockups/premium-abm-microsite/Page.tsx"),
   "./components/mockups/premium-annual-report/Page.tsx": () => import("../components/mockups/premium-annual-report/Page.tsx"),
   "./components/mockups/premium-documentary-story/Page.tsx": () => import("../components/mockups/premium-documentary-story/Page.tsx"),
-  "./components/mockups/spatial-tour-dynamic-nav/Variant.tsx": () => import("../components/mockups/spatial-tour-dynamic-nav/Variant.tsx"),
   "./components/mockups/spatial-tour-live-telemetry/Variant.tsx": () => import("../components/mockups/spatial-tour-live-telemetry/Variant.tsx"),
+  "./components/mockups/spatial-tour-dynamic-nav/Variant.tsx": () => import("../components/mockups/spatial-tour-dynamic-nav/Variant.tsx"),
   "./components/mockups/spatial-tour-video-hero/Variant.tsx": () => import("../components/mockups/spatial-tour-video-hero/Variant.tsx")
 };
