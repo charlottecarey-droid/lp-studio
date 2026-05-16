@@ -74,7 +74,10 @@ const MKTO_FAIL_INIT_SCRIPT = `
   })();
 `;
 
-test.describe("Marketo Forms2 ghost submit failure telemetry", () => {
+// Ghost-submit is gated off via GHOST_SUBMIT_ENABLED in BlockForm.tsx while
+// marketing validates Graham's GTM dataLayer-push approach. Re-enable these
+// tests when the flag flips back to true.
+test.describe.skip("Marketo Forms2 ghost submit failure telemetry", () => {
   let pool: pg.Pool;
   let tenant: RoyalTenant;
   let formId: number;
