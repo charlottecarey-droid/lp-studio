@@ -279,7 +279,7 @@ export function EmailCaptureModal({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="px-7 pb-7 sm:px-9 sm:pb-9 -mt-2">
+          <div className="px-7 pb-7 sm:px-9 sm:pb-9 pt-1">
             {(cfg.headline || cfg.subheadline) && (
               <div className="mb-5">
                 {cfg.headline && (

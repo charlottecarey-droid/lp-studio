@@ -22,9 +22,28 @@
 [data-lp-marketo-form] .mktoForm {
   width: 100% !important;
   max-width: 100% !important;
+  /* Marketo's Forms2 loader sets an inline `style="height: ..."` on the
+   * <form> element sized to the form's *original* CDN-defined height,
+   * which doesn't account for our restyle or hidden conditional fields.
+   * That's where the big empty gap before the Submit button comes from.
+   * Force the form to size to its actual content. */
+  height: auto !important;
+  min-height: 0 !important;
   padding: 0 !important;
   font-family: var(--brand-font-body, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif) !important;
   color: var(--brand-text, #0f172a) !important;
+}
+
+/* Marketo wraps hidden / conditionally-hidden fields in `.mktoFormRow`s
+ * that still keep their margin-bottom, stacking up to ~hundreds of px of
+ * dead space between the last visible field and the Submit button. Collapse
+ * any row whose only inputs are type=hidden, or that contains no input at
+ * all (pure spacer rows from the Marketo template). */
+[data-lp-marketo-form] .mktoForm .mktoFormRow:not(:has(input:not([type="hidden"]), select, textarea, button, .mktoButtonRow)) {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
 }
 
 /* Collapse Marketo's table-style two-column rows into a single column. */
