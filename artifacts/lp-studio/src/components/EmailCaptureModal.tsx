@@ -260,15 +260,26 @@ export function EmailCaptureModal({
             />
           </div>
         ) : (
-        <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <div className="p-7 sm:p-9">
+        // `max-h-[90vh] overflow-y-auto` lets tall Marketo embeds (many
+        // fields, e.g. the Trios DSO form) scroll inside the modal instead
+        // of overflowing the viewport — without this the card grows past
+        // the screen and the outer `items-center` flex clips both the top
+        // fields and the submit button. The close button is `sticky` so it
+        // stays reachable while the form scrolls.
+        <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          {/* Sticky header row keeps the close button reachable while the
+              form scrolls inside the modal, without the float/negative-margin
+              coupling of an absolute-positioned button. */}
+          <div className="sticky top-0 z-10 flex justify-end p-2 bg-white/85 backdrop-blur-sm">
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="px-7 pb-7 sm:px-9 sm:pb-9 -mt-2">
             {(cfg.headline || cfg.subheadline) && (
               <div className="mb-5">
                 {cfg.headline && (
