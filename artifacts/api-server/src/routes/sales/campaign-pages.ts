@@ -18,10 +18,22 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "ent.meetdandy.com";
 const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
+// Tolerant token replacement — see campaigns.ts for full docs.
+// Matches `{{ anything }}` with arbitrary whitespace/case/punctuation,
+// and STRIPS any unresolved tokens so recipients never see raw merge tags.
+function normalizeTokenKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
 function replaceVars(text: string, vars: Record<string, string>): string {
-  let result = text;
-  for (const [k, v] of Object.entries(vars)) result = result.split(k).join(v);
-  return result;
+  const lookup: Record<string, string> = {};
+  for (const [k, v] of Object.entries(vars)) {
+    const stripped = k.replace(/^\{\{|\}\}$/g, "").trim();
+    lookup[normalizeTokenKey(stripped)] = v;
+  }
+  return text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_match, raw: string) => {
+    const key = normalizeTokenKey(raw);
+    return key in lookup ? lookup[key] : "";
+  });
 }
 
 async function sendViaResend(payload: {

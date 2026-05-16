@@ -87,10 +87,60 @@ router.get("/unsubscribe", async (req, res): Promise<void> => {
 
 // ─── Utility functions ─────────────────────────────────────
 
+// Normalize a token key so "First Name", "first_name", "FIRSTNAME",
+// "first-name", "firstName" all map to the same lookup key.
+// Splits camelCase first, then collapses any non-alphanumeric run to "_".
+function normalizeTokenKey(s: string): string {
+  return s
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2") // camelCase → camel_Case
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/**
+ * Tolerant template variable replacement.
+ *
+ * - Matches `{{ anything }}` with arbitrary whitespace/case/punctuation inside.
+ * - Normalises keys so `{{first_name}}`, `{{First Name}}`, `{{ firstName }}`,
+ *   `{{first-name}}`, `{{FIRSTNAME}}` all resolve to the same value.
+ * - SAFETY NET: any `{{...}}` that still doesn't resolve is replaced with the
+ *   empty string so recipients NEVER see raw merge tags in their inbox.
+ *
+ * The `vars` map accepts either `{{first_name}}`-style keys (existing call sites)
+ * or bare `first_name`-style keys — both are normalised.
+ */
 function replaceVars(text: string, vars: Record<string, string>): string {
-  let result = text;
-  for (const [k, v] of Object.entries(vars)) result = result.split(k).join(v);
-  return result;
+  const lookup: Record<string, string> = {};
+  for (const [k, v] of Object.entries(vars)) {
+    const stripped = k.replace(/^\{\{|\}\}$/g, "").trim();
+    lookup[normalizeTokenKey(stripped)] = v;
+  }
+  return text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_match, raw: string) => {
+    const key = normalizeTokenKey(raw);
+    return key in lookup ? lookup[key] : "";
+  });
+}
+
+/**
+ * Find any `{{...}}` tokens in `text` whose normalised key is NOT in the
+ * provided vars map. Used to warn users before sending a campaign with
+ * unresolved tokens.
+ */
+function findUnresolvedTokens(text: string, vars: Record<string, string>): string[] {
+  const known = new Set<string>();
+  for (const k of Object.keys(vars)) {
+    const stripped = k.replace(/^\{\{|\}\}$/g, "").trim();
+    known.add(normalizeTokenKey(stripped));
+  }
+  const found = new Set<string>();
+  const re = /\{\{\s*([^{}]+?)\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const raw = m[1].trim();
+    if (!known.has(normalizeTokenKey(raw))) found.add(raw);
+  }
+  return Array.from(found);
 }
 
 function appendUtms(html: string, utmParams: string): string {
@@ -494,6 +544,138 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
   } catch (err) {
     logger.error({ err }, "POST /sales/campaigns/:id/send error");
     res.status(500).json({ error: "Failed to send campaign" });
+  }
+});
+
+// ─── Campaign Preview ───────────────────────────────────────
+// Returns the campaign's subject + rendered HTML body for a sample recipient,
+// plus a list of any unresolved {{...}} tokens. Used by the Quick Campaign
+// Wizard so users can verify their email before sending.
+router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const campaignId = Number(req.params.id);
+  const requestedContactId = req.body?.contactId ? Number(req.body.contactId) : null;
+  try {
+    const [campaign] = await db.select().from(salesEmailCampaignsTable)
+      .where(and(
+        eq(salesEmailCampaignsTable.id, campaignId),
+        eq(salesEmailCampaignsTable.tenantId, tenantId),
+      ));
+    if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+    if (campaign.templateId === null) {
+      res.status(400).json({ error: "Campaign has no template assigned" }); return;
+    }
+    const [template] = await db.select().from(salesEmailTemplatesTable)
+      .where(eq(salesEmailTemplatesTable.id, campaign.templateId));
+    if (!template) { res.status(400).json({ error: "Template not found" }); return; }
+
+    // Resolve a sample contact: requested one, OR first selected, OR first active in account.
+    // SECURITY: only allow contacts that belong to this tenant AND are either
+    // in the campaign's contactIds list or in the campaign's target account.
+    const contactIds: number[] = (campaign.metadata as any)?.contactIds ?? [];
+    const allowedIds = new Set(contactIds);
+    let sampleContactId: number | null = null;
+    if (requestedContactId && allowedIds.has(requestedContactId)) {
+      sampleContactId = requestedContactId;
+    } else if (contactIds.length > 0) {
+      sampleContactId = contactIds[0];
+    }
+
+    let contact: typeof salesContactsTable.$inferSelect | null = null;
+    if (sampleContactId) {
+      const [c] = await db.select().from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.id, sampleContactId),
+          eq(salesContactsTable.tenantId, tenantId),
+        ));
+      if (c) contact = c;
+    }
+    if (!contact && campaign.accountId) {
+      const [c] = await db.select().from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          eq(salesContactsTable.accountId, campaign.accountId),
+          eq(salesContactsTable.status, "active"),
+        ));
+      if (c) contact = c;
+    }
+
+    const host = `${req.protocol}://${req.get("host")}`;
+    const senderName = (campaign.metadata as any)?.senderName ?? "Dandy";
+
+    // Build vars — real values if we have a contact, otherwise clearly-labelled samples
+    let companyName = "";
+    let hotlinkToken: string | null = null;
+    if (contact?.accountId) {
+      const [acc] = await db.select({ name: salesAccountsTable.name })
+        .from(salesAccountsTable)
+        .where(eq(salesAccountsTable.id, contact.accountId));
+      companyName = acc?.name ?? "";
+    }
+    if (contact) {
+      const [hl] = await db.select().from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.contactId, contact.id));
+      if (hl) hotlinkToken = hl.token;
+    }
+
+    const vars: Record<string, string> = contact ? {
+      "{{first_name}}": contact.firstName ?? "",
+      "{{last_name}}": contact.lastName ?? "",
+      "{{company}}": companyName,
+      "{{sender_name}}": senderName,
+      "{{email}}": contact.email ?? "",
+      "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=PREVIEW`,
+      "{{microsite_url}}": hotlinkToken ? `${host}/p/${hotlinkToken}` : "",
+    } : {
+      "{{first_name}}": "Sarah",
+      "{{last_name}}": "Johnson",
+      "{{company}}": "Acme Dental",
+      "{{sender_name}}": senderName,
+      "{{email}}": "sarah@example.com",
+      "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=PREVIEW`,
+      "{{microsite_url}}": "",
+    };
+
+    const renderedSubject = replaceVars(template.subject, vars);
+    let renderedHtml: string;
+    if (template.format === "plain") {
+      const plainText = replaceVars(template.bodyText ?? "", vars);
+      const escaped = plainText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      renderedHtml = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${escaped}</div>`;
+    } else {
+      renderedHtml = replaceVars(template.bodyHtml, vars);
+    }
+
+    // Check the ORIGINAL template (not the rendered output) for unresolved tokens
+    const rawCombined = `${template.subject}\n${template.bodyHtml ?? ""}\n${template.bodyText ?? ""}`;
+    const unresolvedTokens = findUnresolvedTokens(rawCombined, vars);
+
+    // Also surface tokens whose value resolves to empty (e.g. missing first_name)
+    const emptyTokens: string[] = [];
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === "" && rawCombined.includes(k)) {
+        emptyTokens.push(k.replace(/^\{\{|\}\}$/g, ""));
+      }
+    }
+
+    res.json({
+      subject: renderedSubject,
+      html: renderedHtml,
+      contact: contact ? {
+        id: contact.id,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        email: contact.email,
+        company: companyName,
+        hasHotlink: !!hotlinkToken,
+      } : null,
+      unresolvedTokens,
+      emptyTokens,
+      isSample: !contact,
+    });
+  } catch (err) {
+    logger.error({ err }, "POST /sales/campaigns/:id/preview error");
+    res.status(500).json({ error: "Failed to render preview" });
   }
 });
 

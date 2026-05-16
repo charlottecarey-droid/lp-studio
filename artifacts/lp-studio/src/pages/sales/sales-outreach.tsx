@@ -29,6 +29,7 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { SendTestEmailModal } from "@/components/SendTestEmailModal";
+import { QuickCampaignWizard } from "@/components/QuickCampaignWizard";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -711,55 +712,19 @@ function SingleSendTab() {
 function CampaignsTab() {
   const [, navigate] = useLocation();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
 
-  // Create form
-  const [name, setName] = useState("");
-  const [templateId, setTemplateId] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [saving, setSaving] = useState(false);
-
   const fetchData = useCallback(() => {
-    Promise.all([
-      fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
-    ])
-      .then(([c, t, a]) => { setCampaigns(c); setTemplates(t); setAccounts(a); })
+    fetch(`${API_BASE}/sales/campaigns`)
+      .then(r => r.ok ? r.json() : [])
+      .then(c => setCampaigns(c))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name || !templateId) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`${API_BASE}/sales/campaigns`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          templateId: Number(templateId),
-          accountId: accountId ? Number(accountId) : null,
-        }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setName(""); setTemplateId(""); setAccountId("");
-        setShowCreate(false);
-        navigate(`/sales/campaigns/${created.id}`);
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleDelete(id: number) {
     try {
@@ -794,54 +759,18 @@ function CampaignsTab() {
 
   return (
     <div className="flex flex-col gap-6">
+      <QuickCampaignWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCreated={(id) => { fetchData(); navigate(`/sales/campaigns/${id}`); }}
+      />
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Send emails to all contacts in an account</p>
-        <Button size="sm" onClick={() => setShowCreate(!showCreate)} className="gap-1.5">
+        <p className="text-sm text-muted-foreground">Pick recipients, write your email, preview with real data — then send.</p>
+        <Button size="sm" onClick={() => setWizardOpen(true)} className="gap-1.5">
           <Plus className="w-3.5 h-3.5" />
           New Campaign
         </Button>
       </div>
-
-      {showCreate && (
-        <Card className="p-6 rounded-2xl border border-primary/30 bg-primary/5">
-          <form onSubmit={handleCreate} className="flex flex-col gap-4">
-            <h3 className="text-sm font-semibold text-foreground">Create Campaign</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Campaign Name *</label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Q1 DSO Outreach" required />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Template *</label>
-                <select
-                  value={templateId}
-                  onChange={e => setTemplateId(e.target.value)}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  required
-                >
-                  <option value="">Select template…</option>
-                  {templates.map(t => <option key={t.id} value={t.id}>{t.name} — {t.subject}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Account (all contacts)</label>
-                <AccountCombobox
-                  accounts={accounts}
-                  value={accountId}
-                  onChange={v => setAccountId(v)}
-                  allLabel="All accounts"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={saving || !name || !templateId}>
-                {saving ? "Creating…" : "Create Draft"}
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
-            </div>
-          </form>
-        </Card>
-      )}
 
       {loading ? (
         <div className="flex flex-col gap-3">
