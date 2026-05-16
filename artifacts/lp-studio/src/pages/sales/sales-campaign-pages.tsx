@@ -654,11 +654,24 @@ function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; mic
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            New Microsite
+            New Campaign Page
           </DialogTitle>
+          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+            Pick a starting template for the page each recipient will land on. After you create it,
+            add merge variables like{" "}
+            <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{"{{first_name}}"}</code>,{" "}
+            <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{"{{company}}"}</code>{" "}
+            anywhere in your page — every recipient gets their own personalized version automatically.
+          </p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto flex flex-col gap-4 py-2 pr-1">
+          <div className="rounded-lg border border-violet-200 dark:border-violet-800/40 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-2.5 text-[11px] leading-relaxed text-violet-900 dark:text-violet-100">
+            <span className="font-semibold">Tip:</span> This isn't a regular standalone microsite —
+            it's a campaign page template. Use merge variables in your headlines, body copy, and CTAs so
+            each prospect sees something tailored to them.
+          </div>
+
 
           {/* Marketing-owned templates */}
           {(loadingTemplates || marketingTemplates.length > 0) && (
