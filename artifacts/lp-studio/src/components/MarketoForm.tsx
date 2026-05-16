@@ -157,6 +157,23 @@ export function MarketoForm({
     // Reset container — Marketo replaces the inner <form>, but we re-mount on prop changes.
     container.innerHTML = `<form id="mktoForm_${formId}"></form>`;
 
+    // Bounded watchdog: Marketo's Forms2 `loadForm` doesn't return a
+    // Promise, and when it fails internally (form unapproved, wrong
+    // formId, domain whitelist mismatch) it logs "Error loading form"
+    // and never invokes our success callback. Without this guard the
+    // component would spin on "Loading form…" indefinitely. After the
+    // timeout we surface a real error so the visitor sees something
+    // actionable and so `onLoadError` telemetry fires.
+    const LOAD_TIMEOUT_MS = 10_000;
+    let resolved = false;
+    const watchdog = window.setTimeout(() => {
+      if (cancelled || resolved) return;
+      const msg = "Could not load the Marketo form. Please try again later.";
+      setError(msg);
+      setLoading(false);
+      onLoadError?.(msg);
+    }, LOAD_TIMEOUT_MS);
+
     // If the Marketo loader is already on the page (preloaded by the host,
     // or stubbed by a test) skip the network fetch. Otherwise pull it in.
     const ready = window.MktoForms2 ? Promise.resolve() : loadMarketoScript(baseUrl);
@@ -165,6 +182,8 @@ export function MarketoForm({
         if (cancelled || !window.MktoForms2) return;
         window.MktoForms2.loadForm(baseUrl, munchkinId, formId, (form) => {
           if (cancelled) return;
+          resolved = true;
+          window.clearTimeout(watchdog);
           setLoading(false);
           if (prefill && Object.keys(prefill).length > 0) {
             try {
@@ -298,6 +317,8 @@ export function MarketoForm({
       })
       .catch(() => {
         if (cancelled) return;
+        resolved = true;
+        window.clearTimeout(watchdog);
         const msg = "Could not load the Marketo form. Please try again later.";
         setError(msg);
         setLoading(false);
@@ -306,6 +327,7 @@ export function MarketoForm({
 
     return () => {
       cancelled = true;
+      window.clearTimeout(watchdog);
     };
     // Stringify prefill so re-mount happens when values change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
