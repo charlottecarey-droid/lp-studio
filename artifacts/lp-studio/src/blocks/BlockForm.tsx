@@ -10,6 +10,15 @@ import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 
 const API_BASE = "/api";
 
+/**
+ * Temporarily disabled while the marketing team validates Graham's GTM
+ * dataLayer-push approach for landing leads / firing conversion tags. The
+ * Forms2 ghost-submit code path (mount hidden MarketoForm + await its
+ * onSuccess in handleSubmit) is gated on this flag — flip back to `true`
+ * to re-enable Munchkin association + Marketo Smart Campaign triggers.
+ */
+const GHOST_SUBMIT_ENABLED = false;
+
 /** Evaluate a StepCondition against the current field values */
 function evalCondition(cond: StepCondition, values: Record<string, string>): boolean {
   const actual = (values[cond.fieldId] ?? "").trim().toLowerCase();
@@ -639,7 +648,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
       // block the visitor's success UX longer than this.
       let ghostSubmitDone: Promise<void> = Promise.resolve();
       const mkto = globalForm?.marketoConfig;
-      if (mkto?.forms2?.baseUrl && mkto.forms2.munchkinId && mkto.forms2.formId) {
+      if (GHOST_SUBMIT_ENABLED && mkto?.forms2?.baseUrl && mkto.forms2.munchkinId && mkto.forms2.formId) {
         const mappings = mkto.fieldMappings ?? {};
         const ghost: Record<string, string> = {};
         for (const [label, value] of Object.entries(allFields)) {
@@ -751,7 +760,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   // `marketoConfig.forms2` configured. Wrapped in display:none so the
   // visitor never sees Marketo's own form HTML — Forms2 still POSTs.
   const ghostMkto = globalForm?.marketoConfig?.forms2;
-  const ghostFormNode = ghostSubmitVals && ghostMkto?.baseUrl && ghostMkto.munchkinId && ghostMkto.formId ? (
+  const ghostFormNode = GHOST_SUBMIT_ENABLED && ghostSubmitVals && ghostMkto?.baseUrl && ghostMkto.munchkinId && ghostMkto.formId ? (
     <div aria-hidden="true" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", visibility: "hidden" }}>
       <MarketoForm
         baseUrl={ghostMkto.baseUrl}
