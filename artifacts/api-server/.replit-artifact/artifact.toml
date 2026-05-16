@@ -53,4 +53,12 @@ PORT = "8080"
 NODE_ENV = "production"
 
 [services.production.health.startup]
-path = "/api/healthz"
+# Probe the unconditional /healthz route (registered directly on the express
+# app in src/app.ts before the /api/* readiness gate). The /api/healthz
+# route sits BEHIND the readiness gate, which 503s every request until the
+# idempotent migration batch in server.ts finishes — on a cold start that
+# can exceed Cloud Run's startup-probe window and fail the deploy promote
+# step even though the build itself succeeded. /healthz returns 200 as
+# soon as the port is bound, while the readiness gate keeps real /api/*
+# traffic returning 503+Retry-After until migrations complete.
+path = "/healthz"
