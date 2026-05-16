@@ -279,14 +279,19 @@ export function EmailCaptureModal({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="px-7 pb-7 sm:px-9 sm:pb-9 pt-1">
+          <div className="px-7 pb-9 sm:px-10 sm:pb-10 pt-2">
             {(cfg.headline || cfg.subheadline) && (
-              <div className="mb-5">
+              <div className="mb-8 text-center">
                 {cfg.headline && (
-                  <h3 className="text-xl font-bold mb-1" style={{ color: primary }}>{cfg.headline}</h3>
+                  <h3
+                    className="text-2xl sm:text-3xl font-bold mb-2 leading-tight"
+                    style={{ color: primary, fontFamily: "var(--brand-font-heading, inherit)" }}
+                  >
+                    {cfg.headline}
+                  </h3>
                 )}
                 {cfg.subheadline && (
-                  <p className="text-sm text-slate-500">{cfg.subheadline}</p>
+                  <p className="text-sm sm:text-base text-slate-500">{cfg.subheadline}</p>
                 )}
               </div>
             )}

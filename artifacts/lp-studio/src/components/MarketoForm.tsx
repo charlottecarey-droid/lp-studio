@@ -192,6 +192,48 @@ export function MarketoForm({
               // ignore
             }
           }
+          // US phone number auto-formatting on every tel input + any
+          // Marketo `Phone` / `MobilePhone` field. Marketo's default
+          // <input type="tel"> accepts any string, which made our embed
+          // look unpolished next to the native lp-studio forms (which
+          // format as (XXX) XXX-XXXX on the fly). Attached after the
+          // form has rendered so we can find the actual DOM inputs.
+          if (container) {
+            const formatUsPhone = (raw: string): string => {
+              const digits = raw.replace(/\D/g, "").slice(0, 10);
+              const len = digits.length;
+              if (len === 0) return "";
+              if (len < 4) return `(${digits}`;
+              if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+              return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+            };
+            const phoneInputs = container.querySelectorAll<HTMLInputElement>(
+              'input[type="tel"], input[name="Phone"], input[name="MobilePhone"], input[id*="Phone" i]',
+            );
+            phoneInputs.forEach((input) => {
+              // Allow up to (XXX) XXX-XXXX = 14 chars.
+              input.maxLength = 14;
+              input.setAttribute("inputmode", "tel");
+              input.setAttribute("autocomplete", "tel");
+              input.placeholder = input.placeholder || "(555) 123-4567";
+              const handler = () => {
+                const cursorAtEnd = input.selectionStart === input.value.length;
+                const formatted = formatUsPhone(input.value);
+                if (formatted !== input.value) {
+                  input.value = formatted;
+                  // Keep cursor at end on type — simpler than tracking
+                  // through the inserted parens/dash, and matches the
+                  // pattern used by the native lp-studio form.
+                  if (cursorAtEnd) {
+                    input.setSelectionRange(formatted.length, formatted.length);
+                  }
+                }
+              };
+              input.addEventListener("input", handler);
+              // Format any pre-filled value (e.g. from Marketo cookie).
+              if (input.value) handler();
+            });
+          }
           if (submitOnReady) {
             // CRITICAL: register a guaranteed "cancel default redirect"
             // handler BEFORE we queue form.submit(), and BEFORE the

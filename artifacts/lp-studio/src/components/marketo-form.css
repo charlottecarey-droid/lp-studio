@@ -65,9 +65,16 @@
   display: none !important;
 }
 
-/* Labels above inputs — match the native form's small uppercase pattern. */
+/* Labels above inputs — match the native form's small uppercase pattern.
+ * Use flex so the required asterisk (Marketo emits as a `<div>` inside
+ * the label, which is what made it land on its own line above the label
+ * text) renders INLINE *after* the label text. `order: 2` flips it to
+ * the right side; flex makes the asterisk a flex item instead of a
+ * block-level div. */
 [data-lp-marketo-form] .mktoForm .mktoLabel {
-  display: block !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+  flex-wrap: wrap !important;
   width: 100% !important;
   float: none !important;
   padding: 0 0 6px 0 !important;
@@ -80,11 +87,18 @@
   font-family: inherit !important;
 }
 
-/* Required asterisk */
+/* Required asterisk — inline after label text, brand-red. */
 [data-lp-marketo-form] .mktoForm .mktoAsterix {
-  color: var(--brand-primary, #003a30) !important;
-  padding-left: 2px !important;
+  display: inline !important;
+  order: 2 !important;
+  color: #dc2626 !important;
+  padding: 0 0 0 4px !important;
+  margin: 0 !important;
   float: none !important;
+  width: auto !important;
+  height: auto !important;
+  font-size: inherit !important;
+  line-height: 1 !important;
 }
 
 /* Inputs / selects / textareas — full-width rounded brand-themed. */
@@ -149,11 +163,16 @@
   margin-left: 6px !important;
 }
 
-/* Submit button — brand primary, rounded, matches native CTA. */
+/* Submit button — brand primary, rounded, matches native CTA.
+ * `margin-top: 24px` puts visible breathing room between the last
+ * field (often a <select>) and the button so the native dropdown
+ * options aren't visually crowded by the button below it. */
 [data-lp-marketo-form] .mktoForm .mktoButtonRow {
   display: block !important;
   width: 100% !important;
-  margin-top: 8px !important;
+  margin-top: 24px !important;
+  margin-bottom: 4px !important;
+  text-align: center !important;
 }
 [data-lp-marketo-form] .mktoForm .mktoButtonWrap,
 [data-lp-marketo-form] .mktoForm .mktoButtonWrap.mktoSimple,
