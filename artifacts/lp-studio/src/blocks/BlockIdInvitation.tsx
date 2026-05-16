@@ -56,6 +56,7 @@ export function BlockIdInvitation({ props, onFieldChange, onCtaClick, pageId, va
               modalMarketoFormId={props.modalMarketoFormId}
               modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
               modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+              modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
               modalHeadline={props.modalHeadline}
               modalSubheadline={props.modalSubheadline}
               modalSubmitText={props.modalSubmitText}
@@ -89,6 +90,7 @@ export function BlockIdInvitation({ props, onFieldChange, onCtaClick, pageId, va
               modalMarketoFormId={props.modalMarketoFormId}
               modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
               modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+              modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
               modalHeadline={props.modalHeadline}
               modalSubheadline={props.modalSubheadline}
               modalSubmitText={props.modalSubmitText}

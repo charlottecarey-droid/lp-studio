@@ -88,6 +88,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               modalMarketoFormId={props.modalMarketoFormId}
               modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
               modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+              modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
               modalHeadline={props.modalHeadline}
               modalSubheadline={props.modalSubheadline}
               modalSubmitText={props.modalSubmitText}
@@ -121,6 +122,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               modalMarketoFormId={props.modalMarketoFormId}
               modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
               modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+              modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
               modalHeadline={props.modalHeadline}
               modalSubheadline={props.modalSubheadline}
               modalSubmitText={props.modalSubmitText}

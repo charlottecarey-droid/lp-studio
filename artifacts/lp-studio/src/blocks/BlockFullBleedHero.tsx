@@ -350,7 +350,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         marketoBaseUrl={props.modalMarketoBaseUrl}
         marketoMunchkinId={props.modalMarketoMunchkinId}
         marketoFormId={props.modalMarketoFormId}
-        chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal" } : null}
+        chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal", fieldMap: props.modalChiliPiperHandoffFieldMap } : null}
         formConfig={{
           headline: props.modalHeadline,
           subheadline: props.modalSubheadline,

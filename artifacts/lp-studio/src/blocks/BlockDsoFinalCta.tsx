@@ -321,7 +321,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
           marketoBaseUrl={props.modalMarketoBaseUrl}
           marketoMunchkinId={props.modalMarketoMunchkinId}
           marketoFormId={props.modalMarketoFormId}
-          chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal" } : null}
+          chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal", fieldMap: props.modalChiliPiperHandoffFieldMap } : null}
           formConfig={{
             headline: props.modalHeadline,
             subheadline: props.modalSubheadline,

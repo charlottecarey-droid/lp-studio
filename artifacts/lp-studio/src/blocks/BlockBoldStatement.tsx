@@ -132,6 +132,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange, pa
                 modalMarketoFormId={props.modalMarketoFormId}
                 modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
                 modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+                modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
                 modalHeadline={props.modalHeadline}
                 modalSubheadline={props.modalSubheadline}
                 modalSubmitText={props.modalSubmitText}

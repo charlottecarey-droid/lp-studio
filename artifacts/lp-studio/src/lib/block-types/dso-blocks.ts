@@ -149,6 +149,8 @@ export interface DsoHeartlandHeroBlockProps {
   /** Optional Chili Piper hand-off applied after Marketo modal submit. */
   modalChiliPiperHandoffUrl?: string;
   modalChiliPiperHandoffMode?: "modal" | "redirect";
+  /** Optional Marketo→Chili Piper field map (parity with Global Forms). */
+  modalChiliPiperHandoffFieldMap?: Record<string, string>;
 }
 
 /**
@@ -260,6 +262,8 @@ export interface DandyProductHeroBlockProps {
   /** Optional Chili Piper hand-off applied after Marketo modal submit. */
   modalChiliPiperHandoffUrl?: string;
   modalChiliPiperHandoffMode?: "modal" | "redirect";
+  /** Optional Marketo→Chili Piper field map (parity with Global Forms). */
+  modalChiliPiperHandoffFieldMap?: Record<string, string>;
 }
 
 export interface DsoSuccessStoriesBlockProps {

@@ -6,6 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { CtaModalConfig } from "@/lib/block-types";
+import { mappingsToText, textToMappings } from "@/lib/field-map-text";
 
 interface GlobalFormSummary {
   id: number;
@@ -35,6 +36,20 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
   const formSource = cfg.modalFormSource ?? "simple";
 
   const set = (patch: Partial<CtaModalConfig>) => onChange({ ...cfg, ...patch });
+
+  // Local text mirror for the field-map textarea so partial lines like
+  // `MobilePhone` (no `:` yet) don't get dropped by the parser mid-typing.
+  // Mirrors the same pattern the Global Forms editor uses.
+  const [fieldMapText, setFieldMapText] = useState(mappingsToText(cfg.modalChiliPiperHandoffFieldMap));
+  const [showFieldMapHelp, setShowFieldMapHelp] = useState(false);
+
+  // Resync when the selected block changes (this panel instance is reused
+  // across selections) — otherwise the textarea would show the previously
+  // selected CTA's map until the operator types into it.
+  useEffect(() => {
+    setFieldMapText(mappingsToText(cfg.modalChiliPiperHandoffFieldMap));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg.modalChiliPiperHandoffFieldMap]);
 
   const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
   useEffect(() => {
@@ -177,6 +192,55 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
                   router with their first/last name, email, phone, and company prefilled. Leave blank
                   to skip the hand-off.
                 </p>
+                {cfg.modalChiliPiperHandoffUrl && (
+                  <div>
+                    <Label className="text-[11px] font-medium mb-1.5 block">Field map (optional)</Label>
+                    <p className="text-[10px] text-muted-foreground mb-1.5">
+                      Map this embed's Marketo field names to Chili Piper query params — one per line
+                      (<code>SubmittedFieldName:cpParam</code>). Defaults cover the standard casings
+                      (Email, FirstName, LastName, Phone, Company). Add a line here for any custom
+                      Marketo field (e.g. <code>MobilePhone:phone</code>,{" "}
+                      <code>Practice_Company_Name__c:company</code>) so the scheduler prefills correctly.
+                    </p>
+                    <Textarea
+                      rows={4}
+                      className="text-xs font-mono"
+                      placeholder={"MobilePhone:phone\nPractice_Company_Name__c:company"}
+                      value={fieldMapText}
+                      onChange={(e) => {
+                        setFieldMapText(e.target.value);
+                        const parsed = textToMappings(e.target.value);
+                        set({ modalChiliPiperHandoffFieldMap: Object.keys(parsed).length ? parsed : undefined });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFieldMapHelp((s) => !s)}
+                      className="text-[10px] text-muted-foreground underline mt-1"
+                    >
+                      {showFieldMapHelp ? "Hide" : "How field mapping works"}
+                    </button>
+                    {showFieldMapHelp && (
+                      <div className="text-[10px] text-muted-foreground mt-1.5 rounded-md bg-white border p-2 leading-snug space-y-1">
+                        <p>
+                          <strong>Left side</strong> = the Marketo field name on this embed (the SOAP
+                          API name, e.g. <code>MobilePhone</code> or <code>Practice_Company_Name__c</code>).
+                        </p>
+                        <p>
+                          <strong>Right side</strong> = the Chili Piper query param the scheduler expects
+                          (e.g. <code>phone</code>, <code>company</code>, <code>firstName</code>).
+                        </p>
+                        <p>One mapping per line. Leave blank to rely on the built-in defaults.</p>
+                        <p>
+                          If a matching Global Form already has a field map configured under{" "}
+                          <a href="/forms" target="_blank" rel="noopener noreferrer" className="underline">
+                            /forms
+                          </a>, paste the same lines here so this block routes the same way.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

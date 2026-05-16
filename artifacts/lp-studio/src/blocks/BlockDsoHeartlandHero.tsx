@@ -452,7 +452,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       marketoBaseUrl={p.modalMarketoBaseUrl}
       marketoMunchkinId={p.modalMarketoMunchkinId}
       marketoFormId={p.modalMarketoFormId}
-      chiliPiperConfig={p.modalChiliPiperHandoffUrl ? { url: p.modalChiliPiperHandoffUrl, mode: p.modalChiliPiperHandoffMode ?? "modal" } : null}
+      chiliPiperConfig={p.modalChiliPiperHandoffUrl ? { url: p.modalChiliPiperHandoffUrl, mode: p.modalChiliPiperHandoffMode ?? "modal", fieldMap: p.modalChiliPiperHandoffFieldMap } : null}
       formConfig={{
         headline: p.modalHeadline,
         subheadline: p.modalSubheadline,

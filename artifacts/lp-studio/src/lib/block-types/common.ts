@@ -32,6 +32,15 @@ export interface CtaModalConfig {
    */
   modalChiliPiperHandoffUrl?: string;
   modalChiliPiperHandoffMode?: "modal" | "redirect";
+  /**
+   * Optional Marketo→Chili Piper field map for this CTA's Marketo embed.
+   * Same shape and parser as the Global Forms editor's "Field map"
+   * textarea — keys are the submitted Marketo field names on this embed,
+   * values are the Chili Piper query-param names. Merged on top of the
+   * built-in DEFAULT_FIELD_MAP in `chili-piper-handoff.ts` at runtime, so
+   * leaving this blank keeps today's default behaviour.
+   */
+  modalChiliPiperHandoffFieldMap?: Record<string, string>;
   /** Built-in ("simple") form copy + field toggles. */
   modalHeadline?: string;
   modalSubheadline?: string;

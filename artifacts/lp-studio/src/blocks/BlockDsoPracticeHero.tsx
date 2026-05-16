@@ -74,6 +74,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
     modalMarketoFormId: props.modalMarketoFormId,
     modalChiliPiperHandoffUrl: props.modalChiliPiperHandoffUrl,
     modalChiliPiperHandoffMode: props.modalChiliPiperHandoffMode,
+    modalChiliPiperHandoffFieldMap: props.modalChiliPiperHandoffFieldMap,
     modalHeadline: props.modalHeadline,
     modalSubheadline: props.modalSubheadline,
     modalSubmitText: props.modalSubmitText,

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch, Copy, AlertTriangle, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
+import { mappingsToText, textToMappings } from "@/lib/field-map-text";
 import { MarketoForm } from "@/components/MarketoForm";
 import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
 
@@ -295,17 +296,6 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   const [showSalesforce, setShowSalesforce] = useState(!!form.salesforceConfig);
   const [showChiliPiper, setShowChiliPiper] = useState(!!form.chiliPiperConfig);
   const [copied, setCopied] = useState(false);
-
-  const mappingsToText = (m: Record<string, string> | undefined) =>
-    Object.entries(m ?? {}).map(([k, v]) => `${k}:${v}`).join("\n");
-  const textToMappings = (text: string): Record<string, string> => {
-    const m: Record<string, string> = {};
-    text.split("\n").forEach(line => {
-      const [k, ...rest] = line.split(":");
-      if (k && rest.length) m[k.trim()] = rest.join(":").trim();
-    });
-    return m;
-  };
 
   const [marketoText, setMarketoText] = useState(mappingsToText(form.marketoConfig?.fieldMappings));
   const [salesforceText, setSalesforceText] = useState(mappingsToText(form.salesforceConfig?.fieldMappings));

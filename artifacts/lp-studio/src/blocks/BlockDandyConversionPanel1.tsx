@@ -66,6 +66,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
     modalMarketoFormId: props.modalMarketoFormId,
     modalChiliPiperHandoffUrl: props.modalChiliPiperHandoffUrl,
     modalChiliPiperHandoffMode: props.modalChiliPiperHandoffMode,
+    modalChiliPiperHandoffFieldMap: props.modalChiliPiperHandoffFieldMap,
     modalHeadline: props.modalHeadline,
     modalSubheadline: props.modalSubheadline,
     modalSubmitText: props.modalSubmitText,
