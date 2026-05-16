@@ -31,23 +31,34 @@ export function BlockCustomHtml({ props }: Props) {
     // user-clicked links escape the frame while still blocking script-driven
     // top navigation.
     const baseTag = `<base target="_top">`;
-    // for full HTML docs, inject the <base> right after <head> if the user
-    // didn't already supply one — keeping their styling intact.
-    const ensureBase = (doc: string): string => {
-      if (/<base\s/i.test(doc)) return doc;
+    // Default body-margin reset injected BEFORE the user's own styles so the
+    // user's CSS can still override it. Without this, a pasted full HTML doc
+    // inherits the browser default `body { margin: 8px }`, which renders as a
+    // white frame around dark backgrounds (e.g. the meetdandy footer's
+    // #003A30 fill). Pairs with the snippet-branch reset on line ~58.
+    const defaultStyleTag = `<style>body{margin:0}</style>`;
+    // for full HTML docs, inject the <base> + default reset right after
+    // <head> if the user didn't already supply one — keeping their styling
+    // intact (their later <style> rules still win).
+    const ensureBaseAndReset = (doc: string): string => {
+      const headInjection =
+        (/(<base\s)/i.test(doc) ? "" : baseTag) + defaultStyleTag;
       if (/<head[^>]*>/i.test(doc)) {
-        return doc.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+        return doc.replace(/<head([^>]*)>/i, `<head$1>${headInjection}`);
       }
-      // no <head> at all — prepend a minimal one inside <html> so the base tag
-      // is honoured.
+      // no <head> at all — prepend a minimal one inside <html> so the tags
+      // are honoured.
       if (/<html[^>]*>/i.test(doc)) {
-        return doc.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
+        return doc.replace(
+          /<html([^>]*)>/i,
+          `<html$1><head>${headInjection}</head>`,
+        );
       }
-      return baseTag + doc;
+      return headInjection + doc;
     };
 
     const content = isFullDoc
-      ? ensureBase(raw)
+      ? ensureBaseAndReset(raw)
       : `<!DOCTYPE html>
 <html>
 <head>
