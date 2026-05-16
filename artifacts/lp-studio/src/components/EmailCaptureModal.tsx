@@ -303,9 +303,19 @@ export function EmailCaptureModal({
                 scopedStyles
                 prefill={email ? { Email: email } : undefined}
                 onSuccess={(vals) => {
-                  if (chiliPiperConfig?.url) {
-                    const url = buildChiliPiperHandoffUrl(chiliPiperConfig, vals);
-                    if (chiliPiperConfig.mode === "redirect") {
+                  // Resolve the Chili Piper handoff. Callers can pass an
+                  // explicit chiliPiperConfig per-CTA; if they don't, fall
+                  // back to the brand-level Chili Piper URL configured in
+                  // Brand Settings → Scheduling so reps don't have to wire
+                  // the URL on every block.
+                  const handoff = chiliPiperConfig?.url
+                    ? chiliPiperConfig
+                    : brand?.chilipiperUrl
+                      ? { url: brand.chilipiperUrl, mode: "modal" as const }
+                      : null;
+                  if (handoff?.url) {
+                    const url = buildChiliPiperHandoffUrl(handoff, vals);
+                    if (handoff.mode === "redirect") {
                       // Redirect mode: open the scheduler in a new tab and
                       // close the capture modal, mirroring BlockForm behaviour.
                       safeNavigate(url, "_blank");
