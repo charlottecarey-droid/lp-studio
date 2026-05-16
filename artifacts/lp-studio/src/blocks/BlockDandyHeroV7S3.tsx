@@ -4,6 +4,7 @@ import { X, Loader2, CheckCircle2, Calendar } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 interface Props {
   props: DandyHeroV7S3BlockProps;
@@ -56,6 +57,13 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
       }
     } catch {
       // silently continue — don't block UX
+    }
+    // GTM dataLayer push (marketing's "Marketo Form Submission" event).
+    // Helper dedupes per page load and is safe to call after any submit.
+    try {
+      pushMarketoSubmissionToDataLayer();
+    } catch (err) {
+      console.error("[lp-studio] dataLayer push threw:", err);
     }
     setFormState("success");
     if (props.chilipiperUrl) {

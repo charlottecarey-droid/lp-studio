@@ -12,6 +12,7 @@ import { MarketoForm } from "@/components/MarketoForm";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { safeNavigate } from "@/lib/safe-url";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 const API_BASE = "/api";
 
@@ -183,6 +184,13 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
       }
     } catch {
       // silently continue — failure to record shouldn't block UX
+    }
+    // GTM dataLayer push (marketing's "Marketo Form Submission" event).
+    // Helper dedupes per page load and is safe to call after any submit.
+    try {
+      pushMarketoSubmissionToDataLayer();
+    } catch (err) {
+      console.error("[lp-studio] dataLayer push threw:", err);
     }
     if (handoffAfterSubmit()) {
       // Stay in "loading" so the form contents swap to the iframe instead

@@ -2269,6 +2269,13 @@ function FormModal({
         try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
         throw new Error(detail || `Submission failed (${res.status})`);
       }
+      // GTM dataLayer push (marketing's "Marketo Form Submission" event).
+      // Helper dedupes per page load and is safe to call after any submit.
+      try {
+        pushMarketoSubmissionToDataLayer();
+      } catch (err) {
+        console.error("[lp-studio] dataLayer push threw:", err);
+      }
       setSubmitted(true);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "Something went wrong. Please try again.";

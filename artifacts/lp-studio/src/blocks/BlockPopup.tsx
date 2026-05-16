@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { PopupBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 interface Props {
   props: PopupBlockProps;
@@ -80,6 +81,14 @@ function ChilipiperModal({
       });
     } catch {
       // Lead capture is best-effort — still show calendar on failure
+    }
+
+    // GTM dataLayer push (marketing's "Marketo Form Submission" event).
+    // Helper dedupes per page load and is safe to call after any submit.
+    try {
+      pushMarketoSubmissionToDataLayer();
+    } catch (err) {
+      console.error("[lp-studio] dataLayer push threw:", err);
     }
 
     setSubmitting(false);

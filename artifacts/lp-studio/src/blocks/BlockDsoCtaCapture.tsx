@@ -5,6 +5,7 @@ import { X, Calendar, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const AW = "var(--brand-accent, hsl(68,60%,52%))";
@@ -125,6 +126,14 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
       }
     } catch {
       // silently continue
+    }
+
+    // GTM dataLayer push (marketing's "Marketo Form Submission" event).
+    // Helper dedupes per page load and is safe to call after any submit.
+    try {
+      pushMarketoSubmissionToDataLayer();
+    } catch (err) {
+      console.error("[lp-studio] dataLayer push threw:", err);
     }
 
     setFormState("success");

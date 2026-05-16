@@ -280,6 +280,14 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
         });
         if (!resp.ok) throw new Error("Submission failed");
 
+        // GTM dataLayer push (marketing's "Marketo Form Submission" event).
+        // Helper dedupes per page load and is safe to call after any submit.
+        try {
+          pushMarketoSubmissionToDataLayer();
+        } catch (err) {
+          console.error("[lp-studio] dataLayer push threw:", err);
+        }
+
         try {
           // Omit `testId` / `variantId` when this event page isn't being
           // rendered as part of an A/B test — sending `testId: 0` violated
