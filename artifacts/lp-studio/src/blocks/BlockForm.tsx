@@ -7,6 +7,7 @@ import { MarketoForm } from "@/components/MarketoForm";
 import { MunchkinLoader } from "@/components/MunchkinLoader";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 const API_BASE = "/api";
 
@@ -582,6 +583,19 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           body: JSON.stringify(body),
         });
         if (!resp.ok) throw new Error("Submission failed");
+
+        // GTM dataLayer push — fires the `Marketo Form Submission` event
+        // (formName: "Demo Form") so marketing's GTM container can fan out
+        // to ads-conversion / GA4 tags. Mirrors the push wired into the
+        // visible MarketoForm embed (MarketoForm.tsx onSuccess) so native
+        // lp-studio forms send the same signal. Idempotent per page load
+        // — the helper dedupes internally.
+        try {
+          pushMarketoSubmissionToDataLayer();
+        } catch (err) {
+          // Analytics must never break the submit path.
+          console.error("[lp-studio] dataLayer push threw:", err);
+        }
 
         try {
           // Omit `testId` / `variantId` when this page isn't being rendered

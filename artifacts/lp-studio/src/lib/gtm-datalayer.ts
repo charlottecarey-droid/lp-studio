@@ -45,15 +45,26 @@ let hasPushed = false;
  */
 export function pushMarketoSubmissionToDataLayer(): void {
   if (typeof window === "undefined") return;
-  if (hasPushed) return;
+  if (hasPushed) {
+    // eslint-disable-next-line no-console
+    console.log("[lp-studio] dataLayer push skipped (already fired this page load)");
+    return;
+  }
   const dl = window.dataLayer;
-  if (!dl || typeof dl.push !== "function") return;
+  if (!dl || typeof dl.push !== "function") {
+    // eslint-disable-next-line no-console
+    console.warn("[lp-studio] dataLayer push skipped: window.dataLayer not present (GTM not loaded?)");
+    return;
+  }
   hasPushed = true;
   try {
-    dl.push({
+    const payload = {
       formName: HARDCODED_FORM_NAME,
       event: "Marketo Form Submission",
-    });
+    };
+    dl.push(payload);
+    // eslint-disable-next-line no-console
+    console.log("[lp-studio] dataLayer push fired:", payload);
   } catch {
     // dataLayer.push is just an Array.push under the hood, but if a GTM
     // proxy has overridden it and throws, drop the dedupe sentinel so a
