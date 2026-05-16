@@ -290,13 +290,6 @@ export function EmailCaptureModal({
                 // this off and keep Marketo's default look — see
                 // MarketoForm `scopedStyles` doc-comment.
                 scopedStyles
-                // GTM `Marketo Form Submission` formName: the modal path
-                // doesn't have a linked global lp_form (it embeds Marketo
-                // directly via the CTA's modal config), so fall back to
-                // the stable Marketo-form-id label. A future change that
-                // surfaces a linked-form name through this modal can pass
-                // it through this prop.
-                formName={`Marketo Form ${marketoFormId}`}
                 prefill={email ? { Email: email } : undefined}
                 onSuccess={(vals) => {
                   if (chiliPiperConfig?.url) {

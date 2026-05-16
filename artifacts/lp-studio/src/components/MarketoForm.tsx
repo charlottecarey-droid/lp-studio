@@ -36,14 +36,6 @@ export interface MarketoFormProps {
   munchkinId: string;
   /** Numeric form ID. */
   formId: number;
-  /**
-   * Human-readable form name pushed into GTM's `dataLayer` on a successful
-   * submit (event: "Marketo Form Submission"). For linked global forms this
-   * is the lp_form's `name`; otherwise callers should pass a sensible
-   * fallback (the MarketoForm itself defaults to `"Marketo Form <id>"`
-   * when omitted) so GTM tags can still attribute the submission.
-   */
-  formName?: string;
   /** Pre-fill values keyed by Marketo field name (e.g. { Email: "x@y.com" }). */
   prefill?: Record<string, string>;
   /** Optional follow-up URL to redirect to on submit. */
@@ -134,7 +126,6 @@ export function MarketoForm({
   baseUrl,
   munchkinId,
   formId,
-  formName,
   prefill,
   followUpUrl,
   onSuccess,
@@ -252,15 +243,13 @@ export function MarketoForm({
           // off the visible embed only. Registered as a dedicated
           // handler (independent of the caller-provided onSuccess /
           // followUpUrl) so the push lands even when neither is wired.
-          // The helper itself dedupes per-formName per page load so
-          // remounts can't double-fire.
+          // The helper pushes a hardcoded `formName: "Demo Form"` payload
+          // (marketing's GTM tag keys off that exact string) and dedupes
+          // once per page load so remounts can't double-fire.
           if (!submitOnReady) {
             form.onSuccess(() => {
-              const resolvedName = formName && formName.length > 0
-                ? formName
-                : `Marketo Form ${formId}`;
               try {
-                pushMarketoSubmissionToDataLayer(resolvedName);
+                pushMarketoSubmissionToDataLayer();
               } catch {
                 // Analytics must never break the submit path.
               }
