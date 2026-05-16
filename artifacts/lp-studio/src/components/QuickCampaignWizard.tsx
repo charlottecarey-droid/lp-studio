@@ -13,6 +13,7 @@ import {
   Search,
   FlaskConical,
   X,
+  Sparkles,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,13 @@ interface Contact {
   accountId: number | null;
   accountName: string | null;
   status: string | null;
+}
+
+interface Audience {
+  id: number;
+  name: string;
+  description: string | null;
+  contact_count: number | null;
 }
 
 interface PreviewResult {
@@ -96,6 +104,9 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
+  const [audiences, setAudiences] = useState<Audience[]>([]);
+  const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
+  const [applyingAudience, setApplyingAudience] = useState(false);
 
   // Step 3 — content
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -129,6 +140,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
       setName("");
       setAccountId("");
       setSelectedContactIds(new Set());
+      setSelectedAudienceId("");
       setContactSearch("");
       setComposeMode("template");
       setTemplateId("");
@@ -149,9 +161,11 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
     Promise.all([
       fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
-    ]).then(([t, a]) => {
+      fetch(`${API_BASE}/sales/audiences`).then(r => r.ok ? r.json() : []),
+    ]).then(([t, a, au]) => {
       setTemplates(Array.isArray(t) ? t : []);
       setAccounts(Array.isArray(a) ? a : []);
+      setAudiences(Array.isArray(au) ? au : []);
     }).catch(() => {});
   }, [open]);
 
@@ -185,6 +199,43 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
         || (c.accountName ?? "").toLowerCase().includes(s);
     });
   }, [contacts, contactSearch]);
+
+  // Apply a saved audience: fetch its contacts, merge into the contact list,
+  // and pre-select them. User can still tweak the selection afterwards.
+  async function applyAudience(audienceIdStr: string) {
+    setSelectedAudienceId(audienceIdStr);
+    if (!audienceIdStr) return;
+    setApplyingAudience(true);
+    setError(null);
+    try {
+      const r = await fetch(`${API_BASE}/sales/audiences/${audienceIdStr}/contacts`);
+      if (!r.ok) throw new Error("Failed to load audience contacts");
+      const data = await r.json();
+      const audContacts: Contact[] = (Array.isArray(data) ? data : []).map((c: any) => ({
+        id: c.id,
+        firstName: c.firstName ?? null,
+        lastName: c.lastName ?? null,
+        email: c.email ?? null,
+        accountId: c.accountId ?? null,
+        accountName: c.accountName ?? null,
+        status: c.status ?? "active",
+      })).filter(c => c.email);
+
+      // Merge so audience contacts always appear in the list, even if they
+      // weren't in the current account filter.
+      setContacts(prev => {
+        const seen = new Set(prev.map(c => c.id));
+        const merged = [...prev];
+        for (const c of audContacts) if (!seen.has(c.id)) merged.push(c);
+        return merged;
+      });
+      setSelectedContactIds(new Set(audContacts.map(c => c.id)));
+    } catch (e: any) {
+      setError(e.message ?? "Couldn't apply audience");
+    } finally {
+      setApplyingAudience(false);
+    }
+  }
 
   function toggleContact(id: number) {
     const next = new Set(selectedContactIds);
@@ -518,6 +569,42 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
           {/* Step 2 — Recipients */}
           {step === 2 && (
             <div className="flex flex-col gap-4">
+              {audiences.length > 0 && (
+                <div className="rounded-xl border border-border bg-muted/30 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-foreground">Start from a saved audience</span>
+                    <span className="text-[11px] text-muted-foreground">(optional — you can still edit the list below)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedAudienceId}
+                      onChange={e => applyAudience(e.target.value)}
+                      disabled={applyingAudience}
+                      className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm"
+                    >
+                      <option value="">Choose an audience…</option>
+                      {audiences.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}{a.contact_count != null ? ` (${a.contact_count})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedAudienceId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setSelectedAudienceId(""); setSelectedContactIds(new Set()); }}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  {applyingAudience && (
+                    <div className="text-[11px] text-muted-foreground mt-2">Loading audience…</div>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
