@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import type { FooterBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -68,53 +69,61 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                     />
                   </p>
                   <ul className="space-y-2.5">
-                    {col.links.map((link, li) => (
-                      <li key={li}>
-                        {onFieldChange ? (
-                          <span className="text-white/50 text-sm cursor-text">
-                            <InlineText
-                              as="span"
-                              value={link.label}
-                              onUpdate={updateLink ? (v) => updateLink(ci, li, { label: v }) : undefined}
-                            />
-                          </span>
-                        ) : (
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-white/50 text-sm hover:text-white/80 transition-colors"
-                          >
-                            {link.label}
-                          </a>
-                        )}
-                      </li>
-                    ))}
-                    {/* OneTrust "Do Not Sell or Share My Personal Information"
-                        trigger — only rendered in the column titled
-                        "Privacy" so it sits naturally with the other
-                        privacy-related links. The id + class are the hooks
-                        the OneTrust SDK looks for to attach its modal
-                        handler at runtime; without them the button is
-                        inert. Styled to match the surrounding <a> links
-                        exactly so it reads as a regular footer link. */}
-                    {col.title.trim().toLowerCase() === "privacy" && (
-                      <li>
-                        {onFieldChange ? (
-                          <span className="text-white/50 text-sm cursor-text">
-                            Do Not Sell or Share My Personal Information
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            id="ot-sdk-btn"
-                            className="ot-sdk-show-settings text-white/50 text-sm hover:text-white/80 transition-colors bg-transparent border-0 p-0 text-left cursor-pointer"
-                          >
-                            Do Not Sell or Share My Personal Information
-                          </button>
-                        )}
-                      </li>
-                    )}
+                    {col.links.map((link, li) => {
+                      // OneTrust "Do Not Sell or Share My Personal Information"
+                      // trigger is rendered as the next list item directly
+                      // beneath any link whose label reads "Privacy Requests"
+                      // (case-insensitive) so it sits naturally with the
+                      // surrounding privacy links wherever the operator has
+                      // placed that link. The id + class are the hooks the
+                      // OneTrust SDK looks for to attach its modal handler
+                      // at runtime; without them the button is inert. Styled
+                      // to match the surrounding <a> links exactly so it
+                      // reads as a regular footer link.
+                      const isPrivacyRequests =
+                        link.label.trim().toLowerCase() === "privacy requests";
+                      return (
+                        <Fragment key={li}>
+                          <li>
+                            {onFieldChange ? (
+                              <span className="text-white/50 text-sm cursor-text">
+                                <InlineText
+                                  as="span"
+                                  value={link.label}
+                                  onUpdate={updateLink ? (v) => updateLink(ci, li, { label: v }) : undefined}
+                                />
+                              </span>
+                            ) : (
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-white/50 text-sm hover:text-white/80 transition-colors"
+                              >
+                                {link.label}
+                              </a>
+                            )}
+                          </li>
+                          {isPrivacyRequests && (
+                            <li>
+                              {onFieldChange ? (
+                                <span className="text-white/50 text-sm cursor-text">
+                                  Do Not Sell or Share My Personal Information
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  id="ot-sdk-btn"
+                                  className="ot-sdk-show-settings text-white/50 text-sm hover:text-white/80 transition-colors bg-transparent border-0 p-0 text-left cursor-pointer"
+                                >
+                                  Do Not Sell or Share My Personal Information
+                                </button>
+                              )}
+                            </li>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}

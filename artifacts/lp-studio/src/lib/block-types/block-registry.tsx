@@ -745,6 +745,15 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             { label: "Get in touch", url: "https://www.meetdandy.com/get-in-touch/" },
             { label: "Dandy Reviews", url: "https://www.meetdandy.com/reviews/" },
             { label: "Careers", url: "https://www.meetdandy.com/careers/" },
+            // Compliance/legal links — match meetdandy.com's own footer
+            // ordering. The OneTrust "Do Not Sell or Share My Personal
+            // Information" trigger is appended automatically by BlockFooter
+            // immediately after any link labelled "Privacy Requests" (case-
+            // insensitive), so it lands as the final item in this column
+            // without needing a separate entry here. See BlockFooter.tsx.
+            { label: "Privacy Policy", url: "https://www.meetdandy.com/privacy/" },
+            { label: "Terms of Use", url: "https://www.meetdandy.com/terms-of-use/" },
+            { label: "Privacy Requests", url: "https://www.meetdandy.com/privacy-requests/" },
           ],
         },
         {

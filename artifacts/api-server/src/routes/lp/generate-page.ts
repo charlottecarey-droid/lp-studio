@@ -2012,6 +2012,15 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
                   { label: "Get in touch", url: "https://www.meetdandy.com/get-in-touch/" },
                   { label: "Dandy Reviews", url: "https://www.meetdandy.com/reviews/" },
                   { label: "Careers", url: "https://www.meetdandy.com/careers/" },
+                  // Compliance/legal links — kept in lockstep with the
+                  // editor's default "Footer" block (see block-registry.tsx).
+                  // BlockFooter renders the OneTrust "Do Not Sell or Share My
+                  // Personal Information" trigger directly after any link
+                  // labelled "Privacy Requests", so it appears as the last
+                  // link in this column at runtime.
+                  { label: "Privacy Policy", url: "https://www.meetdandy.com/privacy/" },
+                  { label: "Terms of Use", url: "https://www.meetdandy.com/terms-of-use/" },
+                  { label: "Privacy Requests", url: "https://www.meetdandy.com/privacy-requests/" },
                 ],
               },
               {
