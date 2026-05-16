@@ -90,6 +90,31 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                         )}
                       </li>
                     ))}
+                    {/* OneTrust "Do Not Sell or Share My Personal Information"
+                        trigger — only rendered in the column titled
+                        "Privacy" so it sits naturally with the other
+                        privacy-related links. The id + class are the hooks
+                        the OneTrust SDK looks for to attach its modal
+                        handler at runtime; without them the button is
+                        inert. Styled to match the surrounding <a> links
+                        exactly so it reads as a regular footer link. */}
+                    {col.title.trim().toLowerCase() === "privacy" && (
+                      <li>
+                        {onFieldChange ? (
+                          <span className="text-white/50 text-sm cursor-text">
+                            Do Not Sell or Share My Personal Information
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            id="ot-sdk-btn"
+                            className="ot-sdk-show-settings text-white/50 text-sm hover:text-white/80 transition-colors bg-transparent border-0 p-0 text-left cursor-pointer"
+                          >
+                            Do Not Sell or Share My Personal Information
+                          </button>
+                        )}
+                      </li>
+                    )}
                   </ul>
                 </div>
               ))}
