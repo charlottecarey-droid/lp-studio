@@ -7,8 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
 import { Plus, ExternalLink } from "lucide-react";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 const API_BASE = "/api";
+// Built-in Dandy banner. Used only when the tenant has not set its own
+// `emailBannerUrl` in Brand Settings → Logo & Identity → Email banner.
 const DANDY_BANNER_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-email-banner.png";
 
 interface SalesTemplate {
@@ -34,6 +37,8 @@ interface FollowUpEmailSectionProps {
 export function FollowUpEmailSection({
   enabled, templateId, onEnabledChange, onTemplateIdChange,
 }: FollowUpEmailSectionProps) {
+  const { brand } = useBrandConfig();
+  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
   const [templates, setTemplates] = useState<SalesTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -160,7 +165,7 @@ export function FollowUpEmailSection({
             <div>
               <Label className={LABEL_CLS}>Email Body</Label>
               <div className="border rounded-md">
-                <EmailWYSIWYGEditor ref={editorRef} dandyBannerUrl={DANDY_BANNER_URL} initialContent="" />
+                <EmailWYSIWYGEditor ref={editorRef} dandyBannerUrl={bannerUrl} initialContent="" />
               </div>
             </div>
           </div>

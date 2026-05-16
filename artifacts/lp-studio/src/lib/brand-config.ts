@@ -156,6 +156,11 @@ export interface BrandConfig {
   chilipiperUrl?: string;
   logoUrl?: string;
   logoAutoRecolor?: boolean;
+  /** Banner image inserted at the top of templated emails (follow-up emails
+   *  to form submitters, sales outreach drafts). When empty, the
+   *  EmailWYSIWYGEditor + send paths fall back to the built-in Dandy banner.
+   *  Tenants set this from Brand Settings → Logo & Identity. */
+  emailBannerUrl?: string;
   /** Task #253 — when true, AI generation is restricted to facts the brand
    *  has explicitly approved (segment stats with `approvedForAi`, product-line
    *  claims with `approvedForAi`, library case studies with `approved_for_ai`),
@@ -233,6 +238,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   // so this neutral default does not affect them.
   logoUrl: "",
   logoAutoRecolor: true,
+  emailBannerUrl: "",
 };
 
 /* ----------------------------------------------------------------------------

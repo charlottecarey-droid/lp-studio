@@ -869,6 +869,32 @@ export default function BrandSettings() {
     }
   }, [toast]);
 
+  const [uploadingEmailBanner, setUploadingEmailBanner] = useState(false);
+  const emailBannerFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleEmailBannerFilePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (emailBannerFileInputRef.current) emailBannerFileInputRef.current.value = "";
+    if (!file) return;
+    setUploadingEmailBanner(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const data = await res.json();
+      setConfig((prev) => ({ ...prev, emailBannerUrl: `/api/storage${data.url}` }));
+      toast({ title: "Email banner uploaded", description: "Don't forget to save your brand settings." });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingEmailBanner(false);
+    }
+  }, [toast]);
+
   // Sync the form's draft from the shared provider whenever it loads /
   // changes from elsewhere (e.g. the onboarding wizard's refreshBrand()).
   useEffect(() => {
@@ -1392,6 +1418,69 @@ export default function BrandSettings() {
                           Repaint the logo to match each surface (white on dark headers, brand color on light backgrounds, etc.). Turn off if your logo is multi-color.
                         </p>
                       </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Email banner — inserted at the top of templated emails
+                        (follow-up emails to form submitters, sales outreach
+                        drafts). When blank, the editor + send paths fall back
+                        to the built-in Dandy banner. */}
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Email banner</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Image inserted at the top of follow-up emails and sales outreach drafts. Wide formats work best (e.g. 1200×300). Leave blank to use the default Dandy banner.
+                      </p>
+                      <input
+                        ref={emailBannerFileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleEmailBannerFilePick}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => emailBannerFileInputRef.current?.click()}
+                          disabled={uploadingEmailBanner}
+                          className="gap-1.5 shrink-0"
+                        >
+                          {uploadingEmailBanner
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                            : <><Upload className="w-3.5 h-3.5" /> Upload banner</>}
+                        </Button>
+                        {config.emailBannerUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => update("emailBannerUrl", "")}
+                            disabled={uploadingEmailBanner}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5 block">…or paste a URL</Label>
+                        <Input
+                          value={config.emailBannerUrl ?? ""}
+                          onChange={(e) => update("emailBannerUrl", e.target.value)}
+                          placeholder="https://… or /assets/email-banner.png"
+                        />
+                      </div>
+                      {config.emailBannerUrl && (
+                        <div className="mt-3 rounded-lg border border-border overflow-hidden bg-muted/30">
+                          <img
+                            src={config.emailBannerUrl}
+                            alt="Email banner preview"
+                            className="w-full h-auto block max-h-32 object-cover"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                   {/* Preview tiles */}

@@ -42,11 +42,14 @@ import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 const API_BASE = "/api";
 
 // ─── Email chrome constants (mirrored from DSO) ─────────────
 
+// Built-in Dandy banner. Used only as a fallback when the tenant has not set
+// its own `emailBannerUrl` in Brand Settings → Logo & Identity → Email banner.
 const DANDY_BANNER_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-email-banner.png";
 const DANDY_LOGO_DARK_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-logo-dark.png";
 const DANDY_LOGO_WHITE_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-logo-white.png";
@@ -84,11 +87,12 @@ const EMAIL_WRAP = (inner: string, previewText?: string) => {
 
 function buildFullEmailHTML(
   bodyContent: string,
-  options: { showBanner?: boolean; ctaText?: string; ctaUrl?: string; showSignature?: boolean; previewText?: string },
+  options: { showBanner?: boolean; ctaText?: string; ctaUrl?: string; showSignature?: boolean; previewText?: string; bannerUrl?: string },
 ) {
   const parts: string[] = [EMAIL_HEADER];
   if (options.showBanner) {
-    parts.push(`<div style="font-size:0;line-height:0;"><img src="${DANDY_BANNER_URL}" alt="Dandy" style="width:100%;display:block;" /></div>`);
+    const bannerSrc = options.bannerUrl?.trim() || DANDY_BANNER_URL;
+    parts.push(`<div style="font-size:0;line-height:0;"><img src="${bannerSrc}" alt="" style="width:100%;display:block;" /></div>`);
   }
   parts.push(EMAIL_DIVIDER);
   parts.push(`<div style="padding:40px 48px;">${bodyContent}</div>`);
@@ -251,6 +255,8 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 // ─── Single Send Tab ────────────────────────────────────────
 
 function SingleSendTab() {
+  const { brand } = useBrandConfig();
+  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
@@ -369,10 +375,10 @@ function SingleSendTab() {
   const getFinalHtml = useCallback(() => {
     if (emailFormat === "styled") {
       const html = editorRef.current?.getHTML() || bodyHtml;
-      return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined });
+      return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl });
     }
     return bodyText;
-  }, [emailFormat, bodyHtml, bodyText, showBanner, ctaText, ctaUrl, showSignature, previewText]);
+  }, [emailFormat, bodyHtml, bodyText, showBanner, ctaText, ctaUrl, showSignature, previewText, bannerUrl]);
 
   async function handleSend() {
     const body = emailFormat === "styled" ? getFinalHtml() : bodyText;
@@ -581,7 +587,7 @@ function SingleSendTab() {
                 ref={editorRef}
                 initialContent={bodyHtml}
                 onChange={setBodyHtml}
-                dandyBannerUrl={DANDY_BANNER_URL}
+                dandyBannerUrl={bannerUrl}
               />
             ) : (
               <>
@@ -628,7 +634,7 @@ function SingleSendTab() {
             {emailFormat === "styled" ? (
               <div
                 dangerouslySetInnerHTML={{
-                  __html: sanitizeHtml(buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined })
+                  __html: sanitizeHtml(buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl })
                     .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
                     .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                     .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
@@ -917,6 +923,8 @@ function CampaignsTab() {
 // ─── Templates Tab ──────────────────────────────────────────
 
 function TemplatesTab() {
+  const { brand } = useBrandConfig();
+  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -947,13 +955,13 @@ function TemplatesTab() {
 
   const styledPreviewHTML = useMemo(() => {
     if (emailFormat !== "styled") return "";
-    return buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature });
-  }, [emailFormat, bodyHtml, showBanner, ctaText, ctaUrl, showSignature]);
+    return buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, bannerUrl });
+  }, [emailFormat, bodyHtml, showBanner, ctaText, ctaUrl, showSignature, bannerUrl]);
 
   const getFullStyledHTML = useCallback(() => {
     const html = editorRef.current?.getHTML() || bodyHtml;
-    return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature });
-  }, [bodyHtml, showBanner, ctaText, ctaUrl, showSignature]);
+    return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, bannerUrl });
+  }, [bodyHtml, showBanner, ctaText, ctaUrl, showSignature, bannerUrl]);
 
   const fetchTemplates = useCallback(() => {
     fetch(`${API_BASE}/sales/templates`)
@@ -1173,7 +1181,7 @@ function TemplatesTab() {
                     ref={editorRef}
                     initialContent={bodyHtml}
                     onChange={setBodyHtml}
-                    dandyBannerUrl={DANDY_BANNER_URL}
+                    dandyBannerUrl={bannerUrl}
                   />
                 ) : (
                   <>
