@@ -33,6 +33,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import AudienceBuilderModal, { type Audience } from "@/components/AudienceBuilderModal";
+import { QuickCampaignWizard } from "@/components/QuickCampaignWizard";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -801,6 +802,7 @@ export function CampaignPagesContent() {
   const [editingAudience, setEditingAudience] = useState<Audience | null>(null);
   const [deletingAudienceId, setDeletingAudienceId] = useState<number | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showCampaignWizard, setShowCampaignWizard] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -930,10 +932,16 @@ export function CampaignPagesContent() {
           description="Build one page, define an audience, and send it to multiple accounts at once — each version personalized automatically"
           back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
           actions={
-            <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
-              <Plus className="w-4 h-4" />
-              New Campaign Page
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
+                <Plus className="w-4 h-4" />
+                New Microsite
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={() => setShowCampaignWizard(true)}>
+                <Plus className="w-4 h-4" />
+                New Campaign
+              </Button>
+            </div>
           }
         />
 
@@ -1312,6 +1320,12 @@ export function CampaignPagesContent() {
       {showTemplatePicker && (
         <TemplatePicker onClose={() => setShowTemplatePicker(false)} micrositeDomain={micrositeDomain} />
       )}
+
+      <QuickCampaignWizard
+        open={showCampaignWizard}
+        onClose={() => setShowCampaignWizard(false)}
+        onCreated={() => setShowCampaignWizard(false)}
+      />
     </>
   );
 }
