@@ -85,6 +85,34 @@ async function probe(host: string): Promise<HostResult> {
       return { host, status, ok: false, reason: "403 Forbidden — host likely not registered with edge / proxy" };
     }
     if (status >= 500) {
+      // Special case: 503 with body `{ "error": "server_warming_up" }` is the
+      // readiness gate (src/lib/readiness.ts + src/app.ts) signalling that the
+      // currently-live process is mid-boot (e.g. running idempotent migration
+      // batch). Treating that as a hard failure creates a deploy DEADLOCK —
+      // the only way to recover a stuck "warming up" prod is to ship a new
+      // build, but the build's own smoke step would refuse because prod is
+      // 5xx-ing. Downgrade to unreachable/warning so the build can proceed
+      // and replace the stuck process. Real outages (500s, non-warming 503s)
+      // still hard-fail.
+      if (status === 503) {
+        // Strict JSON match against the readiness gate's exact payload —
+        // substring matching would over-trigger on unrelated error pages.
+        let warming = false;
+        try {
+          const body = (await res.text()).slice(0, 500);
+          const parsed = JSON.parse(body) as { error?: unknown };
+          warming = parsed?.error === "server_warming_up";
+        } catch { /* non-JSON body → not the readiness gate → fall through */ }
+        if (warming) {
+          return {
+            host,
+            status,
+            ok: false,
+            reason: "503 server_warming_up — live process mid-boot (not blocking deploy)",
+            unreachable: true,
+          };
+        }
+      }
       return { host, status, ok: false, reason: `${status} server error` };
     }
     return { host, status, ok: true, reason: `${status}` };
