@@ -1100,6 +1100,12 @@ async function runMigrationsBody(): Promise<void> {
       );
       CREATE INDEX        IF NOT EXISTS idx_sales_contact_briefings_tenant_id     ON sales_contact_briefings (tenant_id);
       CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_contact_briefings_tenant_contact ON sales_contact_briefings (tenant_id, contact_id);
+
+      -- Task #300 — follow-up email to form submitter (global forms + per-page overrides).
+      ALTER TABLE lp_forms              ADD COLUMN IF NOT EXISTS send_follow_up_to_submitter boolean NOT NULL DEFAULT false;
+      ALTER TABLE lp_forms              ADD COLUMN IF NOT EXISTS follow_up_template_id       integer REFERENCES sales_email_templates(id) ON DELETE SET NULL;
+      ALTER TABLE lp_form_notifications ADD COLUMN IF NOT EXISTS send_follow_up_to_submitter boolean NOT NULL DEFAULT false;
+      ALTER TABLE lp_form_notifications ADD COLUMN IF NOT EXISTS follow_up_template_id       integer REFERENCES sales_email_templates(id) ON DELETE SET NULL;
     `);
     logger.info("Migrations applied successfully");
 

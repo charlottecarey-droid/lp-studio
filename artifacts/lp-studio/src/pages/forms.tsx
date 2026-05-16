@@ -12,6 +12,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, Clipboar
 import { useToast } from "@/hooks/use-toast";
 import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
 import { MarketoForm } from "@/components/MarketoForm";
+import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
 
 const API_BASE = "/api";
 
@@ -30,6 +31,8 @@ interface GlobalForm {
   marketoConfig: MarketoConfig | null;
   salesforceConfig: SalesforceConfig | null;
   chiliPiperConfig: ChiliPiperConfig | null;
+  sendFollowUpToSubmitter: boolean;
+  followUpTemplateId: number | null;
   createdAt: string;
 }
 
@@ -398,6 +401,8 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           emailRecipients: local.emailRecipients, webhookUrl: local.webhookUrl,
           marketoConfig: local.marketoConfig, salesforceConfig: local.salesforceConfig,
           chiliPiperConfig: local.chiliPiperConfig,
+          sendFollowUpToSubmitter: local.sendFollowUpToSubmitter,
+          followUpTemplateId: local.followUpTemplateId,
         }),
       });
       if (!r.ok) {
@@ -513,6 +518,13 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               <p className="text-xs text-muted-foreground mb-2">POST the lead payload to this URL on each submission.</p>
               <Input value={local.webhookUrl ?? ""} onChange={e => set("webhookUrl", e.target.value || null)} placeholder="https://hooks.example.com/lead" className="text-sm" />
             </div>
+
+            <FollowUpEmailSection
+              enabled={!!local.sendFollowUpToSubmitter}
+              templateId={local.followUpTemplateId ?? null}
+              onEnabledChange={v => set("sendFollowUpToSubmitter", v)}
+              onTemplateIdChange={v => set("followUpTemplateId", v)}
+            />
 
             {/* Marketo */}
             <div className="border rounded-lg overflow-hidden">

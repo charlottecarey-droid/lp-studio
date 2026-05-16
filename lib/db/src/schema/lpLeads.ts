@@ -1,7 +1,8 @@
-import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lpPagesTable } from "./lpPages";
+import { salesEmailTemplatesTable } from "./salesEmails";
 
 export const lpLeadsTable = pgTable("lp_leads", {
   id: serial("id").primaryKey(),
@@ -30,6 +31,8 @@ export const lpFormNotificationsTable = pgTable("lp_form_notifications", {
   webhookUrl: text("webhook_url"),
   marketoConfig: jsonb("marketo_config"),
   salesforceConfig: jsonb("salesforce_config"),
+  sendFollowUpToSubmitter: boolean("send_follow_up_to_submitter").notNull().default(false),
+  followUpTemplateId: integer("follow_up_template_id").references(() => salesEmailTemplatesTable.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

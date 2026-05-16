@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Request } from "express";
 import { eq, desc, gte, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable } from "@workspace/db";
+import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable } from "@workspace/db";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import {
@@ -45,6 +45,109 @@ interface LeadWithIdempotencyKey {
   id: number;
   idempotencyKey?: string | null;
   [key: string]: unknown;
+}
+
+// Common label/key variants for "email" on submitted forms — first match wins.
+const SUBMITTER_EMAIL_KEYS = ["email", "Email", "Email Address", "email_address", "work_email", "Work Email", "workEmail"];
+
+function findSubmitterEmail(fields: Record<string, unknown>): string | null {
+  // First try the well-known keys exactly
+  for (const k of SUBMITTER_EMAIL_KEYS) {
+    const v = fields[k];
+    if (typeof v === "string" && v.includes("@")) return v.trim();
+  }
+  // Fall back to any field whose key looks like an email label
+  for (const [k, v] of Object.entries(fields)) {
+    if (typeof v !== "string" || !v.includes("@")) continue;
+    const norm = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (norm === "email" || norm.endsWith("email") || norm === "emailaddress") return v.trim();
+  }
+  return null;
+}
+
+// Build the merge-var lookup from form fields. Keys are exposed as both their
+// raw label AND a normalised form (lowercase, spaces → underscores) so a
+// template using {{first_name}} or {{First Name}} both resolve.
+function buildMergeVars(fields: Record<string, unknown>): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (k.startsWith("_")) continue;
+    const val = v == null ? "" : String(v);
+    vars[k] = val;
+    const norm = k.toLowerCase().replace(/\s+/g, "_");
+    if (norm !== k) vars[norm] = val;
+  }
+  return vars;
+}
+
+function substituteMergeVars(template: string, vars: Record<string, string>): string {
+  // Match {{ anything that isn't a closing brace }} so raw labels with spaces
+  // like {{First Name}} resolve alongside normalised tokens like {{first_name}}.
+  return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, raw: string) => {
+    const name = raw.trim();
+    if (vars[name] !== undefined) return vars[name];
+    const norm = name.toLowerCase().replace(/\s+/g, "_");
+    if (vars[norm] !== undefined) return vars[norm];
+    return "";
+  });
+}
+
+async function sendFollowUpEmailToSubmitter(opts: {
+  tenantId: number;
+  templateId: number;
+  fields: Record<string, unknown>;
+  pageTitle: string;
+  leadId: number;
+}): Promise<void> {
+  const { tenantId, templateId, fields, leadId } = opts;
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    console.warn("[lead", leadId, "] RESEND_API_KEY not set — skipping follow-up email");
+    return;
+  }
+
+  const submitterEmail = findSubmitterEmail(fields);
+  if (!submitterEmail) {
+    console.warn("[lead", leadId, "] no submitter email found in fields — skipping follow-up");
+    return;
+  }
+
+  const [template] = await db
+    .select()
+    .from(salesEmailTemplatesTable)
+    .where(and(eq(salesEmailTemplatesTable.tenantId, tenantId), eq(salesEmailTemplatesTable.id, templateId)));
+  if (!template || !template.isActive) {
+    console.warn("[lead", leadId, "] follow-up template", templateId, "not found or inactive");
+    return;
+  }
+
+  const vars = buildMergeVars(fields);
+  const subject = substituteMergeVars(template.subject, vars);
+  const html = template.bodyHtml ? substituteMergeVars(template.bodyHtml, vars) : undefined;
+  const text = template.bodyText ? substituteMergeVars(template.bodyText, vars) : undefined;
+
+  const body: Record<string, unknown> = {
+    from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
+    to: [submitterEmail],
+    subject,
+  };
+  if (html) body.html = html;
+  if (text) body.text = text;
+
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    console.error("[lead", leadId, "] Resend follow-up failed:", resp.status, errText);
+    return;
+  }
+  console.info("[lead", leadId, "] follow-up email sent to", submitterEmail, "(template", templateId, ")");
 }
 
 function getClientIp(req: Request): string {
@@ -214,6 +317,8 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       let webhookUrl: string | null = null;
       let marketoConfig: MarketoConfig | null = null;
       let salesforceConfig: SalesforceConfig | null = null;
+      let sendFollowUpToSubmitter = false;
+      let followUpTemplateId: number | null = null;
 
       if (formId) {
         const [globalForm] = await db.select().from(lpFormsTable).where(eq(lpFormsTable.id, formId));
@@ -222,6 +327,8 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           webhookUrl = globalForm.webhookUrl ?? null;
           marketoConfig = globalForm.marketoConfig as MarketoConfig | null;
           salesforceConfig = globalForm.salesforceConfig as SalesforceConfig | null;
+          sendFollowUpToSubmitter = !!globalForm.sendFollowUpToSubmitter;
+          followUpTemplateId = globalForm.followUpTemplateId ?? null;
         }
       } else {
         const [notif] = await db.select().from(lpFormNotificationsTable).where(eq(lpFormNotificationsTable.pageId, pageId));
@@ -230,6 +337,8 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           webhookUrl = notif.webhookUrl ?? null;
           marketoConfig = notif.marketoConfig as MarketoConfig | null;
           salesforceConfig = notif.salesforceConfig as SalesforceConfig | null;
+          sendFollowUpToSubmitter = !!notif.sendFollowUpToSubmitter;
+          followUpTemplateId = notif.followUpTemplateId ?? null;
         }
       }
 
@@ -237,6 +346,24 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         await sendEmailNotification(emailRecipients, payload).catch(err =>
           console.error("Email notification error for lead", lead.id, ":", err)
         );
+      }
+
+      // Best-effort follow-up email to the submitter — never blocks lead
+      // capture, swallows all errors. Looks up the configured template,
+      // substitutes merge variables from the submitted fields (lowercased,
+      // spaces → underscores), and sends via Resend.
+      if (sendFollowUpToSubmitter && followUpTemplateId) {
+        try {
+          await sendFollowUpEmailToSubmitter({
+            tenantId: page.tenantId,
+            templateId: followUpTemplateId,
+            fields: fields as Record<string, unknown>,
+            pageTitle: page.title,
+            leadId: lead.id,
+          });
+        } catch (err) {
+          console.error("Follow-up email error for lead", lead.id, ":", err);
+        }
       }
       if (webhookUrl) {
         await deliverWebhook(webhookUrl, payload).catch(err =>

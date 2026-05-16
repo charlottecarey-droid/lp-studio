@@ -12,6 +12,7 @@ import { BrandSwatches } from "@/components/BrandSwatches";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
 
 const API_BASE = "/api";
 
@@ -26,6 +27,8 @@ interface NotificationConfig {
     enabled?: boolean;
     fieldMappings: Record<string, string>;
   } | null;
+  sendFollowUpToSubmitter?: boolean;
+  followUpTemplateId?: number | null;
 }
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
@@ -340,6 +343,13 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
           className="text-sm"
         />
       </div>
+
+      <FollowUpEmailSection
+        enabled={!!config.sendFollowUpToSubmitter}
+        templateId={config.followUpTemplateId ?? null}
+        onEnabledChange={v => setConfig(c => ({ ...c, sendFollowUpToSubmitter: v }))}
+        onTemplateIdChange={v => setConfig(c => ({ ...c, followUpTemplateId: v }))}
+      />
 
       {/* Marketo */}
       <div className="border rounded-lg overflow-hidden">

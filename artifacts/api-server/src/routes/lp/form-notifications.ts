@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpFormNotificationsTable } from "@workspace/db";
+import { lpFormNotificationsTable, lpPagesTable } from "@workspace/db";
+import { getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
@@ -32,12 +33,29 @@ function validateWebhookUrl(url: string | null): { valid: boolean; error?: strin
   return { valid: true };
 }
 
+// Confirms the page belongs to the caller's tenant. Returns true if OK,
+// otherwise writes a 404 and returns false so the caller can bail.
+async function assertPageInTenant(pageId: number, tenantId: number, res: import("express").Response): Promise<boolean> {
+  const [page] = await db
+    .select({ id: lpPagesTable.id })
+    .from(lpPagesTable)
+    .where(and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId)));
+  if (!page) {
+    res.status(404).json({ error: "Page not found" });
+    return false;
+  }
+  return true;
+}
+
 router.get("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
+  if (!(await assertPageInTenant(id, tenantId, res))) return;
+
   const [notif] = await db.select().from(lpFormNotificationsTable).where(eq(lpFormNotificationsTable.pageId, id));
   if (!notif) {
     res.json({
@@ -46,6 +64,8 @@ router.get("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
       webhookUrl: null,
       marketoConfig: null,
       salesforceConfig: null,
+      sendFollowUpToSubmitter: false,
+      followUpTemplateId: null,
     });
     return;
   }
@@ -53,17 +73,21 @@ router.get("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
+  if (!(await assertPageInTenant(id, tenantId, res))) return;
 
-  const { emailRecipients, webhookUrl, marketoConfig, salesforceConfig } = req.body as {
+  const { emailRecipients, webhookUrl, marketoConfig, salesforceConfig, sendFollowUpToSubmitter, followUpTemplateId } = req.body as {
     emailRecipients?: string[];
     webhookUrl?: string | null;
     marketoConfig?: unknown | null;
     salesforceConfig?: unknown | null;
+    sendFollowUpToSubmitter?: boolean;
+    followUpTemplateId?: number | null;
   };
 
   // Validate webhook URL if provided
@@ -83,6 +107,8 @@ router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
     if (webhookUrl !== undefined) updates.webhookUrl = webhookUrl;
     if (marketoConfig !== undefined) updates.marketoConfig = marketoConfig;
     if (salesforceConfig !== undefined) updates.salesforceConfig = salesforceConfig;
+    if (sendFollowUpToSubmitter !== undefined) updates.sendFollowUpToSubmitter = sendFollowUpToSubmitter;
+    if (followUpTemplateId !== undefined) updates.followUpTemplateId = followUpTemplateId;
 
     const [updated] = await db
       .update(lpFormNotificationsTable)
@@ -99,6 +125,8 @@ router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
         webhookUrl: webhookUrl ?? null,
         marketoConfig: marketoConfig ?? null,
         salesforceConfig: salesforceConfig ?? null,
+        sendFollowUpToSubmitter: sendFollowUpToSubmitter ?? false,
+        followUpTemplateId: followUpTemplateId ?? null,
       })
       .returning();
     res.json(created);

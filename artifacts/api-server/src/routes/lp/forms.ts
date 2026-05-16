@@ -136,6 +136,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
     "successMessage", "redirectUrl", "backgroundStyle",
     "emailRecipients", "webhookUrl", "marketoConfig", "salesforceConfig",
     "chiliPiperConfig",
+    "sendFollowUpToSubmitter", "followUpTemplateId",
   ];
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const key of allowed) {

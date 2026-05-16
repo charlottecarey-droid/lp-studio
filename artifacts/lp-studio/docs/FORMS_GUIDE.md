@@ -222,6 +222,34 @@ Notifications go out via Resend. If they stop arriving, check the Resend dashboa
 
 ---
 
+## 10b. Follow-up email to the submitter
+
+The Notifications tab also has a **Follow-up email to submitter** toggle. When enabled and an email template is selected, every successful submission triggers a templated email back to the person who filled out the form.
+
+**Where it lives**
+- **Forms Library** (`/forms` → pick a form → Notifications tab) — applies to every page that uses the global form
+- **Page Builder** (FormPanel → Notifications tab) — applies to local, page-specific forms
+
+**Templates**
+- Reuses the same template library as Sales → Outreach (the `sales_email_templates` table)
+- Pick an existing template from the dropdown, or click **New** to draft one inline with the rich-text editor — no need to leave the Notifications tab
+- New templates created here are tagged with the `follow-up` category so they're easy to find later
+
+**Merge variables**
+- Inside subject + body, `{{field_name}}` is replaced with the corresponding submitted field
+- Field labels are normalised: lowercase + spaces → underscores, so a "First Name" field is reachable as `{{first_name}}` (the raw label `{{First Name}}` also works)
+- Missing variables resolve to an empty string
+
+**Resolving the submitter's email**
+The follow-up needs an email to send to. It looks at the submission for fields whose label or key is one of: `email`, `Email`, `Email Address`, `email_address`, `work_email`, `Work Email`, `workEmail`. If nothing matches, the send is skipped silently and a warning is logged. Make sure your form has an email field if you want this to fire.
+
+**Reliability**
+- Sent asynchronously after `POST /lp/leads` returns — never blocks the lead capture
+- Best-effort: all errors (missing template, Resend down, missing API key, no email in submission) are swallowed and logged. The lead is always saved.
+- Uses the same `RESEND_API_KEY` and `RESEND_FROM_EMAIL` as the operator notification email
+
+---
+
 ## 11. Quick troubleshooting
 
 | Symptom | Likely cause | Fix |
