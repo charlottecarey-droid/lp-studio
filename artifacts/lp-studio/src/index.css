@@ -455,3 +455,53 @@
   position: relative !important;
   top: auto !important;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   OneTrust "Do Not Sell or Share My Personal Information" trigger.
+   The OneTrust SDK injects its own stylesheet at runtime that paints
+   #ot-sdk-btn.ot-sdk-show-settings as a green pill button (background,
+   border, padding, bold uppercase text). We render it inside the
+   default footer's link list (BlockFooter.tsx) so it should read as a
+   plain footer link instead. Force it back to inherit the surrounding
+   <a> styles. !important is required because OneTrust's stylesheet
+   loads after ours and uses high-specificity selectors of its own.
+   ───────────────────────────────────────────────────────────────────── */
+#ot-sdk-btn.ot-sdk-show-settings,
+button#ot-sdk-btn.ot-sdk-show-settings {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-family: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  transition: color 0.15s ease !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: inline !important;
+}
+
+#ot-sdk-btn.ot-sdk-show-settings:hover,
+button#ot-sdk-btn.ot-sdk-show-settings:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  text-decoration: none !important;
+}
+
+#ot-sdk-btn.ot-sdk-show-settings:focus,
+button#ot-sdk-btn.ot-sdk-show-settings:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
