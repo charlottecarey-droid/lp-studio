@@ -149,6 +149,12 @@ export function InlineColorPopover({
         align="start"
         sideOffset={6}
         className="w-64 p-3"
+        data-inline-toolbar
+        onOpenAutoFocus={(e) => {
+          // Keep focus in the editor so the saved selection range is preserved
+          // and the blur guard never fires when the popover opens.
+          e.preventDefault();
+        }}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >

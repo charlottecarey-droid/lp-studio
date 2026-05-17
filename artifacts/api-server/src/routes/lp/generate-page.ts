@@ -1000,6 +1000,59 @@ function enforceApprovedCaseStudies(
   }
 }
 
+/**
+ * Strip inline `color:` declarations (and the now-empty `<span style="">`
+ * wrappers they leave behind) from any AI-generated text. The model has a
+ * habit of decorating headlines with hardcoded hex colors that have no
+ * relationship to the background — producing pale text on white sections that
+ * the user then has to manually re-color. Headlines should inherit color from
+ * the block/section style; if the user wants to recolor a span, they can do it
+ * with the inline picker. We deliberately keep other inline styles
+ * (font-weight, font-size) since the AI uses them more carefully.
+ *
+ * This walks every string prop on every block and rewrites HTML in place.
+ */
+function stripAiInlineColors(blocks: unknown): void {
+  if (!Array.isArray(blocks)) return;
+  const STYLE_ATTR = /\sstyle="([^"]*)"/gi;
+  const COLOR_DECL = /(?:^|;)\s*color\s*:[^;]*;?/gi;
+  const EMPTY_SPAN = /<span\s*>([^<]*)<\/span>/gi;
+
+  const rewriteHtml = (s: string): string => {
+    if (s.indexOf("color") === -1) return s;
+    let out = s.replace(STYLE_ATTR, (_, decls: string) => {
+      const cleaned = decls
+        .replace(COLOR_DECL, ";")
+        .replace(/^;+/, "")
+        .replace(/;+/g, ";")
+        .replace(/;+$/, "")
+        .trim();
+      return cleaned ? ` style="${cleaned}"` : "";
+    });
+    // Drop now-empty wrappers like `<span>foo</span>` left behind.
+    out = out.replace(EMPTY_SPAN, "$1");
+    return out;
+  };
+
+  const walk = (node: unknown): void => {
+    if (!node) return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node !== "object") return;
+    const obj = node as Record<string, unknown>;
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === "string") {
+        if (v.indexOf("<") !== -1 && v.indexOf("color") !== -1) {
+          obj[k] = rewriteHtml(v);
+        }
+      } else if (v && typeof v === "object") {
+        walk(v);
+      }
+    }
+  };
+
+  for (const b of blocks) walk(b);
+}
+
 function sanitizeBlocksStrict(
   blocks: Array<{ type?: string; props?: Record<string, unknown> }> | unknown,
   pool: Set<string>,
@@ -1091,6 +1144,7 @@ RULES:
    - Match images to the specific content topic (e.g. crown images for crown content, team photos for people-focused sections).
    - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
+10a. TEXT COLOR: Never wrap headline, subheadline, eyebrow, label, body, or any text field in inline color styles (e.g. <span style="color:#...">). Heading and body text MUST inherit color from the block's backgroundStyle so contrast is always correct. Server-side post-processing will strip any inline color you set, so emitting them is wasted tokens. To emphasize a word, use <strong> or <em>, not color.
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
@@ -1579,6 +1633,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
           });
         }
         sanitizeBlocksStrict(mergedBlocks, pool, caseStudies);
+        stripAiInlineColors(mergedBlocks);
       }
 
       res.json({
@@ -2111,6 +2166,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         });
       }
       sanitizeBlocksStrict(parsed.blocks, pool, caseStudies);
+      stripAiInlineColors(parsed.blocks);
     }
 
     res.json({

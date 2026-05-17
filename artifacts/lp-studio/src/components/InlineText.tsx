@@ -331,12 +331,36 @@ export function InlineText({
     setOpenMenu(null);
   };
 
+  // Save the active selection just before the color popover opens. Opening a
+  // Radix popover moves focus into the portaled content, which collapses the
+  // browser selection inside the contentEditable. We restore it before
+  // wrapping so the chosen swatch actually paints the user's highlighted run.
+  const savedColorRangeRef = useRef<Range | null>(null);
+  const handleColorOpenChange = (next: boolean) => {
+    if (next) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        savedColorRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    }
+    setOpenMenu(next ? "color" : null);
+  };
   const handleColor = (colorValue: string) => {
     if (!colorValue) {
       setOpenMenu(null);
+      savedColorRangeRef.current = null;
       return;
     }
+    const saved = savedColorRangeRef.current;
+    if (saved) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(saved);
+      }
+    }
     wrapSelectionWithSpan(`color: ${colorValue}`);
+    savedColorRangeRef.current = null;
     setOpenMenu(null);
   };
 
@@ -459,10 +483,21 @@ export function InlineText({
         spellCheck
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         onBlur={(e: React.FocusEvent) => {
-          // Don't commit if focus moved to the toolbar.
+          // Don't commit if focus moved to the toolbar or to any popover that
+          // the toolbar opened (color picker, link editor, font-size menu).
+          // Radix portals popover content to <body> with
+          // [data-radix-popper-content-wrapper], so we have to recognise that
+          // marker too — otherwise opening the color picker blurs the editor,
+          // commits, and the picker unmounts before the user can click a swatch.
           const next = e.relatedTarget as Node | null;
-          if (next && (next as HTMLElement).closest?.("[data-inline-toolbar]")) {
-            return;
+          if (next) {
+            const el = next as HTMLElement;
+            if (
+              el.closest?.("[data-inline-toolbar]") ||
+              el.closest?.("[data-radix-popper-content-wrapper]")
+            ) {
+              return;
+            }
           }
           commit();
         }}
@@ -583,7 +618,7 @@ export function InlineText({
             </div>
             <InlineColorPopover
               open={openMenu === "color"}
-              onOpenChange={(o) => setOpenMenu(o ? "color" : null)}
+              onOpenChange={handleColorOpenChange}
               onPick={(value) => handleColor(value)}
               brandSwatches={COLOR_SWATCHES.filter((c) => c.value !== "").map(
                 (c) => ({ name: c.name, value: c.value }),
