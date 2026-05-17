@@ -201,12 +201,14 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs; onCustomize: () => void }) {
-  const defaultCoreOrder = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "Showcase"] as const;
+  // Core categories only — "Grid Pieces" and "Showcase" live in the Segment
+  // tab so the two tabs never duplicate the same block.
+  const defaultCoreOrder = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
   // Any category that exists in the catalog but is neither a known core nor a
   // known non-core (SegmentLibrary) category is a tenant-created shelf — a
   // user moved a block into a new bucket via the Customize dialog. Surface
   // those in the Blocks tab so the block is reachable.
-  const knownNonCore = new Set(["DSO", "DSO Practices", "Events"]);
+  const knownNonCore = new Set(["DSO", "DSO Practices", "Events", "Grid Pieces", "Showcase"]);
   const tenantExtras = Array.from(new Set(
     visibleBlocks
       .map(b => b.category)
@@ -307,20 +309,35 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }
 const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
 
 function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs }) {
+  const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
   // Group catalog-resolved blocks by their (catalog-overriding) category, keeping
   // only non-core categories. Catalog rows can re-shelve a block by setting a
   // different category — that change is honored here.
   const segmentGroupMap = visibleBlocks.reduce((acc, block) => {
     if (CORE_CATEGORIES.has(block.category)) return acc;
+    if (!matchesBlockSearch(block, search)) return acc;
     if (!acc[block.category]) acc[block.category] = [];
     acc[block.category].push(block);
     return acc;
   }, {} as Record<string, typeof visibleBlocks>);
-  // Tenant prefs already applied upstream (block hide / reorder / re-shelve),
-  // but re-derive a stable order using prefs.categoryOrder for non-core groups.
-  const orderedGroupNames = applyCategoryOrder(Object.keys(segmentGroupMap), prefs)
-    .filter(k => segmentGroupMap[k]);
-  const segmentGroupEntries = orderedGroupNames.map(k => [k, segmentGroupMap[k]] as const);
+  // Stable category order so DSO Practices is prominent and consistent. Any
+  // extra categories not in this list (custom tenant shelves) fall through to
+  // the prefs-based ordering after the preferred ones.
+  const preferredOrder = ["DSO", "DSO Practices", "Showcase", "Grid Pieces", "Events"];
+  const presentCategories = Object.keys(segmentGroupMap);
+  const orderedGroupNames = [
+    ...preferredOrder.filter(c => presentCategories.includes(c)),
+    ...applyCategoryOrder(
+      presentCategories.filter(c => !preferredOrder.includes(c)),
+      prefs,
+    ),
+  ];
+  const segmentGroupEntries = orderedGroupNames
+    .filter(k => segmentGroupMap[k])
+    .map(k => [k, segmentGroupMap[k]] as const);
+  // Custom blocks (segment-scoped) filtered by search as well.
+  const matchesCustom = (name: string) => !q || name.toLowerCase().includes(q);
 
   const renderBlockButton = (key: string, label: string, thumbnail: ReactNode, onClick: () => void) => (
     <button
@@ -340,9 +357,41 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
     </button>
   );
 
+  // Pre-compute custom-block sections (search-filtered) so we can render an
+  // empty state when nothing matches across both built-in and custom lists.
+  const knownSegmentNames = new Set(segments.map(s => s.name));
+  const customSections = segments
+    .map(seg => ({
+      id: String(seg.id),
+      label: seg.name,
+      blocks: customBlocks.filter(b => b.segment === seg.name && matchesCustom(b.name)),
+    }))
+    .filter(s => s.blocks.length > 0);
+  const orphanedCustom = customBlocks.filter(
+    b => b.segment && b.segment !== "core" && !knownSegmentNames.has(b.segment) && matchesCustom(b.name),
+  );
+  const hasAnyResults =
+    segmentGroupEntries.length > 0 || customSections.length > 0 || orphanedCustom.length > 0;
+
   return (
     <div className="p-4 space-y-5">
-      {/* Built-in segment blocks — grouped by category */}
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search segment blocks…"
+          className="h-8 pl-7 text-xs"
+        />
+      </div>
+
+      {!hasAnyResults && (
+        <p className="text-xs text-muted-foreground text-center py-4 leading-relaxed">
+          {q ? `No blocks match "${search}".` : "No segment blocks available."}
+        </p>
+      )}
+
+      {/* Built-in segment blocks — grouped by category, stable order */}
       {segmentGroupEntries.map(([categoryName, blocks]) => (
         <div key={categoryName}>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{resolveCategoryLabel(categoryName, prefs)}</p>
@@ -355,56 +404,46 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
       ))}
 
       {/* Per-brand-segment custom blocks */}
-      {segments.length > 0 ? (
-        segments.map(seg => {
-          const segCustomBlocks = customBlocks.filter(b => b.segment === seg.name);
-          if (segCustomBlocks.length === 0) return null;
-          return (
-            <div key={seg.id}>
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{seg.name}</p>
-                <span className="text-[10px] text-muted-foreground ml-auto">{segCustomBlocks.length}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {segCustomBlocks.map(block =>
-                  renderBlockButton(
-                    String(block.id),
-                    block.name,
-                    <CustomBlockThumbnail blockType={block.block_type} />,
-                    () => onAdd(`custom:${block.id}`)
-                  )
-                )}
-              </div>
-            </div>
-          );
-        })
-      ) : (
+      {segments.length === 0 && !q && (
         <p className="text-xs text-muted-foreground text-center py-2 leading-relaxed">
           Define segments in Brand Settings to organize custom blocks here.
         </p>
       )}
+      {customSections.map(sec => (
+        <div key={sec.id}>
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{sec.label}</p>
+            <span className="text-[10px] text-muted-foreground ml-auto">{sec.blocks.length}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {sec.blocks.map(block =>
+              renderBlockButton(
+                String(block.id),
+                block.name,
+                <CustomBlockThumbnail blockType={block.block_type} />,
+                () => onAdd(`custom:${block.id}`)
+              )
+            )}
+          </div>
+        </div>
+      ))}
 
       {/* Catch-all: custom blocks with legacy "segment" value or unrecognized segment name */}
-      {(() => {
-        const knownSegmentNames = new Set(segments.map(s => s.name));
-        const orphaned = customBlocks.filter(b => b.segment && b.segment !== "core" && !knownSegmentNames.has(b.segment));
-        if (orphaned.length === 0) return null;
-        return (
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Other</p>
-            <div className="grid grid-cols-2 gap-2">
-              {orphaned.map(block =>
-                renderBlockButton(
-                  String(block.id),
-                  block.name,
-                  <CustomBlockThumbnail blockType={block.block_type} />,
-                  () => onAdd(`custom:${block.id}`)
-                )
-              )}
-            </div>
+      {orphanedCustom.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Other</p>
+          <div className="grid grid-cols-2 gap-2">
+            {orphanedCustom.map(block =>
+              renderBlockButton(
+                String(block.id),
+                block.name,
+                <CustomBlockThumbnail blockType={block.block_type} />,
+                () => onAdd(`custom:${block.id}`)
+              )
+            )}
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
@@ -1076,6 +1115,24 @@ export default function BuilderEditor() {
   const tenantCatalogBlocks = useMemo<ResolvedBlockDef[]>(
     () => applyBlockLibraryPrefs(catalogBlocks, libraryPrefs),
     [catalogBlocks, libraryPrefs],
+  );
+  // Segment tab is the home for industry-specific blocks (DSO, DSO Practices,
+  // Showcase, Grid Pieces, Events). It intentionally skips audience gating so
+  // a leadership page can still insert a "Meet the Team" block from the
+  // practice category — gating only filters the core Blocks tab.
+  const segmentCatalogBlocks = useMemo<ResolvedBlockDef[]>(
+    () => applyBlockLibraryPrefs(
+      allCatalogBlocks.filter(b => canGridPieces || b.category !== "Grid Pieces"),
+      libraryPrefs,
+    ),
+    [allCatalogBlocks, canGridPieces, libraryPrefs],
+  );
+  // Segment-scoped custom blocks: keep the grid-pieces perm gate (real
+  // permission) but skip the audience gate (intentional, matches segment
+  // catalog behavior above).
+  const segmentVisibleCustomBlocks = useMemo(
+    () => customBlocks.filter(cb => canGridPieces || cb.block_type !== "schema"),
+    [customBlocks, canGridPieces],
   );
   // Custom blocks wrap a base block_type; gate them by that wrapped type so a
   // saved "Dandy Insights Snapshot" custom block stays hidden on practice pages.
@@ -2645,9 +2702,9 @@ export default function BuilderEditor() {
             <TabsContent value="segment" className="mt-0">
               <SegmentLibrary
                 onAdd={addBlock}
-                customBlocks={visibleCustomBlocks}
+                customBlocks={segmentVisibleCustomBlocks}
                 segments={brand.segments ?? []}
-                visibleBlocks={tenantCatalogBlocks}
+                visibleBlocks={segmentCatalogBlocks}
                 prefs={libraryPrefs}
               />
             </TabsContent>
