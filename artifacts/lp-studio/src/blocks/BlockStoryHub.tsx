@@ -15,9 +15,23 @@ interface CaseStudyPage {
 }
 
 // Map an api-server page row into the StoryHubStory shape the renderer uses.
-// We fall back through the title fields, default the tag to "Case Study" so
-// the chip filter still works, and skip pages without an OG image so we never
-// render a blank tile.
+// We fall back through the title fields and skip pages without an OG image so
+// we never render a blank tile. The tag is derived from the slug segment that
+// follows the case-study prefix when present (e.g. "case-study/growth/acme"
+// → "Growth"); otherwise we default to "Case Study". That gives the filter
+// chips a meaningful taxonomy that always matches at least one chip.
+function deriveTagFromSlug(slug: string): string {
+  const parts = slug.split("/").filter(Boolean);
+  // Drop the leading "case-study" segment if present.
+  if (parts[0]?.toLowerCase() === "case-study" && parts.length > 1) {
+    const seg = parts[1].replace(/[-_]+/g, " ").trim();
+    if (seg) return seg.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  // Slug like "case-study-growth-acme" → "Growth".
+  const m = slug.match(/^case-study-([a-z0-9]+)/i);
+  if (m) return m[1].replace(/\b\w/g, (c) => c.toUpperCase());
+  return "Case Study";
+}
 function pageToStory(page: CaseStudyPage): StoryHubStory | null {
   const imageUrl = page.ogImage?.trim();
   if (!imageUrl) return null;
@@ -27,7 +41,7 @@ function pageToStory(page: CaseStudyPage): StoryHubStory | null {
     practice: page.title || headline,
     location: "",
     headline,
-    tag: "Case Study",
+    tag: deriveTagFromSlug(page.slug),
     imageUrl,
     href: `/${page.slug}`,
   };
@@ -95,23 +109,16 @@ export function BlockStoryHub({ props }: Props) {
     ? `'${theme.bodyFontFamily}', 'Inter', system-ui, sans-serif`
     : "'Inter', system-ui, sans-serif";
 
-  const defaultFilter = props.filters[0] ?? "All";
-  const [activeFilter, setActiveFilter] = useState<string>(defaultFilter);
-
-  // Reset the active filter if it disappears from the filter list (builder edits).
-  useEffect(() => {
-    if (!props.filters.includes(activeFilter)) setActiveFilter(defaultFilter);
-  }, [props.filters, activeFilter, defaultFilter]);
-
-  // Fetch case-study-tagged pages from the api-server. The filter chip row
-  // is sourced from real published pages when any exist; otherwise we fall
-  // back to the static stories so the builder preview and brand-new tenants
-  // still see something meaningful. We only fetch once on mount — the chip
-  // filter is applied client-side against the merged list.
+  // Fetch published case-study pages for the request host's tenant. Uses the
+  // public, host-resolved /lp/public-pages endpoint so anonymous visitors on
+  // a tenant landing page can see the live list without authenticating. When
+  // the API returns at least one story we use that list; otherwise we fall
+  // back to the static stories baked into the block so the builder preview
+  // and brand-new tenants still see something meaningful.
   const [apiStories, setApiStories] = useState<StoryHubStory[] | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/lp/pages?tag=case-study", { credentials: "include" })
+    fetch("/api/lp/public-pages?tag=case-study", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: unknown) => {
         if (cancelled) return;
@@ -128,6 +135,29 @@ export function BlockStoryHub({ props }: Props) {
   }, []);
 
   const sourceStories = apiStories && apiStories.length > 0 ? apiStories : props.stories;
+
+  // Filter chips. When stories are sourced from the API, derive the chip list
+  // from the actual tags present on those stories so every chip resolves to
+  // at least one card. Otherwise keep the configured chips from props (which
+  // are tuned to the static placeholder content). In both cases the first
+  // chip ("All Stories" by convention) is a no-op pass-through.
+  const filters = useMemo(() => {
+    if (apiStories && apiStories.length > 0) {
+      const head = props.filters[0] ?? "All Stories";
+      const unique = Array.from(new Set(apiStories.map((s) => s.tag).filter(Boolean)));
+      return [head, ...unique];
+    }
+    return props.filters;
+  }, [apiStories, props.filters]);
+
+  const defaultFilter = filters[0] ?? "All";
+  const [activeFilter, setActiveFilter] = useState<string>(defaultFilter);
+
+  // Reset the active filter if it disappears from the chip list (builder
+  // edits or the API returning a different set of tags than was last shown).
+  useEffect(() => {
+    if (!filters.includes(activeFilter)) setActiveFilter(defaultFilter);
+  }, [filters, activeFilter, defaultFilter]);
 
   const visibleStories = useMemo(() => {
     if (!activeFilter || activeFilter === defaultFilter) return sourceStories;
@@ -309,7 +339,7 @@ export function BlockStoryHub({ props }: Props) {
           gap: "0.75rem",
         }}
       >
-        {props.filters.map((filter) => {
+        {filters.map((filter) => {
           const isActive = filter === activeFilter;
           return (
             <button

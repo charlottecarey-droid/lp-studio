@@ -7,6 +7,8 @@ import { lpPagesTable, lpPageReviewsTable, salesAccountsTable } from "@workspace
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
+import { findTenantByHost } from "../../lib/tenantHosts";
+import { getRequestHost } from "../../lib/requestHost";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -156,16 +158,14 @@ function sanitizeCSS(css: string): string {
 router.get("/lp/pages", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    // Optional ?tag=<value> filter. We don't have a dedicated tag column on
-    // lp_pages, so we treat the tag as a slug-prefix convention: a page is
-    // considered tagged "case-study" if its slug equals "case-study", or
-    // begins with "case-study/" or "case-study-". This matches how the
-    // marketing team already organises customer stories under
-    // /case-study/<practice> and lets the Story Hub block surface them
-    // without a schema migration. When a tag filter is supplied we also
-    // restrict to published pages, since the published Story Hub view should
-    // never expose drafts. The status restriction is skipped when no tag is
-    // supplied, preserving existing dashboard behaviour.
+    // Optional ?tag=<value> filter for authenticated callers (dashboard,
+    // template pickers). The public Story Hub block uses the unauthenticated
+    // /lp/public-pages route below instead. We don't have a dedicated tag
+    // column on lp_pages, so the tag is interpreted as a slug-prefix
+    // convention: a page matches when its slug equals "<tag>", or begins
+    // with "<tag>/" or "<tag>-". When a tag is supplied we also restrict
+    // to published pages so a Story Hub preview in the builder never shows
+    // drafts. The no-tag path is unchanged.
     const tagRaw = req.query.tag;
     const tag = typeof tagRaw === "string" ? tagRaw.trim().toLowerCase() : "";
     const tagWhere = tag
@@ -213,6 +213,65 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
     const cause = (err as { cause?: Error })?.cause;
     console.error("GET /lp/pages error:", cause?.message ?? String(err));
     res.status(500).json({ error: "Failed to load pages" });
+  }
+});
+
+/**
+ * GET /lp/public-pages?tag=<value>
+ *
+ * Public, host-resolved page list for use by published landing-page blocks
+ * (the Premium Customer Story Hub). The request host pins the tenant exactly
+ * the way /lp/brand and /lp/page/:slug do, so an anonymous visitor on a
+ * tenant domain can list that tenant's published case-study pages without
+ * authenticating. This route is allow-listed in LP_PUBLIC.
+ *
+ * Behaviour:
+ *   - Always restricted to status='published'. Drafts are never exposed.
+ *   - `tag` (required, non-empty) is matched against slug using the same
+ *     slug-prefix convention used by the authenticated /lp/pages route:
+ *     equals "<tag>", or begins with "<tag>/" or "<tag>-".
+ *   - Returns only the small set of public-safe fields the Story Hub
+ *     renderer needs — never internal review metadata, author emails,
+ *     blocks JSON, or status.
+ *   - Returns an empty array when the host can't be resolved or no tag is
+ *     supplied. Clients are expected to fall back to in-block placeholder
+ *     content in that case (so the builder preview still shows something).
+ */
+router.get("/lp/public-pages", async (req, res): Promise<void> => {
+  try {
+    const tagRaw = req.query.tag;
+    const tag = typeof tagRaw === "string" ? tagRaw.trim().toLowerCase() : "";
+    if (!tag) { res.json([]); return; }
+    const host = getRequestHost(req);
+    const match = host ? await findTenantByHost(host) : null;
+    const tenantId = match?.tenantId ?? null;
+    if (tenantId == null) { res.json([]); return; }
+    const rows = await db
+      .select({
+        id: lpPagesTable.id,
+        title: lpPagesTable.title,
+        slug: lpPagesTable.slug,
+        metaTitle: lpPagesTable.metaTitle,
+        metaDescription: lpPagesTable.metaDescription,
+        ogImage: lpPagesTable.ogImage,
+      })
+      .from(lpPagesTable)
+      .where(
+        and(
+          eq(lpPagesTable.tenantId, tenantId),
+          eq(lpPagesTable.status, "published"),
+          sql`(
+            lower(${lpPagesTable.slug}) = ${tag}
+            OR lower(${lpPagesTable.slug}) LIKE ${tag + "/%"}
+            OR lower(${lpPagesTable.slug}) LIKE ${tag + "-%"}
+          )`,
+        ),
+      )
+      .orderBy(desc(lpPagesTable.updatedAt));
+    res.json(rows);
+  } catch (err) {
+    console.error("GET /lp/public-pages error:", String(err));
+    res.status(500).json({ error: "Failed to load public pages" });
   }
 });
 
