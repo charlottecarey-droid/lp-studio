@@ -156,10 +156,29 @@ function sanitizeCSS(css: string): string {
 router.get("/lp/pages", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    // Optional ?tag=<value> filter. We don't have a dedicated tag column on
+    // lp_pages, so we treat the tag as a slug-prefix convention: a page is
+    // considered tagged "case-study" if its slug equals "case-study", or
+    // begins with "case-study/" or "case-study-". This matches how the
+    // marketing team already organises customer stories under
+    // /case-study/<practice> and lets the Story Hub block surface them
+    // without a schema migration. When a tag filter is supplied we also
+    // restrict to published pages, since the published Story Hub view should
+    // never expose drafts. The status restriction is skipped when no tag is
+    // supplied, preserving existing dashboard behaviour.
+    const tagRaw = req.query.tag;
+    const tag = typeof tagRaw === "string" ? tagRaw.trim().toLowerCase() : "";
+    const tagWhere = tag
+      ? sql`(
+          lower(${lpPagesTable.slug}) = ${tag}
+          OR lower(${lpPagesTable.slug}) LIKE ${tag + "/%"}
+          OR lower(${lpPagesTable.slug}) LIKE ${tag + "-%"}
+        ) AND ${lpPagesTable.status} = 'published'`
+      : undefined;
     const pages = await db
       .select()
       .from(lpPagesTable)
-      .where(eq(lpPagesTable.tenantId, tenantId))
+      .where(tagWhere ? and(eq(lpPagesTable.tenantId, tenantId), tagWhere) : eq(lpPagesTable.tenantId, tenantId))
       .orderBy(lpPagesTable.createdAt);
 
     // For admins: resolve email → display name from app_users

@@ -1,7 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import type { StoryHubBlockProps, StoryHubTheme } from "@/lib/block-types";
+import type { StoryHubBlockProps, StoryHubStory, StoryHubTheme } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+
+// Shape of pages returned by GET /lp/pages?tag=case-study. We only read the
+// fields the Story Hub needs, so the type is intentionally narrow.
+interface CaseStudyPage {
+  id: number;
+  title: string;
+  slug: string;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  ogImage?: string | null;
+}
+
+// Map an api-server page row into the StoryHubStory shape the renderer uses.
+// We fall back through the title fields, default the tag to "Case Study" so
+// the chip filter still works, and skip pages without an OG image so we never
+// render a blank tile.
+function pageToStory(page: CaseStudyPage): StoryHubStory | null {
+  const imageUrl = page.ogImage?.trim();
+  if (!imageUrl) return null;
+  const headline = (page.metaTitle?.trim() || page.title || "Customer story").trim();
+  return {
+    id: `lp-page-${page.id}`,
+    practice: page.title || headline,
+    location: "",
+    headline,
+    tag: "Case Study",
+    imageUrl,
+    href: `/${page.slug}`,
+  };
+}
 
 const LIGHT_DEFAULTS: Required<StoryHubTheme> = {
   bg: "#F7F4ED",
@@ -73,10 +103,36 @@ export function BlockStoryHub({ props }: Props) {
     if (!props.filters.includes(activeFilter)) setActiveFilter(defaultFilter);
   }, [props.filters, activeFilter, defaultFilter]);
 
+  // Fetch case-study-tagged pages from the api-server. The filter chip row
+  // is sourced from real published pages when any exist; otherwise we fall
+  // back to the static stories so the builder preview and brand-new tenants
+  // still see something meaningful. We only fetch once on mount — the chip
+  // filter is applied client-side against the merged list.
+  const [apiStories, setApiStories] = useState<StoryHubStory[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/lp/pages?tag=case-study", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: unknown) => {
+        if (cancelled) return;
+        if (!Array.isArray(rows)) { setApiStories([]); return; }
+        const mapped: StoryHubStory[] = [];
+        for (const row of rows as CaseStudyPage[]) {
+          const story = pageToStory(row);
+          if (story) mapped.push(story);
+        }
+        setApiStories(mapped);
+      })
+      .catch(() => { if (!cancelled) setApiStories([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const sourceStories = apiStories && apiStories.length > 0 ? apiStories : props.stories;
+
   const visibleStories = useMemo(() => {
-    if (!activeFilter || activeFilter === defaultFilter) return props.stories;
-    return props.stories.filter((s) => s.tag === activeFilter);
-  }, [props.stories, activeFilter, defaultFilter]);
+    if (!activeFilter || activeFilter === defaultFilter) return sourceStories;
+    return sourceStories.filter((s) => s.tag === activeFilter);
+  }, [sourceStories, activeFilter, defaultFilter]);
 
   return (
     <div
