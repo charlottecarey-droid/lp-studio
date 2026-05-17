@@ -163,7 +163,7 @@ const SECTIONS: Section[] = [
     subtitle: "Bulk outreach and performance tracking",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">Campaigns is where bulk outreach lives. It has two modes at the top of the page — <strong>Email Campaigns</strong> for sending templated email to an audience, and <strong>Quick Campaigns</strong> for sending one personalized microsite to many accounts at once.</p>
+        <p className="text-slate-700">Campaigns is where bulk outreach lives. It has two modes at the top of the page — <strong>Email Campaigns</strong> for sending templated email to an audience, and <strong>Personalized Pages</strong> for sending one personalized microsite to many accounts at once.</p>
         <div className="space-y-3">
           <Feature title="Email Campaigns Tabs">
             Inside Email Campaigns you'll find <strong>Campaigns</strong> (in-flight and planned sends), <strong>Sent</strong> (every email that's gone out with open/click data), <strong>Email Templates</strong> (your saved templates), and <strong>Performance</strong> (aggregate results across campaigns).
@@ -171,7 +171,7 @@ const SECTIONS: Section[] = [
           <Feature title="Email Templates">
             Save reusable email templates with merge variables for first name, company, and microsite URL. Templates are the building blocks of every email campaign.
           </Feature>
-          <Feature title="Quick Campaigns">
+          <Feature title="Personalized Pages">
             Pick one microsite, define the audience, and the system creates a personalized version for every account in the list — company names, logos, and links all auto-filled. Each account gets its own tracked URL.
           </Feature>
           <Feature title="Per-Campaign Detail">
@@ -181,7 +181,7 @@ const SECTIONS: Section[] = [
             Build a campaign audience directly from a saved Accounts view — e.g. all Hot accounts in the Northeast owned by you. No re-filtering, no copy-paste.
           </Feature>
         </div>
-        <Tip>Use Quick Campaigns for re-engagement: pick a single high-converting page, point it at a segment of cooling accounts, and you have personalized outreach to dozens of companies in minutes.</Tip>
+        <Tip>Use Personalized Pages for re-engagement: pick a single high-converting page, point it at a segment of cooling accounts, and you have personalized outreach to dozens of companies in minutes.</Tip>
       </div>
     ),
   },

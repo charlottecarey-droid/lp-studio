@@ -974,7 +974,7 @@ export function CampaignPagesContent() {
 
       <div className="flex flex-col gap-6 pb-12">
         <SalesPageHeader
-          title="Quick Campaigns"
+          title="Personalized Pages"
           description="Build one page, define an audience, and send it to multiple accounts at once — each version personalized automatically"
           back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
           actions={
@@ -998,7 +998,7 @@ export function CampaignPagesContent() {
               <Zap className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">How Quick Campaigns work</h3>
+              <h3 className="font-semibold text-foreground">How Personalized Pages work</h3>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Create one page, build an audience of accounts, and launch — we generate a personalized link for every contact and optionally send the email for you.
               </p>

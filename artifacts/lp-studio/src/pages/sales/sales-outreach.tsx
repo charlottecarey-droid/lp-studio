@@ -29,8 +29,6 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { SendTestEmailModal } from "@/components/SendTestEmailModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -710,116 +708,36 @@ function SingleSendTab() {
 
 // ─── Campaigns Tab ──────────────────────────────────────────
 
-function NewCampaignModal({ open, onClose, onCreated }: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: (id: number) => void;
-}) {
-  const [name, setName] = useState("");
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [templateId, setTemplateId] = useState("");
-  const [loading, setLoading] = useState(false);
+function CampaignsTab() {
+  const [, navigate] = useLocation();
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    setName(""); setTemplateId(""); setError(null);
-    setLoading(true);
-    fetch(`${API_BASE}/sales/templates`)
-      .then(r => r.ok ? r.json() : [])
-      .then((rows: Template[]) => setTemplates(rows.filter(t => t.isActive !== false && t.category !== "quick_campaign")))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [open]);
-
-  async function handleCreate() {
-    if (!name.trim() || !templateId) return;
+  async function handleNewCampaign() {
+    if (creating) return;
     setCreating(true);
-    setError(null);
+    setCreateError(null);
     try {
       const r = await fetch(`${API_BASE}/sales/campaigns`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          templateId: Number(templateId),
-          status: "draft",
-        }),
+        body: JSON.stringify({ name: "Untitled campaign", status: "draft" }),
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to create campaign");
       }
       const c = await r.json();
-      onCreated(c.id);
-      onClose();
+      navigate(`/sales/campaigns/${c.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create campaign");
+      setCreateError(e instanceof Error ? e.message : "Failed to create campaign");
     } finally {
       setCreating(false);
     }
   }
-
-  return (
-    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" />New Campaign</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div>
-            <label className="text-xs font-semibold text-foreground mb-1.5 block">Campaign name *</label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Q2 DSO outreach"
-              autoFocus
-            />
-            <p className="text-[11px] text-muted-foreground mt-1.5">Only your team sees this.</p>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-foreground mb-1.5 block">Starting template *</label>
-            {loading ? (
-              <Skeleton className="h-10 w-full rounded-md" />
-            ) : templates.length === 0 ? (
-              <div className="text-sm text-muted-foreground p-3 rounded-md border border-dashed border-border">
-                No templates yet. Create one in the Templates tab first.
-              </div>
-            ) : (
-              <select
-                value={templateId}
-                onChange={e => setTemplateId(e.target.value)}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Choose a template…</option>
-                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            )}
-            <p className="text-[11px] text-muted-foreground mt-1.5">You'll edit recipients, sender, schedule, and preview text on the next screen.</p>
-          </div>
-          {error && (
-            <div className="p-3 rounded-md border border-red-200 bg-red-50 text-sm text-red-700">{error}</div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={creating}>Cancel</Button>
-          <Button size="sm" onClick={handleCreate} disabled={!name.trim() || !templateId || creating} className="gap-1.5">
-            {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            Create & open editor
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CampaignsTab() {
-  const [, navigate] = useLocation();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newOpen, setNewOpen] = useState(false);
-  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
 
   const fetchData = useCallback(() => {
     fetch(`${API_BASE}/sales/campaigns`)
@@ -864,18 +782,16 @@ function CampaignsTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <NewCampaignModal
-        open={newOpen}
-        onClose={() => setNewOpen(false)}
-        onCreated={(id) => { fetchData(); navigate(`/sales/campaigns/${id}`); }}
-      />
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Build a campaign with full control over recipients, sender, scheduling, and content.</p>
-        <Button size="sm" onClick={() => setNewOpen(true)} className="gap-1.5">
-          <Plus className="w-3.5 h-3.5" />
+        <Button size="sm" onClick={handleNewCampaign} disabled={creating} className="gap-1.5">
+          {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
           New Campaign
         </Button>
       </div>
+      {createError && (
+        <div className="p-3 rounded-md border border-red-200 bg-red-50 text-sm text-red-700">{createError}</div>
+      )}
 
       {loading ? (
         <div className="flex flex-col gap-3">
@@ -1760,7 +1676,7 @@ export default function SalesOutreach() {
               }`}
             >
               <Send className="w-3.5 h-3.5" />
-              Quick Campaigns
+              Personalized Pages
             </button>
           </div>
         </div>
@@ -1773,7 +1689,7 @@ export default function SalesOutreach() {
           tips={[
             "Green badges mean the email was opened — these contacts are warm",
             "Click a campaign to see detailed per-recipient engagement",
-            "Use Quick Campaigns to send personalized pages to multiple accounts at once",
+            "Use Personalized Pages to send a microsite to multiple accounts at once",
           ]}
           color="rose"
           icon={<BarChart3 className="w-5 h-5" />}

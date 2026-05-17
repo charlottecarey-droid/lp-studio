@@ -939,9 +939,8 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
                 className="gap-1.5"
               >
                 {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : sendMode === "later" ? <Calendar className="w-3.5 h-3.5" />
                   : <Send className="w-3.5 h-3.5" />}
-                {sendMode === "later" ? `Schedule (${selectedContactIds.size})` : `Send now (${selectedContactIds.size})`}
+                {`Send now (${selectedContactIds.size})`}
               </Button>
             )}
           </div>

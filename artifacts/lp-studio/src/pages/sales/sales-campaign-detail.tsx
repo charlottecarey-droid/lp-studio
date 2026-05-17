@@ -91,7 +91,7 @@ interface Contact {
 interface CampaignDetail {
   id: number;
   name: string;
-  templateId: number;
+  templateId: number | null;
   accountId: number | null;
   status: string;
   scheduledAt: string | null;
@@ -568,18 +568,35 @@ export default function SalesCampaignDetail() {
                 Test
               </Button>
             )}
-            {isDraft && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => setShowSchedule(true)} className="gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  Schedule
-                </Button>
-                <Button size="sm" onClick={handleSend} disabled={sendingCampaign} className="gap-1.5">
-                  {sendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  {sendingCampaign ? "Sending…" : "Send Now"}
-                </Button>
-              </>
-            )}
+            {isDraft && (() => {
+              const needsTemplate = campaign.templateId === null || campaign.templateId === undefined;
+              const tooltip = needsTemplate ? "Pick an email template first" : undefined;
+              return (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowSchedule(true)}
+                    disabled={needsTemplate}
+                    title={tooltip}
+                    className="gap-1.5"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    Schedule
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSend}
+                    disabled={sendingCampaign || needsTemplate}
+                    title={tooltip}
+                    className="gap-1.5"
+                  >
+                    {sendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {sendingCampaign ? "Sending…" : "Send Now"}
+                  </Button>
+                </>
+              );
+            })()}
             {isScheduled && (
               <Button size="sm" variant="outline" onClick={handleCancelSchedule} disabled={actionLoading} className="gap-1.5">
                 <X className="w-3.5 h-3.5" />
@@ -736,12 +753,19 @@ export default function SalesCampaignDetail() {
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Email Template</Label>
                 <select
-                  value={campaign.templateId}
-                  onChange={e => handleChangeTemplate(Number(e.target.value))}
+                  value={campaign.templateId == null ? "" : String(campaign.templateId)}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v) handleChangeTemplate(Number(v));
+                  }}
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
+                  <option value="">Choose a template…</option>
                   {templates.map(t => <option key={t.id} value={t.id}>{t.name} — {t.subject}</option>)}
                 </select>
+                {campaign.templateId == null && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">Pick a template before sending or scheduling this campaign.</p>
+                )}
               </div>
             </div>
           </Card>
