@@ -160,24 +160,33 @@ const MarketingApp = lazy(() => import("@/marketing/MarketingApp"));
  * top of App() so marketing visitors never bootstrap auth, query client, or
  * tooltip providers.
  *
+ * Production:
  * - Apex hosts (lpstudio.ai, www.lpstudio.ai) → marketing site
- * - Dev override (?preview=marketing) → marketing site (any host)
- * - Everything else (app.lpstudio.ai, *.lpstudio.ai, replit.dev, replit.app,
- *   localhost, custom tenant/microsite domains) → SaaS / tenant rendering
+ * - app.lpstudio.ai, *.lpstudio.ai, custom tenant/microsite domains → SaaS
+ *
+ * Dev (replit.dev / replit.app / localhost):
+ * - Marketing site by default (so we can iterate on it in the Replit preview
+ *   pane without a custom DNS setup).
+ * - Opt-out: `?preview=app` flips back to the SaaS app for working on the
+ *   product UI.
+ *
+ * The dev-only branch is gated on `import.meta.env.DEV` so a production SaaS
+ * host (app.lpstudio.ai) can never be flipped into marketing mode — or the
+ * reverse — via a query string.
  */
 function isMarketingHost(): boolean {
   if (typeof window === "undefined") return false;
-  // Dev-only override so we can preview the marketing site on the lp-studio
-  // dev URL without a custom DNS setup. Gated on import.meta.env.DEV so it
-  // can never flip a production SaaS host (app.lpstudio.ai) into marketing
-  // mode via a query string.
   if (import.meta.env.DEV) {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("preview") === "marketing") return true;
+      const preview = params.get("preview");
+      if (preview === "app") return false;
+      if (preview === "marketing") return true;
     } catch {
       // ignore — fall through to host check
     }
+    // Default in dev: show the marketing site.
+    return true;
   }
   const h = window.location.hostname.toLowerCase();
   return h === "lpstudio.ai" || h === "www.lpstudio.ai";
