@@ -1016,6 +1016,24 @@ function TemplatesTab() {
     fetchTemplates();
   }
 
+  async function handleClone(t: Template) {
+    const payload = {
+      name: `${t.name} (Copy)`,
+      subject: t.subject,
+      bodyHtml: t.bodyHtml,
+      bodyText: t.bodyText,
+      mergeVars: t.mergeVars ?? [],
+      category: t.category,
+      format: t.format,
+    };
+    const res = await fetch(`${API_BASE}/sales/templates`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) fetchTemplates();
+  }
+
   async function handleAiGenerate() {
     setAiGenerating(true);
     setAiGenerateError(null);
@@ -1279,6 +1297,10 @@ function TemplatesTab() {
                 <Button size="sm" variant="ghost" onClick={() => { startEdit(t); setShowCreate(true); }} className="gap-1.5">
                   <Pencil className="w-3.5 h-3.5" />
                   Edit
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleClone(t)} className="gap-1.5" title="Duplicate this template">
+                  <Copy className="w-3.5 h-3.5" />
+                  Clone
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => handleDelete(t.id)} className="gap-1.5 text-destructive hover:text-destructive">
                   <Trash2 className="w-3.5 h-3.5" />
