@@ -165,15 +165,20 @@ const MarketingApp = lazy(() => import("@/marketing/MarketingApp"));
  * - app.lpstudio.ai, *.lpstudio.ai, custom tenant/microsite domains → SaaS
  *
  * Dev (replit.dev / replit.app / localhost):
- * - Marketing site by default (so we can iterate on it in the Replit preview
- *   pane without a custom DNS setup).
- * - Opt-out: `?preview=app` flips back to the SaaS app for working on the
- *   product UI.
+ * - On marketing paths (`/`, `/privacy`, `/terms`) → marketing site by
+ *   default, so we can iterate on it in the Replit preview pane without a
+ *   custom DNS setup.
+ * - On every other path (`/builder/...`, `/preview/...`, `/login`, etc.) →
+ *   the SaaS app, so the product UI still works in dev.
+ * - Explicit overrides: `?preview=marketing` or `?preview=app` force one
+ *   side regardless of path.
  *
  * The dev-only branch is gated on `import.meta.env.DEV` so a production SaaS
  * host (app.lpstudio.ai) can never be flipped into marketing mode — or the
  * reverse — via a query string.
  */
+const MARKETING_PATHS = new Set(["/", "/privacy", "/terms"]);
+
 function isMarketingHost(): boolean {
   if (typeof window === "undefined") return false;
   if (import.meta.env.DEV) {
@@ -183,10 +188,12 @@ function isMarketingHost(): boolean {
       if (preview === "app") return false;
       if (preview === "marketing") return true;
     } catch {
-      // ignore — fall through to host check
+      // ignore — fall through to path/host check
     }
-    // Default in dev: show the marketing site.
-    return true;
+    // Default in dev: marketing only for paths the marketing app actually
+    // renders. Everything else falls through to the SaaS app routes.
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    return MARKETING_PATHS.has(path);
   }
   const h = window.location.hostname.toLowerCase();
   return h === "lpstudio.ai" || h === "www.lpstudio.ai";
