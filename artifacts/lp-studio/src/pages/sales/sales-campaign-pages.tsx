@@ -48,6 +48,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
@@ -648,132 +657,156 @@ function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; mic
     }
   };
 
+  // Single dropdown value: "marketing:<id>" or "builtin:<id>". Keeps the
+  // picker compact and predictable — the long button list was easy to
+  // scroll past and made the rest of the form (title + URL slug) get cut
+  // off below the fold.
+  const selectedValue = selected
+    ? selected.type === "marketing"
+      ? `marketing:${selected.id}`
+      : selected.type === "builtin"
+        ? `builtin:${selected.id}`
+        : ""
+    : "";
+
+  const handleSelectChange = (value: string) => {
+    const [type, rawId] = value.split(":");
+    if (type === "marketing") {
+      const id = Number(rawId);
+      const t = marketingTemplates.find(x => x.id === id);
+      if (!t) return;
+      setSelected({ type: "marketing", id, label: t.templateLabel ?? t.title });
+      if (!title) handleTitleChange(t.templateLabel ?? t.title);
+    } else if (type === "builtin") {
+      const t = MICROSITE_TEMPLATES.find(x => x.id === rawId);
+      if (!t) return;
+      setSelected({ type: "builtin", id: rawId, label: t.name });
+      if (!title) handleTitleChange(t.name);
+    }
+  };
+
+  const selectedMarketing = selected?.type === "marketing"
+    ? marketingTemplates.find(t => t.id === selected.id) ?? null
+    : null;
+  const selectedBuiltin = selected?.type === "builtin"
+    ? MICROSITE_TEMPLATES.find(t => t.id === selected.id) ?? null
+    : null;
+  const selectedDescription = selectedMarketing?.templateDescription ?? selectedBuiltin?.description ?? null;
+  const selectedAccent = selectedBuiltin?.accentColor ?? null;
+
+  // Strip the protocol from the slug prefix so it fits in the narrow input
+  // (e.g. "partners.meetdandy.com/" rather than the full https URL).
+  const slugPrefix = micrositeDomain
+    ? `${micrositeDomain.replace(/^https?:\/\//, "")}/`
+    : "/lp/";
+
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             New Campaign Page
           </DialogTitle>
           <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-            Pick a starting template for the page each recipient will land on. After you create it,
-            add merge variables like{" "}
-            <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{"{{first_name}}"}</code>,{" "}
+            Pick a starting template, give the page a name and URL — then you'll be taken to
+            the editor where you can drop in merge variables like{" "}
+            <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{"{{first_name}}"}</code>{" "}
+            and{" "}
             <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-[11px]">{"{{company}}"}</code>{" "}
-            anywhere in your page — every recipient gets their own personalized version automatically.
+            so every recipient sees their own personalized version.
           </p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto flex flex-col gap-4 py-2 pr-1">
-          <div className="rounded-lg border border-violet-200 dark:border-violet-800/40 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-2.5 text-[11px] leading-relaxed text-violet-900 dark:text-violet-100">
-            <span className="font-semibold">Tip:</span> This isn't a regular standalone microsite —
-            it's a campaign page template. Use merge variables in your headlines, body copy, and CTAs so
-            each prospect sees something tailored to them.
-          </div>
-
-
-          {/* Marketing-owned templates */}
-          {(loadingTemplates || marketingTemplates.length > 0) && (
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium flex items-center gap-1.5">
-                <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                Marketing Templates
-              </Label>
-              {loadingTemplates ? (
-                <div className="flex flex-col gap-2">
-                  {[1, 2].map(i => <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />)}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {marketingTemplates.map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        const next = { type: "marketing" as const, id: t.id, label: t.templateLabel ?? t.title };
-                        setSelected(selected?.type === "marketing" && selected.id === t.id ? null : next);
-                        if (!title) handleTitleChange(t.templateLabel ?? t.title);
-                      }}
-                      className={[
-                        "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                        "focus:outline-none focus:ring-2 focus:ring-amber-300",
-                        selected?.type === "marketing" && selected.id === t.id
-                          ? "border-amber-400 bg-amber-50 ring-1 ring-amber-400"
-                          : "border-border bg-background hover:border-amber-300",
-                      ].join(" ")}
-                    >
-                      <span className="text-sm font-medium leading-tight flex items-center gap-1.5">
-                        <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                        {t.templateLabel ?? t.title}
-                      </span>
-                      {t.templateDescription && (
-                        <span className="text-xs text-muted-foreground">{t.templateDescription}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Built-in skins */}
+          {/* Step 1 — template */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-medium flex items-center gap-1.5">
-              <Building2 className="w-3 h-3 text-primary" />
-              Built-in Skins
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              1. Starting template
             </Label>
-            <div className="flex flex-col gap-2">
-              {MICROSITE_TEMPLATES.map(t => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setSelected(
-                    selected?.type === "builtin" && selected.id === t.id
-                      ? null
-                      : { type: "builtin", id: t.id, label: t.name }
-                  )}
-                  className={[
-                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors relative overflow-hidden",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/30",
-                    selected?.type === "builtin" && selected.id === t.id
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border bg-background hover:border-primary/40",
-                  ].join(" ")}
-                >
-                  <div className="absolute top-0 right-0 w-5 h-5 rounded-bl-lg opacity-70" style={{ background: t.accentColor }} />
-                  <span className="text-sm font-medium leading-tight pr-5">{t.name}</span>
-                  <span className="text-xs text-muted-foreground">{t.description}</span>
-                </button>
-              ))}
-            </div>
+            <Select value={selectedValue} onValueChange={handleSelectChange} disabled={loadingTemplates}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={loadingTemplates ? "Loading templates…" : "Choose a template…"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[50vh]">
+                {marketingTemplates.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel className="flex items-center gap-1.5 text-xs">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      Marketing templates
+                    </SelectLabel>
+                    {marketingTemplates.map(t => (
+                      <SelectItem key={`m-${t.id}`} value={`marketing:${t.id}`}>
+                        {t.templateLabel ?? t.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                <SelectGroup>
+                  <SelectLabel className="flex items-center gap-1.5 text-xs">
+                    <Building2 className="w-3 h-3 text-primary" />
+                    Built-in skins
+                  </SelectLabel>
+                  {MICROSITE_TEMPLATES.map(t => (
+                    <SelectItem key={`b-${t.id}`} value={`builtin:${t.id}`}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {selectedDescription && (
+              <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+                {selectedAccent && (
+                  <span
+                    className="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: selectedAccent }}
+                    aria-hidden
+                  />
+                )}
+                <span>{selectedDescription}</span>
+              </div>
+            )}
           </div>
 
-          {/* Page name + slug */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ms-title" className="text-xs font-medium">
-                Page name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="ms-title"
-                placeholder="e.g. Pacific Dental Campaign"
-                value={title}
-                onChange={e => handleTitleChange(e.target.value)}
+          {/* Step 2 — page name */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ms-title" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              2. Page name <span className="text-red-500 normal-case">*</span>
+            </Label>
+            <Input
+              id="ms-title"
+              placeholder="e.g. Pacific Dental Campaign"
+              value={title}
+              onChange={e => handleTitleChange(e.target.value)}
+            />
+          </div>
+
+          {/* Step 3 — URL slug (full width so the prefix + slug both fit) */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              3. URL
+            </Label>
+            <div className="flex items-stretch border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+              <span
+                className="px-2.5 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0 font-mono flex items-center max-w-[55%] truncate"
+                title={slugPrefix}
+              >
+                {slugPrefix}
+              </span>
+              <input
+                className="flex-1 min-w-0 px-2 py-2 text-sm bg-transparent focus:outline-none font-mono"
+                placeholder="page-slug"
+                value={slug}
+                onChange={e => setSlug(slugify(e.target.value))}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">URL slug</Label>
-              <div className="flex items-center border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                <span className="px-2 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">{micrositeDomain ? `${micrositeDomain}/` : "/lp/"}</span>
-                <input
-                  className="flex-1 px-2 py-2 text-sm bg-transparent focus:outline-none font-mono"
-                  placeholder="page-slug"
-                  value={slug}
-                  onChange={e => setSlug(slugify(e.target.value))}
-                />
-              </div>
-            </div>
+          </div>
+
+          {/* Tip box pushed below so it doesn't crowd the form */}
+          <div className="rounded-lg border border-violet-200 dark:border-violet-800/40 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-2.5 text-[11px] leading-relaxed text-violet-900 dark:text-violet-100">
+            <span className="font-semibold">Tip:</span> Use merge variables in your headlines, body
+            copy, and CTAs so every prospect sees something tailored to them.
           </div>
 
           {error && (
