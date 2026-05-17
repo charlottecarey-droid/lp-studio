@@ -14,6 +14,7 @@ import {
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
+import { getSalesBrandContext, buildNotificationsFrom } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -25,10 +26,16 @@ function escapeHtml(str: string): string {
 
 async function sendVisitAlert(
   recipients: string[],
-  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string },
+  opts: { tenantId: number; contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string },
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || recipients.length === 0) return;
+  const ctx = await getSalesBrandContext(opts.tenantId);
+  const fromAddr = buildNotificationsFrom(ctx) ?? process.env["RESEND_FROM_EMAIL"];
+  if (!fromAddr) {
+    logger.warn({ tenantId: opts.tenantId }, "Skipping visit alert: no sending domain configured");
+    return;
+  }
 
   const html = `
 <!DOCTYPE html>
@@ -71,7 +78,7 @@ async function sendVisitAlert(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
+        from: fromAddr,
         to: recipients,
         subject: `${opts.contactName} just viewed your page`,
         html,
@@ -327,6 +334,7 @@ router.get("/hotlinks", async (req, res): Promise<void> => {
 
 // Create hotlink for a contact + page
 router.post("/hotlinks", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { contactId, pageId } = req.body;
   if (!contactId || !pageId) {
     res.status(400).json({ error: "contactId and pageId are required" });
@@ -347,15 +355,24 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
       return;
     }
 
-    // Fetch salesforce_id for stable re-linkage after re-sync
+    // Fetch salesforce_id for stable re-linkage after re-sync — tenant-scoped
+    // so a caller can't create a hotlink pointed at another tenant's contact.
     const [contactRow] = await db
       .select({ salesforceId: salesContactsTable.salesforceId })
       .from(salesContactsTable)
-      .where(eq(salesContactsTable.id, Number(contactId)))
+      .where(and(
+        eq(salesContactsTable.id, Number(contactId)),
+        eq(salesContactsTable.tenantId, tenantId),
+      ))
       .limit(1);
+    if (!contactRow) {
+      res.status(404).json({ error: "Contact not found" });
+      return;
+    }
 
     const token = await generateUniqueToken();
     const [hotlink] = await db.insert(salesHotlinksTable).values({
+      tenantId,
       token,
       contactId: Number(contactId),
       sfdcContactId: contactRow?.salesforceId ?? null,
@@ -435,6 +452,7 @@ router.delete("/hotlinks/page/:pageId", async (req, res): Promise<void> => {
 
 // Bulk-create hotlinks for all contacts of an account for a specific page
 router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { accountId, pageId, contactIds } = req.body;
   if (!accountId || !pageId) {
     res.status(400).json({ error: "accountId and pageId are required" });
@@ -442,8 +460,13 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
   }
 
   try {
+    // Tenant-scope the contact lookup so a caller can never bulk-create
+    // hotlinks for another tenant's contacts.
     let contacts = await db.select().from(salesContactsTable)
-      .where(eq(salesContactsTable.accountId, Number(accountId)));
+      .where(and(
+        eq(salesContactsTable.accountId, Number(accountId)),
+        eq(salesContactsTable.tenantId, tenantId),
+      ));
 
     // If specific contactIds provided, filter to only those
     if (Array.isArray(contactIds) && contactIds.length > 0) {
@@ -477,6 +500,7 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
 
       const token = await generateUniqueToken();
       const [hotlink] = await db.insert(salesHotlinksTable).values({
+        tenantId,
         token,
         contactId: contact.id,
         sfdcContactId: contact.salesforceId ?? null,
@@ -569,6 +593,7 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
         if (recipients.length > 0) {
           const contactName = contact ? `${contact.firstName} ${contact.lastName}` : "Unknown";
           await sendVisitAlert(recipients, {
+            tenantId: page.tenantId,
             contactName,
             company,
             pageTitle: page.title,

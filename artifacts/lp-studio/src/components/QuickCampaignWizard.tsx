@@ -125,10 +125,15 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
   const [confirmedUnresolved, setConfirmedUnresolved] = useState(false);
 
   // Quick Campaign keeps sender defaults — for full control, use "New Campaign"
-  // (which lands on the campaign detail page).
-  const [senderName, setSenderName] = useState("Dandy");
-  const [senderEmail] = useState("partnerships");
-  const [replyTo] = useState("sales@meetdandy.com");
+  // (which lands on the campaign detail page). The defaults come from this
+  // tenant's Sales Console settings (Brand Settings → Sales Console); we
+  // start blank and fill them in once /sales/brand-context resolves so we
+  // never leak another tenant's sender identity.
+  const [senderName, setSenderName] = useState("");
+  const [senderEmail, setSenderEmail] = useState("");
+  const [replyTo, setReplyTo] = useState("");
+  const [sendingDomain, setSendingDomain] = useState("");
+  const [brandReady, setBrandReady] = useState(false);
 
   // Accounts list for filter
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -152,8 +157,33 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
       setSentTest(false);
       setConfirmedUnresolved(false);
       setDraftId(null); // ensure a fresh draft each time the wizard opens
-      if (user?.name) setSenderName(user.name.split(" ")[0] || "Dandy");
     }
+  }, [open, user]);
+
+  // Load per-tenant Sales Console defaults (sender name, sending domain,
+  // reply-to). Falls back to the signed-in user's first name only if the
+  // tenant has configured a brand sender — otherwise we surface a blocker
+  // in step 4 instead of guessing.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/sales/brand-context`);
+        if (!r.ok) return;
+        const ctx = await r.json();
+        if (cancelled) return;
+        const firstName = user?.name?.split(" ")[0] ?? "";
+        setSenderName(ctx.senderName || firstName || "");
+        setSenderEmail(ctx.senderLocalPart || "");
+        setReplyTo(ctx.replyTo || "");
+        setSendingDomain(ctx.sendingDomain || "");
+        setBrandReady(true);
+      } catch {
+        // leave blank — step 4 will warn the user
+      }
+    })();
+    return () => { cancelled = true; };
   }, [open, user]);
 
   // ─── Load templates + accounts on first open ─────────────
@@ -330,7 +360,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
 
       const meta = {
         contactIds: Array.from(selectedContactIds),
-        senderName: senderName.trim() || "Dandy",
+        senderName: senderName.trim(),
         senderEmail,
         replyTo,
       };
@@ -883,7 +913,12 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
               {/* Recipient summary */}
               <div className="text-xs text-muted-foreground">
                 Sending to <span className="font-semibold text-foreground">{selectedContactIds.size}</span> {selectedContactIds.size === 1 ? "person" : "people"}
-                {" "}from <span className="font-semibold text-foreground">{senderName}</span> &lt;{senderEmail}@ent.meetdandy.com&gt;
+                {" "}from <span className="font-semibold text-foreground">{senderName || "(unset)"}</span> &lt;{senderEmail || "(unset)"}@{sendingDomain || "(no domain configured)"}&gt;
+                {brandReady && (!senderName || !senderEmail || !sendingDomain || !replyTo) && (
+                  <span className="block mt-1 text-[11px] text-red-600">
+                    Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.
+                  </span>
+                )}
                 <span className="block mt-1 text-[11px] text-muted-foreground/80">
                   Need scheduling, custom reply-to, or preview text? Cancel and use <span className="font-semibold">New Campaign</span> instead.
                 </span>

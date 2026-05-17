@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
-import { eq, desc, ilike } from "drizzle-orm";
+import { eq, and, desc, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesInboundEmailsTable,
   salesContactsTable,
   salesSignalsTable,
 } from "@workspace/db";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
@@ -28,7 +29,8 @@ function verifyWebhookSignature(payload: string, signature: string | undefined):
 
 // ─── GET /sales/inbound — list received emails ───────────────
 
-router.get("/", async (req, res): Promise<void> => {
+router.get("/", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const rows = await db
       .select({
@@ -50,6 +52,7 @@ router.get("/", async (req, res): Promise<void> => {
       })
       .from(salesInboundEmailsTable)
       .leftJoin(salesContactsTable, eq(salesInboundEmailsTable.contactId, salesContactsTable.id))
+      .where(eq(salesInboundEmailsTable.tenantId, tenantId))
       .orderBy(desc(salesInboundEmailsTable.receivedAt))
       .limit(100);
 
@@ -62,12 +65,16 @@ router.get("/", async (req, res): Promise<void> => {
 
 // ─── GET /sales/inbound/:id — get full email ────────────────
 
-router.get("/:id", async (req, res): Promise<void> => {
+router.get("/:id", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const [row] = await db
       .select()
       .from(salesInboundEmailsTable)
-      .where(eq(salesInboundEmailsTable.id, Number(req.params.id)));
+      .where(and(
+        eq(salesInboundEmailsTable.id, Number(req.params.id)),
+        eq(salesInboundEmailsTable.tenantId, tenantId),
+      ));
 
     if (!row) {
       res.status(404).json({ error: "Not found" });
@@ -78,7 +85,10 @@ router.get("/:id", async (req, res): Promise<void> => {
     await db
       .update(salesInboundEmailsTable)
       .set({ isRead: true })
-      .where(eq(salesInboundEmailsTable.id, row.id));
+      .where(and(
+        eq(salesInboundEmailsTable.id, row.id),
+        eq(salesInboundEmailsTable.tenantId, tenantId),
+      ));
 
     res.json({ ...row, isRead: true });
   } catch (err) {
@@ -89,12 +99,16 @@ router.get("/:id", async (req, res): Promise<void> => {
 
 // ─── PATCH /sales/inbound/:id/read — mark as read ───────────
 
-router.patch("/:id/read", async (req, res): Promise<void> => {
+router.patch("/:id/read", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     await db
       .update(salesInboundEmailsTable)
       .set({ isRead: true })
-      .where(eq(salesInboundEmailsTable.id, Number(req.params.id)));
+      .where(and(
+        eq(salesInboundEmailsTable.id, Number(req.params.id)),
+        eq(salesInboundEmailsTable.tenantId, tenantId),
+      ));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to mark as read" });
@@ -153,8 +167,12 @@ router.post("/", async (req, res): Promise<void> => {
       .where(ilike(salesContactsTable.email, fromEmail))
       .limit(1);
 
-    // Store the inbound email
+    // Store the inbound email. Without a tenant match we leave tenantId
+    // NULL so unrouted replies remain visible to platform operators but
+    // never surface inside a tenant's inbox (the GET handlers above filter
+    // by tenantId so NULL rows are invisible to all tenants).
     const [record] = await db.insert(salesInboundEmailsTable).values({
+      tenantId: contact?.tenantId ?? null,
       contactId: contact?.id ?? null,
       accountId: contact?.accountId ?? null,
       messageId: messageId || null,

@@ -12,12 +12,11 @@ import {
 } from "@workspace/db";
 import { resolveContacts } from "./audiences";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
+import { getSalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "ent.meetdandy.com";
-const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
 // Tolerant token replacement — see campaigns.ts for full docs.
 // Matches `{{ anything }}` with arbitrary whitespace/case/punctuation,
@@ -65,7 +64,7 @@ function generateToken(): string {
   return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
-async function getOrCreateHotlink(contactId: number, pageId: number, sfdcContactId?: string | null): Promise<typeof salesHotlinksTable.$inferSelect> {
+async function getOrCreateHotlink(tenantId: number, contactId: number, pageId: number, sfdcContactId?: string | null): Promise<typeof salesHotlinksTable.$inferSelect> {
   const existing = await db.select().from(salesHotlinksTable)
     .where(and(
       eq(salesHotlinksTable.contactId, contactId),
@@ -82,6 +81,7 @@ async function getOrCreateHotlink(contactId: number, pageId: number, sfdcContact
     if (dup.length === 0) break;
   }
   const [hotlink] = await db.insert(salesHotlinksTable).values({
+    tenantId,
     token: token!,
     contactId,
     sfdcContactId: sfdcContactId ?? null,
@@ -195,11 +195,26 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
     audienceId,
     emailSubject,
     emailBodyHtml,
-    senderName = "Dandy",
-    senderEmail = "partnerships",
+    senderName: senderNameOverride,
+    senderEmail: senderEmailOverride,
     sendEmails = true,
     alertEmails = [],
   } = req.body;
+
+  // Per-tenant sender identity — no Dandy fallbacks. Refuse the launch
+  // (rather than send from another tenant's address) when sender/reply-to
+  // are unset.
+  const launchBrandCtx = await getSalesBrandContext(tenantId);
+  const senderName = senderNameOverride ?? launchBrandCtx.senderName;
+  const senderEmail = senderEmailOverride ?? launchBrandCtx.senderLocalPart;
+  const SENDER_DOMAIN = launchBrandCtx.sendingDomain;
+  const DEFAULT_REPLY_TO = launchBrandCtx.replyTo;
+  if (sendEmails && (!senderName || !senderEmail || !SENDER_DOMAIN || !DEFAULT_REPLY_TO)) {
+    res.status(400).json({
+      error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
+    });
+    return;
+  }
 
   if (!pageId) {
     res.status(400).json({ error: "pageId is required" });
@@ -247,7 +262,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
         .limit(1);
       const isNew = existingCheck.length === 0;
 
-      const hotlink = await getOrCreateHotlink(contact.id, Number(pageId));
+      const hotlink = await getOrCreateHotlink(tenantId, contact.id, Number(pageId));
       if (isNew) hotlinksCreated++;
 
       const micrositeUrl = `${host}/p/${hotlink.token}`;

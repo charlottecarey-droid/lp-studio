@@ -3,6 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable, lpPagesTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
+import { getSalesBrandContext } from "../../lib/salesBrandContext";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 
@@ -122,6 +123,20 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
   }
 
   try {
+    // ─── 0. Load this tenant's Sales Console brand context ─────
+    // All hard-coded "Dandy"/customer-name strings have been removed
+    // from the prompt — the tenant configures these in Brand Settings →
+    // Sales Console. When unset we fall back to generic phrasing so we
+    // never accidentally leak another tenant's brand.
+    const brandCtx = await getSalesBrandContext(tenantId);
+    const tenantBrandName = brandCtx.brandName || "our team";
+    const tenantBrandBlurb = brandCtx.briefBlurb
+      ? `${tenantBrandName} — ${brandCtx.briefBlurb}`
+      : tenantBrandName;
+    const tenantIntroLine = brandCtx.salesIntroLine
+      || `You write short, human cold emails for ${tenantBrandBlurb}.`;
+    const valuePropPairs = Array.isArray(brandCtx.valuePropPairs) ? brandCtx.valuePropPairs : [];
+
     // ─── 1. Load contact ────────────────────────────────────────
     let firstName = "";
     let lastName = "";
@@ -237,7 +252,7 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
 
     const fullName = [firstName, lastName].filter(Boolean).join(" ") || "the contact";
     const micrositeNote = hasMicrosite
-      ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how Dandy would work for ${accountName} — [MICROSITE_URL]". Do NOT invent a URL — always use the literal placeholder [MICROSITE_URL]; the system will swap it for the real link.`
+      ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how ${tenantBrandName} would work for ${accountName} — [MICROSITE_URL]". Do NOT invent a URL — always use the literal placeholder [MICROSITE_URL]; the system will swap it for the real link.`
       : "No microsite exists for this contact yet. Do NOT mention a microsite, a page, a link, or anything the recipient should click on. Do NOT include the placeholder [MICROSITE_URL] anywhere.";
 
     // ─── 5. Research: Perplexity (news + LinkedIn) + Firecrawl (site) — all parallel ────
@@ -446,7 +461,31 @@ Be factual and specific. Only include what's on the site.`;
     const todayStr  = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const cutoffStr = cutoff.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-    const prompt = `You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.
+    // Build the THEME OPTIONS section from this tenant's configured
+    // pain/proof pairs. If a tenant hasn't seeded any, we fall back to a
+    // generic prompt-time instruction that tells the model to pick a
+    // role-appropriate pain/proof itself based on the account briefing —
+    // never leaking another tenant's customer names or stats.
+    const themeOptionsSection = valuePropPairs.length > 0
+      ? [
+          "THEME OPTIONS (pick exactly one — match the role; if no exact role match, pick the closest):",
+          "",
+          ...valuePropPairs.flatMap(p => {
+            const rolesLine = (p.roles ?? []).filter(Boolean).join(" / ");
+            const header = rolesLine
+              ? `For ${rolesLine} → Theme: "${p.theme}"`
+              : `Theme: "${p.theme}"`;
+            return [header, `  Pain: ${p.pain}`, `  Proof: ${p.proof}`, ""];
+          }),
+        ].join("\n").trimEnd()
+      : [
+          "THEME GUIDANCE:",
+          "Pick ONE pain point relevant to this person's role and ONE proof point that directly answers it.",
+          "Draw the proof point only from the ACCOUNT INTELLIGENCE briefing or verified research above.",
+          "Do NOT invent customer names, statistics, or case studies.",
+        ].join("\n");
+
+    const prompt = `${tenantIntroLine}
 
 ⚠️ RECENCY RULE — READ THIS BEFORE LOOKING AT THE RESEARCH:
 Today's date is ${todayStr}. The 6-month cutoff is ${cutoffStr}.
@@ -492,47 +531,7 @@ Before writing anything, choose ONE theme that connects a pain point to a proof 
 
 Pick the theme based on this person's role:
 
-THEME OPTIONS (pick exactly one):
-
-For CFO / Finance roles → Theme: "Remakes are silently destroying margin"
-  Pain: remakes cost ~$780 each and most DSOs can't even track them across locations
-  Proof: Apex Dental Partners cut remakes by 29% after switching to Dandy
-
-For CFO / Finance roles → Theme: "Scanner CAPEX is an unnecessary barrier"
-  Pain: $40–75K per operatory in scanner hardware is hard to justify when margins are tight
-  Proof: Dandy deploys scanners free — zero CAPEX
-
-For COO / Operations roles → Theme: "Too many lab vendors means no control"
-  Pain: when every location picks its own lab, you get inconsistent quality, no leverage on pricing, and no visibility
-  Proof: DCA consolidated 400+ lab relationships down to one with Dandy
-
-For COO / Operations roles → Theme: "Standardization shouldn't mean forcing doctors to switch"
-  Pain: ops teams need consistency across locations, but mandating a single workflow alienates doctors
-  Proof: Dandy's preferred program standardizes the lab without requiring doctors to change their process
-
-For CDO / Clinical roles → Theme: "Remakes are a clinical quality problem hiding in plain sight"
-  Pain: most DSOs don't have location-level remake data, so quality issues go undetected
-  Proof: DCA practices hit ~1% remake rate with Dandy's standardized workflow
-
-For CDO / Clinical roles → Theme: "Catching fit issues before they ship"
-  Pain: bad margins and fit problems only surface after the patient is in the chair — costly for the practice and the patient
-  Proof: Dandy's AI margin detection flags fit issues before the crown ships
-
-For CEO / President roles → Theme: "Same-store growth is the next lever"
-  Pain: acquisitions slow down eventually and same-store performance becomes the primary growth engine
-  Proof: Apex Dental Partners saw a 12.5% revenue increase with Dandy
-
-For CEO / President roles → Theme: "Scale without capital risk"
-  Pain: growth requires scanners at every operatory, but $40–75K per site adds up fast
-  Proof: Dandy deploys free scanners — no capital risk to start
-
-For Growth / M&A roles → Theme: "Post-acquisition integration shouldn't break the lab"
-  Pain: every acquisition brings a new lab vendor, new workflows, and new quality standards to normalize
-  Proof: Dandy scales from 10 to 200+ locations on one platform
-
-For IT / Technology / Systems roles → Theme: "One fewer vendor to procure and manage"
-  Pain: IT has to spec, procure, and support scanner hardware at every location — it doesn't scale
-  Proof: DCA deployed 100 free scanners through Dandy — no hardware procurement for IT
+${themeOptionsSection}
 
 STEP 2 — WRITE THREE SENTENCES, ALL ON-THEME
 
@@ -543,10 +542,6 @@ Sentence 2 (THE PROOF): State the ONE proof point from your chosen theme. This s
 Sentence 3 (THE ASK): A low-pressure CTA that connects back to the theme. Reference ${accountName} by name. If a microsite exists, the CTA should include the [MICROSITE_URL] placeholder.
 
 THE COHERENCE TEST — Read your three sentences back. If you removed the greeting and sign-off, would a stranger understand what single argument you're making? If any sentence feels like it belongs in a different email, rewrite it.
-
-Customer name rules:
-- "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs"
-- "Dental Care Alliance" or "DCA" — when referring to their practices, say "DCA practices"
 
 === ROLE RELEVANCE RULE ===
 Before choosing a theme, ask: "Is this directly relevant to what THIS PERSON cares about in THEIR ROLE?"
@@ -577,7 +572,7 @@ Best,
 - RECENCY RULE: Only use research as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — use the pain point from your theme instead.
 - Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
 - No buzzwords: leverage, synergy, streamline, revolutionize, game-changer, innovative solution, transform, empower, robust, cutting-edge
-- Don't over-explain Dandy — one clause about what they do is plenty
+- Don't over-explain ${tenantBrandName} — one clause about what they do is plenty
 - If a microsite exists, use the placeholder [MICROSITE_URL] exactly once in sentence 3
 - CTA should be low-commitment ("Worth a quick call?" / "Happy to share how?" / "Open to a 15-min chat?")
 - End with "Best,"

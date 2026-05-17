@@ -17,12 +17,15 @@ import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
+import { getSalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "ent.meetdandy.com";
-const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
+// NOTE: SENDER_DOMAIN and DEFAULT_REPLY_TO used to live here as
+// process.env defaults; they're now resolved per-tenant from
+// lp_brand_settings.config.salesConsole inside each send path so
+// nothing leaks across tenants.
 
 // 1x1 transparent GIF pixel for open tracking
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
@@ -196,6 +199,7 @@ function templateNeedsMicrositeUrl(...texts: (string | null | undefined)[]): boo
  * before calling — we don't gate here so that draft-page previews still work.
  */
 async function ensureHotlinkForContact(
+  tenantId: number,
   contactId: number,
   pageId: number,
   sfdcContactId: string | null,
@@ -231,7 +235,7 @@ async function ensureHotlinkForContact(
   }
   if (!token) throw new Error("Failed to generate unique hotlink token");
   const [row] = await db.insert(salesHotlinksTable)
-    .values({ token, contactId, sfdcContactId, pageId })
+    .values({ tenantId, token, contactId, sfdcContactId, pageId })
     .onConflictDoUpdate({
       target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId],
       targetWhere: sql`contact_id IS NOT NULL`,
@@ -603,9 +607,17 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       .where(eq(salesEmailCampaignsTable.id, campaignId));
 
     const host = await getTenantOutboundOrigin(tenantId, req);
-    const senderName = (campaign.metadata as any)?.senderName ?? "Dandy";
-    const senderLocal = (campaign.metadata as any)?.senderEmail ?? "partnerships";
-    const replyToAddress = (campaign.metadata as any)?.replyTo ?? DEFAULT_REPLY_TO;
+    const brandCtx = await getSalesBrandContext(tenantId);
+    const senderName = (campaign.metadata as any)?.senderName ?? brandCtx.senderName;
+    const senderLocal = (campaign.metadata as any)?.senderEmail ?? brandCtx.senderLocalPart;
+    const replyToAddress = (campaign.metadata as any)?.replyTo ?? brandCtx.replyTo;
+    const senderDomain = brandCtx.sendingDomain;
+    if (!senderName || !senderLocal || !senderDomain || !replyToAddress) {
+      res.status(400).json({
+        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console before sending.",
+      });
+      return;
+    }
     const campaignPreviewText = ((campaign.metadata as any)?.previewText ?? "") as string;
 
     let sent = 0, failed = 0;
@@ -633,7 +645,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       let hotlink = hotlinkByContactId.get(contact.id) ?? null;
       if (!hotlink && campaignPageId) {
         try {
-          const created = await ensureHotlinkForContact(contact.id, campaignPageId, contact.salesforceId ?? null);
+          const created = await ensureHotlinkForContact(tenantId, contact.id, campaignPageId, contact.salesforceId ?? null);
           hotlink = { id: created.id, token: created.token, pageId: campaignPageId };
           hotlinkByContactId.set(contact.id, hotlink);
         } catch (err) {
@@ -669,7 +681,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       }
 
       const payload = {
-        from: `${senderName} <${senderLocal}@${SENDER_DOMAIN}>`,
+        from: `${senderName} <${senderLocal}@${senderDomain}>`,
         reply_to: replyToAddress,
         to: [contact.email!],
         subject,
@@ -804,7 +816,8 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
     }
 
     const host = await getTenantOutboundOrigin(tenantId, req);
-    const senderName = (campaign.metadata as any)?.senderName ?? "Dandy";
+    const previewBrandCtx = await getSalesBrandContext(tenantId);
+    const senderName = (campaign.metadata as any)?.senderName ?? previewBrandCtx.senderName ?? "Sender";
 
     // Build vars — real values if we have a contact, otherwise clearly-labelled samples
     let companyName = "";
@@ -822,7 +835,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       const previewPageId = (campaign.metadata as any)?.pageId as number | undefined;
       if (previewPageId) {
         try {
-          const created = await ensureHotlinkForContact(contact.id, previewPageId, contact.salesforceId ?? null);
+          const created = await ensureHotlinkForContact(tenantId, contact.id, previewPageId, contact.salesforceId ?? null);
           hotlinkToken = created.token;
         } catch (err) {
           logger.error({ err, contactId: contact.id, pageId: previewPageId }, "Failed to ensure hotlink for preview");
@@ -1150,15 +1163,26 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
   try {
     const [contact] = await db.select().from(salesContactsTable)
-      .where(eq(salesContactsTable.id, Number(contactId)));
+      .where(and(
+        eq(salesContactsTable.id, Number(contactId)),
+        eq(salesContactsTable.tenantId, tenantId),
+      ));
     if (!contact?.email) {
       res.status(400).json({ error: "Contact has no email address" });
       return;
     }
 
-    const fromName = senderName ?? "Dandy";
-    const fromLocal = senderEmail ?? "partnerships";
-    const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
+    const singleBrandCtx = await getSalesBrandContext(tenantId);
+    const fromName = senderName ?? singleBrandCtx.senderName;
+    const fromLocal = senderEmail ?? singleBrandCtx.senderLocalPart;
+    const replyToAddress = replyTo ?? singleBrandCtx.replyTo;
+    const sendDomain = singleBrandCtx.sendingDomain;
+    if (!fromName || !fromLocal || !sendDomain || !replyToAddress) {
+      res.status(400).json({
+        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
+      });
+      return;
+    }
 
     // Fetch account name for {{company}}
     let companyName = "";
@@ -1205,7 +1229,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
     const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
-      from: `${fromName} <${fromLocal}@${SENDER_DOMAIN}>`,
+      from: `${fromName} <${fromLocal}@${sendDomain}>`,
       reply_to: replyToAddress,
       to: [contact.email],
       subject: renderedSubject,
@@ -1277,9 +1301,17 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
   }
 
   try {
-    const fromName = senderName ?? "Dandy";
-    const fromLocal = senderEmail ?? "partnerships";
-    const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
+    const testBrandCtx = await getSalesBrandContext(tenantId);
+    const fromName = senderName ?? testBrandCtx.senderName;
+    const fromLocal = senderEmail ?? testBrandCtx.senderLocalPart;
+    const replyToAddress = replyTo ?? testBrandCtx.replyTo;
+    const sendDomain = testBrandCtx.sendingDomain;
+    if (!fromName || !fromLocal || !sendDomain || !replyToAddress) {
+      res.status(400).json({
+        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
+      });
+      return;
+    }
 
     const host = await getTenantOutboundOrigin(tenantId, req);
 
@@ -1330,7 +1362,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
             return;
           }
           try {
-            const created = await ensureHotlinkForContact(contact.id, Number(pageId), contact.salesforceId ?? null);
+            const created = await ensureHotlinkForContact(tenantId, contact.id, Number(pageId), contact.salesforceId ?? null);
             testToken = created.token;
           } catch (err) {
             logger.error({ err, contactId: contact.id, pageId }, "Failed to ensure hotlink for test email");
@@ -1368,7 +1400,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
     const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
-      from: `${fromName} <${fromLocal}@${SENDER_DOMAIN}>`,
+      from: `${fromName} <${fromLocal}@${sendDomain}>`,
       reply_to: replyToAddress,
       to: [to],
       subject: renderedSubject,

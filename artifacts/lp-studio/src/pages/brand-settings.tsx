@@ -32,7 +32,7 @@ import type {
   HeadingWeight, HeadingLetterSpacing, BodyTextSize, HeadlineSize,
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
-  ClaimEntry,
+  ClaimEntry, SalesConsoleConfig, SalesConsoleValuePropPair,
 } from "@/lib/brand-config";
 import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
@@ -810,6 +810,217 @@ const FIELD_LABELS: Record<string, string> = {
   copyExamples: "Copy Examples",
 };
 
+function SalesConsoleSettings({
+  config,
+  setConfig,
+}: {
+  config: BrandConfig;
+  setConfig: React.Dispatch<React.SetStateAction<BrandConfig>>;
+}) {
+  const sc: SalesConsoleConfig = config.salesConsole ?? {};
+
+  const patch = (changes: Partial<SalesConsoleConfig>) => {
+    setConfig(c => ({ ...c, salesConsole: { ...(c.salesConsole ?? {}), ...changes } }));
+  };
+
+  const pairs: SalesConsoleValuePropPair[] = Array.isArray(sc.valuePropPairs) ? sc.valuePropPairs : [];
+
+  const updatePair = (idx: number, changes: Partial<SalesConsoleValuePropPair>) => {
+    const next = pairs.map((p, i) => i === idx ? { ...p, ...changes } : p);
+    patch({ valuePropPairs: next });
+  };
+  const removePair = (idx: number) => {
+    patch({ valuePropPairs: pairs.filter((_, i) => i !== idx) });
+  };
+  const addPair = () => {
+    patch({ valuePropPairs: [...pairs, { roles: [], theme: "", pain: "", proof: "" }] });
+  };
+
+  return (
+    <div className="space-y-8">
+      <Card className="p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" /> Sender Identity
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Used as the From header on every outbound sales email, the visit-alert sender, and the brand name interpolated into AI-drafted copy. The sending domain must be verified in Resend.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm">Sender display name</Label>
+            <Input
+              value={sc.senderName ?? ""}
+              onChange={e => patch({ senderName: e.target.value })}
+              placeholder="e.g. Dandy"
+            />
+            <p className="text-xs text-muted-foreground">Shown as the From name. Also used as the brand name in AI-generated copy.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Sender local part</Label>
+            <Input
+              value={sc.senderLocalPart ?? ""}
+              onChange={e => patch({ senderLocalPart: e.target.value })}
+              placeholder="e.g. partnerships"
+            />
+            <p className="text-xs text-muted-foreground">Part before the @. Combined with the sending domain to form the From address.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Sending domain</Label>
+            <Input
+              value={sc.sendingDomain ?? ""}
+              onChange={e => patch({ sendingDomain: e.target.value })}
+              placeholder="e.g. ent.meetdandy.com"
+            />
+            <p className="text-xs text-muted-foreground">Must be a verified domain in Resend.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Reply-to address</Label>
+            <Input
+              value={sc.replyTo ?? ""}
+              onChange={e => patch({ replyTo: e.target.value })}
+              placeholder="e.g. sales@meetdandy.com"
+            />
+            <p className="text-xs text-muted-foreground">Where recipient replies land. Typically a monitored inbox.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Notifications local part</Label>
+            <Input
+              value={sc.notificationsLocalPart ?? ""}
+              onChange={e => patch({ notificationsLocalPart: e.target.value })}
+              placeholder="notifications"
+            />
+            <p className="text-xs text-muted-foreground">From local part for visit-alert emails. Defaults to "notifications".</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-primary" /> AI Prompt Strings
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            These strings are interpolated into the AI prompts that draft cold emails, person briefs and microsites. Leave blank to use neutral defaults.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Sales intro line</Label>
+          <Textarea
+            rows={2}
+            value={sc.salesIntroLine ?? ""}
+            onChange={e => patch({ salesIntroLine: e.target.value })}
+            placeholder='e.g. You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.'
+          />
+          <p className="text-xs text-muted-foreground">First line of the cold-email system prompt. Sets the tone and explains who the brand is to the model.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Brief blurb</Label>
+          <Input
+            value={sc.briefBlurb ?? ""}
+            onChange={e => patch({ briefBlurb: e.target.value })}
+            placeholder="e.g. a vertically integrated dental lab and clinical performance platform"
+          />
+          <p className="text-xs text-muted-foreground">Short parenthetical appended after the brand name in person briefs.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Customer naming rules (optional)</Label>
+          <Textarea
+            rows={3}
+            value={sc.customerNameRules ?? ""}
+            onChange={e => patch({ customerNameRules: e.target.value })}
+            placeholder='e.g. "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs"'
+          />
+          <p className="text-xs text-muted-foreground">Free-form rules appended to the prompt about how customer names should be written.</p>
+        </div>
+        <div className="flex items-start gap-3 pt-2 border-t border-border">
+          <Checkbox
+            id="useBuiltInExemplars"
+            checked={!!sc.useBuiltInExemplars}
+            onCheckedChange={v => patch({ useBuiltInExemplars: v === true })}
+          />
+          <div className="space-y-1">
+            <Label htmlFor="useBuiltInExemplars" className="text-sm font-medium">Use built-in microsite exemplars</Label>
+            <p className="text-xs text-muted-foreground">
+              Off by default. When on, the microsite generator feeds the AI a set of Dandy-specific reference pages as style exemplars. Leave off for non-Dandy tenants.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-base font-semibold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" /> Value-prop pairs
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pain / proof pairs the cold-email AI picks from per recipient role. When empty, the AI is told to derive a pain point from the account briefing instead — so it never invents customer names or stats.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={addPair} className="gap-1 shrink-0">
+            <Plus className="w-4 h-4" /> Add pair
+          </Button>
+        </div>
+
+        {pairs.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No value-prop pairs configured yet. The AI will fall back to generic role-aware guidance.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {pairs.map((p, idx) => (
+              <div key={idx} className="rounded-lg border border-border p-4 space-y-3 bg-muted/30">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Pair {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => removePair(idx)} className="h-7 px-2 text-muted-foreground hover:text-red-600">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Roles (comma-separated)</Label>
+                  <Input
+                    value={(p.roles ?? []).join(", ")}
+                    onChange={e => updatePair(idx, { roles: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                    placeholder="CFO, Finance"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Theme</Label>
+                  <Input
+                    value={p.theme ?? ""}
+                    onChange={e => updatePair(idx, { theme: e.target.value })}
+                    placeholder='e.g. Remakes are silently destroying margin'
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Pain</Label>
+                  <Textarea
+                    rows={2}
+                    value={p.pain ?? ""}
+                    onChange={e => updatePair(idx, { pain: e.target.value })}
+                    placeholder="The specific pain this role feels"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Proof</Label>
+                  <Textarea
+                    rows={2}
+                    value={p.proof ?? ""}
+                    onChange={e => updatePair(idx, { proof: e.target.value })}
+                    placeholder="One concrete proof point that answers the pain"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export default function BrandSettings() {
   const { toast } = useToast();
   // Task #132 — initialize config from the shared BrandConfigProvider so
@@ -1277,8 +1488,9 @@ export default function BrandSettings() {
         })()}
 
         <Tabs defaultValue="brand-settings" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-xl grid-cols-3">
             <TabsTrigger value="brand-settings">Brand Settings</TabsTrigger>
+            <TabsTrigger value="sales-console">Sales Console</TabsTrigger>
             <TabsTrigger value="content-library">Content Library</TabsTrigger>
           </TabsList>
 
@@ -2253,6 +2465,19 @@ export default function BrandSettings() {
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Changes
             </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="sales-console" className="space-y-8">
+            <SalesConsoleSettings config={config} setConfig={setConfig} />
+            <div className="sticky bottom-4 flex justify-end">
+              <div className="bg-background/90 backdrop-blur-md border border-border rounded-2xl px-6 py-3 shadow-lg flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">Sales Console settings apply to outbound campaigns, AI drafts and visit alerts.</p>
+                <Button onClick={handleSave} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Changes
+                </Button>
               </div>
             </div>
           </TabsContent>

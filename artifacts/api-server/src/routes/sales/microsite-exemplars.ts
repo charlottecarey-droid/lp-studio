@@ -469,7 +469,12 @@ export function pickExemplars(
   audience: MicrositeAudience,
   accountSegment: string | null | undefined,
   max = 2,
+  opts: { useBuiltIn?: boolean } = {},
 ): MicrositeExemplar[] {
+  // The shipped EXEMPLARS are Dandy-branded PDS/DCA/Smilist microsites.
+  // Other tenants must opt-in or they'd leak Dandy customer names into
+  // their AI prompts.
+  if (opts.useBuiltIn === false) return [];
   const eligible = EXEMPLARS.filter(e => e.audience === audience);
   if (eligible.length === 0) return [];
 

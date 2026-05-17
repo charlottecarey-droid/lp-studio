@@ -171,6 +171,34 @@ export interface BrandConfig {
    *  hero/cta/popup/etc property panels. Unset keys fall back to auto-derived
    *  labels (brand-name interpolated). See `getBgOptions` in `bg-styles.ts`. */
   backgroundPresetLabels?: BackgroundPresetLabels;
+  /** Per-tenant Sales Console configuration. All sender identity, AI-prompt
+   *  brand strings and value-prop pairs used by /api/sales/* routes live
+   *  here so the Sales Console can be used by tenants other than Dandy
+   *  without leaking Dandy-specific copy or sender addresses. See
+   *  `artifacts/api-server/src/lib/salesBrandContext.ts` for the read path. */
+  salesConsole?: SalesConsoleConfig;
+}
+
+export interface SalesConsoleValuePropPair {
+  roles: string[];
+  theme: string;
+  pain: string;
+  proof: string;
+}
+
+export interface SalesConsoleConfig {
+  senderName?: string;
+  senderLocalPart?: string;
+  sendingDomain?: string;
+  replyTo?: string;
+  notificationsLocalPart?: string;
+  emailSignature?: string;
+  emailFooter?: string;
+  salesIntroLine?: string;
+  briefBlurb?: string;
+  useBuiltInExemplars?: boolean;
+  customerNameRules?: string;
+  valuePropPairs?: SalesConsoleValuePropPair[];
 }
 
 export const DEFAULT_BRAND: BrandConfig = {

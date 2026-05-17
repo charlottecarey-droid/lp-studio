@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { callAIChat, aiErrorMessage } from "../../lib/ai-utils";
+import { getSalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -46,9 +47,17 @@ router.post("/generate-email", requireAuth, async (req, res): Promise<void> => {
       }
     }
 
+    // Pull this tenant's Sales Console context so the prompt reflects
+    // *their* brand, not Dandy.
+    const genBrandCtx = await getSalesBrandContext(tenantId);
+    const genBrandName = genBrandCtx.brandName || "our team";
+    const genBrandIntro = genBrandCtx.salesIntroLine
+      || (genBrandCtx.briefBlurb
+        ? `You are a sales email copywriter for ${genBrandName} — ${genBrandCtx.briefBlurb}.`
+        : `You are a sales email copywriter for ${genBrandName}.`);
+
     const systemPrompt = [
-      "You are a sales email copywriter for Dandy, a dental technology company.",
-      "Dandy provides digital dental lab services, AI-powered scan review, and practice management tools.",
+      genBrandIntro,
       "Write concise, personalized B2B sales emails that feel human and genuine — never spammy.",
       "Use merge variables where appropriate: {{first_name}}, {{last_name}}, {{company}}, {{microsite_url}}, {{sender_name}}.",
       "CRITICAL: Only ever use these exact variable names. NEVER write {{null}}, {{undefined}}, or any other placeholder. If you don't know the recipient's name, omit the variable entirely.",

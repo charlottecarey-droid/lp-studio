@@ -940,7 +940,11 @@ function buildSystemPrompt(
   // matching the requested audience (and boosted by segment hints).
   // Returns "" when no exemplars apply (e.g. independent-practice audience
   // for which we don't ship an exemplar yet) so the prompt stays clean.
-  const exemplarsSection = formatExemplarsSection(pickExemplars(audience, accountSegment));
+  const salesConsole = (brand.salesConsole ?? {}) as { useBuiltInExemplars?: boolean };
+  const useBuiltInExemplars = salesConsole.useBuiltInExemplars === true;
+  const exemplarsSection = formatExemplarsSection(
+    pickExemplars(audience, accountSegment, 2, { useBuiltIn: useBuiltInExemplars }),
+  );
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
   const coreForbidden = [

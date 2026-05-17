@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -46,11 +47,19 @@ async function generateContactBriefText(args: {
   account: typeof salesAccountsTable.$inferSelect;
   briefing: BriefingData | null;
   researchText?: ResearchText;
+  brandContext: SalesBrandContext;
 }): Promise<string> {
   const ai = getAIClient();
   if (!ai) throw new Error("No AI client configured");
 
-  const { contact, account, briefing, researchText } = args;
+  const { contact, account, briefing, researchText, brandContext } = args;
+  // Brand label used in the prompt — falls back to a generic phrase when
+  // the tenant hasn't configured a brand name yet, so we never leak any
+  // other tenant's brand into the brief.
+  const brandLabel = [brandContext.brandName, brandContext.briefBlurb]
+    .filter(Boolean).join(" ")
+    || "their company";
+  const angleLabel = brandContext.brandName || "OUR";
   const firstName = contact.firstName ?? "";
   const lastName  = contact.lastName  ?? "";
   const fullName  = [firstName, lastName].filter(Boolean).join(" ") || "this contact";
@@ -149,7 +158,7 @@ async function generateContactBriefText(args: {
   const hasResearch = !!(researchText?.person || researchText?.linkedin || researchText?.company || researchText?.site);
   const researchIsWeak = !researchText?.person && !researchText?.linkedin && !researchText?.company;
 
-  const prompt = `You are a sales intelligence analyst preparing a pre-call brief for a B2B sales rep at Dandy (a dental lab and clinical performance platform for DSOs).
+  const prompt = `You are a sales intelligence analyst preparing a pre-call brief for a B2B sales rep at ${brandLabel}.
 
 Today is ${todayStr}. Recency cutoff: ${cutoffStr}. Only cite things that occurred after ${cutoffStr} as "recent."
 
@@ -176,8 +185,8 @@ Bullet points: specific talks, quotes, posts, articles, career moves, or company
 **CONVERSATION STARTERS**
 3 numbered openers a sales rep could use on a cold call or meeting. Make them specific to this person and ${company} — reference their background, role-specific pain points, company details from the briefing, or a recent signal if available. NEVER generic.
 
-**DANDY ANGLE**
-1–2 sentences: the single best Dandy messaging pillar for this person based on their role and background, and the most relevant proof point to lead with.
+**${angleLabel.toUpperCase()} ANGLE**
+1–2 sentences: the single best messaging pillar for this person based on their role and background, and the most relevant proof point to lead with.
 
 Rules:
 - Be specific. Use names, numbers, and dates when found in the research or briefing.
@@ -315,7 +324,8 @@ router.post("/person-brief", requireAuth, async (req, res): Promise<void> => {
     }
 
     const briefing = await loadAccountBriefing(tenantId, accountId);
-    const brief = await generateContactBriefText({ contact, account, briefing, researchText });
+    const brandContext = await getSalesBrandContext(tenantId);
+    const brief = await generateContactBriefText({ contact, account, briefing, researchText, brandContext });
 
     // Persist (best-effort — don't fail the response if the write hiccups)
     await persistContactBrief(tenantId, contactId, brief).catch((err) => {
@@ -387,7 +397,8 @@ router.post("/contacts/:id/brief", requireAuth, async (req, res): Promise<void> 
     }
 
     const briefing = await loadAccountBriefing(tenantId, account.id);
-    const brief = await generateContactBriefText({ contact, account, briefing });
+    const brandContext = await getSalesBrandContext(tenantId);
+    const brief = await generateContactBriefText({ contact, account, briefing, brandContext });
     const row = await persistContactBrief(tenantId, contactId, brief);
     res.json(row);
   } catch (err) {
