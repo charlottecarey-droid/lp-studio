@@ -3,7 +3,7 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, asc, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpPagesTable, lpPageReviewsTable } from "@workspace/db";
+import { lpPagesTable, lpPageReviewsTable, salesAccountsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
@@ -789,6 +789,76 @@ router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> 
   }
 });
 
+// ── Account-name personalization on clone ────────────────────────────────────
+// When a template is cloned and linked to an account, swap every reference to
+// the template's "source" account (e.g. "DCA") with the target account's name
+// (e.g. "Absolute Dental"). This is a pure string transform over block JSON —
+// no AI involved — so the rewrite is fast, deterministic, and reversible.
+const TITLE_STOP_WORDS = new Set([
+  "copy", "of", "partner", "partners", "practice", "practices", "welcome",
+  "pilot", "onboarding", "proposal", "template", "templates", "overview",
+  "intro", "introduction", "kickoff", "launch", "case", "study", "studies",
+  "brief", "summary", "update", "preview", "pitch", "sales", "sheet", "deck",
+  "page", "microsite", "landing", "portal", "hub", "experience", "client",
+  "corporate", "and", "for", "the", "a", "an", "with", "to",
+]);
+
+// Extract a likely "source account name" from a template title. Returns the
+// leading run of capitalized tokens before the first generic stop-word — so
+// "DCA Partner Practices" → "DCA", "North Star Dental Welcome" → "North Star
+// Dental". Returns null when nothing usable is found.
+function guessSourceNameFromTitle(rawTitle: string): string | null {
+  const title = rawTitle.replace(/^copy of /i, "").trim();
+  const tokens = title.split(/\s+/);
+  const picked: string[] = [];
+  for (const t of tokens) {
+    const word = t.replace(/[^\p{L}\p{N}'&-]/gu, "");
+    if (!word) break;
+    if (TITLE_STOP_WORDS.has(word.toLowerCase())) break;
+    // Only keep tokens that look like a proper noun (capitalized, all-caps,
+    // or contain an internal capital). Reject lowercase connector words.
+    if (!/^[A-Z]/.test(word) && !/[A-Z]/.test(word)) break;
+    picked.push(word);
+    if (picked.length >= 4) break;
+  }
+  const joined = picked.join(" ").trim();
+  return joined.length >= 2 ? joined : null;
+}
+
+// Build a case-insensitive whole-word regex for the source name. Escapes regex
+// metacharacters so names with "." or "&" are matched literally.
+function buildNameMatcher(source: string): RegExp | null {
+  const trimmed = source.trim();
+  if (trimmed.length < 2) return null;
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // \b doesn't play well with non-ASCII; use a manual boundary that allows
+  // start-of-string and adjacency to whitespace/punctuation on either side.
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}(?=$|[^\\p{L}\\p{N}])`, "giu");
+}
+
+// Recursively rewrite every string in a JSON tree, replacing the source name
+// with the target name. Returns a structurally-new tree.
+function rewriteAccountNameInTree(value: unknown, matcher: RegExp, target: string): unknown {
+  if (typeof value === "string") {
+    // Reset lastIndex because matchers are reused across many strings.
+    matcher.lastIndex = 0;
+    if (!matcher.test(value)) return value;
+    matcher.lastIndex = 0;
+    return value.replace(matcher, (_m, lead: string) => `${lead}${target}`);
+  }
+  if (Array.isArray(value)) {
+    return value.map(v => rewriteAccountNameInTree(v, matcher, target));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = rewriteAccountNameInTree(v, matcher, target);
+    }
+    return out;
+  }
+  return value;
+}
+
 router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
@@ -821,6 +891,62 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
   // Optional: link the clone to a specific account immediately
   const linkAccountId = req.body?.accountId ? Number(req.body.accountId) : null;
 
+  // ── Resolve target + source names for automatic personalization ──
+  // The caller may pass an explicit `sourceAccountName` to override the
+  // heuristic. If not, we try the source page's linked account, then fall
+  // back to a heuristic on the template title.
+  let targetName: string | null = null;
+  if (linkAccountId) {
+    const [acct] = await db
+      .select({ name: salesAccountsTable.name, displayName: salesAccountsTable.displayName })
+      .from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, linkAccountId)));
+    if (acct) targetName = (acct.displayName?.trim() || acct.name?.trim()) ?? null;
+  }
+
+  let sourceName: string | null = null;
+  const explicitSource = typeof req.body?.sourceAccountName === "string"
+    ? (req.body.sourceAccountName as string).trim()
+    : "";
+  if (explicitSource.length >= 2) {
+    sourceName = explicitSource;
+  } else if (source.accountId) {
+    const [srcAcct] = await db
+      .select({ name: salesAccountsTable.name, displayName: salesAccountsTable.displayName })
+      .from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, source.accountId)));
+    if (srcAcct) sourceName = (srcAcct.displayName?.trim() || srcAcct.name?.trim()) ?? null;
+  }
+  if (!sourceName) sourceName = guessSourceNameFromTitle(source.title);
+
+  // Decide whether we have enough to do a rewrite. Skip when names match (no-op)
+  // or when either side is missing.
+  const shouldRewrite =
+    !!targetName && !!sourceName && targetName.toLowerCase() !== sourceName.toLowerCase();
+
+  const matcher = shouldRewrite ? buildNameMatcher(sourceName!) : null;
+  const rewrittenBlocks = matcher
+    ? rewriteAccountNameInTree(Array.isArray(source.blocks) ? source.blocks : [], matcher, targetName!) as unknown[]
+    : (Array.isArray(source.blocks) ? source.blocks : []);
+
+  // For metadata, do a fresh test per field so each one resets the regex state.
+  function rewriteString(s: string): string {
+    if (!matcher) return s;
+    return rewriteAccountNameInTree(s, matcher, targetName!) as string;
+  }
+  const rewrittenMetaTitle = rewriteString(source.metaTitle ?? "");
+  const rewrittenMetaDescription = rewriteString(source.metaDescription ?? "");
+
+  // Title: when we're personalizing, prefer "<target> <rest-of-template-title>"
+  // over "Copy of <template-title>" so the page title reads naturally.
+  let newTitle: string;
+  if (shouldRewrite) {
+    const rewritten = rewriteString(source.title);
+    newTitle = rewritten !== source.title ? rewritten : `${targetName} — ${source.title}`;
+  } else {
+    newTitle = `Copy of ${source.title}`;
+  }
+
   const baseSlug = `${source.slug}-copy`;
   let slug = baseSlug;
   let suffix = 2;
@@ -835,13 +961,13 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
       .insert(lpPagesTable)
       .values({
         tenantId,
-        title: `Copy of ${source.title}`,
+        title: newTitle,
         slug,
-        blocks: Array.isArray(source.blocks) ? source.blocks : [],
+        blocks: rewrittenBlocks,
         status: "draft",
         customCss: source.customCss ?? "",
-        metaTitle: source.metaTitle ?? "",
-        metaDescription: source.metaDescription ?? "",
+        metaTitle: rewrittenMetaTitle,
+        metaDescription: rewrittenMetaDescription,
         ogImage: source.ogImage ?? "",
         animationsEnabled: source.animationsEnabled ?? true,
         smoothScroll: source.smoothScroll ?? true,
@@ -850,7 +976,12 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         ...(linkAccountId ? { accountId: linkAccountId } : {}),
       })
       .returning();
-    res.status(201).json(page);
+    res.status(201).json({
+      ...page,
+      personalization: shouldRewrite
+        ? { sourceName, targetName, applied: true }
+        : { sourceName, targetName, applied: false },
+    });
   } catch (err) {
     console.error("Clone page error:", err);
     res.status(500).json({ error: "Failed to clone page" });
