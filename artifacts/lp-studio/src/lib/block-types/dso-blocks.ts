@@ -956,6 +956,86 @@ export interface EventPageBlockProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PRODUCT LAUNCH / KEYNOTE — Apple-event reveal style landing page
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProductLaunchNavLink {
+  id: string;
+  label: string;
+}
+
+export interface ProductLaunchSlab {
+  id: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  bullets: string[];
+  accentColor: string;
+  imageUrl?: string;
+  reverse?: boolean;
+}
+
+export interface ProductLaunchSpecRow {
+  label: string;
+  values: string[];
+}
+
+export interface ProductLaunchPlan {
+  name: string;
+  price: string;
+  features: string[];
+  ctaText: string;
+  ctaUrl: string;
+  highlight?: boolean;
+}
+
+export interface ProductLaunchTheme {
+  bg?: string;
+  fg?: string;
+  muted?: string;
+  border?: string;
+  accent?: string;
+  panelBg?: string;
+  displayFontFamily?: string;
+  bodyFontFamily?: string;
+}
+
+export interface ProductLaunchBlockProps {
+  /** "light" | "dark" | "auto" (uses prefers-color-scheme media query) */
+  colorScheme: "light" | "dark" | "auto";
+  productName: string;
+  navCtaText: string;
+  navCtaUrl: string;
+  navChapters: ProductLaunchNavLink[];
+  heroEyebrow: string;
+  heroTitle: string;
+  heroTagline: string;
+  heroPrimaryCtaText: string;
+  heroPrimaryCtaUrl: string;
+  heroSecondaryCtaText: string;
+  heroSecondaryCtaUrl: string;
+  /** Optional hero video URL (mp4 / webm). When blank, falls back to image / accent halo. */
+  heroVideoUrl?: string;
+  /** Poster image shown while video loads, or as a static hero when no video. */
+  heroPosterUrl?: string;
+  slabs: ProductLaunchSlab[];
+  specsHeadline: string;
+  specsColumns: string[];
+  specsRows: ProductLaunchSpecRow[];
+  plansHeadline: string;
+  plans: ProductLaunchPlan[];
+  ctaHeadline: string;
+  ctaSubtitle: string;
+  ctaButtonText: string;
+  ctaButtonUrl: string;
+  footerText: string;
+  /** Light-mode theme overrides */
+  lightTheme?: ProductLaunchTheme;
+  /** Dark-mode theme overrides */
+  darkTheme?: ProductLaunchTheme;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SPATIAL TOUR — Inside Dandy Spatial Lab Tour landing page
 // ─────────────────────────────────────────────────────────────────────────────
 

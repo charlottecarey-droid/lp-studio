@@ -436,6 +436,30 @@ export const templateInsideDandySpatialTour: LPTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 8 — Product Launch / Keynote (Apple-event reveal style)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateProductLaunchKeynote: LPTemplate = {
+  id: "product-launch-keynote",
+  name: "Product Launch / Keynote",
+  description: "Apple-event reveal-style landing page for a flagship product launch. Sticky chapter nav, full-bleed hero with video, feature slabs, comparison table, plans, and a closing CTA. Toggle Light/Dark/Auto.",
+  framework: "Hero → Features → Specs → Plans → Order",
+  badge: "Premium",
+  industries: ["dental", "generic"] as const,
+  config: {
+    templateId: "product-launch-keynote",
+    heroType: "static-image",
+    layout: "centered",
+    backgroundStyle: "dark",
+    headline: "Aura Max.",
+    subheadline: "High-fidelity audio. Completely reimagined.",
+    ctaText: "Buy",
+    ctaColor: "#0A84FF",
+    ctaUrl: "#plans",
+    showSocialProof: false,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
 // Every shipped template is dental/Dandy-flavored — copy, imagery, and
@@ -451,6 +475,7 @@ const DENTAL_ONLY = ["dental"] as const;
   templateMinimalCta,
   templateInsideDandyEvent,
   templateInsideDandySpatialTour,
+  templateProductLaunchKeynote,
 ].forEach((t) => {
   if (!t.industries) t.industries = DENTAL_ONLY;
 });
@@ -463,6 +488,7 @@ export const LP_TEMPLATES: LPTemplate[] = [
   templateMinimalCta,
   templateInsideDandyEvent,
   templateInsideDandySpatialTour,
+  templateProductLaunchKeynote,
 ];
 
 export function getTemplateById(id: string): LPTemplate | undefined {

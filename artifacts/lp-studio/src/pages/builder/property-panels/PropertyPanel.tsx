@@ -70,6 +70,7 @@ import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
 import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
 import { EventPagePanel } from "./EventPagePanel";
+import { ProductLaunchPanel } from "./ProductLaunchPanel";
 import { BentoShowcasePanel } from "./BentoShowcasePanel";
 import { MagazineHeroPanel } from "./MagazineHeroPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
@@ -5239,6 +5240,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "event-page":
         return (
           <EventPagePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "product-launch":
+        return (
+          <ProductLaunchPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}

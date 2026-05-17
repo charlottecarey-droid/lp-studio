@@ -112,6 +112,7 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  ProductLaunchBlockProps,
   EventLandingHeroBlockProps,
   SpatialTourBlockProps,
 } from "./dso-blocks";
@@ -226,6 +227,7 @@ export type BlockVariant =
   | { type: "sticky-stack"; props: StickyStackBlockProps }
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
   | { type: "event-page"; props: EventPageBlockProps }
+  | { type: "product-launch"; props: ProductLaunchBlockProps }
   | { type: "event-landing-hero"; props: EventLandingHeroBlockProps }
   | { type: "spatial-tour"; props: SpatialTourBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }

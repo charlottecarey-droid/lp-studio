@@ -120,6 +120,7 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  ProductLaunchBlockProps,
   EventLandingHeroBlockProps,
   SpatialTourBlockProps,
 } from "./dso-blocks";
@@ -3167,6 +3168,122 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "product-launch" as const,
+    label: "Product Launch / Keynote",
+    category: "Events" as BlockCategory,
+    defaultProps: (): ProductLaunchBlockProps => ({
+      colorScheme: "dark",
+      productName: "Aura Max",
+      navCtaText: "Buy",
+      navCtaUrl: "#order",
+      navChapters: [
+        { id: "hero", label: "Vision" },
+        { id: "design", label: "Design" },
+        { id: "acoustics", label: "Acoustics" },
+        { id: "specs", label: "Specs" },
+        { id: "plans", label: "Buy" },
+      ],
+      heroEyebrow: "The New Era",
+      heroTitle: "Aura Max.",
+      heroTagline: "High-fidelity audio. Completely reimagined.",
+      heroPrimaryCtaText: "Buy",
+      heroPrimaryCtaUrl: "#plans",
+      heroSecondaryCtaText: "Watch the film",
+      heroSecondaryCtaUrl: "#",
+      heroVideoUrl: "",
+      heroPosterUrl: "",
+      slabs: [
+        {
+          id: "design",
+          eyebrow: "Feature 01",
+          title: "An elegant composition.",
+          body: "Crafted with an acoustically engineered mesh canopy and custom-designed memory foam ear cushions.",
+          bullets: ["Aerospace-grade aluminum frame", "Memory-foam ear cushions", "Five color finishes"],
+          accentColor: "#FF375F",
+          imageUrl: "",
+          reverse: false,
+        },
+        {
+          id: "acoustics",
+          eyebrow: "Feature 02",
+          title: "Computational audio.",
+          body: "Dual H2 chips deliver an industry-leading listening experience through breakthrough computational audio.",
+          bullets: ["Dual H2 chips", "Personalized Spatial Audio", "Adaptive transparency"],
+          accentColor: "#32D74B",
+          imageUrl: "",
+          reverse: true,
+        },
+        {
+          id: "battery",
+          eyebrow: "Feature 03",
+          title: "Power for days.",
+          body: "Up to 30 hours of listening time with Active Noise Cancellation enabled. Charge via MagSafe.",
+          bullets: ["30 hours playback", "Fast wireless charging", "USB-C for charging case"],
+          accentColor: "#FF9F0A",
+          imageUrl: "",
+          reverse: false,
+        },
+      ],
+      specsHeadline: "Compare the models.",
+      specsColumns: ["Aura Light", "Aura Pro", "Aura Max"],
+      specsRows: [
+        { label: "Driver", values: ["40mm", "50mm Custom", "50mm Pro-G"] },
+        { label: "Noise Cancellation", values: ["Active", "Advanced", "Pro-level"] },
+        { label: "Spatial Audio", values: ["No", "Personalized", "Personalized w/ Head Tracking"] },
+        { label: "Battery Life", values: ["20 hours", "24 hours", "30 hours"] },
+        { label: "Materials", values: ["Plastic", "Aluminum", "Stainless Steel"] },
+        { label: "Weight", values: ["250g", "280g", "320g"] },
+      ],
+      plansHeadline: "Pick yours.",
+      plans: [
+        {
+          name: "Aura Light",
+          price: "$249",
+          features: ["40mm Drivers", "Active Noise Cancellation", "20 hours battery"],
+          ctaText: "Buy Aura Light",
+          ctaUrl: "#",
+          highlight: false,
+        },
+        {
+          name: "Aura Pro",
+          price: "$399",
+          features: ["50mm Custom Drivers", "Advanced ANC", "Spatial Audio", "24 hours battery"],
+          ctaText: "Buy Aura Pro",
+          ctaUrl: "#",
+          highlight: true,
+        },
+        {
+          name: "Aura Max",
+          price: "$549",
+          features: ["50mm Pro-G Drivers", "Pro-level ANC", "Head Tracking", "30 hours battery", "Carrying Case"],
+          ctaText: "Buy Aura Max",
+          ctaUrl: "#",
+          highlight: false,
+        },
+      ],
+      ctaHeadline: "Aura Max.",
+      ctaSubtitle: "Sound, perfected.",
+      ctaButtonText: "Order Now",
+      ctaButtonUrl: "#",
+      footerText: "Copyright © 2026 Aura Inc. All rights reserved.",
+      lightTheme: {},
+      darkTheme: {},
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#000000" rx="4" />
+        <rect x="0" y="0" width="120" height="10" fill="#151516" />
+        <rect x="6" y="3.5" width="14" height="3" rx="1" fill="#FFFFFF" />
+        <rect x="92" y="3.5" width="22" height="3" rx="1.5" fill="#0A84FF" />
+        <rect x="30" y="22" width="60" height="10" rx="2" fill="#FFFFFF" />
+        <rect x="40" y="36" width="40" height="3" rx="1.5" fill="#86868B" />
+        <rect x="20" y="44" width="80" height="22" rx="4" fill="#151516" stroke="#333336" strokeWidth="0.5" />
+        <circle cx="60" cy="55" r="6" fill="#0A84FF" opacity="0.3" />
+        <rect x="50" y="70" width="20" height="4" rx="2" fill="#0A84FF" />
+      </svg>
+    ),
+  },
+  {
     type: "spatial-tour" as const,
     label: "Spatial Lab Tour",
     category: "Events" as BlockCategory,
@@ -4638,6 +4755,7 @@ export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type:
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "content-series"): Extract<PageBlock, { type: "content-series" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
+export function createBlock(type: "product-launch"): Extract<PageBlock, { type: "product-launch" }>;
 export function createBlock(type: "event-landing-hero"): Extract<PageBlock, { type: "event-landing-hero" }>;
 export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
 export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
@@ -4743,6 +4861,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
+    case "product-launch": return { id, type: "product-launch", props: props as ProductLaunchBlockProps };
     case "event-landing-hero": return { id, type: "event-landing-hero", props: props as EventLandingHeroBlockProps };
     case "spatial-tour": return { id, type: "spatial-tour", props: props as SpatialTourBlockProps };
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
@@ -4783,6 +4902,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "minimal-cta": ["hero", "trust-bar"],
     "inside-dandy-event": ["event-page"],
     "inside-dandy-spatial-tour": ["spatial-tour"],
+    "product-launch-keynote": ["product-launch"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

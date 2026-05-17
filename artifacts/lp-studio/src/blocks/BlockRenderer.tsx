@@ -41,6 +41,7 @@ import { BlockDsoInsightsVideo } from "./BlockDsoInsightsVideo";
 import { BlockDsoCaseStudy } from "./BlockDsoCaseStudy";
 import { BlockOnePagerHero } from "./BlockOnePagerHero";
 import { BlockEventPage } from "./BlockEventPage";
+import { BlockProductLaunch } from "./BlockProductLaunch";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -299,7 +300,7 @@ export const NO_REVEAL = new Set<string>([
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
-  "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero",
+  "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch",
   "content-series",
   // Inside Dandy blocks: own their own scroll-driven internals (sticky cinema
   // pillars, scroll-progress letter reveal, parallax showcase) and the hero's
@@ -835,6 +836,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockContentSeries props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
+      case "product-launch":
+        return <BlockProductLaunch props={block.props} />;
       case "event-landing-hero":
         return (
           <BlockEventLandingHero
