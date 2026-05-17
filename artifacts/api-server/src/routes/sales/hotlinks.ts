@@ -342,21 +342,9 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
   }
 
   try {
-    // Check if hotlink already exists for this contact+page
-    const existing = await db.select().from(salesHotlinksTable)
-      .where(and(
-        eq(salesHotlinksTable.contactId, Number(contactId)),
-        eq(salesHotlinksTable.pageId, Number(pageId)),
-      ))
-      .limit(1);
-
-    if (existing.length > 0) {
-      res.json(existing[0]); // Return existing
-      return;
-    }
-
-    // Fetch salesforce_id for stable re-linkage after re-sync — tenant-scoped
-    // so a caller can't create a hotlink pointed at another tenant's contact.
+    // Tenant-scope the contact lookup FIRST so a caller can never read or
+    // create a hotlink for another tenant's contact — even via the
+    // "existing hotlink" early-return path below.
     const [contactRow] = await db
       .select({ salesforceId: salesContactsTable.salesforceId })
       .from(salesContactsTable)
@@ -367,6 +355,37 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
       .limit(1);
     if (!contactRow) {
       res.status(404).json({ error: "Contact not found" });
+      return;
+    }
+
+    // Also confirm the page belongs to this tenant — otherwise a caller
+    // could cause a hotlink row to be created pointing at another
+    // tenant's page.
+    const [pageRow] = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(and(
+        eq(lpPagesTable.id, Number(pageId)),
+        eq(lpPagesTable.tenantId, tenantId),
+      ))
+      .limit(1);
+    if (!pageRow) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    // Now safe to look up existing hotlinks — bound by tenant so we
+    // can never return another tenant's row even on ID collision.
+    const existing = await db.select().from(salesHotlinksTable)
+      .where(and(
+        eq(salesHotlinksTable.tenantId, tenantId),
+        eq(salesHotlinksTable.contactId, Number(contactId)),
+        eq(salesHotlinksTable.pageId, Number(pageId)),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      res.json(existing[0]);
       return;
     }
 
