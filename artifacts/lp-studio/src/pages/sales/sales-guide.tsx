@@ -1,8 +1,8 @@
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useState } from "react";
 import {
-  LayoutDashboard, Activity, Building2, Users, FileText,
-  Mail, Presentation, Megaphone, Store, Calculator,
+  Activity, Building2, Users, Globe,
+  Mail, PenSquare, Megaphone, Store, Calculator, Presentation,
   ChevronRight, ChevronDown, BookOpen, Search,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -18,80 +18,86 @@ interface Section {
 
 const SECTIONS: Section[] = [
   {
-    id: "dashboard",
-    icon: LayoutDashboard,
-    title: "Dashboard",
-    subtitle: "Your sales command center",
-    content: (
-      <div className="space-y-4">
-        <p className="text-slate-700">The Dashboard is the first thing you see when you log in. It gives you a live snapshot of which accounts are engaging and which need attention.</p>
-        <div className="space-y-3">
-          <Feature title="Hot Accounts">
-            Accounts with recent, high-frequency activity — page visits, email opens, form submissions. Prioritize these for follow-up today.
-          </Feature>
-          <Feature title="Needs Attention">
-            Accounts that have been quiet for 14+ days, or that don't yet have a personalized microsite. Act on these before they go cold.
-          </Feature>
-          <Feature title="Recent Signals">
-            A live feed of the last 10 activity events across all accounts — useful for knowing what happened since you last logged in.
-          </Feature>
-          <Feature title="Engagement Score">
-            Each account gets a heat score (Hot / Warm / Cool / Cold) calculated from weighted signals: form submits score highest, followed by page visits, then email opens and clicks.
-          </Feature>
-        </div>
-        <Tip>Check the dashboard at the start of your day. Hot accounts should be your first calls — they've shown intent within the last 48 hours.</Tip>
-      </div>
-    ),
-  },
-  {
-    id: "signals",
-    icon: Activity,
-    title: "Signals",
-    subtitle: "Real-time engagement feed",
-    content: (
-      <div className="space-y-4">
-        <p className="text-slate-700">Signals is a live stream of every engagement event across your accounts — page visits, email opens, link clicks, form submissions, and more.</p>
-        <div className="space-y-3">
-          <Feature title="Live Updates">
-            The feed refreshes automatically via a live connection. You don't need to refresh the page to see new activity.
-          </Feature>
-          <Feature title="Filter by Type">
-            Narrow the feed to a specific signal type (e.g. only form submissions or only page visits) using the filter dropdown.
-          </Feature>
-          <Feature title="Group by Account">
-            Toggle "Group by Account" to collapse signals by company — useful when you want to see total activity per account rather than a chronological stream.
-          </Feature>
-          <Feature title="Signal History">
-            Scroll back through up to 500 recent events. Use the search bar to find a specific company or contact quickly.
-          </Feature>
-        </div>
-        <Tip>Set aside 5 minutes before any call to check Signals for that account. Knowing that a contact visited the pricing section 20 minutes ago is powerful context.</Tip>
-      </div>
-    ),
-  },
-  {
     id: "accounts",
     icon: Building2,
     title: "Accounts",
-    subtitle: "ABM account management",
+    subtitle: "Your target account list",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">The Accounts page is your ABM hub — a full list of target companies with engagement data, contacts, microsites, and deal stage tracking.</p>
+        <p className="text-slate-700">Accounts is the hub of the sales console. Every company you're selling to lives here, with its contacts, microsites, engagement signals, and ABM stage in one place.</p>
         <div className="space-y-3">
           <Feature title="Engagement Funnel">
-            The top of the page shows a funnel breaking down how many accounts are at each heat tier. Use this to understand the health of your pipeline at a glance.
+            The top of the page shows how many of your accounts are Hot, Warm, Cool, or Cold based on recent activity. Use it to gauge pipeline health at a glance.
           </Feature>
-          <Feature title="Account Profiles">
-            Click any account to open its profile: full activity timeline, list of contacts, active microsites, and ABM stage. Everything in one place.
+          <Feature title="Account Detail">
+            Click any account to open its detail page — full activity timeline, contacts, microsites with per-link engagement, and the ABM stage. Everything for one company in one view.
           </Feature>
           <Feature title="Filtering & Saved Views">
-            Filter accounts by ABM Tier, ABM Stage, Practice Segment, or Owner. Save your filter combinations as named views so you don't have to re-apply them each time.
+            Filter by ABM Tier, ABM Stage, Practice Segment, or Owner. Save the combinations you use most as named views so you don't have to re-apply them every day.
           </Feature>
           <Feature title="ABM Stage Tracking">
-            Move accounts through stages (Target → Engaged → In Conversation → Closed Won/Lost) directly from the account list or profile.
+            Move accounts through stages (Target → Engaged → In Conversation → Closed Won/Lost) directly from the list or the detail page.
           </Feature>
         </div>
-        <Tip>Create a saved view for your personal book of business filtered by your name as Owner. That's your daily working list.</Tip>
+        <Tip>Create a saved view filtered to your name as Owner — that becomes your daily working list, and you can launch a Quick Campaign straight from it.</Tip>
+      </div>
+    ),
+  },
+  {
+    id: "microsites",
+    icon: Globe,
+    title: "Microsites",
+    subtitle: "AI-generated landing pages per account",
+    content: (
+      <div className="space-y-4">
+        <p className="text-slate-700">Microsites are personalized landing pages built for a specific account. Every account should have at least one — it's the destination you send prospects to, and every visit is tracked back to a specific contact.</p>
+        <div className="space-y-3">
+          <Feature title="AI Page Generation">
+            Describe the account or the angle you want to lead with, and the system drafts an entire page tailored to them. Tweak it in the builder, or start from a Template Library page if you prefer a known-good layout.
+          </Feature>
+          <Feature title="Clone for Account">
+            Use the Clone action on any existing page to spin up a private copy scoped to one account. Edit the copy freely — the original stays untouched.
+          </Feature>
+          <Feature title="Personalized Hotlinks">
+            Generate a unique tracked link for each contact at an account. When that person clicks, you know exactly who visited and what they looked at — not just an anonymous pageview.
+          </Feature>
+          <Feature title="Visit Alerts">
+            Add an email address (yours or anyone on the team's) to a page and you'll get a notification the moment a tracked contact opens it. Great for catching intent in real time.
+          </Feature>
+          <Feature title="Draft vs Published">
+            Pages start as Drafts and are invisible to the public. Publish when you're ready to share the link, and unpublish any time you want to pull it back.
+          </Feature>
+          <Feature title="Apply CTA to All Sections">
+            In the builder, the "Apply CTA to All Sections" action on any CTA field copies that link and label into every other CTA on the page — including ones inside columns and headers — so your page always points to a single, consistent destination.
+          </Feature>
+        </div>
+        <Tip>Always build the microsite before you send any outreach. The personalized hotlink is what makes your emails trackable — without it you're flying blind.</Tip>
+      </div>
+    ),
+  },
+  {
+    id: "activity",
+    icon: Activity,
+    title: "Activity",
+    subtitle: "Real-time engagement feed",
+    content: (
+      <div className="space-y-4">
+        <p className="text-slate-700">Activity is a live stream of every engagement signal across your accounts — page visits, email opens, link clicks, and form submissions — as they happen.</p>
+        <div className="space-y-3">
+          <Feature title="Live Updates">
+            The feed refreshes automatically. You don't have to reload — new signals appear as soon as they're recorded.
+          </Feature>
+          <Feature title="Filter by Type">
+            Narrow the feed to one signal type (e.g. only form submissions, or only page visits) to focus on the events you care about right now.
+          </Feature>
+          <Feature title="Group by Account">
+            Toggle "Group by Account" to collapse the feed by company — useful when you want to see total activity per account rather than a chronological stream.
+          </Feature>
+          <Feature title="Search & History">
+            Scroll back through recent events, or use the search bar to find a specific company or contact quickly.
+          </Feature>
+        </div>
+        <Tip>Spend five minutes on Activity before any call — knowing a contact visited the pricing section twenty minutes ago is the kind of context that changes a conversation.</Tip>
       </div>
     ),
   },
@@ -99,94 +105,54 @@ const SECTIONS: Section[] = [
     id: "contacts",
     icon: Users,
     title: "Contacts",
-    subtitle: "Contact database & audiences",
+    subtitle: "People at your accounts",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">Contacts is your full stakeholder database — individual people at each account, their engagement scores, and the audiences you've built for outreach.</p>
+        <p className="text-slate-700">Contacts is your stakeholder database — every individual person at every account, with their own engagement score and a fast path into outreach.</p>
         <div className="space-y-3">
           <Feature title="CSV Import">
             Upload a CSV to add contacts in bulk. The importer auto-maps common column names and supports Salesforce IDs for deduplication. Required columns: first name, last name, email, company name.
           </Feature>
           <Feature title="Individual Engagement Scores">
-            Each contact has their own heat score based on their personal interactions — not the account's aggregate. Useful for knowing who at a company is most interested.
+            Each contact has their own heat score from their personal interactions — not just the account's aggregate. Useful for knowing who at a company is actually leaning in.
+          </Feature>
+          <Feature title="Draft Email from a Contact">
+            From any contact, jump straight into Draft Email with their details pre-filled. The fastest path from "I want to reach out to this person" to a sent message.
           </Feature>
           <Feature title="Audiences">
-            Group contacts into named audiences for targeted campaigns. Audiences are the unit of bulk outreach — when you launch a campaign, you send to an audience.
+            Group contacts into named audiences for targeted campaigns. Audiences are the unit of bulk outreach — when you launch a Quick Campaign, you send to an audience.
           </Feature>
         </div>
-        <Tip>Keep contacts organized by account name. When your CSV comes from Salesforce, include the SFDC Account ID column — it links contacts to accounts automatically.</Tip>
+        <Tip>If your CSV comes from Salesforce, include the SFDC Account ID column — contacts automatically link to the right account record without manual cleanup.</Tip>
       </div>
     ),
   },
   {
-    id: "pages",
-    icon: FileText,
-    title: "Pages",
-    subtitle: "Personalized microsites per account",
+    id: "draft-email",
+    icon: PenSquare,
+    title: "Draft Email",
+    subtitle: "1:1 personalized email composer",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">Pages is where you manage personalized landing pages (microsites) for each account. Every account should have at least one — it's the destination you send prospects to.</p>
+        <p className="text-slate-700">Draft Email is the place to write a single, personalized email to one contact. It pulls together what the AI knows about them and their account so you can compose fast, then send from your own inbox.</p>
         <div className="space-y-3">
-          <Feature title="Clone a Template">
-            Start from a template in the Marketplace, clone it for a specific account, and customize the content. Don't build from scratch — always clone.
+          <Feature title="Contact-Aware Drafting">
+            Pick a contact (or arrive here from their profile) and the draft is generated using their role, account, recent engagement, and the angle you specify.
           </Feature>
-          <Feature title="Hotlinks">
-            Generate a unique tracking link for each contact at an account. When they click it, you see exactly who visited. Hotlinks are what you put in emails.
+          <Feature title="Research Brief">
+            Alongside the draft you'll see a short research brief — talking points, recent signals, and reasons-to-reach-out — so you can edit with full context, not just a blank canvas.
           </Feature>
-          <Feature title="Visit Alerts">
-            Set up an email notification to be sent to you (or anyone on the team) when a specific contact visits their page. Get alerted in real time when intent spikes.
+          <Feature title="Open in Gmail or Default Client">
+            One click drops the subject and body into Gmail (or your default mail app) with the recipient pre-filled. Send from your own address with full deliverability, no inbox to wire up.
           </Feature>
-          <Feature title="Draft vs Published">
-            Pages start as Drafts — invisible to the public. Publish when you're ready to send the link. You can unpublish at any time.
+          <Feature title="Save as Template">
+            If a draft turns out well, save it as a template so it shows up in Campaigns → Email Templates for future bulk use.
+          </Feature>
+          <Feature title="Regenerate & Refine">
+            Tweak the angle and regenerate, or edit inline. The subject, body, and any personalization variables are all editable before you send.
           </Feature>
         </div>
-        <Tip>Create the microsite before you send any outreach. The hotlink is what makes your emails trackable and personalizable — without it, you're flying blind.</Tip>
-      </div>
-    ),
-  },
-  {
-    id: "outreach",
-    icon: Mail,
-    title: "Outreach",
-    subtitle: "AI-assisted email writing",
-    content: (
-      <div className="space-y-4">
-        <p className="text-slate-700">Outreach helps you write personalized emails faster using AI, with built-in merge variables for the recipient's name, company, and microsite link.</p>
-        <div className="space-y-3">
-          <Feature title="AI Generation">
-            Describe your goal (e.g. "first touch email for a DSO CFO") and the AI writes a draft. You can regenerate or edit inline.
-          </Feature>
-          <Feature title="Merge Variables">
-            Use <code className="bg-slate-100 px-1 rounded text-sm font-mono">{"{{first_name}}"}</code>, <code className="bg-slate-100 px-1 rounded text-sm font-mono">{"{{company}}"}</code>, and <code className="bg-slate-100 px-1 rounded text-sm font-mono">{"{{microsite_url}}"}</code> in your templates. These get swapped with real values when you send.
-          </Feature>
-          <Feature title="Plain Text vs Styled">
-            Plain text emails tend to have higher deliverability and feel more personal. Styled (HTML) emails are better for branded announcements. Use plain text for 1:1 outreach.
-          </Feature>
-        </div>
-        <Tip>Always include the <code className="bg-slate-100 px-1 rounded text-sm font-mono">{"{{microsite_url}}"}</code> variable — it's the hotlink that lets you track who opened what.</Tip>
-      </div>
-    ),
-  },
-  {
-    id: "onepager",
-    icon: Presentation,
-    title: "One-Pagers",
-    subtitle: "PDF collateral generator",
-    content: (
-      <div className="space-y-4">
-        <p className="text-slate-700">One-Pagers generates branded PDF documents you can send as attachments or leave-behinds — tailored to the type of stakeholder you're meeting.</p>
-        <div className="space-y-3">
-          <Feature title="Template Types">
-            Choose from: Pilot Proposal, Comparison Sheet, New Partner Welcome, or ROI Summary. Each has a different structure suited to a different sales moment.
-          </Feature>
-          <Feature title="Audience Focus">
-            Select the audience type — Executive, Clinical, or Practice Manager — and the body copy adjusts to speak to that person's priorities.
-          </Feature>
-          <Feature title="Prospect Logo">
-            Upload the prospect's logo and it gets placed on the PDF alongside Dandy's. Makes the document feel bespoke.
-          </Feature>
-        </div>
-        <Tip>Use the ROI Summary one-pager in final-stage deals. Run the numbers in the ROI Calculator first, then generate the PDF to attach to your proposal email.</Tip>
+        <Tip>Always make sure the microsite link is in the body — it's the only way to attribute the resulting visits back to this contact.</Tip>
       </div>
     ),
   },
@@ -194,45 +160,28 @@ const SECTIONS: Section[] = [
     id: "campaigns",
     icon: Megaphone,
     title: "Campaigns",
-    subtitle: "Bulk audience outreach",
+    subtitle: "Bulk outreach and performance tracking",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">Campaigns lets you deploy microsites and personalized links to an entire audience at once — instead of creating hotlinks one contact at a time.</p>
+        <p className="text-slate-700">Campaigns is where bulk outreach lives. It has two modes at the top of the page — <strong>Email Campaigns</strong> for sending templated email to an audience, and <strong>Quick Campaigns</strong> for sending one personalized microsite to many accounts at once.</p>
         <div className="space-y-3">
-          <Feature title="Launch to an Audience">
-            Pick an audience from Contacts, select a template page, and launch. The system creates a unique hotlink for every contact in the audience automatically.
+          <Feature title="Email Campaigns Tabs">
+            Inside Email Campaigns you'll find <strong>Campaigns</strong> (in-flight and planned sends), <strong>Sent</strong> (every email that's gone out with open/click data), <strong>Email Templates</strong> (your saved templates), and <strong>Performance</strong> (aggregate results across campaigns).
+          </Feature>
+          <Feature title="Email Templates">
+            Save reusable email templates with merge variables for first name, company, and microsite URL. Templates are the building blocks of every email campaign.
+          </Feature>
+          <Feature title="Quick Campaigns">
+            Pick one microsite, define the audience, and the system creates a personalized version for every account in the list — company names, logos, and links all auto-filled. Each account gets its own tracked URL.
+          </Feature>
+          <Feature title="Per-Campaign Detail">
+            Click any campaign to see per-recipient engagement — who opened, who clicked, who visited the microsite, and how many times. Green badges mean it landed and was opened.
           </Feature>
           <Feature title="Create from Account Views">
-            Build an audience directly from a saved Accounts filter view — e.g. all Hot accounts in the Northeast owned by you.
-          </Feature>
-          <Feature title="Campaign Tracking">
-            The Campaigns view shows sent campaigns and their aggregate engagement: total visits, form fills, and top active contacts.
+            Build a campaign audience directly from a saved Accounts view — e.g. all Hot accounts in the Northeast owned by you. No re-filtering, no copy-paste.
           </Feature>
         </div>
-        <Tip>Campaigns are best for re-engagement sequences — when you want to hit a whole segment with a new message and track who responds.</Tip>
-      </div>
-    ),
-  },
-  {
-    id: "marketplace",
-    icon: Store,
-    title: "Marketplace",
-    subtitle: "Page template library",
-    content: (
-      <div className="space-y-4">
-        <p className="text-slate-700">The Marketplace is a gallery of approved, ready-to-use page templates. Browse, preview live, and clone into your workspace to customize for an account.</p>
-        <div className="space-y-3">
-          <Feature title="Browse Templates">
-            Templates are organized by use case. Filter by block count or mode to find the right layout quickly.
-          </Feature>
-          <Feature title="Preview Live">
-            Click any template to see a live preview before cloning. What you see is exactly what the prospect will see.
-          </Feature>
-          <Feature title="Clone & Customize">
-            Cloning creates a private copy in your Pages list. Edit the copy freely — it doesn't affect the original template.
-          </Feature>
-        </div>
-        <Tip>Never start a new page from a blank canvas. Always start from the Marketplace — templates are optimized for conversion and save you hours.</Tip>
+        <Tip>Use Quick Campaigns for re-engagement: pick a single high-converting page, point it at a segment of cooling accounts, and you have personalized outreach to dozens of companies in minutes.</Tip>
       </div>
     ),
   },
@@ -243,10 +192,10 @@ const SECTIONS: Section[] = [
     subtitle: "Financial impact modeling",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">The ROI Calculator models the financial value Dandy delivers to a DSO based on their specific practice data — cases per month, remake rates, and workflow costs.</p>
+        <p className="text-slate-700">The ROI Calculator models the financial value Dandy delivers to a DSO based on their actual practice data — cases per month, remake rates, and workflow costs.</p>
         <div className="space-y-3">
           <Feature title="Scenario Types">
-            Two models available: <strong>Denture Workflow Impact</strong> (time savings and lab cost reduction) and <strong>Fixed Restoration Remake Impact</strong> (cost of remakes eliminated).
+            Two models are available: <strong>Denture Workflow Impact</strong> (time savings and lab cost reduction) and <strong>Fixed Restoration Remake Impact</strong> (cost of remakes eliminated).
           </Feature>
           <Feature title="DSO-Specific Inputs">
             Enter the prospect's actual numbers — cases per month, number of locations, current remake rate — and the calculator adjusts the output accordingly.
@@ -255,7 +204,53 @@ const SECTIONS: Section[] = [
             Generate a branded PDF of the calculation to attach to proposals or leave behind after a meeting.
           </Feature>
         </div>
-        <Tip>Run the calculator before your discovery call so you have a ballpark. Refine it with their actual numbers during the call, then export the PDF on the spot.</Tip>
+        <Tip>Run the calculator before your discovery call with ballpark numbers, then refine with the prospect's actuals on the call and export the PDF on the spot.</Tip>
+      </div>
+    ),
+  },
+  {
+    id: "one-pager",
+    icon: Presentation,
+    title: "One-Pager",
+    subtitle: "PDF collateral generator",
+    content: (
+      <div className="space-y-4">
+        <p className="text-slate-700">One-Pager generates branded PDF documents you can send as attachments or leave-behinds — tailored to the type of stakeholder you're meeting.</p>
+        <div className="space-y-3">
+          <Feature title="Template Types">
+            Choose from Pilot Proposal, Comparison Sheet, New Partner Welcome, or ROI Summary. Each has a structure suited to a different sales moment.
+          </Feature>
+          <Feature title="Audience Focus">
+            Select Executive, Clinical, or Practice Manager and the body copy adjusts to speak to that person's priorities.
+          </Feature>
+          <Feature title="Prospect Logo">
+            Upload the prospect's logo and it gets placed on the PDF alongside Dandy's, so the document feels bespoke.
+          </Feature>
+        </div>
+        <Tip>Use the ROI Summary one-pager in final-stage deals — run the numbers in the ROI Calculator first, then generate the PDF to attach to your proposal email.</Tip>
+      </div>
+    ),
+  },
+  {
+    id: "template-library",
+    icon: Store,
+    title: "Template Library",
+    subtitle: "Ready-to-use page templates",
+    content: (
+      <div className="space-y-4">
+        <p className="text-slate-700">The Template Library is a gallery of approved, conversion-tested page layouts. Browse, preview live, and clone into your workspace to customize for an account.</p>
+        <div className="space-y-3">
+          <Feature title="Browse Templates">
+            Templates are organized by use case. Filter to find the layout that fits the moment — first touch, follow-up, late-stage proof, etc.
+          </Feature>
+          <Feature title="Preview Live">
+            Click any template to see a live preview before cloning. What you see is exactly what the prospect will see.
+          </Feature>
+          <Feature title="Clone & Customize">
+            Cloning creates a private copy in your Microsites list. Edit the copy freely — it doesn't affect the original template.
+          </Feature>
+        </div>
+        <Tip>Never start a new page from a blank canvas. Always clone from the Template Library or generate one with AI in Microsites — both save hours and start from layouts that actually convert.</Tip>
       </div>
     ),
   },
@@ -342,14 +337,13 @@ export default function SalesGuide() {
             <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Recommended workflow</p>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               {[
-                "Check Dashboard",
-                "Review Signals",
-                "Update Accounts",
-                "Create Microsite",
-                "Generate Hotlink",
-                "Write Outreach",
-                "Launch Campaign",
-                "Send One-Pager",
+                "Pick an Account",
+                "Check Activity",
+                "Build a Microsite",
+                "Generate Hotlinks",
+                "Draft an Email",
+                "Launch a Campaign",
+                "Send a One-Pager",
               ].map((step, i, arr) => (
                 <span key={step} className="flex items-center gap-2">
                   <span className="bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">
