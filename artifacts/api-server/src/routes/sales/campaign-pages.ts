@@ -11,6 +11,7 @@ import {
   lpPagesTable,
 } from "@workspace/db";
 import { resolveContacts } from "./audiences";
+import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 
 const router = Router();
 
@@ -95,7 +96,7 @@ router.get("/campaign-pages/links/:pageId", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const pageId = Number(req.params.pageId);
-    const host = `${req.protocol}://${req.get("host")}`;
+    const host = await getTenantOutboundOrigin(tenantId, req);
 
     const links = await db
       .select({
@@ -231,7 +232,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
       return;
     }
 
-    const host = `${req.protocol}://${req.get("host")}`;
+    const host = await getTenantOutboundOrigin(tenantId, req);
     const filters = audResult.rows[0].filters as Record<string, unknown>;
     const contacts = await resolveContacts(filters, tenantId);
 

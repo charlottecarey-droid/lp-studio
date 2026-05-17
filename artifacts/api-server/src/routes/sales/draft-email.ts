@@ -229,7 +229,7 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
         .limit(1);
       if (hl?.token) {
         hasMicrosite = true;
-        const host = `${req.protocol}://${req.get("host")}`;
+        const host = await getTenantOutboundOrigin(tenantId, req);
         micrositeUrl = `${host}/p/${hl.token}`;
       }
     }

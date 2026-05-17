@@ -34,6 +34,8 @@ const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/podcast-availability$/ }, // GET /lp/podcast-availability?sheetId=…&tab=… — public Google Sheets-backed slot picker for content-series guest forms
   { method: "GET",  pattern: /^\/lp\/og-preview\// },     // GET /lp/og-preview/:slug — OG meta HTML for social bots
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
+  { method: "GET",  pattern: /^\/sales\/track\// },        // GET /sales/track/click-hotlink, /sales/track/open — click/open tracking from emails
+  { method: "*",    pattern: /^\/sales\/unsubscribe$/ },  // GET/POST /sales/unsubscribe — one-click unsubscribe links from emails
   { method: "*",    pattern: /^\/webhooks\// },           // POST /webhooks/rb2b, /webhooks/apollo — third-party visitor identification
   { method: "GET",  pattern: /^\/lp\/test-sentry-error$/ }, // dev-only — guarded by NODE_ENV in the route module itself
 ];

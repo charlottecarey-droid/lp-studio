@@ -1,4 +1,6 @@
 import { pool } from "@workspace/db";
+import type { Request } from "express";
+import { getRequestOrigin } from "./requestHost";
 
 const TTL_MS = 60 * 1000;
 
@@ -42,6 +44,7 @@ type Cache = {
   bySlug: Map<string, TenantHostMatch>;
   /** Old slug -> the tenant's current canonical match (viaSlugRedirect=true). */
   byRedirectSlug: Map<string, TenantHostMatch>;
+  byTenantId: Map<number, TenantRow>;
   knownOrigins: Set<string>;
   loadedAt: number;
 };
@@ -57,9 +60,11 @@ async function loadCache(): Promise<Cache> {
   const byDomain = new Map<string, TenantHostMatch>();
   const bySlug = new Map<string, TenantHostMatch>();
   const byRedirectSlug = new Map<string, TenantHostMatch>();
+  const byTenantId = new Map<number, TenantRow>();
   const knownOrigins = new Set<string>();
 
   for (const t of result.rows) {
+    byTenantId.set(t.id, t);
     const adminMatch: TenantHostMatch = {
       tenantId: t.id,
       tenantName: t.name,
@@ -106,7 +111,7 @@ async function loadCache(): Promise<Cache> {
     // Treat as "no redirects" rather than failing the whole cache load.
   }
 
-  return { byDomain, bySlug, byRedirectSlug, knownOrigins, loadedAt: Date.now() };
+  return { byDomain, bySlug, byRedirectSlug, byTenantId, knownOrigins, loadedAt: Date.now() };
 }
 
 async function getCache(): Promise<Cache> {
@@ -175,6 +180,32 @@ export async function findTenantByHost(host: string): Promise<TenantHostMatch | 
 export async function getKnownTenantOrigins(): Promise<Set<string>> {
   const c = await getCache();
   return c.knownOrigins;
+}
+
+/**
+ * Resolve the canonical outbound origin for a tenant — used when building
+ * URLs that will be embedded in outbound emails (personalized microsite
+ * links, click-tracking links, unsubscribe links). Prefers the tenant's
+ * configured microsite_domain, then the admin `domain`, then falls back
+ * to the request's own origin so dev/local still works.
+ *
+ * Without this, links built off `req.get("host")` carry the launcher's
+ * Replit dev URL (e.g. https://image-to-video-ccarey.replit.app/p/abc)
+ * into emails sent on behalf of other tenants.
+ */
+export async function getTenantOutboundOrigin(
+  tenantId: number,
+  req: Request,
+): Promise<string> {
+  try {
+    const c = await getCache();
+    const t = c.byTenantId.get(tenantId);
+    if (t?.micrositeDomain) return `https://${t.micrositeDomain.toLowerCase()}`;
+    if (t?.domain) return `https://${t.domain.toLowerCase()}`;
+  } catch {
+    // fall through to request origin
+  }
+  return getRequestOrigin(req) || `${req.protocol}://${req.get("host")}`;
 }
 
 // ─── Slug validation ─────────────────────────────────────────────────────────

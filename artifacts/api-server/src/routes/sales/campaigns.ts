@@ -16,6 +16,7 @@ import { lpPagesTable } from "@workspace/db";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
+import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 
 const router = Router();
 
@@ -592,7 +593,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       .set({ status: "sending", recipientCount: sendable.length })
       .where(eq(salesEmailCampaignsTable.id, campaignId));
 
-    const host = `${req.protocol}://${req.get("host")}`;
+    const host = await getTenantOutboundOrigin(tenantId, req);
     const senderName = (campaign.metadata as any)?.senderName ?? "Dandy";
     const senderLocal = (campaign.metadata as any)?.senderEmail ?? "partnerships";
     const replyToAddress = (campaign.metadata as any)?.replyTo ?? DEFAULT_REPLY_TO;
@@ -784,7 +785,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       if (c) contact = c;
     }
 
-    const host = `${req.protocol}://${req.get("host")}`;
+    const host = await getTenantOutboundOrigin(tenantId, req);
     const senderName = (campaign.metadata as any)?.senderName ?? "Dandy";
 
     // Build vars — real values if we have a contact, otherwise clearly-labelled samples
@@ -1150,7 +1151,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
       companyName = account?.name ?? "";
     }
 
-    const host = `${req.protocol}://${req.get("host")}`;
+    const host = await getTenantOutboundOrigin(tenantId, req);
     const vars: Record<string, string> = {
       "{{first_name}}": contact.firstName ?? "",
       "{{last_name}}": contact.lastName ?? "",
@@ -1262,7 +1263,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
     const fromLocal = senderEmail ?? "partnerships";
     const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
 
-    const host = `${req.protocol}://${req.get("host")}`;
+    const host = await getTenantOutboundOrigin(tenantId, req);
 
     // Build merge vars — use real contact data if contactId provided, otherwise sample values
     let vars: Record<string, string> = {
