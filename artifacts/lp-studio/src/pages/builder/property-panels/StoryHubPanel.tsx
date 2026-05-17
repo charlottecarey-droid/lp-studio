@@ -141,6 +141,17 @@ export function StoryHubPanel({ props, onChange }: Props) {
   const set = <K extends keyof StoryHubBlockProps>(key: K, value: StoryHubBlockProps[K]) =>
     onChange({ ...props, [key]: value });
 
+  // Apply a font-family update to both light and dark themes in a single
+  // onChange call. Two consecutive set() calls would each read the stale
+  // `props` closure and the second would overwrite the first, so we batch
+  // them here instead.
+  const setSharedFont = (field: "displayFontFamily" | "bodyFontFamily", v: string) =>
+    onChange({
+      ...props,
+      lightTheme: { ...(props.lightTheme ?? {}), [field]: v },
+      darkTheme:  { ...(props.darkTheme  ?? {}), [field]: v },
+    });
+
   const setStory = (i: number, patch: Partial<StoryHubStory>) => {
     const next = [...props.stories];
     next[i] = { ...next[i], ...patch };
@@ -433,19 +444,13 @@ export function StoryHubPanel({ props, onChange }: Props) {
             <Field label="Display font (headlines)">
               <FontSelect
                 value={props.darkTheme?.displayFontFamily ?? props.lightTheme?.displayFontFamily ?? ""}
-                onChange={(v) => {
-                  set("lightTheme", { ...(props.lightTheme ?? {}), displayFontFamily: v });
-                  set("darkTheme", { ...(props.darkTheme ?? {}), displayFontFamily: v });
-                }}
+                onChange={(v) => setSharedFont("displayFontFamily", v)}
               />
             </Field>
             <Field label="Body font">
               <FontSelect
                 value={props.darkTheme?.bodyFontFamily ?? props.lightTheme?.bodyFontFamily ?? ""}
-                onChange={(v) => {
-                  set("lightTheme", { ...(props.lightTheme ?? {}), bodyFontFamily: v });
-                  set("darkTheme", { ...(props.darkTheme ?? {}), bodyFontFamily: v });
-                }}
+                onChange={(v) => setSharedFont("bodyFontFamily", v)}
               />
             </Field>
           </div>
