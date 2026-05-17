@@ -1,0 +1,175 @@
+287 files changed, 37441 insertions(+), 2232 deletions(-)
+ create mode 100644 artifacts/api-server/src/seeds/starterImages.ts
+ create mode 100644 artifacts/lp-studio/docs/FORMS_GUIDE.md
+ create mode 100644 artifacts/lp-studio/public/lpstudio-favicon.svg
+ delete mode 100644 artifacts/lp-studio/src/assets/lpstudio-logo.svg
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockProductLaunch.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockStoryHub.tsx
+ create mode 100644 artifacts/lp-studio/src/components/FocalPointPicker.tsx
+ create mode 100644 artifacts/lp-studio/src/components/FollowUpEmailSection.tsx
+ create mode 100644 artifacts/lp-studio/src/components/MunchkinLoader.tsx
+ create mode 100644 artifacts/lp-studio/src/components/QuickCampaignWizard.tsx
+ create mode 100644 artifacts/lp-studio/src/components/marketo-form.css
+ create mode 100644 artifacts/lp-studio/src/hooks/use-unsaved-changes-warning.ts
+ create mode 100644 artifacts/lp-studio/src/lib/block-settings-capabilities.ts
+ create mode 100644 artifacts/lp-studio/src/lib/field-map-text.ts
+ create mode 100644 artifacts/lp-studio/src/lib/gtm-datalayer.test.ts
+ create mode 100644 artifacts/lp-studio/src/lib/gtm-datalayer.ts
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/ProductLaunchPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/StoryHubPanel.tsx
+ create mode 100644 artifacts/lp-studio/tests/marketo-ghost-submit-attribution.spec.ts
+ create mode 100644 artifacts/lp-studio/tests/marketo-ghost-submit-failed.spec.ts
+ create mode 100644 artifacts/lp-studio/tests/marketo-ghost-submit.spec.ts
+ create mode 100644 artifacts/lp-studio/tests/marketo-gtm-datalayer.spec.ts
+ create mode 100644 artifacts/lp-studio/vitest.config.ts
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-abm-microsite/Page.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-annual-report/Page.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-documentary-story/Page.module.css
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-documentary-story/Page.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-keynote/AppleDark.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-keynote/AppleLight.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-keynote/BaseDark.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-keynote/BaseLight.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-keynote/LinearDark.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-keynote/LinearLight.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-story-hub-cream/Dark.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-story-hub-cream/Light.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-story-hub-dark/Dark.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-story-hub-dark/Light.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-story-hub-magazine/Dark.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/premium-story-hub-magazine/Light.tsx
+ create mode 100644 attached_assets/IMG_0200_1778986440761.png
+ create mode 100644 attached_assets/IMG_0208_1779034101365.png
+ create mode 100644 attached_assets/IMG_0209_1779021069207.png
+ create mode 100644 attached_assets/IMG_1843_1778806715800.png
+ create mode 100644 attached_assets/IMG_1844_1778807679763.png
+ create mode 100644 attached_assets/IMG_1847_1778976665896.png
+ create mode 100644 attached_assets/IMG_1848_1778976884341.png
+ create mode 100644 attached_assets/IMG_1849_1779016873235.png
+ create mode 100644 attached_assets/Messagre_from_Dandy_(600_x_200_px)_1778955231041.png
+ create mode 100644 attached_assets/Pasted-Schedule-app-version-3-107-0-team-scheduling-phwSDU27-j_1778950407578.txt
+ create mode 100644 attached_assets/Pasted-Schedule-app-version-3-107-0-team-scheduling-phwSDU27-j_1778950929284.txt
+ create mode 100644 attached_assets/Pasted-Yes-you-can-trigger-a-Marketo-form-submission-in-the-ba_1778799860273.txt
+ create mode 100644 attached_assets/Pasted-api-auth-me-1-Failed-to-load-resource-the-server-respon_1778948561786.txt
+ create mode 100644 attached_assets/Pasted-forms2-min-js-7-GET-https-go-meetdandy-com-index-php-fo_1778948835029.txt
+ create mode 100644 attached_assets/Pasted-instrument-js-108-Error-loading-form-error-helpers-ts-1_1778948870833.txt
+ create mode 100644 attached_assets/image_1778781100299.png
+ create mode 100644 attached_assets/image_1778781148659.png
+ create mode 100644 attached_assets/image_1778784487185.png
+ create mode 100644 attached_assets/image_1778786454191.png
+ create mode 100644 attached_assets/image_1778801363230.png
+ create mode 100644 attached_assets/image_1778805145642.png
+ create mode 100644 attached_assets/image_1778807551793.png
+ create mode 100644 attached_assets/image_1778808293807.png
+ create mode 100644 attached_assets/image_1778812097823.png
+ create mode 100644 attached_assets/image_1778813898651.png
+ create mode 100644 attached_assets/image_1778814007478.png
+ create mode 100644 attached_assets/image_1778861882924.png
+ create mode 100644 attached_assets/image_1778868038718.png
+ create mode 100644 attached_assets/image_1778874468962.png
+ create mode 100644 attached_assets/image_1778880816195.png
+ create mode 100644 attached_assets/image_1778884457434.png
+ create mode 100644 attached_assets/image_1778884736428.png
+ create mode 100644 attached_assets/image_1778885631322.png
+ create mode 100644 attached_assets/image_1778890285831.png
+ create mode 100644 attached_assets/image_1778900954573.png
+ create mode 100644 attached_assets/image_1778901736181.png
+ create mode 100644 attached_assets/image_1778903257316.png
+ create mode 100644 attached_assets/image_1778903307665.png
+ create mode 100644 attached_assets/image_1778948995800.png
+ create mode 100644 attached_assets/image_1778951043056.png
+ create mode 100644 attached_assets/image_1778955625191.png
+ create mode 100644 attached_assets/image_1778958503432.png
+ create mode 100644 attached_assets/image_1778958899489.png
+ create mode 100644 attached_assets/image_1778958910349.png
+ create mode 100644 attached_assets/image_1778972622829.png
+ create mode 100644 attached_assets/image_1778972816005.png
+ create mode 100644 attached_assets/image_1778972929821.png
+ create mode 100644 attached_assets/image_1778974680554.png
+ create mode 100644 attached_assets/image_1778979944144.png
+ create mode 100644 attached_assets/image_1778980528880.png
+ create mode 100644 attached_assets/image_1778980655306.png
+ create mode 100644 attached_assets/image_1778980707465.png
+ create mode 100644 attached_assets/image_1778984022666.png
+ create mode 100644 attached_assets/image_1778984130118.png
+ create mode 100644 attached_assets/image_1778985151344.png
+ create mode 100644 attached_assets/image_1778985300206.png
+ create mode 100644 attached_assets/image_1779018554048.png
+ create mode 100644 attached_assets/image_1779022761461.png
+ create mode 100644 attached_assets/image_1779039811891.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_premium-story-hub-cream_Dark.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_premium-story-hub-cream_Light.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_premium-story-hub-dark_Dark.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_premium-story-hub-dark_Light.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_premium-story-hub-magazine_Dark.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_premium-story-hub-magazine_Light.png
+ create mode 100644 lib/db/migrations/0015_lp_events_page_form_id.sql
+ create mode 100644 lib/db/migrations/0016_sales_contact_briefings.sql
+ create mode 100644 lib/db/migrations/0017_sales_hotlinks_contact_page_unique.sql
+ create mode 100644 lib/db/migrations/0018_sales_email_campaigns_template_id_nullable.sql
+ create mode 100644 lib/db/src/schema/salesContactBriefings.ts
+ create mode 100644 lib/db/test-hyd.mjs
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % gsync
+Already up to date.
+Everything up-to-date
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+907093b3a8f952f8a4dafd08810ea5bee22f996c5206c3d6291fdf11fff34469
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % CSRF_SECRET=907093b3a8f952f8a4dafd08810ea5bee22f996c5206c3d6291fdf11fff34469 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % echo "CSRF_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")" >> .env
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % cat .env
+DATABASE_URL=postgresql://neondb_owner:npg_sDJ7xT9ruEQb@ep-blue-moon-amk9oogd-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+GOOGLE_CLIENT_ID=130063837469-oilm1qkm3mlu0qb4qosj7fc25ukrqogk.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+SESSION_SECRET=30dbaade5a7278ecb719d7f5029d53c74074e9421382235c233efd975ed69582
+CSRF_SECRET=1a9b25dcbb426169a157523bff74d99547dd027768def773481ed46105a8f988
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % git pull origin master
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch              master     -> FETCH_HEAD
+Already up to date.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % git push origin master
+Enumerating objects: 114, done.
+Counting objects: 100% (114/114), done.
+Delta compression using up to 10 threads
+Compressing objects: 100% (60/60), done.
+Writing objects: 100% (60/60), 107.23 KiB | 15.32 MiB/s, done.
+Total 60 (delta 42), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (42/42), completed with 40 local objects.
+To https://github.com/charlottecarey-droid/lp-studio.git
+   512b3fce..64b4683c  master -> master
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % gsync
+remote: Enumerating objects: 5, done.
+remote: Counting objects: 100% (5/5), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 5 (delta 2), reused 5 (delta 2), pack-reused 0 (from 0)
+Unpacking objects: 100% (5/5), 7.01 KiB | 2.33 MiB/s, done.
+From https://github.com/charlottecarey-droid/lp-studio
+ * [new branch]        backup/pre-claude-2026-05-17 -> origin/backup/pre-claude-2026-05-17
+ * [new tag]           backup/pre-claude-2026-05-17 -> backup/pre-claude-2026-05-17
+Already up to date.
+Everything up-to-date
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % git push origin master
+Everything up-to-date
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % gsync                 
+Already up to date.
+Everything up-to-date
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % git pull origin master
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch              master     -> FETCH_HEAD
+Already up to date.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % pnpm install
+Scope: all 11 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: +24
+++++++++++++++++++++++++
+Progress: resolved 24, reused 0, downloaded 24, added 24, done
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_use…
+└─ Done in 26ms
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: @sentry/cli@2.39.1.                                 │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 1.6s using pnpm v10.33.0
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % 
