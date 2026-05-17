@@ -113,7 +113,7 @@ function ConditionEditor({ condition, onUpdate, onRemove, availableFields }: {
         <span className="text-xs font-medium text-blue-700 flex items-center gap-1"><GitBranch className="w-3 h-3" /> Show when</span>
         <button onClick={onRemove} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
       </div>
-      <div className="flex gap-1.5 items-center flex-wrap">
+      <div className="flex gap-1.5 items-center flex-wrap sm:flex-nowrap">
         <select
           value={condition.fieldId}
           onChange={e => onUpdate({ ...condition, fieldId: e.target.value })}

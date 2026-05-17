@@ -29,8 +29,8 @@ export function FiltersBar({
   setSegmentFilterId,
 }: Props) {
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-      <div className="flex gap-1 flex-wrap">
+    <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+      <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible sm:pb-0">
         {((["All", "Mine", "Draft", "Published", "Running", "Templates"] as const)
           .filter(s => s !== "Mine" || showMine)
         ).map(status => (

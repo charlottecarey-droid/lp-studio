@@ -120,11 +120,11 @@ export function PendingReviewWidget() {
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 hover:bg-muted/30 transition-colors"
                 data-testid={`pending-review-row-${item.id}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Link href={`/builder/${item.id}`}>
                       <p className="font-medium text-sm text-foreground hover:underline cursor-pointer truncate">
                         {item.title}
@@ -135,42 +135,44 @@ export function PendingReviewWidget() {
                         Asana
                       </Badge>
                     )}
+                    <a
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+                      data-testid={`pending-review-preview-${item.id}`}
+                    >
+                      <Eye className="w-3 h-3" />
+                      Preview <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     Submitted by {requester} · {age}
                   </p>
                 </div>
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                  data-testid={`pending-review-preview-${item.id}`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  Preview <ExternalLink className="w-3 h-3" />
-                </a>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                  disabled={isActing}
-                  onClick={() => reject(item.id)}
-                  data-testid={`pending-review-reject-${item.id}`}
-                >
-                  <ThumbsDown className="w-3.5 h-3.5" />
-                  Reject
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
-                  disabled={isActing}
-                  onClick={() => approve(item.id)}
-                  data-testid={`pending-review-approve-${item.id}`}
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                  Approve
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 sm:flex-initial gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                    disabled={isActing}
+                    onClick={() => reject(item.id)}
+                    data-testid={`pending-review-reject-${item.id}`}
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 sm:flex-initial gap-1.5 text-xs bg-green-600 hover:bg-green-700"
+                    disabled={isActing}
+                    onClick={() => approve(item.id)}
+                    data-testid={`pending-review-approve-${item.id}`}
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    Approve
+                  </Button>
+                </div>
               </div>
             );
           })

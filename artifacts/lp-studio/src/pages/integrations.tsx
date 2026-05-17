@@ -162,7 +162,7 @@ export function IntegrationsContent() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-10">
+    <div className="max-w-2xl mx-auto space-y-6 sm:space-y-10">
         {/* ── Google Sheets ── */}
         <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
@@ -194,7 +194,7 @@ export function IntegrationsContent() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Private Key</Label>
-              <Textarea value={sheets.config.privateKey} onChange={e => updateSheets("privateKey", e.target.value)} placeholder={"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"} className="font-mono text-xs h-28 resize-none" />
+              <Textarea value={sheets.config.privateKey} onChange={e => updateSheets("privateKey", e.target.value)} placeholder={"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"} className="font-mono text-[14px] sm:text-xs h-40 sm:h-28 resize-none" />
               <p className="text-[11px] text-muted-foreground">Paste the <code className="bg-muted px-1 rounded">private_key</code> value from the downloaded JSON key file.</p>
             </div>
             <div className="space-y-1.5">
@@ -339,7 +339,7 @@ export function IntegrationsContent() {
                 data-testid="asana-pat-input"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Workspace ID</Label>
                 <Input value={asana.config.workspaceId} onChange={e => updateAsana("workspaceId", e.target.value)} placeholder="1199876543210" className="font-mono text-sm h-9" data-testid="asana-workspace-input" />

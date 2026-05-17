@@ -327,7 +327,7 @@ export default function Dashboard() {
       <div className="flex flex-col gap-8 pb-12">
 
         {/* ── Header ──────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground/60 mb-1">{today}</p>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">{getGreeting()}</h1>
@@ -516,7 +516,7 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <div className="relative flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                          <div className="relative flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                             {liveUrl && isRunning && (
                               <a href={liveUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name} in a new tab`}>
                                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-muted" title="Open live page" tabIndex={-1}>
@@ -622,19 +622,19 @@ export default function Dashboard() {
 
             {/* ── Contextual Prompt ────────────────────────────── */}
             {prompt && (
-              <div className="flex items-center gap-4 px-5 py-3.5 bg-card border border-border rounded-lg">
-                <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0">
-                  {draftCount > 0 ? (
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-3.5 bg-card border border-border rounded-lg">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0">
+                    {draftCount > 0 ? (
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
                   <p className="text-[13px] font-medium text-foreground">{prompt.message}</p>
                 </div>
-                <Link href={prompt.href} className="shrink-0">
-                  <Button variant="outline" size="sm" className="rounded-lg text-xs font-medium">
+                <Link href={prompt.href} className="shrink-0 self-stretch sm:self-auto">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto rounded-lg text-xs font-medium">
                     {prompt.cta}
                     <ChevronRight className="w-3.5 h-3.5 ml-1" />
                   </Button>

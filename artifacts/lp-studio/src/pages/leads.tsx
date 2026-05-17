@@ -92,14 +92,14 @@ function PageLeadsView({ page, onBack }: PageLeadsViewProps) {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">From date:</label>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+          <label className="text-sm font-medium shrink-0">From date:</label>
           <Input
             type="date"
             value={dateFrom}
             onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }}
-            className="text-sm w-36"
+            className="text-base sm:text-sm w-full sm:w-36 h-10 sm:h-9"
           />
           {dateFrom && (
             <Button variant="ghost" size="sm" onClick={() => { setDateFrom(""); setCurrentPage(1); }}>Clear</Button>
@@ -119,7 +119,7 @@ function PageLeadsView({ page, onBack }: PageLeadsViewProps) {
           <p className="text-xs mt-1">Submissions from your live form will appear here.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="overflow-x-auto -mx-4 sm:mx-0 sm:rounded-lg border-x-0 sm:border-x border-y">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">

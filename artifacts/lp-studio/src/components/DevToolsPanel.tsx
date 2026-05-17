@@ -243,12 +243,18 @@ function DevToolsInner({
         )}
       </AnimatePresence>
 
-      {/* ── Floating trigger button ── */}
-      <div ref={panelRef} className="fixed bottom-5 left-5 z-[9998]">
+      {/* ── Floating trigger button ──
+          Mobile: a small icon-only button tucked in the bottom-left corner so
+          it doesn't sit on top of dashboard list rows. Desktop: full "Dev
+          Tools" pill. The expandable panel itself is sized to viewport on
+          mobile (w-[calc(100vw-1.5rem)]) so it never overflows narrow phones. */}
+      <div ref={panelRef} className="fixed bottom-3 left-3 sm:bottom-5 sm:left-5 z-[9998]">
         <button
           onClick={() => setOpen(p => !p)}
+          aria-label="Open Dev Tools"
           className={`
-            flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg transition-all
+            flex items-center gap-2 rounded-full sm:rounded-xl text-xs font-semibold shadow-lg transition-all
+            h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-2 justify-center
             ${open
               ? "bg-foreground text-background"
               : isActive
@@ -258,8 +264,8 @@ function DevToolsInner({
           `}
         >
           <Wrench className="w-3.5 h-3.5" />
-          Dev Tools
-          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 ml-0.5" />}
+          <span className="hidden sm:inline">Dev Tools</span>
+          {isActive && <span className="hidden sm:inline w-1.5 h-1.5 rounded-full bg-amber-600 ml-0.5" />}
         </button>
 
         {/* ── Slide-up panel ── */}
@@ -270,7 +276,7 @@ function DevToolsInner({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
               transition={{ duration: 0.18 }}
-              className="absolute bottom-12 left-0 w-[380px] rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
+              className="absolute bottom-12 left-0 w-[calc(100vw-1.5rem)] sm:w-[380px] max-w-[380px] rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">

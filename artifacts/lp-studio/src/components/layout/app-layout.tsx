@@ -436,24 +436,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background selection:bg-primary/10">
         <AppSidebar onOpenCommand={() => setCmdOpen(true)} />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="h-11 flex items-center justify-between px-5 border-b border-border bg-background sticky top-0 z-50">
-            <SidebarTrigger className="hover:bg-muted transition-colors rounded-md p-1.5" />
+          <header className="h-12 flex items-center justify-between px-3 sm:px-5 border-b border-border bg-background sticky top-0 z-50">
+            <SidebarTrigger className="hover:bg-muted transition-colors rounded-md p-2 -ml-1" />
             <button
               type="button"
               onClick={() => setCmdOpen(true)}
               aria-label="Open command palette (Cmd+K)"
               title="Search · ⌘K"
-              className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs"
             >
               <Search className="w-3.5 h-3.5" />
-              <span>Search</span>
+              <span className="hidden sm:inline">Search</span>
               <kbd
-                className="text-[10px] font-medium tracking-wider text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded border border-border/60 ml-1"
+                className="hidden md:inline text-[10px] font-medium tracking-wider text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded border border-border/60 ml-1"
                 style={{ fontFamily: "var(--app-font-mono)" }}
               >⌘K</kbd>
             </button>
           </header>
-          <main className="flex-1 overflow-auto px-6 py-6 md:px-8 md:py-8">
+          <main className="flex-1 overflow-auto px-4 py-5 sm:px-6 sm:py-6 md:px-8 md:py-8">
             <div className="max-w-[1200px] mx-auto w-full">{children}</div>
           </main>
         </div>
