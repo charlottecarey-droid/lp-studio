@@ -131,7 +131,10 @@ function useRecentLeads() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/lp/leads/recent?limit=5`)
+    // Pull a wider window than we'll show — the dashboard filters out
+    // test submissions and anonymous (no-name) leads on the client, so
+    // a limit of 5 often leaves the widget with 0–1 visible rows.
+    fetch(`${API_BASE}/lp/leads/recent?limit=25`)
       .then(r => r.ok ? r.json() as Promise<{ leads: RecentLead[] }> : { leads: [] })
       .then(d => setLeads(d.leads ?? []))
       .catch(() => setLeads([]))
@@ -171,10 +174,12 @@ function isTestLead(fields: Record<string, unknown>): boolean {
   return false;
 }
 
-// Pulls the best human label out of a lead's submitted fields. Forms
-// vary, so we try common shapes (name, email, company) before falling
-// back to "Anonymous".
-function leadLabel(fields: Record<string, unknown>): string {
+// Pulls a human name out of a lead's submitted fields. Forms vary, so
+// we try the common shapes (name / fullName / firstName + lastName).
+// Returns null when no usable name is present — the dashboard widget
+// uses that signal to hide nameless submissions instead of showing a
+// list full of "Anonymous" rows.
+function leadName(fields: Record<string, unknown>): string | null {
   const pick = (...keys: string[]): string | null => {
     for (const k of keys) {
       const v = fields[k];
@@ -182,14 +187,12 @@ function leadLabel(fields: Record<string, unknown>): string {
     }
     return null;
   };
-  const name = pick("name", "fullName", "full_name", "firstName", "first_name");
+  const full = pick("name", "fullName", "full_name");
+  if (full) return full;
+  const first = pick("firstName", "first_name");
   const last = pick("lastName", "last_name");
-  if (name) return last ? `${name} ${last}` : name;
-  const email = pick("email", "workEmail", "work_email");
-  if (email) return email;
-  const company = pick("company", "organization", "practice", "practiceName");
-  if (company) return company;
-  return "Anonymous";
+  if (first || last) return [first, last].filter(Boolean).join(" ");
+  return null;
 }
 
 type RecentWorkItem =
@@ -203,10 +206,16 @@ export default function Dashboard() {
   const { data: overview, loading: overviewLoading } = useOverview7d();
   const { pages: topPages, loading: topPagesLoading } = useTopPages();
   const { leads: recentLeads, loading: leadsLoading } = useRecentLeads();
-  // Only surface real submissions on the dashboard. The Recent Leads widget
-  // is meant to show genuine activity worth acting on; QA traffic clutters
-  // the signal and makes a fresh workspace look noisy.
-  const realLeads = recentLeads.filter(l => !isTestLead(l.fields ?? {}));
+  // Only surface real, named submissions on the dashboard. The Recent
+  // Leads widget is meant to show genuine activity worth acting on, so
+  // we drop QA traffic (test domains / filler names) and anonymous
+  // submissions with no name on the form — a list full of "Anonymous"
+  // rows isn't actionable. We then sort by most recent and cap at 5.
+  const realLeads = recentLeads
+    .map(l => ({ lead: l, name: leadName(l.fields ?? {}) }))
+    .filter(({ lead, name }) => name !== null && !isTestLead(lead.fields ?? {}))
+    .sort((a, b) => new Date(b.lead.createdAt).getTime() - new Date(a.lead.createdAt).getTime())
+    .slice(0, 5);
 
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
@@ -598,12 +607,12 @@ export default function Dashboard() {
                       </Link>
                     </div>
                     <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                      {realLeads.map(lead => (
+                      {realLeads.map(({ lead, name }) => (
                         <Link href="/leads" key={lead.id}>
                           <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer group">
                             <Users className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-medium text-foreground truncate">{leadLabel(lead.fields ?? {})}</p>
+                              <p className="text-[13px] font-medium text-foreground truncate">{name}</p>
                               <p className="text-[11px] text-muted-foreground/70 truncate">
                                 {lead.pageTitle ?? `page #${lead.pageId}`}
                               </p>
