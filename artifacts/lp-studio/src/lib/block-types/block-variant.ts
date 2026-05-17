@@ -113,6 +113,7 @@ import type {
   OnePagerHeroBlockProps,
   EventPageBlockProps,
   ProductLaunchBlockProps,
+  StoryHubBlockProps,
   EventLandingHeroBlockProps,
   SpatialTourBlockProps,
 } from "./dso-blocks";
@@ -228,6 +229,7 @@ export type BlockVariant =
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
   | { type: "event-page"; props: EventPageBlockProps }
   | { type: "product-launch"; props: ProductLaunchBlockProps }
+  | { type: "story-hub"; props: StoryHubBlockProps }
   | { type: "event-landing-hero"; props: EventLandingHeroBlockProps }
   | { type: "spatial-tour"; props: SpatialTourBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }

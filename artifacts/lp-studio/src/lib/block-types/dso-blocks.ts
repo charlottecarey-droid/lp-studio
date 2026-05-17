@@ -1036,6 +1036,77 @@ export interface ProductLaunchBlockProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER STORY HUB — Editorial/cinematic gallery of customer stories
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StoryHubStory {
+  id: string;
+  practice: string;
+  location: string;
+  headline: string;
+  tag: string;
+  imageUrl: string;
+  href?: string;
+}
+
+export interface StoryHubStat {
+  number: string;
+  label: string;
+}
+
+export interface StoryHubFeatured {
+  tag: string;
+  title: string;
+  doctor: string;
+  practice: string;
+  location: string;
+  imageUrl: string;
+  href?: string;
+}
+
+export interface StoryHubTheme {
+  /** Page background */
+  bg?: string;
+  /** Primary text */
+  fg?: string;
+  /** Muted text (eyebrows, captions) */
+  muted?: string;
+  /** Accent color used for the italic word, stats, "Read story", and primary CTA fill */
+  accent?: string;
+  /** Subtle divider / card background */
+  divider?: string;
+  /** Color of text drawn on top of the accent (CTA label) */
+  onAccent?: string;
+  displayFontFamily?: string;
+  bodyFontFamily?: string;
+}
+
+export interface StoryHubBlockProps {
+  /** "light" | "dark" | "auto" (uses prefers-color-scheme media query) */
+  colorScheme: "light" | "dark" | "auto";
+  eyebrow: string;
+  /** Plain leading words of the headline (e.g. "Stories from") */
+  heroTitle: string;
+  /** Italic accent words rendered in the accent color (e.g. "the network.") */
+  heroAccent: string;
+  subhead: string;
+  featured: StoryHubFeatured;
+  /** Filter pill labels. First entry acts as the "All" default. */
+  filters: string[];
+  stories: StoryHubStory[];
+  stats: StoryHubStat[];
+  ctaHeadline: string;
+  ctaPrimaryText: string;
+  ctaPrimaryUrl: string;
+  ctaSecondaryText: string;
+  ctaSecondaryUrl: string;
+  /** Light-mode theme overrides */
+  lightTheme?: StoryHubTheme;
+  /** Dark-mode theme overrides */
+  darkTheme?: StoryHubTheme;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SPATIAL TOUR — Inside Dandy Spatial Lab Tour landing page
 // ─────────────────────────────────────────────────────────────────────────────
 

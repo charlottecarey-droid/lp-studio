@@ -1,0 +1,505 @@
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import type { StoryHubBlockProps, StoryHubTheme } from "@/lib/block-types";
+import { useBlockFonts } from "@/lib/use-block-fonts";
+
+const LIGHT_DEFAULTS: Required<StoryHubTheme> = {
+  bg: "#F7F4ED",
+  fg: "#0C0F12",
+  muted: "rgba(12, 15, 18, 0.6)",
+  accent: "#8C6F3F",
+  divider: "rgba(12, 15, 18, 0.08)",
+  onAccent: "#F7F4ED",
+  displayFontFamily: "",
+  bodyFontFamily: "",
+};
+
+const DARK_DEFAULTS: Required<StoryHubTheme> = {
+  bg: "#0C0F12",
+  fg: "#EAE4D6",
+  muted: "rgba(234, 228, 214, 0.6)",
+  accent: "#B59A6E",
+  divider: "rgba(234, 228, 214, 0.08)",
+  onAccent: "#0C0F12",
+  displayFontFamily: "",
+  bodyFontFamily: "",
+};
+
+function resolveTheme(mode: "light" | "dark", t: StoryHubTheme | undefined) {
+  const base = mode === "light" ? LIGHT_DEFAULTS : DARK_DEFAULTS;
+  return { ...base, ...(t ?? {}) };
+}
+
+function usePrefersDark(): boolean {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setDark(mq.matches);
+    const fn = (e: MediaQueryListEvent) => setDark(e.matches);
+    mq.addEventListener?.("change", fn);
+    return () => mq.removeEventListener?.("change", fn);
+  }, []);
+  return dark;
+}
+
+interface Props {
+  props: StoryHubBlockProps;
+}
+
+export function BlockStoryHub({ props }: Props) {
+  const prefersDark = usePrefersDark();
+  const mode: "light" | "dark" =
+    props.colorScheme === "auto" ? (prefersDark ? "dark" : "light") : props.colorScheme;
+  const theme = useMemo(
+    () => resolveTheme(mode, mode === "light" ? props.lightTheme : props.darkTheme),
+    [mode, props.lightTheme, props.darkTheme],
+  );
+
+  useBlockFonts(theme.displayFontFamily, theme.bodyFontFamily);
+
+  const displayFont = theme.displayFontFamily
+    ? `'${theme.displayFontFamily}', 'Cormorant Garamond', Georgia, serif`
+    : "'Cormorant Garamond', Georgia, serif";
+  const bodyFont = theme.bodyFontFamily
+    ? `'${theme.bodyFontFamily}', 'Inter', system-ui, sans-serif`
+    : "'Inter', system-ui, sans-serif";
+
+  const defaultFilter = props.filters[0] ?? "All";
+  const [activeFilter, setActiveFilter] = useState<string>(defaultFilter);
+
+  // Reset the active filter if it disappears from the filter list (builder edits).
+  useEffect(() => {
+    if (!props.filters.includes(activeFilter)) setActiveFilter(defaultFilter);
+  }, [props.filters, activeFilter, defaultFilter]);
+
+  const visibleStories = useMemo(() => {
+    if (!activeFilter || activeFilter === defaultFilter) return props.stories;
+    return props.stories.filter((s) => s.tag === activeFilter);
+  }, [props.stories, activeFilter, defaultFilter]);
+
+  return (
+    <div
+      style={{
+        backgroundColor: theme.bg,
+        color: theme.fg,
+        fontFamily: bodyFont,
+        minHeight: "100vh",
+      }}
+    >
+      {/* Top spacer */}
+      <div style={{ height: "6rem" }} />
+
+      {/* Hero */}
+      <section
+        style={{
+          maxWidth: "80rem",
+          margin: "0 auto",
+          padding: "0 1.5rem 5rem",
+          textAlign: "center",
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          style={{
+            fontSize: "0.75rem",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            marginBottom: "2rem",
+            color: theme.muted,
+          }}
+        >
+          {props.eyebrow}
+        </motion.div>
+        <motion.h1
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.1 }}
+          style={{
+            fontFamily: displayFont,
+            fontSize: "clamp(2.75rem, 6vw, 4.5rem)",
+            lineHeight: 1.05,
+            letterSpacing: "-0.02em",
+            marginBottom: "1.5rem",
+          }}
+        >
+          {props.heroTitle}{" "}
+          <span style={{ fontStyle: "italic", color: theme.accent }}>{props.heroAccent}</span>
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          style={{
+            fontSize: "clamp(1rem, 1.4vw, 1.25rem)",
+            fontWeight: 300,
+            lineHeight: 1.6,
+            color: theme.muted,
+            maxWidth: "42rem",
+            margin: "0 auto",
+          }}
+        >
+          {props.subhead}
+        </motion.p>
+      </section>
+
+      {/* Featured Story */}
+      <section style={{ maxWidth: "80rem", margin: "0 auto", padding: "0 1.5rem 6rem" }}>
+        <motion.a
+          href={props.featured.href || "#"}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 0.3 }}
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "flex-end",
+            height: "min(70vh, 600px)",
+            width: "100%",
+            borderRadius: "0.125rem",
+            overflow: "hidden",
+            backgroundColor: theme.divider,
+            cursor: "pointer",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage: `url(${props.featured.imageUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.4) 50%, transparent)",
+            }}
+          />
+          <div
+            style={{
+              position: "relative",
+              zIndex: 10,
+              padding: "clamp(1.5rem, 4vw, 4rem)",
+              maxWidth: "48rem",
+              color: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-block",
+                fontSize: "0.75rem",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                marginBottom: "1rem",
+                opacity: 0.85,
+                padding: "0.25rem 0.75rem",
+                border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: "9999px",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+              }}
+            >
+              {props.featured.tag}
+            </div>
+            <h2
+              style={{
+                fontFamily: displayFont,
+                fontSize: "clamp(1.75rem, 4vw, 3rem)",
+                lineHeight: 1.15,
+                marginBottom: "1.5rem",
+              }}
+            >
+              {props.featured.title}
+            </h2>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: "1rem",
+                fontSize: "0.85rem",
+                opacity: 0.85,
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+              }}
+            >
+              <span>{props.featured.doctor}</span>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.5)" }} />
+              <span>{props.featured.practice}</span>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.5)" }} />
+              <span>{props.featured.location}</span>
+            </div>
+          </div>
+        </motion.a>
+      </section>
+
+      {/* Filters */}
+      <div
+        style={{
+          maxWidth: "80rem",
+          margin: "0 auto",
+          padding: "0 1.5rem 4rem",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.75rem",
+        }}
+      >
+        {props.filters.map((filter) => {
+          const isActive = filter === activeFilter;
+          return (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setActiveFilter(filter)}
+              style={{
+                padding: "0.5rem 1.25rem",
+                fontSize: "0.875rem",
+                borderRadius: "9999px",
+                border: `1px solid ${isActive ? theme.accent : theme.divider}`,
+                backgroundColor: isActive ? theme.accent : "transparent",
+                color: isActive ? theme.onAccent : theme.fg,
+                cursor: "pointer",
+                transition: "all 0.3s",
+              }}
+            >
+              {filter}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Grid */}
+      <section
+        style={{
+          maxWidth: "80rem",
+          margin: "0 auto",
+          padding: "0 1.5rem 8rem",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          columnGap: "3rem",
+          rowGap: "4rem",
+        }}
+      >
+        {visibleStories.map((story, i) => (
+          <motion.a
+            key={story.id || i}
+            href={story.href || "#"}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6, delay: Math.min(i * 0.08, 0.4) }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              textDecoration: "none",
+              color: "inherit",
+            }}
+            className="story-hub-card"
+          >
+            <div
+              style={{
+                position: "relative",
+                aspectRatio: "3 / 4",
+                marginBottom: "1.5rem",
+                overflow: "hidden",
+                borderRadius: "0.125rem",
+                backgroundColor: theme.divider,
+              }}
+            >
+              <img
+                src={story.imageUrl}
+                alt={story.practice}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  filter: "grayscale(100%)",
+                  transition: "filter 0.7s, transform 0.7s",
+                }}
+                loading="lazy"
+              />
+            </div>
+            <div style={{ height: 1, width: "100%", marginBottom: "1.5rem", backgroundColor: theme.divider }} />
+            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "1rem",
+                  fontSize: "0.6875rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.15em",
+                  color: theme.muted,
+                }}
+              >
+                <span>{story.practice}</span>
+                <span>{story.location}</span>
+              </div>
+              <h3
+                style={{
+                  fontFamily: displayFont,
+                  fontSize: "clamp(1.25rem, 1.8vw, 1.75rem)",
+                  lineHeight: 1.25,
+                  marginBottom: "1.5rem",
+                }}
+              >
+                {story.headline}
+              </h3>
+              <div
+                style={{
+                  marginTop: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.15em",
+                    padding: "0.25rem 0.75rem",
+                    borderRadius: "9999px",
+                    border: `1px solid ${theme.divider}`,
+                    color: theme.muted,
+                  }}
+                >
+                  {story.tag}
+                </span>
+                <span
+                  style={{
+                    fontFamily: displayFont,
+                    fontStyle: "italic",
+                    fontSize: "0.95rem",
+                    color: theme.accent,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  Read story <span style={{ fontSize: "1.1rem" }}>→</span>
+                </span>
+              </div>
+            </div>
+          </motion.a>
+        ))}
+      </section>
+      <style>{`
+        .story-hub-card:hover img { filter: grayscale(0%); transform: scale(1.04); }
+      `}</style>
+
+      {/* Stats */}
+      {props.stats.length > 0 && (
+        <section style={{ borderTop: `1px solid ${theme.divider}`, borderBottom: `1px solid ${theme.divider}` }}>
+          <div
+            style={{
+              maxWidth: "80rem",
+              margin: "0 auto",
+              padding: "6rem 1.5rem",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "3rem",
+              justifyContent: "space-around",
+            }}
+          >
+            {props.stats.map((stat, i) => (
+              <div key={i} style={{ flex: "1 1 200px", textAlign: "center" }}>
+                <div
+                  style={{
+                    fontFamily: displayFont,
+                    fontStyle: "italic",
+                    fontSize: "clamp(2.5rem, 5vw, 4.5rem)",
+                    color: theme.accent,
+                    marginBottom: "1rem",
+                  }}
+                >
+                  {stat.number}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.2em",
+                    color: theme.muted,
+                  }}
+                >
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* CTA */}
+      <section style={{ padding: "8rem 1.5rem", textAlign: "center" }}>
+        <h2
+          style={{
+            fontFamily: displayFont,
+            fontSize: "clamp(2.25rem, 5vw, 4rem)",
+            letterSpacing: "-0.02em",
+            marginBottom: "3rem",
+          }}
+        >
+          {props.ctaHeadline}
+        </h2>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "1.5rem",
+          }}
+        >
+          {props.ctaPrimaryText && (
+            <a
+              href={props.ctaPrimaryUrl || "#"}
+              style={{
+                padding: "1rem 2rem",
+                fontSize: "0.875rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                backgroundColor: theme.accent,
+                color: theme.onAccent,
+                borderRadius: "0.125rem",
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              {props.ctaPrimaryText}
+            </a>
+          )}
+          {props.ctaSecondaryText && (
+            <a
+              href={props.ctaSecondaryUrl || "#"}
+              style={{
+                padding: "1rem 2rem",
+                fontFamily: displayFont,
+                fontStyle: "italic",
+                fontSize: "0.875rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                color: theme.muted,
+                textDecoration: "none",
+              }}
+            >
+              {props.ctaSecondaryText}
+            </a>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default BlockStoryHub;

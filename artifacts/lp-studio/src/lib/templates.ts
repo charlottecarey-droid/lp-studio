@@ -460,6 +460,30 @@ export const templateProductLaunchKeynote: LPTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 9 — Customer Story Hub (Dark Luxury editorial)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateStoryHubDarkLuxury: LPTemplate = {
+  id: "story-hub-dark-luxury",
+  name: "Premium Customer Story Hub",
+  description: "Editorial dark-luxury gallery of customer stories. Cinematic featured hero, filterable grid of practice stories, stats row, and closing CTA. Toggle Light/Dark/Auto.",
+  framework: "Hero → Featured Story → Filters → Story Grid → Stats → CTA",
+  badge: "Premium",
+  industries: ["dental", "generic"] as const,
+  config: {
+    templateId: "story-hub-dark-luxury",
+    heroType: "static-image",
+    layout: "centered",
+    backgroundStyle: "dark",
+    headline: "Stories from the network.",
+    subheadline: "How modern dental practices are quietly rewriting what's possible.",
+    ctaText: "Talk to our team",
+    ctaColor: "#B59A6E",
+    ctaUrl: "#contact",
+    showSocialProof: false,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
 // Every shipped template is dental/Dandy-flavored — copy, imagery, and
@@ -476,6 +500,7 @@ const DENTAL_ONLY = ["dental"] as const;
   templateInsideDandyEvent,
   templateInsideDandySpatialTour,
   templateProductLaunchKeynote,
+  templateStoryHubDarkLuxury,
 ].forEach((t) => {
   if (!t.industries) t.industries = DENTAL_ONLY;
 });
@@ -489,6 +514,7 @@ export const LP_TEMPLATES: LPTemplate[] = [
   templateInsideDandyEvent,
   templateInsideDandySpatialTour,
   templateProductLaunchKeynote,
+  templateStoryHubDarkLuxury,
 ];
 
 export function getTemplateById(id: string): LPTemplate | undefined {

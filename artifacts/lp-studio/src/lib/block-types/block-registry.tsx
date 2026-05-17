@@ -121,6 +121,7 @@ import type {
   OnePagerHeroBlockProps,
   EventPageBlockProps,
   ProductLaunchBlockProps,
+  StoryHubBlockProps,
   EventLandingHeroBlockProps,
   SpatialTourBlockProps,
 } from "./dso-blocks";
@@ -3284,6 +3285,126 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "story-hub" as const,
+    label: "Customer Story Hub",
+    category: "Social Proof" as BlockCategory,
+    defaultProps: (): StoryHubBlockProps => ({
+      colorScheme: "dark",
+      eyebrow: "Customer Stories — Volume 04",
+      heroTitle: "Stories from",
+      heroAccent: "the network.",
+      subhead:
+        "How modern dental practices are quietly rewriting what's possible — one case, one chair, one patient at a time.",
+      featured: {
+        tag: "Featured · Practice of the Year",
+        title: "How a third-generation practice scanned its way into its busiest year ever.",
+        doctor: "Dr. Eleanor Voss, DDS",
+        practice: "Voss & Daughters Dental",
+        location: "Charleston, SC",
+        imageUrl:
+          "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?w=2000&q=80",
+        href: "#",
+      },
+      filters: ["All Stories", "Growth", "Workflow", "Patient Care", "Aesthetics"],
+      stories: [
+        {
+          id: "s1",
+          practice: "Northbrook Dental Studio",
+          location: "Chicago, IL",
+          headline: "From 14-day turnaround to 4 days — without changing a single technician.",
+          tag: "Workflow",
+          imageUrl:
+            "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=1200&q=80",
+          href: "#",
+        },
+        {
+          id: "s2",
+          practice: "Marin Bay Implant Center",
+          location: "Sausalito, CA",
+          headline: "The full-arch case that finally felt routine.",
+          tag: "Patient Care",
+          imageUrl:
+            "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=1200&q=80",
+          href: "#",
+        },
+        {
+          id: "s3",
+          practice: "Pearl + Park",
+          location: "Brooklyn, NY",
+          headline: "A boutique practice quietly doubles veneer revenue.",
+          tag: "Aesthetics",
+          imageUrl:
+            "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=1200&q=80",
+          href: "#",
+        },
+        {
+          id: "s4",
+          practice: "Hill Country Family Dental",
+          location: "Austin, TX",
+          headline: "Why their associate stopped looking at other labs.",
+          tag: "Growth",
+          imageUrl:
+            "https://images.unsplash.com/photo-1609840114035-3c981b782dfe?w=1200&q=80",
+          href: "#",
+        },
+        {
+          id: "s5",
+          practice: "Cascade Restorative",
+          location: "Portland, OR",
+          headline: "How fewer remakes became a recruiting story.",
+          tag: "Workflow",
+          imageUrl:
+            "https://images.unsplash.com/photo-1583912267550-d6c2ac3196c0?w=1200&q=80",
+          href: "#",
+        },
+        {
+          id: "s6",
+          practice: "Lakeside Smile Co.",
+          location: "Minneapolis, MN",
+          headline: "Going digital, without losing a beloved craft feel.",
+          tag: "Aesthetics",
+          imageUrl:
+            "https://images.unsplash.com/photo-1571772996211-2f02c9727629?w=1200&q=80",
+          href: "#",
+        },
+      ],
+      stats: [
+        { number: "12,000+", label: "Practices in the Network" },
+        { number: "4.2 days", label: "Average Crown Turnaround" },
+        { number: "99.2%", label: "First-Fit Rate" },
+        { number: "4.9 / 5", label: "Practice Satisfaction" },
+      ],
+      ctaHeadline: "There's a story waiting in your practice, too.",
+      ctaPrimaryText: "Talk to our team",
+      ctaPrimaryUrl: "#contact",
+      ctaSecondaryText: "Read more stories →",
+      ctaSecondaryUrl: "#stories",
+      lightTheme: {},
+      darkTheme: {},
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#0C0F12" rx="4" />
+        {/* eyebrow + headline */}
+        <rect x="42" y="10" width="36" height="2" rx="1" fill="#EAE4D6" opacity="0.5" />
+        <rect x="30" y="16" width="60" height="4" rx="1" fill="#EAE4D6" />
+        <rect x="44" y="22" width="32" height="4" rx="1" fill="#B59A6E" fontStyle="italic" />
+        {/* featured hero */}
+        <rect x="10" y="30" width="100" height="22" rx="1.5" fill="#1A1F25" />
+        <rect x="14" y="44" width="40" height="2" rx="1" fill="#EAE4D6" opacity="0.8" />
+        <rect x="14" y="48" width="28" height="1.5" rx="0.5" fill="#EAE4D6" opacity="0.5" />
+        {/* filter pills */}
+        <rect x="10" y="55" width="14" height="3" rx="1.5" fill="#B59A6E" />
+        <rect x="26" y="55" width="12" height="3" rx="1.5" fill="none" stroke="#EAE4D6" strokeOpacity="0.15" strokeWidth="0.5" />
+        <rect x="40" y="55" width="14" height="3" rx="1.5" fill="none" stroke="#EAE4D6" strokeOpacity="0.15" strokeWidth="0.5" />
+        {/* story cards */}
+        <rect x="10" y="61" width="30" height="14" rx="1" fill="#1A1F25" />
+        <rect x="45" y="61" width="30" height="14" rx="1" fill="#1A1F25" />
+        <rect x="80" y="61" width="30" height="14" rx="1" fill="#1A1F25" />
+      </svg>
+    ),
+  },
+  {
     type: "spatial-tour" as const,
     label: "Spatial Lab Tour",
     category: "Events" as BlockCategory,
@@ -4756,6 +4877,7 @@ export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: 
 export function createBlock(type: "content-series"): Extract<PageBlock, { type: "content-series" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: "product-launch"): Extract<PageBlock, { type: "product-launch" }>;
+export function createBlock(type: "story-hub"): Extract<PageBlock, { type: "story-hub" }>;
 export function createBlock(type: "event-landing-hero"): Extract<PageBlock, { type: "event-landing-hero" }>;
 export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
 export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
@@ -4862,6 +4984,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
     case "product-launch": return { id, type: "product-launch", props: props as ProductLaunchBlockProps };
+    case "story-hub": return { id, type: "story-hub", props: props as StoryHubBlockProps };
     case "event-landing-hero": return { id, type: "event-landing-hero", props: props as EventLandingHeroBlockProps };
     case "spatial-tour": return { id, type: "spatial-tour", props: props as SpatialTourBlockProps };
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
@@ -4903,6 +5026,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "inside-dandy-event": ["event-page"],
     "inside-dandy-spatial-tour": ["spatial-tour"],
     "product-launch-keynote": ["product-launch"],
+    "story-hub-dark-luxury": ["story-hub"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

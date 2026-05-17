@@ -56,7 +56,7 @@ export function BlockProductLaunch({ props }: Props) {
     [mode, props.lightTheme, props.darkTheme],
   );
 
-  useBlockFonts([theme.displayFontFamily, theme.bodyFontFamily].filter(Boolean) as string[]);
+  useBlockFonts(theme.displayFontFamily, theme.bodyFontFamily);
 
   const displayFont = theme.displayFontFamily
     ? `'${theme.displayFontFamily}', system-ui, -apple-system, sans-serif`
