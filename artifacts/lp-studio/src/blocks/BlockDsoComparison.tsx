@@ -21,7 +21,7 @@ const PFG   = "hsl(48,100%,96%)";
 const FG    = "hsl(152,40%,13%)";
 const MU    = "hsl(152,8%,48%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies an empty rows array so this fallback only fires when no rows are

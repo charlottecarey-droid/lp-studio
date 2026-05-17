@@ -5,7 +5,7 @@ import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
 // `getBrandStyleVars`). Hardcoded HSL/hex fallbacks preserve the original
 // Dandy look when no brand wrapper is present (e.g. isolated previews).

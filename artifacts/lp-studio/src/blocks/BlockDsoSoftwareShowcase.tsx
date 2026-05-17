@@ -20,7 +20,7 @@ const DEFAULT_FEATURES = [
 ];
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
+const DISPLAY = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
   zap: Zap,

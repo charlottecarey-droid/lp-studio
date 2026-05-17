@@ -9,7 +9,7 @@ import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
-const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 
 const P     = "var(--brand-primary, #0f172a)";
 const PFG   = "hsl(48,100%,96%)";

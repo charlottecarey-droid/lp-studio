@@ -13,7 +13,7 @@ interface Props {
   onCtaClick?: () => void;
 }
 
-const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
+const DISPLAY = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 

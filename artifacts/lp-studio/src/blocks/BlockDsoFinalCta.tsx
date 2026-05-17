@@ -23,7 +23,7 @@ interface Props {
 const P     = "hsl(152,42%,12%)";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 
 export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, pageId, variantId, sessionId }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
