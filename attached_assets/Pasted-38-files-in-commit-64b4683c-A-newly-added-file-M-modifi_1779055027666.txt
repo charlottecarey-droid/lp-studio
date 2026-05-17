@@ -1,0 +1,122 @@
+38 files in commit 64b4683c. A = newly added file, M = modified existing file. Files are grouped below by area so you can sync in batches if you want — each group is independent of the others, but within a group the files often reference each other so it's safest to keep each group together.
+Group 1 — Config (1 file)
+
+M  .replit
+
+Group 2 — Backend: new shared modules (3 files, all NEW)
+
+A  artifacts/api-server/src/lib/ai-rate-limit.ts
+A  artifacts/api-server/src/routes/lp/firecrawl.ts
+A  artifacts/api-server/src/routes/lp/screenshot-preprocess.ts
+
+Group 3 — Backend: AI endpoints that just got rate-limiters added (8 files, M, tiny diffs)
+
+M  artifacts/api-server/src/routes/lp/ad-copy.ts
+M  artifacts/api-server/src/routes/lp/brand-import.ts
+M  artifacts/api-server/src/routes/lp/brand-import-from-url.ts
+M  artifacts/api-server/src/routes/lp/content-brief.ts
+M  artifacts/api-server/src/routes/lp/copy-generate.ts
+M  artifacts/api-server/src/routes/lp/proof-points-import.ts
+M  artifacts/api-server/src/routes/lp/seo-analyze.ts
+M  artifacts/api-server/src/routes/lp/seo-meta-generate.ts
+
+Group 4 — Backend: bigger endpoint refactors (2 files, M, large diffs — these depend on Group 2)
+
+M  artifacts/api-server/src/routes/lp/custom-blocks-generate.ts
+M  artifacts/api-server/src/routes/lp/generate-page.ts
+
+Group 5 — Frontend: brand assets (3 files)
+
+M  artifacts/lp-studio/public/lpstudio-favicon.svg
+A  artifacts/lp-studio/public/lpstudio-icon.svg
+A  artifacts/lp-studio/src/marketing/components/Logo.tsx
+
+Group 6 — Frontend: schema types + registry (3 files, depend on each other)
+
+M  artifacts/lp-studio/src/lib/block-types/dso-blocks.ts
+M  artifacts/lp-studio/src/lib/block-types/index.ts
+M  artifacts/lp-studio/src/lib/block-types/block-registry.tsx
+
+Group 7 — Frontend: blocks (4 files; the Story Hub and Product Launch are huge rewrites)
+
+M  artifacts/lp-studio/src/blocks/BlockCustomSchema.tsx
+M  artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
+M  artifacts/lp-studio/src/blocks/BlockProductLaunch.tsx  (large — 1,926-line diff)
+M  artifacts/lp-studio/src/blocks/BlockStoryHub.tsx  (large — 1,419-line diff)
+
+Group 8 — Frontend: builder property panel (depends on Group 6) (1 file)
+
+M  artifacts/lp-studio/src/pages/builder/property-panels/ProductLaunchPanel.tsx
+
+Group 9 — Frontend: shared components (2 files)
+
+M  artifacts/lp-studio/src/components/blocks/SchemaPreviewFrame.tsx
+M  artifacts/lp-studio/src/pages/sales/sales-campaign-detail.tsx
+
+Group 10 — Frontend: marketing site (11 files; Navbar/Footer reference the new Logo from Group 5)
+
+M  artifacts/lp-studio/src/marketing/components/AssembleScene.tsx  (largest — 2,555-line diff)
+M  artifacts/lp-studio/src/marketing/components/DeepFeatures.tsx
+M  artifacts/lp-studio/src/marketing/components/FAQ.tsx
+M  artifacts/lp-studio/src/marketing/components/Footer.tsx
+M  artifacts/lp-studio/src/marketing/components/Integrations.tsx
+M  artifacts/lp-studio/src/marketing/components/Navbar.tsx
+M  artifacts/lp-studio/src/marketing/components/Pricing.tsx
+M  artifacts/lp-studio/src/marketing/components/StatsBand.tsx
+M  artifacts/lp-studio/src/marketing/components/Testimonials.tsx
+M  artifacts/lp-studio/src/marketing/components/UseCases.tsx
+M  artifacts/lp-studio/src/marketing/components/Waitlist.tsx
+
+Suggested sync order if Replit needs them strictly one-at-a-time (avoids transient broken-import states):
+
+.replit (Group 1)
+Group 2 (new shared modules) — these are imported by Groups 3 and 4
+Group 3 (8 small endpoint patches, any order within the group)
+Group 4 (the two big endpoint refactors)
+Group 5 (brand assets — Logo.tsx is imported by Navbar/Footer/AssembleScene)
+Group 6 (types + registry — dso-blocks.ts first, then index.ts, then block-registry.tsx)
+Group 7 (blocks — BlockProductLaunch.tsx depends on Group 6's new types)
+Group 8 (ProductLaunchPanel.tsx — depends on Group 6 + 7)
+Group 9 (shared components)
+Group 10 (marketing site — Navbar.tsx, Footer.tsx, AssembleScene.tsx depend on Group 5's Logo.tsx)
+
+Plain flat list of all 38 (in case Replit wants a copy-pasteable manifest):
+.replit
+artifacts/api-server/src/lib/ai-rate-limit.ts
+artifacts/api-server/src/routes/lp/ad-copy.ts
+artifacts/api-server/src/routes/lp/brand-import-from-url.ts
+artifacts/api-server/src/routes/lp/brand-import.ts
+artifacts/api-server/src/routes/lp/content-brief.ts
+artifacts/api-server/src/routes/lp/copy-generate.ts
+artifacts/api-server/src/routes/lp/custom-blocks-generate.ts
+artifacts/api-server/src/routes/lp/firecrawl.ts
+artifacts/api-server/src/routes/lp/generate-page.ts
+artifacts/api-server/src/routes/lp/proof-points-import.ts
+artifacts/api-server/src/routes/lp/screenshot-preprocess.ts
+artifacts/api-server/src/routes/lp/seo-analyze.ts
+artifacts/api-server/src/routes/lp/seo-meta-generate.ts
+artifacts/lp-studio/public/lpstudio-favicon.svg
+artifacts/lp-studio/public/lpstudio-icon.svg
+artifacts/lp-studio/src/blocks/BlockCustomSchema.tsx
+artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
+artifacts/lp-studio/src/blocks/BlockProductLaunch.tsx
+artifacts/lp-studio/src/blocks/BlockStoryHub.tsx
+artifacts/lp-studio/src/components/blocks/SchemaPreviewFrame.tsx
+artifacts/lp-studio/src/lib/block-types/block-registry.tsx
+artifacts/lp-studio/src/lib/block-types/dso-blocks.ts
+artifacts/lp-studio/src/lib/block-types/index.ts
+artifacts/lp-studio/src/marketing/components/AssembleScene.tsx
+artifacts/lp-studio/src/marketing/components/DeepFeatures.tsx
+artifacts/lp-studio/src/marketing/components/FAQ.tsx
+artifacts/lp-studio/src/marketing/components/Footer.tsx
+artifacts/lp-studio/src/marketing/components/Integrations.tsx
+artifacts/lp-studio/src/marketing/components/Logo.tsx
+artifacts/lp-studio/src/marketing/components/Navbar.tsx
+artifacts/lp-studio/src/marketing/components/Pricing.tsx
+artifacts/lp-studio/src/marketing/components/StatsBand.tsx
+artifacts/lp-studio/src/marketing/components/Testimonials.tsx
+artifacts/lp-studio/src/marketing/components/UseCases.tsx
+artifacts/lp-studio/src/marketing/components/Waitlist.tsx
+artifacts/lp-studio/src/pages/builder/property-panels/ProductLaunchPanel.tsx
+artifacts/lp-studio/src/pages/sales/sales-campaign-detail.tsx
+If you want, I can also generate per-file .patch diffs (one patch file per source file) so Replit can apply them one at a time without needing GitHub at all — just say the word and I'll dump them into the workspace folder.Legacy Model
