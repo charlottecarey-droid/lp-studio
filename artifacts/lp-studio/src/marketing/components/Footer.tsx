@@ -10,20 +10,20 @@ const productLinks = [
 const pricingLinks = [
   { label: "Plans & Pricing", href: "/#pricing" },
   { label: "Get Early Access", href: "/#waitlist" },
-  { label: "Contact Sales", href: "mailto:sales@lpstudio.ai?subject=LP%20Studio%20-%20Sales%20inquiry" },
+  { label: "Contact Sales", href: "mailto:admin@lpstudio.ai?subject=LP%20Studio%20-%20Sales%20inquiry" },
 ];
 
 const companyLinks = [
-  { label: "About", href: "mailto:hello@lpstudio.ai?subject=About%20LP%20Studio" },
+  { label: "About", href: "mailto:admin@lpstudio.ai?subject=About%20LP%20Studio" },
   { label: "Customers", href: "/#testimonials" },
   { label: "FAQ", href: "/#faq" },
-  { label: "Careers", href: "mailto:careers@lpstudio.ai?subject=Careers%20at%20LP%20Studio" },
+  { label: "Careers", href: "mailto:admin@lpstudio.ai?subject=Careers%20at%20LP%20Studio" },
 ];
 
 const legalLinks = [
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms of Service", href: "/terms" },
-  { label: "Security", href: "mailto:security@lpstudio.ai?subject=Security%20inquiry" },
+  { label: "Security", href: "mailto:admin@lpstudio.ai?subject=Security%20inquiry" },
 ];
 
 const LINK_BASE = { color: "var(--ink-soft)" } as const;

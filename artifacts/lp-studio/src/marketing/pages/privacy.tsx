@@ -71,7 +71,7 @@ export default function Privacy() {
           </Section>
 
           <Section title="4. Data Retention">
-            <p>We retain your data for as long as your account is active or as needed to provide services. You can request deletion of your account and associated data at any time by contacting us at <LegalLink href="mailto:privacy@lpstudio.ai">privacy@lpstudio.ai</LegalLink>.</p>
+            <p>We retain your data for as long as your account is active or as needed to provide services. You can request deletion of your account and associated data at any time by contacting us at <LegalLink href="mailto:admin@lpstudio.ai">admin@lpstudio.ai</LegalLink>.</p>
           </Section>
 
           <Section title="5. Cookies and Tracking">
@@ -84,7 +84,7 @@ export default function Privacy() {
           </Section>
 
           <Section title="7. Your Rights">
-            <p>Depending on your location, you may have rights to access, correct, port, or delete your personal data. To exercise these rights, contact us at <LegalLink href="mailto:privacy@lpstudio.ai">privacy@lpstudio.ai</LegalLink>.</p>
+            <p>Depending on your location, you may have rights to access, correct, port, or delete your personal data. To exercise these rights, contact us at <LegalLink href="mailto:admin@lpstudio.ai">admin@lpstudio.ai</LegalLink>.</p>
           </Section>
 
           <Section title="8. Changes to This Policy">
@@ -92,7 +92,7 @@ export default function Privacy() {
           </Section>
 
           <Section title="9. Contact">
-            <p>Questions about this policy? Email us at <LegalLink href="mailto:privacy@lpstudio.ai">privacy@lpstudio.ai</LegalLink>.</p>
+            <p>Questions about this policy? Email us at <LegalLink href="mailto:admin@lpstudio.ai">admin@lpstudio.ai</LegalLink>.</p>
           </Section>
         </div>
       </main>

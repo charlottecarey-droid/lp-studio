@@ -52,7 +52,7 @@ const tiers = [
       "Quarterly business reviews",
     ],
     cta: "Contact sales",
-    ctaHref: "mailto:sales@lpstudio.ai",
+    ctaHref: "mailto:admin@lpstudio.ai",
     highlight: false,
   },
 ];

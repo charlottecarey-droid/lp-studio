@@ -81,7 +81,7 @@ export default function Terms() {
           </Section>
 
           <Section title="10. Contact">
-            <p>Questions about these terms? Email us at <LegalLink href="mailto:legal@lpstudio.ai">legal@lpstudio.ai</LegalLink>.</p>
+            <p>Questions about these terms? Email us at <LegalLink href="mailto:admin@lpstudio.ai">admin@lpstudio.ai</LegalLink>.</p>
           </Section>
         </div>
       </main>

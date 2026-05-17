@@ -83,7 +83,7 @@ export default function Waitlist() {
             Create your workspace
           </a>
           <a
-            href="mailto:sales@lpstudio.ai?subject=LP%20Studio%20demo"
+            href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20demo"
             className="px-6 py-3.5 text-[14px] font-medium transition-colors"
             style={{
               background: "transparent",
