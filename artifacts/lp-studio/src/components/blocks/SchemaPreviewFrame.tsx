@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
+import { sanitizeHtml } from "@/lib/sanitize";
 import {
   parseTemplate,
   renderAst,
@@ -36,7 +37,9 @@ export function SchemaPreviewFrame({ schema, template, values, mode = "auto", cl
     if (!template.trim()) return "";
     const merged: ValuesMap = { ...defaultsFromSchema(schema as EngineFieldDef[]), ...values };
     const { ast } = parseTemplate(template);
-    return renderAst(ast, merged);
+    // Defence-in-depth render-time sanitisation (audit follow-up May 2026)
+    // even though the server-side validator already gates writes.
+    return sanitizeHtml(renderAst(ast, merged));
   }, [schema, template, values]);
 
   if (!template.trim()) {

@@ -19,6 +19,9 @@ import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getOpenAIClient } from "./brand-import";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getAiImageGenStatus } from "../../lib/tenantSettings";
+import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
+import { maybeMultiPageScrapeRef } from "./firecrawl";
+import { aiHeavyLimiter, aiHeavyHourlyLimiter, aiLightLimiter } from "../../lib/ai-rate-limit";
 import {
   SCHEMA_FIELD_TYPES,
   splitIssues,
@@ -52,6 +55,15 @@ interface BrandHints {
   aiStrictFactsMode?: boolean;
   approvedClaims?: string[];
   approvedStats?: string[];
+  /** May 2026 audit follow-up — voice exemplars and banned phrases are the
+   *  single highest-leverage tone signal we capture during brand-import.
+   *  The page-level generator surfaces them as a "WRITE IN THIS VOICE"
+   *  anchor; we mirror the pattern here so custom-block outputs feel like
+   *  the same brand. */
+  copyExamples?: string[];
+  avoidPhrases?: string[];
+  /** Short audience descriptor, used to keep generated copy on-target. */
+  targetAudience?: string;
 }
 
 /** Task #253 — keep wording in sync with lp-studio/brand-config.ts and
@@ -68,33 +80,8 @@ function isHexLike(s: unknown): s is string {
   return typeof s === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s.trim());
 }
 
-// ── Firecrawl helper (lifted from brand-import-from-url pattern) ──────────
-
-async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  try { return await fetch(url, { ...init, signal: ctrl.signal }); } finally { clearTimeout(timer); }
-}
-
-async function firecrawlScrape(apiKey: string, url: string): Promise<{ markdown: string; screenshotUrl?: string } | null> {
-  try {
-    const res = await fetchWithTimeout(
-      "https://api.firecrawl.dev/v1/scrape",
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ url, formats: ["markdown", "screenshot"], onlyMainContent: true, waitFor: 1500 }),
-      },
-      20000,
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { data?: { markdown?: string; screenshot?: string } };
-    return {
-      markdown: (data?.data?.markdown ?? "").trim().slice(0, 8000),
-      screenshotUrl: data?.data?.screenshot,
-    };
-  } catch { return null; }
-}
+// Firecrawl primitives live in ./firecrawl now — shared with generate-page
+// so the URL/screenshot pipeline behaves identically for both flows.
 
 // ── Prompt assembly ───────────────────────────────────────────────────────
 
@@ -140,10 +127,25 @@ TEMPLATE RULES:
 - Keep the layout responsive — use flexbox/grid + relative units. Add a @media (max-width: 720px) breakpoint when the block has multiple columns.
 - Use placeholder/library images (e.g. https://images.unsplash.com/...) for any "image" sample value. Do not generate base64.
 
-SAMPLE RULES:
+DENSITY DOCTRINE (read first — this is the single biggest determinant of output quality):
+You produce blocks that look finished, not bare-bones demos. Every value in "sample" must be specific, on-topic, and within the word range stated below. Generic words ("Feature", "Benefit", "Title", "Description here", "Lorem ipsum"), single-word values, and platitudes ("industry-leading", "world-class", "cutting-edge", "synergy", "unlock value", "streamline workflows") are FAILURES — the resulting block looks broken to the user.
+
+SAMPLE RULES (enforced — bare values fail validation):
+- Every "text" field: 4–10 words, concrete and on-topic. NEVER a single word. NEVER a generic noun like "Feature" or "Benefit".
+- Every "longText" field: 25–60 words, with a concrete mechanism or outcome — what something does, why it matters, who it's for.
+- Every "list" field: provide EXACTLY 4–6 row objects unless the user's prompt explicitly asks for fewer. Every subfield in every row must be filled per its own type rules above (so list-of-text fields are still 4–10 words each, not 1-word stubs). One-row or two-row lists render as visually broken UI.
+- For "number" use a real-looking number (e.g. 96, 10000, 4.8 — not 0 or 1).
+- For "color" use hex matching the BRAND PALETTE if provided.
+- For "select" pick one of the declared "options".
+- For "boolean" use true/false based on what would render best.
+
+EXAMPLE OF GOOD vs BAD SAMPLE VALUES (the gap between these is exactly the gap between a finished block and a stub):
+GOOD: { "headline": "Replace your scanner, lab, and aligner workflow with one platform", "subheadline": "From digital impression to delivered crown, every step your practice already does — unified, monitored, and 5 days faster on average.", "features": [{ "title": "AI scan review on every case", "body": "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches the lab — so issues get caught at chairside, not delivery day." }, { "title": "Network-wide case dashboard", "body": "Real-time visibility into status, turnaround, and per-clinician quality across every location. One report for your COO instead of fourteen." }] }
+BAD: { "headline": "Welcome", "subheadline": "Learn more about our service.", "features": [{ "title": "Feature", "body": "This is a great feature." }, { "title": "Another feature", "body": "Also great." }] }
+
+SAMPLE RULES (mechanics):
 - Provide a realistic value for every schema field id so the block renders nicely without further input.
-- For "boolean" use true/false. For "number" use a number. For "color" use hex. For "select" pick one of "options".
-- For "list" provide an array of 2-5 row objects, each with values for every subfield in itemSchema. Example: { "social_links": [{ "label": "Twitter", "url": "https://twitter.com/acme" }, { "label": "LinkedIn", "url": "https://linkedin.com/company/acme" }] }`;
+- For "list" provide EXACTLY 4–6 row objects (unless the prompt says fewer). Example: { "social_links": [{ "label": "Twitter / X", "url": "https://twitter.com/acme" }, { "label": "LinkedIn company page", "url": "https://linkedin.com/company/acme" }, { "label": "GitHub organization", "url": "https://github.com/acme" }, { "label": "YouTube channel", "url": "https://youtube.com/@acme" }] }`;
 }
 
 function buildUserPrompt(opts: {
@@ -151,7 +153,8 @@ function buildUserPrompt(opts: {
   refineInstruction?: string;
   prior?: SchemaBlockPayload | null;
   brand?: BrandHints | null;
-  scraped?: { url: string; markdown: string } | null;
+  scraped?: { url: string; markdown: string; truncated?: boolean } | null;
+  hasVisionImage?: boolean;
   priorIssues?: ValidationIssue[];
 }): string {
   const parts: string[] = [];
@@ -180,12 +183,40 @@ function buildUserPrompt(opts: {
         `${b.aiStrictFactsMode ? "APPROVED STATS (use ONLY these — do not invent numbers)" : "Stats"}:\n${b.approvedStats.map((s) => `- ${s}`).join("\n")}`,
       );
     }
+    if (b.targetAudience) {
+      parts.push(`AUDIENCE: ${b.targetAudience}`);
+    }
+    // Voice anchor — biggest single tone lever (May 2026 audit follow-up).
+    if (b.copyExamples?.length) {
+      parts.push(
+        `WRITE IN THIS VOICE — match the rhythm, sentence length, vocabulary, and specificity of these example headlines and CTAs from the brand's existing marketing. Treat them as the gold standard your output is compared against:\n${b.copyExamples.map((e) => `- ${e}`).join("\n")}`,
+      );
+    }
+    if (b.avoidPhrases?.length) {
+      parts.push(
+        `BANNED PHRASES — never use these words, phrases, clichés, or close variants thereof anywhere in the output: ${b.avoidPhrases.join(", ")}.`,
+      );
+    }
     if (b.aiStrictFactsMode) {
       parts.push(STRICT_FACTS_INSTRUCTION);
     }
   }
   if (opts.scraped) {
-    parts.push(`REFERENCE PAGE TEXT (${opts.scraped.url}):\n${opts.scraped.markdown}\n\nUse this to ground copy and structure where relevant.`);
+    const truncNote = opts.scraped.truncated ? " (TRUNCATED — full page was longer)" : "";
+    parts.push(
+      `REFERENCE PAGE — STUDY THIS CAREFULLY (${opts.scraped.url})${truncNote}:\n${opts.scraped.markdown}\n\nThis is the actual marketing language of the brand you are designing for. Your output MUST:\n` +
+        `- Mirror the voice, sentence length, rhythm, and specific vocabulary you see above.\n` +
+        `- Reuse the same proper nouns, product names, and metrics that appear here.\n` +
+        `- Match the information density — if the reference packs proof points and specifics into every section, your block must too.\n` +
+        `- Treat their headlines and subheads as templates: rewrite them for the user's prompt while preserving cadence and specificity.\n` +
+        `- Every sentence in your output should feel like it could plausibly appear on the reference page. Generic marketing copy ("streamline your workflow", "industry-leading platform") is a failure.\n` +
+        `IF this conflicts with the BRAND PALETTE / WRITE IN THIS VOICE / BANNED PHRASES sections above, those WIN — the brand's own voice takes priority over the reference page, which is only inspiration for structure and visual density.`,
+    );
+  }
+  if (opts.hasVisionImage) {
+    parts.push(
+      `VISUAL REFERENCE (the attached image): Study the layout, color palette, typography hierarchy, information density, and overall aesthetic of this screenshot. Identify the feel — premium/editorial vs scrappy/casual, dense vs airy, dark vs light, modern minimal vs decorative — and make your generated HTML+CSS evoke the same aesthetic. Match column counts, spacing rhythm, and font-weight contrasts you see in the image. The screenshot is NOT a content source — its job is to set visual style. Copy and structure come from the REFERENCE PAGE markdown above (when present) or the USER PROMPT.`,
+    );
   }
   if (opts.prior) {
     parts.push(`PRIOR OUTPUT (refine, don't rebuild from scratch):\n${JSON.stringify(opts.prior).slice(0, 8000)}`);
@@ -720,7 +751,8 @@ PER-BLOCK SAMPLE RULES:
 function buildComposeUserPrompt(opts: {
   prompt: string;
   brand?: BrandHints | null;
-  scraped?: { url: string; markdown: string } | null;
+  scraped?: { url: string; markdown: string; truncated?: boolean } | null;
+  hasVisionImage?: boolean;
   targetCount?: number;
 }): string {
   const parts: string[] = [];
@@ -753,12 +785,34 @@ function buildComposeUserPrompt(opts: {
         `${b.aiStrictFactsMode ? "APPROVED STATS (use ONLY these — do not invent numbers)" : "Stats"}:\n${b.approvedStats.map((s) => `- ${s}`).join("\n")}`,
       );
     }
+    if (b.targetAudience) {
+      parts.push(`AUDIENCE: ${b.targetAudience}`);
+    }
+    // Voice anchor — biggest single tone lever (May 2026 audit follow-up).
+    if (b.copyExamples?.length) {
+      parts.push(
+        `WRITE IN THIS VOICE — match the rhythm, sentence length, vocabulary, and specificity of these example headlines and CTAs from the brand's existing marketing. Treat them as the gold standard your output is compared against:\n${b.copyExamples.map((e) => `- ${e}`).join("\n")}`,
+      );
+    }
+    if (b.avoidPhrases?.length) {
+      parts.push(
+        `BANNED PHRASES — never use these words, phrases, clichés, or close variants thereof anywhere in the output: ${b.avoidPhrases.join(", ")}.`,
+      );
+    }
     if (b.aiStrictFactsMode) {
       parts.push(STRICT_FACTS_INSTRUCTION);
     }
   }
   if (opts.scraped) {
-    parts.push(`REFERENCE PAGE TEXT (${opts.scraped.url}):\n${opts.scraped.markdown}\n\nUse this to ground copy and structure.`);
+    const truncNote = opts.scraped.truncated ? " (TRUNCATED — full page was longer)" : "";
+    parts.push(
+      `REFERENCE PAGE — STUDY THIS CAREFULLY (${opts.scraped.url})${truncNote}:\n${opts.scraped.markdown}\n\nThis is the brand's actual marketing language. Mirror voice, sentence length, vocabulary, and density. Reuse proper nouns and metrics. Treat their headlines as templates. If this conflicts with the BRAND PALETTE / WRITE IN THIS VOICE / BANNED PHRASES above, those WIN.`,
+    );
+  }
+  if (opts.hasVisionImage) {
+    parts.push(
+      `VISUAL REFERENCE (the attached image): Match its layout, palette, typography hierarchy, and density in the generated HTML+CSS. The screenshot sets visual style; copy comes from the REFERENCE PAGE or USER PROMPT.`,
+    );
   }
   return parts.join("\n\n---\n\n");
 }
@@ -833,6 +887,23 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
     const businessSummary = businessBits.length ? businessBits.join("; ") : undefined;
     const brandName = typeof cfg.brandName === "string" ? cfg.brandName.trim() : "";
 
+    // May 2026 audit follow-up — surface the brand-import voice signals.
+    const copyExamples = Array.isArray(cfg.copyExamples)
+      ? (cfg.copyExamples as unknown[])
+          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+          .map((s) => s.trim())
+          .slice(0, 8)
+      : undefined;
+    const avoidPhrases = Array.isArray(cfg.avoidPhrases)
+      ? (cfg.avoidPhrases as unknown[])
+          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+          .map((s) => s.trim())
+          .slice(0, 16)
+      : undefined;
+    const targetAudience = typeof cfg.targetAudience === "string" && cfg.targetAudience.trim()
+      ? cfg.targetAudience.trim()
+      : undefined;
+
     return {
       primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
       accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
@@ -845,24 +916,18 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
       aiStrictFactsMode: strict,
       approvedClaims: approvedClaims.length ? approvedClaims.slice(0, 24) : undefined,
       approvedStats: approvedStats.length ? approvedStats.slice(0, 24) : undefined,
+      copyExamples: copyExamples?.length ? copyExamples : undefined,
+      avoidPhrases: avoidPhrases?.length ? avoidPhrases : undefined,
+      targetAudience,
     };
   } catch { return null; }
 }
 
-async function maybeScrapeRef(refUrl: string | undefined): Promise<{ scraped: { url: string; markdown: string } | null; screenshotUrl?: string }> {
-  const trimmed = (refUrl ?? "").trim();
-  if (!trimmed) return { scraped: null };
-  let parsed: URL | null = null;
-  try { parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`); } catch { return { scraped: null }; }
-  if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return { scraped: null };
-  const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
-  if (!FIRECRAWL_KEY) return { scraped: null };
-  const got = await firecrawlScrape(FIRECRAWL_KEY, parsed.toString());
-  if (!got?.markdown) return { scraped: null };
-  return { scraped: { url: parsed.toString(), markdown: got.markdown }, screenshotUrl: got.screenshotUrl };
-}
+// maybeScrapeRef + maybeMultiPageScrapeRef live in ./firecrawl now —
+// imported above. Multi-page kicks in automatically when the user pastes
+// a bare root URL (homepage); deep links fall through to single-page.
 
-router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 
@@ -874,13 +939,18 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
   }
 
   const brand: BrandHints | null = body.useBrandVars ? await loadBrandHints(tenantId) : null;
-  const { scraped, screenshotUrl: scrapedScreenshotUrl } = await maybeScrapeRef(body.referenceUrl);
+  const { scraped, screenshotUrl: scrapedScreenshotUrl, failureReason: scrapeFailureReason } =
+    await maybeMultiPageScrapeRef(body.referenceUrl, tenantId);
 
   // Build vision parts: uploaded screenshot wins; else firecrawl screenshot if present.
-  const visionImage: string | undefined =
-    typeof body.screenshotDataUrl === "string" && body.screenshotDataUrl.startsWith("data:image/")
-      ? body.screenshotDataUrl
-      : scrapedScreenshotUrl;
+  // May 2026 audit follow-up — preprocess uploaded screenshots (downscale +
+  // re-encode) so a 4 MB iPhone capture doesn't balloon vision costs.
+  let visionImage: string | undefined;
+  if (typeof body.screenshotDataUrl === "string" && body.screenshotDataUrl.startsWith("data:image/")) {
+    visionImage = await preprocessScreenshotDataUrl(body.screenshotDataUrl);
+  } else {
+    visionImage = scrapedScreenshotUrl;
+  }
 
   let openai;
   try { openai = getOpenAIClient(); } catch (e) {
@@ -894,6 +964,7 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
     prior: body.prior ?? null,
     brand,
     scraped,
+    hasVisionImage: !!visionImage,
   });
 
   const userParts: ChatCompletionContentPart[] = [{ type: "text", text: userText }];
@@ -903,10 +974,13 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
 
   let raw = "{}";
   try {
+    // May 2026 audit follow-up: 4096 was tight for a full schema + template
+    // + sample block. Raise budget and lift temperature out of the "safe
+    // median" zone where the model defaults to bare-bones output.
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      temperature: 0.7,
-      max_completion_tokens: 4096,
+      temperature: 0.85,
+      max_completion_tokens: 8192,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: buildSystemPrompt() },
@@ -959,6 +1033,13 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
     warnings,
     valid: errors.length === 0,
     referenceUrl: scraped?.url ?? null,
+    // May 2026 audit follow-up — surface reference-fetch outcome so the UI
+    // can warn ("we couldn't read that page, used your prompt only") instead
+    // of letting the user assume the bare output is the model's fault.
+    usedReference: !!scraped,
+    referenceFailureReason: scrapeFailureReason && scrapeFailureReason !== "no_url" ? scrapeFailureReason : null,
+    referenceTruncated: scraped?.truncated ?? false,
+    referenceAdditionalUrls: scraped?.additionalUrls ?? [],
     usedScreenshot: !!visionImage,
     imageGen: imageGen ?? null,
   });
@@ -967,7 +1048,7 @@ router.post("/lp/custom-blocks/generate", requireAuth, async (req, res): Promise
 // Task #220 — Compose mode. One higher-level prompt → 2-5 ordered blocks,
 // each individually validated with the same validator the single-block flow
 // uses, so the dialog can preview the section in order before saving.
-router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/custom-blocks/compose", requireAuth, aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 
@@ -979,12 +1060,15 @@ router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<
   }
 
   const brand: BrandHints | null = body.useBrandVars ? await loadBrandHints(tenantId) : null;
-  const { scraped, screenshotUrl: scrapedScreenshotUrl } = await maybeScrapeRef(body.referenceUrl);
+  const { scraped, screenshotUrl: scrapedScreenshotUrl, failureReason: scrapeFailureReason } =
+    await maybeMultiPageScrapeRef(body.referenceUrl, tenantId);
 
-  const visionImage: string | undefined =
-    typeof body.screenshotDataUrl === "string" && body.screenshotDataUrl.startsWith("data:image/")
-      ? body.screenshotDataUrl
-      : scrapedScreenshotUrl;
+  let visionImage: string | undefined;
+  if (typeof body.screenshotDataUrl === "string" && body.screenshotDataUrl.startsWith("data:image/")) {
+    visionImage = await preprocessScreenshotDataUrl(body.screenshotDataUrl);
+  } else {
+    visionImage = scrapedScreenshotUrl;
+  }
 
   let openai;
   try { openai = getOpenAIClient(); } catch (e) {
@@ -996,7 +1080,7 @@ router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<
     ? Math.min(5, Math.max(2, Math.round(body.targetCount)))
     : undefined;
 
-  const userText = buildComposeUserPrompt({ prompt, brand, scraped, targetCount });
+  const userText = buildComposeUserPrompt({ prompt, brand, scraped, hasVisionImage: !!visionImage, targetCount });
   const userParts: ChatCompletionContentPart[] = [{ type: "text", text: userText }];
   if (visionImage) userParts.push({ type: "image_url", image_url: { url: visionImage } });
 
@@ -1004,9 +1088,11 @@ router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      temperature: 0.7,
+      temperature: 0.85,
       // Sections are 2-5 blocks; raise the cap so we don't truncate JSON.
-      max_completion_tokens: 9000,
+      // (May 2026 audit follow-up: bumped from 9000 to 12288 to leave headroom
+      // for the new density rules and exemplars in the prompt.)
+      max_completion_tokens: 12288,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: buildComposeSystemPrompt() },
@@ -1054,6 +1140,10 @@ router.post("/lp/custom-blocks/compose", requireAuth, async (req, res): Promise<
     },
     blocks: validated,
     referenceUrl: scraped?.url ?? null,
+    usedReference: !!scraped,
+    referenceFailureReason: scrapeFailureReason && scrapeFailureReason !== "no_url" ? scrapeFailureReason : null,
+    referenceTruncated: scraped?.truncated ?? false,
+    referenceAdditionalUrls: scraped?.additionalUrls ?? [],
     usedScreenshot: !!visionImage,
   });
 });
@@ -1079,7 +1169,7 @@ interface GenerateImageBody {
 
 const VALID_ASPECT_RATIOS: AspectRatio[] = ["1:1", "16:9", "9:16", "4:3", "3:4"];
 
-router.post("/lp/custom-blocks/generate-image", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/custom-blocks/generate-image", requireAuth, aiLightLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 

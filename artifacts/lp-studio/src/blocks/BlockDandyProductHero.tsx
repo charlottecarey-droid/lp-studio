@@ -4,6 +4,7 @@ import type { DandyProductHeroBlockProps } from "@/lib/block-types/dso-blocks";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { useBrandConfig } from "@/components/BrandSwatches";
 import { InlineText } from "@/components/InlineText";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   block: { props: DandyProductHeroBlockProps };
@@ -70,7 +71,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
       ? `${url}${url.includes("?") ? "&" : "?"}email=${encodeURIComponent(email)}`
       : url;
     if (onCtaClick) onCtaClick(targetUrl, p.primaryCtaMode ?? "link");
-    else if (typeof window !== "undefined") window.location.href = targetUrl;
+    else safeNavigate(targetUrl);
   };
 
   const eyebrowStyle: CSSProperties = {

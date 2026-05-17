@@ -1,5 +1,6 @@
 import { Router } from "express";
 import OpenAI from "openai";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -111,7 +112,7 @@ function buildSegmentSection(seg: SegmentContext): string {
   return parts.join("\n");
 }
 
-router.post("/lp/content-brief", async (req, res): Promise<void> => {
+router.post("/lp/content-brief", aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const { company, objective, brandContext, segmentContext } = req.body as {
     company?: string;
     objective?: string;

@@ -11,6 +11,7 @@ import { Router } from "express";
 import dns from "dns/promises";
 import net from "net";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 import { getOpenAIClient } from "./brand-import";
 
 const router = Router();
@@ -225,7 +226,7 @@ async function extractWithLLM(text: string, fallbackSourceUrl: string): Promise<
   return { proposed: sanitizeProposed(list, fallbackSourceUrl) };
 }
 
-router.post("/lp/proof-points/import-from-url", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/proof-points/import-from-url", requireAuth, aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 
@@ -262,7 +263,7 @@ router.post("/lp/proof-points/import-from-url", requireAuth, async (req, res): P
   res.json({ proposed: result.proposed, sourceUrl });
 });
 
-router.post("/lp/proof-points/import-from-text", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/proof-points/import-from-text", requireAuth, aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 

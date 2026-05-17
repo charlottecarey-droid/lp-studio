@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -208,7 +209,7 @@ function buildSegmentCopyContext(blockType: string, blockCategory?: string): str
   return `You are writing copy for a DSO (dental service organization) enterprise sales page block of type "${blockType}". Write B2B copy targeting DSO executives (CEO, COO, VP of Operations). Focus on multi-location dental networks, operational efficiency, lab standardization, AI-powered workflows, and measurable ROI. Be specific and credible. Reference Dandy product names where natural: "AI Scan Review", "Pilot Program", "first-time fit rate", "remake reduction", "turnaround time". Use sentence casing throughout.`;
 }
 
-router.post("/lp/copy-generate", async (req, res): Promise<void> => {
+router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
 
   const body = req.body as {

@@ -202,6 +202,7 @@ export type {
   ProductLaunchBlockProps,
   ProductLaunchNavLink,
   ProductLaunchSlab,
+  ProductLaunchKpi,
   ProductLaunchSpecRow,
   ProductLaunchPlan,
   ProductLaunchTheme,

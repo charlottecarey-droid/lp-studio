@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { lpPagesTable, lpBrandSettingsTable, lpPageAdCopyRunsTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getOpenAIClient } from "./brand-import";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -286,7 +287,7 @@ router.get("/lp/pages/:id/ad-copy/runs", requireAuth, async (req, res): Promise<
   res.json({ runs: rows, channels: CHANNELS });
 });
 
-router.post("/lp/pages/:id/ad-copy", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/pages/:id/ad-copy", requireAuth, aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = parseInt(String(req.params.id), 10);
   if (!Number.isFinite(pageId)) { res.status(400).json({ error: "invalid page id" }); return; }

@@ -964,6 +964,12 @@ export interface ProductLaunchNavLink {
   label: string;
 }
 
+/** A single KPI shown in the per-slab metric strip below the bullets. */
+export interface ProductLaunchKpi {
+  value: string;
+  label: string;
+}
+
 export interface ProductLaunchSlab {
   id: string;
   eyebrow: string;
@@ -973,6 +979,14 @@ export interface ProductLaunchSlab {
   accentColor: string;
   imageUrl?: string;
   reverse?: boolean;
+  /**
+   * Optional KPI strip rendered below the bullets — inline metrics with
+   * column rules between them, tinted with the slab's accent. When the
+   * array is missing or empty the renderer falls back to a cycled set of
+   * preset metrics so the strip is never visually empty; provide your own
+   * here to control the messaging.
+   */
+  kpis?: ProductLaunchKpi[];
 }
 
 export interface ProductLaunchSpecRow {
@@ -1022,6 +1036,12 @@ export interface ProductLaunchBlockProps {
   specsHeadline: string;
   specsColumns: string[];
   specsRows: ProductLaunchSpecRow[];
+  /**
+   * Zero-based index of the column that should be visually featured in the
+   * specs table — the "winner" column gets the accent monogram tile and the
+   * "★ New" badge. Defaults to the last column when unset.
+   */
+  featuredColumnIndex?: number;
   plansHeadline: string;
   plans: ProductLaunchPlan[];
   ctaHeadline: string;

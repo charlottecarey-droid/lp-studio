@@ -6,6 +6,10 @@ import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
+import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
+import { maybeMultiPageScrapeRef, type MaybeScrapeResult } from "./firecrawl";
+import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
+import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 
 const router = Router();
 
@@ -751,9 +755,23 @@ function buildBrandContext(brand: BrandConfig): string {
     parts.push(`Key themes: ${brand.messagingPillars.map(p => `${p.label} (${p.description})`).join("; ")}`);
   }
   if (brand.toneKeywords?.length) parts.push(`Style: ${brand.toneKeywords.join(", ")}`);
-  if (brand.avoidPhrases?.length) parts.push(`Never say: ${brand.avoidPhrases.join(", ")}`);
   if (brand.targetAudience) parts.push(`Audience: ${brand.targetAudience}`);
-  if (brand.copyExamples?.length) parts.push(`Example headlines: ${brand.copyExamples.join(" | ")}`);
+  // Voice-anchor block (May 2026 audit follow-up). Promoted from a passive
+  // "Example headlines: …" one-liner to a hard constraint — exemplars are the
+  // single biggest lever for tone matching, and listing them as a stronger
+  // directive measurably moves outputs toward the brand's actual phrasing.
+  if (brand.copyExamples?.length) {
+    parts.push(
+      `WRITE IN THIS VOICE — match the rhythm, sentence length, vocabulary, and degree of specificity of these example headlines and CTAs from the brand's existing marketing. Treat them as the gold standard your output is compared against:\n${brand.copyExamples
+        .map((e) => `- ${e}`)
+        .join("\n")}`,
+    );
+  }
+  if (brand.avoidPhrases?.length) {
+    parts.push(
+      `BANNED PHRASES — never use these words, phrases, clichés, or close variants thereof anywhere in the output: ${brand.avoidPhrases.join(", ")}.`,
+    );
+  }
   if (brand.copyInstructions?.trim()) parts.push(brand.copyInstructions.trim());
   if (brand.productLines?.length) {
     const strict = brand.aiStrictFactsMode === true;
@@ -1150,28 +1168,74 @@ function isDsoPrompt(prompt: string): boolean {
 
 const SYSTEM_PROMPT = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
 
-AVAILABLE BLOCK TYPES (use these exact type strings):
-- "hero": Main hero section. Props: headline (string), subheadline (string), ctaText (string), ctaUrl (string, default "#"), ctaColor (string, hex), heroType ("static-image"|"none"), layout ("centered"|"split"|"minimal"), backgroundStyle ("white"|"dark"), showSocialProof (boolean), socialProofText (string), imageUrl (string), mediaUrl (string)
-- "trust-bar": Stat bar with metrics. Props: items (array of {value, label}), countUpEnabled (boolean, default true)
-- "pas-section": Problem-Agitate-Solve. Props: headline (string), body (string), bullets (string[])
-- "comparison": Old way vs new way. Props: headline (string), ctaText (string), ctaUrl ("#"), oldWayLabel (string), oldWayBullets (string[]), newWayLabel (string), newWayBullets (string[])
-- "stat-callout": Single big stat. Props: stat (string), description (string), footnote (string), countUpEnabled (boolean, default true)
-- "benefits-grid": Feature/benefit cards. Props: headline (string), columns (2|3), items (array of {icon, title, description}). Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles"
-- "testimonial": Customer quote. Props: quote (string), author (string), role (string), practiceName (string)
-- "how-it-works": Numbered steps. Props: headline (string), steps (array of {number: "01"|"02"|etc, title, description})
-- "product-grid": Product/service cards. Props: headline (string), subheadline (string), items (array of {image, title, description})
-- "bottom-cta": Final call to action. Props: headline (string), subheadline (string), ctaText (string), ctaUrl ("#")
-- "form": Lead capture form. Props: headline (string), subheadline (string), multiStep (boolean), steps (array of {title, fields: [{id, type, label, placeholder, required, options?}]}), submitButtonText (string), successMessage (string), redirectUrl (string), backgroundStyle ("white"|"light-gray"|"dark")
-- "video-section": Video embed. Props: layout ("full-width"|"split-left"|"split-right"), headline (string), subheadline (string), ctaText (string), ctaUrl ("#"), videoUrl (string), aspectRatio ("16/9"), backgroundStyle ("white"|"dark")
-- "zigzag-features": Alternating image/text rows. Props: rows (array of {tag, headline, body, ctaText, ctaUrl, imageUrl})
-- "photo-strip": Scrolling image gallery. Props: images (array of {src, alt})
+DENSITY DOCTRINE (the single most important rule — read first):
+You write pages that feel finished, not stub-grade demos. Every array MUST be populated to the per-block minimum below. Every copy field MUST land in the per-block word range. No single-word labels ("Fast", "Easy", "Better"). No filler phrases ("streamline workflows", "unlock value", "industry-leading", "best-in-class", "cutting-edge", "synergy"). Every sentence carries a concrete noun, a number, a product name, or a specific verb. If you can't write a specific item, pick a different block — DO NOT ship the block with empty or 1–3 word stubs.
+
+AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for verbosity and specificity):
+
+- "hero": Main hero section. Props: headline (5–12 words, specific to the topic — NOT a generic verb phrase), subheadline (15–32 words, expands the headline with a concrete outcome + audience), ctaText (2–5 words, action verb first), ctaUrl ("#"), ctaColor (hex), heroType ("static-image"|"none"), layout ("centered"|"split"|"minimal"), backgroundStyle ("white"|"dark"), showSocialProof (boolean), socialProofText (10–18 words, concrete proof — count + named audience, e.g. "Trusted by 10,000+ practices and 3 of the top 5 DSOs"), imageUrl (string), mediaUrl (string).
+  EXAMPLE: { headline: "Replace your scanner, lab, and aligner workflow with one Dandy platform", subheadline: "From digital impression to delivered crown, Dandy unifies the steps your practice already does — clinical quality stays in your hands while the manual work disappears.", ctaText: "Book a 20-min walkthrough", showSocialProof: true, socialProofText: "Trusted by 10,000+ US dental practices and 3 of the top 5 DSO networks", layout: "split", backgroundStyle: "white" }
+
+- "trust-bar": Stat bar with metrics. Props: items (array of {value, label} — EXACTLY 4–6 items, value is a specific metric like "10,000+" or "98%" or "$2.4B" — never a vague word, label is 2–5 words naming a specific audience or outcome), countUpEnabled (boolean, default true).
+  EXAMPLE items: [{ value: "10,000+", label: "Practices on Dandy" }, { value: "96%", label: "First-time fit rate" }, { value: "5 days", label: "Average crown turnaround" }, { value: "$0", label: "Scanner capex required" }, { value: "24/7", label: "Clinical support coverage" }]
+
+- "pas-section": Problem-Agitate-Solve. Props: headline (6–14 words, names the problem directly), body (45–85 words, escalates the cost of inaction with a concrete scenario — money, time, or quality), bullets (string[], EXACTLY 3–5 items, each 8–16 words, each names a specific failure mode).
+  EXAMPLE bullets: ["Crown remakes cost your practice $480 in chair time per case, every time", "Patients drop off the schedule waiting two weeks for a single-unit case", "Lab quality varies by technician — your average is a coin flip"]
+
+- "comparison": Old way vs new way. Props: headline (6–12 words), ctaText (2–5 words), ctaUrl ("#"), oldWayLabel (2–4 words, e.g. "Traditional Lab"), oldWayBullets (string[], EXACTLY 4–5 items, each 6–12 words, each a SPECIFIC pain point — never one-word stubs), newWayLabel (2–4 words, e.g. "Dandy"), newWayBullets (string[], EXACTLY 4–5 items pairing 1:1 with oldWayBullets, each 6–12 words).
+  EXAMPLE: { oldWayLabel: "Traditional lab + scanner", oldWayBullets: ["Quality varies by technician — average is a coin flip", "Two-week crown turnarounds keep patients off the schedule", "Software costs $300/mo per operatory plus per-case fees", "No visibility into case status once it leaves your practice"], newWayLabel: "Dandy", newWayBullets: ["AI Scan Review catches issues before the case ships", "5-day average crown turnaround, guaranteed", "All-inclusive — no per-case fees, no per-seat software", "Real-time case dashboard for every clinician on your team"] }
+
+- "stat-callout": Single big stat. Props: stat (a short, vivid metric phrase like "96% first-time fit rate" or "$8,400 saved per provider per year"), description (15–28 words, expands the stat with a concrete mechanism — what the stat measures, why it matters), footnote (6–14 words, attribution: source + timeframe, e.g. "Independent lab QA audit, Q4 2025 (n=1,240 crowns)"), countUpEnabled (boolean, default true).
+
+- "benefits-grid": Feature/benefit cards. Props: headline (5–12 words), columns (2 or 3), items (array of {icon, title, description} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
+  EXAMPLE item: { icon: "ScanLine", title: "AI scan review on every case", description: "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches our lab — so issues get caught at chairside, not on delivery day." }
+  NEVER write: { title: "Quality", description: "Better quality." } — that is failure-grade output.
+
+- "testimonial": Customer quote. Props: quote (35–80 words, must name a specific outcome or metric — not generic praise), author (full name), role (specific title, e.g. "Director of Clinical Operations"), practiceName (real-sounding practice or DSO name).
+  EXAMPLE quote: "We switched to Dandy across 14 practices in February. By April our crown remake rate dropped from 11% to 3% and our staff stopped dreading delivery day. The first-time-fit math alone pays for the program."
+
+- "how-it-works": Numbered steps. Props: headline (5–10 words), steps (array of {number, title, description} — EXACTLY 3–5 steps, number formatted "01"/"02"/"03", title 3–6 words ACTION-oriented, description 18–32 words explaining what happens in concrete terms — who does what, with what tool, in what timeframe).
+
+- "product-grid": Product/service cards. Props: headline (5–12 words), subheadline (14–28 words), items (array of {image, title, description} — EXACTLY 3–6 items, title 2–5 words, description 18–28 words with a specific use case — not a feature dump).
+
+- "bottom-cta": Final call to action. Props: headline (6–14 words, restates the page's core promise with urgency or specificity), subheadline (12–28 words, removes the last objection — pricing, commitment, or onboarding speed), ctaText (2–5 words action verb), ctaUrl ("#").
+
+- "form": Lead capture form. Props: headline (5–12 words), subheadline (12–24 words explaining what happens AFTER they submit — e.g. "We'll send a personalized 5-minute walkthrough by email within 24 hours"), multiStep (boolean), steps (array of {title, fields} — if multiStep: EXACTLY 2–3 steps, each with 2–4 fields; if single step: at least 3 fields), submitButtonText (2–4 words, specific outcome not "Submit"), successMessage (one sentence concrete next-step), redirectUrl ("#"), backgroundStyle ("white"|"light-gray"|"dark"). Use realistic field types (email, phone, text, select, textarea) with helpful placeholders.
+
+- "video-section": Video embed. Props: layout ("full-width"|"split-left"|"split-right"), headline (5–12 words framing the video — "Watch how a 14-location DSO standardised crown quality in 60 days" beats "Customer video"), subheadline (15–28 words, the takeaway someone gets if they DON'T watch — gives skim-readers the value), ctaText (2–5 words), ctaUrl ("#"), videoUrl (string), aspectRatio ("16/9"), backgroundStyle ("white"|"dark").
+
+- "zigzag-features": Alternating image/text rows. Props: rows (array of {tag, headline, body, ctaText, ctaUrl, imageUrl} — EXACTLY 3–5 rows, tag 1–3 words category label, headline 5–10 words SPECIFIC capability, body 30–55 words with a concrete mechanism + outcome, ctaText 2–5 words deep-linking to the feature page when relevant).
+  EXAMPLE row: { tag: "Scan review", headline: "AI catches scan issues before the case ships", body: "Every impression goes through an automated review for prep depth, margin clarity, and undercuts. If something's off, you get a flagged screenshot at chairside so the patient stays in the chair instead of coming back for a re-scan two weeks later.", ctaText: "See how it works", ctaUrl: "#" }
+
+- "photo-strip": Scrolling image gallery. Props: images (array of {src, alt} — EXACTLY 5–10 images, alt is a 4–10 word descriptive caption naming the subject + context).
+
+GLOBAL DENSITY ENFORCEMENT — NEVER SHIP EMPTY OR STUB CONTENT:
+Every array field above states an EXACT count range. Violating it is a failure: the block renders as visibly broken or sparse. If you cannot produce the minimum count with specific, on-topic content, swap the block for a different one — never trim the array. Single-word labels, generic verbs ("Streamline", "Empower", "Unlock"), and platitudes ("industry-leading", "world-class") are failures. Every item must reference a concrete noun (a product, metric, audience, location, or named workflow) within its first 5 words.
+
+EXAMPLE OF A FULLY-POPULATED benefits-grid BLOCK (mirror this density for every multi-item block you emit):
+{
+  "id": "block-benefits-grid-1",
+  "type": "benefits-grid",
+  "props": {
+    "headline": "Why DSOs standardise on Dandy across every location",
+    "columns": 3,
+    "items": [
+      { "icon": "ScanLine", "title": "AI scan review on every case", "description": "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches our lab — issues get caught at chairside, not on delivery day." },
+      { "icon": "BarChart2", "title": "Network-wide case dashboard", "description": "Real-time visibility into every case across every location: status, turnaround, remake rate, per-clinician quality. One report for your COO instead of 14." },
+      { "icon": "DollarSign", "title": "All-in pricing — no per-case fees", "description": "Flat monthly per-operatory pricing covers scanner, lab work, and software. No surprise invoices, no scanner CAPEX, no per-seat licensing math." },
+      { "icon": "Clock", "title": "5-day average crown turnaround", "description": "Crowns ship in 5 days on average, with guaranteed timeline visibility per case. Patients stay on the schedule and your treatment plan doesn't slip." },
+      { "icon": "HeadphonesIcon", "title": "Dedicated clinical support team", "description": "Named lead with 24/7 clinical escalations, weekly office hours, and quarterly business reviews. Real humans who know your network." },
+      { "icon": "Shield", "title": "FDA-cleared materials, every case", "description": "All restorations use FDA-cleared materials documented per case in your patient record — no chasing labs for documentation during audits." }
+    ]
+  }
+}
 
 RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 5-10 blocks per page. Always start with a "hero" block and end with a "bottom-cta" block.
-5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text.
+5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text. Every multi-item array MUST hit the per-block minimum count stated in AVAILABLE BLOCK TYPES above. Empty arrays, 1–3 word stubs ("Slow", "Fast", "Better"), and generic platitudes ("industry-leading", "best-in-class") are failures — the block renders broken.
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -1396,11 +1460,20 @@ function buildSegmentSection(
   return parts.join("\n");
 }
 
-router.post("/lp/generate-page", async (req, res): Promise<void> => {
-  const { prompt, segmentContext, templateId, _captureOnly } = req.body as {
+router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
+  const { prompt, segmentContext, templateId, referenceUrl, screenshotDataUrl, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
     templateId?: number;
+    /** May 2026 audit follow-up — accept a reference URL so the generator
+     *  can clone tone/structure/voice from an existing marketing page. When
+     *  the URL is a bare root, multi-page scrape pulls homepage + /about +
+     *  /pricing + /customers + /product + /platform. Deep links scrape only
+     *  the page given. */
+    referenceUrl?: string;
+    /** Data-URL of a reference screenshot (paste from clipboard, drag/drop,
+     *  etc.). Resized + JPEG-compressed before being shipped to vision. */
+    screenshotDataUrl?: string;
     /** Task #255 — dev-only escape hatch used by the strict-facts-mode e2e
      *  spec. When true (and NODE_ENV !== "production") the route assembles
      *  the brand/segment/case-study sections and returns the system + user
@@ -1427,14 +1500,60 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   }
 
   const tenantId = req.authUser?.tenantId ?? null;
-  const [brand, mediaCatalog, tenantSlugRow, proofPoints] = await Promise.all([
+  // May 2026 audit follow-up — let users seed full-page generation with a
+  // reference URL and/or screenshot. The scrape (multi-page when the user
+  // pastes a homepage; single-page for deep links) and uploaded screenshot
+  // preprocess both run in parallel with the brand/media/proof-point reads
+  // so we don't add latency to the happy path.
+  const scrapePromise: Promise<MaybeScrapeResult> = referenceUrl && tenantId != null
+    ? maybeMultiPageScrapeRef(referenceUrl, tenantId)
+    : Promise.resolve({ scraped: null, failureReason: "no_url" } as MaybeScrapeResult);
+  const screenshotPromise: Promise<string | undefined> =
+    typeof screenshotDataUrl === "string" && screenshotDataUrl.startsWith("data:image/")
+      ? preprocessScreenshotDataUrl(screenshotDataUrl).then((s) => s)
+      : Promise.resolve(undefined);
+
+  const [brand, mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, uploadedScreenshot] = await Promise.all([
     fetchBrand(tenantId),
     fetchMediaCatalog(tenantId),
     tenantId != null
       ? db.select({ slug: tenantsTable.slug }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
       : Promise.resolve([] as { slug: string }[]),
     fetchProofPoints(tenantId),
+    scrapePromise,
+    screenshotPromise,
   ]);
+
+  // Uploaded screenshot always wins over Firecrawl's full-page render — the
+  // user gave us their own picture, that's the one they want matched.
+  const visionImage: string | undefined = uploadedScreenshot ?? scrapeResult.screenshotUrl;
+
+  // Build the active "REFERENCE PAGE — STUDY THIS CAREFULLY" section the
+  // same way custom-blocks-generate does. The section is appended to the
+  // user prompt below in both freeform and template modes so the model is
+  // forced to mirror voice / vocabulary / density.
+  const referenceSection = (() => {
+    if (!scrapeResult.scraped) return "";
+    const { url, markdown, truncated, additionalUrls } = scrapeResult.scraped;
+    const truncNote = truncated ? " (TRUNCATED — full page was longer)" : "";
+    const companions = additionalUrls && additionalUrls.length > 0
+      ? `\n\n(Stitched from ${1 + additionalUrls.length} pages: ${url} plus ${additionalUrls.join(", ")})`
+      : "";
+    return (
+      `REFERENCE PAGE — STUDY THIS CAREFULLY (${url})${truncNote}:${companions}\n${markdown}\n\n` +
+      `This is the actual marketing language of the brand you are designing for. Your output MUST:\n` +
+      `- Mirror the voice, sentence length, rhythm, and specific vocabulary you see above.\n` +
+      `- Reuse the same proper nouns, product names, and metrics that appear here.\n` +
+      `- Match the information density — if the reference packs proof points and specifics into every section, your blocks must too.\n` +
+      `- Treat the reference's headlines and subheads as templates: rewrite them for the user's prompt while preserving cadence and specificity.\n` +
+      `- Every sentence in your output should feel like it could plausibly appear on the reference page. Generic marketing copy ("streamline your workflow", "industry-leading platform") is a failure.\n` +
+      `IF this conflicts with the BRAND CONTEXT / WRITE IN THIS VOICE / BANNED PHRASES sections above, those WIN — the brand's own voice takes priority over the reference page, which is only inspiration for structure and visual density.`
+    );
+  })();
+
+  const visionSection = visionImage
+    ? `VISUAL REFERENCE (the attached image): Study the layout, color palette, typography hierarchy, information density, and overall aesthetic of this screenshot. Identify the feel — premium/editorial vs scrappy/casual, dense vs airy, dark vs light, modern minimal vs decorative — and let it inform which block types you pick and how dense the content sits in each block. The screenshot sets visual style; copy comes from the REFERENCE PAGE markdown above (when present), the BRAND CONTEXT, or the USER REQUEST.`
+    : "";
   const brandContext = buildBrandContext(brand);
   // Task #253 / #255 — case studies are always surfaced in the prompt so the
   // AI can reference real customer stories. When Strict Facts Mode is ON we
@@ -1529,6 +1648,12 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       }
       if (caseStudiesSection) templateUserPromptParts.push(caseStudiesSection);
       if (proofPointsSection) templateUserPromptParts.push(proofPointsSection);
+      // Reference URL + screenshot (May 2026 audit follow-up). The brand
+      // sections above already include the WRITE IN THIS VOICE / BANNED
+      // PHRASES anchors; the reference section explicitly states that
+      // brand wins if there's a conflict, so order is correct.
+      if (referenceSection) templateUserPromptParts.push(referenceSection);
+      if (visionSection) templateUserPromptParts.push(visionSection);
       templateUserPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
       templateUserPromptParts.push(
         `TEMPLATE BLOCKS (preserve structure, rewrite copy only):\n${JSON.stringify(tplBlocks)}`
@@ -1543,17 +1668,37 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
           systemPrompt: templateSystemPrompt,
           userPrompt: templateUserPromptParts.join("\n\n"),
           strict,
+          referenceUrl: scrapeResult.scraped?.url ?? null,
+          usedReference: !!scrapeResult.scraped,
+          referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+            ? scrapeResult.failureReason
+            : null,
+          referenceTruncated: scrapeResult.scraped?.truncated ?? false,
+          referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+          usedScreenshot: !!visionImage,
         });
         return;
       }
 
+      // May 2026 audit follow-up: dense pages routinely run 8–12k output
+      // tokens; 8192 was clipping bullets and proof points. Raise budget;
+      // bump temperature to push past the "median safe" answer the model
+      // defaults to at 0.7 under a tight schema. When the caller provided a
+      // reference screenshot, switch to multimodal content parts.
+      const templateUserText = templateUserPromptParts.join("\n\n");
+      const templateUserContent: string | ChatCompletionContentPart[] = visionImage
+        ? [
+            { type: "text", text: templateUserText },
+            { type: "image_url", image_url: { url: visionImage } },
+          ]
+        : templateUserText;
       const completion = await openai!.chat.completions.create({
         model: "gpt-4o",
-        temperature: 0.7,
-        max_completion_tokens: 8192,
+        temperature: 0.9,
+        max_completion_tokens: 12288,
         messages: [
           { role: "system", content: templateSystemPrompt },
-          { role: "user", content: templateUserPromptParts.join("\n\n") },
+          { role: "user", content: templateUserContent },
         ],
       });
 
@@ -1680,6 +1825,14 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         slug,
         blocks: mergedBlocks,
         strictMismatches,
+        referenceUrl: scrapeResult.scraped?.url ?? null,
+        usedReference: !!scrapeResult.scraped,
+        referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+          ? scrapeResult.failureReason
+          : null,
+        referenceTruncated: scrapeResult.scraped?.truncated ?? false,
+        referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+        usedScreenshot: !!visionImage,
       });
       return;
     } catch (err) {
@@ -1711,6 +1864,11 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   if (proofPointsSection) userPromptParts.push(proofPointsSection);
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   if (dandyInternalVideosSection) userPromptParts.push(dandyInternalVideosSection);
+  // Reference URL + screenshot (May 2026 audit follow-up). Brand-voice
+  // anchor lives inside brandContext and explicitly outranks the reference
+  // section per the framing in referenceSection itself.
+  if (referenceSection) userPromptParts.push(referenceSection);
+  if (visionSection) userPromptParts.push(visionSection);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
     useDsoPractices
@@ -1728,18 +1886,36 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       systemPrompt,
       userPrompt,
       strict,
+      referenceUrl: scrapeResult.scraped?.url ?? null,
+      usedReference: !!scrapeResult.scraped,
+      referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+        ? scrapeResult.failureReason
+        : null,
+      referenceTruncated: scrapeResult.scraped?.truncated ?? false,
+      referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+      usedScreenshot: !!visionImage,
     });
     return;
   }
 
   try {
+    // May 2026 audit follow-up: 4096 was severely limiting for freeform
+    // full-page generation (5–10 blocks with rich props). Raise to 12288
+    // and bump temperature out of the "safe median" zone. When the caller
+    // attached a reference screenshot, switch to multimodal content parts.
+    const userContent: string | ChatCompletionContentPart[] = visionImage
+      ? [
+          { type: "text", text: userPrompt },
+          { type: "image_url", image_url: { url: visionImage } },
+        ]
+      : userPrompt;
     const completion = await openai!.chat.completions.create({
       model: "gpt-4o",
-      temperature: 0.7,
-      max_completion_tokens: 4096,
+      temperature: 0.9,
+      max_completion_tokens: 12288,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "user", content: userContent },
       ],
     });
 
@@ -2213,6 +2389,14 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       slug: parsed.slug,
       blocks: parsed.blocks,
       strictMismatches,
+      referenceUrl: scrapeResult.scraped?.url ?? null,
+      usedReference: !!scrapeResult.scraped,
+      referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+        ? scrapeResult.failureReason
+        : null,
+      referenceTruncated: scrapeResult.scraped?.truncated ?? false,
+      referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+      usedScreenshot: !!visionImage,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });

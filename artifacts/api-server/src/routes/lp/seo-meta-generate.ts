@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { lpBrandSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -56,7 +57,7 @@ function buildAudiencePrompt(audienceType?: AudienceType | null, segmentContext?
   return parts.join("\n");
 }
 
-router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
+router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
 
   const { blocks, title, currentSlug, audienceType, segmentContext } = req.body as {
