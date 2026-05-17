@@ -16,12 +16,30 @@ const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+/**
+ * Count-up runs only on viewports ≥640px AND when the user hasn't asked for
+ * reduced motion. On phones the section is horizontally scrolled, so off-screen
+ * cards would otherwise pop in mid-scroll showing "0" — jarring. Static numbers
+ * read better there.
+ */
+function shouldAnimateCount(): boolean {
+  if (typeof window === "undefined") return false;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const isMobile = window.matchMedia?.("(max-width: 639px)").matches;
+  return !reducedMotion && !isMobile;
+}
+
 function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?: string; prefix?: string }) {
-  const [count, setCount] = useState(0);
+  const animate = shouldAnimateCount();
+  const [count, setCount] = useState(animate ? 0 : target);
   const ref = useRef<HTMLSpanElement>(null);
   const started = useRef(false);
 
   useEffect(() => {
+    if (!animate) {
+      setCount(target);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -43,7 +61,7 @@ function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [target]);
+  }, [target, animate]);
 
   return <span ref={ref}>{prefix}{count}{suffix}</span>;
 }
@@ -98,18 +116,34 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
           </div>
         )}
 
+        {/*
+          Mobile: horizontal snap-scroll row with each card sized to ~80vw so
+          the next one "peeks" in, signalling there's more. Desktop (sm+):
+          equal-width grid columns inside a bordered card with internal
+          dividers between items.
+        */}
         <div
+          className="dso-stat-row flex overflow-x-auto snap-x snap-mandatory sm:grid sm:overflow-visible -mx-6 px-6 sm:mx-0 sm:px-0 gap-3 sm:gap-0 pb-2 sm:pb-0"
           style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${Math.min(items.length, 4)}, 1fr)`,
-            gap: "0",
-            border: `1px solid ${divC}`,
-            borderRadius: "1rem",
-            overflow: "hidden",
+            ["--dso-stat-cols" as string]: String(Math.min(items.length, 4)),
+            ["--dso-stat-border" as string]: divC,
+            scrollbarWidth: "none",
           }}
         >
+          <style>{`
+            .dso-stat-row::-webkit-scrollbar { display: none; }
+            @media (min-width: 640px) {
+              .dso-stat-row {
+                grid-template-columns: repeat(var(--dso-stat-cols), 1fr);
+                border: 1px solid var(--dso-stat-border);
+                border-radius: 1rem;
+                overflow: hidden;
+              }
+            }
+          `}</style>
           {items.map((item, i) => {
             const parsed = parseStatValue(item.value);
+            const isLast = i === items.length - 1;
             return (
               <motion.div
                 key={i}
@@ -117,10 +151,11 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.5 }}
+                className={`snap-start shrink-0 sm:shrink basis-[80%] sm:basis-auto rounded-2xl sm:rounded-none border sm:border-0 ${isLast ? "" : "sm:border-r"}`}
                 style={{
                   padding: "2rem 1.5rem",
                   textAlign: "center",
-                  borderRight: i < items.length - 1 ? `1px solid ${divC}` : "none",
+                  borderColor: divC,
                   background: dark ? "rgba(255,255,255,0.03)" : "#fff",
                 }}
               >
