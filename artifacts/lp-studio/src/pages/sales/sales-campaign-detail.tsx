@@ -190,9 +190,10 @@ export default function SalesCampaignDetail() {
   const [previewText, setPreviewText] = useState("");
   const [savingSender, setSavingSender] = useState(false);
 
-  // Available accounts/templates for editing
+  // Available accounts/templates/pages for editing
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [pages, setPages] = useState<Array<{ id: number; title: string; slug: string; status: string }>>([]);
 
   const fetchCampaign = useCallback(async () => {
     if (!campaignId) return;
@@ -221,11 +222,18 @@ export default function SalesCampaignDetail() {
 
   useEffect(() => {
     fetchCampaign();
-    // Also load accounts and templates for edit mode
+    // Also load accounts, templates, and landing pages for edit mode
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
-    ]).then(([a, t]) => { setAccounts(a); setTemplates(t); });
+      fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
+    ]).then(([a, t, p]) => {
+      setAccounts(a);
+      setTemplates(t);
+      setPages(Array.isArray(p) ? p.map((pg: { id: number; title: string; slug: string; status: string }) => ({
+        id: pg.id, title: pg.title, slug: pg.slug, status: pg.status,
+      })) : []);
+    });
   }, [fetchCampaign]);
 
   // Initialize contact selection from metadata when campaign loads
@@ -444,6 +452,28 @@ export default function SalesCampaignDetail() {
     }
   }
 
+  async function handleChangePage(pageId: number | null) {
+    if (!campaign) return;
+    setSaving(true);
+    try {
+      const updatedMeta = {
+        ...(campaign.metadata ?? {}),
+        pageId: pageId ?? undefined,
+      };
+      if (pageId === null) {
+        delete (updatedMeta as Record<string, unknown>).pageId;
+      }
+      await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: updatedMeta }),
+      });
+      fetchCampaign();
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // ─── Render ─────────────────────────────────────────────────
 
   if (!match) return null;
@@ -487,6 +517,25 @@ export default function SalesCampaignDetail() {
   const isDraft = campaign.status === "draft";
   const isScheduled = campaign.status === "scheduled";
   const isSent = campaign.status === "sent";
+
+  // Personalized-link wiring: detect whether the template body/subject uses a
+  // microsite-url-style token, what page (if any) the campaign points at, and
+  // whether that page is published. Used to gate Send / Schedule actions so
+  // recipients never receive an empty link.
+  const campaignPageId = (campaign.metadata?.pageId as number | undefined) ?? null;
+  const selectedPageStatus = campaignPageId != null
+    ? (pages.find(p => p.id === campaignPageId)?.status ?? null)
+    : null;
+  const tpl = campaign.template;
+  const tplCombined = tpl ? `${tpl.subject ?? ""}\n${tpl.bodyHtml ?? ""}\n${tpl.bodyText ?? ""}` : "";
+  const templateUsesMicrositeUrl = /\{\{\s*(microsite_url|micrositeurl|personalized_link|personalizedlink|page_url|pageurl|link|microsite)\s*\}\}/i.test(tplCombined);
+  const personalizedLinkBlocker: string | null = templateUsesMicrositeUrl
+    ? (campaignPageId == null
+        ? "Pick a landing page so personalized links work"
+        : selectedPageStatus && selectedPageStatus !== "published"
+          ? "Publish the selected landing page before sending"
+          : null)
+    : null;
 
   // Saved contactIds from metadata (the ones that are actually persisted)
   const savedContactIds: number[] = (campaign.metadata?.contactIds as number[]) ?? [];
@@ -564,7 +613,11 @@ export default function SalesCampaignDetail() {
           <div className="flex items-center gap-2 flex-shrink-0">
             {(() => {
               const needsTemplate = campaign.templateId === null || campaign.templateId === undefined;
-              const tooltip = needsTemplate ? "Pick an email template first" : undefined;
+              const blocker = needsTemplate
+                ? "Pick an email template first"
+                : personalizedLinkBlocker;
+              const tooltip = blocker ?? undefined;
+              const disabled = needsTemplate || personalizedLinkBlocker !== null;
               return (
                 <>
                   {(isDraft || campaign?.template) && (
@@ -573,7 +626,7 @@ export default function SalesCampaignDetail() {
                       variant="outline"
                       onClick={() => setShowTestEmail(true)}
                       disabled={needsTemplate}
-                      title={tooltip ?? "Send a test email to your inbox"}
+                      title={needsTemplate ? "Pick an email template first" : "Send a test email to your inbox"}
                       className="gap-1.5"
                     >
                       <FlaskConical className="w-3.5 h-3.5" />
@@ -586,7 +639,7 @@ export default function SalesCampaignDetail() {
                         size="sm"
                         variant="outline"
                         onClick={() => setShowSchedule(true)}
-                        disabled={needsTemplate}
+                        disabled={disabled}
                         title={tooltip}
                         className="gap-1.5"
                       >
@@ -596,7 +649,7 @@ export default function SalesCampaignDetail() {
                       <Button
                         size="sm"
                         onClick={handleSend}
-                        disabled={sendingCampaign || needsTemplate}
+                        disabled={sendingCampaign || disabled}
                         title={tooltip}
                         className="gap-1.5"
                       >
@@ -776,6 +829,39 @@ export default function SalesCampaignDetail() {
                 </select>
                 {campaign.templateId == null && (
                   <p className="text-[11px] text-muted-foreground mt-1.5">Pick a template before sending or scheduling this campaign.</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs text-muted-foreground mb-1 block">Landing Page (personalized link)</Label>
+                <select
+                  value={campaignPageId == null ? "" : String(campaignPageId)}
+                  onChange={e => {
+                    const v = e.target.value;
+                    handleChangePage(v ? Number(v) : null);
+                  }}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">No personalized link</option>
+                  {pages.map(p => (
+                    <option key={p.id} value={p.id} disabled={p.status !== "published"}>
+                      {p.title}{p.status !== "published" ? ` — ${p.status} (publish first)` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Each recipient gets a unique tracked URL to this page via the <code className="px-1 py-0.5 rounded bg-muted text-[10px]">{"{{microsite_url}}"}</code> token.
+                </p>
+                {templateUsesMicrositeUrl && campaignPageId == null && (
+                  <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    <span>Your template includes a personalized link, but no landing page is selected. Recipients will receive an empty link — pick a page above before sending.</span>
+                  </div>
+                )}
+                {templateUsesMicrositeUrl && campaignPageId != null && selectedPageStatus && selectedPageStatus !== "published" && (
+                  <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    <span>The selected landing page is <strong>{selectedPageStatus}</strong>. Publish it before sending so recipients land on a live page.</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -1115,6 +1201,7 @@ export default function SalesCampaignDetail() {
           senderName={senderName}
           senderEmail={senderEmail}
           replyTo={replyTo}
+          pageId={campaignPageId}
         />
       )}
     </SalesLayout>

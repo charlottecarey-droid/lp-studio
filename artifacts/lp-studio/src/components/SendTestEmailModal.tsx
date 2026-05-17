@@ -29,6 +29,9 @@ interface Props {
   senderName?: string;
   senderEmail?: string;
   replyTo?: string;
+  /** Landing page to ensure-create a hotlink against so the test email
+   *  contains a real personalized URL (matches what real recipients see). */
+  pageId?: number | null;
 }
 
 export function SendTestEmailModal({
@@ -41,6 +44,7 @@ export function SendTestEmailModal({
   senderName,
   senderEmail,
   replyTo,
+  pageId,
 }: Props) {
   const { user } = useAuth();
   const [to, setTo] = useState(user?.email ?? "");
@@ -64,6 +68,9 @@ export function SendTestEmailModal({
       };
       if (selectedContactId) {
         payload.contactId = Number(selectedContactId);
+      }
+      if (pageId) {
+        payload.pageId = pageId;
       }
       const res = await fetch(`${API_BASE}/sales/send-test-email`, {
         method: "POST",

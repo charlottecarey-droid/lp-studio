@@ -1,7 +1,7 @@
 import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, inArray } from "drizzle-orm";
-import { createHmac } from "crypto";
+import { createHmac, randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import {
   salesEmailCampaignsTable,
@@ -154,6 +154,82 @@ function appendUtms(html: string, utmParams: string): string {
 function injectTrackingPixel(html: string, trackUrl: string): string {
   const pixel = `<img src="${trackUrl}" width="1" height="1" style="display:none" alt="" />`;
   return html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
+}
+
+/**
+ * Returns true if any of the given strings contain a `{{microsite_url}}`-style
+ * token (or any common alias — link, microsite, personalized_link, page_url).
+ * Used to decide whether a campaign actually needs a landing page wired up
+ * before it can be sent.
+ */
+function templateNeedsMicrositeUrl(...texts: (string | null | undefined)[]): boolean {
+  const aliases = new Set([
+    "micrositeurl",
+    "personalizedlink",
+    "personalizedurl",
+    "pageurl",
+    "link",
+    "microsite",
+  ]);
+  const re = /\{\{\s*([^{}]+?)\s*\}\}/g;
+  for (const text of texts) {
+    if (!text) continue;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (aliases.has(normalizeTokenKey(m[1]))) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Find-or-create an active hotlink for (contactId, pageId). Reactivates a
+ * soft-deleted one if present. Used by the campaign send/test/preview paths
+ * so recipients always get a real, working personalized link rather than an
+ * empty `{{microsite_url}}` placeholder.
+ *
+ * NOTE: caller is responsible for validating that the page is published
+ * before calling — we don't gate here so that draft-page previews still work.
+ */
+async function ensureHotlinkForContact(
+  contactId: number,
+  pageId: number,
+  sfdcContactId: string | null,
+): Promise<{ id: number; token: string }> {
+  const [existing] = await db
+    .select({ id: salesHotlinksTable.id, token: salesHotlinksTable.token, isActive: salesHotlinksTable.isActive })
+    .from(salesHotlinksTable)
+    .where(and(
+      eq(salesHotlinksTable.contactId, contactId),
+      eq(salesHotlinksTable.pageId, pageId),
+    ))
+    .limit(1);
+  if (existing) {
+    if (!existing.isActive) {
+      await db.update(salesHotlinksTable)
+        .set({ isActive: true })
+        .where(eq(salesHotlinksTable.id, existing.id));
+    }
+    return { id: existing.id, token: existing.token };
+  }
+  // Generate a unique 16-char token (matches the LP/sales hotlink format).
+  let token = "";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = randomBytes(12).toString("base64url").slice(0, 16);
+    const [clash] = await db.select({ id: salesHotlinksTable.id })
+      .from(salesHotlinksTable)
+      .where(eq(salesHotlinksTable.token, candidate))
+      .limit(1);
+    if (!clash) { token = candidate; break; }
+  }
+  if (!token) throw new Error("Failed to generate unique hotlink token");
+  const [inserted] = await db.insert(salesHotlinksTable).values({
+    token,
+    contactId,
+    sfdcContactId,
+    pageId,
+  }).returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
+  return { id: inserted.id, token: inserted.token };
 }
 
 async function sendViaResend(payload: {
@@ -411,6 +487,29 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       return;
     }
 
+    // If the template uses a personalized-link token, we MUST have a landing
+    // page selected on the campaign — otherwise every recipient would receive
+    // an empty link. Validate up front and bail with a clear error.
+    const needsMicrosite = templateNeedsMicrositeUrl(template.subject, template.bodyHtml, template.bodyText);
+    const campaignPageId = (campaign.metadata as any)?.pageId as number | undefined;
+    let campaignPage: { id: number; status: string } | null = null;
+    if (campaignPageId) {
+      const [pg] = await db.select({ id: lpPagesTable.id, status: lpPagesTable.status })
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.id, campaignPageId), eq(lpPagesTable.tenantId, tenantId)));
+      campaignPage = pg ?? null;
+    }
+    if (needsMicrosite) {
+      if (!campaignPage) {
+        res.status(400).json({ error: "This template uses a personalized link — pick a landing page on the campaign before sending." });
+        return;
+      }
+      if (campaignPage.status !== "published") {
+        res.status(400).json({ error: "The selected landing page is not published yet. Publish it before sending this campaign." });
+        return;
+      }
+    }
+
     // Idempotency guard: skip contacts already sent to in this campaign
     const existingSends = await db.select({ contactId: salesEmailSendsTable.contactId })
       .from(salesEmailSendsTable)
@@ -426,30 +525,37 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       return;
     }
 
-    // Batch-load all hotlinks for sendable contacts (eliminates N+1 in send loop).
-    // Only include hotlinks whose linked page is PUBLISHED — we never send dead
-    // or in-progress links in a campaign. Active hotlinks for unpublished pages
-    // are treated as if no hotlink exists (the body's {{microsite_url}} stays empty).
+    // Batch-load existing hotlinks for the campaign's landing page so we can
+    // reuse tokens instead of generating duplicates. Anything missing will be
+    // auto-created below per recipient inside the send loop. We scope to the
+    // CAMPAIGN's selected pageId (when set) so we never accidentally send the
+    // wrong page's URL just because the contact has some other hotlink.
     const sendableIds = sendable.map(c => c.id);
-    const allHotlinks = await db
-      .select({
-        id: salesHotlinksTable.id,
-        token: salesHotlinksTable.token,
-        contactId: salesHotlinksTable.contactId,
-        pageId: salesHotlinksTable.pageId,
-      })
-      .from(salesHotlinksTable)
-      .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
-      .where(and(
-        inArray(salesHotlinksTable.contactId, sendableIds),
-        eq(salesHotlinksTable.isActive, true),
-        eq(lpPagesTable.status, "published"),
-      ));
-    const hotlinkByContactId = new Map(
-      allHotlinks
-        .filter((h): h is typeof h & { contactId: number } => h.contactId != null)
-        .map(h => [h.contactId, h]),
-    );
+    const hotlinkByContactId = new Map<number, { id: number; token: string; pageId: number }>();
+    if (campaignPageId) {
+      const allHotlinks = await db
+        .select({
+          id: salesHotlinksTable.id,
+          token: salesHotlinksTable.token,
+          contactId: salesHotlinksTable.contactId,
+          pageId: salesHotlinksTable.pageId,
+          isActive: salesHotlinksTable.isActive,
+        })
+        .from(salesHotlinksTable)
+        .where(and(
+          inArray(salesHotlinksTable.contactId, sendableIds),
+          eq(salesHotlinksTable.pageId, campaignPageId),
+        ));
+      for (const h of allHotlinks) {
+        if (h.contactId == null) continue;
+        if (!h.isActive) {
+          await db.update(salesHotlinksTable)
+            .set({ isActive: true })
+            .where(eq(salesHotlinksTable.id, h.id));
+        }
+        hotlinkByContactId.set(h.contactId, { id: h.id, token: h.token, pageId: h.pageId });
+      }
+    }
 
     // Batch-load accounts for {{company}} variable
     const accountIds = [...new Set(sendable.map(c => c.accountId).filter((id): id is number => id != null))];
@@ -490,8 +596,19 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         "{{microsite_url}}": "", // fallback: replaced below if hotlink exists
       };
 
-      // Build microsite URL if hotlink exists (pre-loaded batch)
-      const hotlink = hotlinkByContactId.get(contact.id);
+      // Build microsite URL. If the campaign has a landing page selected,
+      // find-or-create a hotlink for this contact on the fly so every
+      // recipient gets a real, personalized link — not an empty placeholder.
+      let hotlink = hotlinkByContactId.get(contact.id) ?? null;
+      if (!hotlink && campaignPageId) {
+        try {
+          const created = await ensureHotlinkForContact(contact.id, campaignPageId, contact.salesforceId ?? null);
+          hotlink = { id: created.id, token: created.token, pageId: campaignPageId };
+          hotlinkByContactId.set(contact.id, hotlink);
+        } catch (err) {
+          logger.error({ err, contactId: contact.id, pageId: campaignPageId }, "Failed to ensure hotlink for campaign recipient");
+        }
+      }
       if (hotlink) {
         vars["{{microsite_url}}"] = `${host}/p/${hotlink.token}`;
       }
@@ -659,19 +776,32 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       companyName = acc?.name ?? "";
     }
     if (contact) {
-      // Only consider hotlinks for PUBLISHED pages — unpublished links are dead.
-      const [hl] = await db
-        .select({ token: salesHotlinksTable.token })
-        .from(salesHotlinksTable)
-        .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
-        .where(and(
-          eq(salesHotlinksTable.contactId, contact.id),
-          eq(salesHotlinksTable.isActive, true),
-          eq(lpPagesTable.status, "published"),
-        ))
-        .orderBy(desc(salesHotlinksTable.createdAt))
-        .limit(1);
-      if (hl) hotlinkToken = hl.token;
+      // Prefer the campaign's selected landing page so the preview matches
+      // what recipients will actually receive. For preview we accept draft
+      // pages too — the send-time validation gates publishing.
+      const previewPageId = (campaign.metadata as any)?.pageId as number | undefined;
+      if (previewPageId) {
+        try {
+          const created = await ensureHotlinkForContact(contact.id, previewPageId, contact.salesforceId ?? null);
+          hotlinkToken = created.token;
+        } catch (err) {
+          logger.error({ err, contactId: contact.id, pageId: previewPageId }, "Failed to ensure hotlink for preview");
+        }
+      } else {
+        // Legacy fallback: any existing published-page hotlink for this contact.
+        const [hl] = await db
+          .select({ token: salesHotlinksTable.token })
+          .from(salesHotlinksTable)
+          .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+          .where(and(
+            eq(salesHotlinksTable.contactId, contact.id),
+            eq(salesHotlinksTable.isActive, true),
+            eq(lpPagesTable.status, "published"),
+          ))
+          .orderBy(desc(salesHotlinksTable.createdAt))
+          .limit(1);
+        if (hl) hotlinkToken = hl.token;
+      }
     }
 
     const vars: Record<string, string> = contact ? {
@@ -1100,7 +1230,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
 // Does NOT log a send record or create any signals.
 router.post("/send-test-email", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { to, subject, bodyHtml, bodyText, contactId, senderName, senderEmail, replyTo } = req.body;
+  const { to, subject, bodyHtml, bodyText, contactId, pageId, senderName, senderEmail, replyTo } = req.body;
   if (!to || !subject || (!bodyHtml && !bodyText)) {
     res.status(400).json({ error: "to, subject, and either bodyHtml or bodyText are required" });
     return;
@@ -1135,18 +1265,31 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
             .where(eq(salesAccountsTable.id, contact.accountId));
           companyName = account?.name ?? "";
         }
-        // Only inject a microsite URL when the linked page is published.
-        const [hotlink] = await db
-          .select({ token: salesHotlinksTable.token })
-          .from(salesHotlinksTable)
-          .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
-          .where(and(
-            eq(salesHotlinksTable.contactId, contact.id),
-            eq(salesHotlinksTable.isActive, true),
-            eq(lpPagesTable.status, "published"),
-          ))
-          .orderBy(desc(salesHotlinksTable.createdAt))
-          .limit(1);
+        // Prefer the explicit pageId (passed in from the campaign editor) so
+        // the test email mirrors what real recipients will see. Auto-create
+        // a hotlink for this contact+page if one doesn't already exist.
+        let testToken: string | null = null;
+        if (pageId) {
+          try {
+            const created = await ensureHotlinkForContact(contact.id, Number(pageId), contact.salesforceId ?? null);
+            testToken = created.token;
+          } catch (err) {
+            logger.error({ err, contactId: contact.id, pageId }, "Failed to ensure hotlink for test email");
+          }
+        } else {
+          const [hotlink] = await db
+            .select({ token: salesHotlinksTable.token })
+            .from(salesHotlinksTable)
+            .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+            .where(and(
+              eq(salesHotlinksTable.contactId, contact.id),
+              eq(salesHotlinksTable.isActive, true),
+              eq(lpPagesTable.status, "published"),
+            ))
+            .orderBy(desc(salesHotlinksTable.createdAt))
+            .limit(1);
+          if (hotlink) testToken = hotlink.token;
+        }
         vars = {
           "{{first_name}}": contact.firstName ?? "",
           "{{last_name}}": contact.lastName ?? "",
@@ -1154,7 +1297,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
           "{{sender_name}}": fromName,
           "{{email}}": contact.email ?? to,
           "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`,
-          "{{microsite_url}}": hotlink ? `${host}/p/${hotlink.token}` : "",
+          "{{microsite_url}}": testToken ? `${host}/p/${testToken}` : "",
         };
       }
     }
