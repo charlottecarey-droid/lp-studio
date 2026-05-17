@@ -14,6 +14,9 @@ import {
   FlaskConical,
   X,
   Sparkles,
+  Calendar,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -124,10 +127,17 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
   const [sendingTest, setSendingTest] = useState(false);
   const [confirmedUnresolved, setConfirmedUnresolved] = useState(false);
 
-  // Sender (kept simple — defaults match existing behaviour)
+  // Sender + delivery options (editable here; mirrored on campaign detail page)
   const [senderName, setSenderName] = useState("Dandy");
-  const [senderEmail] = useState("partnerships");
-  const [replyTo] = useState("sales@meetdandy.com");
+  const [senderEmail, setSenderEmail] = useState("partnerships");
+  const [replyTo, setReplyTo] = useState("sales@meetdandy.com");
+  const [previewText, setPreviewText] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  // Scheduling — "now" sends immediately; "later" PATCHes status=scheduled
+  const [sendMode, setSendMode] = useState<"now" | "later">("now");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
 
   // Accounts list for filter
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -151,6 +161,13 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
       setSentTest(false);
       setConfirmedUnresolved(false);
       setDraftId(null); // ensure a fresh draft each time the wizard opens
+      setSenderEmail("partnerships");
+      setReplyTo("sales@meetdandy.com");
+      setPreviewText("");
+      setAdvancedOpen(false);
+      setSendMode("now");
+      setScheduleDate("");
+      setScheduleTime("09:00");
       if (user?.name) setSenderName(user.name.split(" ")[0] || "Dandy");
     }
   }, [open, user]);
@@ -330,8 +347,9 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
       const meta = {
         contactIds: Array.from(selectedContactIds),
         senderName: senderName.trim() || "Dandy",
-        senderEmail,
-        replyTo,
+        senderEmail: senderEmail.trim() || "partnerships",
+        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        previewText: previewText.trim(),
       };
 
       if (draftId) {
@@ -462,6 +480,32 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
     setSubmitting(true);
     setError(null);
     try {
+      // Scheduled send — flip the draft to status=scheduled with scheduledAt and exit
+      if (sendMode === "later") {
+        if (!scheduleDate || !scheduleTime) {
+          throw new Error("Pick a date and time for the scheduled send.");
+        }
+        const when = new Date(`${scheduleDate}T${scheduleTime}`);
+        if (Number.isNaN(when.getTime())) throw new Error("That date and time don't look right.");
+        if (when.getTime() <= Date.now()) throw new Error("Schedule time must be in the future.");
+        const r = await fetch(`${API_BASE}/sales/campaigns/${draftId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "scheduled", scheduledAt: when.toISOString() }),
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error ?? "Failed to schedule campaign");
+        }
+        onCreated?.(draftId);
+        onClose();
+        setDraftId(null);
+        if (typeof window !== "undefined") {
+          alert(`Campaign scheduled for ${when.toLocaleString()}.`);
+        }
+        return;
+      }
+
       const r = await fetch(`${API_BASE}/sales/campaigns/${draftId}/send`, {
         method: "POST",
       });
@@ -809,6 +853,119 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
                 </Button>
               </div>
 
+              {/* When to send */}
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">When to send</span>
+                </div>
+                <div className="flex gap-2 p-1 bg-muted/50 rounded-lg w-fit mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSendMode("now")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                      sendMode === "now" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Send now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendMode("later")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                      sendMode === "later" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Schedule for later
+                  </button>
+                </div>
+                {sendMode === "later" && (
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">Date</label>
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={e => setScheduleDate(e.target.value)}
+                        className="h-9 w-40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">Time</label>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={e => setScheduleTime(e.target.value)}
+                        className="h-9 w-32"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground pb-1.5">
+                      Uses your browser's time zone. You can edit or cancel before it sends.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Advanced — sender, reply-to, preview text */}
+              <div className="rounded-xl border border-border bg-muted/20">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen(v => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted/30 transition-colors rounded-xl"
+                >
+                  {advancedOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                  Advanced — sender, reply-to, preview text
+                </button>
+                {advancedOpen && (
+                  <div className="px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">From name</label>
+                      <Input
+                        value={senderName}
+                        onChange={e => setSenderName(e.target.value)}
+                        placeholder="Dandy"
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">From email</label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          value={senderEmail}
+                          onChange={e => setSenderEmail(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ""))}
+                          placeholder="partnerships"
+                          className="h-9"
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">@ent.meetdandy.com</span>
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">Reply-to</label>
+                      <Input
+                        type="email"
+                        value={replyTo}
+                        onChange={e => setReplyTo(e.target.value)}
+                        placeholder="sales@meetdandy.com"
+                        className="h-9"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1">Replies from recipients go here.</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">Preview text</label>
+                      <Input
+                        value={previewText}
+                        onChange={e => setPreviewText(e.target.value)}
+                        placeholder="Short teaser shown next to the subject in the inbox…"
+                        className="h-9"
+                        maxLength={140}
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1">{previewText.length}/140 — shown in Gmail/Outlook inbox preview.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Warnings */}
               {preview && preview.unresolvedTokens.length > 0 && (
                 <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-300 bg-amber-50">
@@ -883,6 +1040,9 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
               <div className="text-xs text-muted-foreground">
                 Sending to <span className="font-semibold text-foreground">{selectedContactIds.size}</span> {selectedContactIds.size === 1 ? "person" : "people"}
                 {" "}from <span className="font-semibold text-foreground">{senderName}</span> &lt;{senderEmail}@ent.meetdandy.com&gt;
+                {sendMode === "later" && scheduleDate && scheduleTime && (
+                  <> · <span className="font-semibold text-foreground">scheduled for {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString()}</span></>
+                )}
               </div>
             </div>
           )}
@@ -934,8 +1094,10 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
                 disabled={!canAdvance() || submitting || previewLoading}
                 className="gap-1.5"
               >
-                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                Send now ({selectedContactIds.size})
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : sendMode === "later" ? <Calendar className="w-3.5 h-3.5" />
+                  : <Send className="w-3.5 h-3.5" />}
+                {sendMode === "later" ? `Schedule (${selectedContactIds.size})` : `Send now (${selectedContactIds.size})`}
               </Button>
             )}
           </div>
