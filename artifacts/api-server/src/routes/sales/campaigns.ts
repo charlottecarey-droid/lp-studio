@@ -17,15 +17,12 @@ import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
-import { getSalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-// NOTE: SENDER_DOMAIN and DEFAULT_REPLY_TO used to live here as
-// process.env defaults; they're now resolved per-tenant from
-// lp_brand_settings.config.salesConsole inside each send path so
-// nothing leaks across tenants.
+const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "ent.meetdandy.com";
+const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
 // 1x1 transparent GIF pixel for open tracking
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
@@ -199,7 +196,6 @@ function templateNeedsMicrositeUrl(...texts: (string | null | undefined)[]): boo
  * before calling — we don't gate here so that draft-page previews still work.
  */
 async function ensureHotlinkForContact(
-  tenantId: number,
   contactId: number,
   pageId: number,
   sfdcContactId: string | null,
@@ -235,7 +231,7 @@ async function ensureHotlinkForContact(
   }
   if (!token) throw new Error("Failed to generate unique hotlink token");
   const [row] = await db.insert(salesHotlinksTable)
-    .values({ tenantId, token, contactId, sfdcContactId, pageId })
+    .values({ token, contactId, sfdcContactId, pageId })
     .onConflictDoUpdate({
       target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId],
       targetWhere: sql`contact_id IS NOT NULL`,

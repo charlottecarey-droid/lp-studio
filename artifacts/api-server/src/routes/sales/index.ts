@@ -18,7 +18,6 @@ import personBriefRouter from "./person-brief";
 import layoutDefaultsRouter from "./layout-defaults";
 import onePagerTemplatesRouter from "./one-pager-templates";
 import webOnePagerRouter from "./web-one-pager";
-import brandContextRouter from "./brand-context";
 
 const router = Router();
 
@@ -41,6 +40,5 @@ router.use(personBriefRouter);
 router.use(layoutDefaultsRouter);
 router.use(onePagerTemplatesRouter);
 router.use(webOnePagerRouter);
-router.use(brandContextRouter);
 
 export default router;

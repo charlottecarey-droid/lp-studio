@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Building2,
@@ -33,6 +33,70 @@ import { ModeToggle } from "@/components/layout/mode-toggle";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+
+/**
+ * Task #320 — the Sales Console top nav has a dark green background
+ * (#122B21). The Dandy fallback SVG is forced white with `brightness-0
+ * invert`, but uploaded brand logos can be any color. To guarantee
+ * contrast without flattening multi-color logos or washing out
+ * already-light logos, we load the image off-screen, sample its average
+ * non-transparent luminance, and only apply `brightness-0 invert` when
+ * the logo is dark.
+ *
+ * Returns:
+ *   - true   → logo is dark, force it white via `brightness-0 invert`.
+ *   - false  → logo is already light/multi-color, render as-is.
+ *   - null   → not yet decided (still loading); the caller falls back
+ *             to a color-agnostic light chip so any color logo stays
+ *             readable while we wait.
+ *
+ * On decode error we resolve to `true` (invert) — this is only hit
+ * when the image itself fails to load, so the visible <img> would be
+ * broken anyway; the class doesn't matter.
+ */
+function useLogoNeedsInversion(src: string | null | undefined): boolean | null {
+  const [needsInvert, setNeedsInvert] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!src) { setNeedsInvert(null); return; }
+    let cancelled = false;
+    setNeedsInvert(null);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      try {
+        const w = 32, h = 32;
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { setNeedsInvert(true); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let lumSum = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const alpha = data[i + 3];
+          if (alpha < 16) continue; // skip transparent pixels
+          // Rec. 709 luma approximation
+          const lum = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+          lumSum += lum; count++;
+        }
+        if (count === 0) { setNeedsInvert(true); return; }
+        const avg = lumSum / count; // 0..255
+        // Threshold tuned for "dark enough that it disappears on
+        // #122B21". Anything under mid-grey gets inverted.
+        setNeedsInvert(avg < 140);
+      } catch {
+        // Cross-origin taint or other failure — fall back to inverting
+        // so the original dark-logo bug stays fixed.
+        setNeedsInvert(true);
+      }
+    };
+    img.onerror = () => { if (!cancelled) setNeedsInvert(true); };
+    img.src = src;
+    return () => { cancelled = true; };
+  }, [src]);
+  return needsInvert;
+}
 
 function UserAvatarDropdown() {
   const { user, logout } = useAuth();
@@ -165,6 +229,7 @@ export function SalesTopNav() {
   const { brand } = useBrandConfig();
   const brandLogoUrl = brand.logoUrl ?? "";
   const brandName = brand.brandName ?? "";
+  const brandLogoNeedsInvert = useLogoNeedsInversion(brandLogoUrl || null);
   const [location] = useLocation();
   const { hasPerm } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -259,11 +324,33 @@ export function SalesTopNav() {
         <Link href="/sales">
           <div className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer group">
             {brandLogoUrl ? (
-              <img
-                src={brandLogoUrl}
-                alt={brandName || "Logo"}
-                className="h-5 w-auto opacity-90 group-hover:opacity-100 transition-opacity"
-              />
+              brandLogoNeedsInvert === true ? (
+                // Detected as dark → force white so it reads on #122B21.
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName || "Logo"}
+                  className="h-5 w-auto brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
+                />
+              ) : brandLogoNeedsInvert === false ? (
+                // Detected as light/multi-color → render as-is, no
+                // color-shifting (avoids washing out white logos).
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName || "Logo"}
+                  className="h-5 w-auto opacity-90 group-hover:opacity-100 transition-opacity"
+                />
+              ) : (
+                // Detection pending or unavailable (e.g. cross-origin
+                // taint) → render on a subtle light chip so any logo
+                // color stays readable without color-shifting.
+                <span className="inline-flex items-center rounded-md bg-white/95 px-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                  <img
+                    src={brandLogoUrl}
+                    alt={brandName || "Logo"}
+                    className="h-5 w-auto"
+                  />
+                </span>
+              )
             ) : (
               <img
                 src={dandyLogo}

@@ -64,7 +64,7 @@ function generateToken(): string {
   return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
-async function getOrCreateHotlink(tenantId: number, contactId: number, pageId: number, sfdcContactId?: string | null): Promise<typeof salesHotlinksTable.$inferSelect> {
+async function getOrCreateHotlink(contactId: number, pageId: number, sfdcContactId?: string | null): Promise<typeof salesHotlinksTable.$inferSelect> {
   const existing = await db.select().from(salesHotlinksTable)
     .where(and(
       eq(salesHotlinksTable.contactId, contactId),
@@ -81,7 +81,6 @@ async function getOrCreateHotlink(tenantId: number, contactId: number, pageId: n
     if (dup.length === 0) break;
   }
   const [hotlink] = await db.insert(salesHotlinksTable).values({
-    tenantId,
     token: token!,
     contactId,
     sfdcContactId: sfdcContactId ?? null,
@@ -262,7 +261,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
         .limit(1);
       const isNew = existingCheck.length === 0;
 
-      const hotlink = await getOrCreateHotlink(tenantId, contact.id, Number(pageId));
+      const hotlink = await getOrCreateHotlink(contact.id, Number(pageId));
       if (isNew) hotlinksCreated++;
 
       const micrositeUrl = `${host}/p/${hotlink.token}`;
