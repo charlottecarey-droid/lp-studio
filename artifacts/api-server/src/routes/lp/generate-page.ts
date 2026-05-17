@@ -615,14 +615,42 @@ function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknow
   /** Check if a URL is an excluded image (OG, social, ad creative) */
   function isExcludedUrl(url: string): boolean {
     const tags = urlToTags.get(url);
-    if (!tags) return false; // URL not in library — could be external, leave it
+    if (!tags) return false;
     return tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase()));
   }
 
-  /** Clear a URL if it's excluded, return the cleaned value */
+  /**
+   * The AI is instructed to ONLY pick URLs from the IMAGE LIBRARY supplied in
+   * the prompt. In practice it sometimes hallucinates plausible-looking but
+   * non-existent hosts (e.g. `https://image-library.com/foo.jpg`). Any URL
+   * not present in the library AND not pointing at our own object-storage
+   * serve path is treated as hallucinated and cleared, so fillEmptyImages()
+   * can substitute a real library image. We allow either:
+   *   - root-relative serve paths (`/api/storage/objects/...`, `/objects/...`)
+   *   - absolute URLs whose pathname matches the same serve paths (e.g.
+   *     `https://meetdandy-lp.com/api/storage/objects/uploads/<uuid>` — the
+   *     block-registry defaults use this exact shape)
+   *   - data: URIs (rare, but harmless)
+   */
+  function isAllowedExternalUrl(url: string): boolean {
+    if (url.startsWith("data:")) return true;
+    if (url.startsWith("/api/storage/objects/") || url.startsWith("/objects/")) return true;
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      try {
+        const p = new URL(url).pathname;
+        return p.startsWith("/api/storage/objects/") || p.startsWith("/objects/");
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /** Clear a URL if it's excluded or hallucinated; return the cleaned value */
   function cleanUrl(url: unknown): string {
     if (typeof url !== "string" || !url) return "";
     if (isExcludedUrl(url)) return "";
+    if (!urlToTags.has(url) && !isAllowedExternalUrl(url)) return "";
     return url;
   }
 
@@ -681,6 +709,16 @@ function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknow
         ...c,
         image: typeof c.image === "string" ? cleanUrl(c.image) : c.image,
       }));
+    }
+
+    // dso-problem.imageUrls — array of plain string URLs, EXACTLY 2 expected.
+    // We clean each entry; empty strings are kept so the slot is visibly
+    // unfilled (renderer shows its placeholder), which is preferable to
+    // shipping a broken-image icon for a hallucinated host.
+    if (Array.isArray(props.imageUrls)) {
+      props.imageUrls = (props.imageUrls as unknown[]).map(u =>
+        typeof u === "string" ? cleanUrl(u) : "",
+      );
     }
 
     b.props = props;
@@ -1145,6 +1183,7 @@ RULES:
    - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 10a. TEXT COLOR: Never wrap headline, subheadline, eyebrow, label, body, or any text field in inline color styles (e.g. <span style="color:#...">). Heading and body text MUST inherit color from the block's backgroundStyle so contrast is always correct. Server-side post-processing will strip any inline color you set, so emitting them is wasted tokens. To emphasize a word, use <strong> or <em>, not color.
+10b. IMAGE URLS — STRICT: Every imageUrl, backgroundImageUrl, heroImageUrl, src, and image field MUST be either (a) a verbatim URL copied from the IMAGE LIBRARY section above, or (b) an empty string "". NEVER invent, guess, or fabricate URLs. NEVER use placeholder domains like "image-library.com", "example.com", "cdn.example.com", "images.unsplash.com", "via.placeholder.com", or any host not literally present in the IMAGE LIBRARY. If no library image fits a slot, leave the field as "" — the server will fill it in. Hallucinated URLs render as broken images on the live page.
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
