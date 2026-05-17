@@ -2,7 +2,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
-import lpstudioLogo from "@/assets/lpstudio-logo.svg";
+import lpstudioLogo from "@assets/IMG_0208_1779034101365.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
