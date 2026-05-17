@@ -99,7 +99,7 @@ const INK2 = "#5A6862";
 // Bagoss Standard + Inter are loaded globally via `index.css` @font-face,
 // so no runtime font injection is needed here.
 const SERIF = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Bagoss Standard', 'EB Garamond', Georgia, serif";
-const SANS = "'Inter', system-ui, sans-serif";
+const SANS = "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', system-ui, sans-serif";
 
 // ─── Atoms ─────────────────────────────────────────────────────
 function Eyebrow({

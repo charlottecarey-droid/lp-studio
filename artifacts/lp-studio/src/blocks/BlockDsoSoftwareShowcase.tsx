@@ -177,7 +177,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
               padding: "0.2rem 0.6rem",
               fontSize: "0.6875rem",
               color: dark ? "rgba(255,255,255,0.3)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.4)",
-              fontFamily: "'Inter',system-ui,sans-serif",
+              fontFamily: "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', system-ui, sans-serif",
               display: "flex",
               alignItems: "center",
               gap: "0.3rem",
@@ -238,7 +238,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
             }}
           >
             <MonitorPlay style={{ width: 48, height: 48, color: dark ? "rgba(255,255,255,0.15)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.188)` }} />
-            <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.251)`, fontFamily: "'Inter',system-ui,sans-serif" }}>
+            <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.251)`, fontFamily: "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', system-ui, sans-serif" }}>
               Add a screenshot or video in properties
             </p>
           </div>
@@ -275,7 +275,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
               padding: "0.35rem 0.875rem 0.35rem 0.5rem",
               fontSize: "0.8125rem",
               color: dark ? "rgba(255,255,255,0.8)" : BRAND,
-              fontFamily: "'Inter',system-ui,sans-serif",
+              fontFamily: "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', system-ui, sans-serif",
               fontWeight: 500,
               whiteSpace: "nowrap",
             }}

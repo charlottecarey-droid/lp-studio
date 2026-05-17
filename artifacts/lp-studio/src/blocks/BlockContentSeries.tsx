@@ -50,7 +50,7 @@ class ContentSeriesErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f12", color: "#eeeae3", fontFamily: "'Inter', sans-serif", padding: "2rem" }}>
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f12", color: "#eeeae3", fontFamily: "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', sans-serif", padding: "2rem" }}>
           <div style={{ maxWidth: "32rem", textAlign: "center" }}>
             <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", color: "#b59a6e" }}>Content Series — Render Error</h2>
             <p style={{ fontSize: "0.85rem", color: "#7a8088", lineHeight: 1.6 }}>
@@ -76,7 +76,7 @@ const FALLBACK_THEME = {
   navBgOpacity: 0.65,
   navText: "#eeeae3",
   displayFontFamily: "EB Garamond",
-  bodyFontFamily: "Inter",
+  bodyFontFamily: "",
 };
 
 function brandDefaults(brand?: BrandConfig): typeof FALLBACK_THEME {
@@ -139,7 +139,9 @@ function resolveTheme(t: ContentSeriesBlockProps["theme"], brand?: BrandConfig):
     Object.entries({ ...base, ...raw }).map(([k, v]) => [k, (typeof v === "string" && v.trim() === "") ? (base as Record<string, unknown>)[k] ?? v : v])
   ) as typeof base;
   const heading = m.headingColor || m.fg;
-  const bodyFont = m.bodyFontFamily ? `'${m.bodyFontFamily}', sans-serif` : "'Inter', sans-serif";
+  const bodyFont = m.bodyFontFamily
+    ? `'${m.bodyFontFamily}', sans-serif`
+    : "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', sans-serif";
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
   return {
     bg: m.bg,

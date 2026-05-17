@@ -19,7 +19,7 @@ const DEFAULT_THEME: Required<Omit<EventPageTheme, "headingColor">> & { headingC
   navBgOpacity: 0.6,
   navText: "#eeeae3",
   displayFontFamily: "EB Garamond",
-  bodyFontFamily: "Inter",
+  bodyFontFamily: "",
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -59,7 +59,9 @@ interface ResolvedTheme {
 function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
   const m = { ...DEFAULT_THEME, ...(t ?? {}) };
   const headingColor = m.headingColor || m.fg;
-  const bodyFont = m.bodyFontFamily ? `'${m.bodyFontFamily}', sans-serif` : "'Inter', sans-serif";
+  const bodyFont = m.bodyFontFamily
+    ? `'${m.bodyFontFamily}', sans-serif`
+    : "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', sans-serif";
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
   return {
     bg: m.bg,
