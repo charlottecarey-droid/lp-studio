@@ -559,6 +559,7 @@ function StickyNav({
           href={navCtaHref}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
+          className="bcs-nav-cta-primary"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -3113,6 +3114,9 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
           .bcs-episode-row > div:last-child {
             width: 100% !important;
             justify-content: space-between !important;
+          }
+          .bcs-nav-cta-primary {
+            display: none !important;
           }
         }
       `}</style>
