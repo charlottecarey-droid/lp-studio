@@ -1,25 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-lime: #D4F542;
-  --color-ink: #0A0A0A;
-  --font-sans: 'Inter', sans-serif;
-  --font-display: 'Inter Tight', 'Inter', sans-serif;
+  --color-background: var(--cream);
+  --color-foreground: var(--ink);
+  --color-ink: var(--ink);
+  --color-cream: var(--cream);
+  --color-indigo-accent: var(--indigo);
+  --color-coral-accent: var(--coral);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', 'Iowan Old Style', 'Apple Garamond', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
-  --background: #0A0A0A;
-  --foreground: #FAFAFA;
-  --lime: #D4F542;
-  --ink: #0A0A0A;
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-strong: rgba(255, 255, 255, 0.14);
-  --muted: rgba(250, 250, 250, 0.55);
-  --subtle: rgba(250, 250, 250, 0.35);
+  /* Warm paper canvas — matches the app's cream */
+  --cream: #F6F2E9;
+  --cream-2: #EFE9DC;
+  --paper: #FFFFFF;
+
+  /* Warm ink text — matches app's near-black on cream */
+  --ink: #1A1815;
+  --ink-2: #2A2722;
+  --ink-soft: #5C5853;
+  --ink-mute: #8B857C;
+  --ink-faint: #B5AEA2;
+
+  /* Hairlines on cream */
+  --hairline: rgba(26, 24, 21, 0.10);
+  --hairline-strong: rgba(26, 24, 21, 0.18);
+
+  /* Accents — sparingly. Indigo matches app primary. Coral is the spark. */
+  --indigo: #4B47E5;
+  --indigo-soft: rgba(75, 71, 229, 0.10);
+  --coral: #E26B4F;
+
+  /* Dark contrast section (footer / waitlist) */
+  --dark: #15130F;
+  --dark-2: #1F1C17;
+  --dark-text: #F4EFE3;
+  --dark-mute: rgba(244, 239, 227, 0.55);
+  --dark-faint: rgba(244, 239, 227, 0.32);
+  --dark-hairline: rgba(244, 239, 227, 0.10);
 }
 
 @layer base {
@@ -34,55 +57,107 @@
   }
 
   body {
-    font-family: 'Inter', sans-serif;
-    font-feature-settings: 'cv11', 'ss01', 'ss03';
-    background-color: #0A0A0A;
-    color: #FAFAFA;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'cv11';
+    background-color: var(--cream);
+    color: var(--ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter Tight', 'Inter', sans-serif;
-    letter-spacing: -0.02em;
-    font-weight: 600;
+    font-family: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.022em;
+    color: var(--ink);
   }
 
   ::selection {
-    background: #D4F542;
-    color: #0A0A0A;
+    background: var(--ink);
+    color: var(--cream);
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Inter Tight', 'Inter', sans-serif;
-    letter-spacing: -0.025em;
+    font-family: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+    font-variation-settings: 'opsz' 96;
+    letter-spacing: -0.024em;
   }
-  .eyebrow {
+  .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  /* A numbered section marker like "01 / Pricing" — replaces the lime eyebrow pill */
+  .marker {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--ink-mute);
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: rgba(250, 250, 250, 0.4);
   }
+  .marker-rule {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .marker-rule::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--ink-faint);
+    display: inline-block;
+  }
+
   .hairline {
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--hairline);
   }
-  .surface {
-    background: rgba(255, 255, 255, 0.025);
+  .hairline-strong {
+    border: 1px solid var(--hairline-strong);
+  }
+
+  /* Big editorial display sizing — for hero h1s */
+  .text-display-xl {
+    font-size: clamp(48px, 7.2vw, 96px);
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+  }
+  .text-display-lg {
+    font-size: clamp(36px, 4.8vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -0.028em;
+  }
+  .text-display-md {
+    font-size: clamp(28px, 3.4vw, 40px);
+    line-height: 1.08;
+    letter-spacing: -0.022em;
+  }
+
+  /* Subtle paper grain — adds tactility, fights "flat AI vector" feel */
+  .paper-grain {
+    position: relative;
+  }
+  .paper-grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 0 0.08 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   }
 
   .animate-fade-up {
-    animation: fade-up 0.6s ease-out both;
+    animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in {
-    animation: fade-in 0.5s ease-out both;
+    animation: fade-in 0.6s ease-out both;
   }
   @keyframes fade-in {
     from { opacity: 0; }

@@ -26,89 +26,115 @@ const legalLinks = [
   { label: "Security", href: "mailto:security@lpstudio.ai?subject=Security%20inquiry" },
 ];
 
+const LINK_BASE = { color: "var(--ink-soft)" } as const;
+const LINK_HOVER = "var(--ink)";
+
+const sections: { title: string; links: { label: string; href: string }[] }[] = [
+  { title: "Product", links: productLinks },
+  { title: "Pricing", links: pricingLinks },
+  { title: "Company", links: companyLinks },
+  { title: "Legal", links: legalLinks },
+];
+
 export default function Footer() {
   return (
-    <footer style={{ background: "#001f18", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-      <div className="max-w-6xl mx-auto px-6 py-16">
+    <footer
+      style={{
+        background: "var(--cream)",
+        color: "var(--ink)",
+        borderTop: "1px solid var(--hairline)",
+      }}
+    >
+      <div className="max-w-[1180px] mx-auto px-6 py-20">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-16">
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4 text-white font-display font-bold text-xl" style={{ fontFamily: "'Inter Tight', sans-serif" }}>
-              <span style={{ color: "#D4F542" }}>LP</span>
-              <span>Studio</span>
+            <div className="flex items-center gap-2.5 mb-5">
+              <span
+                className="font-display"
+                style={{
+                  fontSize: 28,
+                  lineHeight: 1,
+                  fontWeight: 500,
+                  fontVariationSettings: "'opsz' 144",
+                  letterSpacing: "-0.04em",
+                  color: "var(--ink)",
+                }}
+              >
+                LP
+              </span>
+              <span
+                className="font-mono uppercase"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.22em",
+                  color: "var(--ink-soft)",
+                  paddingTop: 4,
+                }}
+              >
+                Studio
+              </span>
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.35)" }}>
-              The landing page platform for revenue teams who need to move fast without going off-brand.
+            <p className="text-[14px] leading-[1.6]" style={{ color: "var(--ink-soft)", maxWidth: 240 }}>
+              The landing-page platform for revenue teams who need to move fast without going off-brand.
             </p>
           </div>
 
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "#D4F542" }}>Product</div>
-            <ul className="flex flex-col gap-2.5">
-              {productLinks.map(link => (
-                <li key={link.label}>
-                  <a href={link.href} className="text-sm transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.85)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-                  >{link.label}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "#D4F542" }}>Pricing</div>
-            <ul className="flex flex-col gap-2.5">
-              {pricingLinks.map(link => (
-                <li key={link.label}>
-                  <a href={link.href} className="text-sm transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.85)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-                  >{link.label}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "#D4F542" }}>Company</div>
-            <ul className="flex flex-col gap-2.5">
-              {companyLinks.map(link => (
-                <li key={link.label}>
-                  <a href={link.href} className="text-sm transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.85)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-                  >{link.label}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "#D4F542" }}>Legal</div>
-            <ul className="flex flex-col gap-2.5">
-              {legalLinks.map(link => (
-                <li key={link.label}>
-                  <a href={link.href} className="text-sm transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.85)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-                  >{link.label}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {sections.map((s) => (
+            <div key={s.title}>
+              <div
+                className="font-mono uppercase mb-5"
+                style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.18em" }}
+              >
+                {s.title}
+              </div>
+              <ul className="flex flex-col gap-2.5">
+                {s.links.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      className="text-[14px] transition-colors"
+                      style={LINK_BASE}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = LINK_HOVER)}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-soft)")}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>© {new Date().getFullYear()} LP Studio, Inc. All rights reserved.</p>
+        <div
+          className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-8"
+          style={{ borderTop: "1px solid var(--hairline)" }}
+        >
+          <p
+            className="font-mono uppercase"
+            style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
+          >
+            © {new Date().getFullYear()} LP Studio, Inc. All rights reserved.
+          </p>
           <div className="flex items-center gap-6">
-            <a href="/privacy" className="text-xs transition-colors" style={{ color: "rgba(255,255,255,0.25)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
-            >Privacy Policy</a>
-            <a href="/terms" className="text-xs transition-colors" style={{ color: "rgba(255,255,255,0.25)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
-            >Terms of Service</a>
+            <a
+              href="/privacy"
+              className="font-mono uppercase transition-colors"
+              style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
+            >
+              Privacy
+            </a>
+            <a
+              href="/terms"
+              className="font-mono uppercase transition-colors"
+              style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
+            >
+              Terms
+            </a>
           </div>
         </div>
       </div>

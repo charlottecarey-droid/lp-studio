@@ -1,19 +1,17 @@
 import { useInView } from "../hooks/useInView";
 
-const LIME = "#D4F542";
-
 const tiers = [
   {
     name: "Starter",
     price: "$49",
     period: "/mo",
-    desc: "For individuals and small teams getting their first pages live fast.",
+    desc: "For individuals and small teams getting their first pages live.",
     features: [
       "5 active landing pages",
       "Visual builder",
       "Basic A/B testing (2 variants)",
-      "Heatmaps (1,000 sessions/mo)",
-      "AI copy (50 generations/mo)",
+      "Heatmaps — 1,000 sessions/mo",
+      "AI copy — 50 generations/mo",
       "Email support",
     ],
     cta: "Start free",
@@ -29,8 +27,8 @@ const tiers = [
       "Unlimited landing pages",
       "Visual builder + custom blocks",
       "Unlimited A/B & multivariate tests",
-      "Heatmaps (10,000 sessions/mo)",
-      "AI copy (unlimited)",
+      "Heatmaps — 10,000 sessions/mo",
+      "AI copy — unlimited",
       "Smart Traffic routing",
       "Brand system",
       "Priority support",
@@ -62,22 +60,29 @@ const tiers = [
 export default function Pricing() {
   const { ref, inView } = useInView();
   return (
-    <section id="pricing" className="px-6 py-24 md:py-32" style={{ background: "#0A0A0A", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+    <section
+      id="pricing"
+      className="px-6 py-28 md:py-36"
+      style={{ background: "var(--cream-2)", borderTop: "1px solid var(--hairline)" }}
+    >
       <div
         ref={ref}
-        className="max-w-6xl mx-auto"
+        className="max-w-[1180px] mx-auto"
         style={{
           opacity: inView ? 1 : 0,
           transform: inView ? "none" : "translateY(20px)",
-          transition: "opacity 0.6s ease, transform 0.6s ease",
+          transition: "opacity 0.7s ease, transform 0.7s ease",
         }}
       >
-        <div className="max-w-2xl mb-14">
-          <div className="eyebrow mb-5">Pricing</div>
-          <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            Start free. <span className="" style={{ color: LIME }}>Scale</span> when you win.
+        <div className="max-w-2xl mb-16">
+          <div className="marker marker-rule mb-6">Pricing</div>
+          <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
+            Start free. Scale when you start winning.
           </h2>
-          <p className="mt-5 text-[16px] leading-relaxed" style={{ color: "rgba(250,250,250,0.55)" }}>
+          <p
+            className="mt-6 text-[17px] leading-[1.55]"
+            style={{ color: "var(--ink-soft)" }}
+          >
             No contracts. No surprises. Cancel any time.
           </p>
         </div>
@@ -86,44 +91,95 @@ export default function Pricing() {
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              className="rounded-xl p-7 flex flex-col gap-6 relative"
+              className="p-7 flex flex-col gap-6 relative"
               style={{
-                background: tier.highlight ? "#101010" : "#0D0D0D",
-                border: tier.highlight ? "1px solid rgba(212,245,66,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                background: tier.highlight ? "var(--ink)" : "var(--paper)",
+                color: tier.highlight ? "var(--cream)" : "var(--ink)",
+                border: tier.highlight ? "1px solid var(--ink)" : "1px solid var(--hairline)",
+                borderRadius: 10,
               }}
             >
               {tier.highlight && (
                 <div
-                  className="absolute -top-2.5 left-7 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] rounded"
-                  style={{ background: LIME, color: "#0A0A0A" }}
+                  className="font-mono absolute -top-2.5 left-7 px-2.5 py-0.5"
+                  style={{
+                    background: "var(--coral)",
+                    color: "var(--cream)",
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    borderRadius: 4,
+                  }}
                 >
                   Most popular
                 </div>
               )}
 
               <div>
-                <div className="text-[13px] font-medium mb-3" style={{ color: tier.highlight ? LIME : "rgba(250,250,250,0.65)" }}>
+                <div
+                  className="font-mono uppercase mb-4"
+                  style={{
+                    color: tier.highlight ? "var(--dark-mute)" : "var(--ink-mute)",
+                    fontSize: 11,
+                    letterSpacing: "0.18em",
+                  }}
+                >
                   {tier.name}
                 </div>
-                <div className="flex items-baseline gap-1 mb-4">
-                  <span className="font-display text-[42px] font-semibold text-white" style={{ letterSpacing: "-0.04em" }}>
+                <div className="flex items-baseline gap-1 mb-5">
+                  <span
+                    className="font-display"
+                    style={{
+                      color: tier.highlight ? "var(--cream)" : "var(--ink)",
+                      fontSize: 48,
+                      fontWeight: 500,
+                      letterSpacing: "-0.038em",
+                      lineHeight: 1,
+                      fontVariationSettings: "'opsz' 144",
+                    }}
+                  >
                     {tier.price}
                   </span>
-                  <span className="text-[14px]" style={{ color: "rgba(250,250,250,0.4)" }}>
+                  <span
+                    style={{
+                      color: tier.highlight ? "var(--dark-mute)" : "var(--ink-mute)",
+                      fontSize: 14,
+                    }}
+                  >
                     {tier.period}
                   </span>
                 </div>
-                <p className="text-[14px] leading-relaxed" style={{ color: "rgba(250,250,250,0.55)" }}>
+                <p
+                  className="text-[14.5px] leading-[1.55]"
+                  style={{ color: tier.highlight ? "var(--dark-mute)" : "var(--ink-soft)" }}
+                >
                   {tier.desc}
                 </p>
               </div>
 
-              <div className="h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+              <div
+                className="h-px"
+                style={{ background: tier.highlight ? "var(--dark-hairline)" : "var(--hairline)" }}
+              />
 
               <ul className="flex flex-col gap-2.5 flex-1">
                 {tier.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-[13.5px]" style={{ color: "rgba(250,250,250,0.78)" }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={LIME} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-1 flex-shrink-0">
+                  <li
+                    key={f}
+                    className="flex items-start gap-3 text-[13.5px] leading-[1.55]"
+                    style={{ color: tier.highlight ? "rgba(244,239,227,0.85)" : "var(--ink-2)" }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={tier.highlight ? "var(--coral)" : "var(--indigo)"}
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mt-1.5 flex-shrink-0"
+                    >
                       <path d="M20 6 9 17l-5-5" />
                     </svg>
                     {f}
@@ -133,17 +189,19 @@ export default function Pricing() {
 
               <a
                 href={tier.ctaHref}
-                className="block w-full text-center py-2.5 rounded-md text-[13.5px] font-medium transition-all"
+                className="block w-full text-center py-2.5 text-[13.5px] font-medium transition-all"
                 style={{
-                  background: tier.highlight ? LIME : "rgba(255,255,255,0.04)",
-                  color: tier.highlight ? "#0A0A0A" : "#FAFAFA",
-                  border: tier.highlight ? "none" : "1px solid rgba(255,255,255,0.1)",
+                  background: tier.highlight ? "var(--cream)" : "var(--ink)",
+                  color: tier.highlight ? "var(--ink)" : "var(--cream)",
+                  borderRadius: 6,
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = tier.highlight ? "#dcf85a" : "rgba(255,255,255,0.08)";
+                  e.currentTarget.style.background = tier.highlight
+                    ? "#FFFFFF"
+                    : "var(--ink-2)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = tier.highlight ? LIME : "rgba(255,255,255,0.04)";
+                  e.currentTarget.style.background = tier.highlight ? "var(--cream)" : "var(--ink)";
                 }}
               >
                 {tier.cta}

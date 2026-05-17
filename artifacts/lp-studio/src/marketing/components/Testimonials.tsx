@@ -10,7 +10,7 @@ const testimonials = [
   },
   {
     quote:
-      "The visual builder is the best I've used. Fast, intuitive, and the AI copy actually sounds like us — not generic filler. Our outbound conversion went up 40% in the first month.",
+      "The visual builder is the best I've used. Fast, intuitive, and the AI copy actually sounds like us — not generic filler. Outbound conversion went up 40% in the first month.",
     name: "Marcus Jordan",
     role: "Head of Demand Generation",
     company: "Growth-stage fintech",
@@ -27,47 +27,73 @@ const testimonials = [
 export default function Testimonials() {
   const { ref, inView } = useInView();
   return (
-    <section id="testimonials" className="px-6 py-24 md:py-32" style={{ background: "#0A0A0A", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+    <section
+      id="testimonials"
+      className="px-6 py-28 md:py-36"
+      style={{ background: "var(--cream)", borderTop: "1px solid var(--hairline)" }}
+    >
       <div
         ref={ref}
-        className="max-w-6xl mx-auto"
+        className="max-w-[1180px] mx-auto"
         style={{
           opacity: inView ? 1 : 0,
           transform: inView ? "none" : "translateY(20px)",
-          transition: "opacity 0.6s ease, transform 0.6s ease",
+          transition: "opacity 0.7s ease, transform 0.7s ease",
         }}
       >
-        <div className="max-w-2xl mb-14">
-          <div className="eyebrow mb-5">From the field</div>
-          <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            Real results from <span className="" style={{ color: "#D4F542" }}>real teams</span>.
+        <div className="max-w-2xl mb-16">
+          <div className="marker marker-rule mb-6">From the field</div>
+          <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
+            Teams that have stopped waiting on the page.
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {testimonials.map((t) => (
+        <div className="grid grid-cols-1 md:grid-cols-3" style={{ borderTop: "1px solid var(--hairline)" }}>
+          {testimonials.map((t, i) => (
             <figure
               key={t.name}
-              className="rounded-xl p-7 flex flex-col gap-7 h-full"
-              style={{ background: "#0D0D0D", border: "1px solid rgba(255,255,255,0.07)" }}
+              className="py-10 md:py-12 px-0 md:px-8 flex flex-col gap-8 h-full"
+              style={{
+                borderRight: i < testimonials.length - 1 ? "1px solid var(--hairline)" : "none",
+                paddingLeft: i === 0 ? 0 : undefined,
+                paddingRight: i === testimonials.length - 1 ? 0 : undefined,
+              }}
             >
-              <blockquote className="font-display text-[17px] leading-[1.45] flex-1" style={{ color: "rgba(250,250,250,0.92)", letterSpacing: "-0.015em" }}>
+              {/* Editorial open-quote glyph, restrained */}
+              <span
+                aria-hidden
+                className="font-display"
+                style={{
+                  fontSize: 56,
+                  lineHeight: 0.6,
+                  color: "var(--ink-faint)",
+                  fontWeight: 500,
+                  fontVariationSettings: "'opsz' 144",
+                }}
+              >
+                “
+              </span>
+              <blockquote
+                className="font-display flex-1"
+                style={{
+                  color: "var(--ink)",
+                  fontSize: 19,
+                  lineHeight: 1.45,
+                  fontWeight: 400,
+                  letterSpacing: "-0.012em",
+                }}
+              >
                 {t.quote}
               </blockquote>
-              <figcaption className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(250,250,250,0.85)", border: "1px solid rgba(255,255,255,0.08)" }}
-                >
-                  {t.name.split(" ").map((n) => n[0]).join("")}
+              <figcaption>
+                <div className="text-[13.5px] font-medium mb-0.5" style={{ color: "var(--ink)" }}>
+                  {t.name}
                 </div>
-                <div className="leading-tight">
-                  <div className="text-[13.5px] font-medium" style={{ color: "#FAFAFA" }}>
-                    {t.name}
-                  </div>
-                  <div className="text-[12px]" style={{ color: "rgba(250,250,250,0.45)" }}>
-                    {t.role} · {t.company}
-                  </div>
+                <div
+                  className="font-mono uppercase"
+                  style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
+                >
+                  {t.role} · {t.company}
                 </div>
               </figcaption>
             </figure>

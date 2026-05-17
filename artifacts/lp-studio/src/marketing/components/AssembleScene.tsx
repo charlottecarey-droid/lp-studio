@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
-const LIME = "#D4F542";
-const INK = "#0A0A0A";
-const INK_2 = "#0F0F10";
-const INK_3 = "#141416";
-const INK_4 = "#1A1A1D";
-const TEXT = "#FAFAFA";
-const MUTED = "rgba(250,250,250,0.55)";
-const FAINT = "rgba(250,250,250,0.35)";
-const HAIRLINE = "rgba(255,255,255,0.07)";
-const HAIRLINE_STRONG = "rgba(255,255,255,0.14)";
+// Palette retargeted from "dark + lime" to "warm cream + ink + indigo" to match
+// the app. Names preserved so call sites don't need rewrites.
+const LIME = "#4B47E5";          // primary accent (indigo, matches app)
+const INK = "#F6F2E9";           // page background (cream paper)
+const INK_2 = "#FFFFFF";         // card / panel surface (pure white)
+const INK_3 = "#FAF7EE";         // nested inner panel
+const INK_4 = "#F1ECDE";         // deeper panel / divider band
+const TEXT = "#1A1815";          // warm near-black ink text
+const MUTED = "rgba(26,24,21,0.55)";
+const FAINT = "rgba(26,24,21,0.35)";
+const HAIRLINE = "rgba(26,24,21,0.10)";
+const HAIRLINE_STRONG = "rgba(26,24,21,0.18)";
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -211,7 +213,7 @@ function MockPage({
               inset: "10px 16px 10px 16px",
               border: `1px solid ${LIME}`,
               borderRadius: 8,
-              boxShadow: `0 0 0 4px rgba(212,245,66,0.06)`,
+              boxShadow: `0 0 0 4px rgba(75,71,229,0.08)`,
             }}
           >
             <div
@@ -269,7 +271,7 @@ function MockPage({
         {/* headline */}
         <h2
           style={{
-            fontFamily: "'Inter Tight', sans-serif",
+            fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
             fontWeight: 600,
             letterSpacing: "-0.04em",
             fontSize: 52,
@@ -307,7 +309,7 @@ function MockPage({
             style={{
               background: ctaColor,
               color: INK,
-              fontFamily: "'Inter Tight', sans-serif",
+              fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
               letterSpacing: "-0.005em",
               transform: `scale(${1 - primaryClick * 0.05})`,
               transition: "background 220ms ease",
@@ -334,7 +336,7 @@ function MockPage({
               color: TEXT,
               border: `1px solid ${HAIRLINE_STRONG}`,
               background: "transparent",
-              fontFamily: "'Inter Tight', sans-serif",
+              fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
             }}
           >
             See a live page →
@@ -363,7 +365,7 @@ function MockPage({
               key={n}
               className="text-[11px]"
               style={{
-                color: "rgba(250,250,250,0.55)",
+                color: "rgba(26,24,21,0.55)",
                 letterSpacing: "0.18em",
                 fontWeight: 500,
               }}
@@ -386,7 +388,7 @@ function MockPage({
                 style={{
                   color: LIME,
                   letterSpacing: "0.18em",
-                  fontFamily: "'Inter Tight', sans-serif",
+                  fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                   fontWeight: 600,
                 }}
               >
@@ -396,7 +398,7 @@ function MockPage({
                 className="text-[16px] mb-1.5"
                 style={{
                   color: TEXT,
-                  fontFamily: "'Inter Tight', sans-serif",
+                  fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                   fontWeight: 600,
                   letterSpacing: "-0.01em",
                 }}
@@ -537,7 +539,7 @@ export default function AssembleScene() {
           className="absolute inset-0 pointer-events-none"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)",
+              "linear-gradient(rgba(26,24,21,0.04) 1px, transparent 1px)",
             backgroundSize: "100% 96px",
             opacity: 0.5,
           }}
@@ -560,7 +562,7 @@ export default function AssembleScene() {
           </div>
           <h1
             style={{
-              fontFamily: "'Inter Tight', sans-serif",
+              fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
               fontWeight: 600,
               letterSpacing: "-0.045em",
               fontSize: isMobile ? 44 : 76,
@@ -645,8 +647,8 @@ export default function AssembleScene() {
                   <div
                     className="text-[12.5px]"
                     style={{
-                      color: "rgba(250,250,250,0.85)",
-                      fontFamily: "'Inter Tight', sans-serif",
+                      color: "rgba(26,24,21,0.85)",
+                      fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                       fontWeight: 500,
                     }}
                   >
@@ -657,7 +659,7 @@ export default function AssembleScene() {
                     style={{
                       color: FAINT,
                       letterSpacing: "0.18em",
-                      background: "rgba(255,255,255,0.04)",
+                      background: "rgba(26,24,21,0.05)",
                     }}
                   >
                     Draft
@@ -673,22 +675,22 @@ export default function AssembleScene() {
                         width: 6,
                         height: 6,
                         borderRadius: 999,
-                        background: published ? LIME : (builderIn > 0.3 ? LIME : "rgba(250,250,250,0.4)"),
+                        background: published ? LIME : (builderIn > 0.3 ? LIME : "rgba(26,24,21,0.4)"),
                         boxShadow: published || builderIn > 0.3 ? `0 0 8px ${LIME}` : "none",
                         display: "inline-block",
                       }}
                     />
-                    <span style={{ color: published || builderIn > 0.3 ? "rgba(250,250,250,0.75)" : FAINT }}>
+                    <span style={{ color: published || builderIn > 0.3 ? "rgba(26,24,21,0.75)" : FAINT }}>
                       {published ? "Live" : builderIn > 0.3 ? "Editing" : "Building"}
                     </span>
                   </div>
                   <button
                     className="relative px-3.5 py-1.5 rounded-md text-[11.5px]"
                     style={{
-                      background: published ? LIME : "rgba(255,255,255,0.06)",
+                      background: published ? LIME : "rgba(26,24,21,0.08)",
                       color: published ? INK : TEXT,
                       border: `1px solid ${published ? LIME : HAIRLINE_STRONG}`,
-                      fontFamily: "'Inter Tight', sans-serif",
+                      fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                       fontWeight: 600,
                       letterSpacing: "-0.005em",
                       transform: `scale(${1 - publishClick * 0.05})`,
@@ -741,10 +743,10 @@ export default function AssembleScene() {
                         key={b.name}
                         className="flex items-center gap-2 px-2 py-1.5 rounded text-[12px] mb-0.5"
                         style={{
-                          background: b.sel ? "rgba(212,245,66,0.08)" : "transparent",
-                          color: b.sel ? LIME : b.on ? "rgba(250,250,250,0.75)" : FAINT,
+                          background: b.sel ? "rgba(75,71,229,0.10)" : "transparent",
+                          color: b.sel ? LIME : b.on ? "rgba(26,24,21,0.75)" : FAINT,
                           fontWeight: b.sel ? 600 : 500,
-                          fontFamily: "'Inter Tight', sans-serif",
+                          fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                           letterSpacing: "-0.005em",
                         }}
                       >
@@ -753,7 +755,7 @@ export default function AssembleScene() {
                             width: 12,
                             height: 12,
                             borderRadius: 2,
-                            background: b.on ? (b.sel ? LIME : "rgba(250,250,250,0.7)") : "rgba(255,255,255,0.06)",
+                            background: b.on ? (b.sel ? LIME : "rgba(26,24,21,0.7)") : "rgba(26,24,21,0.08)",
                             border: b.on ? "none" : `1px solid ${HAIRLINE_STRONG}`,
                           }}
                         />
@@ -771,8 +773,8 @@ export default function AssembleScene() {
                         key={n}
                         className="flex items-center gap-2 px-2 py-1 text-[11.5px]"
                         style={{
-                          color: "rgba(250,250,250,0.45)",
-                          fontFamily: "'Inter Tight', sans-serif",
+                          color: "rgba(26,24,21,0.45)",
+                          fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                         }}
                       >
                         <span
@@ -837,7 +839,7 @@ export default function AssembleScene() {
                       </div>
                       <div
                         className="text-[9px] uppercase px-1.5 py-0.5 rounded"
-                        style={{ background: "rgba(212,245,66,0.12)", color: LIME, letterSpacing: "0.16em" }}
+                        style={{ background: "rgba(75,71,229,0.14)", color: LIME, letterSpacing: "0.16em" }}
                       >
                         Live
                       </div>
@@ -862,8 +864,8 @@ export default function AssembleScene() {
                               height: 28,
                               borderRadius: 6,
                               background: c,
-                              border: `1.5px solid ${isSelected ? LIME : "rgba(255,255,255,0.12)"}`,
-                              boxShadow: isSelected ? `0 0 0 2px rgba(212,245,66,0.25)` : "none",
+                              border: `1.5px solid ${isSelected ? LIME : "rgba(26,24,21,0.14)"}`,
+                              boxShadow: isSelected ? `0 0 0 2px rgba(75,71,229,0.32)` : "none",
                               transform: isLime && swatchClick > 0 ? `scale(${1 - swatchClick * 0.1})` : "none",
                             }}
                           >
@@ -893,10 +895,10 @@ export default function AssembleScene() {
                     <div
                       className="px-2.5 py-1.5 rounded text-[12px] mb-4"
                       style={{
-                        background: "rgba(255,255,255,0.04)",
+                        background: "rgba(26,24,21,0.05)",
                         color: TEXT,
                         border: `1px solid ${HAIRLINE_STRONG}`,
-                        fontFamily: "'Inter Tight', sans-serif",
+                        fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                       }}
                     >
                       {ctaLabel}
@@ -911,10 +913,10 @@ export default function AssembleScene() {
                     <div
                       className="px-2.5 py-1.5 rounded text-[12px] mb-4 flex items-center justify-between"
                       style={{
-                        background: "rgba(255,255,255,0.04)",
+                        background: "rgba(26,24,21,0.05)",
                         color: TEXT,
                         border: `1px solid ${HAIRLINE_STRONG}`,
-                        fontFamily: "'Inter Tight', sans-serif",
+                        fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                       }}
                     >
                       <span>Revenue teams</span>
@@ -930,10 +932,10 @@ export default function AssembleScene() {
                     <div
                       className="px-2.5 py-1.5 rounded text-[12px] flex items-center justify-between"
                       style={{
-                        background: "rgba(255,255,255,0.04)",
+                        background: "rgba(26,24,21,0.05)",
                         color: TEXT,
                         border: `1px solid ${HAIRLINE_STRONG}`,
-                        fontFamily: "'Inter Tight', sans-serif",
+                        fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
                       }}
                     >
                       <span>2 active</span>

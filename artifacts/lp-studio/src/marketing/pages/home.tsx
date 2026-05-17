@@ -12,7 +12,7 @@ import Footer from "../components/Footer";
 
 export default function Home() {
   return (
-    <div className="min-h-screen" style={{ background: "#000", color: "#F5F5F5" }}>
+    <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>
       <Navbar />
       <main>
         <AssembleScene />
