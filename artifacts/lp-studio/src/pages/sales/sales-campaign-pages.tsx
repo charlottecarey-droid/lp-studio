@@ -60,7 +60,6 @@ import {
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
-import { useBrandConfig } from "@/context/BrandConfigContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
