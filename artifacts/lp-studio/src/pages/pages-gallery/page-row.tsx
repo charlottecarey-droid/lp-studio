@@ -101,8 +101,8 @@ export function PageRow({
   return (
     <div className="hover:bg-muted/30 transition-colors first:rounded-t-lg last:rounded-b-lg">
 
-      {/* ── Mobile layout (hidden on md+) ── */}
-      <div className="md:hidden px-4 py-4 flex flex-col gap-3">
+      {/* ── Stacked card layout (hidden on lg+) — used on phones and iPad ── */}
+      <div className="lg:hidden px-4 py-4 flex flex-col gap-3">
         {/* Title row + status badge */}
         <div className="flex items-start gap-3">
           <input
@@ -171,9 +171,9 @@ export function PageRow({
         </div>
       </div>
 
-      {/* ── Desktop layout (hidden on mobile) ── */}
+      {/* ── Desktop table layout (lg and up) ── */}
       <div
-        className="hidden md:grid gap-3 items-center px-4 py-3.5 group"
+        className="hidden lg:grid gap-3 items-center px-4 py-3.5 group"
         style={{ gridTemplateColumns: gridTemplate }}
       >
         {/* Checkbox */}
@@ -191,9 +191,9 @@ export function PageRow({
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-2 h-2 rounded-full shrink-0 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Link href={`/builder/${page.id}`}>
-                <span className="text-[13px] font-medium text-foreground hover:underline truncate cursor-pointer">{page.title}</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Link href={`/builder/${page.id}`} className="min-w-0 max-w-full">
+                <span className="text-[13px] font-medium text-foreground hover:underline truncate cursor-pointer block">{page.title}</span>
               </Link>
               {page.isTemplate && (
                 <span title={`Template: ${page.templateLabel ?? page.title}`}>

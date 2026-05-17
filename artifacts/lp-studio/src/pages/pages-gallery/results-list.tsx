@@ -78,7 +78,7 @@ export function ResultsList({
     <>
       {/* Table header */}
       <div
-        className="hidden md:grid gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider"
+        className="hidden lg:grid gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider"
         style={{ gridTemplateColumns: gridTemplate }}
       >
         <span>
