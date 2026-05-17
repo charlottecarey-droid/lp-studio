@@ -60,6 +60,12 @@ export function PageRow({
 }: Props) {
   const isPublished = page.status === "published";
   const liveUrl = isPublished || isRunning ? getLpPageUrl(page.slug, micrositeDomain) : null;
+  // For drafts (no live URL), fall back to the in-app preview route so the
+  // "view" / external-link button always opens *something* — the live page if
+  // it exists, otherwise the authenticated preview. Without this, clicking
+  // view on a draft loaded the public live URL which 404s.
+  const viewUrl = liveUrl ?? `/preview/${page.slug}`;
+  const viewIsPreview = liveUrl === null;
   const linkedCount = countLinkedGlobalBlocks(page.blocks);
   const linkedBadge = linkedCount > 0 ? (
     <Link href={`/builder/${page.id}`}>
@@ -148,13 +154,11 @@ export function PageRow({
               <Edit2 className="w-3 h-3" /> Edit
             </Button>
           </Link>
-          {liveUrl && (
-            <a href={liveUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 rounded-lg">
-                <ExternalLink className="w-3 h-3" /> Preview
-              </Button>
-            </a>
-          )}
+          <a href={viewUrl} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 rounded-lg">
+              <ExternalLink className="w-3 h-3" /> Preview
+            </Button>
+          </a>
           {liveUrl && <CopyButton url={liveUrl} />}
           <div className="ml-auto">
             <PageActionsMenu
@@ -302,7 +306,7 @@ export function PageRow({
               <Edit2 className="w-3 h-3" /> Edit
             </Button>
           </Link>
-          <a href={getLpPageUrl(page.slug, micrositeDomain)} target="_blank" rel="noopener noreferrer" title={isPublished || isRunning ? "Open live" : "Preview"}>
+          <a href={viewUrl} target="_blank" rel="noopener noreferrer" title={viewIsPreview ? "Preview draft" : "Open live page"}>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
               <ExternalLink className="w-3 h-3" />
             </Button>
