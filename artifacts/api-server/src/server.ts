@@ -1414,8 +1414,11 @@ async function runMigrationsBody(): Promise<void> {
     // (tenant_id = NULL, is_shared = true) so every tenant sees them in the
     // "Starter" category of the image picker, mirroring how shared starters
     // uploaded via /api/lp/media/shared/upload work today. Marker-gated so
-    // it only runs once per database; bump the version suffix to re-apply
-    // (existing rows are matched by url so the upsert is idempotent).
+    // it only runs once per database; bump the version suffix to re-apply.
+    // Idempotency is enforced at insert-time via a NOT EXISTS guard on
+    // (url, is_shared) — lp_media has no unique index on url, so we can't
+    // rely on ON CONFLICT. This makes partial-failure reruns safe: rows
+    // already inserted on a prior boot are skipped instead of duplicated.
     try {
       const STARTER_MARKER = "starter_images_seed_v1";
       const marker = await db.execute<{ exists: number }>(
@@ -1429,11 +1432,14 @@ async function runMigrationsBody(): Promise<void> {
           const result = await db.execute<{ "?column?": number }>(sql`
             INSERT INTO lp_media (
               tenant_id, title, url, media_type, mime_type, tags, is_shared
-            ) VALUES (
+            )
+            SELECT
               NULL, ${img.title}, ${img.url}, 'image', 'image/jpeg',
               ${JSON.stringify(img.tags)}::jsonb, true
+            WHERE NOT EXISTS (
+              SELECT 1 FROM lp_media
+              WHERE url = ${img.url} AND is_shared = true
             )
-            ON CONFLICT DO NOTHING
             RETURNING 1
           `);
           if (result.rows.length > 0) inserted++;
