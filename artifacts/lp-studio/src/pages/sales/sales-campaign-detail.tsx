@@ -562,38 +562,49 @@ export default function SalesCampaignDetail() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {campaign?.template && (
-              <Button size="sm" variant="outline" onClick={() => setShowTestEmail(true)} className="gap-1.5" title="Send a test email to your inbox">
-                <FlaskConical className="w-3.5 h-3.5" />
-                Test
-              </Button>
-            )}
-            {isDraft && (() => {
+            {(() => {
               const needsTemplate = campaign.templateId === null || campaign.templateId === undefined;
               const tooltip = needsTemplate ? "Pick an email template first" : undefined;
               return (
                 <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowSchedule(true)}
-                    disabled={needsTemplate}
-                    title={tooltip}
-                    className="gap-1.5"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    Schedule
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSend}
-                    disabled={sendingCampaign || needsTemplate}
-                    title={tooltip}
-                    className="gap-1.5"
-                  >
-                    {sendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                    {sendingCampaign ? "Sending…" : "Send Now"}
-                  </Button>
+                  {(isDraft || campaign?.template) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowTestEmail(true)}
+                      disabled={needsTemplate}
+                      title={tooltip ?? "Send a test email to your inbox"}
+                      className="gap-1.5"
+                    >
+                      <FlaskConical className="w-3.5 h-3.5" />
+                      Test
+                    </Button>
+                  )}
+                  {isDraft && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowSchedule(true)}
+                        disabled={needsTemplate}
+                        title={tooltip}
+                        className="gap-1.5"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        Schedule
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSend}
+                        disabled={sendingCampaign || needsTemplate}
+                        title={tooltip}
+                        className="gap-1.5"
+                      >
+                        {sendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        {sendingCampaign ? "Sending…" : "Send Now"}
+                      </Button>
+                    </>
+                  )}
                 </>
               );
             })()}

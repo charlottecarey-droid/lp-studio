@@ -260,11 +260,13 @@ router.post("/campaigns", requirePermission("sales_campaigns"), async (req, res)
     res.status(400).json({ error: `status must be one of: ${allowedStatuses.join(", ")}` });
     return;
   }
-  // Campaigns that aren't drafts MUST have a template — otherwise nothing
-  // can actually be sent. Only allow null templateId on draft creations.
+  // Campaigns being scheduled or already in-flight MUST have a template —
+  // otherwise nothing can actually be sent. Draft and paused campaigns can
+  // exist without one.
   const effectiveStatus = status ?? "draft";
-  if (effectiveStatus !== "draft" && (templateId === undefined || templateId === null)) {
-    res.status(400).json({ error: "templateId is required unless the campaign is a draft" });
+  const sendingStatuses = ["scheduled", "sending", "sent"];
+  if (sendingStatuses.includes(effectiveStatus) && (templateId === undefined || templateId === null)) {
+    res.status(400).json({ error: "Pick an email template before scheduling or sending this campaign" });
     return;
   }
   // Reject oversized metadata (prevent payload bombs)
@@ -322,8 +324,9 @@ router.patch("/campaigns/:id", requirePermission("sales_campaigns"), async (req,
     for (const f of fields) {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
     }
-    // If status is being moved out of draft, the campaign must have a template.
-    if (typeof updates.status === "string" && updates.status !== "draft") {
+    // If the campaign is being scheduled or sent, it must have a template.
+    const sendingStatuses = ["scheduled", "sending", "sent"];
+    if (typeof updates.status === "string" && sendingStatuses.includes(updates.status)) {
       const incomingTemplateId = "templateId" in updates ? updates.templateId : undefined;
       const needsLookup = incomingTemplateId === undefined;
       let templateIdToCheck: unknown = incomingTemplateId;
