@@ -1408,6 +1408,48 @@ async function runMigrationsBody(): Promise<void> {
     } catch (seedErr) {
       logger.error({ err: seedErr }, "global_templates seed failed (non-fatal)");
     }
+
+    // Starter image library seed — image URLs harvested from the global
+    // landing-page template seeds. Inserted as shared lp_media rows
+    // (tenant_id = NULL, is_shared = true) so every tenant sees them in the
+    // "Starter" category of the image picker, mirroring how shared starters
+    // uploaded via /api/lp/media/shared/upload work today. Marker-gated so
+    // it only runs once per database; bump the version suffix to re-apply
+    // (existing rows are matched by url so the upsert is idempotent).
+    try {
+      const STARTER_MARKER = "starter_images_seed_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${STARTER_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        const { STARTER_IMAGE_SEEDS } = await import("./seeds/starterImages");
+        let inserted = 0;
+        let skipped = 0;
+        for (const img of STARTER_IMAGE_SEEDS) {
+          const result = await db.execute<{ "?column?": number }>(sql`
+            INSERT INTO lp_media (
+              tenant_id, title, url, media_type, mime_type, tags, is_shared
+            ) VALUES (
+              NULL, ${img.title}, ${img.url}, 'image', 'image/jpeg',
+              ${JSON.stringify(img.tags)}::jsonb, true
+            )
+            ON CONFLICT DO NOTHING
+            RETURNING 1
+          `);
+          if (result.rows.length > 0) inserted++;
+          else skipped++;
+        }
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES (${STARTER_MARKER}) ON CONFLICT DO NOTHING
+        `);
+        logger.info(
+          { inserted, skipped, total: STARTER_IMAGE_SEEDS.length },
+          "starter_images seed applied"
+        );
+      }
+    } catch (seedErr) {
+      logger.error({ err: seedErr }, "starter_images seed failed (non-fatal)");
+    }
   } catch (err) {
     // Surface a single concise line that names the failing SQL fragment so the
     // failure stands out in the api-server workflow log instead of being buried
