@@ -479,6 +479,22 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
   }
 
   try {
+    // Confirm the target page belongs to this tenant — otherwise the
+    // caller could enumerate page IDs and create valid hotlink tokens
+    // pointing at another tenant's page.
+    const [pageRow] = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(and(
+        eq(lpPagesTable.id, Number(pageId)),
+        eq(lpPagesTable.tenantId, tenantId),
+      ))
+      .limit(1);
+    if (!pageRow) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
     // Tenant-scope the contact lookup so a caller can never bulk-create
     // hotlinks for another tenant's contacts.
     let contacts = await db.select().from(salesContactsTable)
@@ -498,10 +514,13 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
       return;
     }
 
-    // Batch-load all existing hotlinks for this page + these contacts (eliminates N+1)
+    // Batch-load all existing hotlinks for this page + these contacts (eliminates N+1).
+    // Tenant predicate added for defense in depth — even if an attacker
+    // managed to slip a foreign contact in, we'd never surface a foreign row.
     const filteredContactIds = contacts.map(c => c.id);
     const existingHotlinks = await db.select().from(salesHotlinksTable)
       .where(and(
+        eq(salesHotlinksTable.tenantId, tenantId),
         inArray(salesHotlinksTable.contactId, filteredContactIds),
         eq(salesHotlinksTable.pageId, Number(pageId)),
       ));
