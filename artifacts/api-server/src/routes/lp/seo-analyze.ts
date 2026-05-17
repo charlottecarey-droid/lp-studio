@@ -2,6 +2,7 @@ import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable } from "@workspace/db";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -52,7 +53,7 @@ Return ONLY a valid JSON array of suggestion objects. Each object must have:
 
 Return 5-8 suggestions, ordered by priority (high first). No markdown, no explanation — just the JSON array.`;
 
-router.post("/lp/seo-analyze", async (req, res): Promise<void> => {
+router.post("/lp/seo-analyze", aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const { blocks, metaTitle, metaDescription, slug, brandName: bodyBrandName } = req.body as {
     blocks?: unknown[];
     metaTitle?: string;

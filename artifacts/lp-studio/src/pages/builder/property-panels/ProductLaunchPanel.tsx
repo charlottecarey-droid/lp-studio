@@ -11,6 +11,7 @@ import { FontSelect } from "@/components/FontSelect";
 import type {
   ProductLaunchBlockProps,
   ProductLaunchSlab,
+  ProductLaunchKpi,
   ProductLaunchSpecRow,
   ProductLaunchPlan,
   ProductLaunchNavLink,
@@ -171,6 +172,11 @@ export function ProductLaunchPanel({ props, onChange }: Props) {
         accentColor: "",
         imageUrl: "",
         reverse: props.slabs.length % 2 === 1,
+        kpis: [
+          { value: "2×", label: "Faster than before" },
+          { value: "96%", label: "First-try accuracy" },
+          { value: "18 mo", label: "Warranty included" },
+        ],
       },
     ]);
   const removeSlab = (i: number) => update("slabs", props.slabs.filter((_, x) => x !== i));
@@ -385,6 +391,78 @@ export function ProductLaunchPanel({ props, onChange }: Props) {
                 />
                 <Label className="text-xs">Image</Label>
                 <ImagePicker value={s.imageUrl ?? ""} onChange={(v) => updateSlab(i, { imageUrl: v })} />
+
+                {/* KPI strip editor — drives the inline metrics rendered
+                 *  below the bullets. Empty list falls back to a preset in
+                 *  the renderer so the UI never reads "blank section". */}
+                <div className="mt-2 rounded border border-border/60 p-2 space-y-1.5 bg-background/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      KPI strip · {(s.kpis ?? []).length}
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px]"
+                      onClick={() => {
+                        const next = [...(s.kpis ?? []), { value: "", label: "" } as ProductLaunchKpi];
+                        updateSlab(i, { kpis: next });
+                      }}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add KPI
+                    </Button>
+                  </div>
+                  {(s.kpis ?? []).length === 0 && (
+                    <p className="text-[10.5px] text-muted-foreground leading-snug">
+                      No KPIs set. The renderer will show preset placeholders
+                      ("2× faster", "96% first-try", "18 mo warranty"). Add
+                      yours below to override.
+                    </p>
+                  )}
+                  {(s.kpis ?? []).map((k, kIdx) => (
+                    <div key={kIdx} className="flex gap-1 items-center">
+                      <Input
+                        value={k.value}
+                        onChange={(e) => {
+                          const next = [...(s.kpis ?? [])];
+                          next[kIdx] = { ...next[kIdx], value: e.target.value };
+                          updateSlab(i, { kpis: next });
+                        }}
+                        placeholder="2×"
+                        className="h-7 text-xs w-16 font-mono tabular-nums"
+                      />
+                      <Input
+                        value={k.label}
+                        onChange={(e) => {
+                          const next = [...(s.kpis ?? [])];
+                          next[kIdx] = { ...next[kIdx], label: e.target.value };
+                          updateSlab(i, { kpis: next });
+                        }}
+                        placeholder="Faster than before"
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          const next = (s.kpis ?? []).filter((_, x) => x !== kIdx);
+                          updateSlab(i, { kpis: next });
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  {(s.kpis ?? []).length > 0 && (
+                    <p className="text-[10px] text-muted-foreground/80 leading-snug pt-1">
+                      Tip: 2–4 KPIs read best. Values can include units like
+                      "30 hr", "96%", "$249".
+                    </p>
+                  )}
+                </div>
+
                 <label className="flex items-center gap-2 text-xs">
                   <input
                     type="checkbox"
@@ -410,6 +488,39 @@ export function ProductLaunchPanel({ props, onChange }: Props) {
             <Field label="Headline">
               <Input value={props.specsHeadline} onChange={(e) => update("specsHeadline", e.target.value)} className="h-8 text-xs" />
             </Field>
+
+            {/* Featured column — drives the accent monogram tile and
+             *  "★ New" badge on the matching column header, and styles cells
+             *  in that column as the winner row-by-row. */}
+            <Field label="Featured column">
+              <Select
+                value={
+                  typeof props.featuredColumnIndex === "number"
+                    ? String(props.featuredColumnIndex)
+                    : "auto"
+                }
+                onValueChange={(v) =>
+                  update(
+                    "featuredColumnIndex",
+                    v === "auto" ? undefined : Number(v),
+                  )
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Last column (default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Last column (default)</SelectItem>
+                  {props.specsColumns.map((c, i) => (
+                    <SelectItem key={i} value={String(i)}>
+                      {i + 1}. {c || `(column ${i + 1})`}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="-1">None — flat comparison</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
             <div className="space-y-1">
               <Label className="text-xs">Columns</Label>
               {props.specsColumns.map((c, i) => (

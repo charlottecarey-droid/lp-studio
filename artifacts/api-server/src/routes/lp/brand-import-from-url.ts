@@ -11,6 +11,7 @@ import {
   sanitizeField,
   getOpenAIClient,
 } from "./brand-import";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -180,7 +181,7 @@ function safeJoinUrl(base: string, path: string): string | null {
   }
 }
 
-router.post("/lp/brand-import/from-url", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/brand-import/from-url", requireAuth, aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 

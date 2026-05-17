@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Logo } from "./Logo";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -31,32 +32,11 @@ export default function Navbar() {
       <div className="max-w-[1180px] mx-auto px-6 h-16 flex items-center justify-between">
         <a
           href="#"
-          className="flex items-center gap-2.5 text-[15px] font-medium tracking-tight"
+          className="flex items-center"
           style={{ color: "var(--ink)" }}
+          aria-label="LP Studio — home"
         >
-          {/* Wordmark — serif L paired with sans, no bright color block */}
-          <span
-            className="font-display"
-            style={{
-              fontSize: 22,
-              lineHeight: 1,
-              fontWeight: 500,
-              letterSpacing: "-0.04em",
-            }}
-          >
-            LP
-          </span>
-          <span
-            className="font-mono uppercase"
-            style={{
-              fontSize: 10.5,
-              letterSpacing: "0.22em",
-              color: "var(--ink-soft)",
-              paddingTop: 3,
-            }}
-          >
-            Studio
-          </span>
+          <Logo variant="wordmark" height={28} />
         </a>
 
         <div

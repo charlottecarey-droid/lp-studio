@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { CustomSchemaBlockProps, SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useCustomBlock } from "@/lib/custom-blocks-context";
+import { sanitizeHtml } from "@/lib/sanitize";
 import {
   parseTemplate,
   renderAst,
@@ -31,11 +32,16 @@ import {
  *
  * Templates render inline via dangerouslySetInnerHTML — no iframe — so the
  * block flows naturally with the surrounding page (no scroll-height hacks,
- * no awkward reflow). Safety is enforced server-side by the schema-block
- * validator (task #210), which rejects <script>, <iframe>, on*= handlers,
- * javascript: URLs, and external <link>/<script src> before the template
- * can ever land in the database. Field values are HTML-escaped before
- * substitution to defend against placeholder-based XSS.
+ * no awkward reflow). Safety is enforced via TWO layers:
+ *   1. Server-side schema-block validator (task #210) rejects <script>,
+ *      <iframe>, on*= handlers, javascript: URLs, and external
+ *      <link>/<script src> before the template lands in the database.
+ *   2. Render-time DOMPurify pass (defence-in-depth, audit follow-up
+ *      May 2026) — guards against (a) tampered templates that bypass the
+ *      validator via direct DB writes, (b) future validator regressions,
+ *      and (c) imported templates from tenant-block libraries.
+ * Field values are HTML-escaped during placeholder substitution to
+ * defend against value-driven XSS.
  */
 
 interface Props {
@@ -63,7 +69,9 @@ export function BlockCustomSchema({ props }: Props) {
       ...(props.values || {}),
     };
     const { ast } = parseTemplate(template);
-    return renderAst(ast, merged);
+    // Defence-in-depth: sanitise even though the validator already gates
+    // template writes. See file header for the two-layer rationale.
+    return sanitizeHtml(renderAst(ast, merged));
   }, [schema, template, props.values, sharedValues]);
 
   if (!template.trim()) {

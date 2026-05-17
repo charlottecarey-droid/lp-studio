@@ -1,105 +1,254 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useInView } from "../hooks/useInView";
 
-const faqs = [
+type Category = "All" | "Product" | "Pricing" | "Tech";
+
+interface Faq {
+  q: string;
+  a: string;
+  cat: Category;
+}
+
+const faqs: Faq[] = [
   {
     q: "How fast can my team actually launch a page?",
     a: "Most teams ship their first real page within an hour of getting access. Pick a template, let AI fill the copy, swap in your brand assets, publish. No code, no design ticket, no waiting on marketing.",
+    cat: "Product",
   },
   {
     q: "Do I need design or eng help to use this?",
     a: "No. Brand tokens and approved blocks are baked in by your design team once, and after that anyone on the team can ship on-brand pages. If you want to customize, the builder has a properties panel — and devs can extend the block library with custom React components.",
+    cat: "Product",
   },
   {
     q: "How does A/B testing work?",
     a: "Create variants right in the editor, set your winning metric (clicks, signups, booked meetings), and split traffic. We detect significance automatically and Smart Traffic routes the majority of visitors to the winning variant once it's clear.",
+    cat: "Product",
   },
   {
     q: "Where does the page actually live?",
     a: "On a fast, globally cached domain we host for you, or on your own subdomain if you bring DNS. Pages are statically rendered and load in under a second. SSL is handled.",
+    cat: "Tech",
   },
   {
     q: "What about analytics and tracking?",
     a: "Built in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4, Segment, and your CRM — so the data flows where your revenue team already looks.",
+    cat: "Tech",
   },
   {
     q: "How is this different from Webflow or Unbounce?",
     a: "Webflow is a designer's tool — powerful but slow when you need 50 ABM pages. Unbounce is built around templates but lacks brand-system enforcement and AI copy. LP Studio is built for revenue teams that need to ship a lot of personalized, on-brand pages, fast.",
+    cat: "Product",
+  },
+  {
+    q: "Can I cancel any time?",
+    a: "Yes. Month-to-month plans cancel from the billing settings page — no calls, no contract clauses. Annual plans pause at renewal. You keep view-only access to your pages for 90 days after cancellation.",
+    cat: "Pricing",
+  },
+  {
+    q: "Is there a free trial?",
+    a: "Growth comes with a 14-day free trial, no card required. Starter has a forever-free tier capped at 5 active pages. Enterprise demos are scheduled live with our team.",
+    cat: "Pricing",
   },
 ];
+
+const CATEGORIES: Category[] = ["All", "Product", "Pricing", "Tech"];
 
 export default function FAQ() {
   const { ref, inView } = useInView();
   const [open, setOpen] = useState<number | null>(0);
+  const [cat, setCat] = useState<Category>("All");
+
+  const visible = useMemo(
+    () => faqs.filter((f) => cat === "All" || f.cat === cat),
+    [cat],
+  );
+
   return (
     <section
       id="faq"
-      className="px-6 py-28 md:py-36"
+      className="px-6 py-28 md:py-36 relative overflow-hidden"
       style={{ background: "var(--cream)", borderTop: "1px solid var(--hairline)" }}
     >
+      {/* Soft accent orb */}
+      <div
+        aria-hidden
+        className="absolute pointer-events-none"
+        style={{
+          top: "10%",
+          left: "-12%",
+          width: 540,
+          height: 540,
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(75,71,229,0.08) 0%, rgba(75,71,229,0) 70%)",
+          filter: "blur(6px)",
+        }}
+      />
+
       <div
         ref={ref}
-        className="max-w-3xl mx-auto"
+        className="max-w-3xl mx-auto relative"
         style={{
           opacity: inView ? 1 : 0,
           transform: inView ? "none" : "translateY(16px)",
           transition: "opacity 0.7s ease, transform 0.7s ease",
         }}
       >
-        <div className="mb-14">
+        <div className="mb-10">
           <div className="marker marker-rule mb-6">Common questions</div>
           <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
             Short answers, before you sign up.
           </h2>
         </div>
 
-        <div style={{ borderTop: "1px solid var(--hairline)" }}>
-          {faqs.map((f, i) => {
+        {/* Category pills */}
+        <div className="flex items-center gap-2 flex-wrap mb-10">
+          {CATEGORIES.map((c) => {
+            const active = cat === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setCat(c);
+                  setOpen(0);
+                }}
+                className="text-[12.5px] px-3 py-1.5 rounded-full transition-all"
+                style={{
+                  background: active ? "var(--ink)" : "var(--paper)",
+                  color: active ? "var(--cream)" : "var(--ink-soft)",
+                  border: `1px solid ${active ? "var(--ink)" : "var(--hairline-strong)"}`,
+                  fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
+                  fontWeight: 600,
+                  letterSpacing: "-0.005em",
+                  boxShadow: active
+                    ? "0 4px 10px -4px rgba(26,24,21,0.25), inset 0 1px 0 rgba(255,255,255,0.12)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.6)",
+                }}
+              >
+                {c}
+                <span
+                  className="ml-1.5 text-[10px] uppercase"
+                  style={{
+                    color: active ? "rgba(244,239,227,0.65)" : "var(--ink-mute)",
+                    letterSpacing: "0.12em",
+                    fontWeight: 700,
+                  }}
+                >
+                  {c === "All" ? faqs.length : faqs.filter((f) => f.cat === c).length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: "var(--paper)",
+            border: "1px solid var(--hairline-strong)",
+            boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px -20px rgba(26,24,21,0.08)",
+          }}
+        >
+          {visible.map((f, i) => {
             const isOpen = open === i;
             return (
-              <div key={f.q} style={{ borderBottom: "1px solid var(--hairline)" }}>
+              <div
+                key={f.q}
+                style={{
+                  borderTop: i === 0 ? "none" : "1px solid var(--hairline)",
+                }}
+              >
                 <button
                   onClick={() => setOpen(isOpen ? null : i)}
-                  className="w-full flex items-center justify-between gap-6 py-6 text-left transition-colors"
+                  className="w-full grid grid-cols-12 gap-3 items-center text-left py-5 px-5 transition-colors"
+                  style={{ background: isOpen ? "rgba(75,71,229,0.04)" : "transparent" }}
+                  onMouseEnter={(e) => {
+                    if (!isOpen) e.currentTarget.style.background = "rgba(26,24,21,0.025)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isOpen) e.currentTarget.style.background = "transparent";
+                  }}
                 >
                   <span
-                    className="font-display"
+                    className="col-span-1 font-mono tabular-nums"
                     style={{
-                      color: "var(--ink)",
-                      fontSize: 19,
-                      lineHeight: 1.25,
-                      fontWeight: 500,
-                      letterSpacing: "-0.018em",
+                      color: isOpen ? "var(--indigo)" : "var(--ink-mute)",
+                      fontSize: 12,
+                      letterSpacing: "0.04em",
+                      fontWeight: 600,
                     }}
                   >
-                    {f.q}
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="col-span-10 flex items-center gap-2.5 flex-wrap">
+                    <span
+                      className="font-display"
+                      style={{
+                        color: "var(--ink)",
+                        fontSize: 18,
+                        lineHeight: 1.3,
+                        fontWeight: 500,
+                        letterSpacing: "-0.018em",
+                      }}
+                    >
+                      {f.q}
+                    </span>
+                    <span
+                      className="text-[10px] uppercase px-1.5 py-0.5 rounded-full"
+                      style={{
+                        background:
+                          f.cat === "Product"
+                            ? "var(--indigo-soft)"
+                            : f.cat === "Pricing"
+                              ? "var(--coral-soft)"
+                              : "var(--sage-soft)",
+                        color:
+                          f.cat === "Product"
+                            ? "var(--indigo)"
+                            : f.cat === "Pricing"
+                              ? "var(--coral)"
+                              : "var(--sage)",
+                        letterSpacing: "0.14em",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {f.cat}
+                    </span>
                   </span>
                   <span
-                    className="flex-shrink-0 transition-transform"
+                    className="col-span-1 flex justify-end transition-transform"
                     style={{
-                      color: "var(--ink-mute)",
+                      color: isOpen ? "var(--indigo)" : "var(--ink-mute)",
                       transform: isOpen ? "rotate(45deg)" : "none",
                     }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                       <path d="M12 5v14M5 12h14" />
                     </svg>
                   </span>
                 </button>
                 <div
                   className="overflow-hidden transition-all"
-                  style={{ maxHeight: isOpen ? 400 : 0, opacity: isOpen ? 1 : 0 }}
+                  style={{ maxHeight: isOpen ? 600 : 0, opacity: isOpen ? 1 : 0 }}
                 >
-                  <p className="pb-7 pr-10 text-[15.5px] leading-[1.65]" style={{ color: "var(--ink-soft)" }}>
-                    {f.a}
-                  </p>
+                  <div className="grid grid-cols-12 gap-3 px-5 pb-6">
+                    <div className="col-span-1" />
+                    <p
+                      className="col-span-11 text-[15.5px] leading-[1.65]"
+                      style={{ color: "var(--ink-soft)", maxWidth: 620 }}
+                    >
+                      {f.a}
+                    </p>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
 
-        <p className="mt-12 text-[14.5px]" style={{ color: "var(--ink-soft)" }}>
+        <p className="mt-10 text-[14.5px]" style={{ color: "var(--ink-soft)" }}>
           Still curious?{" "}
           <a
             href="#waitlist"

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import OpenAI from "openai";
+import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 
 const router = Router();
 
@@ -262,7 +263,7 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
   return { valid: false, sanitized: null };
 }
 
-router.post("/lp/brand-import", async (req, res): Promise<void> => {
+router.post("/lp/brand-import", aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const { section = "all", content, guidelines } = req.body as {
     section?: ImportSection;
     content?: string;

@@ -1,8 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="img" aria-label="LP Studio">
   <rect width="240" height="240" rx="52" fill="#F4EAD9"/>
   <g font-family="'DM Sans','Helvetica Neue','Inter',Arial,sans-serif">
+    <!-- LP wordmark, indigo, weight 800, slightly condensed via letter-spacing -->
     <text x="50" y="148" font-size="110" font-weight="800" letter-spacing="-4" fill="#4B47E5">LP</text>
+    <!-- Coral period dot, sized and placed like the uploaded design -->
     <circle cx="178" cy="136" r="10.5" fill="#E26B4F"/>
+    <!-- STUDIO -->
     <text x="120" y="194" text-anchor="middle" font-size="26" font-weight="700" letter-spacing="6" fill="#1A1815">STUDIO</text>
   </g>
 </svg>

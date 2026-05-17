@@ -290,73 +290,229 @@ export default function DeepFeatures() {
   return (
     <section
       id="features"
-      className="px-6 py-28 md:py-36"
+      className="px-6 py-28 md:py-36 relative overflow-hidden"
       style={{ background: "var(--cream)", borderTop: "1px solid var(--hairline)" }}
     >
-      <div className="max-w-[1180px] mx-auto">
-        <div className="max-w-2xl mb-24 md:mb-28">
-          <div className="marker marker-rule mb-6">What's inside</div>
-          <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
-            Every part of the page, solved.
+      {/* Soft accent orb at the section's top */}
+      <div
+        aria-hidden
+        className="absolute pointer-events-none"
+        style={{
+          top: "8%",
+          right: "-10%",
+          width: 520,
+          height: 520,
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(75,71,229,0.10) 0%, rgba(75,71,229,0) 70%)",
+          filter: "blur(6px)",
+        }}
+      />
+
+      <div className="max-w-[1180px] mx-auto relative">
+        <div className="max-w-3xl mb-20 md:mb-24">
+          <div className="flex items-center gap-3 mb-6">
+            <span
+              aria-hidden
+              style={{
+                width: 36,
+                height: 1,
+                background: "var(--ink-faint)",
+              }}
+            />
+            <span
+              className="font-mono uppercase"
+              style={{
+                color: "var(--ink-soft)",
+                fontSize: 11,
+                letterSpacing: "0.22em",
+                fontWeight: 600,
+              }}
+            >
+              What's inside
+            </span>
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: INDIGO,
+                boxShadow: `0 0 8px color-mix(in srgb, ${INDIGO} 60%, transparent)`,
+              }}
+            />
+          </div>
+          <h2
+            className="font-display"
+            style={{
+              color: "var(--ink)",
+              fontSize: "clamp(46px, 5.4vw, 68px)",
+              fontWeight: 500,
+              letterSpacing: "-0.034em",
+              lineHeight: 1.02,
+            }}
+          >
+            Every part of the page,{" "}
+            <span style={{ color: INDIGO, fontStyle: "italic" }}>solved</span>.
           </h2>
-          <p className="mt-6 text-[17px] leading-[1.55]" style={{ color: "var(--ink-soft)" }}>
+          <p className="mt-6 text-[17px] leading-[1.55]" style={{ color: "var(--ink-soft)", maxWidth: 580 }}>
             From copy to conversion. Three things LP Studio does that the cobbled-together stack can't.
           </p>
         </div>
 
-        <div className="space-y-32 md:space-y-40">
-          {features.map((f, i) => (
-            <FeatureRow key={i} feature={f} />
-          ))}
+        {/* Connecting spine on the left, behind the feature stack */}
+        <div className="relative">
+          <div
+            aria-hidden
+            className="absolute hidden md:block pointer-events-none"
+            style={{
+              left: -4,
+              top: 0,
+              bottom: 0,
+              width: 1,
+              background:
+                "linear-gradient(180deg, rgba(26,24,21,0) 0%, rgba(26,24,21,0.18) 8%, rgba(26,24,21,0.18) 92%, rgba(26,24,21,0) 100%)",
+            }}
+          />
+
+          <div className="space-y-32 md:space-y-40">
+            {features.map((f, i) => (
+              <FeatureRow key={i} feature={f} index={i} total={features.length} />
+            ))}
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function FeatureRow({ feature }: { feature: Feature }) {
+function FeatureRow({ feature, index, total }: { feature: Feature; index: number; total: number }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.2);
   const textCol = (
-    <div>
-      <div className="flex items-baseline gap-4 mb-5">
-        <span className="font-mono" style={{ color: "var(--ink-mute)", fontSize: 12, letterSpacing: "0.04em" }}>
+    <div className="relative">
+      {/* Big spine marker */}
+      <div
+        aria-hidden
+        className="absolute hidden md:flex items-center justify-center"
+        style={{
+          left: -22,
+          top: 4,
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          background: `linear-gradient(135deg, ${INDIGO} 0%, color-mix(in srgb, ${INDIGO} 60%, #000) 100%)`,
+          color: "#FFFFFF",
+          boxShadow: `0 6px 16px -6px color-mix(in srgb, ${INDIGO} 55%, transparent), inset 0 1px 0 rgba(255,255,255,0.3)`,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
+            fontWeight: 700,
+            fontSize: 13,
+            letterSpacing: "-0.005em",
+          }}
+        >
           {feature.marker}
         </span>
-        <span className="font-mono uppercase" style={{ color: "var(--ink-soft)", fontSize: 11, letterSpacing: "0.18em" }}>
+      </div>
+
+      <div className="flex items-baseline gap-3 mb-5 md:pl-5">
+        <span
+          className="font-mono uppercase md:hidden"
+          style={{ color: INDIGO, fontSize: 11, letterSpacing: "0.18em", fontWeight: 700 }}
+        >
+          {feature.marker}
+        </span>
+        <span
+          className="font-mono uppercase inline-flex items-center gap-1.5 px-2 py-1 rounded-full"
+          style={{
+            color: INDIGO,
+            background: "rgba(75,71,229,0.08)",
+            border: "1px solid rgba(75,71,229,0.18)",
+            fontSize: 10.5,
+            letterSpacing: "0.18em",
+            fontWeight: 700,
+          }}
+        >
+          <span
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: 999,
+              background: INDIGO,
+              boxShadow: `0 0 5px ${INDIGO}`,
+            }}
+          />
           {feature.eyebrow}
         </span>
       </div>
-      <h3 className="font-display" style={{ color: "var(--ink)", fontSize: "clamp(28px, 3.2vw, 38px)", lineHeight: 1.08, fontWeight: 500, letterSpacing: "-0.022em" }}>
+      <h3
+        className="font-display md:pl-5"
+        style={{
+          color: "var(--ink)",
+          fontSize: "clamp(28px, 3.4vw, 42px)",
+          lineHeight: 1.06,
+          fontWeight: 500,
+          letterSpacing: "-0.024em",
+        }}
+      >
         {feature.title}
       </h3>
-      <p className="mt-6 text-[16px] leading-[1.6]" style={{ color: "var(--ink-soft)" }}>
+      <p
+        className="mt-6 text-[16px] leading-[1.6] md:pl-5"
+        style={{ color: "var(--ink-soft)", maxWidth: 520 }}
+      >
         {feature.body}
       </p>
-      <ul className="mt-7 space-y-3">
+      <ul className="mt-7 space-y-3 md:pl-5">
         {feature.bullets.map((b) => (
           <li key={b} className="flex items-start gap-3 text-[14.5px]" style={{ color: "var(--ink-2)" }}>
-            <span
-              aria-hidden
-              style={{
-                width: 16,
-                height: 1,
-                background: "var(--ink-faint)",
-                display: "inline-block",
-                marginTop: 11,
-                flexShrink: 0,
-              }}
-            />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={INDIGO}
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ marginTop: 4, flexShrink: 0 }}
+              aria-hidden="true"
+            >
+              <path d="M5 12.5L10 17.5L20 7.5"/>
+            </svg>
             {b}
           </li>
         ))}
       </ul>
+
+      {/* Step indicator */}
+      <div className="mt-8 md:pl-5 flex items-center gap-1.5">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            style={{
+              display: "inline-block",
+              width: i === index ? 20 : 6,
+              height: 6,
+              borderRadius: 999,
+              background: i === index ? `linear-gradient(90deg, ${INDIGO} 0%, #6C68F0 100%)` : "rgba(26,24,21,0.18)",
+              transition: "width 240ms ease",
+            }}
+          />
+        ))}
+        <span className="ml-2 text-[11px] uppercase" style={{ color: "var(--ink-mute)", letterSpacing: "0.18em", fontWeight: 600 }}>
+          {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+        </span>
+      </div>
     </div>
   );
 
   return (
     <div
       ref={ref}
-      className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center"
+      className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center relative"
       style={{
         opacity: inView ? 1 : 0,
         transform: inView ? "none" : "translateY(28px)",

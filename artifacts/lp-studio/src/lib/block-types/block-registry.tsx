@@ -3203,6 +3203,11 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           accentColor: "#FF375F",
           imageUrl: "",
           reverse: false,
+          kpis: [
+            { value: "320 g", label: "Featherweight build" },
+            { value: "5", label: "Color finishes" },
+            { value: "IP54", label: "Sweat & dust rated" },
+          ],
         },
         {
           id: "acoustics",
@@ -3213,6 +3218,11 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           accentColor: "#32D74B",
           imageUrl: "",
           reverse: true,
+          kpis: [
+            { value: "2×", label: "More noise cancellation" },
+            { value: "48 kHz", label: "Lossless playback" },
+            { value: "<20 ms", label: "End-to-end latency" },
+          ],
         },
         {
           id: "battery",
@@ -3223,10 +3233,16 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           accentColor: "#FF9F0A",
           imageUrl: "",
           reverse: false,
+          kpis: [
+            { value: "30 hr", label: "Playback time" },
+            { value: "5 min", label: "Charge for 1 hr listen" },
+            { value: "MagSafe", label: "Wireless charging" },
+          ],
         },
       ],
       specsHeadline: "Compare the models.",
       specsColumns: ["Aura Light", "Aura Pro", "Aura Max"],
+      featuredColumnIndex: 2,
       specsRows: [
         { label: "Driver", values: ["40mm", "50mm Custom", "50mm Pro-G"] },
         { label: "Noise Cancellation", values: ["Active", "Advanced", "Pro-level"] },
