@@ -80,4 +80,50 @@ describe("pushMarketoSubmissionToDataLayer", () => {
     expect(() => pushMarketoSubmissionToDataLayer()).not.toThrow();
     expect(globalAny.window?.dataLayer).toBeUndefined();
   });
+
+  it("honours a per-form override for event + formName", () => {
+    const dataLayer: DataLayerEntry[] = [];
+    installWindowWithDataLayer(dataLayer);
+
+    pushMarketoSubmissionToDataLayer({
+      enabled: true,
+      event: "Custom Event",
+      formName: "Pricing Page Form",
+    });
+
+    expect(dataLayer).toHaveLength(1);
+    expect(dataLayer[0]).toEqual({
+      event: "Custom Event",
+      formName: "Pricing Page Form",
+    });
+  });
+
+  it("falls back to defaults when override fields are missing or blank", () => {
+    const dataLayer: DataLayerEntry[] = [];
+    installWindowWithDataLayer(dataLayer);
+
+    pushMarketoSubmissionToDataLayer({ enabled: true, event: "   " });
+
+    expect(dataLayer).toHaveLength(1);
+    expect(dataLayer[0]).toEqual(EXPECTED_PAYLOAD);
+  });
+
+  it("skips the push entirely when enabled is false", () => {
+    const dataLayer: DataLayerEntry[] = [];
+    installWindowWithDataLayer(dataLayer);
+
+    pushMarketoSubmissionToDataLayer({ enabled: false });
+
+    expect(dataLayer).toHaveLength(0);
+  });
+
+  it("treats a null config as default-on (preserves historical behavior)", () => {
+    const dataLayer: DataLayerEntry[] = [];
+    installWindowWithDataLayer(dataLayer);
+
+    pushMarketoSubmissionToDataLayer(null);
+
+    expect(dataLayer).toHaveLength(1);
+    expect(dataLayer[0]).toEqual(EXPECTED_PAYLOAD);
+  });
 });

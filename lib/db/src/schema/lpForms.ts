@@ -17,6 +17,10 @@ export const lpFormsTable = pgTable("lp_forms", {
   marketoConfig: jsonb("marketo_config"),
   salesforceConfig: jsonb("salesforce_config"),
   chiliPiperConfig: jsonb("chili_piper_config"),
+  // Per-form GTM dataLayer push config. NULL = use built-in defaults
+  // (see DEFAULT_GTM_DATALAYER_CONFIG in artifacts/lp-studio/src/lib/gtm-datalayer.ts).
+  // Shape: { enabled: boolean, event: string, formName: string }.
+  gtmDataLayerConfig: jsonb("gtm_data_layer_config"),
   sendFollowUpToSubmitter: boolean("send_follow_up_to_submitter").notNull().default(false),
   followUpTemplateId: integer("follow_up_template_id").references(() => salesEmailTemplatesTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

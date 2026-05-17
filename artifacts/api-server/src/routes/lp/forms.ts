@@ -42,6 +42,11 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
       marketoConfig: null,
       salesforceConfig: null,
       chiliPiperConfig: null,
+      // Leave as NULL so the public viewer falls through to the built-in
+      // default payload ({ enabled: true, event: "Marketo Form Submission",
+      // formName: "Demo Form" }) — matches the SMB trios5 form 6 behavior
+      // for every new form out of the box.
+      gtmDataLayerConfig: null,
     })
     .returning();
   res.status(201).json(form);
@@ -103,6 +108,12 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
       backgroundStyle: lpFormsTable.backgroundStyle,
       chiliPiperConfig: lpFormsTable.chiliPiperConfig,
       marketoConfig: lpFormsTable.marketoConfig,
+      // GTM dataLayer push config (or NULL → use defaults). Exposed on
+      // the public payload so BlockForm / MarketoForm on the rendered
+      // page can honor the per-form override. Contains only operator-
+      // authored strings (event name + formName) and an enabled flag —
+      // no secrets.
+      gtmDataLayerConfig: lpFormsTable.gtmDataLayerConfig,
     }).from(lpFormsTable).where(
       and(eq(lpFormsTable.tenantId, tenantMatch.tenantId), eq(lpFormsTable.id, id)),
     );
@@ -135,7 +146,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
     "name", "description", "steps", "multiStep", "submitButtonText",
     "successMessage", "redirectUrl", "backgroundStyle",
     "emailRecipients", "webhookUrl", "marketoConfig", "salesforceConfig",
-    "chiliPiperConfig",
+    "chiliPiperConfig", "gtmDataLayerConfig",
     "sendFollowUpToSubmitter", "followUpTemplateId",
   ];
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -177,6 +188,7 @@ router.post("/lp/forms/:id/duplicate", async (req, res): Promise<void> => {
       marketoConfig: src.marketoConfig,
       salesforceConfig: src.salesforceConfig,
       chiliPiperConfig: src.chiliPiperConfig,
+      gtmDataLayerConfig: src.gtmDataLayerConfig,
     })
     .returning();
   res.status(201).json(copy);

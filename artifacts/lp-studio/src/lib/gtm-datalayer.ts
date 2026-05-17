@@ -3,13 +3,16 @@
 // GTM (Google Tag Manager) is loaded by the host site (`lp.meetdandy.com`)
 // and exposes a global `window.dataLayer` array. Tags configured in the GTM
 // container key off `event` strings pushed onto this array. Marketing needs
-// every successful Marketo form submission to push the documented
-// `Marketo Form Submission` event so downstream ads-conversion and analytics
-// tags can fire.
+// every successful Marketo form submission to push a documented event so
+// downstream ads-conversion and analytics tags can fire.
 //
-// Marketing's GTM tag keys off the literal `formName: "Demo Form"` value,
-// so this module pushes that hardcoded payload regardless of the live
-// Marketo form's name.
+// The default payload is the EXACT one the SMB trios5 page on
+// lp.meetdandy.com (global form 6) has fired since this feature shipped:
+//   { event: "Marketo Form Submission", formName: "Demo Form" }
+// Every form across every tenant gets this push by default. A form can
+// override the payload (or disable the push entirely) by setting
+// `gtm_data_layer_config` on the lp_forms row; the public form fetch
+// surfaces that config to BlockForm / MarketoForm.
 //
 // Two invariants this module owns:
 //   1. The push only ever fires when `window.dataLayer` exists (don't crash
@@ -27,24 +30,61 @@ declare global {
   }
 }
 
-const HARDCODED_FORM_NAME = "Demo Form";
+/**
+ * Per-form override surfaced from `lp_forms.gtm_data_layer_config`.
+ * Every field is optional so a partial override falls through to the
+ * built-in defaults below; an explicit `enabled: false` disables the
+ * push entirely for that form.
+ */
+export interface GtmDataLayerConfig {
+  enabled?: boolean;
+  event?: string;
+  formName?: string;
+}
+
+/**
+ * The EXACT hardcoded payload the SMB trios5 page on lp.meetdandy.com
+ * (global form 6) has been firing since this feature launched. Used as
+ * the default for every form across every tenant when no per-form
+ * override is set, so existing behavior is preserved out of the box.
+ */
+export const DEFAULT_GTM_DATALAYER_CONFIG: Required<GtmDataLayerConfig> = {
+  enabled: true,
+  event: "Marketo Form Submission",
+  formName: "Demo Form",
+};
 
 let hasPushed = false;
 
 /**
- * Push a `Marketo Form Submission` event onto `window.dataLayer`.
- * Idempotent within a page load: subsequent calls are no-ops.
+ * Push the configured GTM dataLayer event. Idempotent within a page
+ * load — subsequent calls are no-ops.
  *
- * The pushed payload is always the literal
- * `{ formName: "Demo Form", event: "Marketo Form Submission" }` —
- * marketing's GTM tag keys off that exact string.
+ * Pass the form's `gtmDataLayerConfig` (from the public form fetch).
+ * When omitted, or any field is missing, the SMB trios5 / form 6
+ * defaults (event "Marketo Form Submission", formName "Demo Form")
+ * fill the gap.
  *
- * Call this from a Marketo `form.onSuccess` handler — never from a button
- * click handler — so that Marketo's own validation has accepted the
- * submission and we don't emit phantom GTM events for failed submits.
+ * Call this from a Marketo `form.onSuccess` handler — never from a
+ * button click handler — so that Marketo's own validation has accepted
+ * the submission and we don't emit phantom GTM events for failed
+ * submits.
  */
-export function pushMarketoSubmissionToDataLayer(): void {
+export function pushMarketoSubmissionToDataLayer(config?: GtmDataLayerConfig | null): void {
   if (typeof window === "undefined") return;
+
+  const merged: Required<GtmDataLayerConfig> = {
+    enabled: config?.enabled ?? DEFAULT_GTM_DATALAYER_CONFIG.enabled,
+    event: config?.event?.trim() || DEFAULT_GTM_DATALAYER_CONFIG.event,
+    formName: config?.formName?.trim() || DEFAULT_GTM_DATALAYER_CONFIG.formName,
+  };
+
+  if (!merged.enabled) {
+    // eslint-disable-next-line no-console
+    console.log("[lp-studio] dataLayer push skipped (disabled for this form)");
+    return;
+  }
+
   if (hasPushed) {
     // eslint-disable-next-line no-console
     console.log("[lp-studio] dataLayer push skipped (already fired this page load)");
@@ -59,8 +99,8 @@ export function pushMarketoSubmissionToDataLayer(): void {
   hasPushed = true;
   try {
     const payload = {
-      formName: HARDCODED_FORM_NAME,
-      event: "Marketo Form Submission",
+      formName: merged.formName,
+      event: merged.event,
     };
     dl.push(payload);
     // eslint-disable-next-line no-console

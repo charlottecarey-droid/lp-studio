@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MunchkinLoader } from "./MunchkinLoader";
-import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 // Scoped overlay that beats Marketo's CDN-injected stylesheet via
 // [data-lp-marketo-form] specificity + targeted !important. Imported
 // from the component (not a global stylesheet) so it only ships when
@@ -56,6 +56,13 @@ export interface MarketoFormProps {
    * would otherwise double-submit.
    */
   submitOnReady?: boolean;
+  /**
+   * Optional per-form override for the GTM `Marketo Form Submission`
+   * dataLayer push. Surfaced from `lp_forms.gtm_data_layer_config` on
+   * the public form fetch. Omit (or pass `null`) to keep the historical
+   * SMB trios5 / form 6 default payload.
+   */
+  gtmDataLayerConfig?: GtmDataLayerConfig | null;
   /**
    * Fires when the Marketo loader script (or `loadForm`) fails. Lets callers
    * surface a "ghost submit failed" state in their own UI without having to
@@ -130,6 +137,7 @@ export function MarketoForm({
   followUpUrl,
   onSuccess,
   submitOnReady,
+  gtmDataLayerConfig,
   onLoadError,
   onGhostSubmitAttempted,
   className,
@@ -138,6 +146,16 @@ export function MarketoForm({
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Latest gtmDataLayerConfig held in a ref so the form.onSuccess handler
+  // registered inside the load effect reads the current value instead of
+  // a stale closure capture. Updating the ref does NOT re-run the load
+  // effect — re-initializing Marketo's Forms2 on the same container is
+  // not safe.
+  const gtmDataLayerConfigRef = useRef<GtmDataLayerConfig | null | undefined>(gtmDataLayerConfig);
+  useEffect(() => {
+    gtmDataLayerConfigRef.current = gtmDataLayerConfig;
+  }, [gtmDataLayerConfig]);
 
   useEffect(() => {
     if (!baseUrl || !munchkinId || !formId) {
@@ -310,7 +328,11 @@ export function MarketoForm({
           if (!submitOnReady) {
             form.onSuccess(() => {
               try {
-                pushMarketoSubmissionToDataLayer();
+                // Read from a ref so a late prop change is honored without
+                // forcing the effect (and therefore the Marketo form
+                // itself) to re-mount — Marketo's Forms2 loader doesn't
+                // re-init cleanly on the same container.
+                pushMarketoSubmissionToDataLayer(gtmDataLayerConfigRef.current);
               } catch {
                 // Analytics must never break the submit path.
               }

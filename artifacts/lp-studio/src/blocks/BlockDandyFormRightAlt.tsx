@@ -12,7 +12,7 @@ import { MarketoForm } from "@/components/MarketoForm";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { safeNavigate } from "@/lib/safe-url";
-import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 
 const API_BASE = "/api";
 
@@ -34,6 +34,8 @@ interface GlobalFormConfig {
   successMessage: string | null;
   redirectUrl: string | null;
   chiliPiperConfig?: ChiliPiperHandoffConfig | null;
+  /** Per-form GTM dataLayer override; NULL → use defaults. */
+  gtmDataLayerConfig?: GtmDataLayerConfig | null;
 }
 
 const ASPECT_CLASS: Record<NonNullable<DandyFormRightAltBlockProps["imageAspect"]>, string> = {
@@ -188,7 +190,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     // GTM dataLayer push (marketing's "Marketo Form Submission" event).
     // Helper dedupes per page load and is safe to call after any submit.
     try {
-      pushMarketoSubmissionToDataLayer();
+      pushMarketoSubmissionToDataLayer(globalForm?.gtmDataLayerConfig ?? null);
     } catch (err) {
       console.error("[lp-studio] dataLayer push threw:", err);
     }
@@ -408,6 +410,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             baseUrl={props.marketoBaseUrl}
             munchkinId={props.marketoMunchkinId}
             formId={props.marketoFormId}
+            gtmDataLayerConfig={globalForm?.gtmDataLayerConfig ?? null}
             onSuccess={() => {
               if (!handoffAfterSubmit()) setFormState("success");
             }}

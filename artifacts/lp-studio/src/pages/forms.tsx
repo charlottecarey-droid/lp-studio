@@ -32,6 +32,7 @@ interface GlobalForm {
   marketoConfig: MarketoConfig | null;
   salesforceConfig: SalesforceConfig | null;
   chiliPiperConfig: ChiliPiperConfig | null;
+  gtmDataLayerConfig: GtmDataLayerConfig | null;
   sendFollowUpToSubmitter: boolean;
   followUpTemplateId: number | null;
   createdAt: string;
@@ -63,6 +64,19 @@ interface ChiliPiperConfig {
   mode?: "modal" | "redirect";
   fieldMap?: Record<string, string>;
 }
+
+interface GtmDataLayerConfig {
+  enabled?: boolean;
+  event?: string;
+  formName?: string;
+}
+
+// Mirror of DEFAULT_GTM_DATALAYER_CONFIG in
+// artifacts/lp-studio/src/lib/gtm-datalayer.ts. Duplicated here so the
+// editor can show the defaults as placeholder text without dragging the
+// runtime helper (which touches `window`) into this admin page bundle.
+const DEFAULT_GTM_EVENT = "Marketo Form Submission";
+const DEFAULT_GTM_FORM_NAME = "Demo Form";
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "text", label: "Text" },
@@ -391,6 +405,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           emailRecipients: local.emailRecipients, webhookUrl: local.webhookUrl,
           marketoConfig: local.marketoConfig, salesforceConfig: local.salesforceConfig,
           chiliPiperConfig: local.chiliPiperConfig,
+          gtmDataLayerConfig: local.gtmDataLayerConfig,
           sendFollowUpToSubmitter: local.sendFollowUpToSubmitter,
           followUpTemplateId: local.followUpTemplateId,
         }),
@@ -804,6 +819,73 @@ Lead Source:LeadSource`}</pre>
                 </div>
               )}
             </div>
+
+            {/* GTM dataLayer — per-form override for the
+                `Marketo Form Submission` event push. Defaults match the
+                SMB trios5 / form 6 hardcoded payload so every form fires
+                the historical { event: "Marketo Form Submission",
+                formName: "Demo Form" } out of the box. */}
+            {(() => {
+              const cfg = local.gtmDataLayerConfig;
+              // NULL config → defaults (enabled). Only an explicit
+              // `enabled: false` disables the push.
+              const enabled = cfg?.enabled !== false;
+              const eventVal = cfg?.event ?? "";
+              const formNameVal = cfg?.formName ?? "";
+              const setGtm = (patch: Partial<GtmDataLayerConfig>) => {
+                const base: GtmDataLayerConfig = cfg ?? {};
+                const next: GtmDataLayerConfig = { ...base, ...patch };
+                // Collapse back to NULL when the config is equivalent to
+                // the defaults — keeps the DB row clean and lets a future
+                // default change propagate to forms that never customized.
+                const isDefault =
+                  (next.enabled === true || next.enabled === undefined) &&
+                  !next.event?.trim() &&
+                  !next.formName?.trim();
+                set("gtmDataLayerConfig", isDefault ? null : next);
+              };
+              return (
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+                    <div className="text-sm font-medium">GTM dataLayer push</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{enabled ? "On" : "Off"}</span>
+                      <Switch checked={enabled} onCheckedChange={v => setGtm({ enabled: v })} />
+                    </div>
+                  </div>
+                  <div className="p-3 space-y-3">
+                    <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+                      Fires a <code className="bg-muted px-1 rounded">window.dataLayer.push</code> on every successful submission so marketing's GTM container can fan out to ads-conversion / GA4 tags. Leave the fields blank to use the defaults (the exact payload the SMB trios5 page has fired since launch).
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <Label className={LABEL_CLS}>Event name</Label>
+                        <Input
+                          className="text-sm font-mono"
+                          placeholder={DEFAULT_GTM_EVENT}
+                          value={eventVal}
+                          onChange={e => setGtm({ event: e.target.value })}
+                          disabled={!enabled}
+                        />
+                      </div>
+                      <div>
+                        <Label className={LABEL_CLS}>Form name</Label>
+                        <Input
+                          className="text-sm font-mono"
+                          placeholder={DEFAULT_GTM_FORM_NAME}
+                          value={formNameVal}
+                          onChange={e => setGtm({ formName: e.target.value })}
+                          disabled={!enabled}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Default payload: <code className="bg-muted px-1 rounded">{`{ event: "${DEFAULT_GTM_EVENT}", formName: "${DEFAULT_GTM_FORM_NAME}" }`}</code>
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Chili Piper handoff — picks up the form's submitted values and
                 forwards them to the configured scheduler URL. The handoff is

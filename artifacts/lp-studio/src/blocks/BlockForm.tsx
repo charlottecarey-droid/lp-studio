@@ -7,7 +7,7 @@ import { MarketoForm } from "@/components/MarketoForm";
 import { MunchkinLoader } from "@/components/MunchkinLoader";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
-import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 
 const API_BASE = "/api";
 
@@ -71,6 +71,14 @@ interface GlobalFormConfig {
       formId: number;
     };
   } | null;
+  /**
+   * Per-form GTM dataLayer push override surfaced from
+   * `lp_forms.gtm_data_layer_config`. NULL/omitted falls through to the
+   * default SMB trios5 / form 6 payload
+   * ({ enabled: true, event: "Marketo Form Submission",
+   *    formName: "Demo Form" }).
+   */
+  gtmDataLayerConfig?: GtmDataLayerConfig | null;
 }
 
 interface Props {
@@ -591,7 +599,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         // lp-studio forms send the same signal. Idempotent per page load
         // — the helper dedupes internally.
         try {
-          pushMarketoSubmissionToDataLayer();
+          pushMarketoSubmissionToDataLayer(globalForm?.gtmDataLayerConfig ?? null);
         } catch (err) {
           // Analytics must never break the submit path.
           console.error("[lp-studio] dataLayer push threw:", err);
@@ -782,6 +790,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         formId={ghostMkto.formId}
         prefill={ghostSubmitVals}
         submitOnReady
+        gtmDataLayerConfig={globalForm?.gtmDataLayerConfig ?? null}
         onGhostSubmitAttempted={() => {
           // Visible console log so operators (and the team) can verify
           // the ghost-submit path is firing on the live site without
@@ -983,6 +992,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   baseUrl={props.marketoBaseUrl}
                   munchkinId={props.marketoMunchkinId}
                   formId={props.marketoFormId}
+                  gtmDataLayerConfig={globalForm?.gtmDataLayerConfig ?? null}
                   // The Chili Piper hand-off owns post-submit navigation when
                   // configured, so we drop the redirect to avoid double-firing.
                   followUpUrl={globalForm?.chiliPiperConfig?.url ? undefined : (activeRedirectUrl || undefined)}
