@@ -55,7 +55,6 @@ export default function Footer() {
                   fontSize: 28,
                   lineHeight: 1,
                   fontWeight: 500,
-                  fontVariationSettings: "'opsz' 144",
                   letterSpacing: "-0.04em",
                   color: "var(--ink)",
                 }}

@@ -41,7 +41,6 @@ export default function Navbar() {
               fontSize: 22,
               lineHeight: 1,
               fontWeight: 500,
-              fontVariationSettings: "'opsz' 144",
               letterSpacing: "-0.04em",
             }}
           >

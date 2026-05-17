@@ -7,8 +7,7 @@ export default function NotFound() {
       <div
         className="mb-4"
         style={{
-          fontFamily: "'Fraunces', Georgia, serif",
-          fontVariationSettings: "'opsz' 144",
+          fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
           fontSize: "clamp(96px, 14vw, 168px)",
           lineHeight: 1,
           fontWeight: 500,

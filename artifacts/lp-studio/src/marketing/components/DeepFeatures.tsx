@@ -151,8 +151,8 @@ function BrandTokensVisual() {
         Type
       </div>
       <div className="space-y-1 mb-1">
-        <div className="font-display" style={{ color: CARD_TEXT, fontSize: 22, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.022em" }}>
-          Display — Fraunces
+        <div className="font-display" style={{ color: CARD_TEXT, fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: "-0.022em" }}>
+          Display — DM Sans
         </div>
         <div className="text-[13px]" style={{ color: "rgba(244,239,227,0.7)" }}>
           Body — Inter

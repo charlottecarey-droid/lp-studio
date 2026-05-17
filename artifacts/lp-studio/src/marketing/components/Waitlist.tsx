@@ -37,7 +37,6 @@ export default function Waitlist() {
             fontWeight: 500,
             lineHeight: 1,
             letterSpacing: "-0.034em",
-            fontVariationSettings: "'opsz' 144",
             maxWidth: 720,
           }}
         >
@@ -47,7 +46,6 @@ export default function Waitlist() {
             style={{
               fontStyle: "italic",
               color: "var(--cream)",
-              fontVariationSettings: "'opsz' 144",
             }}
           >
             already

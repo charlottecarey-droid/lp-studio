@@ -30,7 +30,7 @@ export default function Testimonials() {
     <section
       id="testimonials"
       className="px-6 py-28 md:py-36"
-      style={{ background: "var(--cream)", borderTop: "1px solid var(--hairline)" }}
+      style={{ background: "var(--tint-blush)", borderTop: "1px solid var(--hairline)" }}
     >
       <div
         ref={ref}
@@ -64,11 +64,10 @@ export default function Testimonials() {
                 aria-hidden
                 className="font-display"
                 style={{
-                  fontSize: 56,
+                  fontSize: 64,
                   lineHeight: 0.6,
-                  color: "var(--ink-faint)",
-                  fontWeight: 500,
-                  fontVariationSettings: "'opsz' 144",
+                  color: "var(--coral)",
+                  fontWeight: 700,
                 }}
               >
                 “

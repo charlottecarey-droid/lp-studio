@@ -271,7 +271,7 @@ function MockPage({
         {/* headline */}
         <h2
           style={{
-            fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+            fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
             fontWeight: 600,
             letterSpacing: "-0.04em",
             fontSize: 52,
@@ -309,7 +309,7 @@ function MockPage({
             style={{
               background: ctaColor,
               color: INK,
-              fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+              fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
               letterSpacing: "-0.005em",
               transform: `scale(${1 - primaryClick * 0.05})`,
               transition: "background 220ms ease",
@@ -336,7 +336,7 @@ function MockPage({
               color: TEXT,
               border: `1px solid ${HAIRLINE_STRONG}`,
               background: "transparent",
-              fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+              fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
             }}
           >
             See a live page →
@@ -388,7 +388,7 @@ function MockPage({
                 style={{
                   color: LIME,
                   letterSpacing: "0.18em",
-                  fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                  fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                   fontWeight: 600,
                 }}
               >
@@ -398,7 +398,7 @@ function MockPage({
                 className="text-[16px] mb-1.5"
                 style={{
                   color: TEXT,
-                  fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                  fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                   fontWeight: 600,
                   letterSpacing: "-0.01em",
                 }}
@@ -562,7 +562,7 @@ export default function AssembleScene() {
           </div>
           <h1
             style={{
-              fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+              fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
               fontWeight: 600,
               letterSpacing: "-0.045em",
               fontSize: isMobile ? 44 : 76,
@@ -648,7 +648,7 @@ export default function AssembleScene() {
                     className="text-[12.5px]"
                     style={{
                       color: "rgba(26,24,21,0.85)",
-                      fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                      fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                       fontWeight: 500,
                     }}
                   >
@@ -690,7 +690,7 @@ export default function AssembleScene() {
                       background: published ? LIME : "rgba(26,24,21,0.08)",
                       color: published ? INK : TEXT,
                       border: `1px solid ${published ? LIME : HAIRLINE_STRONG}`,
-                      fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                      fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                       fontWeight: 600,
                       letterSpacing: "-0.005em",
                       transform: `scale(${1 - publishClick * 0.05})`,
@@ -746,7 +746,7 @@ export default function AssembleScene() {
                           background: b.sel ? "rgba(75,71,229,0.10)" : "transparent",
                           color: b.sel ? LIME : b.on ? "rgba(26,24,21,0.75)" : FAINT,
                           fontWeight: b.sel ? 600 : 500,
-                          fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                          fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                           letterSpacing: "-0.005em",
                         }}
                       >
@@ -774,7 +774,7 @@ export default function AssembleScene() {
                         className="flex items-center gap-2 px-2 py-1 text-[11.5px]"
                         style={{
                           color: "rgba(26,24,21,0.45)",
-                          fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                          fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                         }}
                       >
                         <span
@@ -898,7 +898,7 @@ export default function AssembleScene() {
                         background: "rgba(26,24,21,0.05)",
                         color: TEXT,
                         border: `1px solid ${HAIRLINE_STRONG}`,
-                        fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                        fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                       }}
                     >
                       {ctaLabel}
@@ -916,7 +916,7 @@ export default function AssembleScene() {
                         background: "rgba(26,24,21,0.05)",
                         color: TEXT,
                         border: `1px solid ${HAIRLINE_STRONG}`,
-                        fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                        fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                       }}
                     >
                       <span>Revenue teams</span>
@@ -935,7 +935,7 @@ export default function AssembleScene() {
                         background: "rgba(26,24,21,0.05)",
                         color: TEXT,
                         border: `1px solid ${HAIRLINE_STRONG}`,
-                        fontFamily: "'Fraunces', 'Iowan Old Style', Georgia, serif",
+                        fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                       }}
                     >
                       <span>2 active</span>

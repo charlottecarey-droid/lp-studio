@@ -1,10 +1,10 @@
 import { useInView } from "../hooks/useInView";
 
 const stats = [
-  { value: "1.2", suffix: "M", label: "Pages launched" },
-  { value: "4.8", suffix: "×", label: "Median conversion lift" },
-  { value: "47", suffix: "min", label: "Brief to live, median" },
-  { value: "1,200", suffix: "", label: "Revenue teams shipping" },
+  { value: "1.2", suffix: "M", label: "Pages launched", color: "var(--indigo)" },
+  { value: "4.8", suffix: "×", label: "Median conversion lift", color: "var(--coral)" },
+  { value: "47", suffix: "min", label: "Brief to live, median", color: "var(--sage)" },
+  { value: "1,200", suffix: "", label: "Revenue teams shipping", color: "var(--gold)" },
 ];
 
 export default function StatsBand() {
@@ -39,12 +39,11 @@ export default function StatsBand() {
               <span
                 className="font-display"
                 style={{
-                  color: "var(--ink)",
+                  color: s.color,
                   fontSize: "clamp(40px, 4.4vw, 56px)",
-                  fontWeight: 500,
-                  letterSpacing: "-0.038em",
+                  fontWeight: 600,
+                  letterSpacing: "-0.032em",
                   lineHeight: 1,
-                  fontVariationSettings: "'opsz' 144",
                 }}
               >
                 {s.value}
@@ -52,10 +51,11 @@ export default function StatsBand() {
               <span
                 className="font-display"
                 style={{
-                  color: "var(--ink-soft)",
+                  color: s.color,
+                  opacity: 0.6,
                   fontSize: "clamp(22px, 2.2vw, 28px)",
-                  fontWeight: 400,
-                  letterSpacing: "-0.02em",
+                  fontWeight: 500,
+                  letterSpacing: "-0.018em",
                   lineHeight: 1,
                 }}
               >

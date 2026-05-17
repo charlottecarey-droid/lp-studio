@@ -16,7 +16,6 @@ export default function Terms() {
               lineHeight: 1.02,
               fontWeight: 500,
               letterSpacing: "-0.028em",
-              fontVariationSettings: "'opsz' 144",
               marginBottom: 12,
             }}
           >

@@ -12,6 +12,8 @@ const cases = [
       "Embed in 1:1 outreach",
       "See who viewed and for how long",
     ],
+    accent: "var(--indigo)",
+    tint: "var(--indigo-soft)",
   },
   {
     num: "02",
@@ -24,6 +26,8 @@ const cases = [
       "Auto-significance detection",
       "Heatmaps and scroll depth, in the box",
     ],
+    accent: "var(--coral)",
+    tint: "var(--coral-soft)",
   },
   {
     num: "03",
@@ -36,6 +40,8 @@ const cases = [
       "Approval workflows when you need them",
       "Locked vs editable regions",
     ],
+    accent: "var(--sage)",
+    tint: "var(--sage-soft)",
   },
   {
     num: "04",
@@ -48,6 +54,8 @@ const cases = [
       "Auto-pull from your CRM",
       "Branded, shareable, trackable",
     ],
+    accent: "var(--gold)",
+    tint: "var(--gold-soft)",
   },
 ];
 
@@ -88,16 +96,24 @@ export default function UseCases() {
                 paddingLeft: i % 2 === 1 ? "2.5rem" : 0,
               }}
             >
-              <div className="flex items-baseline gap-4 mb-5">
+              <div className="flex items-center gap-3 mb-5">
                 <span
-                  className="font-mono"
-                  style={{ color: "var(--ink-mute)", fontSize: 12, letterSpacing: "0.04em" }}
+                  className="font-mono inline-flex items-center justify-center"
+                  style={{
+                    background: c.tint,
+                    color: c.accent,
+                    fontSize: 11,
+                    letterSpacing: "0.04em",
+                    padding: "3px 8px",
+                    borderRadius: 4,
+                    fontWeight: 500,
+                  }}
                 >
                   {c.num}
                 </span>
                 <span
                   className="font-mono uppercase"
-                  style={{ color: "var(--ink-soft)", fontSize: 11, letterSpacing: "0.18em" }}
+                  style={{ color: c.accent, fontSize: 11, letterSpacing: "0.18em", fontWeight: 500 }}
                 >
                   {c.name}
                 </span>

@@ -135,7 +135,6 @@ export default function Pricing() {
                       fontWeight: 500,
                       letterSpacing: "-0.038em",
                       lineHeight: 1,
-                      fontVariationSettings: "'opsz' 144",
                     }}
                   >
                     {tier.price}
