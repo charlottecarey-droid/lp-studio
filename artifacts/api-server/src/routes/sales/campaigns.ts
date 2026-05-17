@@ -1,6 +1,6 @@
 import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { createHmac, randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import {
@@ -163,11 +163,14 @@ function injectTrackingPixel(html: string, trackUrl: string): string {
  * before it can be sent.
  */
 function templateNeedsMicrositeUrl(...texts: (string | null | undefined)[]): boolean {
+  // Keys MUST match what `normalizeTokenKey` produces — underscores between
+  // word boundaries are preserved. Earlier we used the no-underscore form
+  // here which silently failed to detect the canonical `{{microsite_url}}`.
   const aliases = new Set([
-    "micrositeurl",
-    "personalizedlink",
-    "personalizedurl",
-    "pageurl",
+    "microsite_url",
+    "personalized_link",
+    "personalized_url",
+    "page_url",
     "link",
     "microsite",
   ]);
@@ -196,6 +199,7 @@ async function ensureHotlinkForContact(
   pageId: number,
   sfdcContactId: string | null,
 ): Promise<{ id: number; token: string }> {
+  // Fast path: an existing row for this (contact, page) — reactivate if soft-deleted.
   const [existing] = await db
     .select({ id: salesHotlinksTable.id, token: salesHotlinksTable.token, isActive: salesHotlinksTable.isActive })
     .from(salesHotlinksTable)
@@ -212,7 +216,9 @@ async function ensureHotlinkForContact(
     }
     return { id: existing.id, token: existing.token };
   }
-  // Generate a unique 16-char token (matches the LP/sales hotlink format).
+  // Insert with ON CONFLICT on the partial unique index `(contact_id, page_id)`
+  // (migration 0017). The DO UPDATE is a no-op SET that still returns the
+  // existing row so concurrent callers all see the same token.
   let token = "";
   for (let attempt = 0; attempt < 5; attempt++) {
     const candidate = randomBytes(12).toString("base64url").slice(0, 16);
@@ -223,13 +229,15 @@ async function ensureHotlinkForContact(
     if (!clash) { token = candidate; break; }
   }
   if (!token) throw new Error("Failed to generate unique hotlink token");
-  const [inserted] = await db.insert(salesHotlinksTable).values({
-    token,
-    contactId,
-    sfdcContactId,
-    pageId,
-  }).returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
-  return { id: inserted.id, token: inserted.token };
+  const [row] = await db.insert(salesHotlinksTable)
+    .values({ token, contactId, sfdcContactId, pageId })
+    .onConflictDoUpdate({
+      target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId],
+      targetWhere: sql`contact_id IS NOT NULL`,
+      set: { isActive: true },
+    })
+    .returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
+  return { id: row.id, token: row.token };
 }
 
 async function sendViaResend(payload: {
@@ -452,29 +460,42 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const campaignId = Number(req.params.id);
   try {
-    // Load campaign
+    // Load campaign — TENANT-SCOPED so a user can't send another tenant's campaigns.
     const [campaign] = await db.select().from(salesEmailCampaignsTable)
-      .where(eq(salesEmailCampaignsTable.id, campaignId));
+      .where(and(
+        eq(salesEmailCampaignsTable.id, campaignId),
+        eq(salesEmailCampaignsTable.tenantId, tenantId),
+      ));
     if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
-    // Load template
+    // Load template — also tenant-scoped.
     if (campaign.templateId === null) {
       res.status(400).json({ error: "Campaign has no template assigned" });
       return;
     }
     const [template] = await db.select().from(salesEmailTemplatesTable)
-      .where(eq(salesEmailTemplatesTable.id, campaign.templateId));
+      .where(and(
+        eq(salesEmailTemplatesTable.id, campaign.templateId),
+        eq(salesEmailTemplatesTable.tenantId, tenantId),
+      ));
     if (!template) { res.status(400).json({ error: "Template not found" }); return; }
 
-    // Load contacts — batch query instead of N+1 loop
+    // Load contacts — batch query instead of N+1 loop. Always tenant-scope so a
+    // malicious metadata.contactIds payload can't pull other tenants' contacts.
     const contactIds: number[] = (campaign.metadata as any)?.contactIds ?? [];
     let contacts;
     if (contactIds.length > 0) {
       contacts = await db.select().from(salesContactsTable)
-        .where(inArray(salesContactsTable.id, contactIds));
+        .where(and(
+          inArray(salesContactsTable.id, contactIds),
+          eq(salesContactsTable.tenantId, tenantId),
+        ));
     } else if (campaign.accountId) {
       contacts = await db.select().from(salesContactsTable)
-        .where(eq(salesContactsTable.accountId, campaign.accountId));
+        .where(and(
+          eq(salesContactsTable.accountId, campaign.accountId),
+          eq(salesContactsTable.tenantId, tenantId),
+        ));
     } else {
       res.status(400).json({ error: "No contacts specified for campaign" });
       return;
@@ -1255,14 +1276,22 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
     };
 
     if (contactId) {
+      // TENANT-SCOPED so a user can't trigger hotlink creation against another
+      // tenant's contacts or pages by crafting the request body.
       const [contact] = await db.select().from(salesContactsTable)
-        .where(eq(salesContactsTable.id, Number(contactId)));
+        .where(and(
+          eq(salesContactsTable.id, Number(contactId)),
+          eq(salesContactsTable.tenantId, tenantId),
+        ));
       if (contact) {
         let companyName = "";
         if (contact.accountId) {
           const [account] = await db.select({ name: salesAccountsTable.name })
             .from(salesAccountsTable)
-            .where(eq(salesAccountsTable.id, contact.accountId));
+            .where(and(
+              eq(salesAccountsTable.id, contact.accountId),
+              eq(salesAccountsTable.tenantId, tenantId),
+            ));
           companyName = account?.name ?? "";
         }
         // Prefer the explicit pageId (passed in from the campaign editor) so
@@ -1270,6 +1299,17 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
         // a hotlink for this contact+page if one doesn't already exist.
         let testToken: string | null = null;
         if (pageId) {
+          // Verify the page belongs to this tenant before creating a hotlink.
+          const [pg] = await db.select({ id: lpPagesTable.id })
+            .from(lpPagesTable)
+            .where(and(
+              eq(lpPagesTable.id, Number(pageId)),
+              eq(lpPagesTable.tenantId, tenantId),
+            ));
+          if (!pg) {
+            res.status(400).json({ error: "Landing page not found for this tenant" });
+            return;
+          }
           try {
             const created = await ensureHotlinkForContact(contact.id, Number(pageId), contact.salesforceId ?? null);
             testToken = created.token;

@@ -528,7 +528,7 @@ export default function SalesCampaignDetail() {
     : null;
   const tpl = campaign.template;
   const tplCombined = tpl ? `${tpl.subject ?? ""}\n${tpl.bodyHtml ?? ""}\n${tpl.bodyText ?? ""}` : "";
-  const templateUsesMicrositeUrl = /\{\{\s*(microsite_url|micrositeurl|personalized_link|personalizedlink|page_url|pageurl|link|microsite)\s*\}\}/i.test(tplCombined);
+  const templateUsesMicrositeUrl = /\{\{\s*(microsite_url|micrositeurl|personalized_link|personalizedlink|personalized_url|personalizedurl|page_url|pageurl|link|microsite)\s*\}\}/i.test(tplCombined);
   const personalizedLinkBlocker: string | null = templateUsesMicrositeUrl
     ? (campaignPageId == null
         ? "Pick a landing page so personalized links work"
