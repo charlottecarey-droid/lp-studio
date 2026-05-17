@@ -518,13 +518,24 @@ export function isValidHex(v: string): boolean {
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 export async function fetchBrandConfig(): Promise<BrandConfig> {
+  // 8 s hard timeout. iOS Safari has been observed leaving fetch() hanging
+  // indefinitely across network transitions (Wi-Fi ↔ cellular, iCloud Private
+  // Relay reconnects, Low Power Mode), and the landing page viewer gates its
+  // render on this promise settling. Without a timeout, the spinner sticks
+  // forever on otherwise-healthy iPad/iPhone Safari sessions.
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller
+    ? (typeof window !== "undefined" ? window.setTimeout(() => controller.abort(), 8000) : null)
+    : null;
   try {
-    const res = await fetch(`${BASE}/api/lp/brand`);
+    const res = await fetch(`${BASE}/api/lp/brand`, controller ? { signal: controller.signal } : undefined);
     if (!res.ok) return DEFAULT_BRAND;
     const data = await res.json();
     return { ...DEFAULT_BRAND, ...data };
   } catch {
     return DEFAULT_BRAND;
+  } finally {
+    if (timeoutId !== null && typeof window !== "undefined") window.clearTimeout(timeoutId);
   }
 }
 

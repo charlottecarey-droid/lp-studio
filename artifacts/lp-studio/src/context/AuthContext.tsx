@@ -178,8 +178,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await new Promise((r) => setTimeout(r, delays[attempt]));
           if (cancelled) return;
         }
+        // Per-attempt hard timeout (6 s). iOS Safari has been observed
+        // leaving fetch() hanging indefinitely across network transitions
+        // (Wi-Fi ↔ cellular, iCloud Private Relay reconnects, Low Power
+        // Mode). AppShell renders only a spinner until this promise
+        // resolves, so a single hung attempt would block the entire app
+        // forever on otherwise-healthy iPad/iPhone sessions. With a
+        // bounded timeout the retry loop progresses and eventually
+        // either succeeds or surfaces an error UI instead of a stuck
+        // spinner.
+        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const timeoutId = controller ? window.setTimeout(() => controller.abort(), 6000) : null;
         try {
-          const r = await fetch(url, { credentials: "include" });
+          const r = await fetch(url, {
+            credentials: "include",
+            ...(controller ? { signal: controller.signal } : {}),
+          });
           if (!r.ok) {
             lastErr = new Error(`HTTP ${r.status}`);
             continue;
@@ -199,13 +213,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         } catch (err) {
           lastErr = err;
+        } finally {
+          if (timeoutId !== null) window.clearTimeout(timeoutId);
         }
       }
       if (cancelled) return;
       setDomainContextError(
         lastErr instanceof Error ? lastErr.message : "Failed to load domain context",
       );
-      setDomainContext(null);
+      // Failsafe fallback so AppShell never sits on its spinner forever
+      // when domain-context retries are exhausted (iOS Safari has been
+      // observed hanging fetch() across network transitions even though
+      // the server is healthy — see fetchWithRetry comment above).
+      //
+      // Infer a safe mode from the hostname rather than leaving
+      // domainContext as `null`, which AppShell treats as "still loading"
+      // and renders nothing but a spinner. The branches mirror the
+      // server's own host→mode resolution:
+      //   - lpstudio.ai / www.lpstudio.ai / app.lpstudio.ai → "open"
+      //   - any other host (custom domains, microsite domains, partner
+      //     subdomains like lp.meetdandy.com / partners.meetdandy.com)
+      //     → "microsite-only", which renders public LP routes only
+      //
+      // Picking the wrong mode here is far less harmful than a permanent
+      // spinner: at worst a logged-in admin on a flaky network briefly
+      // sees the microsite shell until they refresh, which is recoverable;
+      // a stuck spinner is not.
+      const host = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "";
+      const isOpenHost =
+        host === "lpstudio.ai" ||
+        host === "www.lpstudio.ai" ||
+        host === "app.lpstudio.ai";
+      setDomainContext({
+        mode: isOpenHost ? "open" : "microsite-only",
+        tenantId: null,
+        tenantName: null,
+        tenantSlug: null,
+        micrositeDomain: isOpenHost ? null : host,
+      });
     };
     void fetchWithRetry();
     return () => { cancelled = true; };

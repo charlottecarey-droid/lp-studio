@@ -442,6 +442,20 @@ export default function LandingPageViewer() {
     return () => { cancelled = true; };
   }, []);
 
+  // Watchdog — if we're still sitting on the loading spinner after 15 s,
+  // surface a friendly "Trouble loading" screen with a retry button instead
+  // of leaving the visitor staring at a perpetual spinner. iOS Safari has
+  // been observed leaving fetch() hanging indefinitely across network
+  // transitions (Wi-Fi ↔ cellular, iCloud Private Relay reconnects, Low
+  // Power Mode) — those would otherwise stick the page-config or brand
+  // queries forever. This is a last-resort net; the individual fetches
+  // (brand-config, domain-context) already have their own bounded timeouts.
+  const [spinnerTimedOut, setSpinnerTimedOut] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setSpinnerTimedOut(true), 15000);
+    return () => window.clearTimeout(t);
+  }, []);
+
   // Live custom-block sources for `custom-schema` rendering (task #120).
   // Schema-driven custom blocks store only a customBlockId reference, so
   // the renderer needs the live schema/template to interpolate values.
@@ -610,6 +624,29 @@ export default function LandingPageViewer() {
   }, [plToken]);
 
   if (isLoading || !brandLoaded || (!isPreviewMode && !sessionId)) {
+    // Watchdog tripped — surface a friendly retry UI rather than a forever
+    // spinner. See the `spinnerTimedOut` declaration above for context.
+    if (spinnerTimedOut) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-white px-6">
+          <div className="text-center max-w-sm">
+            <h1 className="text-xl font-semibold mb-2" style={{ color: "#0A0A0A" }}>
+              Trouble loading this page
+            </h1>
+            <p className="text-sm text-slate-500 mb-6">
+              Your connection may have dropped. Please try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: "#0A0A0A", color: "#fff" }}
+            >
+              Reload page
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         {/* Use an explicit dark color rather than `text-foreground` — public LP
