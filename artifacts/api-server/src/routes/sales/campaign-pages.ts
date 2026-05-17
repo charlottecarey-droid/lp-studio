@@ -210,9 +210,16 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
   }
 
   try {
-    const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, Number(pageId)));
+    const [page] = await db.select().from(lpPagesTable)
+      .where(and(eq(lpPagesTable.id, Number(pageId)), eq(lpPagesTable.tenantId, tenantId)));
     if (!page) {
       res.status(404).json({ error: "Page not found" });
+      return;
+    }
+    if (page.status !== "published") {
+      res.status(400).json({
+        error: `This page is ${page.status} — publish it before launching so recipients land on a live page.`,
+      });
       return;
     }
 

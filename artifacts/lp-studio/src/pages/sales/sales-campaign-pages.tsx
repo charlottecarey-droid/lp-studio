@@ -1276,14 +1276,26 @@ export function CampaignPagesContent() {
                           <ChevronRight className="w-3.5 h-3.5" />
                         </Button>
                       </Link>
-                      <Button
-                        size="sm"
-                        onClick={() => setLaunchingPage(page)}
-                        className="gap-1.5"
-                      >
-                        <Rocket className="w-3.5 h-3.5" />
-                        Launch
-                      </Button>
+                      {page.status === "published" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => setLaunchingPage(page)}
+                          className="gap-1.5"
+                        >
+                          <Rocket className="w-3.5 h-3.5" />
+                          Launch
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled
+                          className="gap-1.5"
+                          title={`Publish this page before launching — recipients can't visit a ${page.status} page.`}
+                        >
+                          <Rocket className="w-3.5 h-3.5" />
+                          Publish to launch
+                        </Button>
+                      )}
                     </div>
                   </div>
 
