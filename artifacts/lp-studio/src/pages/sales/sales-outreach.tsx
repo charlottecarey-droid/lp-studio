@@ -218,7 +218,7 @@ interface Template {
 interface Campaign {
   id: number;
   name: string;
-  templateId: number;
+  templateId: number | null;
   accountId: number | null;
   status: string;
   recipientCount: number;
@@ -804,7 +804,7 @@ function CampaignsTab() {
           </div>
           <div>
             <p className="font-semibold text-foreground">No campaigns yet</p>
-            <p className="text-sm text-muted-foreground mt-0.5">Create a template first, then build a campaign</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Click <span className="font-medium">New Campaign</span> to start a draft — you can pick a template later in the editor</p>
           </div>
         </Card>
       ) : (
