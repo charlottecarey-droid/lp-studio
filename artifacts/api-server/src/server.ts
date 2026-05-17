@@ -827,7 +827,11 @@ async function runMigrationsBody(): Promise<void> {
       CREATE TABLE IF NOT EXISTS sales_email_campaigns (
         id serial PRIMARY KEY,
         name text NOT NULL,
-        template_id integer NOT NULL REFERENCES sales_email_templates(id),
+        -- template_id is nullable: draft campaigns are created without a
+        -- template and a template is picked later in the campaign editor.
+        -- Only "scheduled"/"sending"/"sent" campaigns must have one (enforced
+        -- in the POST /sales/campaigns route).
+        template_id integer REFERENCES sales_email_templates(id),
         account_id integer REFERENCES sales_accounts(id),
         status text NOT NULL DEFAULT 'draft',
         scheduled_at timestamptz,
@@ -837,6 +841,13 @@ async function runMigrationsBody(): Promise<void> {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+
+      -- Existing prod tables were created with template_id NOT NULL, which
+      -- breaks "New Campaign" (draft campaigns intentionally start without
+      -- a template). CREATE TABLE IF NOT EXISTS skips the new definition
+      -- above on existing databases, so we drop the constraint explicitly
+      -- here. Safe to run repeatedly.
+      ALTER TABLE sales_email_campaigns ALTER COLUMN template_id DROP NOT NULL;
 
       CREATE TABLE IF NOT EXISTS sales_email_sends (
         id serial PRIMARY KEY,
