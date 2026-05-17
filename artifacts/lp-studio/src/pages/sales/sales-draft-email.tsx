@@ -256,12 +256,15 @@ export default function SalesDraftEmail() {
                 </div>
 
                 {/* Microsite badge */}
-                {d.hasMicrosite && (
+                {d.hasMicrosite && d.micrositeUrl && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ background: "rgba(199,231,56,0.12)", borderColor: "rgba(199,231,56,0.35)" }}>
                     <Globe className="w-3.5 h-3.5 shrink-0" style={{ color: "#5a6e00" }} />
-                    <p className="text-[12px] font-medium" style={{ color: "#3d4c00" }}>
-                      Microsite for {d.selectedAccount?.name} is referenced — replace [MICROSITE_URL] before sending.
+                    <p className="text-[12px] font-medium flex-1 truncate" style={{ color: "#3d4c00" }} title={d.micrositeUrl}>
+                      Microsite link inserted: <span className="font-mono">{d.micrositeUrl}</span>
                     </p>
+                    <button onClick={d.copyMicrosite} title="Copy microsite link" className="shrink-0" style={{ color: "#5a6e00" }}>
+                      {d.copiedMicrosite ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 )}
 

@@ -27,6 +27,7 @@ interface EmailDraftResult {
   subject?: string;
   body?: string;
   hasMicrosite?: boolean;
+  micrositeUrl?: string | null;
   researchUsed?: boolean;
   sources?: string[];
   hookSource?: string | null;
@@ -53,6 +54,8 @@ export function useEmailDraft(urlContactId: number | null) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [hasMicrosite, setHasMicrosite] = useState(false);
+  const [micrositeUrl, setMicrositeUrl] = useState<string | null>(null);
+  const [copiedMicrosite, setCopiedMicrosite] = useState(false);
   const [researchUsed, setResearchUsed] = useState(false);
   const [sources, setSources] = useState<string[]>([]);
   const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -181,6 +184,7 @@ export function useEmailDraft(urlContactId: number | null) {
       setSubject(data.subject ?? "");
       setBody(data.body ?? "");
       setHasMicrosite(!!data.hasMicrosite);
+      setMicrositeUrl(data.micrositeUrl ?? null);
       setResearchUsed(!!data.researchUsed);
       setSources(data.sources ?? []);
       setHookSource(data.hookSource ?? null);
@@ -237,6 +241,13 @@ export function useEmailDraft(urlContactId: number | null) {
     navigator.clipboard.writeText(subject);
     setCopiedSubject(true);
     setTimeout(() => setCopiedSubject(false), 1800);
+  }
+
+  function copyMicrosite() {
+    if (!micrositeUrl) return;
+    navigator.clipboard.writeText(micrositeUrl);
+    setCopiedMicrosite(true);
+    setTimeout(() => setCopiedMicrosite(false), 1800);
   }
 
   function copyFull() {
@@ -296,15 +307,15 @@ export function useEmailDraft(urlContactId: number | null) {
     selectContact, clearContact,
 
     // Email
-    generating, subject, body, hasMicrosite, researchUsed,
+    generating, subject, body, hasMicrosite, micrositeUrl, researchUsed,
     sources, sourcesOpen, setSourcesOpen,
     hookSource, emailTheme, researchText, error,
     generateEmail,
     textareaRef,
 
     // Copy
-    copiedSubject, copiedFull,
-    copySubject, copyFull,
+    copiedSubject, copiedFull, copiedMicrosite,
+    copySubject, copyFull, copyMicrosite,
     openInEmailClient, openInGmail,
 
     // Brief

@@ -133,10 +133,12 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     let buyerPersona = "";
     let contactTier = "";
 
+    let verifiedContactId: number | null = null;
     if (contactId) {
       const [c] = await db.select().from(salesContactsTable)
         .where(and(eq(salesContactsTable.id, Number(contactId)), eq(salesContactsTable.tenantId, tenantId)));
       if (c) {
+        verifiedContactId = c.id;
         firstName    = c.firstName ?? "";
         lastName     = c.lastName ?? "";
         title        = c.title ?? "";
@@ -205,20 +207,33 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     }
 
     // ─── 4. Hotlink check ────────────────────────────────────────
+    // Pick the most recent active hotlink for this contact, if any, and build
+    // the public microsite URL from it. We'll inject the real URL into the
+    // email body below so reps don't have to look anything up.
     let hasMicrosite = false;
-    if (contactId) {
-      // Hotlinks have no tenantId column; contactId already verified tenant-scoped above.
-      const hotlinks = await db.select({ id: salesHotlinksTable.id })
+    let micrositeUrl: string | null = null;
+    if (verifiedContactId !== null) {
+      // Hotlinks have no tenantId column — gate on the verified, tenant-scoped
+      // contact ID loaded above so we can never leak a foreign tenant's hotlink.
+      const [hl] = await db.select({ token: salesHotlinksTable.token })
         .from(salesHotlinksTable)
-        .where(eq(salesHotlinksTable.contactId, Number(contactId)))
+        .where(and(
+          eq(salesHotlinksTable.contactId, verifiedContactId),
+          eq(salesHotlinksTable.isActive, true),
+        ))
+        .orderBy(desc(salesHotlinksTable.createdAt))
         .limit(1);
-      hasMicrosite = hotlinks.length > 0;
+      if (hl?.token) {
+        hasMicrosite = true;
+        const host = `${req.protocol}://${req.get("host")}`;
+        micrositeUrl = `${host}/p/${hl.token}`;
+      }
     }
 
     const fullName = [firstName, lastName].filter(Boolean).join(" ") || "the contact";
     const micrositeNote = hasMicrosite
-      ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how Dandy would work for ${accountName} — [MICROSITE_URL]"`
-      : "No microsite exists for this company yet. Do not mention a microsite or link.";
+      ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how Dandy would work for ${accountName} — [MICROSITE_URL]". Do NOT invent a URL — always use the literal placeholder [MICROSITE_URL]; the system will swap it for the real link.`
+      : "No microsite exists for this contact yet. Do NOT mention a microsite, a page, a link, or anything the recipient should click on. Do NOT include the placeholder [MICROSITE_URL] anywhere.";
 
     // ─── 5. Research: Perplexity (news + LinkedIn) + Firecrawl (site) — all parallel ────
     const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
@@ -638,11 +653,30 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
     }
 
     const subjectMatch = raw.match(/^Subject:\s*(.+)/m);
-    const subject = subjectMatch?.[1]?.trim() ?? "";
+    let subject = subjectMatch?.[1]?.trim() ?? "";
     let body = raw;
     if (subjectMatch) {
       const idx = raw.indexOf(subjectMatch[0]);
       body = raw.slice(idx + subjectMatch[0].length).replace(/^\s*\n/, "").trim();
+    }
+
+    // ─── Substitute [MICROSITE_URL] placeholder with the real hotlink URL ──
+    // If a hotlink exists, swap every placeholder variant for the real URL so
+    // the rep can send the email without editing. If no hotlink exists, scrub
+    // any stray placeholder the model may have leaked despite the instruction.
+    const placeholderRe = /\[\s*microsite[\s_-]*url\s*\]|\{\{\s*microsite[\s_-]*url\s*\}\}/gi;
+    if (micrositeUrl) {
+      body = body.replace(placeholderRe, micrositeUrl);
+      subject = subject.replace(placeholderRe, micrositeUrl);
+    } else {
+      // Strip leaked placeholders (and a trailing " — " / " - " / ": " before them, if any)
+      // so the email reads cleanly even if the model ignored the instruction.
+      body = body
+        .replace(/\s*[—\-:]\s*\[\s*microsite[\s_-]*url\s*\]/gi, "")
+        .replace(/\s*[—\-:]\s*\{\{\s*microsite[\s_-]*url\s*\}\}/gi, "")
+        .replace(placeholderRe, "")
+        .replace(/[ \t]+\n/g, "\n");
+      subject = subject.replace(placeholderRe, "").trim();
     }
 
     // Extract HOOK_SOURCE and THEME lines
@@ -708,6 +742,7 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
       subject,
       body,
       hasMicrosite,
+      micrositeUrl,
       contactEmail,
       hookSource: hookSource ?? (hookSourceRaw === "pain point" ? "pain point" : null),
       emailTheme: emailTheme || null,
