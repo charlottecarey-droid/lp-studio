@@ -73,11 +73,11 @@ const EMAIL_FOOTER =
   `<p style="font-size:13px;line-height:20px;color:#9ca89e;margin:0 0 20px;">New York, NY 10007</p>` +
   `<p style="font-size:12px;line-height:18px;color:#9ca89e;margin:0 0 4px;">This email was sent to {{email}}, if you no longer want to receive emails,</p>` +
   `<p style="font-size:12px;line-height:18px;color:#9ca89e;margin:0 0 20px;"><a href="{{unsubscribe_url}}" style="color:#9ca89e;text-decoration:underline;">unsubscribe here</a>.</p>` +
-  `<p style="font-size:12px;color:#9ca89e;margin:0;">&copy; ${new Date().getFullYear()} Dandy, Inc. All Rights Reserved.</p>` +
+  `<p style="font-size:12px;color:#9ca89e;margin:0;">&copy; ${new Date().getFullYear()} {{copyright_name}}. All Rights Reserved.</p>` +
   `</div></div>`;
 const EMAIL_CTA = (text: string, href = "{{microsite_url}}") =>
   `<div style="text-align:center;padding:8px 0 32px;"><a href="${href}" style="display:inline-block;background:#1a3a2a;color:#ffffff;font-size:14px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;padding:16px 32px;border-radius:4px;text-decoration:none;width:200px;text-align:center;font-family:Arial,Helvetica,sans-serif;">${text}</a></div>`;
-const EMAIL_SIGNATURE = `${EMAIL_DIVIDER}<div style="padding:24px 48px;"><p style="font-size:16px;font-weight:bold;color:#1a1a1a;margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;">{{sender_name}}</p><p style="font-size:14px;color:#555555;margin:0;font-family:Arial,Helvetica,sans-serif;">Dandy DSO Partnerships</p></div>`;
+const EMAIL_SIGNATURE = `${EMAIL_DIVIDER}<div style="padding:24px 48px;"><p style="font-size:16px;font-weight:bold;color:#1a1a1a;margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;">{{sender_name}}</p><p style="font-size:14px;color:#555555;margin:0;font-family:Arial,Helvetica,sans-serif;">{{sender_title}}</p></div>`;
 const EMAIL_WRAP = (inner: string, previewText?: string) => {
   const preheader = previewText
     ? `<div style="display:none;font-size:1px;color:#f4f4f4;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${previewText}${"&zwnj;&nbsp;".repeat(80)}</div>`
@@ -272,10 +272,11 @@ function SingleSendTab() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [emailFormat, setEmailFormat] = useState<"plain" | "styled">("plain");
 
-  // Sender & delivery fields
-  const [senderName, setSenderName] = useState("Dandy Partnerships");
-  const [senderEmail, setSenderEmail] = useState("partnerships");
-  const [replyTo, setReplyTo] = useState("sales@meetdandy.com");
+  // Sender & delivery fields — defaults come from brand settings so non-Dandy
+  // tenants (e.g. Max Car Wash) don't see "Dandy" / meetdandy.com prefilled.
+  const [senderName, setSenderName] = useState(brand.brandName || "");
+  const [senderEmail, setSenderEmail] = useState("");
+  const [replyTo, setReplyTo] = useState("");
   const [previewText, setPreviewText] = useState("");
 
   // Styled chrome options
@@ -389,9 +390,9 @@ function SingleSendTab() {
       const payload = {
         contactId: Number(selectedContactId),
         subject,
-        senderName: senderName.trim() || "Dandy Partnerships",
+        senderName: senderName.trim() || brand.brandName || "",
         senderEmail: senderEmail.trim() || "partnerships",
-        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        replyTo: replyTo.trim(),
         ...(emailFormat === "styled" ? { bodyHtml: body } : { bodyText: body }),
       };
       const res = await fetch(`${API_BASE}/sales/send-email`, {
@@ -459,7 +460,7 @@ function SingleSendTab() {
             <Input
               value={senderName}
               onChange={e => setSenderName(e.target.value)}
-              placeholder="Dandy Partnerships"
+              placeholder={brand.brandName || "Sender name"}
               className="text-sm"
             />
           </div>
@@ -482,7 +483,7 @@ function SingleSendTab() {
             <Input
               value={replyTo}
               onChange={e => setReplyTo(e.target.value)}
-              placeholder="sales@meetdandy.com"
+              placeholder="reply-to email address"
               className="text-sm"
             />
           </div>
@@ -495,7 +496,7 @@ function SingleSendTab() {
               ref={previewTextRef}
               value={previewText}
               onChange={e => setPreviewText(e.target.value)}
-              placeholder="e.g. A quick look at how Dandy can help {{company}}…"
+              placeholder={`e.g. A quick look at how ${brand.brandName || "we"} can help {{company}}…`}
               className="text-sm"
             />
           </div>
@@ -621,8 +622,8 @@ function SingleSendTab() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Preview</h3>
           <div className="rounded-lg border border-border bg-white p-6 mb-4 overflow-auto max-h-[500px]">
             <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
-              <p>From: {senderName || "Dandy Partnerships"} &lt;{senderEmail || "partnerships"}@ent.meetdandy.com&gt;</p>
-              <p>Reply-To: {replyTo || "sales@meetdandy.com"}</p>
+              <p>From: {senderName || brand.brandName || "(sender)"} &lt;{senderEmail || "partnerships"}@ent.meetdandy.com&gt;</p>
+              <p>Reply-To: {replyTo || "(none set)"}</p>
               <p>To: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} <${selectedContact.email}>` : "—"}</p>
               {previewText && <p className="italic">Preview: {previewText}</p>}
             </div>
@@ -639,7 +640,7 @@ function SingleSendTab() {
                     .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                     .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
                     .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
-                    .replace(/\{\{sender_name\}\}/g, senderName || "Dandy Partnerships")),
+                    .replace(/\{\{sender_name\}\}/g, senderName || brand.brandName || "")),
                 }}
               />
             ) : (
@@ -649,7 +650,7 @@ function SingleSendTab() {
                   .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                   .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
                   .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
-                  .replace(/\{\{sender_name\}\}/g, senderName || "Dandy Partnerships")}
+                  .replace(/\{\{sender_name\}\}/g, senderName || brand.brandName || "")}
               </pre>
             )}
           </div>
@@ -1119,7 +1120,7 @@ function TemplatesTab() {
                 <Input
                   value={tplSubject}
                   onChange={e => setTplSubject(e.target.value)}
-                  placeholder="e.g. {{first_name}}, see how Dandy saves {{company}} time"
+                  placeholder={`e.g. {{first_name}}, see how ${brand.brandName || "we"} can help {{company}}`}
                   required
                 />
               </div>

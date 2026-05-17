@@ -32,6 +32,7 @@ import {
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 function UserAvatarDropdown() {
   const { user, logout } = useAuth();
@@ -161,6 +162,9 @@ interface NavItem {
 }
 
 export function SalesTopNav() {
+  const { brand } = useBrandConfig();
+  const brandLogoUrl = brand.logoUrl ?? "";
+  const brandName = brand.brandName ?? "";
   const [location] = useLocation();
   const { hasPerm } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -254,7 +258,19 @@ export function SalesTopNav() {
         {/* Left: Logo and Title — links to dashboard */}
         <Link href="/sales">
           <div className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer group">
-            <img src={dandyLogo} alt="Dandy" className="h-5 w-auto brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" />
+            {brandLogoUrl ? (
+              <img
+                src={brandLogoUrl}
+                alt={brandName || "Logo"}
+                className="h-5 w-auto opacity-90 group-hover:opacity-100 transition-opacity"
+              />
+            ) : (
+              <img
+                src={dandyLogo}
+                alt={brandName || "Dandy"}
+                className="h-5 w-auto brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
+              />
+            )}
             <div className="hidden md:flex items-center gap-2">
               <div className="w-px h-4 bg-white/15" />
               <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/40 group-hover:text-white/60 transition-colors">

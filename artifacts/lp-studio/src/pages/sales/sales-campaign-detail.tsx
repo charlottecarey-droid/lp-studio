@@ -35,6 +35,7 @@ import { SendTestEmailModal } from "@/components/SendTestEmailModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -183,10 +184,12 @@ export default function SalesCampaignDetail() {
   const [savingRecipients, setSavingRecipients] = useState(false);
   const [recipientsSaved, setRecipientsSaved] = useState(false);
 
-  // Sender settings
-  const [senderName, setSenderName] = useState("Dandy");
+  // Sender settings — default sender name to the tenant brand name so
+  // non-Dandy tenants don't see "Dandy" prefilled.
+  const { brand } = useBrandConfig();
+  const [senderName, setSenderName] = useState(brand.brandName || "");
   const [senderEmail, setSenderEmail] = useState("partnerships");
-  const [replyTo, setReplyTo] = useState("sales@meetdandy.com");
+  const [replyTo, setReplyTo] = useState("");
   const [previewText, setPreviewText] = useState("");
   const [savingSender, setSavingSender] = useState(false);
 
@@ -205,9 +208,9 @@ export default function SalesCampaignDetail() {
       setEditName(data.name);
       setEditAccountId(data.accountId ? String(data.accountId) : "");
       const meta = (data.metadata ?? {}) as Record<string, unknown>;
-      setSenderName((meta.senderName as string) ?? "Dandy");
+      setSenderName((meta.senderName as string) ?? "");
       setSenderEmail((meta.senderEmail as string) ?? "partnerships");
-      setReplyTo((meta.replyTo as string) ?? "sales@meetdandy.com");
+      setReplyTo((meta.replyTo as string) ?? "");
       setPreviewText((meta.previewText as string) ?? "");
       if (data.scheduledAt) {
         const d = new Date(data.scheduledAt);
@@ -314,9 +317,9 @@ export default function SalesCampaignDetail() {
       // and the post-send view both reflect what the user actually configured.
       const updatedMeta = {
         ...(campaign.metadata ?? {}),
-        senderName: senderName.trim() || "Dandy",
+        senderName: senderName.trim() || brand.brandName || "",
         senderEmail: senderEmail.trim() || "partnerships",
-        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        replyTo: replyTo.trim(),
         previewText: previewText.trim(),
       };
       await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
@@ -385,9 +388,9 @@ export default function SalesCampaignDetail() {
     try {
       const updatedMeta = {
         ...(campaign.metadata ?? {}),
-        senderName: senderName.trim() || "Dandy",
+        senderName: senderName.trim() || brand.brandName || "",
         senderEmail: senderEmail.trim() || "partnerships",
-        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        replyTo: replyTo.trim(),
         previewText: previewText.trim(),
       };
       await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
@@ -883,9 +886,9 @@ export default function SalesCampaignDetail() {
             <div>
               <Label className="text-xs text-muted-foreground mb-1 block">Sender Name</Label>
               {isDraft ? (
-                <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="Dandy" />
+                <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="Sender name" />
               ) : (
-                <p className="text-sm text-foreground">{senderName || "Dandy"}</p>
+                <p className="text-sm text-foreground">{senderName || brand.brandName || "(not set)"}</p>
               )}
             </div>
             <div>
@@ -907,9 +910,9 @@ export default function SalesCampaignDetail() {
             <div>
               <Label className="text-xs text-muted-foreground mb-1 block">Reply-To</Label>
               {isDraft ? (
-                <Input value={replyTo} onChange={e => setReplyTo(e.target.value)} placeholder="sales@meetdandy.com" />
+                <Input value={replyTo} onChange={e => setReplyTo(e.target.value)} placeholder="reply-to email" />
               ) : (
-                <p className="text-sm text-foreground">{replyTo || "sales@meetdandy.com"}</p>
+                <p className="text-sm text-foreground">{replyTo || "(none set)"}</p>
               )}
             </div>
             <div>

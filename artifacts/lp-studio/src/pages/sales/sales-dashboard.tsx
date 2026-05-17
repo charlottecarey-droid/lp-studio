@@ -825,7 +825,7 @@ export default function SalesDashboard() {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Get started</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { step: "1", title: "Add an account", desc: "Create your first target account — a DSO, practice, or company you want to engage.", cta: "Add Account", href: "/sales/accounts", icon: <Building2 className="w-4 h-4" />, primary: true },
+                { step: "1", title: "Add an account", desc: "Create your first target account — a company or organization you want to engage.", cta: "Add Account", href: "/sales/accounts", icon: <Building2 className="w-4 h-4" />, primary: true },
                 { step: "2", title: "Build a microsite", desc: "Use the page builder to create a personalized microsite for the account.", cta: "Create Microsite", href: "/sales/microsites", icon: <FileText className="w-4 h-4" />, action: "newMicrosite" as const },
                 { step: "3", title: "Send outreach", desc: "Generate a personalized email, attach the microsite link, and send it.", cta: "Start Outreach", href: "/sales/draft-email", icon: <Mail className="w-4 h-4" /> },
               ].map(item => {

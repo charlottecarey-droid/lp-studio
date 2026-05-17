@@ -60,6 +60,7 @@ import {
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
@@ -86,7 +87,7 @@ const AVAILABLE_VARS = [
   { tag: "{{first_name}}", label: "First name", example: "Sarah" },
   { tag: "{{last_name}}", label: "Last name", example: "Johnson" },
   { tag: "{{microsite_url}}", label: "Personalized link URL", example: "https://…/p/abc123" },
-  { tag: "{{sender_name}}", label: "Sender name", example: "Alex at Dandy" },
+  { tag: "{{sender_name}}", label: "Sender name", example: "Alex from your team" },
 ];
 
 interface Page {
@@ -128,7 +129,7 @@ interface HotlinkEntry {
 const DEFAULT_SUBJECT = "We built something for {{company}}";
 const DEFAULT_BODY = `<p>Hi {{first_name}},</p>
 
-<p>I put together a personalized page specifically for {{company}} — it shows exactly how Dandy can help your team save time and increase case acceptance.</p>
+<p>I put together a personalized page specifically for {{company}} — it shows exactly how we can help your team.</p>
 
 <p><a href="{{microsite_url}}">View your personalized page →</a></p>
 
@@ -178,7 +179,7 @@ function LaunchModal({
   );
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
-  const [senderName, setSenderName] = useState("Dandy");
+  const [senderName, setSenderName] = useState("");
   const [senderEmail, setSenderEmail] = useState("partnerships");
   const [sendEmails, setSendEmails] = useState(true);
   const [alertEmailInput, setAlertEmailInput] = useState("");
@@ -492,7 +493,7 @@ function LaunchModal({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sender name</label>
-                <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="Dandy" />
+                <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="Sender name" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
