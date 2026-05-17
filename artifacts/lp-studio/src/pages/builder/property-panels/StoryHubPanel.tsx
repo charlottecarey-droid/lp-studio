@@ -57,21 +57,23 @@ function ColorRow({
   const safe = (value && value.trim()) || fallback;
   const colorInputValue = /^#[0-9a-fA-F]{6}$/.test(safe) ? safe : "#000000";
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Label className="text-xs flex-1 min-w-20">{label}</Label>
-      <Input
-        type="color"
-        value={colorInputValue}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 w-10 p-0.5 cursor-pointer"
-      />
-      <Input
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={fallback}
-        className="text-xs h-7 w-32 font-mono"
-      />
-      <BrandSwatches className="basis-full justify-end" current={value} onPick={onChange} />
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <Label className="text-xs w-20 shrink-0 truncate">{label}</Label>
+        <Input
+          type="color"
+          value={colorInputValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-7 w-9 p-0.5 cursor-pointer shrink-0"
+        />
+        <Input
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={fallback}
+          className="text-xs h-7 flex-1 min-w-0 font-mono"
+        />
+      </div>
+      <BrandSwatches className="justify-start" current={value} onPick={onChange} />
     </div>
   );
 }

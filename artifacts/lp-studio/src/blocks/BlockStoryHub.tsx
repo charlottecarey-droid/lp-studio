@@ -113,7 +113,14 @@ export function BlockStoryHub({ props }: Props) {
     [mode, props.lightTheme, props.darkTheme],
   );
 
-  useBlockFonts(theme.displayFontFamily, theme.bodyFontFamily);
+  // Preload fonts for BOTH light and dark themes so picks made for the
+  // non-active mode still load and render the moment the preview switches.
+  useBlockFonts(
+    props.lightTheme?.displayFontFamily,
+    props.lightTheme?.bodyFontFamily,
+    props.darkTheme?.displayFontFamily,
+    props.darkTheme?.bodyFontFamily,
+  );
 
   const displayFont = theme.displayFontFamily
     ? `'${theme.displayFontFamily}', 'Cormorant Garamond', Georgia, serif`
