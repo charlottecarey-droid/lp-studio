@@ -32,6 +32,7 @@ import type {
 } from "@/lib/block-types";
 import type { FormStep, FormField } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
 class ContentSeriesErrorBoundary extends Component<
   { children: ReactNode },

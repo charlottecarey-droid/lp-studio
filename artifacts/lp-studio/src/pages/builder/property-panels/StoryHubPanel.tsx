@@ -147,11 +147,11 @@ export function StoryHubPanel({ props, onChange }: Props) {
   // onChange call. Two consecutive set() calls would each read the stale
   // `props` closure and the second would overwrite the first, so we batch
   // them here instead.
-  const setSharedFont = (field: "displayFontFamily" | "bodyFontFamily", v: string) =>
+  const setSharedFont = (field: "displayFontFamily" | "bodyFontFamily", v: string | undefined) =>
     onChange({
       ...props,
-      lightTheme: { ...(props.lightTheme ?? {}), [field]: v },
-      darkTheme:  { ...(props.darkTheme  ?? {}), [field]: v },
+      lightTheme: { ...(props.lightTheme ?? {}), [field]: v ?? "" },
+      darkTheme:  { ...(props.darkTheme  ?? {}), [field]: v ?? "" },
     });
 
   const setStory = (i: number, patch: Partial<StoryHubStory>) => {

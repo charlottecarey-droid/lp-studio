@@ -107,7 +107,7 @@ function StoryHub({ mode }: { mode: 'light' | 'dark' }) {
         </div>
 
         {/* Stats Strip */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.8 }} className="my-32 border-y py-16 grid grid-cols-1 md:grid-cols-3 gap-12 text-center divide-y md:divide-y-0 md:divide-x" style={{ borderColor: muted, divideColor: muted }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.8 }} className="my-32 border-y py-16 grid grid-cols-1 md:grid-cols-3 gap-12 text-center divide-y md:divide-y-0 md:divide-x" style={{ borderColor: muted }}>
           {[
             { label: '1,200+ practices', desc: 'Running on Dandy' },
             { label: '94% would recommend', desc: 'Based on 2025 survey' },

@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable, lpPagesTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
+import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 
 /** Best-effort wrapper: log + return a default if the promise rejects. */
 async function bestEffort<T>(label: string, p: Promise<T>, fallback: T): Promise<T> {
