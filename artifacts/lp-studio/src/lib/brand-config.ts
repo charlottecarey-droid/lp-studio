@@ -517,7 +517,7 @@ export function isValidHex(v: string): boolean {
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-export async function fetchBrandConfig(): Promise<BrandConfig> {
+export async function fetchBrandConfig(slug?: string | null): Promise<BrandConfig> {
   // 8 s hard timeout. iOS Safari has been observed leaving fetch() hanging
   // indefinitely across network transitions (Wi-Fi ↔ cellular, iCloud Private
   // Relay reconnects, Low Power Mode), and the landing page viewer gates its
@@ -527,8 +527,15 @@ export async function fetchBrandConfig(): Promise<BrandConfig> {
   const timeoutId = controller
     ? (typeof window !== "undefined" ? window.setTimeout(() => controller.abort(), 8000) : null)
     : null;
+  // When viewing a `/preview/:slug` page on the SaaS host (app.lpstudio.ai)
+  // or any other host that doesn't map to a tenant microsite, the server
+  // can't resolve the tenant from the host alone. Passing the slug lets the
+  // server look up the page record and resolve the correct tenant brand,
+  // so Dandy preview links render in Dandy colours instead of falling back
+  // to the neutral DEFAULT_BRAND blue.
+  const qs = slug ? `?slug=${encodeURIComponent(slug)}` : "";
   try {
-    const res = await fetch(`${BASE}/api/lp/brand`, controller ? { signal: controller.signal } : undefined);
+    const res = await fetch(`${BASE}/api/lp/brand${qs}`, controller ? { signal: controller.signal } : undefined);
     if (!res.ok) return DEFAULT_BRAND;
     const data = await res.json();
     return { ...DEFAULT_BRAND, ...data };
