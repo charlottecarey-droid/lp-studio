@@ -1637,58 +1637,122 @@ export default function BuilderEditor() {
     const p = selectedBlock.props as Record<string, unknown>;
 
     // Extract the effective CTA values from the source block regardless of its type.
-    // DSO hero blocks store the primary CTA in primaryCta* fields; all others use ctaText/ctaUrl.
-    const sourceUrl  = ((p.primaryCtaUrl  ?? p.ctaUrl ?? p.url  ?? "") as string);
-    const sourceText = ((p.primaryCtaText ?? p.ctaText ?? "")           as string);
+    // Different block families store the primary CTA under different field names:
+    //   • hero family            — primaryCta{Url,Text,Mode}
+    //   • standard DSO blocks    — cta{Url,Text,Mode}
+    //   • DSO blocks w/ "label"  — ctaLabel (paired with ctaUrl)
+    //   • legacy/CTA buttons     — url + ctaAction/ctaType
+    //   • nav / site headers     — navCta{Url,Text}, headerCta{Url,Text}, heroCta{Url,Text}
+    //   • capture/Chili Piper    — chilipiperUrl
+    const sourceUrl = ((p.primaryCtaUrl
+      ?? p.ctaUrl
+      ?? p.navCtaUrl
+      ?? p.headerCtaUrl
+      ?? p.heroCtaUrl
+      ?? p.url
+      ?? "") as string);
+    const sourceText = ((p.primaryCtaText
+      ?? p.ctaText
+      ?? p.ctaLabel
+      ?? p.navCtaText
+      ?? p.headerCtaText
+      ?? p.heroCtaText
+      ?? "") as string);
     const sourceMode = ((p.primaryCtaMode ?? p.ctaMode ?? p.ctaAction ?? p.ctaType ?? "link") as string);
     // chilipiperUrl: explicit field first, then fall back to ctaUrl when mode is chilipiper
     const sourceChilipiper = ((p.chilipiperUrl as string | undefined) ??
       (sourceMode === "chilipiper" ? sourceUrl : "")) as string;
 
-    setBlocks(prev => prev.map(b => {
+    // Apply the source CTA values to one block. Returns the same reference
+    // when nothing in this block needs updating, so React/dnd identities are
+    // preserved for blocks that have no CTA at all.
+    const applyToBlock = (b: PageBlock): PageBlock => {
       if (b.id === selectedBlock.id) return b;
       const bp = b.props as Record<string, unknown>;
 
-      // Determine if this block has any CTA-like fields
-      const hasPrimaryCta  = "primaryCtaUrl" in bp;
-      const hasCtaUrl      = "ctaUrl" in bp;
-      const hasUrl         = "url" in bp;
-      const hasChilipiper  = "chilipiperUrl" in bp;
-      if (!hasPrimaryCta && !hasCtaUrl && !hasUrl && !hasChilipiper) return b;
+      const hasPrimaryCta = "primaryCtaUrl" in bp;
+      const hasCtaUrl     = "ctaUrl" in bp;
+      const hasCtaLabel   = "ctaLabel" in bp;
+      const hasNavCta     = "navCtaUrl" in bp;
+      const hasHeaderCta  = "headerCtaUrl" in bp;
+      const hasHeroCta    = "heroCtaUrl" in bp;
+      const hasUrl        = "url" in bp;
+      const hasChilipiper = "chilipiperUrl" in bp;
+      const blockHasCta =
+        hasPrimaryCta || hasCtaUrl || hasCtaLabel || hasNavCta ||
+        hasHeaderCta || hasHeroCta || hasUrl || hasChilipiper;
 
       const updates: Record<string, unknown> = {};
 
-      // Hero-style blocks (primaryCta*)
-      if (hasPrimaryCta) {
-        updates.primaryCtaUrl  = sourceUrl;
-        updates.primaryCtaText = sourceText;
-        updates.primaryCtaMode = sourceMode;
+      if (blockHasCta) {
+        // Hero-style blocks (primaryCta*)
+        if (hasPrimaryCta) {
+          updates.primaryCtaUrl  = sourceUrl;
+          updates.primaryCtaText = sourceText;
+          updates.primaryCtaMode = sourceMode;
+        }
+
+        // Standard DSO blocks (ctaUrl / ctaText / ctaMode)
+        if (hasCtaUrl) {
+          updates.ctaUrl  = sourceUrl;
+          if ("ctaText" in bp) updates.ctaText = sourceText;
+          if (hasCtaLabel)     updates.ctaLabel = sourceText;
+          if ("ctaMode" in bp)   updates.ctaMode   = sourceMode;
+          if ("ctaAction" in bp) updates.ctaAction = sourceMode;
+          if ("ctaType" in bp)   updates.ctaType   = sourceMode;
+          if (hasChilipiper && sourceChilipiper) updates.chilipiperUrl = sourceChilipiper;
+        }
+
+        // Nav / header / hero-named CTAs (independent fields)
+        if (hasNavCta) {
+          updates.navCtaUrl = sourceUrl;
+          if ("navCtaText" in bp) updates.navCtaText = sourceText;
+        }
+        if (hasHeaderCta) {
+          updates.headerCtaUrl = sourceUrl;
+          if ("headerCtaText" in bp) updates.headerCtaText = sourceText;
+        }
+        if (hasHeroCta) {
+          updates.heroCtaUrl = sourceUrl;
+          if ("heroCtaText" in bp) updates.heroCtaText = sourceText;
+        }
+
+        // Legacy blocks that use "url" instead of "ctaUrl"
+        if (hasUrl && !hasCtaUrl) {
+          updates.url = sourceUrl;
+          if ("ctaAction" in bp) updates.ctaAction = sourceMode;
+          if ("ctaType" in bp)   updates.ctaType   = sourceMode;
+        }
+
+        // Capture-style blocks: only have chilipiperUrl, no ctaUrl (e.g. dso-cta-capture)
+        if (hasChilipiper && !hasCtaUrl && !hasPrimaryCta && sourceChilipiper) {
+          updates.chilipiperUrl = sourceChilipiper;
+        }
       }
 
-      // Standard DSO blocks (ctaUrl / ctaText / ctaMode)
-      if (hasCtaUrl) {
-        updates.ctaUrl  = sourceUrl;
-        updates.ctaText = sourceText;
-        if ("ctaMode" in bp)   updates.ctaMode   = sourceMode;
-        if ("ctaAction" in bp) updates.ctaAction  = sourceMode;
-        if ("ctaType" in bp)   updates.ctaType    = sourceMode;
-        if (hasChilipiper && sourceChilipiper) updates.chilipiperUrl = sourceChilipiper;
-      }
+      // Recurse into container children so CTAs inside columns/grids/overlays
+      // also get the same values. Container blocks have a `children: PageBlock[]`
+      // slot — see container-blocks.ts / block-variant.ts.
+      const kids = (b as PageBlock & { children?: PageBlock[] }).children;
+      const nextChildren = Array.isArray(kids) ? kids.map(applyToBlock) : undefined;
+      const childrenChanged =
+        nextChildren !== undefined &&
+        kids !== undefined &&
+        nextChildren.some((c, i) => c !== kids[i]);
 
-      // Legacy blocks that use "url" instead of "ctaUrl"
-      if (hasUrl && !hasCtaUrl) {
-        updates.url = sourceUrl;
-        if ("ctaAction" in bp) updates.ctaAction = sourceMode;
-        if ("ctaType" in bp)   updates.ctaType   = sourceMode;
-      }
+      if (Object.keys(updates).length === 0 && !childrenChanged) return b;
 
-      // Capture-style blocks: only have chilipiperUrl, no ctaUrl (e.g. dso-cta-capture)
-      if (hasChilipiper && !hasCtaUrl && !hasPrimaryCta && sourceChilipiper) {
-        updates.chilipiperUrl = sourceChilipiper;
+      const next: PageBlock = {
+        ...b,
+        props: { ...bp, ...updates },
+      } as PageBlock;
+      if (childrenChanged) {
+        (next as PageBlock & { children?: PageBlock[] }).children = nextChildren;
       }
+      return next;
+    };
 
-      return { ...b, props: { ...bp, ...updates } } as PageBlock;
-    }));
+    setBlocks(prev => prev.map(applyToBlock));
   };
 
   // Recursive renderers for nested children of container blocks. Defined here
