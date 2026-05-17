@@ -249,7 +249,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "send", label: "Single Send", icon: <Send className="w-3.5 h-3.5" /> },
   { id: "campaigns", label: "Campaigns", icon: <Mail className="w-3.5 h-3.5" /> },
   { id: "sent", label: "Sent Emails", icon: <Inbox className="w-3.5 h-3.5" /> },
-  { id: "templates", label: "Templates", icon: <FileText className="w-3.5 h-3.5" /> },
+  { id: "templates", label: "Email templates", icon: <FileText className="w-3.5 h-3.5" /> },
   { id: "performance", label: "Performance", icon: <TrendingUp className="w-3.5 h-3.5" /> },
 ];
 
