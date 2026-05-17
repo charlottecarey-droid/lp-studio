@@ -11,6 +11,21 @@ import { installCsrfFetchInterceptor, ensureCsrfToken } from "./lib/api-fetch";
 installCsrfFetchInterceptor();
 void ensureCsrfToken();
 
+// Per-tenant favicon: LP Studio (cream + indigo "LP" mark) is the default,
+// served statically from index.html. On Dandy-branded hosts we swap to the
+// existing Dandy "d" favicon so the browser tab still reads as Dandy for
+// dental-customer-facing surfaces (meetdandy.com, partners.meetdandy.com,
+// inside.dandy.com, etc.). Production hosts only — replit.dev/.app and
+// localhost always show the LP mark for development.
+(function applyTenantFavicon() {
+  if (typeof window === "undefined") return;
+  const h = window.location.hostname.toLowerCase();
+  const isDandyHost = h.endsWith("meetdandy.com") || h.endsWith(".dandy.com") || h === "dandy.com";
+  if (!isDandyHost) return;
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (link) link.href = "/favicon.svg";
+})();
+
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN_FRONTEND as string | undefined;
 // Third-party script origins/hosts whose errors we deliberately drop from
 // Sentry. These libraries throw inside their own internals (network blips,

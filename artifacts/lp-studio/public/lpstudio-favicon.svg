@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <rect width="180" height="180" rx="36" fill="#F6F2E9"/>
+  <g font-family="'DM Sans','Helvetica Neue',Arial,sans-serif">
+    <text x="90" y="120" text-anchor="middle" font-size="96" font-weight="700" fill="#4B47E5" letter-spacing="-2">LP</text>
+    <circle cx="148" cy="116" r="8" fill="#E26B4F"/>
+  </g>
+</svg>
