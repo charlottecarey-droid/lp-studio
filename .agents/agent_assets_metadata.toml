@@ -125,3 +125,9 @@ id = "IBS-cjZzuuWt_bs_f9aaD"
 uri = "file://artifacts/lp-studio/docs/FORMS_GUIDE.md"
 type = "text"
 title = "LP Studio Forms — Configuration Guide"
+
+[[outputs]]
+id = "HRzPYEWRMOwVarD0W7_ne"
+uri = "file://artifacts/lp-studio/public/images/logo.png"
+type = "image"
+title = "LP Studio logo (1024×1024 PNG) — upload to Google OAuth consent screen"
