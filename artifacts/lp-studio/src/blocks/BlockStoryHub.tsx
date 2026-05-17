@@ -15,11 +15,13 @@ interface CaseStudyPage {
 }
 
 // Map an api-server page row into the StoryHubStory shape the renderer uses.
-// We fall back through the title fields and skip pages without an OG image so
-// we never render a blank tile. The tag is derived from the slug segment that
-// follows the case-study prefix when present (e.g. "case-study/growth/acme"
-// → "Growth"); otherwise we default to "Case Study". That gives the filter
-// chips a meaningful taxonomy that always matches at least one chip.
+// We never drop a case-study page just because it lacks an OG image — the
+// renderer falls back to a deterministic neutral tile so every published
+// case-study page reliably appears in the hub. The tag is derived from the
+// slug segment that follows the case-study prefix when present (e.g.
+// "case-study/growth/acme" → "Growth"); otherwise we default to "Case Study".
+// That gives the filter chips a meaningful taxonomy that always matches at
+// least one chip.
 function deriveTagFromSlug(slug: string): string {
   const parts = slug.split("/").filter(Boolean);
   // Drop the leading "case-study" segment if present.
@@ -32,10 +34,21 @@ function deriveTagFromSlug(slug: string): string {
   if (m) return m[1].replace(/\b\w/g, (c) => c.toUpperCase());
   return "Case Study";
 }
-function pageToStory(page: CaseStudyPage): StoryHubStory | null {
-  const imageUrl = page.ogImage?.trim();
-  if (!imageUrl) return null;
+// Deterministic neutral SVG used when a page has no ogImage. Inlined so the
+// hub never needs an extra network round-trip and so the fallback survives
+// in air-gapped/offline previews. Subtle off-white card with the practice
+// initial centered — readable in both light and dark themes.
+function fallbackImageFor(title: string): string {
+  const initial = (title.trim()[0] ?? "•").toUpperCase();
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800'>`
+    + `<rect width='600' height='800' fill='#1a1a1a'/>`
+    + `<text x='300' y='430' text-anchor='middle' font-family='Cormorant Garamond, Georgia, serif' font-size='280' fill='#8C6F3F' font-style='italic'>${initial}</text>`
+    + `</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+function pageToStory(page: CaseStudyPage): StoryHubStory {
   const headline = (page.metaTitle?.trim() || page.title || "Customer story").trim();
+  const imageUrl = page.ogImage?.trim() || fallbackImageFor(page.title || headline);
   return {
     id: `lp-page-${page.id}`,
     practice: page.title || headline,
