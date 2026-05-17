@@ -946,13 +946,13 @@ export function CampaignPagesContent() {
           back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
           actions={
             <div className="flex flex-col items-end gap-2">
-              <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
-                <Plus className="w-4 h-4" />
-                New Microsite
-              </Button>
-              <Button variant="outline" className="gap-2" onClick={() => setShowCampaignWizard(true)}>
+              <Button className="gap-2" onClick={() => setShowCampaignWizard(true)}>
                 <Plus className="w-4 h-4" />
                 New Campaign
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={() => setShowTemplatePicker(true)}>
+                <Plus className="w-4 h-4" />
+                New campaign page
               </Button>
             </div>
           }
