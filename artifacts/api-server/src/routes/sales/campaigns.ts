@@ -484,6 +484,15 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     // Load contacts — batch query instead of N+1 loop. Always tenant-scope so a
     // malicious metadata.contactIds payload can't pull other tenants' contacts.
     const contactIds: number[] = (campaign.metadata as any)?.contactIds ?? [];
+    // Multi-account audience: metadata.accountIds takes precedence over the legacy
+    // single accountId column so campaigns targeting multiple accounts broadcast
+    // to every active contact across all of them.
+    const metaAccountIds: number[] = Array.isArray((campaign.metadata as any)?.accountIds)
+      ? ((campaign.metadata as any).accountIds as number[]).filter(n => typeof n === "number")
+      : [];
+    const targetAccountIds = metaAccountIds.length > 0
+      ? metaAccountIds
+      : (campaign.accountId ? [campaign.accountId] : []);
     let contacts;
     if (contactIds.length > 0) {
       contacts = await db.select().from(salesContactsTable)
@@ -491,10 +500,10 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
           inArray(salesContactsTable.id, contactIds),
           eq(salesContactsTable.tenantId, tenantId),
         ));
-    } else if (campaign.accountId) {
+    } else if (targetAccountIds.length > 0) {
       contacts = await db.select().from(salesContactsTable)
         .where(and(
-          eq(salesContactsTable.accountId, campaign.accountId),
+          inArray(salesContactsTable.accountId, targetAccountIds),
           eq(salesContactsTable.tenantId, tenantId),
         ));
     } else {
@@ -775,14 +784,23 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
         ));
       if (c) contact = c;
     }
-    if (!contact && campaign.accountId) {
-      const [c] = await db.select().from(salesContactsTable)
-        .where(and(
-          eq(salesContactsTable.tenantId, tenantId),
-          eq(salesContactsTable.accountId, campaign.accountId),
-          eq(salesContactsTable.status, "active"),
-        ));
-      if (c) contact = c;
+    if (!contact) {
+      // Multi-account fallback: try metadata.accountIds first, then legacy single accountId.
+      const metaAccountIds: number[] = Array.isArray((campaign.metadata as any)?.accountIds)
+        ? ((campaign.metadata as any).accountIds as number[]).filter(n => typeof n === "number")
+        : [];
+      const previewAccountIds = metaAccountIds.length > 0
+        ? metaAccountIds
+        : (campaign.accountId ? [campaign.accountId] : []);
+      if (previewAccountIds.length > 0) {
+        const [c] = await db.select().from(salesContactsTable)
+          .where(and(
+            eq(salesContactsTable.tenantId, tenantId),
+            inArray(salesContactsTable.accountId, previewAccountIds),
+            eq(salesContactsTable.status, "active"),
+          ));
+        if (c) contact = c;
+      }
     }
 
     const host = await getTenantOutboundOrigin(tenantId, req);

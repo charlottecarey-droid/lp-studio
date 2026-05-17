@@ -29,6 +29,7 @@ import {
   FlaskConical,
   Search,
   UserCheck,
+  Sparkles,
 } from "lucide-react";
 import { SendTestEmailModal } from "@/components/SendTestEmailModal";
 
@@ -73,6 +74,13 @@ interface Template {
 interface Account {
   id: number;
   name: string;
+}
+
+interface Audience {
+  id: number;
+  name: string;
+  description: string | null;
+  contact_count: number | null;
 }
 
 interface Contact {
@@ -160,6 +168,17 @@ export default function SalesCampaignDetail() {
   const [editScheduledAt, setEditScheduledAt] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Multi-account audience building
+  const [selectedAccountIds, setSelectedAccountIds] = useState<number[]>([]);
+  const [accountToAdd, setAccountToAdd] = useState<string>("");
+  const [savingAccounts, setSavingAccounts] = useState(false);
+
+  // Saved audiences (apply one to pre-fill recipients)
+  const [audiences, setAudiences] = useState<Audience[]>([]);
+  const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
+  const [applyingAudience, setApplyingAudience] = useState(false);
+  const [audienceError, setAudienceError] = useState<string | null>(null);
+
   // Actions
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -230,36 +249,48 @@ export default function SalesCampaignDetail() {
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
-    ]).then(([a, t, p]) => {
+      fetch(`${API_BASE}/sales/audiences`).then(r => r.ok ? r.json() : []),
+    ]).then(([a, t, p, au]) => {
       setAccounts(a);
       setTemplates(t);
       setPages(Array.isArray(p) ? p.map((pg: { id: number; title: string; slug: string; status: string }) => ({
         id: pg.id, title: pg.title, slug: pg.slug, status: pg.status,
       })) : []);
+      setAudiences(Array.isArray(au) ? au : []);
     });
   }, [fetchCampaign]);
 
-  // Initialize contact selection from metadata when campaign loads
+  // Initialize contact selection AND selected accounts from metadata when campaign loads
   useEffect(() => {
     if (!campaign) return;
     const ids: number[] = (campaign.metadata?.contactIds as number[]) ?? [];
     setSelectedContactIds(new Set(ids));
+    // Multi-account: prefer metadata.accountIds; fall back to single accountId column
+    const metaAccountIds = (campaign.metadata?.accountIds as number[] | undefined);
+    const initialAccountIds = Array.isArray(metaAccountIds) && metaAccountIds.length > 0
+      ? metaAccountIds
+      : (campaign.accountId ? [campaign.accountId] : []);
+    setSelectedAccountIds(initialAccountIds);
     // Pre-load contacts if there are already some selected
     if (ids.length > 0 && availableContacts.length === 0) {
-      loadAvailableContacts(campaign.accountId ?? undefined);
+      loadAvailableContacts(initialAccountIds);
     }
   }, [campaign?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When contact picker opens, load contacts if not yet loaded
   useEffect(() => {
     if (!showContactPicker || availableContacts.length > 0) return;
-    loadAvailableContacts(campaign?.accountId ?? undefined);
+    loadAvailableContacts(selectedAccountIds);
   }, [showContactPicker]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reload contacts when account filter changes in the picker
+  // Reload contacts when the in-picker account filter changes
   useEffect(() => {
     if (!showContactPicker) return;
-    loadAvailableContacts(contactAccountFilter ? Number(contactAccountFilter) : campaign?.accountId ?? undefined);
+    if (contactAccountFilter) {
+      loadAvailableContacts([Number(contactAccountFilter)]);
+    } else {
+      loadAvailableContacts(selectedAccountIds);
+    }
   }, [contactAccountFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Actions ────────────────────────────────────────────────
@@ -404,18 +435,130 @@ export default function SalesCampaignDetail() {
     }
   }
 
-  async function loadAvailableContacts(accountId?: number | null) {
+  async function loadAvailableContacts(accountIds: number[] = []) {
     setContactsLoading(true);
     try {
-      const url = accountId
-        ? `${API_BASE}/sales/contacts?accountId=${accountId}`
-        : `${API_BASE}/sales/contacts`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const data = await res.json();
-      setAvailableContacts(Array.isArray(data) ? data : (data.data ?? []));
+      if (accountIds.length === 0) {
+        const res = await fetch(`${API_BASE}/sales/contacts`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setAvailableContacts(Array.isArray(data) ? data : (data.data ?? []));
+        return;
+      }
+      // Multi-account: fetch each account's contacts in parallel and merge (dedupe by id)
+      const results = await Promise.all(
+        accountIds.map(id =>
+          fetch(`${API_BASE}/sales/contacts?accountId=${id}`)
+            .then(r => r.ok ? r.json() : [])
+            .then(d => Array.isArray(d) ? d : (d.data ?? []))
+            .catch(() => [])
+        )
+      );
+      const merged: Contact[] = [];
+      const seen = new Set<number>();
+      for (const list of results) {
+        for (const c of list as Contact[]) {
+          if (!seen.has(c.id)) {
+            seen.add(c.id);
+            merged.push(c);
+          }
+        }
+      }
+      setAvailableContacts(merged);
     } finally {
       setContactsLoading(false);
+    }
+  }
+
+  // Persist the selected account list on the campaign. We keep the legacy
+  // `accountId` column synced to the first selected account so the campaigns
+  // list, send fallback, and existing UI continue to work.
+  async function persistSelectedAccounts(nextIds: number[]) {
+    if (!campaign) return;
+    setSavingAccounts(true);
+    try {
+      const updatedMeta = {
+        ...(campaign.metadata ?? {}),
+        accountIds: nextIds,
+      };
+      await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: nextIds[0] ?? null,
+          metadata: updatedMeta,
+        }),
+      });
+      fetchCampaign();
+      // Refresh the contact pool to reflect the new account scope
+      if (showContactPicker) loadAvailableContacts(nextIds);
+    } finally {
+      setSavingAccounts(false);
+    }
+  }
+
+  function handleAddAccount(idStr: string) {
+    if (!idStr) return;
+    const id = Number(idStr);
+    if (selectedAccountIds.includes(id)) {
+      setAccountToAdd("");
+      return;
+    }
+    const next = [...selectedAccountIds, id];
+    setSelectedAccountIds(next);
+    setAccountToAdd("");
+    persistSelectedAccounts(next);
+  }
+
+  function handleRemoveAccount(id: number) {
+    const next = selectedAccountIds.filter(x => x !== id);
+    setSelectedAccountIds(next);
+    persistSelectedAccounts(next);
+  }
+
+  // Apply a saved audience: fetch its contacts, merge into the picker pool,
+  // and pre-select them. The user can still tweak the selection afterwards.
+  async function applyAudience(audienceIdStr: string) {
+    setSelectedAudienceId(audienceIdStr);
+    setAudienceError(null);
+    if (!audienceIdStr) return;
+    setApplyingAudience(true);
+    setShowContactPicker(true);
+    try {
+      const r = await fetch(`${API_BASE}/sales/audiences/${audienceIdStr}/contacts`);
+      if (!r.ok) throw new Error("Failed to load audience contacts");
+      const data = await r.json();
+      const audContacts: Contact[] = (Array.isArray(data) ? data : []).map((c: any) => ({
+        id: c.id,
+        firstName: c.firstName ?? null,
+        lastName: c.lastName ?? null,
+        email: c.email ?? null,
+        title: c.title ?? null,
+        role: c.role ?? null,
+        status: c.status ?? "active",
+        accountId: c.accountId ?? null,
+        accountName: c.accountName ?? null,
+        tier: c.tier ?? null,
+        department: c.department ?? null,
+      })).filter(c => c.email);
+      // Merge so audience contacts are always visible even if outside the
+      // current account scope.
+      setAvailableContacts(prev => {
+        const seen = new Set(prev.map(c => c.id));
+        const merged = [...prev];
+        for (const c of audContacts) if (!seen.has(c.id)) merged.push(c);
+        return merged;
+      });
+      // Add audience contacts to the current selection (don't clobber existing).
+      setSelectedContactIds(prev => {
+        const next = new Set(prev);
+        for (const c of audContacts) next.add(c.id);
+        return next;
+      });
+    } catch (e) {
+      setAudienceError(e instanceof Error ? e.message : "Couldn't apply audience");
+    } finally {
+      setApplyingAudience(false);
     }
   }
 
@@ -595,11 +738,13 @@ export default function SalesCampaignDetail() {
                 </div>
               )}
               <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                {campaign.account && (
+                {selectedAccountIds.length > 1 ? (
+                  <span>{selectedAccountIds.length} accounts targeted</span>
+                ) : campaign.account ? (
                   <Link href={`/sales/accounts/${campaign.account.id}`}>
                     <span className="hover:text-primary cursor-pointer">{campaign.account.name}</span>
                   </Link>
-                )}
+                ) : null}
                 {campaign.template && <span>Template: {campaign.template.name}</span>}
                 <span>Created {format(new Date(campaign.createdAt), "MMM d, yyyy")}</span>
                 {campaign.sentAt && <span>Sent {format(new Date(campaign.sentAt), "MMM d 'at' h:mm a")}</span>}
@@ -802,20 +947,43 @@ export default function SalesCampaignDetail() {
             <h3 className="text-sm font-semibold text-foreground mb-4">Campaign Settings</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Target Account</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">
+                  Target Accounts
+                  {savingAccounts && <span className="ml-2 text-[10px] text-muted-foreground">Saving…</span>}
+                </Label>
                 <AccountCombobox
-                  accounts={accounts}
-                  value={editAccountId}
-                  onChange={v => {
-                    setEditAccountId(v);
-                    fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ accountId: v ? Number(v) : null }),
-                    }).then(() => fetchCampaign());
-                  }}
-                  allLabel="All accounts"
+                  accounts={accounts.filter(a => !selectedAccountIds.includes(a.id))}
+                  value={accountToAdd}
+                  onChange={handleAddAccount}
+                  placeholder={selectedAccountIds.length === 0 ? "Choose accounts to target…" : "Add another account…"}
                 />
+                {selectedAccountIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {selectedAccountIds.map(id => {
+                      const acc = accounts.find(a => a.id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20"
+                        >
+                          {acc?.name ?? `Account #${id}`}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAccount(id)}
+                            className="hover:bg-primary/20 rounded-sm p-0.5 -mr-0.5"
+                            title="Remove account"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    No accounts targeted — choose one or more, or pick specific contacts in Recipients below.
+                  </p>
+                )}
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Email Template</Label>
@@ -967,9 +1135,11 @@ export default function SalesCampaignDetail() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {savedContactIds.length > 0
                     ? `${savedContactIds.length} specific contact${savedContactIds.length !== 1 ? "s" : ""} selected`
-                    : campaign.accountId
-                      ? `All active contacts in ${campaign.account?.name ?? "selected account"}`
-                      : "All active contacts across all accounts"}
+                    : selectedAccountIds.length > 1
+                      ? `All active contacts across ${selectedAccountIds.length} accounts`
+                      : selectedAccountIds.length === 1
+                        ? `All active contacts in ${accounts.find(a => a.id === selectedAccountIds[0])?.name ?? "selected account"}`
+                        : "All active contacts across all accounts"}
                 </p>
               </div>
               <Button
@@ -985,6 +1155,49 @@ export default function SalesCampaignDetail() {
 
             {showContactPicker && (
               <div className="p-5">
+                {/* Apply a saved audience (optional) */}
+                {audiences.length > 0 && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3 mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-foreground">Start from a saved audience</span>
+                      <span className="text-[11px] text-muted-foreground">(adds those contacts to your selection — you can still edit below)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedAudienceId}
+                        onChange={e => applyAudience(e.target.value)}
+                        disabled={applyingAudience}
+                        className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm"
+                      >
+                        <option value="">Choose an audience…</option>
+                        {audiences.map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}{a.contact_count != null ? ` (${a.contact_count})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedAudienceId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedAudienceId("")}
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                    {applyingAudience && (
+                      <div className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Loading audience…
+                      </div>
+                    )}
+                    {audienceError && (
+                      <div className="text-[11px] text-destructive mt-2">{audienceError}</div>
+                    )}
+                  </div>
+                )}
+
                 {/* Filter bar */}
                 <div className="flex gap-2 mb-4">
                   <div className="relative flex-1">
@@ -997,13 +1210,15 @@ export default function SalesCampaignDetail() {
                       className="w-full h-9 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
-                  {!campaign.accountId && (
+                  {selectedAccountIds.length !== 1 && (
                     <AccountCombobox
-                      accounts={accounts}
+                      accounts={selectedAccountIds.length > 1
+                        ? accounts.filter(a => selectedAccountIds.includes(a.id))
+                        : accounts}
                       value={contactAccountFilter}
                       onChange={v => setContactAccountFilter(v)}
-                      allLabel="All accounts"
-                      className="w-48"
+                      allLabel={selectedAccountIds.length > 1 ? "All targeted accounts" : "All accounts"}
+                      className="w-56"
                     />
                   )}
                 </div>
@@ -1091,9 +1306,11 @@ export default function SalesCampaignDetail() {
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
                   <p className="text-xs text-muted-foreground">
                     {selectedContactIds.size === 0
-                      ? campaign.accountId
-                        ? `Will send to all active contacts in ${campaign.account?.name ?? "the account"}.`
-                        : "Will send to all active contacts across all accounts."
+                      ? selectedAccountIds.length > 1
+                        ? `Will send to all active contacts across ${selectedAccountIds.length} accounts.`
+                        : selectedAccountIds.length === 1
+                          ? `Will send to all active contacts in ${accounts.find(a => a.id === selectedAccountIds[0])?.name ?? "the account"}.`
+                          : "Will send to all active contacts across all accounts."
                       : `${selectedContactIds.size} contact${selectedContactIds.size !== 1 ? "s" : ""} will receive this campaign.`}
                   </p>
                   <div className="flex items-center gap-2">
