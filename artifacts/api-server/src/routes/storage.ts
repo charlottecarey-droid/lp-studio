@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
 import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
-import { desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
+import { asc, desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireAdminKey } from "../middleware/requireAdminKey";
 
@@ -734,7 +734,7 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
       .select()
       .from(lpMediaTable)
       .where(where)
-      .orderBy(desc(lpMediaTable.createdAt))
+      .orderBy(asc(lpMediaTable.isShared), desc(lpMediaTable.createdAt))
       .limit(limitNum)
       .offset((pageNum - 1) * limitNum);
 
