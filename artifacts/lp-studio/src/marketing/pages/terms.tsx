@@ -14,7 +14,7 @@ export default function Terms() {
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "'Inter Tight', sans-serif" }}>
             Terms of Service
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.4)" }} className="text-sm">Last updated: April 2026</p>
+          <p style={{ color: "rgba(255,255,255,0.4)" }} className="text-sm">Last updated: May 2026</p>
         </div>
 
         <div className="prose prose-invert max-w-none space-y-8 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>

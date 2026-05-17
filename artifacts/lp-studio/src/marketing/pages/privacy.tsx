@@ -14,14 +14,26 @@ export default function Privacy() {
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "'Inter Tight', sans-serif" }}>
             Privacy Policy
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.4)" }} className="text-sm">Last updated: April 2026</p>
+          <p style={{ color: "rgba(255,255,255,0.4)" }} className="text-sm">Last updated: May 2026</p>
         </div>
 
         <div className="prose prose-invert max-w-none space-y-8 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Information We Collect</h2>
             <p>LP Studio collects information you provide directly — such as your name, email address, and workspace content — as well as information collected automatically when you use our services, including usage data, log files, and analytics events.</p>
-            <p className="mt-3">We also collect information from third-party services you connect, such as Google (for sign-in) and Salesforce (when integrated).</p>
+            <p className="mt-3">We also collect information from third-party services you connect, such as Google (for sign-in) and Salesforce (when integrated). Specifically, when you sign in with Google we receive your Google account's email address, name, profile picture, and unique Google account identifier. We do not request access to your Gmail, Drive, Calendar, or any other Google service data.</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">1a. Google User Data — Use and Sharing</h2>
+            <p>LP Studio's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#D4F542" }}>Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+            <p className="mt-3">We use information received from Google solely to:</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1.5">
+              <li>Authenticate you and create or look up your LP Studio user account</li>
+              <li>Display your name and profile picture in the LP Studio interface</li>
+              <li>Associate your activity in the product with the correct account</li>
+            </ul>
+            <p className="mt-3">We do <strong className="text-white">not</strong> use Google user data for advertising, sell it to third parties, transfer it to others except as needed to provide the service (e.g. our hosting and database providers under confidentiality), or allow humans to read it except (a) with your explicit consent, (b) for security investigations, or (c) to comply with applicable law.</p>
           </section>
 
           <section>
@@ -59,6 +71,7 @@ export default function Privacy() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">6. Security</h2>
             <p>We implement industry-standard security measures including encryption in transit (TLS), encrypted storage, access controls, and regular security audits. No system is 100% secure — please use a strong, unique password and keep your credentials private.</p>
+            <p className="mt-3">Information received from Google sign-in is stored encrypted at rest in our managed PostgreSQL database, accessed only over TLS, and protected by the same role-based access controls as the rest of your workspace data.</p>
           </section>
 
           <section>
