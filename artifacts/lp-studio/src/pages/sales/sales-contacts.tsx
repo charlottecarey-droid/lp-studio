@@ -119,6 +119,8 @@ interface Hotlink {
   pageId: number;
   isActive: boolean;
   createdAt: string;
+  pageStatus?: string | null;
+  pageTitle?: string | null;
 }
 
 const signalConfig: Record<string, { icon: typeof Activity; label: string; color: string }> = {
@@ -1657,11 +1659,32 @@ function ContactDetailView({ id }: { id: string }) {
             <div className="flex flex-col gap-2">
               {hotlinks.map((hl) => {
                 const page = accountPages.find((p) => p.id === hl.pageId);
+                const pageStatus = hl.pageStatus ?? null;
+                const isPublished = pageStatus === "published";
+                const statusLabel =
+                  pageStatus === "pending_review" ? "Pending review"
+                  : pageStatus === "draft" ? "Draft"
+                  : pageStatus && pageStatus !== "published" ? pageStatus
+                  : null;
                 return (
-                  <div key={hl.id} className="flex items-center gap-3 px-4 py-3 bg-card border border-border/60 rounded-xl">
-                    <LinkIcon className="w-4 h-4 text-primary shrink-0" />
+                  <div
+                    key={hl.id}
+                    className={`flex items-center gap-3 px-4 py-3 bg-card border rounded-xl ${
+                      isPublished ? "border-border/60" : "border-amber-400/60 bg-amber-50/40"
+                    }`}
+                  >
+                    <LinkIcon className={`w-4 h-4 shrink-0 ${isPublished ? "text-primary" : "text-amber-600"}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{page?.title ?? `Page #${hl.pageId}`}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {hl.pageTitle ?? page?.title ?? `Page #${hl.pageId}`}
+                        </p>
+                        {statusLabel && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                            {statusLabel} — not shareable
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{window.location.origin}/p/{hl.token}</p>
                     </div>
                     <Button
@@ -1669,6 +1692,8 @@ function ContactDetailView({ id }: { id: string }) {
                       size="icon"
                       className="h-8 w-8 shrink-0"
                       onClick={() => copyHotlinkUrl(hl.token, hl.id)}
+                      disabled={!isPublished}
+                      title={isPublished ? "Copy link" : "Publish the page before sharing this link"}
                     >
                       {copiedHotlink === hl.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                     </Button>
@@ -1677,6 +1702,7 @@ function ContactDetailView({ id }: { id: string }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-muted-foreground hover:text-foreground transition-colors"
+                      title={isPublished ? "Open link" : "Preview (page is not published)"}
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>

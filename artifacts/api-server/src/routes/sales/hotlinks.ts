@@ -262,12 +262,25 @@ router.get("/hotlinks", async (req, res): Promise<void> => {
         .where(inArray(salesHotlinksTable.contactId, contacts.map(c => c.id)))
         .orderBy(desc(salesHotlinksTable.createdAt));
     } else if (contactId) {
+      // Verify the contact belongs to this tenant before returning its hotlinks —
+      // otherwise a guessed contactId could enumerate another tenant's tokens.
+      const [owned] = await db.select({ id: salesContactsTable.id })
+        .from(salesContactsTable)
+        .where(and(eq(salesContactsTable.id, Number(contactId)), eq(salesContactsTable.tenantId, tenantId)))
+        .limit(1);
+      if (!owned) { res.json([]); return; }
       hotlinks = await db.select().from(salesHotlinksTable)
-        .where(eq(salesHotlinksTable.contactId, Number(contactId)))
+        .where(eq(salesHotlinksTable.contactId, owned.id))
         .orderBy(desc(salesHotlinksTable.createdAt));
     } else if (pageId) {
+      // Verify the page belongs to this tenant before returning its hotlinks.
+      const [ownedPage] = await db.select({ id: lpPagesTable.id })
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.id, Number(pageId)), eq(lpPagesTable.tenantId, tenantId)))
+        .limit(1);
+      if (!ownedPage) { res.json([]); return; }
       hotlinks = await db.select().from(salesHotlinksTable)
-        .where(eq(salesHotlinksTable.pageId, Number(pageId)))
+        .where(eq(salesHotlinksTable.pageId, ownedPage.id))
         .orderBy(desc(salesHotlinksTable.createdAt));
     } else {
       // Unfiltered — scope through contacts to enforce tenant isolation
@@ -284,6 +297,27 @@ router.get("/hotlinks", async (req, res): Promise<void> => {
         .orderBy(desc(salesHotlinksTable.createdAt))
         .limit(1000);
     }
+
+    // Decorate each hotlink with its page status + title so the UI can show
+    // when a link points to an unpublished page (reps shouldn't share those).
+    if (hotlinks.length > 0) {
+      const pageIds = [...new Set(hotlinks.map(h => h.pageId).filter((p): p is number => p != null))];
+      if (pageIds.length > 0) {
+        const pageRows = await db
+          .select({ id: lpPagesTable.id, status: lpPagesTable.status, title: lpPagesTable.title })
+          .from(lpPagesTable)
+          .where(and(
+            inArray(lpPagesTable.id, pageIds),
+            eq(lpPagesTable.tenantId, tenantId),
+          ));
+        const pageById = new Map(pageRows.map(p => [p.id, p]));
+        hotlinks = hotlinks.map(h => {
+          const pg = h.pageId != null ? pageById.get(h.pageId) : undefined;
+          return { ...h, pageStatus: pg?.status ?? null, pageTitle: pg?.title ?? null };
+        });
+      }
+    }
+
     res.json(hotlinks);
   } catch (err) {
     logger.error({ err }, "GET /sales/hotlinks error");

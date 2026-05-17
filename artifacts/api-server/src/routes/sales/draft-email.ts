@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable } from "@workspace/db";
+import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable, lpPagesTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 
@@ -215,11 +215,15 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     if (verifiedContactId !== null) {
       // Hotlinks have no tenantId column — gate on the verified, tenant-scoped
       // contact ID loaded above so we can never leak a foreign tenant's hotlink.
+      // Also require the linked page to be PUBLISHED; we never share or
+      // auto-insert links to draft / pending-review microsites.
       const [hl] = await db.select({ token: salesHotlinksTable.token })
         .from(salesHotlinksTable)
+        .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
         .where(and(
           eq(salesHotlinksTable.contactId, verifiedContactId),
           eq(salesHotlinksTable.isActive, true),
+          eq(lpPagesTable.status, "published"),
         ))
         .orderBy(desc(salesHotlinksTable.createdAt))
         .limit(1);

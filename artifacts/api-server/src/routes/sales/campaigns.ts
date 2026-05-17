@@ -399,11 +399,30 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       return;
     }
 
-    // Batch-load all hotlinks for sendable contacts (eliminates N+1 in send loop)
+    // Batch-load all hotlinks for sendable contacts (eliminates N+1 in send loop).
+    // Only include hotlinks whose linked page is PUBLISHED — we never send dead
+    // or in-progress links in a campaign. Active hotlinks for unpublished pages
+    // are treated as if no hotlink exists (the body's {{microsite_url}} stays empty).
     const sendableIds = sendable.map(c => c.id);
-    const allHotlinks = await db.select().from(salesHotlinksTable)
-      .where(inArray(salesHotlinksTable.contactId, sendableIds));
-    const hotlinkByContactId = new Map(allHotlinks.map(h => [h.contactId, h]));
+    const allHotlinks = await db
+      .select({
+        id: salesHotlinksTable.id,
+        token: salesHotlinksTable.token,
+        contactId: salesHotlinksTable.contactId,
+        pageId: salesHotlinksTable.pageId,
+      })
+      .from(salesHotlinksTable)
+      .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+      .where(and(
+        inArray(salesHotlinksTable.contactId, sendableIds),
+        eq(salesHotlinksTable.isActive, true),
+        eq(lpPagesTable.status, "published"),
+      ));
+    const hotlinkByContactId = new Map(
+      allHotlinks
+        .filter((h): h is typeof h & { contactId: number } => h.contactId != null)
+        .map(h => [h.contactId, h]),
+    );
 
     // Batch-load accounts for {{company}} variable
     const accountIds = [...new Set(sendable.map(c => c.accountId).filter((id): id is number => id != null))];
@@ -613,8 +632,18 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       companyName = acc?.name ?? "";
     }
     if (contact) {
-      const [hl] = await db.select().from(salesHotlinksTable)
-        .where(eq(salesHotlinksTable.contactId, contact.id));
+      // Only consider hotlinks for PUBLISHED pages — unpublished links are dead.
+      const [hl] = await db
+        .select({ token: salesHotlinksTable.token })
+        .from(salesHotlinksTable)
+        .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+        .where(and(
+          eq(salesHotlinksTable.contactId, contact.id),
+          eq(salesHotlinksTable.isActive, true),
+          eq(lpPagesTable.status, "published"),
+        ))
+        .orderBy(desc(salesHotlinksTable.createdAt))
+        .limit(1);
       if (hl) hotlinkToken = hl.token;
     }
 
@@ -953,9 +982,19 @@ router.post("/send-email", async (req, res): Promise<void> => {
       "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`,
     };
 
-    // Check for hotlink
-    const [hotlink] = await db.select().from(salesHotlinksTable)
-      .where(eq(salesHotlinksTable.contactId, contact.id));
+    // Check for hotlink — only published microsites; never send a dead link.
+    const [hotlinkRow] = await db
+      .select({ id: salesHotlinksTable.id, token: salesHotlinksTable.token })
+      .from(salesHotlinksTable)
+      .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+      .where(and(
+        eq(salesHotlinksTable.contactId, contact.id),
+        eq(salesHotlinksTable.isActive, true),
+        eq(lpPagesTable.status, "published"),
+      ))
+      .orderBy(desc(salesHotlinksTable.createdAt))
+      .limit(1);
+    const hotlink = hotlinkRow ?? null;
     if (hotlink) {
       vars["{{microsite_url}}"] = `${host}/p/${hotlink.token}`;
     }
@@ -1069,8 +1108,18 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
             .where(eq(salesAccountsTable.id, contact.accountId));
           companyName = account?.name ?? "";
         }
-        const [hotlink] = await db.select().from(salesHotlinksTable)
-          .where(eq(salesHotlinksTable.contactId, contact.id));
+        // Only inject a microsite URL when the linked page is published.
+        const [hotlink] = await db
+          .select({ token: salesHotlinksTable.token })
+          .from(salesHotlinksTable)
+          .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+          .where(and(
+            eq(salesHotlinksTable.contactId, contact.id),
+            eq(salesHotlinksTable.isActive, true),
+            eq(lpPagesTable.status, "published"),
+          ))
+          .orderBy(desc(salesHotlinksTable.createdAt))
+          .limit(1);
         vars = {
           "{{first_name}}": contact.firstName ?? "",
           "{{last_name}}": contact.lastName ?? "",
