@@ -45,7 +45,17 @@ export default defineConfig({
       command: "pnpm --filter @workspace/api-server run dev",
       url: `http://${HOST}:${API_PORT}/api/healthz`,
       reuseExistingServer: !process.env.CI,
-      timeout: 180_000,
+      // Task #348 — raised from 180s to 300s to match realistic Neon dev
+      // cold-start times. The first-boot DDL batch + seed phases against a
+      // sleeping Neon branch routinely take 2–3 minutes; previously the
+      // webServer would time out before migrations finished, and every spec
+      // (including the Sales Console setup) failed before its first page
+      // load with no useful signal in the log. The api-server now also logs
+      // each migration phase with its elapsed time (see runStep in
+      // src/server.ts) so a real hang is visible — the last "migration step
+      // start: <name>" line names the stuck phase — instead of silently
+      // tripping this timeout.
+      timeout: 300_000,
       stdout: "pipe",
       stderr: "pipe",
       env: {

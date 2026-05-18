@@ -166,13 +166,137 @@ async function notifyExpiringSlugRedirects(): Promise<void> {
 // instead of fighting over ACCESS EXCLUSIVE locks during the DDL batch.
 const MIGRATION_ADVISORY_LOCK_KEY = "7421894200310042319";
 
+// Task #348 — advisory-lock contention thresholds. The historical
+// `pg_advisory_lock(...)` call blocked silently for the entire migration
+// timeout (180s in CI) when a previous api-server was killed mid-migration
+// and never released its session lock, or when a concurrent boot was
+// genuinely slow. Now we poll with `pg_try_advisory_lock`, warn loudly
+// after WARN_MS naming the holding PID, and after STEAL_MS either steal
+// the lock (in development) or fail with a clear remediation message
+// (in production) so the e2e webServer surfaces a real error instead of
+// timing out with no signal.
+const STALE_LOCK_WARN_MS = 15_000;
+const STALE_LOCK_STEAL_MS = 30_000;
+
+// When pg_advisory_lock is called with a single bigint, Postgres stores
+// the value split across (classid, objid): classid = high 32 bits,
+// objid = low 32 bits. We need these exact two values to filter pg_locks
+// to ONLY the migration lock and never touch (or terminate the holders
+// of) unrelated advisory locks held by other parts of the system.
+const MIGRATION_LOCK_KEY_BIGINT = BigInt(MIGRATION_ADVISORY_LOCK_KEY);
+const MIGRATION_LOCK_CLASSID = Number(MIGRATION_LOCK_KEY_BIGINT >> 32n) >>> 0;
+const MIGRATION_LOCK_OBJID = Number(MIGRATION_LOCK_KEY_BIGINT & 0xffffffffn) >>> 0;
+
+// Minimal shape — @types/pg isn't reachable from this package, so we
+// can't import PoolClient directly. Only the two methods we actually use
+// are declared here; the runtime object returned by `pool.connect()` is
+// a full pg PoolClient and supports a lot more.
+interface LockClient {
+  query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  release(): void;
+}
+
+type AdvisoryLockHolder = {
+  pid: number;
+  classid: number;
+  objid: number;
+  granted: boolean;
+  state: string | null;
+  query: string | null;
+  backend_start: Date | null;
+};
+
+// Returns ONLY rows for the specific migration advisory lock (classid+objid
+// match). This filter is critical: the steal path calls pg_terminate_backend
+// on the returned PIDs, so widening this query to "all advisory locks" would
+// allow Task #348's recovery code to kill unrelated sessions that happen to
+// hold a different advisory lock. Filtered by current database too, so a
+// shared Neon dev branch with another schema can't be touched either.
+async function inspectAdvisoryLockHolders(lockClient: LockClient): Promise<AdvisoryLockHolder[]> {
+  try {
+    const { rows } = await lockClient.query<AdvisoryLockHolder>(
+      `SELECT l.pid, l.classid, l.objid, l.granted,
+              a.state, a.query, a.backend_start
+         FROM pg_locks l
+         LEFT JOIN pg_stat_activity a ON a.pid = l.pid
+        WHERE l.locktype = 'advisory'
+          AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+          AND l.classid = $1
+          AND l.objid = $2`,
+      [MIGRATION_LOCK_CLASSID, MIGRATION_LOCK_OBJID],
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+async function acquireMigrationLock(lockClient: LockClient): Promise<void> {
+  const started = Date.now();
+  let warned = false;
+  let stealAttempted = false;
+  // Loop until acquired or we give up. Each iteration is a non-blocking
+  // try-acquire so we get a chance to inspect contention and surface it.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { rows } = await lockClient.query<{ ok: boolean }>(
+      `SELECT pg_try_advisory_lock($1::bigint) AS ok`,
+      [MIGRATION_ADVISORY_LOCK_KEY],
+    );
+    if (rows[0]?.ok) {
+      const waitedMs = Date.now() - started;
+      if (waitedMs >= 1_000) {
+        logger.info({ waitedMs }, "Acquired migration advisory lock after contention");
+      }
+      return;
+    }
+    const waitedMs = Date.now() - started;
+    if (!warned && waitedMs >= STALE_LOCK_WARN_MS) {
+      warned = true;
+      const holders = await inspectAdvisoryLockHolders(lockClient);
+      logger.warn(
+        { waitedMs, holders },
+        "Migration advisory lock contention — still waiting for previous holder to release",
+      );
+    }
+    if (waitedMs >= STALE_LOCK_STEAL_MS) {
+      const holders = await inspectAdvisoryLockHolders(lockClient);
+      const holderPids = holders.filter(h => h.granted).map(h => h.pid);
+      const isProduction = process.env.NODE_ENV === "production";
+      if (!isProduction && !stealAttempted && holderPids.length > 0) {
+        stealAttempted = true;
+        logger.warn(
+          { holderPids, waitedMs },
+          "Stealing stale migration advisory lock — terminating holder backend(s) (NODE_ENV != production)",
+        );
+        for (const pid of holderPids) {
+          await lockClient
+            .query(`SELECT pg_terminate_backend($1::int)`, [pid])
+            .catch((err) => logger.warn({ err, pid }, "pg_terminate_backend failed (will retry acquire)"));
+        }
+        // fall through — next loop iteration will retry; terminated backend
+        // releases its session-scoped advisory locks immediately.
+      } else {
+        const pidList = holderPids.length > 0 ? holderPids.join(", ") : "unknown";
+        const remediation = holderPids.length > 0
+          ? `Run \`SELECT pg_terminate_backend(${holderPids[0]})\` against the dev database to release it, then restart this workflow.`
+          : `Check for a stuck api-server process holding the migration lock and restart this workflow.`;
+        throw new Error(
+          `Migration advisory lock held by PID(s) ${pidList} for ${Math.round(waitedMs / 1000)}s — refusing to wait further. ${remediation}`,
+        );
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
 async function runMigrationsLocked(): Promise<void> {
   // Hold the advisory lock on a dedicated connection for the full DDL run.
   // pg_advisory_lock is session-scoped, so the lock auto-releases if the
   // process crashes — preventing permanently-stuck startups.
-  const lockClient = await pool.connect();
+  const lockClient = (await pool.connect()) as unknown as LockClient;
   try {
-    await lockClient.query(`SELECT pg_advisory_lock($1::bigint)`, [MIGRATION_ADVISORY_LOCK_KEY]);
+    await acquireMigrationLock(lockClient);
     try {
       await runMigrationsBody();
     } finally {
@@ -184,8 +308,27 @@ async function runMigrationsLocked(): Promise<void> {
   }
 }
 
+// Task #348 — wrap each migration phase so the workflow log shows which
+// step is running and how long it took. Without this, a hang inside the
+// big DDL batch or one of the seed phases was invisible: the only signal
+// was Playwright's eventual webServer timeout. Now a stuck step is
+// obvious — the last "migration step start: <name>" line names it.
+async function runStep<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  logger.info({ step: name }, `migration step start: ${name}`);
+  try {
+    const result = await fn();
+    logger.info({ step: name, elapsedMs: Date.now() - started }, `migration step done: ${name}`);
+    return result;
+  } catch (err) {
+    logger.error({ step: name, elapsedMs: Date.now() - started, err }, `migration step failed: ${name}`);
+    throw err;
+  }
+}
+
 async function runMigrationsBody(): Promise<void> {
   try {
+    await runStep("core schema DDL batch", async () => {
     await db.execute(sql`
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS city text;
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS region text;
@@ -1118,6 +1261,7 @@ async function runMigrationsBody(): Promise<void> {
       ALTER TABLE lp_form_notifications ADD COLUMN IF NOT EXISTS send_follow_up_to_submitter boolean NOT NULL DEFAULT false;
       ALTER TABLE lp_form_notifications ADD COLUMN IF NOT EXISTS follow_up_template_id       integer REFERENCES sales_email_templates(id) ON DELETE SET NULL;
     `);
+    });
     logger.info("Migrations applied successfully");
 
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
@@ -1127,6 +1271,7 @@ async function runMigrationsBody(): Promise<void> {
     // ensures we only generate fresh values once; subsequent boots are no-ops.
     // Operators must update the third-party trackers to point at the new
     // /webhooks/<integration>/<secret> URLs (logged on first seed).
+    await runStep("dandy webhook secrets seed", async () => {
     try {
       const webhookMarker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'dandy_webhook_secrets_v1'`
@@ -1160,11 +1305,13 @@ async function runMigrationsBody(): Promise<void> {
     } catch (whErr) {
       logger.error({ err: whErr }, "Dandy webhook secret seed failed (non-fatal)");
     }
+    });
 
     // One-shot backfill of tenants.settings.industry so existing rows get the
     // correct industry without manual DB intervention. Tenants #1 and #5 are
     // Dandy dental tenants; everyone else defaults to "generic". Guarded by a
     // marker so we never overwrite later admin edits.
+    await runStep("tenant industry backfill", async () => {
     try {
       const backfillMarker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'tenant_industry_backfill_v1'`
@@ -1185,6 +1332,7 @@ async function runMigrationsBody(): Promise<void> {
     } catch (backfillErr) {
       logger.error({ err: backfillErr }, "tenant industry backfill failed (non-fatal)");
     }
+    });
 
     // Task #108 — page review workflow rollout. Two backfills, both idempotent
     // and marker-guarded so reboots are no-ops:
@@ -1193,6 +1341,7 @@ async function runMigrationsBody(): Promise<void> {
     //   2. Extend the system "Admin" role's permissions with the new
     //      pages.publish + pages.review keys so today's tenant admins keep the
     //      ability to publish without anyone re-saving the role through the UI.
+    await runStep("page review role seed", async () => {
     try {
       const reviewMarker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'page_review_role_seed_v1'`
@@ -1230,6 +1379,7 @@ async function runMigrationsBody(): Promise<void> {
     } catch (cmErr) {
       logger.error({ err: cmErr }, "page-review role backfill failed (non-fatal)");
     }
+    });
 
     // Task #113 — page-review-workflow toggle rollout. Mark every tenant that
     // existed BEFORE this change as `requireReviewBeforePublish=true` so they
@@ -1237,6 +1387,7 @@ async function runMigrationsBody(): Promise<void> {
     // anything. Tenants created AFTER this change default to FALSE in the
     // POST /api/admin/tenants insert. Marker-guarded so reboots are no-ops
     // and admins who later flip the toggle off are never overwritten.
+    await runStep("requireReviewBeforePublish backfill", async () => {
     try {
       const reviewToggleMarker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'require_review_toggle_backfill_v1'`
@@ -1258,10 +1409,12 @@ async function runMigrationsBody(): Promise<void> {
     } catch (toggleErr) {
       logger.error({ err: toggleErr }, "require-review toggle backfill failed (non-fatal)");
     }
+    });
 
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.
+    await runStep("block_catalog seed", async () => {
     try {
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS block_catalog (
@@ -1347,6 +1500,7 @@ async function runMigrationsBody(): Promise<void> {
       // Don't block boot on seed errors — admins can re-run scripts/seed-block-catalog.cjs
       logger.error({ err: seedErr }, "block_catalog seed failed (non-fatal)");
     }
+    });
 
     // Idempotent seed for the global landing-page templates available to all
     // generic-industry tenants. Owned by the lowest-id tenant (Dandy) by
@@ -1358,6 +1512,7 @@ async function runMigrationsBody(): Promise<void> {
     // below replaces blocks/labels/og_image on existing rows so older seeded
     // entries (v1) get their bogus block types fixed, but tenant edits to
     // titles or new template additions remain untouched.
+    await runStep("global_templates seed", async () => {
     try {
       // v13: re-seed to fix the Conversion Capture Page template, whose
       // select field stored options as {label,value} objects and crashed
@@ -1419,6 +1574,7 @@ async function runMigrationsBody(): Promise<void> {
     } catch (seedErr) {
       logger.error({ err: seedErr }, "global_templates seed failed (non-fatal)");
     }
+    });
 
     // Starter image library seed — image URLs harvested from the global
     // landing-page template seeds. Inserted as shared lp_media rows
@@ -1430,6 +1586,7 @@ async function runMigrationsBody(): Promise<void> {
     // (url, is_shared) — lp_media has no unique index on url, so we can't
     // rely on ON CONFLICT. This makes partial-failure reruns safe: rows
     // already inserted on a prior boot are skipped instead of duplicated.
+    await runStep("starter_images seed", async () => {
     try {
       const STARTER_MARKER = "starter_images_seed_v1";
       const marker = await db.execute<{ exists: number }>(
@@ -1467,11 +1624,13 @@ async function runMigrationsBody(): Promise<void> {
     } catch (seedErr) {
       logger.error({ err: seedErr }, "starter_images seed failed (non-fatal)");
     }
+    });
 
     // ─── Migration 0019: tenant_id on sales_hotlinks + sales_inbound_emails ──
     // Idempotent. Backfills from related rows, then enforces NOT NULL on
     // sales_hotlinks (sales_inbound_emails stays nullable so webhook
     // deliveries that fail tenant resolution still insert).
+    await runStep("migration 0019: tenant_id on sales_hotlinks + sales_inbound_emails", async () => {
     await db.execute(sql`
       ALTER TABLE "sales_hotlinks"
         ADD COLUMN IF NOT EXISTS "tenant_id" integer;
@@ -1533,10 +1692,12 @@ async function runMigrationsBody(): Promise<void> {
       CREATE INDEX IF NOT EXISTS "sales_inbound_emails_tenant_id_idx"
         ON "sales_inbound_emails" ("tenant_id");
     `);
+    });
 
     // ─── Migration 0020: seed Dandy (tenant 1) salesConsole config ──────────
     // Idempotent via the `salesConsole` key existence check, so re-runs
     // won't clobber edits Dandy makes through the new Brand Settings UI.
+    await runStep("migration 0020: dandy salesConsole config seed", async () => {
     await db.execute(sql`
       DO $$
       DECLARE
@@ -1611,12 +1772,14 @@ async function runMigrationsBody(): Promise<void> {
         END IF;
       END $$;
     `);
+    });
 
     // ─── Migration 0022: rephrase one Dandy proof-point legal disallows ─────
     // "DCA consolidated 400+ lab relationships down to one with Dandy"  →
     // "DCA consolidated 400+ lab relationships through a strategic
     //  partnership with Dandy". Marker-gated so this only runs once and
     //  doesn't clobber later admin edits.
+    await runStep("migration 0022: DCA proof-point rephrase", async () => {
     try {
       const dcaProofMarker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'dca_consolidation_proof_rephrase_v1'`
@@ -1662,6 +1825,7 @@ async function runMigrationsBody(): Promise<void> {
     } catch (rephraseErr) {
       logger.error({ err: rephraseErr }, "DCA proof rephrase failed (non-fatal)");
     }
+    });
   } catch (err) {
     // Surface a single concise line that names the failing SQL fragment so the
     // failure stands out in the api-server workflow log instead of being buried
