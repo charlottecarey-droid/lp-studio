@@ -73,3 +73,10 @@ export interface CustomTemplate {
 
 export const TEMPLATE_VISIBILITY_KEY = "template_visibility";
 export const DELETED_BUILTINS_KEY = "deleted_builtin_templates";
+
+export {
+  scrubBrand,
+  scrubBrandDeep,
+  DEFAULT_BRAND_CONTEXT,
+  type BrandContext,
+} from "./generators";

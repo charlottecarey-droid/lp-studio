@@ -14,6 +14,8 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig as BrandConfigT } from "@/lib/brand-config";
+import { scrubBrand, type BrandContext as BrandContextT } from "@workspace/one-pager-types";
 import {
   generatePilotOnePager,
   generateComparisonOnePager,
@@ -602,10 +604,44 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   builtinId?: BuiltinId;
   onClose: () => void;
 }) {
+  // Task #342 — fetch tenant brand so this rep-facing dialog scrubs Dandy
+  // copy out of generated PDFs for non-Dandy tenants.
+  const [brand, setBrand] = useState<BrandConfigT>(DEFAULT_BRAND);
+  useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
+  const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  const brandLabel = (brand.brandName || "").trim();
+  const brandSlug = (brand.brandName || "report")
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_-]+/g, "") || "report";
+  const brandQrFallback = isDandy
+    ? "https://meetdandy.com"
+    : (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "");
+  const brandContext: BrandContextT | undefined = isDandy ? undefined : {
+    wordmark: brandLabel.toLowerCase(),
+    productName: brandLabel || "Our Lab",
+    industryLabel: "Group",
+    labName: brandLabel || "Our Lab",
+    footerUrl: (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#")
+      ? brand.defaultCtaUrl.replace(/^https?:\/\//, "")
+      : "",
+    qrFallbackUrl: brandQrFallback || "",
+    agreementName: `${brandLabel || "Partner"} Practice Agreement`,
+    agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
+  };
+  const brandLogoUrl = isDandy ? undefined : (brand.logoUrl || undefined);
+
   const isAgreement = builtinId === "agreement-summary";
   const [dsoName, setDsoName] = useState("");
   const [phone, setPhone] = useState("");
-  const [qrUrl, setQrUrl] = useState("https://meetdandy.com");
+  // Start empty so the shared generator falls back to brand.qrFallbackUrl
+  // (sourced from brand_settings) for non-Dandy tenants. Seed from brand
+  // once it loads, unless the rep has already typed a custom URL.
+  const [qrUrl, setQrUrl] = useState("");
+  const qrUrlTouched = useRef(false);
+  useEffect(() => {
+    if (qrUrlTouched.current) return;
+    if (brandQrFallback) setQrUrl(brandQrFallback);
+  }, [brandQrFallback]);
   const [audience, setAudience] = useState<"executive" | "clinical" | "practice-manager">("executive");
   const [generating, setGenerating] = useState(false);
 
@@ -666,11 +702,12 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
     try {
       if (isBuiltin && builtinId) {
         let doc: jsPDF;
-        if (builtinId === "roi") doc = await generateROIOnePager(dsoName || "DSO", 50);
-        else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || "DSO", audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined);
-        else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || "DSO", [], phone, null, { w: 0, h: 0 }, undefined, undefined);
-        else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(agreement);
-        else doc = await generateNewPartnerOnePager(dsoName || "DSO", null, { w: 0, h: 0 }, qrUrl, {});
+        const groupLabel = brandContext?.industryLabel || "DSO";
+        if (builtinId === "roi") doc = await generateROIOnePager(dsoName || groupLabel, 50, undefined, brandContext, brandLogoUrl);
+        else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || groupLabel, audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined, undefined, undefined, brandContext, brandLogoUrl);
+        else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || groupLabel, [], phone, null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, brandContext, brandLogoUrl);
+        else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(agreement, brandContext, brandLogoUrl);
+        else doc = await generateNewPartnerOnePager(dsoName || groupLabel, null, { w: 0, h: 0 }, qrUrl, undefined, undefined, brandContext, brandLogoUrl);
         const baseName = isAgreement ? (agreement.headline || "Agreement_Summary") : (dsoName || builtinId);
         doc.save(`${baseName.replace(/\s+/g, "_")}_OnePager.pdf`);
       } else if (tpl) {
@@ -861,7 +898,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
               </div>
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">QR Code URL</label>
-                <input type="url" value={qrUrl} onChange={e => setQrUrl(e.target.value)} placeholder="https://meetdandy.com" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                <input type="url" value={qrUrl} onChange={e => { qrUrlTouched.current = true; setQrUrl(e.target.value); }} placeholder={brandQrFallback || "https://example.com"} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
               </div>
             </>
           )}
@@ -1956,6 +1993,32 @@ export default function SalesOnePagerTemplates() {
   const [confirmDeleteBuiltin, setConfirmDeleteBuiltin] = useState<string | null>(null);
   const [pdfDialog, setPdfDialog] = useState<{ tpl?: CustomTemplate; builtinId?: BuiltinId } | null>(null);
 
+  // Task #342 — fetch tenant brand so cloned preview PDFs and rendered
+  // template labels scrub Dandy/DSO/dental-lab copy for non-Dandy tenants.
+  const [previewBrand, setPreviewBrand] = useState<BrandConfigT>(DEFAULT_BRAND);
+  useEffect(() => { fetchBrandConfig().then(setPreviewBrand).catch(() => {}); }, []);
+  const previewIsDandy = (previewBrand.brandName ?? "").trim().toLowerCase() === "dandy";
+  const previewBrandLabel = (previewBrand.brandName || "").trim();
+  const previewQrFallback = previewIsDandy
+    ? "https://meetdandy.com"
+    : (previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#" ? previewBrand.defaultCtaUrl : "");
+  const previewBrandContext: BrandContextT | undefined = previewIsDandy ? undefined : {
+    wordmark: previewBrandLabel.toLowerCase(),
+    productName: previewBrandLabel || "Our Lab",
+    industryLabel: "Group",
+    labName: previewBrandLabel || "Our Lab",
+    footerUrl: (previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#")
+      ? previewBrand.defaultCtaUrl.replace(/^https?:\/\//, "")
+      : "",
+    qrFallbackUrl: previewQrFallback || "",
+    agreementName: `${previewBrandLabel || "Partner"} Practice Agreement`,
+    agreementUrl: previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#" ? previewBrand.defaultCtaUrl : "",
+  };
+  const previewBrandLogoUrl = previewIsDandy ? undefined : (previewBrand.logoUrl || undefined);
+  // Scrub Dandy-only UI labels (e.g. "Dandy Evolution", "Summary of Dandy Agreement")
+  // on the template cards so non-Dandy tenants don't see Dandy copy in this page.
+  const sLabel = (t: string) => scrubBrand(t, previewBrandContext);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2026,11 +2089,11 @@ export default function SalesOnePagerTemplates() {
     setCloningId(builtinId);
     try {
       let doc: jsPDF;
-      if (builtinId === "roi") doc = await generateROIOnePager(" ", 10);
-      else if (builtinId === "pilot") doc = await generatePilotOnePager(" ", "executive", [], "", null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined);
-      else if (builtinId === "comparison") doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, undefined, undefined);
-      else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent);
-      else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, "https://meetdandy.com", {});
+      if (builtinId === "roi") doc = await generateROIOnePager(" ", 10, undefined, previewBrandContext, previewBrandLogoUrl);
+      else if (builtinId === "pilot") doc = await generatePilotOnePager(" ", "executive", [], "", null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined, undefined, undefined, previewBrandContext, previewBrandLogoUrl);
+      else if (builtinId === "comparison") doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, previewBrandContext, previewBrandLogoUrl);
+      else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent, previewBrandContext, previewBrandLogoUrl);
+      else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, previewQrFallback, undefined, undefined, previewBrandContext, previewBrandLogoUrl);
 
       const pdfBlob = doc.output("blob");
       const pdfjsLib = await import("pdfjs-dist");
@@ -2187,8 +2250,8 @@ export default function SalesOnePagerTemplates() {
                     key={bt.id}
                     tpl={{
                       id: bt.id,
-                      label: bt.label,
-                      description: bt.description,
+                      label: sLabel(bt.label),
+                      description: sLabel(bt.description),
                       backgroundUrl: "backgroundUrl" in bt ? bt.backgroundUrl : undefined,
                     }}
                     isBuiltin
@@ -2255,7 +2318,7 @@ export default function SalesOnePagerTemplates() {
                   {deletedBuiltinsList.map(bt => (
                     <TemplateCard
                       key={bt.id}
-                      tpl={{ id: bt.id, label: bt.label, description: bt.description, isDeleted: true }}
+                      tpl={{ id: bt.id, label: sLabel(bt.label), description: sLabel(bt.description), isDeleted: true }}
                       isBuiltin
                       visible={false}
                       onToggleVisibility={() => {}}

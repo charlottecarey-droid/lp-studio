@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
+import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
 import { fetchCustomTemplates, generateCustomTemplatePdf, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import {
@@ -30,6 +31,7 @@ import {
   type AgreementSummaryContent,
   type AgreementSection,
   type AgreementContact,
+  type BrandContext,
 } from "@workspace/one-pager-types/generators";
 
 // =============================================
@@ -199,6 +201,8 @@ export const generatePilotOnePager = async (
   customLinkUrl?: string,
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
+  brand?: BrandContext,
+  brandLogoUrl?: string,
 ) => {
   // When no override is passed (normal generation), load both the shared config AND the
   // per-audience body config — the editor saves bodyCfg to separate audience-specific keys.
@@ -253,21 +257,22 @@ export const generatePilotOnePager = async (
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
   try {
-    // Priority: saved per-audience image (in headerCfg) > editedContent.headerImage fallback
+    // For non-Dandy tenants with a brand logo URL, prefer the tenant's logo
+    // over the built-in Dandy wordmark.
+    const logoSrc = brandLogoUrl || dandyLogoWhite;
     const resolvedImg = hCfg.headerImage ?? editedContent.headerImage;
     if (resolvedImg) {
-      logoPng = await svgToPng(dandyLogoWhite, 206, 74);
-      // If it's already a data URL (uploaded image), use it directly
+      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
       if (resolvedImg.startsWith("data:")) {
         headerImgData = resolvedImg;
       } else {
         [logoPng, headerImgData] = await Promise.all([
-          svgToPng(dandyLogoWhite, 206, 74),
+          loadImageAsBase64(logoSrc, "image/png").catch(() => null),
           loadImageAsBase64(resolvedImg),
         ]);
       }
     } else {
-      logoPng = await svgToPng(dandyLogoWhite, 206, 74);
+      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
     }
   } catch { /* continue without assets */ }
 
@@ -275,7 +280,7 @@ export const generatePilotOnePager = async (
     dsoName, audience, teamContacts, phoneNumber,
     prospectLogoData, prospectLogoDims, editedContent,
     customLinkText, customLinkUrl,
-    { logoPng, headerImgData, layoutOverrides },
+    { logoPng, headerImgData, layoutOverrides, brand },
   );
 };
 
@@ -289,6 +294,8 @@ export const generateComparisonOnePager = async (
   customLinkUrl?: string,
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
+  brand?: BrandContext,
+  brandLogoUrl?: string,
 ) => {
   let layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_comparison_template_layout").catch(() => null) ?? {};
   if (typeof prospectLogoScale === "number") {
@@ -305,12 +312,13 @@ export const generateComparisonOnePager = async (
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
   try {
+    const logoSrc = brandLogoUrl || dandyLogoWhite;
     if (hCfg.headerImage) {
-      logoPng = await svgToPng(dandyLogoWhite, 206, 74);
+      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
       headerImgData = hCfg.headerImage;
     } else {
       [logoPng, headerImgData] = await Promise.all([
-        svgToPng(dandyLogoWhite, 206, 74),
+        loadImageAsBase64(logoSrc, "image/png").catch(() => null),
         loadImageAsBase64(headerImgExecutive),
       ]);
     }
@@ -320,7 +328,7 @@ export const generateComparisonOnePager = async (
     dsoName, teamContacts, phoneNumber,
     prospectLogoData, prospectLogoDims,
     customLinkText, customLinkUrl,
-    { logoPng, headerImgData, layoutOverrides },
+    { logoPng, headerImgData, layoutOverrides, brand },
   );
 };
 
@@ -331,6 +339,8 @@ export const generateNewPartnerOnePager = async (
   qrUrl: string,
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
+  brand?: BrandContext,
+  brandLogoUrl?: string,
 ) => {
   let saved = layoutOverride ?? await loadLayoutDefault("dandy_partner_template_layout").catch(() => null) ?? {};
   if (typeof prospectLogoScale === "number") {
@@ -347,12 +357,13 @@ export const generateNewPartnerOnePager = async (
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
   try {
+    const logoSrc = brandLogoUrl || dandyLogoWhite;
     if (hCfg.headerImage) {
-      logoPng = await svgToPng(dandyLogoWhite, 206, 74);
+      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
       headerImgData = hCfg.headerImage;
     } else {
       [logoPng, headerImgData] = await Promise.all([
-        svgToPng(dandyLogoWhite, 206, 74),
+        loadImageAsBase64(logoSrc, "image/png").catch(() => null),
         loadImageAsBase64(headerImgClinical),
       ]);
     }
@@ -366,7 +377,7 @@ export const generateNewPartnerOnePager = async (
     footerLink: (saved.footerCfg as { link?: string } | undefined)?.link,
   };
 
-  const opts: NewPartnerOpts = { logoPng, headerImgData, layoutOverrides: saved, content };
+  const opts: NewPartnerOpts = { logoPng, headerImgData, layoutOverrides: saved, content, brand };
   return sharedGenerateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, qrUrl, {}, opts);
 };
 
@@ -374,6 +385,8 @@ export const generateROIOnePager = async (
   dsoName: string,
   numPractices: number,
   layoutOverride?: Record<string, unknown>,
+  brand?: BrandContext,
+  brandLogoUrl?: string,
 ) => {
   const layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_roi_template_layout").catch(() => null) ?? {};
   const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
@@ -381,29 +394,35 @@ export const generateROIOnePager = async (
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
   try {
+    const logoSrc = brandLogoUrl || dandyLogoWhite;
     if (hCfg.headerImage) {
-      logoPng = await svgToPng(dandyLogoWhite, 206, 74);
+      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
       headerImgData = hCfg.headerImage;
     } else {
       [logoPng, headerImgData] = await Promise.all([
-        svgToPng(dandyLogoWhite, 206, 74),
+        loadImageAsBase64(logoSrc, "image/png").catch(() => null),
         loadImageAsBase64(headerImgExecutive),
       ]);
     }
   } catch { /* continue without assets */ }
 
-  return sharedGenerateROIOnePager(dsoName, numPractices, { logoPng, headerImgData, layoutOverrides });
+  return sharedGenerateROIOnePager(dsoName, numPractices, { logoPng, headerImgData, layoutOverrides, brand });
 };
 
-export const generateAgreementSummaryOnePager = async (content: AgreementSummaryContent) => {
+export const generateAgreementSummaryOnePager = async (
+  content: AgreementSummaryContent,
+  brand?: BrandContext,
+  brandLogoUrl?: string,
+) => {
+  const logoSrc = brandLogoUrl || dandyLogoWhite;
   // Load each asset independently so a single failure doesn't drop the other.
   const [logoResult, scannerResult] = await Promise.allSettled([
-    svgToPng(dandyLogoWhite, 206, 74),
+    loadImageAsBase64(logoSrc, "image/png"),
     loadImageAsBase64(dandyScannerUrl, "image/png"),
   ]);
   const logoPng = logoResult.status === "fulfilled" ? logoResult.value : null;
   const scannerPng = scannerResult.status === "fulfilled" ? scannerResult.value : null;
-  return sharedGenerateAgreementSummaryOnePager(content, { logoPng, scannerPng });
+  return sharedGenerateAgreementSummaryOnePager(content, { logoPng, scannerPng, brand });
 };
 
 export const defaultAgreementSummaryContent = sharedDefaultAgreementSummaryContent;
@@ -418,6 +437,37 @@ type Template = "roi" | "pilot" | "comparison" | "new-partner" | "partner2" | "a
 const SalesOnePager = () => {
   const [location] = useLocation();
   const { user, hasPerm } = useAuth();
+  // Task #342 — fetch tenant brand so the page (and downstream filenames)
+  // scrub Dandy-only copy for non-Dandy tenants. Royal/neutral tenants
+  // ship with brandName="" → isDandy is false.
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
+  const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  const brandSlug = (brand.brandName || "report")
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_-]+/g, "") || "report";
+  const brandQrFallback = isDandy
+    ? "https://meetdandy.com"
+    : (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "");
+
+  // Build a BrandContext for the shared PDF generators when the tenant is
+  // not Dandy, so all the hard-coded "Dandy"/"DSO"/"meetdandy.com" strings
+  // in the shared generator get replaced with this tenant's branding.
+  // For Dandy tenants we pass `undefined` so generators use their Dandy defaults.
+  const brandLabel = (brand.brandName || "").trim();
+  const brandContext: BrandContext | undefined = isDandy ? undefined : {
+    wordmark: brandLabel.toLowerCase(),
+    productName: brandLabel || "Our Lab",
+    industryLabel: "Group",
+    labName: brandLabel || "Our Lab",
+    footerUrl: (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#")
+      ? brand.defaultCtaUrl.replace(/^https?:\/\//, "")
+      : "",
+    qrFallbackUrl: brandQrFallback || "",
+    agreementName: `${brandLabel || "Partner"} Practice Agreement`,
+    agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
+  };
+  const brandLogoUrl = isDandy ? undefined : (brand.logoUrl || undefined);
 
   const [dsoName, setDsoName] = useState("");
   const [numPractices, setNumPractices] = useState(100);
@@ -796,26 +846,26 @@ const SalesOnePager = () => {
             }
           }
         } catch { /* use local editedContent */ }
-        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale);
-        doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
+        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
       } else if (template === "comparison") {
-        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale);
-        doc.save(`Dandy_Evolution_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
+        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc.save(`${isDandy ? "Dandy_Evolution" : `${brandSlug}_Before_After`}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       } else if (template === "new-partner") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com", undefined, prospectLogoScale);
-        doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
       } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com", undefined, prospectLogoScale);
-        doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +
         // admin-saved layout on mount), so any number/price/text edits made
         // here flow into the generated PDF.
-        doc = await generateAgreementSummaryOnePager(agreementContent);
-        doc.save("Summary_of_Dandy_Agreement.pdf");
+        doc = await generateAgreementSummaryOnePager(agreementContent, brandContext, brandLogoUrl);
+        doc.save(isDandy ? "Summary_of_Dandy_Agreement.pdf" : `Summary_of_${brandSlug}_Agreement.pdf`);
       } else {
-        doc = await generateROIOnePager(dsoName.trim(), numPractices);
-        doc.save(`Dandy_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
+        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, brandContext, brandLogoUrl);
+        doc.save(`${brandSlug}_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       }
 
       await fetch("/api/sales/pdf-submissions", {
@@ -847,7 +897,9 @@ const SalesOnePager = () => {
               Back
             </button>
             <h1 className="text-3xl font-bold text-foreground text-center">One-Pager Generator</h1>
-            <p className="text-sm text-muted-foreground mt-2 text-center">Generate branded PDF one-pagers for DSO prospects</p>
+            <p className="text-sm text-muted-foreground mt-2 text-center">
+              {isDandy ? "Generate branded PDF one-pagers for DSO prospects" : "Generate branded PDF one-pagers for prospects"}
+            </p>
             {isAdmin && (
               <div className="flex justify-center mt-3">
                 <RouterLink href="/sales/one-pager/editor">
@@ -898,7 +950,7 @@ const SalesOnePager = () => {
                   onClick={() => { setTemplate("comparison"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "comparison" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
                 >
-                  Dandy Evolution
+                  {isDandy ? "Dandy Evolution" : "Before / After"}
                 </button>
               )}
               {!deletedBuiltins["pilot"] && templateVisibility["pilot"] !== false && (
@@ -1069,7 +1121,7 @@ const SalesOnePager = () => {
             )}
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${template === "agreement-summary" ? "hidden" : ""}`}>
               <div>
-                <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">DSO Name</label>
+                <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">{isDandy ? "DSO Name" : "Prospect Name"}</label>
                 <input
                   type="text"
                   placeholder="Enter prospect name"
@@ -1099,7 +1151,7 @@ const SalesOnePager = () => {
                   <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">QR Code URL</label>
                   <input
                     type="url"
-                    placeholder="https://meetdandy.com"
+                    placeholder={brandQrFallback || "https://example.com"}
                     value={customLinkUrl}
                     onChange={(e) => setCustomLinkUrl(e.target.value)}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"

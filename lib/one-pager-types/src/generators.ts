@@ -68,14 +68,114 @@ async function cropImage(
   });
 }
 
-function drawDandyLogo(doc: jsPDF, x: number, y: number, logoPng: string | null, w = 80, h = 28) {
+// ── Brand context ──────────────────────────────────────────────────────
+// Per-tenant overrides for everything that used to be hard-coded "Dandy".
+// All fields are optional; resolveBrand() merges with Dandy defaults so the
+// generators remain backwards-compatible when no brand is supplied.
+export interface BrandContext {
+  /** Lowercase wordmark text fallback when no logo PNG is provided (e.g. "dandy"). */
+  wordmark?: string;
+  /** Product name used in copy (e.g. "Dandy"). */
+  productName?: string;
+  /** Industry segment label (e.g. "DSO"). */
+  industryLabel?: string;
+  /** Lab/business name used in testimonials etc. (e.g. "Dandy Dental Lab"). */
+  labName?: string;
+  /** Plain-text footer URL (e.g. "www.meetdandy.com/dso"). Empty string hides it. */
+  footerUrl?: string;
+  /** Default URL embedded in QR codes when none is set (e.g. "https://meetdandy.com"). */
+  qrFallbackUrl?: string;
+  /** Agreement document name (e.g. "Dandy Practice Agreement"). */
+  agreementName?: string;
+  /** Agreement document URL. */
+  agreementUrl?: string;
+}
+
+export const DEFAULT_BRAND_CONTEXT: Required<BrandContext> = {
+  wordmark: "dandy",
+  productName: "Dandy",
+  industryLabel: "DSO",
+  labName: "Dandy Dental Lab",
+  footerUrl: "www.meetdandy.com/dso",
+  qrFallbackUrl: "https://meetdandy.com",
+  agreementName: "Dandy Practice Agreement",
+  agreementUrl: "https://meetdandy.com/practice-agreement",
+};
+
+function resolveBrand(b?: BrandContext): Required<BrandContext> {
+  if (!b) return DEFAULT_BRAND_CONTEXT;
+  return {
+    wordmark: b.wordmark ?? DEFAULT_BRAND_CONTEXT.wordmark,
+    productName: b.productName ?? DEFAULT_BRAND_CONTEXT.productName,
+    industryLabel: b.industryLabel ?? DEFAULT_BRAND_CONTEXT.industryLabel,
+    labName: b.labName ?? DEFAULT_BRAND_CONTEXT.labName,
+    footerUrl: b.footerUrl ?? DEFAULT_BRAND_CONTEXT.footerUrl,
+    qrFallbackUrl: b.qrFallbackUrl ?? DEFAULT_BRAND_CONTEXT.qrFallbackUrl,
+    agreementName: b.agreementName ?? DEFAULT_BRAND_CONTEXT.agreementName,
+    agreementUrl: b.agreementUrl ?? DEFAULT_BRAND_CONTEXT.agreementUrl,
+  };
+}
+
+function drawBrandLogo(doc: jsPDF, x: number, y: number, logoPng: string | null, w = 80, h = 28, wordmark = "dandy") {
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", x, y, w, h); return; } catch { }
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(...white);
-  doc.text("dandy", x, y + h * 0.8);
+  doc.text(wordmark, x, y + h * 0.8);
+}
+
+// Back-compat alias — older callers may still reference drawDandyLogo.
+const drawDandyLogo = drawBrandLogo;
+
+/**
+ * Replace all Dandy-specific tokens in a string with the resolved brand
+ * values. A no-op when the brand is Dandy (productName === "Dandy") so
+ * Dandy tenants get the original copy untouched.
+ *
+ * Order matters: longer/more-specific phrases first so we don't half-replace.
+ */
+export function scrubBrand(text: string, b?: BrandContext): string {
+  const r = resolveBrand(b);
+  if (r.productName === "Dandy") return text;
+  const safeFooter = r.footerUrl || "";
+  return text
+    .replace(/Dandy Practice Agreement/gi, r.agreementName)
+    .replace(/Dandy Dental Lab/gi, r.labName)
+    .replace(/Dandy Vision Scanner and Cart/gi, "our Vision Scanner and Cart")
+    .replace(/Dandy Vision Scanner/gi, "our Vision Scanner")
+    .replace(/Dandy Insights/gi, `${r.productName} Insights`)
+    .replace(/Dandy Portal/gi, `${r.productName} Portal`)
+    .replace(/Dandy diagnostic scans/gi, `${r.productName} diagnostic scans`)
+    .replace(/Dandy users/gi, `${r.productName} users`)
+    .replace(/Dandy doctors/gi, `${r.productName} doctors`)
+    .replace(/Dandy experience/gi, `${r.productName} experience`)
+    .replace(/Dandy's/g, `${r.productName}'s`)
+    .replace(/\bDandy\b/g, r.productName)
+    .replace(/\bDSO\b/g, r.industryLabel)
+    .replace(/\bDSOs\b/g, `${r.industryLabel}s`)
+    .replace(/digital dental lab/gi, "digital lab")
+    .replace(/dental lab/gi, "lab")
+    .replace(/www\.meetdandy\.com\/dso/gi, safeFooter)
+    .replace(/meetdandy\.com\/practice-agreement/gi, r.agreementUrl.replace(/^https?:\/\//, ""))
+    .replace(/meetdandy\.com/gi, safeFooter || "");
+}
+
+/** Recursively scrub all string values in any nested object/array via scrubBrand. */
+export function scrubBrandDeep<T>(value: T, b?: BrandContext): T {
+  const r = resolveBrand(b);
+  if (r.productName === "Dandy") return value;
+  if (typeof value === "string") return scrubBrand(value, b) as unknown as T;
+  if (Array.isArray(value)) return value.map(v => scrubBrandDeep(v, b)) as unknown as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = scrubBrandDeep(v, b);
+    }
+    return out as unknown as T;
+  }
+  return value;
 }
 
 // ── Shared types ───────────────────────────────────────────────────────
@@ -200,9 +300,14 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
 };
 
 export const generateAgreementSummaryOnePager = async (
-  content: AgreementSummaryContent,
-  opts?: { logoPng?: string | null; scannerPng?: string | null },
+  rawContent: AgreementSummaryContent,
+  opts?: { logoPng?: string | null; scannerPng?: string | null; brand?: BrandContext },
 ): Promise<jsPDF> => {
+  const b = resolveBrand(opts?.brand);
+  // Scrub any Dandy-specific strings out of the content (headline,
+  // subheadline, section bodies, footer text, footerLinkText/Url) so a
+  // non-Dandy tenant gets fully neutralized PDF text.
+  const content = scrubBrandDeep(rawContent, opts?.brand);
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   const w = doc.internal.pageSize.getWidth();   // 612pt
   const h = doc.internal.pageSize.getHeight();  // 792pt
@@ -262,13 +367,13 @@ export const generateAgreementSummaryOnePager = async (
       doc.setFont(headingFont, headingStyle);
       doc.setFontSize(26 * (logoW / 78));
       doc.setTextColor(...white);
-      doc.text("dandy", margin, 38 + logoH * 0.78);
+      doc.text(b.wordmark, margin, 38 + logoH * 0.78);
     }
   } else {
     doc.setFont(headingFont, headingStyle);
     doc.setFontSize(26 * (logoW / 78));
     doc.setTextColor(...white);
-    doc.text("dandy", margin, 38 + logoH * 0.78);
+    doc.text(b.wordmark, margin, 38 + logoH * 0.78);
   }
 
   // Headline — large serif, wraps to multiple lines. Confine width to ~58%
@@ -536,6 +641,7 @@ export interface PilotOpts {
   logoPng?: string | null;
   headerImgData?: string | null;
   checkboxImgData?: string | null;
+  brand?: BrandContext;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     bodyCfg?: Record<string, unknown>;
@@ -570,7 +676,11 @@ export const generatePilotOnePager = async (
   const logoPng = opts?.logoPng ?? null;
   const headerImgData = (hCfg.headerImage as string | undefined) ?? opts?.headerImgData ?? null;
   const checkboxImgData = opts?.checkboxImgData ?? null;
-  const content = editedContent;
+  const b = resolveBrand(opts?.brand);
+  // Scrub all Dandy-specific copy out of the user-supplied audience content
+  // (subtitle, introText, checklist[], features[].title/description) so a
+  // non-Dandy tenant sees fully neutralized PDF text.
+  const content = scrubBrandDeep(editedContent, opts?.brand);
 
   const headerH = (hCfg.height as number | undefined) ?? 280;
   const splitX = w * (((hCfg.splitRatio as number | undefined) ?? 48) / 100);
@@ -587,7 +697,7 @@ export const generatePilotOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawDandyLogo(doc, margin, 50, logoPng);
+  drawBrandLogo(doc, margin, 50, logoPng, 80, 28, b.wordmark);
 
   const logoEndX = margin + 90;
   doc.setDrawColor(180, 210, 195);
@@ -613,7 +723,7 @@ export const generatePilotOnePager = async (
   doc.setFont("helvetica", "normal");
   doc.setFontSize(dsoName.length > 15 ? 22 : ((hCfg.titleFontSize as number | undefined) ?? 28));
   doc.setTextColor(...white);
-  const titleLines = doc.splitTextToSize(`Dandy x ${dsoName}\n90-Day Pilot`, splitX - margin - 20);
+  const titleLines = doc.splitTextToSize(`${b.productName} x ${dsoName}\n90-Day Pilot`, splitX - margin - 20);
   doc.text(titleLines, margin, 120);
 
   doc.setFont("helvetica", "normal");
@@ -630,7 +740,7 @@ export const generatePilotOnePager = async (
   doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 16);
   doc.setTextColor(...textDark);
   const headlineLines = doc.splitTextToSize(
-    "Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.",
+    scrubBrand("Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.", opts?.brand),
     contentW
   );
   doc.text(headlineLines, w / 2 + offsetX, y, { align: "center", maxWidth: contentW });
@@ -726,7 +836,7 @@ export const generatePilotOnePager = async (
         y += 30;
         doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...lime);
         doc.text("\u201C", margin, y + 7);
-        const quoteText = (bCfg.quoteText as string | undefined) ?? "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
+        const quoteText = (bCfg.quoteText as string | undefined) ?? `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
         const quoteFontSize = (bCfg.quoteFontSize as number | undefined) ?? 9.5;
         doc.setFont("helvetica", "italic"); doc.setFontSize(quoteFontSize); doc.setTextColor(...textDark);
         const quoteLines = doc.splitTextToSize(quoteText, contentW - 30);
@@ -781,8 +891,8 @@ export const generatePilotOnePager = async (
     doc.setFillColor(...darkGreen);
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...white);
-    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : "www.meetdandy.com/dso";
-    doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 20 : 28), { align: "center" });
+    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
+    if (footerText) doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 20 : 28), { align: "center" });
     if (customLinkText?.trim() && customLinkUrl?.trim()) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(180, 210, 195);
       doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 38, { url: customLinkUrl });
@@ -812,6 +922,7 @@ export const defaultComparisonStats = [
 export interface ComparisonOpts {
   logoPng?: string | null;
   headerImgData?: string | null;
+  brand?: BrandContext;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     bodyCfg?: Record<string, unknown>;
@@ -842,12 +953,15 @@ export const generateComparisonOnePager = async (
   const bCfg = opts?.layoutOverrides?.bodyCfg ?? {};
   const tCfg = opts?.layoutOverrides?.teamCfg ?? {};
   const fCfg = opts?.layoutOverrides?.footerCfg ?? {};
-  const activeRows = (opts?.layoutOverrides?.comparisonRows?.length
+  const rawRows = (opts?.layoutOverrides?.comparisonRows?.length
     ? opts.layoutOverrides.comparisonRows
     : defaultComparisonRows) as Array<{ capability: string; then: string; now: string }>;
-  const stats = (opts?.layoutOverrides?.stats?.length
+  const activeRows = scrubBrandDeep(rawRows, opts?.brand);
+  const b = resolveBrand(opts?.brand);
+  const rawStats = (opts?.layoutOverrides?.stats?.length
     ? opts.layoutOverrides.stats
     : defaultComparisonStats) as Array<{ value: string; label: string }>;
+  const stats = scrubBrandDeep(rawStats, opts?.brand);
 
   const logoPng = opts?.logoPng ?? null;
   const headerImgData = (hCfg.headerImage as string | undefined) ?? opts?.headerImgData ?? null;
@@ -867,7 +981,7 @@ export const generateComparisonOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
+  drawBrandLogo(doc, margin, 22, logoPng, 70, 24, b.wordmark);
 
   if (prospectLogoData) {
     const logoEndX = margin + 80;
@@ -898,7 +1012,7 @@ export const generateComparisonOnePager = async (
   doc.text("Stronger Systems.", margin, 90);
   doc.text("Better Outcomes.", margin, 90 + titleLineH);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(200, 215, 210);
-  const subLines = doc.splitTextToSize("See how Dandy has matured to deliver more consistent clinical performance across practices.", splitX - margin - 20);
+  const subLines = doc.splitTextToSize(`See how ${b.productName} has matured to deliver more consistent clinical performance across practices.`, splitX - margin - 20);
   doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
   let y = headerH + ((bCfg.compTableAboveSpacing as number | undefined) ?? 20);
@@ -912,8 +1026,8 @@ export const generateComparisonOnePager = async (
   doc.rect(margin, y + 4, contentW, tableHeaderH - 4, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(tableHeaderFontSize); doc.setTextColor(180, 200, 190);
   doc.text("CAPABILITY", margin + 12, y + tableHeaderH * 0.65);
-  doc.setTextColor(...lime); doc.text("DANDY 2022", margin + col1W + 12, y + tableHeaderH * 0.65);
-  doc.text("DANDY TODAY", margin + col1W + col2W + 12, y + tableHeaderH * 0.65);
+  doc.setTextColor(...lime); doc.text(`${b.productName.toUpperCase()} 2022`, margin + col1W + 12, y + tableHeaderH * 0.65);
+  doc.text(`${b.productName.toUpperCase()} TODAY`, margin + col1W + col2W + 12, y + tableHeaderH * 0.65);
   y += tableHeaderH;
 
   const rowH = (bCfg.compTableRowHeight as number | undefined) ?? 40;
@@ -992,8 +1106,8 @@ export const generateComparisonOnePager = async (
   if (showFooter) {
     doc.setFillColor(...darkGreen); doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...white);
-    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : "meetdandy.com";
-    doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 16 : 24), { align: "center" });
+    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
+    if (footerText) doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 16 : 24), { align: "center" });
     if (customLinkText?.trim() && customLinkUrl?.trim()) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(180, 210, 195);
       doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 28, { url: customLinkUrl });
@@ -1029,6 +1143,7 @@ export interface NewPartnerOpts {
   logoPng?: string | null;
   headerImgData?: string | null;
   content?: NewPartnerContent;
+  brand?: BrandContext;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     bodyCfg?: Record<string, unknown>;
@@ -1054,13 +1169,16 @@ export const generateNewPartnerOnePager = async (
   const bCfg = opts?.layoutOverrides?.bodyCfg ?? {};
   const fCfg = opts?.layoutOverrides?.footerCfg ?? {};
 
-  const content = opts?.content ?? {};
-  const headline = content.headline ?? "Unlock the Power of Digital Dentistry with Dandy";
-  const introRaw = content.intro ?? `As ${dsoName}'s newest preferred lab partner, Dandy is here to help your practice thrive with the most advanced digital dental lab in the industry. Together, we're delivering smarter, faster, and more predictable outcomes—while elevating patient care and your bottom line.`;
+  const b = resolveBrand(opts?.brand);
+  const rawContent = opts?.content ?? {};
+  // Scrub any Dandy literals out of caller-supplied content before use.
+  const content = scrubBrandDeep(rawContent, opts?.brand);
+  const headline = content.headline ?? scrubBrand(`Unlock the Power of Digital Dentistry with ${b.productName}`, opts?.brand);
+  const introRaw = content.intro ?? scrubBrand(`As ${dsoName}'s newest preferred lab partner, ${b.productName} is here to help your practice thrive with the most advanced digital lab in the industry. Together, we're delivering smarter, faster, and more predictable outcomes—while elevating patient care and your bottom line.`, opts?.brand);
   const intro = introRaw.replace(/\{dso\}/g, dsoName).replace(/\{dsoName\}/g, dsoName);
-  const features = content.features ?? defaultPartnerFeatures;
-  const stats = content.stats ?? defaultPartnerStats;
-  const footerLink = content.footerLink ?? (fCfg.link as string | undefined) ?? "meetdandy.com";
+  const features = content.features ?? scrubBrandDeep(defaultPartnerFeatures, opts?.brand);
+  const stats = content.stats ?? scrubBrandDeep(defaultPartnerStats, opts?.brand);
+  const footerLink = content.footerLink ?? (fCfg.link as string | undefined) ?? b.footerUrl;
   const savedQrUrl = (hCfg as Record<string, unknown>).partnerQrUrl as string | undefined ?? qrUrl;
 
   const logoPng = opts?.logoPng ?? null;
@@ -1081,7 +1199,7 @@ export const generateNewPartnerOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
+  drawBrandLogo(doc, margin, 22, logoPng, 70, 24, b.wordmark);
 
   const logoSepX = margin + 78;
   const legacyPartnerScale = ((hCfg.partnerLogoScale as number | undefined) ?? 100) / 100;
@@ -1110,7 +1228,7 @@ export const generateNewPartnerOnePager = async (
   const subtitleFontSize = (hCfg.subtitleFontSize as number | undefined) ?? 12;
   const subtitleOffY = (hCfg.subtitleOffsetY as number | undefined) ?? 0;
   doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(200, 215, 210);
-  doc.text(`Dandy & ${dsoName}:`, margin, 65 + subtitleOffY);
+  doc.text(`${b.productName} & ${dsoName}:`, margin, 65 + subtitleOffY);
   const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
   doc.setFont("helvetica", "bold"); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
@@ -1148,10 +1266,10 @@ export const generateNewPartnerOnePager = async (
       if (idx === 3) {
         doc.setFont("helvetica", "bold"); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
         doc.text("Learn more about the", cx + 16, cy + 28);
-        doc.text("Dandy experience", cx + 16, cy + 28 + featTitleFs + 4);
+        doc.text(`${b.productName} experience`, cx + 16, cy + 28 + featTitleFs + 4);
         try {
           const QRCode = (await import("qrcode")).default;
-          const qrDataUrl: string = await QRCode.toDataURL(savedQrUrl || "https://meetdandy.com", { width: 400, margin: 1 });
+          const qrDataUrl: string = await QRCode.toDataURL(savedQrUrl || b.qrFallbackUrl, { width: 400, margin: 1 });
           doc.addImage(qrDataUrl, "PNG", cx + cardW - 72, cy + 14, 58, 58);
         } catch { }
       } else if (feat) {
@@ -1168,7 +1286,7 @@ export const generateNewPartnerOnePager = async (
   y += 2 * (cardH + cardGap) + 28;
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(...darkGreen);
-  doc.text("See what Dandy doctors are saying:", margin, y);
+  doc.text(`See what ${b.productName} doctors are saying:`, margin, y);
   y += 28;
 
   const statGap = 14;
@@ -1202,6 +1320,7 @@ export const generateNewPartnerOnePager = async (
 export interface ROIOpts {
   logoPng?: string | null;
   headerImgData?: string | null;
+  brand?: BrandContext;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     footerCfg?: Record<string, unknown>;
@@ -1224,6 +1343,7 @@ export const generateROIOnePager = async (
 
   const logoPng = opts?.logoPng ?? null;
   const headerImgData = (hCfg.headerImage as string | undefined) ?? opts?.headerImgData ?? null;
+  const b = resolveBrand(opts?.brand);
 
   const headerH = (hCfg.height as number | undefined) ?? 160;
   doc.setFillColor(...darkGreen);
@@ -1240,7 +1360,7 @@ export const generateROIOnePager = async (
     doc.rect(0, 0, imgX + imgW * 0.05, headerH, "F");
   }
 
-  drawDandyLogo(doc, margin, Math.round(headerH * 0.225), logoPng);
+  drawBrandLogo(doc, margin, Math.round(headerH * 0.225), logoPng, 80, 28, b.wordmark);
 
   const defaultNameSize = dsoName.length > 15 ? 16 : 22;
   const roiNameSize = (hCfg.titleFontSize as number | undefined) ?? defaultNameSize;
@@ -1281,11 +1401,11 @@ export const generateROIOnePager = async (
   });
   y += metricsH + 28;
 
-  const caseStudies = [
+  const caseStudies = scrubBrandDeep([
     { org: "APEX Dental Partners", stat: "12.5%", statLabel: "annualized revenue potential increase", quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", authorName: "Dr. Layla Lohmann", authorTitle: "Founder" },
     { org: "Open & Affordable Dental", stat: "96%", statLabel: "reduction in remakes", quote: "Reduced crown appointments by 2–3 minutes per case. That adds up to hours of saved chair time per month — and our remake headaches are gone.", authorName: "Clinical Director", authorTitle: "" },
     { org: "Dental Care Alliance", stat: "99%", statLabel: "practices still using Dandy after one year", quote: "The training you guys give is incredible. The onboarding has been incredible. The whole experience has been incredible.", authorName: "Dr. Trey Mueller", authorTitle: "Chief Clinical Officer" },
-  ];
+  ], opts?.brand);
 
   const gap = 14;
   const pillarW = (contentW - gap * 2) / 3;
@@ -1332,7 +1452,7 @@ export const generateROIOnePager = async (
   const quoteBlockH = h - footerH - y - 20;
   doc.setFillColor(...midGreen); doc.roundedRect(margin, y, contentW, quoteBlockH, 6, 6, "F");
   doc.setFont("helvetica", "italic"); doc.setFontSize(9.5);
-  const bottomQuote = "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
+  const bottomQuote = `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
   const bqLines = doc.splitTextToSize(bottomQuote, contentW - 110);
   const quoteTextH = bqLines.length * 13;
   const attrH2 = 12; const quoteMarkH = 24; const gapBetween = 10;
@@ -1348,13 +1468,13 @@ export const generateROIOnePager = async (
   doc.setFillColor(...darkGreen); doc.rect(0, h - footerH, w, footerH, "F");
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", margin, h - footerH + 10, 48, 17); } catch {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text("dandy", margin, h - footerH + 24);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
     }
   } else {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text("dandy", margin, h - footerH + 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(160, 185, 175);
-  doc.text("www.meetdandy.com/dso", w / 2, h - footerH + 22, { align: "center" });
+  if (b.footerUrl) doc.text(b.footerUrl, w / 2, h - footerH + 22, { align: "center" });
   doc.setTextColor(...lime); doc.text(`Prepared for ${dsoName}  •  Page 1 of 2`, w - margin, h - footerH + 22, { align: "right" });
 
   // PAGE 2
@@ -1363,30 +1483,30 @@ export const generateROIOnePager = async (
   doc.setFillColor(...darkGreen); doc.rect(0, 0, w, p2HeaderH, "F");
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", margin, 22, 70, 24); } catch {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...white); doc.text("dandy", margin, 40);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...white); doc.text(b.wordmark, margin, 40);
     }
   } else {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...white); doc.text("dandy", margin, 40);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...white); doc.text(b.wordmark, margin, 40);
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.setTextColor(...white); doc.text("The Dandy Difference & ROI", margin, 66);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.setTextColor(...white); doc.text(`The ${b.productName} Difference & ROI`, margin, 66);
   y = p2HeaderH + 28;
 
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...lime); doc.text("THE DANDY DIFFERENCE", margin, y); y += 6;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textMuted); doc.text("Built for DSO scale. Designed for provider trust.", margin, y + 12); y += 28;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...lime); doc.text(`THE ${b.productName.toUpperCase()} DIFFERENCE`, margin, y); y += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textMuted); doc.text(`Built for ${b.industryLabel} scale. Designed for provider trust.`, margin, y + 12); y += 28;
 
-  const tableRows = [
+  const tableRows = scrubBrandDeep([
     { need: "Patient Volume Growth", dandy: "30% higher case acceptance, expanded services like Aligners", traditional: "No growth enablement" },
     { need: "Multi-Brand Consistency", dandy: "One standard across all your brands and locations", traditional: "Varies by location and vendor" },
     { need: "Waste Prevention", dandy: "AI Scan Review catches issues before they cost you", traditional: "Remakes discovered after the fact" },
     { need: "Executive Visibility", dandy: "Real-time, actionable data across your entire network", traditional: "Fragmented, non-actionable reports" },
     { need: "Capital Efficiency", dandy: "Premium scanners included — no CAPEX required", traditional: "Heavy CAPEX, scanner bottlenecks" },
     { need: "Change Management", dandy: "Hands-on training that respects provider autonomy", traditional: "Minimal onboarding, slow rollout" },
-  ];
+  ], opts?.brand);
 
   const col1W2 = 120; const col2W2 = (contentW - col1W2) / 2; const rowH2 = 36;
   doc.setFillColor(...darkGreen); doc.roundedRect(margin, y, contentW, 28, 4, 4, "F"); doc.rect(margin, y + 4, contentW, 24, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text("WHAT YOUR DSO NEEDS", margin + 12, y + 18);
-  doc.setTextColor(...lime); doc.text("DANDY", margin + col1W2 + 12, y + 18);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text(`WHAT YOUR ${b.industryLabel.toUpperCase()} NEEDS`, margin + 12, y + 18);
+  doc.setTextColor(...lime); doc.text(b.productName.toUpperCase(), margin + col1W2 + 12, y + 18);
   doc.setTextColor(180, 200, 190); doc.text("TRADITIONAL LABS", margin + col1W2 + col2W2 + 12, y + 18); y += 28;
 
   tableRows.forEach((row, i) => {
@@ -1460,19 +1580,20 @@ export const generateROIOnePager = async (
 
   doc.setFillColor(...offWhite); doc.roundedRect(margin, y, contentW, 55, 6, 6, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...darkGreen); doc.text("Ready to validate these numbers?", margin + 20, y + 22);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted); doc.text("Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis at meetdandy.com/dso", margin + 20, y + 38);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
+  doc.text(b.footerUrl ? `Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis at ${b.footerUrl}` : "Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis.", margin + 20, y + 38);
 
   // Page 2 footer
   doc.setFillColor(...darkGreen); doc.rect(0, h - footerH, w, footerH, "F");
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", margin, h - footerH + 10, 48, 17); } catch {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text("dandy", margin, h - footerH + 24);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
     }
   } else {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text("dandy", margin, h - footerH + 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(160, 185, 175);
-  doc.text("www.meetdandy.com/dso", w / 2, h - footerH + 22, { align: "center" });
+  if (b.footerUrl) doc.text(b.footerUrl, w / 2, h - footerH + 22, { align: "center" });
   doc.setTextColor(...lime); doc.text(`Prepared for ${dsoName}  •  Page 2 of 2`, w - margin, h - footerH + 22, { align: "right" });
 
   return doc;

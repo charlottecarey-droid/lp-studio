@@ -20,8 +20,8 @@
 //   - /sales/campaign-pages  — "@ent.meetdandy.com" sender suffix
 //   - /sales/marketplace     — depends on seeded templates; covered by
 //                              the catalog-isolation work
-//   - /sales/one-pager*      — Dandy-branded PDF templates (separate effort)
-//   - /sales/roi-calculator  — hardcoded meetdandy.com URLs in the PDF
+//   (Task #342 de-Dandified /sales/one-pager and /sales/roi-calculator —
+//    they are now part of ROUTES below.)
 //
 // Once those screens are de-branded they should be added to ROUTES below.
 //
@@ -67,6 +67,8 @@ const ROUTES: ReadonlyArray<{ path: string; label: string }> = [
   { path: "/sales/accounts", label: "Accounts" },
   { path: "/sales/contacts", label: "Contacts" },
   { path: "/sales/guide", label: "Sales Console guide" },
+  { path: "/sales/one-pager", label: "One-Pager Generator" },
+  { path: "/sales/roi-calculator", label: "ROI Calculator" },
 ];
 
 interface Violation {
