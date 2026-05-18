@@ -14,6 +14,27 @@ import { TOP_TIER_PLANS } from "../lib/tenantSettings";
  * users see the cleaner `<slug>.lpstudio.ai` rather than
  * `<slug>.app.lpstudio.ai`. Falls back to the first configured base.
  */
+/**
+ * Validate a post-login "next" destination. We accept only relative,
+ * same-origin paths so an attacker can't piggy-back the auth flow into an
+ * open redirect (e.g. `?next=https://evil.com`). Anything else collapses to
+ * `null` and the caller falls back to `/`.
+ *
+ * Rules:
+ *   - Must start with a single `/` (path-absolute), so we stay on the same
+ *     origin as the callback/accept endpoint.
+ *   - Must NOT start with `//` or `/\` — both can be interpreted by browsers
+ *     as protocol-relative URLs and would escape the origin.
+ *   - Capped at 2048 chars to keep DB/log/cookie footprints sane.
+ */
+function sanitizeNextPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (value.length === 0 || value.length > 2048) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//") || value.startsWith("/\\")) return null;
+  return value;
+}
+
 function publicWildcardBaseHost(): string | null {
   const preferred = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app."));
   return preferred ?? WILDCARD_BASE_HOSTS[0] ?? null;
@@ -103,8 +124,15 @@ router.get("/auth/google", oauthInitLimiter, (req, res): void => {
     res.status(503).json({ error: "Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." });
     return;
   }
-  // Embed origin host + redirect URI in state so the callback can replicate exact redirect URI
-  const state = Buffer.from(JSON.stringify({ host: originHost, redirectUri })).toString("base64url");
+  // Optional `?next=` — a relative path (path + query string) the caller
+  // wants us to land on after the OAuth round-trip completes. Used by the
+  // marketing-homepage handoff so a logged-out visitor who clicks "Generate
+  // page" lands back on `/pages?new=ai&prompt=…` rather than the workspace
+  // root. Anything that isn't a same-origin relative path is dropped.
+  const nextPath = sanitizeNextPath((req.query as { next?: unknown }).next);
+  // Embed origin host + redirect URI + next path in state so the callback can
+  // replicate the exact redirect URI and resume the destination handoff.
+  const state = Buffer.from(JSON.stringify({ host: originHost, redirectUri, next: nextPath })).toString("base64url");
   const url = client.generateAuthUrl({
     access_type: "online",
     scope: ["openid", "email", "profile"],
@@ -122,14 +150,16 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  // Decode origin host + redirect URI from state
+  // Decode origin host + redirect URI + next destination from state
   let originHost = "";
   let stateRedirectUri = "";
+  let nextPath: string | null = null;
   try {
     if (stateParam) {
       const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf8"));
       originHost = decoded.host ?? "";
       stateRedirectUri = decoded.redirectUri ?? "";
+      nextPath = sanitizeNextPath(decoded.next);
     }
   } catch { /* ignore malformed state */ }
 
@@ -342,9 +372,13 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
         [exchangeCode, sid, expiresAt]
       );
       const proto = "https";
-      res.redirect(`${proto}://${originHostname}/api/auth/accept?code=${encodeURIComponent(exchangeCode)}`);
+      const nextSuffix = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+      res.redirect(`${proto}://${originHostname}/api/auth/accept?code=${encodeURIComponent(exchangeCode)}${nextSuffix}`);
     } else {
-      res.redirect("/");
+      // Same-domain: land the user on their intended destination (e.g. the
+      // marketing-homepage handoff target `/pages?new=ai&prompt=…`). When
+      // `nextPath` is absent or fails validation, fall back to root.
+      res.redirect(nextPath ?? "/");
     }
   } catch (err) {
     console.error("[auth] OAuth callback error:", err);
@@ -357,11 +391,15 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
 // Uses a short-lived exchange code instead of passing the session token in the URL.
 // This prevents session tokens from appearing in browser history, logs, or referrer headers.
 router.get("/auth/accept", async (req, res): Promise<void> => {
-  const { code } = req.query as { code?: string };
+  const { code, next } = req.query as { code?: string; next?: string };
   if (!code) {
     res.redirect("/?error=missing_code");
     return;
   }
+  // Resume the original post-login destination on this (tenant) host.
+  // sanitizeNextPath rejects anything that isn't a same-origin relative path,
+  // so an attacker cannot use `?next=` to bounce users to an external URL.
+  const nextPath = sanitizeNextPath(next);
   try {
     // Look up the exchange code and retrieve the associated session
     // Exchange codes are single-use and expire after 5 minutes
@@ -396,7 +434,7 @@ router.get("/auth/accept", async (req, res): Promise<void> => {
       maxAge: SESSION_TTL_MS,
       path: "/",
     });
-    res.redirect("/");
+    res.redirect(nextPath ?? "/");
   } catch (err) {
     console.error("[auth] accept session error:", err);
     res.redirect("/?error=auth_failed");
@@ -628,6 +666,12 @@ router.post("/auth/handoff-code", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+  // Optional `next` (body) — relative destination path to resume on the
+  // tenant host after /auth/accept exchanges the code. Used by the
+  // AuthGate tenant-redirect bridge so a logged-out visitor coming from
+  // the marketing homepage lands on `/pages?new=ai&prompt=…` instead of
+  // the workspace root after signing in.
+  const nextPath = sanitizeNextPath((req.body as { next?: unknown })?.next);
   try {
     const sessionResult = await pool.query(
       `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
@@ -664,7 +708,8 @@ router.post("/auth/handoff-code", async (req, res): Promise<void> => {
       `INSERT INTO auth_exchange_codes (code, sid, expires_at) VALUES ($1, $2, $3)`,
       [code, sid, expiresAt]
     );
-    res.json({ code, host, url: `https://${host}/api/auth/accept?code=${encodeURIComponent(code)}` });
+    const nextSuffix = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+    res.json({ code, host, url: `https://${host}/api/auth/accept?code=${encodeURIComponent(code)}${nextSuffix}` });
   } catch (err) {
     console.error("[auth] /handoff-code error:", err);
     res.status(500).json({ error: "Server error" });

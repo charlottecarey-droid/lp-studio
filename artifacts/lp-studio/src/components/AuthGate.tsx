@@ -172,7 +172,19 @@ function SignInPanel() {
               <Button
                 variant="outline"
                 className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
-                onClick={() => { window.location.href = "/api/auth/google"; }}
+                onClick={() => {
+                  // Preserve the current path + query string (e.g. the
+                  // marketing-homepage prompt handoff `/pages?new=ai&prompt=…`)
+                  // across the Google OAuth round-trip. Server-side
+                  // `sanitizeNextPath` rejects anything that isn't a
+                  // same-origin relative path, so this can't be turned into
+                  // an open redirect.
+                  const next = window.location.pathname + window.location.search;
+                  const url = next && next !== "/"
+                    ? `/api/auth/google?next=${encodeURIComponent(next)}`
+                    : "/api/auth/google";
+                  window.location.href = url;
+                }}
               >
                 <GoogleIcon />
                 Continue with Google
@@ -451,11 +463,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
 function TenantHandoffRedirect({ host }: { host: string }) {
   useEffect(() => {
     let cancelled = false;
+    // Preserve the current path + query string (e.g. the marketing-homepage
+    // handoff target `/pages?new=ai&prompt=…`) across the cross-domain
+    // session hand-off so the user lands on their intended destination on
+    // the tenant subdomain, not the bare root. Server-side validation
+    // rejects anything that isn't a same-origin relative path.
+    const next = window.location.pathname + window.location.search;
     (async () => {
       try {
         const res = await fetch("/api/auth/handoff-code", {
           method: "POST",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next: next && next !== "/" ? next : undefined }),
         });
         if (cancelled) return;
         if (res.ok) {
@@ -467,7 +487,7 @@ function TenantHandoffRedirect({ host }: { host: string }) {
         }
       } catch { /* fall through */ }
       if (!cancelled) {
-        window.location.replace(`https://${host}/`);
+        window.location.replace(`https://${host}${next && next !== "/" ? next : "/"}`);
       }
     })();
     return () => { cancelled = true; };

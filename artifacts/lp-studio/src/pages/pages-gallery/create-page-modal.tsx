@@ -32,6 +32,11 @@ interface Props {
    *  like "With AI") jump straight to the matching tab instead of always
    *  showing the template picker first. */
   initialMode?: CreateMode;
+  /** Optional initial value to seed the AI prompt textarea with when the
+   *  dialog opens in AI mode. Used by the marketing homepage handoff so the
+   *  user's typed prompt is preserved across the redirect to /pages. Empty
+   *  / undefined leaves the textarea blank. */
+  initialAiPrompt?: string;
   segments: AudienceSegment[];
   selectedSegmentId: string;
   setSelectedSegmentId: (id: string) => void;
@@ -55,6 +60,7 @@ export function CreatePageModal({
   open,
   onClose,
   initialMode,
+  initialAiPrompt,
   segments,
   selectedSegmentId,
   setSelectedSegmentId,
@@ -87,10 +93,17 @@ export function CreatePageModal({
     if (open) {
       setCreateError(null);
       setCreateMode(initialMode ?? "template");
+      // Seed the AI prompt textarea from `initialAiPrompt` whenever the
+      // dialog opens in AI mode. Only overwrite when we actually have a
+      // value so users who manually open the AI tab and start typing don't
+      // get their text wiped on a re-render.
+      if ((initialMode ?? "template") === "ai" && initialAiPrompt && initialAiPrompt.trim()) {
+        setAiPrompt(initialAiPrompt);
+      }
     } else {
       setCreateError(null);
     }
-  }, [open, initialMode]);
+  }, [open, initialMode, initialAiPrompt]);
 
   const handleTitleChange = (v: string) => {
     setNewTitle(v);

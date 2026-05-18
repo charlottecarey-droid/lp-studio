@@ -62,6 +62,14 @@ export default function PagesGallery() {
   const [createModalMode, setCreateModalMode] = useState<"template" | "ai" | null>(
     initialNewParam === "ai" || initialNewParam === "template" ? initialNewParam : null,
   );
+  // Marketing homepage handoff: when the user types a prompt on lpstudio.ai
+  // and clicks "Generate page", we land here with `?new=ai&prompt=...`. Read
+  // the prompt up-front and pass it to CreatePageModal as `initialAiPrompt`
+  // so the AI textarea opens pre-filled. The param is stripped from the URL
+  // at the same time `new` is stripped below so refreshes don't re-trigger.
+  const [createModalInitialPrompt, setCreateModalInitialPrompt] = useState<string>(() => {
+    return new URLSearchParams(window.location.search).get("prompt") ?? "";
+  });
   const showCreateModal = createModalMode !== null;
   const setShowCreateModal = (v: boolean) => setCreateModalMode(v ? "template" : null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
@@ -94,7 +102,9 @@ export default function PagesGallery() {
   // this, only the initial mount value (read once via useMemo) would take
   // effect and subsequent in-app navigations would be no-ops.
   useEffect(() => {
-    const v = new URLSearchParams(search).get("new");
+    const params = new URLSearchParams(search);
+    const v = params.get("new");
+    const p = params.get("prompt");
     if (v === "brief") {
       setBriefModalOpen(true);
       setCreateModalMode(null);
@@ -105,11 +115,19 @@ export default function PagesGallery() {
       setCreateModalMode("template");
       setBriefModalOpen(false);
     }
-    // Strip the `?new=` param after consuming it so that closing the modal
-    // and reopening it doesn't immediately re-trigger this effect.
-    if (v !== null) {
+    // Capture the freshly-read prompt (mirrors the initial state) for the AI
+    // tab so a navigation-without-mount (in-app push to /pages?new=ai&prompt=…)
+    // still seeds the textarea.
+    if (v === "ai" && p) {
+      setCreateModalInitialPrompt(p);
+    }
+    // Strip the `?new=` (and `?prompt=`) params after consuming them so that
+    // closing the modal and reopening it doesn't immediately re-trigger this
+    // effect, and a refresh doesn't re-open / re-prefill.
+    if (v !== null || p !== null) {
       const url = new URL(window.location.href);
       url.searchParams.delete("new");
+      url.searchParams.delete("prompt");
       window.history.replaceState({}, "", url.toString());
     }
   }, [search]);
@@ -568,7 +586,8 @@ export default function PagesGallery() {
       <CreatePageModal
         open={showCreateModal}
         initialMode={createModalMode ?? undefined}
-        onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); }}
+        initialAiPrompt={createModalInitialPrompt}
+        onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); setCreateModalInitialPrompt(""); }}
         segments={segments}
         selectedSegmentId={selectedSegmentId}
         setSelectedSegmentId={setSelectedSegmentId}
