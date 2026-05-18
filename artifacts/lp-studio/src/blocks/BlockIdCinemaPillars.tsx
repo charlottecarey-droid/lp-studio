@@ -133,6 +133,9 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   // CSS variable on each layer and panel. Because progress is now coupled
   // to scroll position, slow scrolls give slow fades and fast scrolls
   // give fast fades — no orphaned transitions, no mid-air "snap".
+  const holdVh = Math.max(0.5, props.pillarHoldVh ?? 1.5);
+  const stackedScroll = props.pillarStackedScroll !== false;
+
   useEffect(() => {
     if (isEditor) return;
     if (props.pillarStackedScroll === false) return;
@@ -148,12 +151,16 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
     const update = () => {
       raf = 0;
       const vh = window.innerHeight;
-      // Width of the crossfade window, in px. ~55% of viewport height gives
-      // a generous overlap between adjacent pillars without bleeding into
-      // non-adjacent ones.
-      const fadeWindow = vh * 0.55;
-      let topI = 0;
-      let topP = -1;
+      // Crossfade window must match the spacer spacing so two adjacent
+      // pillars actually overlap. Spacers are `holdVh * 100vh` tall, so
+      // their centers are `holdVh * vh` px apart — pick that as the fade
+      // window and adjacent pillars will both have non-zero `--p` while
+      // the user scrolls between them. A previous version used a fixed
+      // 0.55*vh window which was much narrower than the 150vh spacing,
+      // leaving a dead zone between every pair of pillars.
+      const fadeWindow = Math.max(vh * 0.55, holdVh * vh);
+      let nearestI = 0;
+      let nearestDist = Infinity;
       for (let i = 0; i < pillars.length; i++) {
         const el = spacerRefs.current[i];
         if (!el) continue;
@@ -164,17 +171,22 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
         const eased = smoothstep(raw);
         layerEls[i]?.style.setProperty("--p", eased.toFixed(4));
         panelEls[i]?.style.setProperty("--p", eased.toFixed(4));
-        if (eased > topP) {
-          topP = eased;
-          topI = i;
+        // Pick "active" pillar by which spacer center is closest to the
+        // viewport center, NOT by which has the highest eased value.
+        // In the dead zones between pillars all `eased` collapse to 0,
+        // which would otherwise snap `active` back to index 0 every time
+        // (visibly flashing pillar 0 between every transition).
+        if (distance < nearestDist) {
+          nearestDist = distance;
+          nearestI = i;
         }
       }
       // Discrete state still drives the side stepper (color/dot scale) and
       // the background gradient swap, but only re-renders when it actually
       // flips — so the cheap React work doesn't fight the rAF loop.
-      setActive((cur) => (cur === topI ? cur : topI));
-      if (bgEl && bgEl.dataset.bg !== String(topI)) {
-        bgEl.dataset.bg = String(topI);
+      setActive((cur) => (cur === nearestI ? cur : nearestI));
+      if (bgEl && bgEl.dataset.bg !== String(nearestI)) {
+        bgEl.dataset.bg = String(nearestI);
       }
     };
     const onScroll = () => {
@@ -189,10 +201,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
       window.removeEventListener("resize", onScroll);
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [isEditor, pillars.length, props.pillarStackedScroll]);
-
-  const holdVh = Math.max(0.5, props.pillarHoldVh ?? 1.5);
-  const stackedScroll = props.pillarStackedScroll !== false;
+  }, [isEditor, pillars.length, props.pillarStackedScroll, holdVh]);
   const flatMode = !stackedScroll && !isEditor;
 
   const updatePillar = (i: number, patch: Partial<IdCinemaPillar>) => {

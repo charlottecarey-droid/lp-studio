@@ -209,7 +209,10 @@ const CSS = `
 .id-cinema-text .id-panel:nth-child(2) { transform:translateX(calc(-60px * (1 - var(--p,0)))); }
 .id-cinema-text .id-panel:nth-child(3) { transform:scale(calc(1 - 0.06 * (1 - var(--p,0)))); }
 .id-cinema-text .id-panel:nth-child(4) { transform:translateX(calc(60px * (1 - var(--p,0)))); }
-.id-cinema-text .id-panel.id-active { pointer-events:auto; }
+/* Mirror the .id-layer no-JS fallback: keep the active panel visible
+   for SSR / first paint / reduced motion users before the rAF loop has
+   had a chance to write --p. */
+.id-cinema-text .id-panel.id-active { pointer-events:auto; opacity:1; }
 @media (prefers-reduced-motion: reduce) {
   .id-cinema-text .id-panel { transform:none !important; }
 }
