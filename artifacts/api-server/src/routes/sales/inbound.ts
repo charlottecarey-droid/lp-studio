@@ -1,13 +1,41 @@
 import { Router } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
-import { eq, and, desc, ilike } from "drizzle-orm";
+import { eq, and, desc, ilike, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesInboundEmailsTable,
   salesContactsTable,
   salesSignalsTable,
+  lpBrandSettingsTable,
 } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
+
+/**
+ * Resolve which tenant an inbound webhook belongs to by matching the
+ * envelope's To-address domain (or local-part-tagged sub-address) against
+ * each tenant's configured sending domain. Returns null when no tenant
+ * owns the destination domain — the caller then stores the record with
+ * tenantId=NULL so it stays out of every tenant's inbox.
+ *
+ * This must NOT fall back to global contact-email lookup: in a multi-
+ * tenant install the same person's email can exist in multiple tenants'
+ * CRMs and a fallback would silently leak inbound mail across tenants.
+ */
+async function resolveTenantByToDomain(toEmail: string): Promise<number | null> {
+  if (!toEmail) return null;
+  const at = toEmail.lastIndexOf("@");
+  if (at < 0) return null;
+  const domain = toEmail.slice(at + 1).trim().toLowerCase();
+  if (!domain) return null;
+
+  const [row] = await db
+    .select({ tenantId: lpBrandSettingsTable.tenantId })
+    .from(lpBrandSettingsTable)
+    .where(sql`lower(${lpBrandSettingsTable.config}->'salesConsole'->>'sendingDomain') = ${domain}`)
+    .limit(1);
+
+  return row?.tenantId ?? null;
+}
 
 const router = Router();
 
@@ -160,19 +188,31 @@ router.post("/", async (req, res): Promise<void> => {
       return;
     }
 
-    // Match to a contact by email address
-    const [contact] = await db
-      .select()
-      .from(salesContactsTable)
-      .where(ilike(salesContactsTable.email, fromEmail))
-      .limit(1);
+    // Resolve tenant by the destination address's domain, not by global
+    // contact-email lookup. Global lookup leaks cross-tenant: the same
+    // person can exist as a contact in multiple tenants' CRMs.
+    const resolvedTenantId = await resolveTenantByToDomain(toEmail);
+
+    // Only look up a contact within the resolved tenant. If no tenant
+    // owns this destination domain we skip the lookup entirely and
+    // store the row with tenantId=NULL.
+    const [contact] = resolvedTenantId !== null
+      ? await db
+          .select()
+          .from(salesContactsTable)
+          .where(and(
+            ilike(salesContactsTable.email, fromEmail),
+            eq(salesContactsTable.tenantId, resolvedTenantId),
+          ))
+          .limit(1)
+      : [];
 
     // Store the inbound email. Without a tenant match we leave tenantId
     // NULL so unrouted replies remain visible to platform operators but
     // never surface inside a tenant's inbox (the GET handlers above filter
     // by tenantId so NULL rows are invisible to all tenants).
     const [record] = await db.insert(salesInboundEmailsTable).values({
-      tenantId: contact?.tenantId ?? null,
+      tenantId: resolvedTenantId,
       contactId: contact?.id ?? null,
       accountId: contact?.accountId ?? null,
       messageId: messageId || null,

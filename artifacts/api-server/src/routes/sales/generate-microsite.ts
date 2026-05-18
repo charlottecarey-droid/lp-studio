@@ -299,29 +299,33 @@ function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]
   });
 }
 
-function normalizeBlock(raw: AiBlock, index: number): AiBlock {
+function normalizeBlock(raw: AiBlock, index: number, brand: string): AiBlock {
   const type = (raw.type as string) ?? "hero";
   if (raw.props && typeof raw.props === "object") {
     return {
       id: raw.id ?? `${type}-${index}`,
       type,
-      props: mergeWithDefaults(type, raw.props as AiBlock),
+      props: mergeWithDefaults(type, raw.props as AiBlock, brand),
     };
   }
   const { type: _t, id: _id, ...rest } = raw;
   return {
     id: `${type}-${index}`,
     type,
-    props: mergeWithDefaults(type, rest),
+    props: mergeWithDefaults(type, rest, brand),
   };
 }
 
-function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
+function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
+  // `brand` is the tenant's brand name (or "" when unset). Used to keep
+  // fallback copy generic when the AI omits a field — never leak
+  // another tenant's brand into a non-Dandy account.
+  const us = brand || "us";
   switch (type) {
     // ── Standard practice blocks ────────────────────────────────────
     case "hero":
       return {
-        headline: p.headline ?? p.heading ?? "See What Dandy Can Do For You",
+        headline: p.headline ?? p.heading ?? `See What ${us} Can Do For You`,
         subheadline: p.subheadline ?? p.subheading ?? p.subtitle ?? "Digital-first lab workflows that save time, reduce remakes, and delight your patients.",
         ctaText: p.ctaText ?? "Book a Demo",
         ctaUrl: p.ctaUrl ?? "#",
@@ -340,7 +344,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
     case "features": {
       const items = (p.items ?? p.features ?? p.benefits ?? []) as AiBlock[];
       return {
-        headline: p.headline ?? p.heading ?? "Why practices choose Dandy",
+        headline: p.headline ?? p.heading ?? `Why teams choose ${us}`,
         columns: p.columns ?? 3,
         items: items.length > 0
           ? items.map(f => ({ icon: f.icon ?? "Zap", title: f.title ?? f.name ?? "", description: f.description ?? f.body ?? "" }))
@@ -391,7 +395,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
         steps: steps.length > 0
           ? steps.map((s, i) => ({ number: s.number ?? `0${i + 1}`, title: s.title ?? s.name ?? "", description: s.description ?? s.body ?? "" }))
           : [
-              { number: "01", title: "Scan & Send", description: "Take an intraoral scan and send it to Dandy in seconds." },
+              { number: "01", title: "Scan & Send", description: `Take an intraoral scan and send it to ${us} in seconds.` },
               { number: "02", title: "We Manufacture", description: "Your case enters our digital lab immediately." },
               { number: "03", title: "Delivered to Your Door", description: "Your restoration arrives in 5 business days." },
             ],
@@ -407,7 +411,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
         oldWayBullets: (Array.isArray(p.oldWayBullets) && p.oldWayBullets.length > 0)
           ? p.oldWayBullets
           : ["Long wait times", "Inconsistent fits", "Opaque pricing", "No accountability", "Manual re-work"],
-        newWayLabel: p.newWayLabel || "Dandy",
+        newWayLabel: p.newWayLabel || us,
         newWayBullets: (Array.isArray(p.newWayBullets) && p.newWayBullets.length > 0)
           ? p.newWayBullets
           : ["5-day crown delivery", "Free remakes — no questions asked", "Transparent pricing", "Real-time case tracking", "AI-powered quality control"],
@@ -423,7 +427,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
     case "stat-callout":
       return {
         stat: p.stat ?? p.value ?? "89%",
-        description: p.description ?? p.label ?? "Average reduction in remakes when partnering with Dandy",
+        description: p.description ?? p.label ?? `Average improvement when partnering with ${us}`,
         footnote: p.footnote ?? "",
       };
 
@@ -434,7 +438,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
     case "dso-heartland-hero": {
       const stats = (p.stats ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "The Dandy Difference",
+        eyebrow: p.eyebrow ?? `The ${us} Difference`,
         headline: p.headline ?? p.heading ?? "Built for your DSO.",
         companyName: p.companyName ?? p.company ?? "Your DSO",
         subheadline: p.subheadline ?? p.subheading ?? "The lab partner built to match your DSO's scale — precision manufacturing, AI quality control, and network-wide visibility.",
@@ -479,9 +483,9 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
 
     case "dso-insights-dashboard":
       return {
-        eyebrow: p.eyebrow ?? "Dandy Hub & Insights",
+        eyebrow: p.eyebrow ?? `${us} Hub & Insights`,
         headline: p.headline ?? p.heading ?? "One dashboard for every location.",
-        subheadline: p.subheadline ?? p.subheading ?? "Dandy Insights gives your leadership team actionable data — not just reports. Know where to intervene before problems scale.",
+        subheadline: p.subheadline ?? p.subheading ?? `${us} Insights gives your leadership team actionable data — not just reports. Know where to intervene before problems scale.`,
         practiceLabel: p.practiceLabel ?? "practices",
         backgroundStyle: p.backgroundStyle ?? "muted",
         dashboardVariant: p.dashboardVariant ?? "light",
@@ -496,7 +500,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
         cases: cases.length > 0
           ? cases.map(c => ({ name: c.name ?? "", stat: c.stat ?? "", label: c.label ?? "", quote: c.quote ?? "", author: c.author ?? "" }))
           : [
-              { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people. That's what makes them a great partner.", author: "Dr. Layla Lohmann, Founder" },
+              { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: `${us} values education, technology, and people. That's what makes them a great partner.`, author: "Dr. Layla Lohmann, Founder" },
               { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations" },
             ],
       };
@@ -517,7 +521,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
               details: Array.isArray(s.details) ? s.details : [],
             }))
           : [
-              { title: "Launch a Pilot", subtitle: "Start with 5–10 offices", desc: "Dandy deploys scanners, onboards doctors, and integrates into existing workflows — no CAPEX, no disruption.", details: ["Premium hardware included", "Dedicated field team", "Doctors trained within days"] },
+              { title: "Launch a Pilot", subtitle: "Start with 5–10 offices", desc: `${us} deploys scanners, onboards doctors, and integrates into existing workflows — no CAPEX, no disruption.`, details: ["Premium hardware included", "Dedicated field team", "Doctors trained within days"] },
               { title: "Validate Impact", subtitle: "Measure results in 60–90 days", desc: "Track remake reduction, chair time recovered, and same-store revenue lift in real time.", details: ["Live dashboard tracks KPIs", "Compare pilot vs. control group", "Executive-ready reporting"] },
               { title: "Scale With Confidence", subtitle: "Roll out across the network", desc: "Expand with the same standard, same playbook, and same results — predictable execution at enterprise scale.", details: ["Consistent onboarding", "One standard across every office", "MSA ensures network-wide alignment"] },
             ],
@@ -539,9 +543,9 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
     case "dso-comparison": {
       const rows = (p.rows ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "The Dandy Difference",
+        eyebrow: p.eyebrow ?? `The ${us} Difference`,
         headline: p.headline ?? p.heading ?? "Built for DSO scale.\nDesigned for provider trust.",
-        subheadline: p.subheadline ?? p.subheading ?? "Dandy combines the lab providers choose with advanced manufacturing, AI-driven quality control, and network-wide insights.",
+        subheadline: p.subheadline ?? p.subheading ?? `${us} combines the lab providers choose with advanced manufacturing, AI-driven quality control, and network-wide insights.`,
         companyName: p.companyName ?? p.company ?? "Your DSO",
         ctaText: p.ctaText ?? "Request a Demo",
         ctaUrl: p.ctaUrl ?? "#",
@@ -554,8 +558,8 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       return {
         eyebrow: p.eyebrow ?? "Built in the USA",
         headline: p.headline ?? p.heading ?? "See vertical integration in action.",
-        body: p.body ?? p.description ?? "Unlike traditional labs, Dandy owns the entire manufacturing process — from scan to delivery.",
-        quote: p.quote ?? "Dandy is a true partner, not just a vendor.",
+        body: p.body ?? p.description ?? `Unlike traditional labs, ${us} owns the entire manufacturing process — from scan to delivery.`,
+        quote: p.quote ?? `${us} is a true partner, not just a vendor.`,
         quoteAttribution: p.quoteAttribution ?? "DSO Clinical Operations Officer",
         imageUrl: p.imageUrl ?? "",
         videoUrl: p.videoUrl ?? "",
@@ -584,13 +588,13 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
     case "dso-practice-hero":
       return {
         eyebrow: p.eyebrow ?? "",
-        headline: p.headline ?? p.heading ?? "Your practice. Elevated by Dandy.",
+        headline: p.headline ?? p.heading ?? `Your practice. Elevated by ${us}.`,
         subheadline: p.subheadline ?? p.subheading ?? "As a network partner, your practice gets dedicated support, premium scanners at no cost, and a lab that backs every case with a first-time fit guarantee.",
         primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Start your first case",
         primaryCtaUrl: p.primaryCtaUrl ?? p.ctaUrl ?? "#",
         secondaryCtaText: p.secondaryCtaText ?? "See how it works",
         secondaryCtaUrl: p.secondaryCtaUrl ?? "#",
-        trustLine: p.trustLine ?? "Join hundreds of practices in your network already using Dandy",
+        trustLine: p.trustLine ?? `Join hundreds of practices in your network already using ${us}`,
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
 
@@ -610,16 +614,16 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       const perks = (p.perks ?? p.benefits ?? p.items ?? []) as AiBlock[];
       return {
         eyebrow: p.eyebrow ?? "Partnership Benefits",
-        headline: p.headline ?? p.heading ?? "Perks that come with every Dandy partnership.",
+        headline: p.headline ?? p.heading ?? `Perks that come with every ${us} partnership.`,
         subheadline: p.subheadline ?? p.subheading ?? "From day one, your practice gets dedicated support, premium hardware, and exclusive incentives.",
         perks: perks.length > 0
           ? perks.map(pk => ({ icon: pk.icon ?? "star", title: pk.title ?? pk.name ?? "", desc: pk.desc ?? pk.description ?? "" }))
           : [
-              { icon: "gift",     title: "$1,500 Lab Credit",         desc: "Get $1,500 toward your first cases — experience Dandy quality risk-free." },
+              { icon: "gift",     title: "$1,500 Lab Credit",         desc: `Get $1,500 toward your first cases — experience ${us} quality risk-free.` },
               { icon: "zap",      title: "AI Scan Review",            desc: "Real-time AI flags margin issues while your patient is still in the chair." },
               { icon: "star",     title: "Dedicated DSO Support",     desc: "Your own account team. Direct line, same-day response." },
               { icon: "shield",   title: "Free CE Credits",           desc: "Accredited courses on digital dentistry, scan technique, and restorative workflows." },
-              { icon: "users",    title: "Live Clinical Collaboration", desc: "Chat directly with Dandy lab technicians in real time to dial in your preps." },
+              { icon: "users",    title: "Live Clinical Collaboration", desc: `Chat directly with ${us} lab technicians in real time to dial in your preps.` },
               { icon: "sparkles", title: "$100 UberEats Gift Card",   desc: "Book a lunch-and-learn for your team — we'll cover the food and walk you through going digital." },
             ],
         backgroundStyle: p.backgroundStyle ?? "dark",
@@ -646,7 +650,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       return {
         eyebrow: p.eyebrow ?? "Chairside Software",
         headline: p.headline ?? p.heading ?? "The only chairside software built for same-day dentistry.",
-        body: p.body ?? p.description ?? "Dandy's AI-powered platform gives clinicians real-time scan review, prep guidance, and digital workflows — all in one seamless experience.",
+        body: p.body ?? p.description ?? `${us}'s AI-powered platform gives clinicians real-time scan review, prep guidance, and digital workflows — all in one seamless experience.`,
         imageUrl: p.imageUrl ?? "",
         features: features.length > 0
           ? features.map(f => ({ icon: f.icon ?? "zap", label: f.label ?? f.title ?? "" }))
@@ -678,12 +682,12 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       const steps = (p.steps ?? []) as AiBlock[];
       return {
         eyebrow: p.eyebrow ?? "Getting Started",
-        headline: p.headline ?? p.heading ?? "Four steps to going live with Dandy.",
+        headline: p.headline ?? p.heading ?? `Four steps to going live with ${us}.`,
         subheadline: p.subheadline ?? p.subheading ?? "Our onboarding team handles every detail — from scanner delivery to your first case.",
         steps: steps.length > 0
           ? steps.map((s, i) => ({ step: s.step ?? `${i + 1}`, title: s.title ?? s.name ?? "", desc: s.desc ?? s.description ?? s.body ?? "" }))
           : [
-              { step: "1", title: "Schedule Your Kickoff", desc: "Meet your Dandy activation manager to align on rollout timeline and goals." },
+              { step: "1", title: "Schedule Your Kickoff", desc: `Meet your ${us} activation manager to align on rollout timeline and goals.` },
               { step: "2", title: "Equipment Setup", desc: "We ship and install your intraoral scanners — every operatory fully configured and ready." },
               { step: "3", title: "Clinical Training", desc: "Hands-on training for doctors and staff covering scan technique and workflow." },
               { step: "4", title: "First Cases & Go Live", desc: "Submit your first cases and experience real-time tracking, guaranteed fit, and dedicated support." },
@@ -714,7 +718,7 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       const columns = (p.columns ?? []) as AiBlock[];
       return {
         columns: Array.isArray(columns) ? columns : [],
-        copyrightText: p.copyrightText ?? `© ${new Date().getFullYear()} Dandy. All rights reserved.`,
+        copyrightText: p.copyrightText ?? `© ${new Date().getFullYear()} ${us}. All rights reserved.`,
         showSocialLinks: p.showSocialLinks ?? false,
         backgroundColor: p.backgroundColor ?? "#003A30",
         accentColor: p.accentColor ?? "#C7E738",
@@ -928,7 +932,7 @@ function buildSystemPrompt(
   const avoidPhrases    = brand.avoidPhrases as string[] | undefined;
   const copyExamples    = brand.copyExamples as string[] | undefined;
   const copyInstructions = brand.copyInstructions as string | undefined;
-  const brandName       = (brand.brandName as string | undefined) ?? "Dandy";
+  const brandName       = (brand.brandName as string | undefined) ?? "";
   const companyDescription = brand.companyDescription as string | undefined;
   const targetAudience  = brand.targetAudience as string | undefined;
   const productLines    = brand.productLines as BrandProductLine[] | undefined;
@@ -982,12 +986,12 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
 1. Specific always beats vague. Every claim needs a number, a process, or a policy behind it.
    BAD: "Faster turnaround times that improve efficiency"
    GOOD: "5-day crown delivery with real-time case tracking"
-   BAD: "Dandy's advanced technology ensures better outcomes"
+   BAD: "${brandName || "Our"}'s advanced technology ensures better outcomes"
    GOOD: "96% first-time fit rate. If a case doesn't seat, we remake it for free."
 
-2. Lead with the dentist's benefit — not Dandy's features.
-   BAD: "Dandy uses AI-powered quality control on every case"
-   GOOD: "You get a better-fitting crown without the back-and-forth phone calls"
+2. Lead with the customer's benefit — not ${brandName || "the seller"}'s features.
+   BAD: "${brandName || "We"} use AI-powered quality control on every case"
+   GOOD: "You get a better-fitting result without the back-and-forth phone calls"
 
 3. Write like one person talking directly to another across a desk. Not a press release. Not a brochure.
    BAD: "Leveraging next-generation digital workflows to optimize practice efficiency"
@@ -996,7 +1000,7 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
 4. Short sentences. Active voice. One idea per sentence. If you can cut a word without losing meaning, cut it.
 
 5. Headlines are declarative and direct. No vague questions. No "How to..." or "Why...".
-   BAD: "Discover how Dandy can help your practice grow"
+   BAD: "Discover how ${brandName || "we"} can help your practice grow"
    GOOD: "More cases. Zero lab drama."
 
 6. Every subheadline should deepen or add to the headline — not just restate it in different words.
@@ -1014,14 +1018,14 @@ ${matchedSegment ? `9. VALIDATED FACTS ONLY — when this prompt includes a TARG
 
 10. CAPITALIZATION — Two absolute rules that BOTH apply at all times:` : `9. CAPITALIZATION — Two absolute rules that BOTH apply at all times:`}
    a) ALWAYS start every sentence, headline, eyebrow, bullet point, step title, card title, FAQ question, and label with a capital letter. Every piece of text that starts a new thought begins with a capital. Never begin any text with a lowercase letter.
-   b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official Dandy product names (AI Scan Review, Smile Simulation) get capitals.
+   b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official product names get capitals.
    WRONG (all lowercase start): "more cases. zero lab drama." → WRONG: sentence starts with lowercase
    WRONG (title case): "More Cases. Zero Lab Drama." → WRONG: mid-sentence words capitalized
    CORRECT: "More cases. Zero lab drama."
    WRONG: "send a scan. get a perfect-fit crown in 5 days." → WRONG
    CORRECT: "Send a scan. Get a perfect-fit crown in 5 days."
-   WRONG: "join hundreds of practices already using dandy" → WRONG: lowercase start + "dandy" is a proper noun
-   CORRECT: "Join hundreds of practices already using Dandy."
+   WRONG: "join hundreds of practices already using ${(brandName || "us").toLowerCase()}" → WRONG: lowercase sentence start; brand names are proper nouns
+   CORRECT: "Join hundreds of practices already using ${brandName || "us"}."
 
 NEVER USE any of the following — not in headlines, not in body copy, not anywhere:
 ${forbiddenList.map(p => `- "${p}"`).join("\n")}
@@ -1126,7 +1130,7 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     "AVAILABLE BLOCKS (use only these, in this order):",
     "1. \"hero\": { headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
     "2. \"trust-bar\": { items: [{ value, label }] } — 3–4 key proof stats",
-    "3. \"benefits-grid\": { headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 specific Dandy benefits",
+    `3. "benefits-grid": { headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 specific ${brandName || "product"} benefits`,
     "4. \"testimonial\": { quote, author, role, practiceName } — a real, specific practitioner voice",
     "5. \"how-it-works\": { headline, steps: [{ number, title, description }] }",
     "6. \"comparison\": { headline, oldWayLabel, oldWayBullets: string[], newWayLabel, newWayBullets: string[] }",
@@ -1269,7 +1273,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     const baseSlug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-    let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i));
+    const normBrand = (brand.brandName as string | undefined) ?? "";
+    let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, normBrand));
 
     // Post-process: fill any empty image slots, replace invented video URLs, inject brand
     normalizedBlocks = fillEmptyImages(normalizedBlocks, images) as AiBlock[];
