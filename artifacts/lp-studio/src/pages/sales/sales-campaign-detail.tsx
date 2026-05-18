@@ -32,6 +32,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { SendTestEmailModal } from "@/components/SendTestEmailModal";
+import { MultiSelectChip } from "@/components/MultiSelectChip";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,11 +78,23 @@ interface Account {
   name: string;
 }
 
+interface AudienceFilters {
+  accountIds?: number[];
+  titleKeywords?: string[];
+  departments?: string[];
+  contactRoles?: string[];
+  statuses?: string[];
+  contactIds?: number[];
+  tiers?: string[];
+  titleLevels?: string[];
+}
+
 interface Audience {
   id: number;
   name: string;
   description: string | null;
   contact_count: number | null;
+  filters?: AudienceFilters | null;
 }
 
 interface Contact {
@@ -95,6 +108,7 @@ interface Contact {
   accountId: number | null;
   accountName: string | null;
   tier: string | null;
+  titleLevel: string | null;
   department: string | null;
 }
 
@@ -177,8 +191,21 @@ export default function SalesCampaignDetail() {
   // Saved audiences (apply one to pre-fill recipients)
   const [audiences, setAudiences] = useState<Audience[]>([]);
   const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
+  const [appliedAudience, setAppliedAudience] = useState<Audience | null>(null);
   const [applyingAudience, setApplyingAudience] = useState(false);
   const [audienceError, setAudienceError] = useState<string | null>(null);
+  const [audienceFetchError, setAudienceFetchError] = useState<string | null>(null);
+
+  // Tier / job-level recipient filters + tenant-distinct options
+  const [tierFilter, setTierFilter] = useState<string[]>([]);
+  const [titleLevelFilter, setTitleLevelFilter] = useState<string[]>([]);
+  const [filterOptions, setFilterOptions] = useState<{ tiers: string[]; titleLevels: string[] }>({ tiers: [], titleLevels: [] });
+
+  // "Save current filters as audience" inline form
+  const [savingAsAudience, setSavingAsAudience] = useState(false);
+  const [showSaveAsAudience, setShowSaveAsAudience] = useState(false);
+  const [newAudienceName, setNewAudienceName] = useState("");
+  const [saveAudienceError, setSaveAudienceError] = useState<string | null>(null);
 
   // Actions
   const [menuOpen, setMenuOpen] = useState(false);
@@ -246,18 +273,33 @@ export default function SalesCampaignDetail() {
   useEffect(() => {
     fetchCampaign();
     // Also load accounts, templates, and landing pages for edit mode
+    setAudienceFetchError(null);
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/audiences`).then(r => r.ok ? r.json() : []),
-    ]).then(([a, t, p, au]) => {
+      fetch(`${API_BASE}/sales/audiences`).then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).catch(err => {
+        console.error("Failed to load saved audiences:", err);
+        setAudienceFetchError(err?.message ?? "Couldn't load saved audiences");
+        return [];
+      }),
+      fetch(`${API_BASE}/sales/audiences/filter-options`)
+        .then(r => r.ok ? r.json() : { tiers: [], titleLevels: [] })
+        .catch(() => ({ tiers: [], titleLevels: [] })),
+    ]).then(([a, t, p, au, opts]) => {
       setAccounts(a);
       setTemplates(t);
       setPages(Array.isArray(p) ? p.map((pg: { id: number; title: string; slug: string; status: string }) => ({
         id: pg.id, title: pg.title, slug: pg.slug, status: pg.status,
       })) : []);
       setAudiences(Array.isArray(au) ? au : []);
+      setFilterOptions({
+        tiers: Array.isArray(opts?.tiers) ? opts.tiers : [],
+        titleLevels: Array.isArray(opts?.titleLevels) ? opts.titleLevels : [],
+      });
     });
   }, [fetchCampaign]);
 
@@ -522,9 +564,19 @@ export default function SalesCampaignDetail() {
   async function applyAudience(audienceIdStr: string) {
     setSelectedAudienceId(audienceIdStr);
     setAudienceError(null);
-    if (!audienceIdStr) return;
+    if (!audienceIdStr) {
+      setAppliedAudience(null);
+      setTierFilter([]);
+      setTitleLevelFilter([]);
+      return;
+    }
     setApplyingAudience(true);
     setShowContactPicker(true);
+    // Round-trip: pre-populate filter chips from the audience's saved filters
+    const aud = audiences.find(a => String(a.id) === audienceIdStr) ?? null;
+    setAppliedAudience(aud);
+    setTierFilter(Array.isArray(aud?.filters?.tiers) ? aud!.filters!.tiers! : []);
+    setTitleLevelFilter(Array.isArray(aud?.filters?.titleLevels) ? aud!.filters!.titleLevels! : []);
     try {
       const r = await fetch(`${API_BASE}/sales/audiences/${audienceIdStr}/contacts`);
       if (!r.ok) throw new Error("Failed to load audience contacts");
@@ -540,6 +592,7 @@ export default function SalesCampaignDetail() {
         accountId: c.accountId ?? null,
         accountName: c.accountName ?? null,
         tier: c.tier ?? null,
+        titleLevel: c.titleLevel ?? null,
         department: c.department ?? null,
       })).filter(c => c.email);
       // Merge so audience contacts are always visible even if outside the
@@ -560,6 +613,44 @@ export default function SalesCampaignDetail() {
       setAudienceError(e instanceof Error ? e.message : "Couldn't apply audience");
     } finally {
       setApplyingAudience(false);
+    }
+  }
+
+  // Save the currently-active recipient filter chips (tier / job-level /
+  // account scope) as a new reusable saved audience. Existing audience CRUD
+  // UI is unchanged — this is a one-step shortcut from the recipient picker.
+  async function handleSaveCurrentFiltersAsAudience() {
+    setSaveAudienceError(null);
+    const trimmed = newAudienceName.trim();
+    if (!trimmed) {
+      setSaveAudienceError("Name is required");
+      return;
+    }
+    const filters: AudienceFilters = {};
+    if (selectedAccountIds.length > 0) filters.accountIds = selectedAccountIds;
+    if (tierFilter.length > 0) filters.tiers = tierFilter;
+    if (titleLevelFilter.length > 0) filters.titleLevels = titleLevelFilter;
+    setSavingAsAudience(true);
+    try {
+      const r = await fetch(`${API_BASE}/sales/audiences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed, filters }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to save audience");
+      }
+      const saved: Audience = await r.json();
+      setAudiences(prev => [saved, ...prev]);
+      setSelectedAudienceId(String(saved.id));
+      setAppliedAudience(saved);
+      setShowSaveAsAudience(false);
+      setNewAudienceName("");
+    } catch (e) {
+      setSaveAudienceError(e instanceof Error ? e.message : "Couldn't save audience");
+    } finally {
+      setSavingAsAudience(false);
     }
   }
 
@@ -692,12 +783,17 @@ export default function SalesCampaignDetail() {
   const filteredContacts = availableContacts.filter(c => {
     if (c.status && c.status !== "active") return false;
     if (contactAccountFilter && String(c.accountId) !== contactAccountFilter) return false;
+    if (tierFilter.length > 0 && (!c.tier || !tierFilter.includes(c.tier))) return false;
+    if (titleLevelFilter.length > 0 && (!c.titleLevel || !titleLevelFilter.includes(c.titleLevel))) return false;
     if (!searchLower) return true;
     const name = `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase();
     const email = (c.email ?? "").toLowerCase();
     const account = (c.accountName ?? "").toLowerCase();
     return name.includes(searchLower) || email.includes(searchLower) || account.includes(searchLower);
   });
+
+  const anyRecipientFilterActive =
+    tierFilter.length > 0 || titleLevelFilter.length > 0 || contactSearch.trim().length > 0 || !!contactAccountFilter;
 
   return (
     <SalesLayout>
@@ -1154,53 +1250,62 @@ export default function SalesCampaignDetail() {
               </Button>
             </div>
 
-            {showContactPicker && (
-              <div className="p-5">
-                {/* Apply a saved audience (optional) */}
-                {audiences.length > 0 && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-3 mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-semibold text-foreground">Start from a saved audience</span>
-                      <span className="text-[11px] text-muted-foreground">(adds those contacts to your selection — you can still edit below)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={selectedAudienceId}
-                        onChange={e => applyAudience(e.target.value)}
-                        disabled={applyingAudience}
-                        className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm"
-                      >
-                        <option value="">Choose an audience…</option>
-                        {audiences.map(a => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}{a.contact_count != null ? ` (${a.contact_count})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                      {selectedAudienceId && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedAudienceId("")}
-                        >
-                          Reset
-                        </Button>
-                      )}
-                    </div>
-                    {applyingAudience && (
-                      <div className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Loading audience…
-                      </div>
-                    )}
-                    {audienceError && (
-                      <div className="text-[11px] text-destructive mt-2">{audienceError}</div>
+            {/* Apply a saved audience — always visible, lifted out of the collapsible contact picker. */}
+            <div className="px-5 py-4 border-b border-border/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-semibold text-foreground">Start from a saved audience</span>
+                <span className="text-[11px] text-muted-foreground">(adds those contacts to your selection — you can still edit below)</span>
+              </div>
+              {audienceFetchError ? (
+                <div className="text-[11px] text-destructive">Couldn't load saved audiences. {audienceFetchError}</div>
+              ) : audiences.length === 0 ? (
+                <div className="text-[11px] text-muted-foreground">
+                  No saved audiences yet — pick contacts manually below, or save the filters you choose as a reusable audience.
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedAudienceId}
+                      onChange={e => applyAudience(e.target.value)}
+                      disabled={applyingAudience}
+                      className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm"
+                    >
+                      <option value="">Choose an audience…</option>
+                      {audiences.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}{a.contact_count != null ? ` (${a.contact_count})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedAudienceId && (
+                      <Button size="sm" variant="ghost" onClick={() => applyAudience("")}>
+                        Reset
+                      </Button>
                     )}
                   </div>
-                )}
+                  {applyingAudience && (
+                    <div className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1.5">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Loading audience…
+                    </div>
+                  )}
+                  {audienceError && (
+                    <div className="text-[11px] text-destructive mt-2">{audienceError}</div>
+                  )}
+                  {appliedAudience && !applyingAudience && (
+                    <div className="text-[11px] text-muted-foreground mt-2">
+                      Applied <span className="font-medium text-foreground">{appliedAudience.name}</span> — its filters are pre-loaded below.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
+            {showContactPicker && (
+              <div className="p-5">
                 {/* Filter bar */}
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-3">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                     <input
@@ -1223,6 +1328,94 @@ export default function SalesCampaignDetail() {
                     />
                   )}
                 </div>
+
+                {/* Tier / job-level filter chips + save-as-audience shortcut */}
+                {(filterOptions.tiers.length > 0 || filterOptions.titleLevels.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    {filterOptions.tiers.length > 0 && (
+                      <MultiSelectChip
+                        label="Tier"
+                        options={filterOptions.tiers}
+                        selected={tierFilter}
+                        onChange={setTierFilter}
+                        className="w-44"
+                      />
+                    )}
+                    {filterOptions.titleLevels.length > 0 && (
+                      <MultiSelectChip
+                        label="Job level"
+                        options={filterOptions.titleLevels}
+                        selected={titleLevelFilter}
+                        onChange={setTitleLevelFilter}
+                        className="w-52"
+                      />
+                    )}
+                    {anyRecipientFilterActive && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTierFilter([]);
+                          setTitleLevelFilter([]);
+                          setContactSearch("");
+                          setContactAccountFilter("");
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                    <div className="ml-auto">
+                      {!showSaveAsAudience ? (
+                        <button
+                          type="button"
+                          disabled={!anyRecipientFilterActive}
+                          onClick={() => { setShowSaveAsAudience(true); setSaveAudienceError(null); }}
+                          className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed flex items-center gap-1"
+                          title={anyRecipientFilterActive ? "Save these filters as a reusable audience" : "Pick a filter first"}
+                        >
+                          <Save className="w-3 h-3" />
+                          Save current filters as audience
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+
+                {showSaveAsAudience && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={newAudienceName}
+                        onChange={e => setNewAudienceName(e.target.value)}
+                        placeholder="Audience name (e.g. Tier 1 VPs)"
+                        className="h-9 text-sm flex-1"
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveCurrentFiltersAsAudience}
+                        disabled={savingAsAudience || !newAudienceName.trim()}
+                        className="gap-1.5"
+                      >
+                        {savingAsAudience ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        {savingAsAudience ? "Saving…" : "Save audience"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setShowSaveAsAudience(false); setNewAudienceName(""); setSaveAudienceError(null); }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-2">
+                      Saves the current account scope{tierFilter.length > 0 ? ", tier" : ""}{titleLevelFilter.length > 0 ? ", and job-level" : ""} filters. You can reuse this audience in any campaign.
+                    </div>
+                    {saveAudienceError && (
+                      <div className="text-[11px] text-destructive mt-1">{saveAudienceError}</div>
+                    )}
+                  </div>
+                )}
 
                 {/* Select All / Clear controls */}
                 <div className="flex items-center justify-between mb-2">

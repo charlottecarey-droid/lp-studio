@@ -13,6 +13,8 @@ interface AudienceFilters {
   contactRoles?: string[];
   statuses?: string[];
   contactIds?: number[];
+  tiers?: string[];
+  titleLevels?: string[];
 }
 
 // ─── Build a Drizzle WHERE condition from audience filters ────────────────────
@@ -51,6 +53,12 @@ async function resolveContacts(filters: AudienceFilters, tenantId: number) {
       );
       conditions.push(or(...roleConds)!);
     }
+    if (filters.tiers && filters.tiers.length > 0) {
+      conditions.push(inArray(salesContactsTable.tier, filters.tiers));
+    }
+    if (filters.titleLevels && filters.titleLevels.length > 0) {
+      conditions.push(inArray(salesContactsTable.titleLevel, filters.titleLevels));
+    }
   }
 
   return db
@@ -61,6 +69,8 @@ async function resolveContacts(filters: AudienceFilters, tenantId: number) {
       email: salesContactsTable.email,
       title: salesContactsTable.title,
       department: salesContactsTable.department,
+      tier: salesContactsTable.tier,
+      titleLevel: salesContactsTable.titleLevel,
       accountId: salesContactsTable.accountId,
       accountName: salesAccountsTable.name,
     })
@@ -85,6 +95,37 @@ router.get("/audiences", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("GET /sales/audiences error:", err);
     res.status(500).json({ error: "Failed to load audiences" });
+  }
+});
+
+// ─── Distinct filter values (tier, titleLevel) for this tenant ──────────────
+
+router.get("/audiences/filter-options", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COALESCE(
+          (SELECT json_agg(DISTINCT tier ORDER BY tier)
+            FROM sales_contacts
+            WHERE tenant_id = ${tenantId} AND tier IS NOT NULL AND tier <> ''),
+          '[]'::json
+        ) AS tiers,
+        COALESCE(
+          (SELECT json_agg(DISTINCT title_level ORDER BY title_level)
+            FROM sales_contacts
+            WHERE tenant_id = ${tenantId} AND title_level IS NOT NULL AND title_level <> ''),
+          '[]'::json
+        ) AS "titleLevels"
+    `);
+    const row = result.rows[0] ?? {};
+    res.json({
+      tiers: Array.isArray(row.tiers) ? row.tiers : [],
+      titleLevels: Array.isArray(row.titleLevels) ? row.titleLevels : [],
+    });
+  } catch (err) {
+    console.error("GET /sales/audiences/filter-options error:", err);
+    res.status(500).json({ error: "Failed to load filter options" });
   }
 });
 

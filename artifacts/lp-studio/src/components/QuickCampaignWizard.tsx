@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
+import { MultiSelectChip } from "@/components/MultiSelectChip";
 
 const API_BASE = "/api";
 
@@ -48,6 +49,19 @@ interface Contact {
   accountId: number | null;
   accountName: string | null;
   status: string | null;
+  tier: string | null;
+  titleLevel: string | null;
+}
+
+interface AudienceFilters {
+  accountIds?: number[];
+  titleKeywords?: string[];
+  departments?: string[];
+  contactRoles?: string[];
+  statuses?: string[];
+  contactIds?: number[];
+  tiers?: string[];
+  titleLevels?: string[];
 }
 
 interface Audience {
@@ -55,6 +69,7 @@ interface Audience {
   name: string;
   description: string | null;
   contact_count: number | null;
+  filters?: AudienceFilters | null;
 }
 
 interface PreviewResult {
@@ -105,8 +120,12 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
   const [contactSearch, setContactSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
   const [audiences, setAudiences] = useState<Audience[]>([]);
+  const [audienceFetchError, setAudienceFetchError] = useState<string | null>(null);
   const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
   const [applyingAudience, setApplyingAudience] = useState(false);
+  const [tierFilter, setTierFilter] = useState<string[]>([]);
+  const [titleLevelFilter, setTitleLevelFilter] = useState<string[]>([]);
+  const [filterOptions, setFilterOptions] = useState<{ tiers: string[]; titleLevels: string[] }>({ tiers: [], titleLevels: [] });
 
   // Step 3 — content
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -148,6 +167,8 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
       setSelectedContactIds(new Set());
       setSelectedAudienceId("");
       setContactSearch("");
+      setTierFilter([]);
+      setTitleLevelFilter([]);
       setComposeMode("template");
       setTemplateId("");
       setQuickSubject("");
@@ -189,14 +210,23 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
   // ─── Load templates + accounts on first open ─────────────
   useEffect(() => {
     if (!open) return;
+    setAudienceFetchError(null);
     Promise.all([
       fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/audiences`).then(r => r.ok ? r.json() : []),
-    ]).then(([t, a, au]) => {
+      fetch(`${API_BASE}/sales/audiences`).then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).catch(err => { setAudienceFetchError(err?.message ?? "Couldn't load saved audiences"); return []; }),
+      fetch(`${API_BASE}/sales/audiences/filter-options`).then(r => r.ok ? r.json() : { tiers: [], titleLevels: [] }).catch(() => ({ tiers: [], titleLevels: [] })),
+    ]).then(([t, a, au, opts]) => {
       setTemplates(Array.isArray(t) ? t : []);
       setAccounts(Array.isArray(a) ? a : []);
       setAudiences(Array.isArray(au) ? au : []);
+      setFilterOptions({
+        tiers: Array.isArray(opts?.tiers) ? opts.tiers : [],
+        titleLevels: Array.isArray(opts?.titleLevels) ? opts.titleLevels : [],
+      });
     }).catch(() => {});
   }, [open]);
 
@@ -209,7 +239,18 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
         : `${API_BASE}/sales/contacts`;
       const r = await fetch(url);
       const data = r.ok ? await r.json() : [];
-      const arr: Contact[] = Array.isArray(data) ? data : (data.data ?? []);
+      const raw: any[] = Array.isArray(data) ? data : (data.data ?? []);
+      const arr: Contact[] = raw.map((c: any) => ({
+        id: c.id,
+        firstName: c.firstName ?? null,
+        lastName: c.lastName ?? null,
+        email: c.email ?? null,
+        accountId: c.accountId ?? null,
+        accountName: c.accountName ?? null,
+        status: c.status ?? null,
+        tier: c.tier ?? null,
+        titleLevel: c.titleLevel ?? null,
+      }));
       setContacts(arr.filter(c => c.email && (!c.status || c.status === "active")));
     } finally {
       setContactsLoading(false);
@@ -222,22 +263,34 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
 
   const filteredContacts = useMemo(() => {
     const s = contactSearch.trim().toLowerCase();
-    if (!s) return contacts;
     return contacts.filter(c => {
+      if (tierFilter.length > 0 && (!c.tier || !tierFilter.includes(c.tier))) return false;
+      if (titleLevelFilter.length > 0 && (!c.titleLevel || !titleLevelFilter.includes(c.titleLevel))) return false;
+      if (!s) return true;
       const name = `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase();
       return name.includes(s)
         || (c.email ?? "").toLowerCase().includes(s)
         || (c.accountName ?? "").toLowerCase().includes(s);
     });
-  }, [contacts, contactSearch]);
+  }, [contacts, contactSearch, tierFilter, titleLevelFilter]);
+
+  const anyFilterActive = tierFilter.length > 0 || titleLevelFilter.length > 0 || contactSearch.trim().length > 0;
 
   // Apply a saved audience: fetch its contacts, merge into the contact list,
   // and pre-select them. User can still tweak the selection afterwards.
   async function applyAudience(audienceIdStr: string) {
     setSelectedAudienceId(audienceIdStr);
-    if (!audienceIdStr) return;
+    if (!audienceIdStr) {
+      setTierFilter([]);
+      setTitleLevelFilter([]);
+      return;
+    }
     setApplyingAudience(true);
     setError(null);
+    // Round-trip: pre-populate tier / job-level filters from the saved audience
+    const aud = audiences.find(a => String(a.id) === audienceIdStr);
+    setTierFilter(Array.isArray(aud?.filters?.tiers) ? aud!.filters!.tiers! : []);
+    setTitleLevelFilter(Array.isArray(aud?.filters?.titleLevels) ? aud!.filters!.titleLevels! : []);
     try {
       const r = await fetch(`${API_BASE}/sales/audiences/${audienceIdStr}/contacts`);
       if (!r.ok) throw new Error("Failed to load audience contacts");
@@ -250,6 +303,8 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
         accountId: c.accountId ?? null,
         accountName: c.accountName ?? null,
         status: c.status ?? "active",
+        tier: c.tier ?? null,
+        titleLevel: c.titleLevel ?? null,
       })).filter(c => c.email);
 
       // Merge so audience contacts always appear in the list, even if they
@@ -600,42 +655,50 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
           {/* Step 2 — Recipients */}
           {step === 2 && (
             <div className="flex flex-col gap-4">
-              {audiences.length > 0 && (
-                <div className="rounded-xl border border-border bg-muted/30 p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">Start from a saved audience</span>
-                    <span className="text-[11px] text-muted-foreground">(optional — you can still edit the list below)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedAudienceId}
-                      onChange={e => applyAudience(e.target.value)}
-                      disabled={applyingAudience}
-                      className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm"
-                    >
-                      <option value="">Choose an audience…</option>
-                      {audiences.map(a => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}{a.contact_count != null ? ` (${a.contact_count})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedAudienceId && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => { setSelectedAudienceId(""); setSelectedContactIds(new Set()); }}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                  {applyingAudience && (
-                    <div className="text-[11px] text-muted-foreground mt-2">Loading audience…</div>
-                  )}
+              <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">Start from a saved audience</span>
+                  <span className="text-[11px] text-muted-foreground">(optional — you can still edit the list below)</span>
                 </div>
-              )}
+                {audienceFetchError ? (
+                  <div className="text-[11px] text-destructive">Couldn't load saved audiences. {audienceFetchError}</div>
+                ) : audiences.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground">
+                    No saved audiences yet — pick contacts manually below, or create one in the Audiences tab to reuse later.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedAudienceId}
+                        onChange={e => applyAudience(e.target.value)}
+                        disabled={applyingAudience}
+                        className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm"
+                      >
+                        <option value="">Choose an audience…</option>
+                        {audiences.map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}{a.contact_count != null ? ` (${a.contact_count})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedAudienceId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { applyAudience(""); setSelectedContactIds(new Set()); }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    {applyingAudience && (
+                      <div className="text-[11px] text-muted-foreground mt-2">Loading audience…</div>
+                    )}
+                  </>
+                )}
+              </div>
               <div className="flex items-center justify-between gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -651,6 +714,37 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
                     ? "Deselect all" : "Select all visible"}
                 </Button>
               </div>
+              {(filterOptions.tiers.length > 0 || filterOptions.titleLevels.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions.tiers.length > 0 && (
+                    <MultiSelectChip
+                      label="Tier"
+                      options={filterOptions.tiers}
+                      selected={tierFilter}
+                      onChange={setTierFilter}
+                      className="w-44"
+                    />
+                  )}
+                  {filterOptions.titleLevels.length > 0 && (
+                    <MultiSelectChip
+                      label="Job level"
+                      options={filterOptions.titleLevels}
+                      selected={titleLevelFilter}
+                      onChange={setTitleLevelFilter}
+                      className="w-52"
+                    />
+                  )}
+                  {anyFilterActive && (
+                    <button
+                      type="button"
+                      onClick={() => { setTierFilter([]); setTitleLevelFilter([]); setContactSearch(""); }}
+                      className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">{selectedContactIds.size}</span> selected
                 {" · "}{filteredContacts.length} shown
