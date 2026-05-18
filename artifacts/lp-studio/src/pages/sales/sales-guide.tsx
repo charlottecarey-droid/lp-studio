@@ -192,12 +192,12 @@ const SECTIONS: Section[] = [
     subtitle: "Financial impact modeling",
     content: (
       <div className="space-y-4">
-        <p className="text-slate-700">The ROI Calculator models the financial value Dandy delivers to a DSO based on their actual practice data — cases per month, remake rates, and workflow costs.</p>
+        <p className="text-slate-700">The ROI Calculator models the financial value your product delivers to an account based on their actual operating data — volume per month, error rates, and workflow costs.</p>
         <div className="space-y-3">
           <Feature title="Scenario Types">
             Two models are available: <strong>Denture Workflow Impact</strong> (time savings and lab cost reduction) and <strong>Fixed Restoration Remake Impact</strong> (cost of remakes eliminated).
           </Feature>
-          <Feature title="DSO-Specific Inputs">
+          <Feature title="Account-Specific Inputs">
             Enter the prospect's actual numbers — cases per month, number of locations, current remake rate — and the calculator adjusts the output accordingly.
           </Feature>
           <Feature title="PDF Export">
@@ -224,7 +224,7 @@ const SECTIONS: Section[] = [
             Select Executive, Clinical, or Practice Manager and the body copy adjusts to speak to that person's priorities.
           </Feature>
           <Feature title="Prospect Logo">
-            Upload the prospect's logo and it gets placed on the PDF alongside Dandy's, so the document feels bespoke.
+            Upload the prospect's logo and it gets placed on the PDF alongside yours, so the document feels bespoke.
           </Feature>
         </div>
         <Tip>Use the ROI Summary one-pager in final-stage deals — run the numbers in the ROI Calculator first, then generate the PDF to attach to your proposal email.</Tip>
@@ -328,7 +328,7 @@ export default function SalesGuide() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Sales Console Guide</h1>
-              <p className="text-sm text-muted-foreground mt-1">How to use every feature in the Dandy Sales Console to find, engage, and close accounts faster.</p>
+              <p className="text-sm text-muted-foreground mt-1">How to use every feature in the Sales Console to find, engage, and close accounts faster.</p>
             </div>
           </div>
 

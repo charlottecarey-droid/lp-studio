@@ -1333,7 +1333,7 @@ function ContactBriefingPanel({ contactId }: { contactId: number }) {
           <div className="flex-1">
             <p className="font-semibold text-foreground text-sm">AI Contact Brief</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Generate a pre-call brief with conversation starters, role-specific pain points, and the best Dandy angle for this person
+              Generate a pre-call brief with conversation starters, role-specific pain points, and the best angle for this person
             </p>
           </div>
           <Button onClick={generate} disabled={generating} className="gap-2">

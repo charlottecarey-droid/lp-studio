@@ -1482,7 +1482,7 @@ function BriefingPanel({ accountId }: { accountId: number }) {
           {/* Fit Analysis */}
           {data.fitAnalysis && data.fitAnalysis.primaryValueProp && (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Dandy Fit Analysis</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Fit Analysis</h4>
               <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/60 dark:border-emerald-900/30">
                 <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{data.fitAnalysis.primaryValueProp}</p>
                 {data.fitAnalysis.keyPainPoints && data.fitAnalysis.keyPainPoints.length > 0 && (
@@ -2754,7 +2754,7 @@ function AccountDetailView({ id }: { id: string }) {
               )}
               {account.dsoSize && (
                 <div className="p-3 rounded-xl bg-muted/40">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">DSO Size</p>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Organization Size</p>
                   <p className="text-sm font-semibold text-foreground mt-1">{account.dsoSize}</p>
                 </div>
               )}
@@ -3125,9 +3125,9 @@ function AccountDetailView({ id }: { id: string }) {
 type MicrositeAudience = "dso-corporate" | "dso-practice" | "independent";
 
 const AUDIENCE_OPTIONS: { value: MicrositeAudience; label: string; sub: string }[] = [
-  { value: "dso-corporate", label: "DSO Leadership", sub: "VPs, CFOs, Chief Dental Officers" },
-  { value: "dso-practice", label: "DSO Practice", sub: "Dentists & office managers in a network" },
-  { value: "independent", label: "Independent Practice", sub: "Solo or small group practices" },
+  { value: "dso-corporate", label: "Network Leadership", sub: "Executives and decision-makers at the parent organization" },
+  { value: "dso-practice", label: "Network Site", sub: "Operators and managers at an individual location in a network" },
+  { value: "independent", label: "Independent Operator", sub: "Solo or small group operators" },
 ];
 
 interface MarketingTemplate {
@@ -3356,7 +3356,7 @@ function GenerateMicrositeModal({
           <>
           <div className="flex flex-col gap-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="text-sm text-muted-foreground">
-              Dandy AI will create a personalised landing page for <strong>{accountName}</strong> and
+              AI will create a personalised landing page for <strong>{accountName}</strong> and
               generate unique hotlinks for each contact with an email address.
             </div>
 

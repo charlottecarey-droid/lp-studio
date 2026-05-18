@@ -15,8 +15,6 @@
 //
 // What this spec deliberately does NOT yet assert (tracked as follow-up
 // tech_debt tasks — see commit message for task IDs):
-//   - /sales/accounts        — "Dandy Fit Analysis", "DSO Size", "Dandy AI"
-//   - /sales/contacts        — "best Dandy angle for this person"
 //   - /sales/campaigns       — hardcoded Dandy email banner/logo URLs, the
 //                              "@ent.meetdandy.com" sender suffix
 //   - /sales/campaign-pages  — "@ent.meetdandy.com" sender suffix
@@ -24,9 +22,11 @@
 //                              the catalog-isolation work
 //   - /sales/one-pager*      — Dandy-branded PDF templates (separate effort)
 //   - /sales/roi-calculator  — hardcoded meetdandy.com URLs in the PDF
-//   - /sales/guide           — references "Dandy Sales Console" in copy
 //
 // Once those screens are de-branded they should be added to ROUTES below.
+//
+// Task #341 added /sales/accounts, /sales/contacts and /sales/guide to ROUTES
+// after the Dandy/DSO copy in those screens was removed.
 
 import pg from "pg";
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
@@ -64,6 +64,9 @@ const ROUTES: ReadonlyArray<{ path: string; label: string }> = [
   { path: "/sales/microsites", label: "Microsites" },
   { path: "/sales/sfdc", label: "Salesforce settings" },
   { path: "/sales/campaign-pages", label: "Campaign pages list" },
+  { path: "/sales/accounts", label: "Accounts" },
+  { path: "/sales/contacts", label: "Contacts" },
+  { path: "/sales/guide", label: "Sales Console guide" },
 ];
 
 interface Violation {
