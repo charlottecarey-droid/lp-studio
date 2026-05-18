@@ -328,7 +328,13 @@ async function runStep<T>(name: string, fn: () => Promise<T>): Promise<T> {
 
 async function runMigrationsBody(): Promise<void> {
   try {
-    await runStep("core schema DDL batch", async () => {
+    // Task #352 — split what used to be a single ~900-line "core schema DDL
+    // batch" runStep into ~10 named sub-steps grouped by feature area. The
+    // underlying DDL is unchanged, so boot time is unchanged; the benefit is
+    // that a hang in startup now names a tractable chunk in the workflow log
+    // (e.g. "migration step start: dso microsite core") instead of a single
+    // opaque "core schema DDL batch" line.
+    await runStep("lp sessions, visits, library, proof points", async () => {
     await db.execute(sql`
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS city text;
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS region text;
@@ -378,7 +384,11 @@ async function runMigrationsBody(): Promise<void> {
         updated_at      timestamptz NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS lp_proof_points_tenant_idx ON lp_proof_points (tenant_id);
+    `);
+    });
 
+    await runStep("lp blocks, page flags, brand import", async () => {
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS lp_block_defaults (
         block_type text PRIMARY KEY,
         props jsonb NOT NULL DEFAULT '{}',
@@ -406,7 +416,11 @@ async function runMigrationsBody(): Promise<void> {
       ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_source_url text;
       ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_at timestamptz;
       ALTER TABLE lp_brand_settings ADD COLUMN IF NOT EXISTS brand_import_summary jsonb;
+    `);
+    });
 
+    await runStep("lp ad copy, reviews, leads, forms, integrations", async () => {
+    await db.execute(sql`
       -- Task #209: per-page ad copy generation history. One row per
       -- generation run; the latest row populates the panel on open and the
       -- "previous runs" dropdown lists older runs for revisit/restore.
@@ -504,7 +518,11 @@ async function runMigrationsBody(): Promise<void> {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+    `);
+    });
 
+    await runStep("lp smart traffic & heatmap", async () => {
+    await db.execute(sql`
       -- Smart Traffic
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS features jsonb NOT NULL DEFAULT '{}';
       ALTER TABLE lp_tests ADD COLUMN IF NOT EXISTS smart_traffic_enabled boolean NOT NULL DEFAULT false;
@@ -536,7 +554,11 @@ async function runMigrationsBody(): Promise<void> {
         device text,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+    `);
+    });
 
+    await runStep("dso microsite core", async () => {
+    await db.execute(sql`
       -- ─── DSO tables (dso_ prefix to avoid collisions) ─────────────────────
 
       CREATE TABLE IF NOT EXISTS dso_microsites (
@@ -782,7 +804,11 @@ async function runMigrationsBody(): Promise<void> {
       ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS company_name text;
       CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_email ON dso_cta_submissions(email);
       CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_created_at ON dso_cta_submissions(created_at DESC);
+    `);
+    });
 
+    await runStep("dso triggers & post-init columns", async () => {
+    await db.execute(sql`
       CREATE OR REPLACE FUNCTION fn_dso_alert_on_view()
       RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE
@@ -858,7 +884,11 @@ async function runMigrationsBody(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_dso_email_outreach_log_sfdc ON dso_email_outreach_log(salesforce_id) WHERE salesforce_id IS NOT NULL;
       ALTER TABLE dso_microsites ADD COLUMN IF NOT EXISTS abm_stage text;
       ALTER TABLE dso_microsites ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+    `);
+    });
 
+    await runStep("lp personalized links & alerts", async () => {
+    await db.execute(sql`
       -- Personalized links for LP Studio pages
       CREATE TABLE IF NOT EXISTS lp_personalized_links (
         id serial PRIMARY KEY,
@@ -896,7 +926,11 @@ async function runMigrationsBody(): Promise<void> {
 
       -- LP Studio page variables (personalization tokens)
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS page_variables jsonb DEFAULT '{}';
+    `);
+    });
 
+    await runStep("sales console schema", async () => {
+    await db.execute(sql`
       -- Sales Console tables
       CREATE TABLE IF NOT EXISTS sales_accounts (
         id serial PRIMARY KEY,
@@ -1047,7 +1081,11 @@ async function runMigrationsBody(): Promise<void> {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS idx_sales_one_pager_templates_tenant ON sales_one_pager_templates(tenant_id);
+    `);
+    });
 
+    await runStep("lp UTM, tenants, onboarding, slug redirects, webhook secrets", async () => {
+    await db.execute(sql`
       -- UTM tracking columns on sessions and page visits
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_source text;
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_medium text;
@@ -1143,7 +1181,11 @@ async function runMigrationsBody(): Promise<void> {
         ON tenant_webhook_secrets (tenant_id, integration);
       CREATE INDEX IF NOT EXISTS tenant_webhook_secrets_secret_idx
         ON tenant_webhook_secrets (secret);
+    `);
+    });
 
+    await runStep("sales/sfdc tenant_id backfill, contact briefings, form follow-up", async () => {
+    await db.execute(sql`
       -- Task #146 / #236 — explicit tenant_id on sales_briefings, sfdc_opportunities,
       -- and sfdc_leads. The corresponding migration file
       -- (lib/db/migrations/0009_sales_sfdc_tenant_id.sql) was renumbered on
