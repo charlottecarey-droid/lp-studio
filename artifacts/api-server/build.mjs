@@ -20,6 +20,11 @@ async function buildAll() {
       // Built as a separate bundle so it can be loaded via Node's --import
       // flag BEFORE the main bundle. See src/instrument.ts for why.
       path.resolve(artifactDir, "src/instrument.ts"),
+      // Task #353 — one-shot migration CLI (invoked from `[deployment.postBuild]`
+      // in `.replit` for prod, and from the `migrate` npm script for dev).
+      // Bundled here so the prod deploy hook can `node dist/migrate.mjs`
+      // directly without needing pnpm/tsx at runtime.
+      path.resolve(artifactDir, "src/migrate.ts"),
     ],
     platform: "node",
     bundle: true,

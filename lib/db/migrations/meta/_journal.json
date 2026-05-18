@@ -1,0 +1,30 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    { "idx":  0, "version": "7", "when": 1700000000000, "tag": "0000_initial_schema",                          "breakpoints": false },
+    { "idx":  1, "version": "7", "when": 1700000001000, "tag": "0001_sfdc_integration",                        "breakpoints": false },
+    { "idx":  2, "version": "7", "when": 1700000002000, "tag": "0002_tenant_microsite_domain",                 "breakpoints": false },
+    { "idx":  3, "version": "7", "when": 1700000003000, "tag": "0003_sales_layout_defaults",                   "breakpoints": false },
+    { "idx":  4, "version": "7", "when": 1700000004000, "tag": "0004_utm_tracking",                            "breakpoints": false },
+    { "idx":  5, "version": "7", "when": 1700000005000, "tag": "0005_lp_forms_chili_piper_config",             "breakpoints": false },
+    { "idx":  6, "version": "7", "when": 1700000006000, "tag": "0006_lp_events_optional_test_variant",         "breakpoints": false },
+    { "idx":  7, "version": "7", "when": 1700000007000, "tag": "0007_tenant_slug_redirects",                   "breakpoints": false },
+    { "idx":  8, "version": "7", "when": 1700000008000, "tag": "0008_sales_email_campaigns_set_null",          "breakpoints": false },
+    { "idx":  9, "version": "7", "when": 1700000009000, "tag": "0009_sales_sfdc_tenant_id",                    "breakpoints": false },
+    { "idx": 10, "version": "7", "when": 1700000010000, "tag": "0010_tenant_slug_redirects_notified_at",       "breakpoints": false },
+    { "idx": 11, "version": "7", "when": 1700000011000, "tag": "0011_tenant_webhook_secrets",                  "breakpoints": false },
+    { "idx": 12, "version": "7", "when": 1700000012000, "tag": "0012_lp_library_approved_for_ai",              "breakpoints": false },
+    { "idx": 13, "version": "7", "when": 1700000013000, "tag": "0013_lp_brand_claims_normalize",               "breakpoints": false },
+    { "idx": 14, "version": "7", "when": 1700000014000, "tag": "0014_lp_proof_points",                         "breakpoints": false },
+    { "idx": 15, "version": "7", "when": 1700000015000, "tag": "0015_lp_events_page_form_id",                  "breakpoints": false },
+    { "idx": 16, "version": "7", "when": 1700000016000, "tag": "0016_sales_contact_briefings",                 "breakpoints": false },
+    { "idx": 17, "version": "7", "when": 1700000017000, "tag": "0017_sales_hotlinks_contact_page_unique",      "breakpoints": false },
+    { "idx": 18, "version": "7", "when": 1700000018000, "tag": "0018_sales_email_campaigns_template_id_nullable", "breakpoints": false },
+    { "idx": 19, "version": "7", "when": 1700000019000, "tag": "0019_sales_tenant_scoping",                    "breakpoints": false },
+    { "idx": 20, "version": "7", "when": 1700000020000, "tag": "0020_seed_dandy_sales_console",                "breakpoints": false },
+    { "idx": 21, "version": "7", "when": 1700000021000, "tag": "0021_lp_forms_gtm_datalayer_config",           "breakpoints": false },
+    { "idx": 22, "version": "7", "when": 1700000022000, "tag": "0022_dandy_dca_proof_rephrase",                "breakpoints": false },
+    { "idx": 23, "version": "7", "when": 1747600000000, "tag": "0023_block_catalog_init",                      "breakpoints": false }
+  ]
+}
