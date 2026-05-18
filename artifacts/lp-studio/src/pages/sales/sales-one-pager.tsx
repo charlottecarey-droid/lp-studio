@@ -739,7 +739,7 @@ const SalesOnePager = () => {
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      const url = `${window.location.origin}/lp-studio/p/${data.slug}`;
+      const url = `${window.location.origin}/lp-studio/lp/${data.slug}`;
       setViewCount(null);
       setLinkResult({ url, slug: data.slug, pageId: data.pageId });
     } catch (e) {

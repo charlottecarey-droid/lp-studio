@@ -195,7 +195,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       blocks: blocks as unknown as typeof lpPagesTable.$inferInsert["blocks"],
     }).returning({ id: lpPagesTable.id, slug: lpPagesTable.slug });
 
-    res.json({ pageId: page.id, slug: page.slug, url: `/p/${page.slug}` });
+    res.json({ pageId: page.id, slug: page.slug, url: `/lp/${page.slug}` });
   } catch (err) {
     console.error("[web-one-pager] error", err);
     res.status(500).json({ error: "Failed to generate one pager" });

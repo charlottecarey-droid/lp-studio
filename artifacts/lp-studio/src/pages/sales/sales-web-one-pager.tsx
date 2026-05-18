@@ -126,7 +126,7 @@ export default function SalesWebOnePager() {
   };
 
   const publicUrl = result
-    ? `${window.location.origin}/lp-studio/p/${result.slug}`
+    ? `${window.location.origin}/lp-studio/lp/${result.slug}`
     : null;
 
   const copyLink = () => {
