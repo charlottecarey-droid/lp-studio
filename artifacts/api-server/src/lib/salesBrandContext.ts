@@ -58,11 +58,18 @@ export interface SalesBrandSetupChecklist {
 }
 
 export function summarizeSalesBrandSetup(ctx: SalesBrandContext): SalesBrandSetupChecklist {
-  const hasSendingDomain = ctx.sendingDomain.length > 0;
-  const hasReplyTo = ctx.replyTo.length > 0;
-  const hasSenderName = ctx.senderName.length > 0;
-  const hasSenderLocalPart = ctx.senderLocalPart.length > 0;
-  const hasValuePropPairs = ctx.valuePropPairs.length > 0;
+  // Trim before length-checking so whitespace-only values (which the UI
+  // also treats as missing) never count as "configured" on the server.
+  const hasSendingDomain = ctx.sendingDomain.trim().length > 0;
+  const hasReplyTo = ctx.replyTo.trim().length > 0;
+  const hasSenderName = ctx.senderName.trim().length > 0;
+  const hasSenderLocalPart = ctx.senderLocalPart.trim().length > 0;
+  // A pair only counts when its theme has real content — an empty
+  // theme leaves the AI with nothing to anchor a draft on, and the UI
+  // hides such pairs from the checklist as well.
+  const hasValuePropPairs = ctx.valuePropPairs.some(
+    p => typeof p?.theme === "string" && p.theme.trim().length > 0,
+  );
   return {
     hasSendingDomain,
     hasReplyTo,
@@ -73,6 +80,22 @@ export function summarizeSalesBrandSetup(ctx: SalesBrandContext): SalesBrandSetu
     // a missing local part means buildFromHeader() returns null too.
     isReadyToSend: hasSendingDomain && hasReplyTo && hasSenderName && hasSenderLocalPart,
   };
+}
+
+/**
+ * Render the same "missing items" sentence the brand-settings UI shows
+ * under "Saved status on the server", so backend tests can lock down
+ * the exact human-readable string and catch UI/server drift.
+ */
+export function formatSalesBrandSetupSummary(checklist: SalesBrandSetupChecklist): string {
+  const missing = [
+    checklist.hasSenderName ? null : "sender name",
+    checklist.hasSenderLocalPart ? null : "sender local part",
+    checklist.hasSendingDomain ? null : "sending domain",
+    checklist.hasReplyTo ? null : "reply-to",
+    checklist.hasValuePropPairs ? null : "value-prop pairs",
+  ].filter((s): s is string => !!s);
+  return missing.length === 0 ? "all essentials saved" : missing.join(", ");
 }
 
 function asString(v: unknown, fallback = ""): string {
