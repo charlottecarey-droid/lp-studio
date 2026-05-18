@@ -53,7 +53,7 @@ BEGIN
                    'proof','Dandy deploys scanners free — zero CAPEX'),
                  jsonb_build_object('role','COO / Operations','theme','Too many lab vendors means no control',
                    'pain','when every location picks its own lab, you get inconsistent quality, no leverage on pricing, and no visibility',
-                   'proof','DCA consolidated 400+ lab relationships down to one with Dandy'),
+                   'proof','DCA consolidated 400+ lab relationships through a strategic partnership with Dandy'),
                  jsonb_build_object('role','COO / Operations','theme','Standardization shouldn''t mean forcing doctors to switch',
                    'pain','ops teams need consistency across locations, but mandating a single workflow alienates doctors',
                    'proof','Dandy''s preferred program standardizes the lab without requiring doctors to change their process'),

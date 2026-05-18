@@ -1581,7 +1581,7 @@ async function runMigrationsBody(): Promise<void> {
                          'proof','Dandy deploys scanners free — zero CAPEX'),
                        jsonb_build_object('role','COO / Operations','theme','Too many lab vendors means no control',
                          'pain','when every location picks its own lab, you get inconsistent quality, no leverage on pricing, and no visibility',
-                         'proof','DCA consolidated 400+ lab relationships down to one with Dandy'),
+                         'proof','DCA consolidated 400+ lab relationships through a strategic partnership with Dandy'),
                        jsonb_build_object('role','COO / Operations','theme','Standardization shouldn''t mean forcing doctors to switch',
                          'pain','ops teams need consistency across locations, but mandating a single workflow alienates doctors',
                          'proof','Dandy''s preferred program standardizes the lab without requiring doctors to change their process'),
@@ -1611,6 +1611,57 @@ async function runMigrationsBody(): Promise<void> {
         END IF;
       END $$;
     `);
+
+    // ─── Migration 0022: rephrase one Dandy proof-point legal disallows ─────
+    // "DCA consolidated 400+ lab relationships down to one with Dandy"  →
+    // "DCA consolidated 400+ lab relationships through a strategic
+    //  partnership with Dandy". Marker-gated so this only runs once and
+    //  doesn't clobber later admin edits.
+    try {
+      const dcaProofMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'dca_consolidation_proof_rephrase_v1'`
+      );
+      if (dcaProofMarker.rows.length === 0) {
+        await db.execute(sql`
+          DO $$
+          DECLARE
+            pairs jsonb;
+            updated jsonb;
+          BEGIN
+            SELECT config->'salesConsole'->'valuePropPairs'
+              INTO pairs
+              FROM lp_brand_settings
+             WHERE tenant_id = 1;
+
+            IF pairs IS NULL OR jsonb_typeof(pairs) <> 'array' THEN
+              RETURN;
+            END IF;
+
+            SELECT jsonb_agg(
+                     CASE
+                       WHEN p->>'proof' = 'DCA consolidated 400+ lab relationships down to one with Dandy'
+                         THEN jsonb_set(p, '{proof}', to_jsonb('DCA consolidated 400+ lab relationships through a strategic partnership with Dandy'::text))
+                       ELSE p
+                     END
+                   )
+              INTO updated
+              FROM jsonb_array_elements(pairs) p;
+
+            IF updated IS DISTINCT FROM pairs THEN
+              UPDATE lp_brand_settings
+                 SET config = jsonb_set(config, '{salesConsole,valuePropPairs}', updated, true)
+               WHERE tenant_id = 1;
+            END IF;
+          END $$;
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('dca_consolidation_proof_rephrase_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info("DCA consolidation proof-point rephrase applied");
+      }
+    } catch (rephraseErr) {
+      logger.error({ err: rephraseErr }, "DCA proof rephrase failed (non-fatal)");
+    }
   } catch (err) {
     // Surface a single concise line that names the failing SQL fragment so the
     // failure stands out in the api-server workflow log instead of being buried
