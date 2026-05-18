@@ -1010,7 +1010,16 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
                 {" "}from <span className="font-semibold text-foreground">{senderName || "(unset)"}</span> &lt;{senderEmail || "(unset)"}@{sendingDomain || "(no domain configured)"}&gt;
                 {brandReady && (!senderName || !senderEmail || !sendingDomain || !replyTo) && (
                   <span className="block mt-1 text-[11px] text-red-600">
-                    Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.
+                    Sales Console isn't fully configured for this tenant.{" "}
+                    <a
+                      href="/brand#sales-console-setup"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-semibold hover:text-red-700"
+                    >
+                      Open the setup checklist
+                    </a>{" "}
+                    to set sender name, sender local part, sending domain, and reply-to.
                   </span>
                 )}
                 <span className="block mt-1 text-[11px] text-muted-foreground/80">

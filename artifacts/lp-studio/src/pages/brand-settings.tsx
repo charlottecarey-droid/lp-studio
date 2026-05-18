@@ -18,6 +18,7 @@ import {
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
   Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload, Globe,
+  CircleDashed, CheckCircle2,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -810,6 +811,149 @@ const FIELD_LABELS: Record<string, string> = {
   copyExamples: "Copy Examples",
 };
 
+interface SalesBrandSetupSummary {
+  hasSendingDomain: boolean;
+  hasReplyTo: boolean;
+  hasSenderName: boolean;
+  hasSenderLocalPart: boolean;
+  hasValuePropPairs: boolean;
+  isReadyToSend: boolean;
+}
+
+function ChecklistRow({ done, label, hint, anchorId }: {
+  done: boolean; label: string; hint?: string; anchorId: string;
+}) {
+  const handleJump = () => {
+    const el = document.getElementById(anchorId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Brief highlight ring to draw the eye.
+    el.classList.add("ring-2", "ring-primary", "ring-offset-2", "rounded-lg");
+    window.setTimeout(() => {
+      el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "rounded-lg");
+    }, 1600);
+  };
+  return (
+    <div className="flex items-start gap-3 py-2">
+      {done ? (
+        <CheckCircle2 className="w-4 h-4 mt-0.5 text-emerald-600 shrink-0" aria-label="Done" />
+      ) : (
+        <CircleDashed className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" aria-label="Not set" />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium leading-tight">{label}</div>
+        {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
+      </div>
+      {done ? (
+        <span className="text-xs text-emerald-700 font-medium shrink-0">Done</span>
+      ) : (
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          onClick={handleJump}
+          className="h-auto p-0 text-xs text-primary hover:text-primary/80 shrink-0"
+        >
+          Set it →
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function SetupStatusCard({ config }: { config: BrandConfig }) {
+  // Compute the checklist locally from the draft `config` so it updates live
+  // as the user edits fields. We also fetch the backend summary once on mount
+  // so the persisted state from the server is reflected before the user makes
+  // any edits — and so this UI shares its source of truth with the wizard's
+  // "not fully configured" warning (both consume /sales/brand-context).
+  const [serverSummary, setServerSummary] = useState<SalesBrandSetupSummary | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/sales/brand-context");
+        if (!r.ok) return;
+        const data = await r.json();
+        if (cancelled) return;
+        if (data?.setup) setServerSummary(data.setup as SalesBrandSetupSummary);
+      } catch {
+        // best-effort — local computation still works
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const sc: SalesConsoleConfig = config.salesConsole ?? {};
+  const hasSenderName = !!(sc.senderName ?? "").trim();
+  const hasSenderLocalPart = !!(sc.senderLocalPart ?? "").trim();
+  const hasSendingDomain = !!(sc.sendingDomain ?? "").trim();
+  const hasReplyTo = !!(sc.replyTo ?? "").trim();
+  const hasValuePropPairs = Array.isArray(sc.valuePropPairs)
+    && sc.valuePropPairs.some(p => !!(p?.theme ?? "").trim());
+  const isReadyToSend = hasSenderName && hasSenderLocalPart && hasSendingDomain && hasReplyTo;
+
+  const items = [
+    { key: "senderName", done: hasSenderName, label: "Sender display name", hint: "Shown as the From name on every outbound email.", anchorId: "sales-console-sender-identity" },
+    { key: "senderLocalPart", done: hasSenderLocalPart, label: "Sender local part", hint: "The part before the @ in your From address.", anchorId: "sales-console-sender-identity" },
+    { key: "sendingDomain", done: hasSendingDomain, label: "Sending domain", hint: "Must be verified in Resend before sends will succeed.", anchorId: "sales-console-sender-identity" },
+    { key: "replyTo", done: hasReplyTo, label: "Reply-to address", hint: "Where replies from recipients land.", anchorId: "sales-console-sender-identity" },
+    { key: "valuePropPairs", done: hasValuePropPairs, label: "At least one value-prop pair", hint: "Pain / proof pairs the AI picks from per recipient role.", anchorId: "sales-console-value-prop-pairs" },
+  ];
+
+  const doneCount = items.filter(i => i.done).length;
+  const total = items.length;
+  const allDone = doneCount === total;
+
+  return (
+    <Card id="sales-console-setup" className="p-6 space-y-4 border-primary/30">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            {allDone ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-primary" />
+            )}
+            Setup status
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {allDone
+              ? "You're ready to send. All Sales Console essentials are configured."
+              : "Finish these items so outbound campaigns and AI drafts have everything they need."}
+            {!isReadyToSend && (
+              <span className="block mt-1 text-amber-700">
+                Sends are blocked until sender name, sender local part, sending domain and reply-to are all set.
+              </span>
+            )}
+            {serverSummary && (
+              <span className="block mt-1 text-[11px] text-muted-foreground/80">
+                Saved status on the server: {[
+                  serverSummary.hasSenderName ? null : "sender name",
+                  serverSummary.hasSenderLocalPart ? null : "sender local part",
+                  serverSummary.hasSendingDomain ? null : "sending domain",
+                  serverSummary.hasReplyTo ? null : "reply-to",
+                  serverSummary.hasValuePropPairs ? null : "value-prop pairs",
+                ].filter(Boolean).join(", ") || "all essentials saved"}.
+              </span>
+            )}
+          </p>
+        </div>
+        <Badge variant={allDone ? "default" : "outline"} className="shrink-0">
+          {doneCount} / {total}
+        </Badge>
+      </div>
+      <Separator />
+      <div className="divide-y divide-border">
+        {items.map(i => (
+          <ChecklistRow key={i.key} done={i.done} label={i.label} hint={i.hint} anchorId={i.anchorId} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function SalesConsoleSettings({
   config,
   setConfig,
@@ -838,7 +982,9 @@ function SalesConsoleSettings({
 
   return (
     <div className="space-y-8">
-      <Card className="p-6 space-y-5">
+      <SetupStatusCard config={config} />
+
+      <Card id="sales-console-sender-identity" className="p-6 space-y-5">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
             <Users className="w-4 h-4 text-primary" /> Sender Identity
@@ -949,7 +1095,7 @@ function SalesConsoleSettings({
         </div>
       </Card>
 
-      <Card className="p-6 space-y-5">
+      <Card id="sales-console-value-prop-pairs" className="p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-base font-semibold flex items-center gap-2">
@@ -1032,6 +1178,34 @@ export default function BrandSettings() {
   const [config, setConfig] = useState<BrandConfig>(providerBrand);
   const [loading, setLoading] = useState(providerLoading);
   const [saving, setSaving] = useState(false);
+
+  // Active tab is sync'd with the URL hash so deep-links from the
+  // QuickCampaignWizard warning ("not fully configured" → /brand#sales-console
+  // or /brand#sales-console-setup) land the user on the right tab and the
+  // Setup status card can scroll into view.
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "brand-settings";
+    const raw = window.location.hash.replace(/^#/, "");
+    // Hashes that point inside a specific tab should still select that tab.
+    if (raw.startsWith("sales-console")) return "sales-console";
+    if (raw === "content-library") return "content-library";
+    return "brand-settings";
+  });
+
+  // When the page first lands on a /brand#sales-console-setup link, the tab
+  // mounts after the initial hash-resolution browsers do — so scroll once the
+  // Setup card has actually rendered.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    // Wait a tick so TabsContent has mounted the target element.
+    const id = window.setTimeout(() => {
+      const el = document.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [activeTab]);
 
   const [presets, setPresets] = useState<BrandPreset[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(true);
@@ -1487,7 +1661,16 @@ export default function BrandSettings() {
           );
         })()}
 
-        <Tabs defaultValue="brand-settings" className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => {
+          setActiveTab(v);
+          // Keep the URL hash in sync so deep-links like /brand#sales-console
+          // (used by the QuickCampaignWizard "not fully configured" warning)
+          // continue to work after the user navigates between tabs.
+          if (typeof window !== "undefined") {
+            const hash = v === "brand-settings" ? "" : `#${v}`;
+            history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
+          }
+        }} className="w-full">
           <TabsList className="grid w-full max-w-xl grid-cols-3">
             <TabsTrigger value="brand-settings">Brand Settings</TabsTrigger>
             <TabsTrigger value="sales-console">Sales Console</TabsTrigger>

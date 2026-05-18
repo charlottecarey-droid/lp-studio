@@ -19,6 +19,7 @@ import layoutDefaultsRouter from "./layout-defaults";
 import onePagerTemplatesRouter from "./one-pager-templates";
 import webOnePagerRouter from "./web-one-pager";
 import resendWebhookRouter from "./resend-webhook";
+import brandContextRouter from "./brand-context";
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use(layoutDefaultsRouter);
 router.use(onePagerTemplatesRouter);
 router.use(webOnePagerRouter);
 router.use("/webhooks", resendWebhookRouter);
+router.use(brandContextRouter);
 
 export default router;

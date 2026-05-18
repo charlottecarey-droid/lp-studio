@@ -53,6 +53,7 @@ export interface SalesBrandSetupChecklist {
   hasReplyTo: boolean;
   hasValuePropPairs: boolean;
   hasSenderName: boolean;
+  hasSenderLocalPart: boolean;
   isReadyToSend: boolean;
 }
 
@@ -60,14 +61,17 @@ export function summarizeSalesBrandSetup(ctx: SalesBrandContext): SalesBrandSetu
   const hasSendingDomain = ctx.sendingDomain.length > 0;
   const hasReplyTo = ctx.replyTo.length > 0;
   const hasSenderName = ctx.senderName.length > 0;
+  const hasSenderLocalPart = ctx.senderLocalPart.length > 0;
   const hasValuePropPairs = ctx.valuePropPairs.length > 0;
   return {
     hasSendingDomain,
     hasReplyTo,
     hasSenderName,
+    hasSenderLocalPart,
     hasValuePropPairs,
-    // Must be able to address the envelope before send is allowed.
-    isReadyToSend: hasSendingDomain && hasReplyTo && hasSenderName,
+    // Must be able to address the envelope before send is allowed —
+    // a missing local part means buildFromHeader() returns null too.
+    isReadyToSend: hasSendingDomain && hasReplyTo && hasSenderName && hasSenderLocalPart,
   };
 }
 
