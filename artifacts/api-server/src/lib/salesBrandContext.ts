@@ -26,6 +26,14 @@ export interface ValuePropPair {
 export interface SalesBrandContext {
   tenantId: number;
   brandName: string;                  // e.g. "Dandy" or company name
+  /** First non-empty entry from brand.taglines — empty when unset. */
+  tagline: string;
+  /** Flat list of brand.taglines (drops empties). */
+  taglines: string[];
+  /** Brand-level default CTA URL (brand.defaultCtaUrl) — empty when unset. */
+  defaultCtaUrl: string;
+  /** Chili Piper URL from brand config — empty when unset. */
+  chilipiperUrl: string;
   senderName: string;                 // From-header display name
   senderLocalPart: string;            // local part of sending address
   sendingDomain: string;              // verified domain (e.g. ent.meetdandy.com)
@@ -107,17 +115,45 @@ export async function getSalesBrandContext(tenantId: number): Promise<SalesBrand
 
   const config = (row?.config ?? {}) as Record<string, unknown>;
   const sales  = (config["salesConsole"] ?? {}) as Record<string, unknown>;
-  const brand  = (config["brand"] ?? {}) as Record<string, unknown>;
+  // lp_brand_settings.config may store brand fields at the top level
+  // (lp-studio BrandConfig shape) OR nested under "brand". Read both so
+  // callers see brand strings regardless of how the row was written.
+  const nestedBrand = (config["brand"] ?? {}) as Record<string, unknown>;
+  const brandTop = config;
 
-  // Brand name fallback: salesConsole.senderName → brand.companyName → "".
+  const pickBrandStr = (key: string): string =>
+    asString(nestedBrand[key]) || asString(brandTop[key]);
+
+  // Brand name fallback: salesConsole.senderName → brand.brandName /
+  // companyName / name → "".
   const brandName = asString(sales["senderName"])
-    || asString(brand["companyName"])
-    || asString(brand["name"])
+    || pickBrandStr("brandName")
+    || pickBrandStr("companyName")
+    || pickBrandStr("name")
     || "";
+
+  const rawTaglines = (nestedBrand["taglines"] ?? brandTop["taglines"]) as unknown;
+  const taglines = Array.isArray(rawTaglines)
+    ? rawTaglines.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+    : [];
+
+  // Value-prop fallback chain: salesConsole.valuePropPairs (explicit) →
+  // derived from brand-level config (messagingPillars / productLines /
+  // segments) so a tenant who has set up brand config but not the Sales
+  // Console still gets brand-aware fallback copy in microsites and
+  // emails — never empty arrays that force literal-Dandy defaults.
+  let valuePropPairs = asValuePropPairs(sales["valuePropPairs"]);
+  if (valuePropPairs.length === 0) {
+    valuePropPairs = deriveValuePropsFromBrand(nestedBrand, brandTop);
+  }
 
   return {
     tenantId,
     brandName,
+    tagline: taglines[0] ?? "",
+    taglines,
+    defaultCtaUrl: pickBrandStr("defaultCtaUrl"),
+    chilipiperUrl: pickBrandStr("chilipiperUrl"),
     senderName:             asString(sales["senderName"]),
     senderLocalPart:        asString(sales["senderLocalPart"]),
     sendingDomain:          asString(sales["sendingDomain"]),
@@ -129,8 +165,72 @@ export async function getSalesBrandContext(tenantId: number): Promise<SalesBrand
     briefBlurb:             asString(sales["briefBlurb"]),
     useBuiltInExemplars:    asBool(sales["useBuiltInExemplars"], false),
     customerNameRules:      asString(sales["customerNameRules"]),
-    valuePropPairs:         asValuePropPairs(sales["valuePropPairs"]),
+    valuePropPairs,
   };
+}
+
+/**
+ * Derive ValuePropPair entries from the tenant's brand-level config when
+ * no salesConsole.valuePropPairs are set. Pulls from (in priority order):
+ *   1. brand.messagingPillars — { label, description }
+ *   2. brand.productLines[].valueProps + product name
+ *   3. brand.segments[].valueProps + segment name
+ *
+ * Capped at 6 entries. Returns an empty array if nothing usable exists.
+ */
+function deriveValuePropsFromBrand(
+  nestedBrand: Record<string, unknown>,
+  brandTop: Record<string, unknown>,
+): ValuePropPair[] {
+  const out: ValuePropPair[] = [];
+  const seenThemes = new Set<string>();
+  const addPair = (theme: string, proof: string) => {
+    const t = theme.trim();
+    if (!t || seenThemes.has(t.toLowerCase()) || out.length >= 6) return;
+    seenThemes.add(t.toLowerCase());
+    out.push({ roles: [], theme: t, pain: "", proof: proof.trim() });
+  };
+
+  const pillars = (nestedBrand["messagingPillars"] ?? brandTop["messagingPillars"]) as unknown;
+  if (Array.isArray(pillars)) {
+    for (const p of pillars) {
+      if (!p || typeof p !== "object") continue;
+      const obj = p as Record<string, unknown>;
+      addPair(asString(obj["label"]), asString(obj["description"]));
+    }
+  }
+
+  const productLines = (nestedBrand["productLines"] ?? brandTop["productLines"]) as unknown;
+  if (Array.isArray(productLines) && out.length < 6) {
+    for (const p of productLines) {
+      if (!p || typeof p !== "object") continue;
+      const obj = p as Record<string, unknown>;
+      const name = asString(obj["name"]);
+      const vps = obj["valueProps"];
+      if (Array.isArray(vps)) {
+        for (const v of vps) {
+          if (typeof v === "string") addPair(name || v, v);
+        }
+      }
+    }
+  }
+
+  const segments = (nestedBrand["segments"] ?? brandTop["segments"]) as unknown;
+  if (Array.isArray(segments) && out.length < 6) {
+    for (const s of segments) {
+      if (!s || typeof s !== "object") continue;
+      const obj = s as Record<string, unknown>;
+      const name = asString(obj["name"]);
+      const vps = obj["valueProps"];
+      if (Array.isArray(vps)) {
+        for (const v of vps) {
+          if (typeof v === "string") addPair(name || v, v);
+        }
+      }
+    }
+  }
+
+  return out;
 }
 
 /**

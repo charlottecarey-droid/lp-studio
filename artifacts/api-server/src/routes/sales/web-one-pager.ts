@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable, lpPageVisitsTable } from "@workspace/db";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -10,37 +11,52 @@ type Audience = "executive" | "clinical" | "practice-manager";
 interface AudienceFeature { icon: string; title: string; description: string; }
 interface AudienceContent { subtitle: string; features: AudienceFeature[]; }
 
-const AUDIENCE_CONTENT: Record<Audience, AudienceContent> = {
-  executive: {
-    subtitle: "Achieve quality, consistency, and control at scale.",
-    features: [
-      { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle hardware delivery and set up, then get your practices up to speed fast with free onboarding." },
-      { icon: "MessageCircle", title: "Clinical collaboration", description: "Live Chat and Live Scan Review connect clinicians directly with our team of lab technicians in real time." },
-      { icon: "Bot", title: "AI-powered quality checks", description: "AI Scan Review automatically reviews every scan while the patient is still in the chair, reducing remakes and adjustments." },
-      { icon: "BarChart2", title: "Dandy Insights", description: "Dandy surfaces aggregate, pilot-level insights including scanner utilization, workflow adoption, and quality signals." },
-      { icon: "Clipboard", title: "Case management simplified", description: "Access the Dandy Portal to track, manage, and review active orders and our dashboard to streamline invoicing." },
-      { icon: "DollarSign", title: "Exclusive pricing for your organization", description: "Contact the team below to access a product guide with approved pricing." },
-    ],
-  },
-  clinical: {
-    subtitle: "Fully embrace digital dentistry with smarter technology and seamless workflows.",
-    features: [
-      { icon: "MessageCircle", title: "Clinical collaboration", description: "Clinicians and staff can speak with our team of clinical experts in just 60 seconds or collaborate on complex cases virtually." },
-      { icon: "Bot", title: "AI-powered quality checks", description: "AI Scan Review automatically reviews every scan while the patient is still in the chair, reducing remakes and adjustments." },
-      { icon: "Activity", title: "2-Appointment Dentures", description: "Utilize seamless digital workflows like 2-Appointment Dentures to save chair time and create a better patient experience." },
-      { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. Get up to speed fast with free onboarding and unlimited access to ongoing digital CPD credit education." },
-    ],
-  },
-  "practice-manager": {
-    subtitle: "Reduce operational friction and administrative burden with Dandy.",
-    features: [
-      { icon: "DollarSign", title: "Invoicing made easy", description: "Our dashboard makes invoicing a simple and efficient process." },
-      { icon: "BarChart2", title: "Get insights in Practice Portal", description: "Gain visibility into order delivery dates, communicate with the lab, manage payment, and more." },
-      { icon: "MessageCircle", title: "Real-time lab communication", description: "Our team of clinical experts handle lab communication including live collaboration, fielding questions, and issue resolution." },
-      { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle hardware delivery and set up, then get your teams up to speed fast with free onboarding and CPD training." },
-    ],
-  },
-};
+/**
+ * Build the per-audience feature copy for the one-pager default template.
+ *
+ * Brand-aware: any reference to the seller's product/platform is interpolated
+ * from the tenant's brand context (brandName). Tenants without brand config
+ * see a neutral "we"/"our" voice — never a literal "Dandy".
+ */
+function buildAudienceContent(brand: SalesBrandContext): Record<Audience, AudienceContent> {
+  const name = brand.brandName || "";
+  const possessive = name ? `${name}'s` : "our";
+  const productLabel = name ? `${name} Insights` : "our insights dashboard";
+  const portalLabel = name ? `the ${name} Portal` : "our partner portal";
+  const reduceFrictionWith = name ? `with ${name}` : "with us";
+
+  return {
+    executive: {
+      subtitle: "Achieve quality, consistency, and control at scale.",
+      features: [
+        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle hardware delivery and set up, then get your practices up to speed fast with free onboarding." },
+        { icon: "MessageCircle", title: "Clinical collaboration", description: "Live Chat and Live Scan Review connect clinicians directly with our team of lab technicians in real time." },
+        { icon: "Bot", title: "AI-powered quality checks", description: "AI Scan Review automatically reviews every scan while the patient is still in the chair, reducing remakes and adjustments." },
+        { icon: "BarChart2", title: productLabel, description: `${possessive} dashboard surfaces aggregate, pilot-level insights including scanner utilization, workflow adoption, and quality signals.` },
+        { icon: "Clipboard", title: "Case management simplified", description: `Access ${portalLabel} to track, manage, and review active orders and our dashboard to streamline invoicing.` },
+        { icon: "DollarSign", title: "Exclusive pricing for your organization", description: "Contact the team below to access a product guide with approved pricing." },
+      ],
+    },
+    clinical: {
+      subtitle: "Fully embrace digital dentistry with smarter technology and seamless workflows.",
+      features: [
+        { icon: "MessageCircle", title: "Clinical collaboration", description: "Clinicians and staff can speak with our team of clinical experts in just 60 seconds or collaborate on complex cases virtually." },
+        { icon: "Bot", title: "AI-powered quality checks", description: "AI Scan Review automatically reviews every scan while the patient is still in the chair, reducing remakes and adjustments." },
+        { icon: "Activity", title: "2-Appointment Dentures", description: "Utilize seamless digital workflows like 2-Appointment Dentures to save chair time and create a better patient experience." },
+        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. Get up to speed fast with free onboarding and unlimited access to ongoing digital CPD credit education." },
+      ],
+    },
+    "practice-manager": {
+      subtitle: `Reduce operational friction and administrative burden ${reduceFrictionWith}.`,
+      features: [
+        { icon: "DollarSign", title: "Invoicing made easy", description: "Our dashboard makes invoicing a simple and efficient process." },
+        { icon: "BarChart2", title: "Get insights in Practice Portal", description: "Gain visibility into order delivery dates, communicate with the lab, manage payment, and more." },
+        { icon: "MessageCircle", title: "Real-time lab communication", description: "Our team of clinical experts handle lab communication including live collaboration, fielding questions, and issue resolution." },
+        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle hardware delivery and set up, then get your teams up to speed fast with free onboarding and CPD training." },
+      ],
+    },
+  };
+}
 
 function slugify(name: string): string {
   return name
@@ -63,7 +79,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       phone,
       teamMembers,
       ctaUrl,
-      tenantId = 1,
+      tenantId,
     } = req.body as {
       dsoName: string;
       audience?: Audience;
@@ -79,7 +95,27 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       return;
     }
 
-    const content = AUDIENCE_CONTENT[audience] ?? AUDIENCE_CONTENT.executive;
+    // Require an explicit tenantId — refuse to silently default to Dandy
+    // (tenant 1). This route is callable without auth, so the caller must
+    // identify which tenant the page belongs to.
+    if (typeof tenantId !== "number" || !Number.isFinite(tenantId) || tenantId <= 0) {
+      res.status(400).json({ error: "tenantId is required" });
+      return;
+    }
+
+    const brandCtx = await getSalesBrandContext(tenantId);
+    const audienceContent = buildAudienceContent(brandCtx);
+    const content = audienceContent[audience] ?? audienceContent.executive;
+
+    const brandName = brandCtx.brandName;
+    // Resolve the final CTA URL: explicit caller URL → brand's Chili Piper
+    // URL → brand's defaultCtaUrl → "#". Never fall back to a hardcoded
+    // meetdandy.com URL.
+    const resolvedCtaUrl = ctaUrl || brandCtx.chilipiperUrl || brandCtx.defaultCtaUrl || "#";
+
+    const bottomHeadline = brandName
+      ? `Ready to partner with ${brandName}?`
+      : "Ready to start your pilot?";
 
     const blocks = [
       {
@@ -130,7 +166,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
             {
               title: "Launch a Pilot",
               subtitle: "Start with 5–10 locations",
-              desc: "Dandy deploys premium scanners, onboards doctors with hands-on training, and integrates into existing workflows — no CAPEX, no disruption.",
+              desc: `${brandName || "We"} ${brandName ? "deploys" : "deploy"} premium scanners, onboard${brandName ? "s" : ""} doctors with hands-on training, and integrate${brandName ? "s" : ""} into existing workflows — no CAPEX, no disruption.`,
               details: [
                 "Premium hardware included for every operatory",
                 "Dedicated field team manages change management",
@@ -164,10 +200,10 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
         id: `bottom-cta-${makeId()}`,
         type: "bottom-cta",
         props: {
-          headline: "Ready to partner with Dandy?",
+          headline: bottomHeadline,
           subheadline: "Start a risk-free 90-day pilot. No long-term commitment required.",
           ctaText: "Start Your Pilot",
-          ctaUrl: ctaUrl ?? "https://meetdandy.com/dso",
+          ctaUrl: resolvedCtaUrl,
         },
       },
     ];

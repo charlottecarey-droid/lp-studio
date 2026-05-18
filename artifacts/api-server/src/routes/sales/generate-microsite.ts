@@ -6,6 +6,7 @@ import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 import rateLimit from "express-rate-limit";
 import { pickExemplars, formatExemplarsSection } from "./microsite-exemplars";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -299,7 +300,21 @@ function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]
   });
 }
 
-function normalizeBlock(raw: AiBlock, index: number, brand: string): AiBlock {
+interface FallbackBrand {
+  /** Display name used in fallback copy. Empty = "us". */
+  name: string;
+  /** Tagline (first non-empty brand.taglines entry). Empty = none. */
+  tagline: string;
+  /**
+   * Resolved value-prop pairs from the tenant's brand context. Used as
+   * brand-aware fallback content for items lists (benefits-grid,
+   * trust-bar) when the AI returns an empty list. Falls back to []
+   * when neither salesConsole nor brand config provides any.
+   */
+  valuePropPairs: { theme: string; proof: string }[];
+}
+
+function normalizeBlock(raw: AiBlock, index: number, brand: FallbackBrand): AiBlock {
   const type = (raw.type as string) ?? "hero";
   if (raw.props && typeof raw.props === "object") {
     return {
@@ -316,26 +331,28 @@ function normalizeBlock(raw: AiBlock, index: number, brand: string): AiBlock {
   };
 }
 
-function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
-  // `brand` is the tenant's brand name (or "" when unset). Used to keep
-  // fallback copy generic when the AI omits a field — never leak
-  // another tenant's brand into a non-Dandy account.
-  const us = brand || "us";
+function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBlock {
+  // `brand` is the tenant's resolved brand context. All fallback copy
+  // here fires when the AI omits a field (rare error paths). Every
+  // string must stay brand-neutral — never literal "Dandy" or
+  // dental-industry-specific copy that would leak into another tenant.
+  const us = brand.name || "us";
+  const tagline = brand.tagline || "";
   switch (type) {
     // ── Standard practice blocks ────────────────────────────────────
     case "hero":
       return {
-        headline: p.headline ?? p.heading ?? `See What ${us} Can Do For You`,
-        subheadline: p.subheadline ?? p.subheading ?? p.subtitle ?? "Digital-first lab workflows that save time, reduce remakes, and delight your patients.",
-        ctaText: p.ctaText ?? "Book a Demo",
+        headline: p.headline ?? p.heading ?? `See what ${us} can do for you`,
+        subheadline: p.subheadline ?? p.subheading ?? p.subtitle ?? tagline,
+        ctaText: p.ctaText ?? "Get started",
         ctaUrl: p.ctaUrl ?? "#",
-        ctaColor: p.ctaColor ?? "#C7E738",
-        ctaTextColor: p.ctaTextColor ?? "#001a14",
+        ctaColor: p.ctaColor,
+        ctaTextColor: p.ctaTextColor,
         heroType: p.heroType ?? "static-image",
         layout: p.layout ?? "centered",
         backgroundStyle: p.backgroundStyle ?? "dark",
-        showSocialProof: p.showSocialProof ?? true,
-        socialProofText: p.socialProofText ?? "Trusted by 12,000+ dental practices across the US",
+        showSocialProof: p.showSocialProof ?? false,
+        socialProofText: p.socialProofText ?? "",
         imageUrl: p.imageUrl ?? "",
         mediaUrl: p.mediaUrl ?? "",
       };
@@ -343,26 +360,36 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "benefits-grid":
     case "features": {
       const items = (p.items ?? p.features ?? p.benefits ?? []) as AiBlock[];
+      // When AI omits items, fall back to the tenant's brand-config
+      // value props (themes + proof) so non-Dandy tenants see
+      // brand-aware content instead of an empty section.
+      const fromBrand = brand.valuePropPairs
+        .filter(v => v.theme.trim().length > 0)
+        .slice(0, 6)
+        .map(v => ({ icon: "Zap", title: v.theme, description: v.proof }));
       return {
-        headline: p.headline ?? p.heading ?? `Why teams choose ${us}`,
+        headline: p.headline ?? p.heading ?? (brand.name ? `Why teams choose ${us}` : "Why teams choose us"),
         columns: p.columns ?? 3,
         items: items.length > 0
           ? items.map(f => ({ icon: f.icon ?? "Zap", title: f.title ?? f.name ?? "", description: f.description ?? f.body ?? "" }))
-          : [
-              { icon: "Zap", title: "Faster Turnaround", description: "5-day crown delivery with real-time case tracking." },
-              { icon: "RefreshCcw", title: "Free Remakes", description: "If a case doesn't fit, we remake it at no charge." },
-              { icon: "HeadphonesIcon", title: "Dedicated Support", description: "A real person answers your calls and knows your preferences." },
-            ],
+          : fromBrand,
       };
     }
 
     case "trust-bar":
     case "stats": {
       const items = (p.items ?? p.stats ?? []) as AiBlock[];
+      // When AI omits items, surface up to 4 brand value-prop themes
+      // as short proof statements ("✓ Theme") rather than leaving
+      // an empty bar.
+      const fromBrand = brand.valuePropPairs
+        .filter(v => v.theme.trim().length > 0)
+        .slice(0, 4)
+        .map(v => ({ value: "✓", label: v.theme }));
       return {
         items: items.length > 0
           ? items.map(s => ({ value: s.value ?? "", label: s.label ?? "" }))
-          : [{ value: "12,000+", label: "Dental Practices" }, { value: "48 hrs", label: "Avg. Turnaround" }, { value: "99.2%", label: "Perfect Fit Rate" }],
+          : fromBrand,
       };
     }
 
@@ -372,8 +399,8 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
       const t = list[0] ?? p;
       return {
         quote: t.quote ?? t.body ?? "",
-        author: t.author ?? t.name ?? "Dental Practice Owner",
-        role: t.role ?? t.title ?? "Dentist",
+        author: t.author ?? t.name ?? "",
+        role: t.role ?? t.title ?? "",
         practiceName: t.practiceName ?? t.company ?? "",
       };
     }
@@ -381,9 +408,9 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "bottom-cta":
     case "cta":
       return {
-        headline: p.headline ?? p.heading ?? "Ready to upgrade your lab — with zero risk?",
-        subheadline: p.subheadline ?? p.subheading ?? "No contracts. No setup fees. Free shipping both ways.",
-        ctaText: p.ctaText ?? "Book a Demo",
+        headline: p.headline ?? p.heading ?? `Ready to get started with ${us}?`,
+        subheadline: p.subheadline ?? p.subheading ?? "",
+        ctaText: p.ctaText ?? "Get started",
         ctaUrl: p.ctaUrl ?? "#",
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
@@ -391,43 +418,39 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "how-it-works": {
       const steps = (p.steps ?? []) as AiBlock[];
       return {
-        headline: p.headline ?? p.heading ?? "Simple to start.",
+        headline: p.headline ?? p.heading ?? "How it works",
         steps: steps.length > 0
           ? steps.map((s, i) => ({ number: s.number ?? `0${i + 1}`, title: s.title ?? s.name ?? "", description: s.description ?? s.body ?? "" }))
-          : [
-              { number: "01", title: "Scan & Send", description: `Take an intraoral scan and send it to ${us} in seconds.` },
-              { number: "02", title: "We Manufacture", description: "Your case enters our digital lab immediately." },
-              { number: "03", title: "Delivered to Your Door", description: "Your restoration arrives in 5 business days." },
-            ],
+          : [],
       };
     }
 
     case "comparison":
       return {
-        headline: p.headline ?? p.heading ?? "A paradigm shift for your practice.",
-        ctaText: p.ctaText ?? "Get Started Free",
+        headline: p.headline ?? p.heading ?? "Compare your options.",
+        ctaText: p.ctaText ?? "Get started",
         ctaUrl: p.ctaUrl ?? "#",
-        oldWayLabel: p.oldWayLabel || "Traditional Lab",
+        oldWayLabel: p.oldWayLabel || "The old way",
         oldWayBullets: (Array.isArray(p.oldWayBullets) && p.oldWayBullets.length > 0)
           ? p.oldWayBullets
-          : ["Long wait times", "Inconsistent fits", "Opaque pricing", "No accountability", "Manual re-work"],
+          : [],
         newWayLabel: p.newWayLabel || us,
         newWayBullets: (Array.isArray(p.newWayBullets) && p.newWayBullets.length > 0)
           ? p.newWayBullets
-          : ["5-day crown delivery", "Free remakes — no questions asked", "Transparent pricing", "Real-time case tracking", "AI-powered quality control"],
+          : [],
       };
 
     case "pas-section":
       return {
-        headline: p.headline ?? p.heading ?? "Your lab is costing you more than money.",
+        headline: p.headline ?? p.heading ?? "",
         body: p.body ?? p.description ?? "",
         bullets: Array.isArray(p.bullets) ? p.bullets : [],
       };
 
     case "stat-callout":
       return {
-        stat: p.stat ?? p.value ?? "89%",
-        description: p.description ?? p.label ?? `Average improvement when partnering with ${us}`,
+        stat: p.stat ?? p.value ?? "",
+        description: p.description ?? p.label ?? "",
         footnote: p.footnote ?? "",
       };
 
@@ -438,17 +461,17 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-heartland-hero": {
       const stats = (p.stats ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? `The ${us} Difference`,
-        headline: p.headline ?? p.heading ?? "Built for your DSO.",
-        companyName: p.companyName ?? p.company ?? "Your DSO",
-        subheadline: p.subheadline ?? p.subheading ?? "The lab partner built to match your DSO's scale — precision manufacturing, AI quality control, and network-wide visibility.",
-        primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Schedule a Conversation",
+        eyebrow: p.eyebrow ?? (brand.name ? `The ${us} difference` : ""),
+        headline: p.headline ?? p.heading ?? "Built for your scale.",
+        companyName: p.companyName ?? p.company ?? "",
+        subheadline: p.subheadline ?? p.subheading ?? tagline,
+        primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Schedule a conversation",
         primaryCtaUrl: p.primaryCtaUrl ?? p.ctaUrl ?? "#",
-        secondaryCtaText: p.secondaryCtaText ?? "See the ROI",
+        secondaryCtaText: p.secondaryCtaText ?? "",
         secondaryCtaUrl: p.secondaryCtaUrl ?? "#",
         stats: stats.length > 0
           ? stats.map(s => ({ value: s.value ?? "", label: s.label ?? "" }))
-          : [{ value: "30%", label: "Avg case acceptance lift" }, { value: "96%", label: "First-time right rate" }, { value: "4.2 days", label: "Avg turnaround" }, { value: "$0", label: "CAPEX to start" }],
+          : [],
         showScrollIndicator: true,
       };
     }
@@ -458,7 +481,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
       return {
         stats: stats.length > 0
           ? stats.map(s => ({ value: s.value ?? "", label: s.label ?? "" }))
-          : [{ value: "30%", label: "Avg case acceptance lift" }, { value: "96%", label: "First-time right rate" }, { value: "50%", label: "Denture appointments saved" }, { value: "$0", label: "CAPEX to start" }],
+          : [],
         backgroundStyle: p.backgroundStyle ?? "white",
       };
     }
@@ -466,27 +489,22 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-challenges": {
       const challenges = (p.challenges ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "The Hidden Cost",
-        headline: p.headline ?? p.heading ?? "At scale — even small inefficiencies compound fast.",
+        eyebrow: p.eyebrow ?? "",
+        headline: p.headline ?? p.heading ?? "At scale, small inefficiencies compound fast.",
         backgroundStyle: p.backgroundStyle ?? "muted",
         layout: p.layout ?? "4-col",
         challenges: challenges.length > 0
           ? challenges.map(c => ({ title: c.title ?? c.name ?? "", desc: c.desc ?? c.description ?? c.body ?? "" }))
-          : [
-              { title: "Same-Store Growth Pressure", desc: "Acquisition pipelines have slowed. DSOs must unlock more revenue from existing practices to protect EBITDA." },
-              { title: "Fragmented Lab Relationships", desc: "Disconnected vendors across regions create data silos, quality variance, and zero negotiating leverage." },
-              { title: "Standards That Don't Scale", desc: "Variability creeps in, outcomes drift, and operational discipline erodes with every new location." },
-              { title: "Capital Constraints", desc: "Scanner requests pile up every year — $40K–$75K per operatory adds up fast." },
-            ],
+          : [],
       };
     }
 
     case "dso-insights-dashboard":
       return {
-        eyebrow: p.eyebrow ?? `${us} Hub & Insights`,
+        eyebrow: p.eyebrow ?? "",
         headline: p.headline ?? p.heading ?? "One dashboard for every location.",
-        subheadline: p.subheadline ?? p.subheading ?? `${us} Insights gives your leadership team actionable data — not just reports. Know where to intervene before problems scale.`,
-        practiceLabel: p.practiceLabel ?? "practices",
+        subheadline: p.subheadline ?? p.subheading ?? "",
+        practiceLabel: p.practiceLabel ?? "locations",
         backgroundStyle: p.backgroundStyle ?? "muted",
         dashboardVariant: p.dashboardVariant ?? "light",
       };
@@ -494,24 +512,21 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-success-stories": {
       const cases = (p.cases ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "Proven Results",
-        headline: p.headline ?? p.heading ?? "DSOs that switched and never looked back.",
+        eyebrow: p.eyebrow ?? "Proven results",
+        headline: p.headline ?? p.heading ?? "Customers that switched and never looked back.",
         backgroundStyle: p.backgroundStyle ?? "dandy-green",
         cases: cases.length > 0
           ? cases.map(c => ({ name: c.name ?? "", stat: c.stat ?? "", label: c.label ?? "", quote: c.quote ?? "", author: c.author ?? "" }))
-          : [
-              { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: `${us} values education, technology, and people. That's what makes them a great partner.`, author: "Dr. Layla Lohmann, Founder" },
-              { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations" },
-            ],
+          : [],
       };
     }
 
     case "dso-pilot-steps": {
       const steps = (p.steps ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "How It Works",
+        eyebrow: p.eyebrow ?? "How it works",
         headline: p.headline ?? p.heading ?? "Start small. Prove it out. Then scale.",
-        subheadline: p.subheadline ?? p.subheading ?? "Validate impact with a focused pilot, then expand with confidence.",
+        subheadline: p.subheadline ?? p.subheading ?? "",
         backgroundStyle: p.backgroundStyle ?? "muted",
         steps: steps.length > 0
           ? steps.map(s => ({
@@ -520,22 +535,18 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
               desc: s.desc ?? s.description ?? s.body ?? "",
               details: Array.isArray(s.details) ? s.details : [],
             }))
-          : [
-              { title: "Launch a Pilot", subtitle: "Start with 5–10 offices", desc: `${us} deploys scanners, onboards doctors, and integrates into existing workflows — no CAPEX, no disruption.`, details: ["Premium hardware included", "Dedicated field team", "Doctors trained within days"] },
-              { title: "Validate Impact", subtitle: "Measure results in 60–90 days", desc: "Track remake reduction, chair time recovered, and same-store revenue lift in real time.", details: ["Live dashboard tracks KPIs", "Compare pilot vs. control group", "Executive-ready reporting"] },
-              { title: "Scale With Confidence", subtitle: "Roll out across the network", desc: "Expand with the same standard, same playbook, and same results — predictable execution at enterprise scale.", details: ["Consistent onboarding", "One standard across every office", "MSA ensures network-wide alignment"] },
-            ],
+          : [],
       };
     }
 
     case "dso-final-cta":
       return {
-        eyebrow: p.eyebrow ?? "Next Steps",
+        eyebrow: p.eyebrow ?? "Next steps",
         headline: p.headline ?? p.heading ?? "Prove ROI. Then scale.",
-        subheadline: p.subheadline ?? p.subheading ?? "Validate impact with a focused pilot. Measure remake reduction, chair time recovered, and same-store revenue lift in real time.",
-        primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Get Pricing",
+        subheadline: p.subheadline ?? p.subheading ?? "",
+        primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Get pricing",
         primaryCtaUrl: p.primaryCtaUrl ?? p.ctaUrl ?? "#",
-        secondaryCtaText: p.secondaryCtaText ?? "Calculate ROI",
+        secondaryCtaText: p.secondaryCtaText ?? "",
         secondaryCtaUrl: p.secondaryCtaUrl ?? "#",
         backgroundStyle: p.backgroundStyle ?? "dandy-green",
       };
@@ -543,27 +554,31 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-comparison": {
       const rows = (p.rows ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? `The ${us} Difference`,
-        headline: p.headline ?? p.heading ?? "Built for DSO scale.\nDesigned for provider trust.",
-        subheadline: p.subheadline ?? p.subheading ?? `${us} combines the lab providers choose with advanced manufacturing, AI-driven quality control, and network-wide insights.`,
-        companyName: p.companyName ?? p.company ?? "Your DSO",
-        ctaText: p.ctaText ?? "Request a Demo",
+        eyebrow: p.eyebrow ?? (brand.name ? `The ${us} difference` : ""),
+        headline: p.headline ?? p.heading ?? "Built for scale. Designed for trust.",
+        subheadline: p.subheadline ?? p.subheading ?? "",
+        companyName: p.companyName ?? p.company ?? "",
+        ctaText: p.ctaText ?? "Request a demo",
         ctaUrl: p.ctaUrl ?? "#",
-        rows: rows.map(r => ({ feature: r.feature ?? "", dandy: r.dandy ?? "", traditional: r.traditional ?? "" })),
+        // The `dandy` column key is an internal field name used by
+        // BlockDsoComparison — it renders as the tenant's "us" column.
+        // Leaving the key name unchanged here to keep stored block JSON
+        // compatible with the renderer; copy is brand-neutral.
+        rows: rows.map(r => ({ feature: r.feature ?? "", dandy: r.dandy ?? r.us ?? "", traditional: r.traditional ?? "" })),
         backgroundStyle: p.backgroundStyle ?? "muted",
       };
     }
 
     case "dso-lab-tour":
       return {
-        eyebrow: p.eyebrow ?? "Built in the USA",
-        headline: p.headline ?? p.heading ?? "See vertical integration in action.",
-        body: p.body ?? p.description ?? `Unlike traditional labs, ${us} owns the entire manufacturing process — from scan to delivery.`,
-        quote: p.quote ?? `${us} is a true partner, not just a vendor.`,
-        quoteAttribution: p.quoteAttribution ?? "DSO Clinical Operations Officer",
+        eyebrow: p.eyebrow ?? "",
+        headline: p.headline ?? p.heading ?? "See it in action.",
+        body: p.body ?? p.description ?? "",
+        quote: p.quote ?? "",
+        quoteAttribution: p.quoteAttribution ?? "",
         imageUrl: p.imageUrl ?? "",
         videoUrl: p.videoUrl ?? "",
-        ctaText: p.ctaText ?? "Request a Lab Tour",
+        ctaText: p.ctaText ?? "Request a tour",
         ctaUrl: p.ctaUrl ?? "#",
         backgroundStyle: p.backgroundStyle ?? "white",
       };
@@ -575,11 +590,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
         dsoName: p.dsoName ?? p.companyName ?? "",
         links: links.length > 0
           ? links.map((l: AiBlock) => ({ label: l.label ?? "", anchor: l.anchor ?? "#" }))
-          : [
-              { label: "How it works", anchor: "#steps" },
-              { label: "Partnership perks", anchor: "#perks" },
-              { label: "FAQ", anchor: "#faq" },
-            ],
+          : [],
         ctaText: p.ctaText ?? "Book a demo",
         ctaUrl: p.ctaUrl ?? "#",
       };
@@ -588,13 +599,13 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-practice-hero":
       return {
         eyebrow: p.eyebrow ?? "",
-        headline: p.headline ?? p.heading ?? `Your practice. Elevated by ${us}.`,
-        subheadline: p.subheadline ?? p.subheading ?? "As a network partner, your practice gets dedicated support, premium scanners at no cost, and a lab that backs every case with a first-time fit guarantee.",
-        primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Start your first case",
+        headline: p.headline ?? p.heading ?? (brand.name ? `Your team. Elevated by ${us}.` : "Your team. Elevated."),
+        subheadline: p.subheadline ?? p.subheading ?? tagline,
+        primaryCtaText: p.primaryCtaText ?? p.ctaText ?? "Get started",
         primaryCtaUrl: p.primaryCtaUrl ?? p.ctaUrl ?? "#",
         secondaryCtaText: p.secondaryCtaText ?? "See how it works",
         secondaryCtaUrl: p.secondaryCtaUrl ?? "#",
-        trustLine: p.trustLine ?? `Join hundreds of practices in your network already using ${us}`,
+        trustLine: p.trustLine ?? "",
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
 
@@ -605,7 +616,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
         headline: p.headline ?? p.heading ?? "Results that speak for themselves.",
         items: items.length > 0
           ? items.map(s => ({ value: s.value ?? "", label: s.label ?? "", detail: s.detail ?? "" }))
-          : [{ value: "96%", label: "First-time fit rate", detail: "Industry average is 78%" }, { value: "50%", label: "Fewer remakes", detail: "vs. traditional labs" }, { value: "2x", label: "Faster turnaround", detail: "Same-day delivery available" }],
+          : [],
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
     }
@@ -613,19 +624,12 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-partnership-perks": {
       const perks = (p.perks ?? p.benefits ?? p.items ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "Partnership Benefits",
-        headline: p.headline ?? p.heading ?? `Perks that come with every ${us} partnership.`,
-        subheadline: p.subheadline ?? p.subheading ?? "From day one, your practice gets dedicated support, premium hardware, and exclusive incentives.",
+        eyebrow: p.eyebrow ?? "Partnership benefits",
+        headline: p.headline ?? p.heading ?? (brand.name ? `Perks that come with every ${us} partnership.` : "Partnership perks."),
+        subheadline: p.subheadline ?? p.subheading ?? "",
         perks: perks.length > 0
           ? perks.map(pk => ({ icon: pk.icon ?? "star", title: pk.title ?? pk.name ?? "", desc: pk.desc ?? pk.description ?? "" }))
-          : [
-              { icon: "gift",     title: "$1,500 Lab Credit",         desc: `Get $1,500 toward your first cases — experience ${us} quality risk-free.` },
-              { icon: "zap",      title: "AI Scan Review",            desc: "Real-time AI flags margin issues while your patient is still in the chair." },
-              { icon: "star",     title: "Dedicated DSO Support",     desc: "Your own account team. Direct line, same-day response." },
-              { icon: "shield",   title: "Free CE Credits",           desc: "Accredited courses on digital dentistry, scan technique, and restorative workflows." },
-              { icon: "users",    title: "Live Clinical Collaboration", desc: `Chat directly with ${us} lab technicians in real time to dial in your preps.` },
-              { icon: "sparkles", title: "$100 UberEats Gift Card",   desc: "Book a lunch-and-learn for your team — we'll cover the food and walk you through going digital." },
-            ],
+          : [],
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
     }
@@ -648,13 +652,13 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-software-showcase": {
       const features = (p.features ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "Chairside Software",
-        headline: p.headline ?? p.heading ?? "The only chairside software built for same-day dentistry.",
-        body: p.body ?? p.description ?? `${us}'s AI-powered platform gives clinicians real-time scan review, prep guidance, and digital workflows — all in one seamless experience.`,
+        eyebrow: p.eyebrow ?? "",
+        headline: p.headline ?? p.heading ?? "",
+        body: p.body ?? p.description ?? "",
         imageUrl: p.imageUrl ?? "",
         features: features.length > 0
           ? features.map(f => ({ icon: f.icon ?? "zap", label: f.label ?? f.title ?? "" }))
-          : [{ icon: "zap", label: "Real-time scan analysis" }, { icon: "check", label: "AI-flagged margin errors" }, { icon: "clock", label: "2–3 min saved per case" }],
+          : [],
         ctaText: p.ctaText ?? "See it in action",
         ctaUrl: p.ctaUrl ?? "#",
         backgroundStyle: p.backgroundStyle ?? "dandy-green",
@@ -666,14 +670,11 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
       const items = (p.items ?? p.questions ?? p.faqs ?? []) as AiBlock[];
       return {
         eyebrow: p.eyebrow ?? "Common questions",
-        headline: p.headline ?? p.heading ?? "Everything you're wondering about switching.",
-        subheadline: p.subheadline ?? p.subheading ?? "We know change feels risky. Here's what practices ask us most.",
+        headline: p.headline ?? p.heading ?? "Everything you're wondering about.",
+        subheadline: p.subheadline ?? p.subheading ?? "",
         items: items.length > 0
           ? items.map(i => ({ question: i.question ?? i.q ?? i.title ?? "", answer: i.answer ?? i.a ?? i.body ?? "" }))
-          : [
-              { question: "Will switching labs disrupt my workflow?", answer: "No. We design the transition around your schedule. Most practices see zero disruption to active cases." },
-              { question: "What if a case doesn't come back right?", answer: "We back every case with our first-time fit guarantee. If it doesn't seat, we remake it at no cost." },
-            ],
+          : [],
         backgroundStyle: p.backgroundStyle ?? "white",
       };
     }
@@ -681,18 +682,13 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-activation-steps": {
       const steps = (p.steps ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "Getting Started",
-        headline: p.headline ?? p.heading ?? `Four steps to going live with ${us}.`,
-        subheadline: p.subheadline ?? p.subheading ?? "Our onboarding team handles every detail — from scanner delivery to your first case.",
+        eyebrow: p.eyebrow ?? "Getting started",
+        headline: p.headline ?? p.heading ?? (brand.name ? `Steps to going live with ${us}.` : "Steps to going live."),
+        subheadline: p.subheadline ?? p.subheading ?? "",
         steps: steps.length > 0
           ? steps.map((s, i) => ({ step: s.step ?? `${i + 1}`, title: s.title ?? s.name ?? "", desc: s.desc ?? s.description ?? s.body ?? "" }))
-          : [
-              { step: "1", title: "Schedule Your Kickoff", desc: `Meet your ${us} activation manager to align on rollout timeline and goals.` },
-              { step: "2", title: "Equipment Setup", desc: "We ship and install your intraoral scanners — every operatory fully configured and ready." },
-              { step: "3", title: "Clinical Training", desc: "Hands-on training for doctors and staff covering scan technique and workflow." },
-              { step: "4", title: "First Cases & Go Live", desc: "Submit your first cases and experience real-time tracking, guaranteed fit, and dedicated support." },
-            ],
-        ctaText: p.ctaText ?? "Book Your Activation Call",
+          : [],
+        ctaText: p.ctaText ?? "Book your kickoff call",
         ctaUrl: p.ctaUrl ?? "#",
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
@@ -701,15 +697,12 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
     case "dso-promo-cards": {
       const cards = (p.cards ?? p.offers ?? []) as AiBlock[];
       return {
-        eyebrow: p.eyebrow ?? "Limited-Time Offers",
-        headline: p.headline ?? p.heading ?? "Exclusive promotions for DSO partners.",
-        subheadline: p.subheadline ?? p.subheading ?? "Activate your practice and take advantage of offers available only through your group partnership.",
+        eyebrow: p.eyebrow ?? "Limited-time offers",
+        headline: p.headline ?? p.heading ?? "Exclusive promotions for partners.",
+        subheadline: p.subheadline ?? p.subheading ?? "",
         cards: cards.length > 0
           ? cards.map(c => ({ title: c.title ?? c.name ?? "", desc: c.desc ?? c.description ?? "", badge: c.badge ?? "OFFER", ctaText: c.ctaText ?? "Claim now" }))
-          : [
-              { title: "$1,500 Lab Credit", desc: "Activate your practice and get $1,500 toward your first cases — experience our 96% fit rate with zero risk.", badge: "CREDIT", ctaText: "Claim my credit" },
-              { title: "Free Scanner + Cart", desc: "Get a premium intraoral scanner and all-in-one operatory cart at zero cost — included with your DSO partnership.", badge: "FREE", ctaText: "Reserve yours" },
-            ],
+          : [],
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
     }
@@ -718,10 +711,10 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: string): AiBlock {
       const columns = (p.columns ?? []) as AiBlock[];
       return {
         columns: Array.isArray(columns) ? columns : [],
-        copyrightText: p.copyrightText ?? `© ${new Date().getFullYear()} ${us}. All rights reserved.`,
+        copyrightText: p.copyrightText ?? (brand.name ? `© ${new Date().getFullYear()} ${us}. All rights reserved.` : `© ${new Date().getFullYear()}. All rights reserved.`),
         showSocialLinks: p.showSocialLinks ?? false,
-        backgroundColor: p.backgroundColor ?? "#003A30",
-        accentColor: p.accentColor ?? "#C7E738",
+        backgroundColor: p.backgroundColor,
+        accentColor: p.accentColor,
       };
     }
 
@@ -1170,6 +1163,17 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       .limit(1);
     const brand = brandRows.length > 0 ? (brandRows[0].config as Record<string, unknown>) : {};
 
+    // Resolved brand context — used to drive brand-neutral fallback copy
+    // when the AI omits a field. Reads brandName + tagline from
+    // lpBrandSettings.config (and salesConsole overrides) so non-Dandy
+    // tenants never see literal "Dandy" / dental-industry leakage.
+    const brandCtx: SalesBrandContext = await getSalesBrandContext(account.tenantId);
+    const fallbackBrand: FallbackBrand = {
+      name: brandCtx.brandName,
+      tagline: brandCtx.tagline,
+      valuePropPairs: brandCtx.valuePropPairs.map(v => ({ theme: v.theme, proof: v.proof })),
+    };
+
     // Fetch media library so the AI uses real assets, not invented URLs
     const [{ images, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }] =
       await Promise.all([fetchMediaCatalog(), fetchVideoCatalog()]);
@@ -1273,8 +1277,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     const baseSlug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-    const normBrand = (brand.brandName as string | undefined) ?? "";
-    let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, normBrand));
+    let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
 
     // Post-process: fill any empty image slots, replace invented video URLs, inject brand
     normalizedBlocks = fillEmptyImages(normalizedBlocks, images) as AiBlock[];
