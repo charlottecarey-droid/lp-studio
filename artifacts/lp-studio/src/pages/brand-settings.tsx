@@ -813,6 +813,8 @@ const FIELD_LABELS: Record<string, string> = {
 
 interface SalesBrandSetupSummary {
   hasSendingDomain: boolean;
+  hasSendingDomainConfigured?: boolean;
+  hasSendingDomainVerified?: boolean;
   hasReplyTo: boolean;
   hasSenderName: boolean;
   hasSenderLocalPart: boolean;
@@ -820,8 +822,57 @@ interface SalesBrandSetupSummary {
   isReadyToSend: boolean;
 }
 
-function ChecklistRow({ done, label, hint, anchorId }: {
+type DomainVerificationState =
+  | "verified"
+  | "pending"
+  | "not_started"
+  | "failed"
+  | "temporary_failure"
+  | "unknown"
+  | "not_found"
+  | "not_configured"
+  | "api_unavailable";
+
+interface DomainVerification {
+  status: DomainVerificationState;
+  domain: string;
+  checkedAt: number;
+  provider: "resend";
+}
+
+const RESEND_DOMAINS_DASHBOARD_URL = "https://resend.com/domains";
+
+function describeDomainVerification(v: DomainVerification | null): {
+  label: string;
+  tone: "verified" | "pending" | "neutral";
+  detail: string;
+} {
+  if (!v) return { label: "Checking…", tone: "neutral", detail: "Fetching DNS status from Resend." };
+  switch (v.status) {
+    case "verified":
+      return { label: "Verified", tone: "verified", detail: "Resend reports SPF/DKIM are live for this domain." };
+    case "pending":
+      return { label: "Pending DNS", tone: "pending", detail: "Resend is still waiting for SPF/DKIM records to propagate." };
+    case "not_started":
+      return { label: "Pending DNS", tone: "pending", detail: "DNS verification hasn't started yet in Resend." };
+    case "failed":
+      return { label: "DNS failed", tone: "pending", detail: "Resend couldn't verify this domain's DNS records." };
+    case "temporary_failure":
+      return { label: "Pending DNS", tone: "pending", detail: "Temporary verification failure — Resend will retry." };
+    case "not_found":
+      return { label: "Not in Resend", tone: "pending", detail: "This domain isn't registered in your Resend account yet." };
+    case "not_configured":
+      return { label: "Not set", tone: "neutral", detail: "No sending domain is configured." };
+    case "api_unavailable":
+      return { label: "Status unavailable", tone: "neutral", detail: "Couldn't reach Resend to confirm DNS status." };
+    default:
+      return { label: "Unknown", tone: "neutral", detail: "Resend returned an unrecognized status." };
+  }
+}
+
+function ChecklistRow({ done, label, hint, anchorId, actionLabel, actionHref }: {
   done: boolean; label: string; hint?: string; anchorId: string;
+  actionLabel?: string; actionHref?: string;
 }) {
   const handleJump = () => {
     const el = document.getElementById(anchorId);
@@ -832,6 +883,32 @@ function ChecklistRow({ done, label, hint, anchorId }: {
     window.setTimeout(() => {
       el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "rounded-lg");
     }, 1600);
+  };
+  const renderAction = () => {
+    if (done) return <span className="text-xs text-emerald-700 font-medium shrink-0">Done</span>;
+    if (actionHref) {
+      return (
+        <a
+          href={actionHref}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-primary hover:text-primary/80 shrink-0 underline-offset-2 hover:underline"
+        >
+          {actionLabel ?? "Open →"}
+        </a>
+      );
+    }
+    return (
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        onClick={handleJump}
+        className="h-auto p-0 text-xs text-primary hover:text-primary/80 shrink-0"
+      >
+        {actionLabel ?? "Set it →"}
+      </Button>
+    );
   };
   return (
     <div className="flex items-start gap-3 py-2">
@@ -844,60 +921,65 @@ function ChecklistRow({ done, label, hint, anchorId }: {
         <div className="text-sm font-medium leading-tight">{label}</div>
         {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
       </div>
-      {done ? (
-        <span className="text-xs text-emerald-700 font-medium shrink-0">Done</span>
-      ) : (
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          onClick={handleJump}
-          className="h-auto p-0 text-xs text-primary hover:text-primary/80 shrink-0"
-        >
-          Set it →
-        </Button>
-      )}
+      {renderAction()}
     </div>
   );
 }
 
-function SetupStatusCard({ config }: { config: BrandConfig }) {
+function SetupStatusCard({
+  config,
+  serverSummary,
+  domainVerification,
+}: {
+  config: BrandConfig;
+  serverSummary: SalesBrandSetupSummary | null;
+  domainVerification: DomainVerification | null;
+}) {
   // Compute the checklist locally from the draft `config` so it updates live
-  // as the user edits fields. We also fetch the backend summary once on mount
-  // so the persisted state from the server is reflected before the user makes
-  // any edits — and so this UI shares its source of truth with the wizard's
-  // "not fully configured" warning (both consume /sales/brand-context).
-  const [serverSummary, setServerSummary] = useState<SalesBrandSetupSummary | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await fetch("/api/sales/brand-context");
-        if (!r.ok) return;
-        const data = await r.json();
-        if (cancelled) return;
-        if (data?.setup) setServerSummary(data.setup as SalesBrandSetupSummary);
-      } catch {
-        // best-effort — local computation still works
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
+  // as the user edits fields. The server-fetched summary + Resend domain
+  // verification status are passed in from SalesConsoleSettings so the
+  // pill in the Sender Identity card and this checklist share a single
+  // fetch and a consistent view of DNS state.
   const sc: SalesConsoleConfig = config.salesConsole ?? {};
   const hasSenderName = !!(sc.senderName ?? "").trim();
   const hasSenderLocalPart = !!(sc.senderLocalPart ?? "").trim();
-  const hasSendingDomain = !!(sc.sendingDomain ?? "").trim();
+  const hasSendingDomainConfigured = !!(sc.sendingDomain ?? "").trim();
   const hasReplyTo = !!(sc.replyTo ?? "").trim();
   const hasValuePropPairs = Array.isArray(sc.valuePropPairs)
     && sc.valuePropPairs.some(p => !!(p?.theme ?? "").trim());
+
+  // Domain row is "done" only when the field is filled AND Resend reports
+  // the domain as verified. While we're still loading the verification
+  // status we conservatively treat it as not-done so the row doesn't flip
+  // to green only to flip back when DNS comes in as pending.
+  const domainConfiguredAndUnchanged =
+    hasSendingDomainConfigured
+    && domainVerification != null
+    && domainVerification.domain.toLowerCase() === (sc.sendingDomain ?? "").trim().toLowerCase();
+  const hasSendingDomainVerified =
+    domainConfiguredAndUnchanged && domainVerification!.status === "verified";
+  const hasSendingDomain = hasSendingDomainConfigured && hasSendingDomainVerified;
   const isReadyToSend = hasSenderName && hasSenderLocalPart && hasSendingDomain && hasReplyTo;
+
+  const domainDesc = describeDomainVerification(
+    domainConfiguredAndUnchanged ? domainVerification : null,
+  );
+  let domainHint = "Must be verified in Resend before sends will succeed.";
+  if (!hasSendingDomainConfigured) {
+    domainHint = "Add your sending domain, then verify SPF/DKIM in Resend.";
+  } else if (!domainConfiguredAndUnchanged) {
+    domainHint = "Save your changes — Resend verification will refresh after the next reload.";
+  } else if (domainVerification && domainVerification.status !== "verified") {
+    domainHint = `${domainDesc.detail} Open Resend to view the SPF/DKIM records you still need to add.`;
+  }
+  const domainAction = hasSendingDomainConfigured && !hasSendingDomainVerified
+    ? { actionLabel: "Check DNS →", actionHref: RESEND_DOMAINS_DASHBOARD_URL }
+    : {};
 
   const items = [
     { key: "senderName", done: hasSenderName, label: "Sender display name", hint: "Shown as the From name on every outbound email.", anchorId: "sales-console-sender-identity" },
     { key: "senderLocalPart", done: hasSenderLocalPart, label: "Sender local part", hint: "The part before the @ in your From address.", anchorId: "sales-console-sender-identity" },
-    { key: "sendingDomain", done: hasSendingDomain, label: "Sending domain", hint: "Must be verified in Resend before sends will succeed.", anchorId: "sales-console-sender-identity" },
+    { key: "sendingDomain", done: hasSendingDomain, label: "Sending domain verified", hint: domainHint, anchorId: "sales-console-sender-identity", ...domainAction },
     { key: "replyTo", done: hasReplyTo, label: "Reply-to address", hint: "Where replies from recipients land.", anchorId: "sales-console-sender-identity" },
     { key: "valuePropPairs", done: hasValuePropPairs, label: "At least one value-prop pair", hint: "Pain / proof pairs the AI picks from per recipient role.", anchorId: "sales-console-value-prop-pairs" },
   ];
@@ -947,7 +1029,15 @@ function SetupStatusCard({ config }: { config: BrandConfig }) {
       <Separator />
       <div className="divide-y divide-border">
         {items.map(i => (
-          <ChecklistRow key={i.key} done={i.done} label={i.label} hint={i.hint} anchorId={i.anchorId} />
+          <ChecklistRow
+            key={i.key}
+            done={i.done}
+            label={i.label}
+            hint={i.hint}
+            anchorId={i.anchorId}
+            actionLabel={"actionLabel" in i ? (i as { actionLabel?: string }).actionLabel : undefined}
+            actionHref={"actionHref" in i ? (i as { actionHref?: string }).actionHref : undefined}
+          />
         ))}
       </div>
     </Card>
@@ -980,9 +1070,48 @@ function SalesConsoleSettings({
     patch({ valuePropPairs: [...pairs, { roles: [], theme: "", pain: "", proof: "" }] });
   };
 
+  // Single fetch of /sales/brand-context that feeds both the Setup status
+  // card (server-saved summary + checklist verification state) and the
+  // pill rendered next to the Sending domain input below. Keeping it in
+  // one place avoids double-hitting the Resend API per page load and
+  // guarantees both UIs agree on whether DNS is verified.
+  const [serverSummary, setServerSummary] = useState<SalesBrandSetupSummary | null>(null);
+  const [domainVerification, setDomainVerification] = useState<DomainVerification | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/sales/brand-context");
+        if (!r.ok) return;
+        const data = await r.json();
+        if (cancelled) return;
+        if (data?.setup) setServerSummary(data.setup as SalesBrandSetupSummary);
+        if (data?.domainVerification) setDomainVerification(data.domainVerification as DomainVerification);
+      } catch {
+        // best-effort — local computation still works
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const currentDomain = (sc.sendingDomain ?? "").trim().toLowerCase();
+  const domainMatchesServer =
+    !!domainVerification && domainVerification.domain.toLowerCase() === currentDomain;
+  const pill = describeDomainVerification(domainMatchesServer ? domainVerification : null);
+  const pillClass =
+    pill.tone === "verified"
+      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+      : pill.tone === "pending"
+        ? "border-amber-300 bg-amber-50 text-amber-700"
+        : "border-slate-300 bg-slate-50 text-slate-600";
+
   return (
     <div className="space-y-8">
-      <SetupStatusCard config={config} />
+      <SetupStatusCard
+        config={config}
+        serverSummary={serverSummary}
+        domainVerification={domainVerification}
+      />
 
       <Card id="sales-console-sender-identity" className="p-6 space-y-5">
         <div>
@@ -1013,13 +1142,42 @@ function SalesConsoleSettings({
             <p className="text-xs text-muted-foreground">Part before the @. Combined with the sending domain to form the From address.</p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm">Sending domain</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-sm">Sending domain</Label>
+              {currentDomain.length > 0 && (
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] py-0 px-1.5 font-medium ${pillClass}`}
+                  title={pill.detail}
+                >
+                  {pill.label}
+                </Badge>
+              )}
+            </div>
             <Input
               value={sc.sendingDomain ?? ""}
               onChange={e => patch({ sendingDomain: e.target.value })}
               placeholder="e.g. ent.meetdandy.com"
             />
-            <p className="text-xs text-muted-foreground">Must be a verified domain in Resend.</p>
+            <p className="text-xs text-muted-foreground">
+              Must be a verified domain in Resend.{" "}
+              {currentDomain.length > 0 && domainMatchesServer && pill.tone !== "verified" && (
+                <>
+                  {pill.detail}{" "}
+                  <a
+                    href={RESEND_DOMAINS_DASHBOARD_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    Check DNS in Resend →
+                  </a>
+                </>
+              )}
+              {currentDomain.length > 0 && !domainMatchesServer && (
+                <>Save your changes to refresh DNS verification.</>
+              )}
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Reply-to address</Label>
