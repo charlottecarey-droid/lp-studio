@@ -197,6 +197,7 @@ function templateNeedsMicrositeUrl(...texts: (string | null | undefined)[]): boo
  * before calling — we don't gate here so that draft-page previews still work.
  */
 async function ensureHotlinkForContact(
+  tenantId: number,
   contactId: number,
   pageId: number,
   sfdcContactId: string | null,
@@ -234,7 +235,7 @@ async function ensureHotlinkForContact(
   }
   if (!token) throw new Error("Failed to generate unique hotlink token");
   const [row] = await db.insert(salesHotlinksTable)
-    .values({ token, contactId, sfdcContactId, pageId })
+    .values({ tenantId, token, contactId, sfdcContactId, pageId })
     .onConflictDoUpdate({
       target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId],
       targetWhere: sql`contact_id IS NOT NULL`,
@@ -644,7 +645,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       let hotlink = hotlinkByContactId.get(contact.id) ?? null;
       if (!hotlink && campaignPageId) {
         try {
-          const created = await ensureHotlinkForContact(contact.id, campaignPageId, contact.salesforceId ?? null);
+          const created = await ensureHotlinkForContact(tenantId, contact.id, campaignPageId, contact.salesforceId ?? null);
           hotlink = { id: created.id, token: created.token, pageId: campaignPageId };
           hotlinkByContactId.set(contact.id, hotlink);
         } catch (err) {
@@ -834,7 +835,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       const previewPageId = (campaign.metadata as any)?.pageId as number | undefined;
       if (previewPageId) {
         try {
-          const created = await ensureHotlinkForContact(contact.id, previewPageId, contact.salesforceId ?? null);
+          const created = await ensureHotlinkForContact(tenantId, contact.id, previewPageId, contact.salesforceId ?? null);
           hotlinkToken = created.token;
         } catch (err) {
           logger.error({ err, contactId: contact.id, pageId: previewPageId }, "Failed to ensure hotlink for preview");
@@ -1361,7 +1362,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
             return;
           }
           try {
-            const created = await ensureHotlinkForContact(contact.id, Number(pageId), contact.salesforceId ?? null);
+            const created = await ensureHotlinkForContact(tenantId, contact.id, Number(pageId), contact.salesforceId ?? null);
             testToken = created.token;
           } catch (err) {
             logger.error({ err, contactId: contact.id, pageId }, "Failed to ensure hotlink for test email");

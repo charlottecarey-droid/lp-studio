@@ -1467,6 +1467,150 @@ async function runMigrationsBody(): Promise<void> {
     } catch (seedErr) {
       logger.error({ err: seedErr }, "starter_images seed failed (non-fatal)");
     }
+
+    // ─── Migration 0019: tenant_id on sales_hotlinks + sales_inbound_emails ──
+    // Idempotent. Backfills from related rows, then enforces NOT NULL on
+    // sales_hotlinks (sales_inbound_emails stays nullable so webhook
+    // deliveries that fail tenant resolution still insert).
+    await db.execute(sql`
+      ALTER TABLE "sales_hotlinks"
+        ADD COLUMN IF NOT EXISTS "tenant_id" integer;
+    `);
+    await db.execute(sql`
+      UPDATE "sales_hotlinks" h
+         SET "tenant_id" = p."tenant_id"
+        FROM "lp_pages" p
+       WHERE h."page_id" = p."id"
+         AND h."tenant_id" IS NULL;
+    `);
+    await db.execute(sql`
+      UPDATE "sales_hotlinks" h
+         SET "tenant_id" = c."tenant_id"
+        FROM "sales_contacts" c
+       WHERE h."contact_id" = c."id"
+         AND h."tenant_id" IS NULL;
+    `);
+    await db.execute(sql`
+      UPDATE "sales_hotlinks" SET "tenant_id" = 1 WHERE "tenant_id" IS NULL;
+    `);
+    await db.execute(sql`
+      ALTER TABLE "sales_hotlinks" ALTER COLUMN "tenant_id" SET NOT NULL;
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sales_hotlinks_tenant_id_idx"
+        ON "sales_hotlinks" ("tenant_id");
+    `);
+    await db.execute(sql`
+      ALTER TABLE "sales_inbound_emails"
+        ADD COLUMN IF NOT EXISTS "tenant_id" integer;
+    `);
+    await db.execute(sql`
+      UPDATE "sales_inbound_emails" e
+         SET "tenant_id" = c."tenant_id"
+        FROM "sales_contacts" c
+       WHERE e."contact_id" = c."id"
+         AND e."tenant_id" IS NULL;
+    `);
+    // Marker-gated one-time backfill of legacy unmatched rows to tenant 1.
+    // Without this gate, every cold start would silently reassign newly
+    // arrived webhook rows (intentionally inserted with NULL when tenant
+    // resolution fails) to tenant 1 — exposing unrouted mail to Dandy.
+    {
+      const { rows: marker } = await pool.query(
+        `SELECT 1 FROM _schema_migration_markers WHERE key = 'inbound_tenant_backfill_v1'`,
+      );
+      if (marker.length === 0) {
+        await db.execute(sql`
+          UPDATE "sales_inbound_emails" SET "tenant_id" = 1 WHERE "tenant_id" IS NULL;
+        `);
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES ('inbound_tenant_backfill_v1')
+            ON CONFLICT DO NOTHING
+        `);
+      }
+    }
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sales_inbound_emails_tenant_id_idx"
+        ON "sales_inbound_emails" ("tenant_id");
+    `);
+
+    // ─── Migration 0020: seed Dandy (tenant 1) salesConsole config ──────────
+    // Idempotent via the `salesConsole` key existence check, so re-runs
+    // won't clobber edits Dandy makes through the new Brand Settings UI.
+    await db.execute(sql`
+      DO $$
+      DECLARE
+        existing_config jsonb;
+        has_sales_console boolean;
+      BEGIN
+        SELECT config INTO existing_config
+          FROM lp_brand_settings WHERE tenant_id = 1 LIMIT 1;
+
+        IF existing_config IS NULL THEN
+          -- No brand_settings row yet — insert with empty config so the
+          -- jsonb_set below can populate salesConsole on the same pass.
+          INSERT INTO lp_brand_settings (tenant_id, config)
+          VALUES (1, '{}'::jsonb);
+          existing_config := '{}'::jsonb;
+        END IF;
+
+        has_sales_console := existing_config ? 'salesConsole';
+
+        IF NOT has_sales_console THEN
+          UPDATE lp_brand_settings
+             SET config = jsonb_set(
+                   config,
+                   '{salesConsole}',
+                   jsonb_build_object(
+                     'senderName',       'Dandy',
+                     'senderLocalPart',  'partnerships',
+                     'sendingDomain',    'ent.meetdandy.com',
+                     'replyTo',          'sales@meetdandy.com',
+                     'notificationsLocalPart', 'notifications',
+                     'emailSignature',   '',
+                     'emailFooter',      '',
+                     'salesIntroLine',   'You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.',
+                     'briefBlurb',       '(a dental lab and clinical performance platform for DSOs)',
+                     'useBuiltInExemplars', true,
+                     'valuePropPairs', jsonb_build_array(
+                       jsonb_build_object('role','CFO / Finance','theme','Remakes are silently destroying margin',
+                         'pain','remakes cost ~$780 each and most DSOs can''t even track them across locations',
+                         'proof','Apex Dental Partners cut remakes by 29% after switching to Dandy'),
+                       jsonb_build_object('role','CFO / Finance','theme','Scanner CAPEX is an unnecessary barrier',
+                         'pain','$40–75K per operatory in scanner hardware is hard to justify when margins are tight',
+                         'proof','Dandy deploys scanners free — zero CAPEX'),
+                       jsonb_build_object('role','COO / Operations','theme','Too many lab vendors means no control',
+                         'pain','when every location picks its own lab, you get inconsistent quality, no leverage on pricing, and no visibility',
+                         'proof','DCA consolidated 400+ lab relationships down to one with Dandy'),
+                       jsonb_build_object('role','COO / Operations','theme','Standardization shouldn''t mean forcing doctors to switch',
+                         'pain','ops teams need consistency across locations, but mandating a single workflow alienates doctors',
+                         'proof','Dandy''s preferred program standardizes the lab without requiring doctors to change their process'),
+                       jsonb_build_object('role','CDO / Clinical','theme','Remakes are a clinical quality problem hiding in plain sight',
+                         'pain','most DSOs don''t have location-level remake data, so quality issues go undetected',
+                         'proof','DCA practices hit ~1% remake rate with Dandy''s standardized workflow'),
+                       jsonb_build_object('role','CDO / Clinical','theme','Catching fit issues before they ship',
+                         'pain','bad margins and fit problems only surface after the patient is in the chair — costly for the practice and the patient',
+                         'proof','Dandy''s AI margin detection flags fit issues before the crown ships'),
+                       jsonb_build_object('role','CEO / President','theme','Same-store growth is the next lever',
+                         'pain','acquisitions slow down eventually and same-store performance becomes the primary growth engine',
+                         'proof','Apex Dental Partners saw a 12.5% revenue increase with Dandy'),
+                       jsonb_build_object('role','CEO / President','theme','Scale without capital risk',
+                         'pain','growth requires scanners at every operatory, but $40–75K per site adds up fast',
+                         'proof','Dandy deploys free scanners — no capital risk to start'),
+                       jsonb_build_object('role','Growth / M&A','theme','Post-acquisition integration shouldn''t break the lab',
+                         'pain','every acquisition brings a new lab vendor, new workflows, and new quality standards to normalize',
+                         'proof','Dandy scales from 10 to 200+ locations on one platform'),
+                       jsonb_build_object('role','IT / Technology / Systems','theme','One fewer vendor to procure and manage',
+                         'pain','IT has to spec, procure, and support scanner hardware at every location — it doesn''t scale',
+                         'proof','DCA deployed 100 free scanners through Dandy — no hardware procurement for IT')
+                     )
+                   ),
+                   true
+                 )
+           WHERE tenant_id = 1;
+        END IF;
+      END $$;
+    `);
   } catch (err) {
     // Surface a single concise line that names the failing SQL fragment so the
     // failure stands out in the api-server workflow log instead of being buried

@@ -373,6 +373,7 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
 
       const token = await generateUniqueToken();
       const [hotlink] = await db.insert(salesHotlinksTable).values({
+        tenantId,
         token,
         contactId: contact.id,
         sfdcContactId: contact.salesforceId ?? null,

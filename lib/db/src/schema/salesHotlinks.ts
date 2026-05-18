@@ -14,6 +14,7 @@ import { lpPagesTable } from "./lpPages";
  */
 export const salesHotlinksTable = pgTable("sales_hotlinks", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
   token: text("token").notNull().unique(),
   contactId: integer("contact_id").references(() => salesContactsTable.id, { onDelete: "set null" }),
   sfdcContactId: text("sfdc_contact_id"),   // stable SFDC Contact ID (e.g. 003xxx)

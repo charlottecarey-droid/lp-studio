@@ -10,6 +10,9 @@ import { salesAccountsTable } from "./salesAccounts";
  */
 export const salesInboundEmailsTable = pgTable("sales_inbound_emails", {
   id: serial("id").primaryKey(),
+  // Nullable: webhook deliveries that fail tenant resolution still insert
+  // (so we don't drop mail). Routes always require auth + filter by tenant.
+  tenantId: integer("tenant_id"),
   contactId: integer("contact_id").references(() => salesContactsTable.id, { onDelete: "set null" }),
   accountId: integer("account_id").references(() => salesAccountsTable.id, { onDelete: "set null" }),
   messageId: text("message_id"),
