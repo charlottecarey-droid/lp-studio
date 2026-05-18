@@ -60,6 +60,7 @@ import {
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
@@ -173,6 +174,9 @@ function LaunchModal({
   onAudienceCreated: (a: Audience) => void;
 }) {
   const { user } = useAuth();
+  const { brand } = useBrandConfig();
+  const sendingDomain = brand.salesConsole?.sendingDomain?.trim() || "";
+  const senderSuffix = sendingDomain ? `@${sendingDomain}` : "@(set sending domain in Brand Settings)";
   const [selectedAudienceId, setSelectedAudienceId] = useState<number | null>(
     audiences.length === 1 ? audiences[0].id : null
   );
@@ -506,7 +510,7 @@ function LaunchModal({
                     className="border-0 rounded-none flex-1"
                   />
                   <span className="px-3 text-xs text-muted-foreground bg-muted border-l border-input h-full flex items-center">
-                    @ent.meetdandy.com
+                    {senderSuffix}
                   </span>
                 </div>
               </div>

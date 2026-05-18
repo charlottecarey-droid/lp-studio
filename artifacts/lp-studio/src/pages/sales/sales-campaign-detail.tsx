@@ -234,6 +234,8 @@ export default function SalesCampaignDetail() {
   // Sender settings — default sender name to the tenant brand name so
   // non-Dandy tenants don't see "Dandy" prefilled.
   const { brand } = useBrandConfig();
+  const sendingDomain = brand.salesConsole?.sendingDomain?.trim() || "";
+  const senderSuffix = sendingDomain ? `@${sendingDomain}` : "@(set sending domain in Brand Settings)";
   const [senderName, setSenderName] = useState(brand.brandName || "");
   const [senderEmail, setSenderEmail] = useState("partnerships");
   const [replyTo, setReplyTo] = useState("");
@@ -1166,10 +1168,10 @@ export default function SalesCampaignDetail() {
                     placeholder="partnerships"
                     className="border-0 rounded-none focus-visible:ring-0"
                   />
-                  <span className="px-3 text-sm text-muted-foreground bg-muted border-l border-input whitespace-nowrap">@ent.meetdandy.com</span>
+                  <span className="px-3 text-sm text-muted-foreground bg-muted border-l border-input whitespace-nowrap">{senderSuffix}</span>
                 </div>
               ) : (
-                <p className="text-sm text-foreground">{senderEmail || "partnerships"}@ent.meetdandy.com</p>
+                <p className="text-sm text-foreground">{senderEmail || "partnerships"}{senderSuffix}</p>
               )}
             </div>
             <div>

@@ -46,35 +46,89 @@ import { useBrandConfig } from "@/context/BrandConfigContext";
 
 const API_BASE = "/api";
 
-// ─── Email chrome constants (mirrored from DSO) ─────────────
+// ─── Email chrome builders (brand-driven) ───────────────────
+//
+// Email header/footer/banner are derived from the tenant's brand_settings
+// (logoUrl, emailBannerUrl, copyrightName, brandName, socialUrls). Non-Dandy
+// tenants see their own chrome — no Dandy logos, icons or addresses leak in
+// as fallbacks. When a tenant hasn't uploaded a logo, we render their brand
+// name as a wordmark instead.
 
-// Built-in Dandy banner. Used only as a fallback when the tenant has not set
-// its own `emailBannerUrl` in Brand Settings → Logo & Identity → Email banner.
-const DANDY_BANNER_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-email-banner.png";
-const DANDY_LOGO_DARK_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-logo-dark.png";
-const DANDY_LOGO_WHITE_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-logo-white.png";
+interface EmailChromeBrand {
+  brandName: string;
+  logoUrl: string;
+  emailBannerUrl: string;
+  copyrightName: string;
+  social: { facebook: string; instagram: string; linkedin: string };
+}
 
-const ICON_FB = "https://go.meetdandy.com/rs/103-HKO-179/images/flex_em_dandy_facebook.png";
-const ICON_IG = "https://go.meetdandy.com/rs/103-HKO-179/images/flex_em_dandy_instagram.png";
-const ICON_TW = "https://go.meetdandy.com/rs/103-HKO-179/images/flex_em_dandy_twitter.png";
-const ICON_LI = "https://go.meetdandy.com/rs/103-HKO-179/images/flex_em_dandy_linkedin.png";
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
-const EMAIL_HEADER = `<div style="background:#ffffff;padding:24px 48px;"><img src="${DANDY_LOGO_DARK_URL}" alt="Dandy" style="height:32px;display:block;" /></div>`;
+function brandChromeFromConfig(brand: {
+  brandName?: string;
+  logoUrl?: string;
+  emailBannerUrl?: string;
+  copyrightName?: string;
+  socialUrls?: { facebook?: string; instagram?: string; linkedin?: string };
+}): EmailChromeBrand {
+  return {
+    brandName: (brand.brandName ?? "").trim(),
+    logoUrl: (brand.logoUrl ?? "").trim(),
+    emailBannerUrl: (brand.emailBannerUrl ?? "").trim(),
+    copyrightName: (brand.copyrightName ?? "").trim() || (brand.brandName ?? "").trim(),
+    social: {
+      facebook: (brand.socialUrls?.facebook ?? "").trim(),
+      instagram: (brand.socialUrls?.instagram ?? "").trim(),
+      linkedin: (brand.socialUrls?.linkedin ?? "").trim(),
+    },
+  };
+}
+
 const EMAIL_DIVIDER = `<hr style="border:none;border-top:1px solid #e8e8e8;margin:0;" />`;
-const EMAIL_FOOTER =
-  `<div style="background:#1a3a2a;padding:40px 48px;font-family:Arial,Helvetica,sans-serif;">` +
-  `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr>` +
-  `<td style="text-align:left;"><a href="https://www.facebook.com/meetdandy" style="display:inline-block;margin-right:10px;"><img src="${ICON_FB}" alt="Facebook" style="width:28px;height:28px;" /></a><a href="https://www.instagram.com/meet.dandy" style="display:inline-block;margin-right:10px;"><img src="${ICON_IG}" alt="Instagram" style="width:28px;height:28px;" /></a><a href="https://x.com/meet_dandy" style="display:inline-block;margin-right:10px;"><img src="${ICON_TW}" alt="Twitter" style="width:28px;height:28px;" /></a><a href="https://www.linkedin.com/company/dandyofficial/" style="display:inline-block;"><img src="${ICON_LI}" alt="LinkedIn" style="width:28px;height:28px;" /></a></td>` +
-  `<td style="text-align:right;"><a href="#" style="color:#9ca89e;font-size:13px;text-decoration:underline;font-family:Arial,Helvetica,sans-serif;">Forward to a Friend</a></td>` +
-  `</tr></table>` +
-  `<div style="text-align:center;">` +
-  `<img src="${DANDY_LOGO_WHITE_URL}" alt="Dandy" style="height:36px;display:inline-block;margin-bottom:20px;" />` +
-  `<p style="font-size:13px;line-height:20px;color:#9ca89e;margin:0 0 2px;">22 Cortlandt Street, 30th Floor</p>` +
-  `<p style="font-size:13px;line-height:20px;color:#9ca89e;margin:0 0 20px;">New York, NY 10007</p>` +
-  `<p style="font-size:12px;line-height:18px;color:#9ca89e;margin:0 0 4px;">This email was sent to {{email}}, if you no longer want to receive emails,</p>` +
-  `<p style="font-size:12px;line-height:18px;color:#9ca89e;margin:0 0 20px;"><a href="{{unsubscribe_url}}" style="color:#9ca89e;text-decoration:underline;">unsubscribe here</a>.</p>` +
-  `<p style="font-size:12px;color:#9ca89e;margin:0;">&copy; ${new Date().getFullYear()} {{copyright_name}}. All Rights Reserved.</p>` +
-  `</div></div>`;
+
+function emailHeader(b: EmailChromeBrand): string {
+  const alt = escapeAttr(b.brandName || "Brand");
+  const inner = b.logoUrl
+    ? `<img src="${escapeAttr(b.logoUrl)}" alt="${alt}" style="height:32px;display:block;" />`
+    : `<span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:#1a1a1a;">${escapeAttr(b.brandName)}</span>`;
+  return `<div style="background:#ffffff;padding:24px 48px;">${inner}</div>`;
+}
+
+function emailFooter(b: EmailChromeBrand): string {
+  const linkStyle = `color:#9ca89e;font-size:13px;text-decoration:underline;font-family:Arial,Helvetica,sans-serif;margin-right:14px;`;
+  const socials: string[] = [];
+  if (b.social.facebook)  socials.push(`<a href="${escapeAttr(b.social.facebook)}"  style="${linkStyle}">Facebook</a>`);
+  if (b.social.instagram) socials.push(`<a href="${escapeAttr(b.social.instagram)}" style="${linkStyle}">Instagram</a>`);
+  if (b.social.linkedin)  socials.push(`<a href="${escapeAttr(b.social.linkedin)}"  style="${linkStyle}">LinkedIn</a>`);
+  const socialRow = socials.length > 0
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr>` +
+      `<td style="text-align:left;">${socials.join("")}</td>` +
+      `<td style="text-align:right;"><a href="#" style="color:#9ca89e;font-size:13px;text-decoration:underline;font-family:Arial,Helvetica,sans-serif;">Forward to a Friend</a></td>` +
+      `</tr></table>`
+    : "";
+
+  const wordmark = b.logoUrl
+    ? `<img src="${escapeAttr(b.logoUrl)}" alt="${escapeAttr(b.brandName || "Brand")}" style="max-height:36px;display:inline-block;margin-bottom:20px;" />`
+    : (b.brandName
+        ? `<p style="font-size:18px;font-weight:bold;color:#ffffff;margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;">${escapeAttr(b.brandName)}</p>`
+        : "");
+
+  const copyright = b.copyrightName
+    ? `<p style="font-size:12px;color:#9ca89e;margin:0;">&copy; ${new Date().getFullYear()} ${escapeAttr(b.copyrightName)}. All Rights Reserved.</p>`
+    : "";
+
+  return `<div style="background:#1a3a2a;padding:40px 48px;font-family:Arial,Helvetica,sans-serif;">` +
+    socialRow +
+    `<div style="text-align:center;">` +
+    wordmark +
+    `<p style="font-size:12px;line-height:18px;color:#9ca89e;margin:0 0 4px;">This email was sent to {{email}}, if you no longer want to receive emails,</p>` +
+    `<p style="font-size:12px;line-height:18px;color:#9ca89e;margin:0 0 20px;"><a href="{{unsubscribe_url}}" style="color:#9ca89e;text-decoration:underline;">unsubscribe here</a>.</p>` +
+    copyright +
+    `</div></div>`;
+}
+
 const EMAIL_CTA = (text: string, href = "{{microsite_url}}") =>
   `<div style="text-align:center;padding:8px 0 32px;"><a href="${href}" style="display:inline-block;background:#1a3a2a;color:#ffffff;font-size:14px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;padding:16px 32px;border-radius:4px;text-decoration:none;width:200px;text-align:center;font-family:Arial,Helvetica,sans-serif;">${text}</a></div>`;
 const EMAIL_SIGNATURE = `${EMAIL_DIVIDER}<div style="padding:24px 48px;"><p style="font-size:16px;font-weight:bold;color:#1a1a1a;margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;">{{sender_name}}</p><p style="font-size:14px;color:#555555;margin:0;font-family:Arial,Helvetica,sans-serif;">{{sender_title}}</p></div>`;
@@ -87,12 +141,14 @@ const EMAIL_WRAP = (inner: string, previewText?: string) => {
 
 function buildFullEmailHTML(
   bodyContent: string,
-  options: { showBanner?: boolean; ctaText?: string; ctaUrl?: string; showSignature?: boolean; previewText?: string; bannerUrl?: string },
+  options: { showBanner?: boolean; ctaText?: string; ctaUrl?: string; showSignature?: boolean; previewText?: string; bannerUrl?: string; chrome: EmailChromeBrand },
 ) {
-  const parts: string[] = [EMAIL_HEADER];
+  const parts: string[] = [emailHeader(options.chrome)];
   if (options.showBanner) {
-    const bannerSrc = options.bannerUrl?.trim() || DANDY_BANNER_URL;
-    parts.push(`<div style="font-size:0;line-height:0;"><img src="${bannerSrc}" alt="" style="width:100%;display:block;" /></div>`);
+    const bannerSrc = (options.bannerUrl ?? options.chrome.emailBannerUrl).trim();
+    if (bannerSrc) {
+      parts.push(`<div style="font-size:0;line-height:0;"><img src="${escapeAttr(bannerSrc)}" alt="" style="width:100%;display:block;" /></div>`);
+    }
   }
   parts.push(EMAIL_DIVIDER);
   parts.push(`<div style="padding:40px 48px;">${bodyContent}</div>`);
@@ -100,7 +156,7 @@ function buildFullEmailHTML(
     parts.push(EMAIL_CTA(options.ctaText, options.ctaUrl || "{{microsite_url}}"));
   }
   if (options.showSignature) parts.push(EMAIL_SIGNATURE);
-  parts.push(EMAIL_FOOTER);
+  parts.push(emailFooter(options.chrome));
   return EMAIL_WRAP(parts.join(""), options.previewText);
 }
 
@@ -256,7 +312,10 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 function SingleSendTab() {
   const { brand } = useBrandConfig();
-  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
+  const chrome = useMemo(() => brandChromeFromConfig(brand), [brand]);
+  const bannerUrl = chrome.emailBannerUrl;
+  const sendingDomain = brand.salesConsole?.sendingDomain?.trim() || "";
+  const senderSuffix = sendingDomain ? `@${sendingDomain}` : "@(set sending domain in Brand Settings)";
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
@@ -376,10 +435,10 @@ function SingleSendTab() {
   const getFinalHtml = useCallback(() => {
     if (emailFormat === "styled") {
       const html = editorRef.current?.getHTML() || bodyHtml;
-      return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl });
+      return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl, chrome });
     }
     return bodyText;
-  }, [emailFormat, bodyHtml, bodyText, showBanner, ctaText, ctaUrl, showSignature, previewText, bannerUrl]);
+  }, [emailFormat, bodyHtml, bodyText, showBanner, ctaText, ctaUrl, showSignature, previewText, bannerUrl, chrome]);
 
   async function handleSend() {
     const body = emailFormat === "styled" ? getFinalHtml() : bodyText;
@@ -474,7 +533,7 @@ function SingleSendTab() {
                 className="text-sm rounded-r-none border-r-0"
               />
               <span className="flex items-center h-10 px-3 rounded-r-md border border-input bg-muted text-xs text-muted-foreground whitespace-nowrap">
-                @ent.meetdandy.com
+                {senderSuffix}
               </span>
             </div>
           </div>
@@ -622,7 +681,7 @@ function SingleSendTab() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Preview</h3>
           <div className="rounded-lg border border-border bg-white p-6 mb-4 overflow-auto max-h-[500px]">
             <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
-              <p>From: {senderName || brand.brandName || "(sender)"} &lt;{senderEmail || "partnerships"}@ent.meetdandy.com&gt;</p>
+              <p>From: {senderName || brand.brandName || "(sender)"} &lt;{senderEmail || "partnerships"}{senderSuffix}&gt;</p>
               <p>Reply-To: {replyTo || "(none set)"}</p>
               <p>To: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} <${selectedContact.email}>` : "—"}</p>
               {previewText && <p className="italic">Preview: {previewText}</p>}
@@ -635,7 +694,7 @@ function SingleSendTab() {
             {emailFormat === "styled" ? (
               <div
                 dangerouslySetInnerHTML={{
-                  __html: sanitizeHtml(buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl })
+                  __html: sanitizeHtml(buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined, bannerUrl, chrome })
                     .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
                     .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                     .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
@@ -875,7 +934,8 @@ function CampaignsTab() {
 
 function TemplatesTab() {
   const { brand } = useBrandConfig();
-  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
+  const chrome = useMemo(() => brandChromeFromConfig(brand), [brand]);
+  const bannerUrl = chrome.emailBannerUrl;
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -906,13 +966,13 @@ function TemplatesTab() {
 
   const styledPreviewHTML = useMemo(() => {
     if (emailFormat !== "styled") return "";
-    return buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, bannerUrl });
-  }, [emailFormat, bodyHtml, showBanner, ctaText, ctaUrl, showSignature, bannerUrl]);
+    return buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, bannerUrl, chrome });
+  }, [emailFormat, bodyHtml, showBanner, ctaText, ctaUrl, showSignature, bannerUrl, chrome]);
 
   const getFullStyledHTML = useCallback(() => {
     const html = editorRef.current?.getHTML() || bodyHtml;
-    return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, bannerUrl });
-  }, [bodyHtml, showBanner, ctaText, ctaUrl, showSignature, bannerUrl]);
+    return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, bannerUrl, chrome });
+  }, [bodyHtml, showBanner, ctaText, ctaUrl, showSignature, bannerUrl, chrome]);
 
   const fetchTemplates = useCallback(() => {
     fetch(`${API_BASE}/sales/templates`)
