@@ -16,7 +16,7 @@
 // these routes should hit unauth in practice, but the keyGenerator must
 // return a non-empty string).
 
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { Request } from "express";
 import type { AuthUser } from "../middleware/requireAuth";
 
@@ -24,9 +24,12 @@ function tenantKey(req: Request): string {
   const auth = req as Request & { authUser?: AuthUser };
   const tid = auth.authUser?.tenantId;
   if (typeof tid === "number" && Number.isFinite(tid)) return `t:${tid}`;
-  // Fall back to IP. Express's req.ip honours `trust proxy` which the app
-  // already sets — see app.ts:18.
-  return `ip:${req.ip ?? "unknown"}`;
+  // Fall back to IP. Use express-rate-limit's ipKeyGenerator helper so
+  // IPv6 addresses are normalized to a /56 prefix — otherwise an IPv6
+  // attacker could trivially bypass the limit by varying the host bits.
+  // Express's req.ip honours `trust proxy` which the app already sets
+  // (see app.ts:18).
+  return `ip:${ipKeyGenerator(req.ip ?? "unknown", 56)}`;
 }
 
 const COST_RUNAWAY_MSG = {

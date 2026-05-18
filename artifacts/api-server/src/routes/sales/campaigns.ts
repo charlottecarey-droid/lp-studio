@@ -17,6 +17,7 @@ import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
+import { getSalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -201,6 +202,8 @@ async function ensureHotlinkForContact(
   sfdcContactId: string | null,
 ): Promise<{ id: number; token: string }> {
   // Fast path: an existing row for this (contact, page) — reactivate if soft-deleted.
+  // (contact, page) is effectively tenant-scoped because both contactId and
+  // pageId originate from tenant-filtered lookups in the caller.
   const [existing] = await db
     .select({ id: salesHotlinksTable.id, token: salesHotlinksTable.token, isActive: salesHotlinksTable.isActive })
     .from(salesHotlinksTable)
@@ -641,7 +644,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       let hotlink = hotlinkByContactId.get(contact.id) ?? null;
       if (!hotlink && campaignPageId) {
         try {
-          const created = await ensureHotlinkForContact(tenantId, contact.id, campaignPageId, contact.salesforceId ?? null);
+          const created = await ensureHotlinkForContact(contact.id, campaignPageId, contact.salesforceId ?? null);
           hotlink = { id: created.id, token: created.token, pageId: campaignPageId };
           hotlinkByContactId.set(contact.id, hotlink);
         } catch (err) {
@@ -831,7 +834,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       const previewPageId = (campaign.metadata as any)?.pageId as number | undefined;
       if (previewPageId) {
         try {
-          const created = await ensureHotlinkForContact(tenantId, contact.id, previewPageId, contact.salesforceId ?? null);
+          const created = await ensureHotlinkForContact(contact.id, previewPageId, contact.salesforceId ?? null);
           hotlinkToken = created.token;
         } catch (err) {
           logger.error({ err, contactId: contact.id, pageId: previewPageId }, "Failed to ensure hotlink for preview");
@@ -1358,7 +1361,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
             return;
           }
           try {
-            const created = await ensureHotlinkForContact(tenantId, contact.id, Number(pageId), contact.salesforceId ?? null);
+            const created = await ensureHotlinkForContact(contact.id, Number(pageId), contact.salesforceId ?? null);
             testToken = created.token;
           } catch (err) {
             logger.error({ err, contactId: contact.id, pageId }, "Failed to ensure hotlink for test email");
