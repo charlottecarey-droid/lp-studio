@@ -252,7 +252,7 @@ async function sendViaResend(payload: {
   subject: string;
   html?: string;
   text?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; resendId?: string }> {
   if (!RESEND_API_KEY) return { ok: false, error: "No RESEND_API_KEY" };
   try {
     const resp = await fetch("https://api.resend.com/emails", {
@@ -264,10 +264,28 @@ async function sendViaResend(payload: {
       const body = await resp.text();
       return { ok: false, error: body };
     }
-    return { ok: true };
+    // Resend returns { id: "..." }. Capture it so the bounce/complaint
+    // webhook can map provider events back to our send row.
+    let resendId: string | undefined;
+    try {
+      const parsed = await resp.json() as { id?: string };
+      if (parsed?.id) resendId = parsed.id;
+    } catch { /* tolerate non-JSON */ }
+    return { ok: true, resendId };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
+}
+
+// Bot/prefetch tolerance: Gmail and Apple Mail Privacy proxies prefetch the
+// pixel and rewrite URLs within milliseconds of send. We ignore any open or
+// click that fires inside this window so dashboards reflect real recipient
+// activity, not security scanners. The pixel and redirect still serve as
+// usual — only the DB stamp + signal are suppressed.
+const BOT_GRACE_MS = 2000;
+function isLikelyBot(sentAt: Date | null | undefined): boolean {
+  if (!sentAt) return false;
+  return Date.now() - new Date(sentAt).getTime() < BOT_GRACE_MS;
 }
 
 // ─── Campaign CRUD ──────────────────────────────────────────
@@ -697,7 +715,9 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         email: contact.email!,
         status: result.ok ? "sent" : "failed",
         sentAt: result.ok ? new Date() : null,
-        metadata: result.ok ? {} : { error: result.error },
+        metadata: result.ok
+          ? (result.resendId ? { resendId: result.resendId } : {})
+          : { error: result.error },
       });
 
       if (result.ok) {
@@ -953,19 +973,20 @@ router.get("/track/open", async (req, res): Promise<void> => {
   const id = req.query.id as string;
   if (id) {
     try {
-      await db.update(salesEmailSendsTable)
-        .set({ status: "opened", openedAt: new Date() })
-        .where(eq(salesEmailSendsTable.id, Number(id)));
-
-      // Get the send record and campaign to create a signal
+      // Look up the send first so we can suppress bot/prefetch noise.
       const sendWithCampaign = await db.select({
         send: salesEmailSendsTable,
         tenantId: salesEmailCampaignsTable.tenantId,
       }).from(salesEmailSendsTable)
         .leftJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
         .where(eq(salesEmailSendsTable.id, Number(id)));
-      if (sendWithCampaign.length > 0) {
+
+      if (sendWithCampaign.length > 0 && !isLikelyBot(sendWithCampaign[0].send.sentAt)) {
         const { send, tenantId } = sendWithCampaign[0];
+        await db.update(salesEmailSendsTable)
+          .set({ status: "opened", openedAt: new Date() })
+          .where(eq(salesEmailSendsTable.id, Number(id)));
+
         const [sig2] = await db.insert(salesSignalsTable).values({
           tenantId: tenantId ?? 0, // fallback to 0 if no campaign
           contactId: send.contactId,
@@ -990,18 +1011,19 @@ router.get("/track/click", async (req, res): Promise<void> => {
 
   if (sendId) {
     try {
-      await db.update(salesEmailSendsTable)
-        .set({ status: "clicked", clickedAt: new Date() })
-        .where(eq(salesEmailSendsTable.id, Number(sendId)));
-
       const sendWithCampaign = await db.select({
         send: salesEmailSendsTable,
         tenantId: salesEmailCampaignsTable.tenantId,
       }).from(salesEmailSendsTable)
         .leftJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
         .where(eq(salesEmailSendsTable.id, Number(sendId)));
-      if (sendWithCampaign.length > 0) {
+
+      if (sendWithCampaign.length > 0 && !isLikelyBot(sendWithCampaign[0].send.sentAt)) {
         const { send, tenantId } = sendWithCampaign[0];
+        await db.update(salesEmailSendsTable)
+          .set({ status: "clicked", clickedAt: new Date() })
+          .where(eq(salesEmailSendsTable.id, Number(sendId)));
+
         const [sig3] = await db.insert(salesSignalsTable).values({
           tenantId: tenantId ?? 0, // fallback to 0 if no campaign
           contactId: send.contactId,
@@ -1025,6 +1047,19 @@ router.get("/track/open-hotlink", async (req, res): Promise<void> => {
   const hotlinkId = req.query.h as string;
   if (hotlinkId) {
     try {
+      // Bot/prefetch guard: if the most recent send tied to this hotlink
+      // went out moments ago, skip — almost certainly an image proxy.
+      const [latestSend] = await db.select({ sentAt: salesEmailSendsTable.sentAt })
+        .from(salesEmailSendsTable)
+        .where(eq(salesEmailSendsTable.hotlinkId, Number(hotlinkId)))
+        .orderBy(desc(salesEmailSendsTable.sentAt))
+        .limit(1);
+      if (latestSend && isLikelyBot(latestSend.sentAt)) {
+        res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
+        res.send(PIXEL);
+        return;
+      }
+
       const hotlinkWithPage = await db.select({
         hotlink: salesHotlinksTable,
         tenantId: lpPagesTable.tenantId,
@@ -1118,6 +1153,17 @@ router.get("/track/click-hotlink", async (req, res): Promise<void> => {
 
   if (hotlinkId) {
     try {
+      // Bot/prefetch guard — same logic as the hotlink open endpoint.
+      const [latestSend] = await db.select({ sentAt: salesEmailSendsTable.sentAt })
+        .from(salesEmailSendsTable)
+        .where(eq(salesEmailSendsTable.hotlinkId, Number(hotlinkId)))
+        .orderBy(desc(salesEmailSendsTable.sentAt))
+        .limit(1);
+      if (latestSend && isLikelyBot(latestSend.sentAt)) {
+        res.redirect(302, destination);
+        return;
+      }
+
       const hotlinkWithPage = await db.select({
         hotlink: salesHotlinksTable,
         tenantId: lpPagesTable.tenantId,

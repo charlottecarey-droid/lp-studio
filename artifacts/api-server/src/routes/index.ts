@@ -37,6 +37,7 @@ const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
   { method: "GET",  pattern: /^\/sales\/track\// },        // GET /sales/track/click-hotlink, /sales/track/open — click/open tracking from emails
   { method: "*",    pattern: /^\/sales\/unsubscribe$/ },  // GET/POST /sales/unsubscribe — one-click unsubscribe links from emails
+  { method: "POST", pattern: /^\/sales\/webhooks\// },    // POST /sales/webhooks/resend — Resend delivery/bounce/complaint events (signature verified)
   { method: "*",    pattern: /^\/webhooks\// },           // POST /webhooks/rb2b, /webhooks/apollo — third-party visitor identification
   { method: "GET",  pattern: /^\/lp\/test-sentry-error$/ }, // dev-only — guarded by NODE_ENV in the route module itself
 ];
