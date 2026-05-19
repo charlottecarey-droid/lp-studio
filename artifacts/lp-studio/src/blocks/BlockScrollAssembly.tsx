@@ -115,7 +115,11 @@ function PieceView({
       }}
       className={sizeClass}
     >
-      <InlineText value={piece.content} onUpdate={onTextChange} />
+      <InlineText
+        value={piece.content}
+        onUpdate={onTextChange}
+        style={{ fontFamily: piece.kind === "text-body" ? BODY : DISPLAY }}
+      />
     </motion.div>
   );
 }

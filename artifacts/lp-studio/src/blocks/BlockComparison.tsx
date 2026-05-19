@@ -59,7 +59,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
               {props.oldWayBullets.map((bullet, i) => (
                 <li key={i} className="flex items-start gap-4">
                   <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
-                  <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateOldBullet(i, v) : undefined} className="text-[#4A6358] font-medium leading-relaxed" multiline />
+                  <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateOldBullet(i, v) : undefined} className="text-[#4A6358] font-medium leading-relaxed" multiline style={{ fontFamily: BODY }} />
                 </li>
               ))}
             </ul>
@@ -74,7 +74,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
               {props.newWayBullets.map((bullet, i) => (
                 <li key={i} className="flex items-start gap-4">
                   <CheckCircle2 className="w-6 h-6 text-[var(--brand-accent)] shrink-0 mt-0.5" />
-                  <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateNewBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline />
+                  <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateNewBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline style={{ fontFamily: BODY }} />
                 </li>
               ))}
             </ul>

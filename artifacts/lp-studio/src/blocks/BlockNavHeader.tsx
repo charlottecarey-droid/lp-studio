@@ -10,10 +10,6 @@ import { useBlockFonts } from "@/lib/use-block-fonts";
 import { motion } from "framer-motion";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
