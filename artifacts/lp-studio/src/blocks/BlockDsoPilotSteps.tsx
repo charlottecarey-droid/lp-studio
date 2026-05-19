@@ -113,7 +113,7 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
       <div style={{ position: "relative", zIndex: 1, maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowColor, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowColor, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -134,7 +134,7 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
             <InlineText as="span" value={headline || "Start small. Prove it out.\nThen scale."} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: subColor, lineHeight: 1.7, maxWidth: 560, margin: "1.5rem auto 0",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: subColor, lineHeight: 1.7, maxWidth: 560, margin: "1.5rem auto 0", fontFamily: BODY }}>
               <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -210,7 +210,7 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
                       marginTop: -4,
                     }}
                   >
-                    <p style={{ ...{fontSize: 11, fontWeight: 600, color: dark ? AW : P, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 6,}, ...{fontFamily: BODY} }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: dark ? AW : P, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 6, fontFamily: BODY }}>
                       Step 0{i + 1}
                     </p>
                     <h3
@@ -224,15 +224,15 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
                     >
                       <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                     </h3>
-                    <p style={{ ...{fontSize: "0.875rem", fontWeight: 500, color: subtitleColor, marginTop: 4,}, ...{fontFamily: BODY} }}>
+                    <p style={{ fontSize: "0.875rem", fontWeight: 500, color: subtitleColor, marginTop: 4, fontFamily: BODY }}>
                       <InlineText as="span" value={step.subtitle} onUpdate={updateStep ? (v) => updateStep(i, { subtitle: v }) : undefined} style={{ fontFamily: BODY }}/>
                     </p>
-                    <p style={{ ...{marginTop: "1rem", fontSize: "0.9375rem", color: descColor, lineHeight: 1.7,}, ...{fontFamily: BODY} }}>
+                    <p style={{ marginTop: "1rem", fontSize: "0.9375rem", color: descColor, lineHeight: 1.7, fontFamily: BODY }}>
                       <InlineText as="span" value={step.desc} onUpdate={updateStep ? (v) => updateStep(i, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                     </p>
                     <ul style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: 8 }}>
                       {step.details.map((d) => (
-                        <li key={d} style={{ ...{display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.9375rem", color: descColor,}, ...{fontFamily: BODY} }}>
+                        <li key={d} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.9375rem", color: descColor, fontFamily: BODY }}>
                           <div
                             style={{
                               width: 18,

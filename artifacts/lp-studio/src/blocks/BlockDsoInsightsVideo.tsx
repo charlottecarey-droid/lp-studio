@@ -478,7 +478,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           >
             <div className="w-24 h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.4)] to-transparent mb-10" />
 
-            <span className="block text-[var(--brand-accent)] font-display font-bold leading-none mb-4 select-none" style={{ ...{fontSize: "4rem", lineHeight: 0.85, opacity: 0.9}, ...{fontFamily: BODY} }} aria-hidden>
+            <span className="block text-[var(--brand-accent)] font-display font-bold leading-none mb-4 select-none" style={{ fontSize: "4rem", lineHeight: 0.85, opacity: 0.9, fontFamily: BODY }} aria-hidden>
               &ldquo;
             </span>
 

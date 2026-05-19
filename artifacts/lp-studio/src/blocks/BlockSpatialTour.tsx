@@ -167,7 +167,7 @@ function PrimaryCTA({
       }}
     >
       {label}
-      <span style={{ ...{fontSize: 16, lineHeight: 1}, ...{fontFamily: BODY} }}>→</span>
+      <span style={{ fontSize: 16, lineHeight: 1, fontFamily: BODY }}>→</span>
     </Tag>
   );
 }
@@ -212,7 +212,7 @@ function SecondaryCTA({
         ...style,
       }}
     >
-      <span style={{ ...{width: 22, height: 22, borderRadius: "50%", background: MINT, color: FOREST, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, paddingLeft: 1,}, ...{fontFamily: BODY} }}>
+      <span style={{ width: 22, height: 22, borderRadius: "50%", background: MINT, color: FOREST, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, paddingLeft: 1, fontFamily: BODY }}>
         ▶
       </span>
       {label}
@@ -417,7 +417,7 @@ function TelemetryStrip({
       {items.map((it, i) => (
         <span key={i} style={{ fontFamily: BODY }}>{it}</span>
       ))}
-      <span style={{ ...{display: "inline-flex", alignItems: "center", gap: 8, color: liveColor, justifySelf: "end",}, ...{fontFamily: BODY} }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: liveColor, justifySelf: "end", fontFamily: BODY }}>
         <span style={{ ...{width: 6, height: 6, borderRadius: "50%", background: liveColor, boxShadow: `0 0 6px ${liveColor}`,}, ...{fontFamily: BODY} }} />
         {liveLabel}
       </span>
@@ -456,7 +456,7 @@ function FileCode({
       }}
     >
       {showDot && (
-        <span style={{ ...{width: 6, height: 6, borderRadius: "50%", background: dotColor,}, ...{fontFamily: BODY} }} />
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, fontFamily: BODY }} />
       )}
       <span style={{ fontFamily: BODY }}>{text}</span>
     </div>
@@ -494,9 +494,9 @@ function BracketPill({
         ...style,
       }}
     >
-      <span style={{ ...{color: bc, opacity: 0.85}, ...{fontFamily: BODY} }}>[</span>
+      <span style={{ color: bc, opacity: 0.85, fontFamily: BODY }}>[</span>
       <span style={{ fontFamily: BODY }}>{children}</span>
-      <span style={{ ...{color: bc, opacity: 0.85}, ...{fontFamily: BODY} }}>]</span>
+      <span style={{ color: bc, opacity: 0.85, fontFamily: BODY }}>]</span>
     </span>
   );
 }
@@ -1141,7 +1141,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.manifestoHeadlineLine1}
             <br />
-            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: DISPLAY} }}>{p.manifestoHeadlineEmphasis}</span>
+            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY, fontFamily: DISPLAY }}>{p.manifestoHeadlineEmphasis}</span>
           </h2>
           <p
             style={{
@@ -1380,9 +1380,9 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
                 gap: 4,
               }}
             >
-              <span style={{ ...{opacity: 0.55, fontWeight: 400}, ...{fontFamily: BODY} }}>[</span>
-              <span style={{ ...{fontWeight: 400}, ...{fontFamily: BODY} }}>{station.number}</span>
-              <span style={{ ...{opacity: 0.55, fontWeight: 400}, ...{fontFamily: BODY} }}>]</span>
+              <span style={{ opacity: 0.55, fontWeight: 400, fontFamily: BODY }}>[</span>
+              <span style={{ fontWeight: 400, fontFamily: BODY }}>{station.number}</span>
+              <span style={{ opacity: 0.55, fontWeight: 400, fontFamily: BODY }}>]</span>
             </span>
             <div style={{ height: 1, background: "rgb(var(--brand-primary-rgb, 0 58 48) / 0.20)", flex: 1 }} />
             <span
@@ -1474,7 +1474,7 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.tourHeadlineLine1}
             <br />
-            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT}, ...{fontFamily: DISPLAY} }}>{p.tourHeadlineEmphasis}</span>
+            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT, fontFamily: DISPLAY }}>{p.tourHeadlineEmphasis}</span>
             <br />
             {p.tourHeadlineLine3}
           </h2>
@@ -1554,12 +1554,12 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
                         letterSpacing: "0.02em",
                       }}
                     >
-                      <span style={{ ...{opacity: 0.55}, ...{fontFamily: BODY} }}>[</span>
+                      <span style={{ opacity: 0.55, fontFamily: BODY }}>[</span>
                       {s.number}
-                      <span style={{ ...{opacity: 0.55}, ...{fontFamily: BODY} }}>]</span>
+                      <span style={{ opacity: 0.55, fontFamily: BODY }}>]</span>
                     </span>
                     <span style={{ fontFamily: BODY }}>{s.label}</span>
-                    <span style={{ ...{fontSize: 10.5, color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 500,}, ...{fontFamily: BODY} }}>
+                    <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 500, fontFamily: BODY }}>
                       T+{s.insetDuration}
                     </span>
                   </div>
@@ -1646,7 +1646,7 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
               <br />
               {p.calloutHeadlineLine2}
               <br />
-              <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: DISPLAY} }}>{p.calloutHeadlineEmphasis}</span>
+              <span style={{ color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", fontFamily: DISPLAY }}>{p.calloutHeadlineEmphasis}</span>
             </h2>
             <div style={{ marginTop: 36, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
               {p.calloutPoints.map((pt) => (
@@ -1713,7 +1713,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.waysHeadlineLine1}
             <br />
-            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: DISPLAY} }}>{p.waysHeadlineEmphasis}</span>
+            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY, fontFamily: DISPLAY }}>{p.waysHeadlineEmphasis}</span>
           </h2>
         </div>
 
@@ -1823,7 +1823,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
                   <span style={{ fontFamily: SERIF, fontSize: 16, color: KELLY, letterSpacing: "-0.02em" }}>
                     {w.ctaText}
                   </span>
-                  <span style={{ ...{width: 32, height: 32, borderRadius: "50%", background: KELLY, color: WHITE, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14,}, ...{fontFamily: BODY} }}>
+                  <span style={{ width: 32, height: 32, borderRadius: "50%", background: KELLY, color: WHITE, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontFamily: BODY }}>
                     →
                   </span>
                 </div>
@@ -1880,7 +1880,7 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.calendarHeadlineLine1}
             <br />
-            <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: DISPLAY} }}>{p.calendarHeadlineEmphasis}</span>
+            <span style={{ color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", fontFamily: DISPLAY }}>{p.calendarHeadlineEmphasis}</span>
           </h2>
           <p
             style={{

@@ -93,7 +93,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
-            <motion.p {...eyebrowAnim} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+            <motion.p {...eyebrowAnim} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -111,7 +111,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
             <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p {...subAnim} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: dark ? "rgba(255,255,255,0.60)" : MU, lineHeight: 1.7, maxWidth: 640, margin: "1.5rem auto 0",}, ...{fontFamily: BODY} }}>
+            <motion.p {...subAnim} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: dark ? "rgba(255,255,255,0.60)" : MU, lineHeight: 1.7, maxWidth: 640, margin: "1.5rem auto 0", fontFamily: BODY }}>
               <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -226,7 +226,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 >
                   <Check style={{ width: 11, height: 11, color: P }} strokeWidth={2.5} />
                 </div>
-                <span style={{ ...{fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55}, ...{fontFamily: BODY} }}>
+                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55, fontFamily: BODY }}>
                   <InlineText as="span" value={row.dandy} onUpdate={updateRow ? (v) => updateRow(i, { dandy: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </span>
               </div>
@@ -240,7 +240,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 }}
               >
                 <Minus style={{ width: 16, height: 16, color: "hsla(152,8%,48%,0.25)", marginTop: 2, flexShrink: 0 }} />
-                <span style={{ ...{fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55}, ...{fontFamily: BODY} }}>
+                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55, fontFamily: BODY }}>
                   <InlineText as="span" value={row.traditional} onUpdate={updateRow ? (v) => updateRow(i, { traditional: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </span>
               </div>

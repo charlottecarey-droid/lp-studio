@@ -87,7 +87,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
               </div>
               <div className="p-5 flex flex-col flex-1">
                 {(item.category || updateItem) && (
-                  <span className="text-xs uppercase tracking-wider font-medium mb-2" style={{ ...{color: brand.primaryColor}, ...{fontFamily: BODY} }}>
+                  <span className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: brand.primaryColor, fontFamily: BODY }}>
                     <InlineText value={item.category ?? ""} onUpdate={updateItem ? (v) => updateItem(i, { category: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </span>
                 )}

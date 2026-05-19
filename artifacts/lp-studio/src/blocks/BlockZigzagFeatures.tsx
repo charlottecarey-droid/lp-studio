@@ -67,7 +67,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
           const textEl = (
             <div className="flex flex-col justify-center gap-5">
               {row.tag && (
-                <span className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-fit" style={{ ...{backgroundColor: brand.accentColor, color: brand.primaryColor}, ...{fontFamily: BODY} }}>
+                <span className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-fit" style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, fontFamily: BODY }}>
                   <InlineText
                     value={row.tag}
                     onUpdate={onFieldChange ? (v) => updateRow(i, "tag", v) : undefined}

@@ -143,7 +143,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                 }`}
               >
                 {panel.tag && (
-                  <span className="inline-block text-xs font-bold uppercase tracking-widest mb-4 px-3 py-1 rounded-full" style={{ ...{backgroundColor: panel.accentColor || "var(--brand-accent)", color: panel.bgColor || "#0B0B0F",}, ...{fontFamily: BODY} }}>
+                  <span className="inline-block text-xs font-bold uppercase tracking-widest mb-4 px-3 py-1 rounded-full" style={{ backgroundColor: panel.accentColor || "var(--brand-accent)", color: panel.bgColor || "#0B0B0F", fontFamily: BODY }}>
                     <InlineText
                       value={panel.tag}
                       onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { tag: v }, props, onFieldChange) : undefined}

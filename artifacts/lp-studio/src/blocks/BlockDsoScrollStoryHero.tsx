@@ -142,7 +142,7 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
         }}
       >
         {/* Eyebrow */}
-        <p style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "2.5rem",}, ...{fontFamily: BODY} }}>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "2.5rem", fontFamily: BODY }}>
           <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
 
@@ -174,7 +174,7 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
               }}>
                 <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: DISPLAY }}/>
               </h1>
-              <p style={{ ...{fontSize: "clamp(0.9375rem, 1.1vw, 1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 460,}, ...{fontFamily: BODY} }}>
+              <p style={{ fontSize: "clamp(0.9375rem, 1.1vw, 1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 460, fontFamily: BODY }}>
                 <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
               </p>
             </motion.div>
@@ -218,7 +218,7 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
         </div>
 
         {/* Chapter counter */}
-        <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, marginBottom: "2.5rem"}, ...{fontFamily: BODY} }}>
+        <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, marginBottom: "2.5rem", fontFamily: BODY }}>
           {String(active + 1).padStart(2, "0")} / {String(displayChapters.length).padStart(2, "0")}
         </p>
 

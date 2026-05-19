@@ -244,7 +244,7 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
           animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
           transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         >
-          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.05 }} style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem"}, ...{fontFamily: BODY} }}>
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.05 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
           <motion.h2
@@ -261,7 +261,7 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
           >
             <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.2 }} style={{ ...{fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440}, ...{fontFamily: BODY} }}>
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.2 }} style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440, fontFamily: BODY }}>
             <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
@@ -280,7 +280,7 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
             {stats.map((s, i) => (
               <div key={i}>
                 <InlineText as="p" value={s.value} onUpdate={field(s.valueKey)} style={{ fontFamily: DISPLAY_FONT, fontSize: "2.25rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }} />
-                <InlineText as="p" value={s.label} onUpdate={field(s.labelKey)} style={{ ...{fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem"}, ...{fontFamily: BODY} }} />
+                <InlineText as="p" value={s.label} onUpdate={field(s.labelKey)} style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem", fontFamily: BODY }} />
               </div>
             ))}
           </motion.div>

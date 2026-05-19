@@ -305,7 +305,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
               style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
             >
               {eyebrow && (
-                <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC}, ...{fontFamily: BODY} }}>
+                <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC, fontFamily: BODY }}>
                   <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
                 </p>
               )}
@@ -315,7 +315,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
                 </h2>
               )}
               {body && (
-                <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, margin: 0}, ...{fontFamily: BODY} }}>
+                <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, margin: 0, fontFamily: BODY }}>
                   <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
                 </p>
               )}
@@ -342,7 +342,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
           style={{ textAlign: "center", maxWidth: 720, margin: "0 auto 3rem" }}
         >
           {eyebrow && (
-            <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem"}, ...{fontFamily: BODY} }}>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </p>
           )}
@@ -352,7 +352,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
             </h2>
           )}
           {body && (
-            <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, marginBottom: 0}, ...{fontFamily: BODY} }}>
+            <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, marginBottom: 0, fontFamily: BODY }}>
               <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
             </p>
           )}

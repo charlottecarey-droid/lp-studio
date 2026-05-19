@@ -72,7 +72,7 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
                 )}
               >
                 {(props.showNumbers ?? true) && (
-                  <span className="font-bold text-2xl leading-none" style={{ ...{color: props.numberColor ?? "var(--brand-accent)"}, ...{fontFamily: BODY} }}>
+                  <span className="font-bold text-2xl leading-none" style={{ color: props.numberColor ?? "var(--brand-accent)", fontFamily: BODY }}>
                     {String(i + 1).padStart(2, "0")}.
                   </span>
                 )}

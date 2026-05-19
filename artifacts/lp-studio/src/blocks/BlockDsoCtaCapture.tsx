@@ -229,7 +229,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
             style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2rem" }}
           >
             <span style={{ ...{display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: AW, boxShadow: `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.12)"}`, flexShrink: 0,}, ...{fontFamily: BODY} }} />
-            <p style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, margin: 0}, ...{fontFamily: BODY} }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, margin: 0, fontFamily: BODY }}>
               <InlineText value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </p>
           </motion.div>
@@ -251,7 +251,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
           </motion.h2>
 
           {/* Body */}
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.2 }} style={{ ...{fontSize: "1.0625rem", lineHeight: 1.68, color: muted, maxWidth: 420, marginBottom: "2rem"}, ...{fontFamily: BODY} }}>
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.2 }} style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: muted, maxWidth: 420, marginBottom: "2rem", fontFamily: BODY }}>
             <InlineText value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
@@ -276,7 +276,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
                   <InlineText value={successHeadline} onUpdate={field("successHeadline")} style={{ fontFamily: BODY }}/>
                 </span>
               </div>
-              <p style={{ ...{fontSize: "0.875rem", color: muted, margin: 0, lineHeight: 1.6}, ...{fontFamily: BODY} }}>
+              <p style={{ fontSize: "0.875rem", color: muted, margin: 0, lineHeight: 1.6, fontFamily: BODY }}>
                 <InlineText value={successBody} onUpdate={field("successBody")} multiline style={{ fontFamily: BODY }}/>
               </p>
               {chilipiperUrl && (
@@ -305,7 +305,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               style={{ maxWidth: 480 }}
             >
               {(inputLabel || onFieldChange) && (
-                <p style={{ ...{fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.6)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)", marginBottom: "0.65rem"}, ...{fontFamily: BODY} }}>
+                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.6)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)", marginBottom: "0.65rem", fontFamily: BODY }}>
                   <InlineText value={inputLabel ?? ""} onUpdate={field("inputLabel")} style={{ fontFamily: BODY }}/>
                 </p>
               )}
@@ -365,7 +365,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
                 </div>
 
                 {emailError && (
-                  <p style={{ ...{fontSize: "0.75rem", color: "rgba(239,68,68,0.85)", marginTop: "0.125rem", marginLeft: "1rem"}, ...{fontFamily: BODY} }}>
+                  <p style={{ fontSize: "0.75rem", color: "rgba(239,68,68,0.85)", marginTop: "0.125rem", marginLeft: "1rem", fontFamily: BODY }}>
                     {emailError}
                   </p>
                 )}
@@ -383,12 +383,12 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem 2rem", marginTop: "1.75rem", alignItems: "center" }}
             >
               {trusts.map((t, i) => (
-                <span key={i} style={{ ...{display: "flex", alignItems: "center", gap: "0.45rem"}, ...{fontFamily: BODY} }}>
+                <span key={i} style={{ display: "flex", alignItems: "center", gap: "0.45rem", fontFamily: BODY }}>
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                     <circle cx="6.5" cy="6.5" r="6" stroke={dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.35)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.25)"} strokeWidth="1" />
                     <path d="M3.5 6.5l2 2 4-4" stroke={AW} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span style={{ ...{fontSize: "0.8125rem", color: muted, fontWeight: 500}, ...{fontFamily: BODY} }}>{t}</span>
+                  <span style={{ fontSize: "0.8125rem", color: muted, fontWeight: 500, fontFamily: BODY }}>{t}</span>
                 </span>
               ))}
             </motion.div>

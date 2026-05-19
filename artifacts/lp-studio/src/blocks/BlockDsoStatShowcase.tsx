@@ -132,12 +132,12 @@ function StatCard({
         transition={{ duration: 0.6, delay: index * 0.09 + 0.2 }}
       />
 
-      <p style={{ ...{fontSize: "0.875rem", fontWeight: 600, color: fg, marginBottom: "0.5rem", letterSpacing: "-0.01em"}, ...{fontFamily: BODY} }}>
+      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: fg, marginBottom: "0.5rem", letterSpacing: "-0.01em", fontFamily: BODY }}>
         <InlineText as="span" value={stat.label} onUpdate={onUpdateLabel} style={{ fontFamily: BODY }}/>
       </p>
 
       {(stat.description || onUpdateDescription) && (
-        <p style={{ ...{fontSize: "0.8125rem", color: mu, lineHeight: 1.55}, ...{fontFamily: BODY} }}>
+        <p style={{ fontSize: "0.8125rem", color: mu, lineHeight: 1.55, fontFamily: BODY }}>
           <InlineText as="span" value={stat.description ?? ""} onUpdate={onUpdateDescription} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
@@ -226,7 +226,7 @@ export function BlockDsoStatShowcase({ props, onFieldChange }: Props) {
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4.5rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} animate={headerInView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: eyebrowFg, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 10 }} animate={headerInView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: eyebrowFg, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}

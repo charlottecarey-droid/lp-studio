@@ -192,7 +192,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                 margin: 0,
               }}
             >
-              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ ...{color: "#fff"}, ...{fontFamily: DISPLAY} }} />
+              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ color: "#fff", fontFamily: DISPLAY }} />
             </h1>
 
             {subtitle !== undefined && (
@@ -260,7 +260,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                 justifyContent: "center",
               }}
             >
-              <p style={{ ...{color: "rgba(255,255,255,0.22)", fontSize: "0.875rem", fontStyle: "italic",}, ...{fontFamily: BODY} }}>
+              <p style={{ color: "rgba(255,255,255,0.22)", fontSize: "0.875rem", fontStyle: "italic", fontFamily: BODY }}>
                 Add a side image
               </p>
             </div>

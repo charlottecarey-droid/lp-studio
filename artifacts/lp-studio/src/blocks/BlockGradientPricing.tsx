@@ -99,7 +99,7 @@ export function BlockGradientPricing({ props, brand, onFieldChange }: Props) {
                   <InlineText as="span" value={tier.name} onUpdate={updateTier ? (v) => updateTier(i, { name: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </div>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="font-bold leading-none" style={{ ...{fontSize: "clamp(2.5rem, 4vw, 3.75rem)"}, ...{fontFamily: BODY} }}>
+                  <span className="font-bold leading-none" style={{ fontSize: "clamp(2.5rem, 4vw, 3.75rem)", fontFamily: BODY }}>
                     <InlineText as="span" value={tier.price} onUpdate={updateTier ? (v) => updateTier(i, { price: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </span>
                   {tier.period && (

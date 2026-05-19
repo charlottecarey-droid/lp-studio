@@ -137,7 +137,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
   );
 
   const subEl = (align: "center" | "left") => subheadline ? (
-    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.12 }} style={{ ...{fontSize: "1.125rem", lineHeight: 1.7, color: subC, marginBottom: "2.25rem", maxWidth: align === "center" ? 600 : undefined, marginLeft: align === "center" ? "auto" : undefined, marginRight: align === "center" ? "auto" : undefined,}, ...{fontFamily: BODY} }}>
+    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.12 }} style={{ fontSize: "1.125rem", lineHeight: 1.7, color: subC, marginBottom: "2.25rem", maxWidth: align === "center" ? 600 : undefined, marginLeft: align === "center" ? "auto" : undefined, marginRight: align === "center" ? "auto" : undefined, fontFamily: BODY }}>
       <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
     </motion.p>
   ) : null;
@@ -187,10 +187,10 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
   );
 
   const trustEl = trustLine ? (
-    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ ...{marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", gap: "0.5rem",}, ...{fontFamily: BODY} }}>
-      <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
+    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: BODY }}>
+      <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
       <InlineText as="span" value={trustLine} onUpdate={field("trustLine")} style={{ fontFamily: BODY }}/>
-      <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
+      <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
     </motion.p>
   ) : null;
 
@@ -317,10 +317,10 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
             {ctasEl}
           </div>
           {trustLine && (
-            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ ...{marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",}, ...{fontFamily: BODY} }}>
-              <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
+            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontFamily: BODY }}>
+              <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
               {trustLine}
-              <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
+              <span style={{ display: "inline-block", width: 32, height: 1, background: divC, fontFamily: BODY }} />
             </motion.p>
           )}
         </div>

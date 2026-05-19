@@ -61,7 +61,7 @@ export function BlockBeforeAfterGallery({ props, brand, onFieldChange }: Props) 
           {props.pairs.map((pair, i) => (
             <div key={i} className="grid md:grid-cols-2 gap-4 md:gap-6">
               <figure className="relative">
-                <span className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-[0.2em] px-2 py-1 rounded" style={{ ...{backgroundColor: "rgba(0,0,0,0.7)", color: "#fff"}, ...{fontFamily: BODY} }}>
+                <span className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-[0.2em] px-2 py-1 rounded" style={{ backgroundColor: "rgba(0,0,0,0.7)", color: "#fff", fontFamily: BODY }}>
                   {beforeLabel}
                 </span>
                 <InlineImage
@@ -72,7 +72,7 @@ export function BlockBeforeAfterGallery({ props, brand, onFieldChange }: Props) 
                 />
               </figure>
               <figure className="relative">
-                <span className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-[0.2em] px-2 py-1 rounded" style={{ ...{backgroundColor: accent, color: "#fff"}, ...{fontFamily: BODY} }}>
+                <span className="absolute top-3 left-3 z-10 text-[10px] uppercase tracking-[0.2em] px-2 py-1 rounded" style={{ backgroundColor: accent, color: "#fff", fontFamily: BODY }}>
                   {afterLabel}
                 </span>
                 <InlineImage

@@ -180,7 +180,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           {/* Eyebrow */}
-          <InlineText as="p" value={eyebrow} onUpdate={field("eyebrow")} style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.20em", textTransform: "uppercase", color: AW, marginBottom: "2.5rem",}, ...{fontFamily: BODY} }} />
+          <InlineText as="p" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.20em", textTransform: "uppercase", color: AW, marginBottom: "2.5rem", fontFamily: BODY }} />
 
           {/* Stat block */}
           <div style={{
@@ -202,7 +202,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
             >
               <InlineText as="span" value={stat} onUpdate={field("stat")} style={{ fontFamily: BODY }}/>
             </motion.p>
-            <InlineText as="p" value={statLabel} onUpdate={field("statLabel")} style={{ ...{fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW,}, ...{fontFamily: BODY} }} />
+            <InlineText as="p" value={statLabel} onUpdate={field("statLabel")} style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, fontFamily: BODY }} />
           </div>
 
           {/* Quote */}
@@ -225,7 +225,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
               <div style={{ width: 24, height: 1, background: AW, opacity: 0.35, flexShrink: 0 }} />
-              <InlineText as="p" value={attribution} onUpdate={field("attribution")} style={{ ...{fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED,}, ...{fontFamily: BODY} }} />
+              <InlineText as="p" value={attribution} onUpdate={field("attribution")} style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, fontFamily: BODY }} />
             </div>
           </motion.div>
         </motion.div>

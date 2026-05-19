@@ -82,7 +82,7 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
       <div style={{ position: "relative", zIndex: 1, maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ maxWidth: 768, marginBottom: "3.5rem" }}>
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -175,7 +175,7 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
                     onUpdate={updateChallenge ? (v) => updateChallenge(i, { title: v }) : undefined}
                   style={{ fontFamily: DISPLAY }}/>
                 </h3>
-                <p style={{ ...{fontSize: "0.875rem", color: dark ? "rgba(255,255,255,0.55)" : MU, lineHeight: 1.7,}, ...{fontFamily: BODY} }}>
+                <p style={{ fontSize: "0.875rem", color: dark ? "rgba(255,255,255,0.55)" : MU, lineHeight: 1.7, fontFamily: BODY }}>
                   <InlineText
                     as="span"
                     value={c.desc}

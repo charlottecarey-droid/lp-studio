@@ -265,7 +265,7 @@ function MarqueeTags({
       <motion.div style={{ x }} className="flex gap-3 whitespace-nowrap">
         {doubled.map((tag, i) => (
           <span key={i} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest backdrop-blur" style={{ ...{backgroundColor: tagBg, border: `1px solid ${tagBorder}`, color: tagText,}, ...{fontFamily: BODY} }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ ...{backgroundColor: accentColor}, ...{fontFamily: BODY} }} />
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor, fontFamily: BODY }} />
             {tag}
           </span>
         ))}
@@ -467,7 +467,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
             className="absolute bottom-10 left-1/2 -translate-x-1/2 text-xs uppercase tracking-widest flex flex-col items-center gap-2"
           >
             <span style={{ fontFamily: BODY }}>Scroll</span>
-            <span className="block w-px h-8" style={{ ...{backgroundColor: hintBar}, ...{fontFamily: BODY} }} />
+            <span className="block w-px h-8" style={{ backgroundColor: hintBar, fontFamily: BODY }} />
           </motion.div>
         </div>
 

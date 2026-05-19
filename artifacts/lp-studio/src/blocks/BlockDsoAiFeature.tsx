@@ -147,7 +147,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
         <div className="grid md:grid-cols-[3fr_2fr] gap-10 items-end mb-10">
           <div>
             {eyebrow && (
-              <motion.p initial={{ opacity: 0, x: -18 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ type: "spring", stiffness: 120, damping: 18 }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+              <motion.p initial={{ opacity: 0, x: -18 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ type: "spring", stiffness: 120, damping: 18 }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem", fontFamily: BODY }}>
                 <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
               </motion.p>
             )}
@@ -173,7 +173,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
               )}
             </h2>
             {(body || onFieldChange) && (
-              <p style={{ ...{fontSize: "1rem", lineHeight: 1.7, color: mu}, ...{fontFamily: BODY} }}>
+              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: mu, fontFamily: BODY }}>
                 {onFieldChange ? (
                   <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
                 ) : (
@@ -210,7 +210,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
                       <StatCounter value={s.value} />
                     )}
                   </p>
-                  <p style={{ ...{fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem"}, ...{fontFamily: BODY} }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem", fontFamily: BODY }}>
                     <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
                 </motion.div>
@@ -289,11 +289,11 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
             {bullets.map((text, i) => {
               const Icon = bulletIcons[i % bulletIcons.length];
               return (
-                <li key={i} style={{ ...{display: "flex", alignItems: "center", gap: "0.75rem"}, ...{fontFamily: BODY} }}>
+                <li key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontFamily: BODY }}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: iconBg, border: `1px solid ${iconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon style={{ width: 13, height: 13, color: AW }} />
                   </div>
-                  <InlineText as="span" value={text} onUpdate={updateBullet ? (v) => updateBullet(i, v) : undefined} style={{ ...{fontSize: "0.9rem", color: mu2}, ...{fontFamily: BODY} }} />
+                  <InlineText as="span" value={text} onUpdate={updateBullet ? (v) => updateBullet(i, v) : undefined} style={{ fontSize: "0.9rem", color: mu2, fontFamily: BODY }} />
                 </li>
               );
             })}

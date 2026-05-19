@@ -206,7 +206,7 @@ function CardLayer({
             className={`relative h-64 md:h-full ${card.imageSide === "left" ? "md:order-1" : "md:order-2"} flex items-center justify-center`}
             style={{ backgroundColor: card.accentColor || "var(--brand-accent)" }}
           >
-            <span className="text-9xl md:text-[14rem] font-black opacity-20" style={{ ...{color: card.bgColor || "#0B0B0F"}, ...{fontFamily: BODY} }}>
+            <span className="text-9xl md:text-[14rem] font-black opacity-20" style={{ color: card.bgColor || "#0B0B0F", fontFamily: BODY }}>
               {String(index + 1).padStart(2, "0")}
             </span>
           </div>
@@ -215,7 +215,7 @@ function CardLayer({
         {/* Copy side */}
         <div className={`flex flex-col justify-center p-8 md:p-16 ${card.imageSide === "left" ? "md:order-2" : "md:order-1"}`}>
           {card.tag && (
-            <span className="self-start text-xs font-bold uppercase tracking-widest mb-5 px-3 py-1 rounded-full" style={{ ...{backgroundColor: card.accentColor || "var(--brand-accent)", color: card.bgColor || "#0B0B0F",}, ...{fontFamily: BODY} }}>
+            <span className="self-start text-xs font-bold uppercase tracking-widest mb-5 px-3 py-1 rounded-full" style={{ backgroundColor: card.accentColor || "var(--brand-accent)", color: card.bgColor || "#0B0B0F", fontFamily: BODY }}>
               <InlineText value={card.tag} onUpdate={onChange ? (v) => onChange({ tag: v }) : undefined} style={{ fontFamily: BODY }}/>
             </span>
           )}

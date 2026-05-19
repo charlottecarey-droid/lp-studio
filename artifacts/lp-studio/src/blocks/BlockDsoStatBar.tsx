@@ -66,7 +66,7 @@ const StatItem = ({
         }}
       />
 
-      <InlineText as="p" value={stat.label} onUpdate={onUpdateLabel} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: dark ? "rgba(255,255,255,0.50)" : MU, lineHeight: 1.5, maxWidth: 130,}, ...{fontFamily: BODY} }} />
+      <InlineText as="p" value={stat.label} onUpdate={onUpdateLabel} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: dark ? "rgba(255,255,255,0.50)" : MU, lineHeight: 1.5, maxWidth: 130, fontFamily: BODY }} />
     </motion.div>
   );
 };

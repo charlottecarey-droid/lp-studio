@@ -278,7 +278,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
           }}
         >
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ ...{margin: 0, fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)", fontStyle: eyebrowItalic ? "italic" : "normal", fontWeight: 500, letterSpacing: "0.04em", color: A, textShadow: "0 1px 12px rgba(0,0,0,0.4)",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ margin: 0, fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)", fontStyle: eyebrowItalic ? "italic" : "normal", fontWeight: 500, letterSpacing: "0.04em", color: A, textShadow: "0 1px 12px rgba(0,0,0,0.4)", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -315,12 +315,12 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               }}
             >
               {dateText && (
-                <p style={{ ...{margin: 0, fontSize: dateFontSize, fontWeight: 400, color: "rgba(255,255,255,0.92)", textShadow: "0 1px 8px rgba(0,0,0,0.4)",}, ...{fontFamily: BODY} }}>
+                <p style={{ margin: 0, fontSize: dateFontSize, fontWeight: 400, color: "rgba(255,255,255,0.92)", textShadow: "0 1px 8px rgba(0,0,0,0.4)", fontFamily: BODY }}>
                   <InlineText as="span" value={dateText} onUpdate={field("dateText")} style={{ fontFamily: BODY }}/>
                 </p>
               )}
               {locationText && (
-                <p style={{ ...{margin: 0, fontSize: "clamp(0.875rem, 1.6vw, 1rem)", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.78)",}, ...{fontFamily: BODY} }}>
+                <p style={{ margin: 0, fontSize: "clamp(0.875rem, 1.6vw, 1rem)", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.78)", fontFamily: BODY }}>
                   <InlineText as="span" value={locationText} onUpdate={field("locationText")} style={{ fontFamily: BODY }}/>
                 </p>
               )}
@@ -415,10 +415,10 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               padding: "0.5rem 1rem",
             }}
           >
-            <span style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.18em", textShadow: "0 1px 8px rgba(0,0,0,0.4)",}, ...{fontFamily: BODY} }}>
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.18em", textShadow: "0 1px 8px rgba(0,0,0,0.4)", fontFamily: BODY }}>
               {scrollLabel}
             </span>
-            <motion.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }} style={{ ...{display: "inline-flex"}, ...{fontFamily: BODY} }}>
+            <motion.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }} style={{ display: "inline-flex", fontFamily: BODY }}>
               <ChevronDown style={{ width: 18, height: 18 }} />
             </motion.span>
           </motion.button>
@@ -477,7 +477,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                     </h2>
                   )}
                   {whatToExpectBody && (
-                    <p style={{ ...{margin: 0, fontSize: "clamp(0.9375rem, 1.6vw, 1.0625rem)", lineHeight: 1.6, color: detailsTheme.muted,}, ...{fontFamily: BODY} }}>
+                    <p style={{ margin: 0, fontSize: "clamp(0.9375rem, 1.6vw, 1.0625rem)", lineHeight: 1.6, color: detailsTheme.muted, fontFamily: BODY }}>
                       <InlineText as="span" value={whatToExpectBody} onUpdate={field("whatToExpectBody")} multiline style={{ fontFamily: BODY }}/>
                     </p>
                   )}
@@ -506,7 +506,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                     </h3>
                   )}
                   {eventDetailsBody && (
-                    <p style={{ ...{margin: "0 0 1rem 0", fontSize: "clamp(0.9375rem, 1.6vw, 1rem)", lineHeight: 1.6, color: detailsTheme.muted,}, ...{fontFamily: BODY} }}>
+                    <p style={{ margin: "0 0 1rem 0", fontSize: "clamp(0.9375rem, 1.6vw, 1rem)", lineHeight: 1.6, color: detailsTheme.muted, fontFamily: BODY }}>
                       <InlineText as="span" value={eventDetailsBody} onUpdate={field("eventDetailsBody")} multiline style={{ fontFamily: BODY }}/>
                     </p>
                   )}
@@ -522,8 +522,8 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                       }}
                     >
                       {eventDetailsBullets.map((bullet, i) => (
-                        <li key={i} style={{ ...{position: "relative", paddingLeft: "1.5rem", fontSize: "clamp(0.9375rem, 1.5vw, 1rem)", lineHeight: 1.55, color: detailsTheme.fg,}, ...{fontFamily: BODY} }}>
-                          <span aria-hidden style={{ ...{position: "absolute", left: 0, top: "0.55em", width: 8, height: 8, borderRadius: 9999, background: A, display: "inline-block",}, ...{fontFamily: BODY} }} />
+                        <li key={i} style={{ position: "relative", paddingLeft: "1.5rem", fontSize: "clamp(0.9375rem, 1.5vw, 1rem)", lineHeight: 1.55, color: detailsTheme.fg, fontFamily: BODY }}>
+                          <span aria-hidden style={{ position: "absolute", left: 0, top: "0.55em", width: 8, height: 8, borderRadius: 9999, background: A, display: "inline-block", fontFamily: BODY }} />
                           {onFieldChange ? (
                             <InlineText
                               as="span"
@@ -575,7 +575,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                     </h3>
                   )}
                   {extraSectionBody && (
-                    <p style={{ ...{margin: 0, fontSize: "clamp(0.9375rem, 1.6vw, 1rem)", lineHeight: 1.6, color: detailsTheme.muted,}, ...{fontFamily: BODY} }}>
+                    <p style={{ margin: 0, fontSize: "clamp(0.9375rem, 1.6vw, 1rem)", lineHeight: 1.6, color: detailsTheme.muted, fontFamily: BODY }}>
                       <InlineText as="span" value={extraSectionBody} onUpdate={field("extraSectionBody")} multiline style={{ fontFamily: BODY }}/>
                     </p>
                   )}
@@ -612,7 +612,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                     </h3>
                   )}
                   {formSubheading && (
-                    <p style={{ ...{margin: 0, fontSize: "clamp(0.9375rem, 1.5vw, 1rem)", lineHeight: 1.5, color: detailsTheme.muted,}, ...{fontFamily: BODY} }}>
+                    <p style={{ margin: 0, fontSize: "clamp(0.9375rem, 1.5vw, 1rem)", lineHeight: 1.5, color: detailsTheme.muted, fontFamily: BODY }}>
                       <InlineText as="span" value={formSubheading} onUpdate={field("formSubheading")} multiline style={{ fontFamily: BODY }}/>
                     </p>
                   )}

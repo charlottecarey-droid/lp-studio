@@ -192,7 +192,7 @@ const ThemedTooltip = ({ active, payload, label, t }: { active?: boolean; payloa
       <p className={`font-medium ${t.tooltipText} mb-1`} style={{ fontFamily: BODY }}>{label}</p>
       {payload.map((p: any, i: number) => (
         <p key={i} className={t.tooltipMuted} style={{ fontFamily: BODY }}>
-          <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ ...{background: p.color}, ...{fontFamily: BODY} }} />
+          <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ background: p.color, fontFamily: BODY }} />
           {p.name}: <span className={`${t.tooltipText} font-medium`} style={{ fontFamily: BODY }}>{p.value}</span>
         </p>
       ))}
@@ -342,8 +342,8 @@ const OverviewView = ({ t, liveOffset = 0 }: { t: Theme; liveOffset?: number }) 
         <div className="flex items-center justify-between mb-4">
           <p className={`text-sm font-medium ${t.textPrimary}`} style={{ fontFamily: BODY }}>Monthly Case Volume</p>
           <div className={`flex items-center gap-4 text-xs ${t.textMuted}`}>
-            <span className="flex items-center gap-1.5" style={{ fontFamily: BODY }}><span className="w-2 h-2 rounded-full" style={{ ...{background: t.barFill}, ...{fontFamily: BODY} }} />Cases</span>
-            <span className="flex items-center gap-1.5" style={{ fontFamily: BODY }}><span className="w-2 h-2 rounded-full" style={{ ...{background: t.barRemake}, ...{fontFamily: BODY} }} />Remakes</span>
+            <span className="flex items-center gap-1.5" style={{ fontFamily: BODY }}><span className="w-2 h-2 rounded-full" style={{ background: t.barFill, fontFamily: BODY }} />Cases</span>
+            <span className="flex items-center gap-1.5" style={{ fontFamily: BODY }}><span className="w-2 h-2 rounded-full" style={{ background: t.barRemake, fontFamily: BODY }} />Remakes</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
@@ -407,7 +407,7 @@ const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBac
         <div className="flex flex-wrap gap-2 mt-2">
           {loc.products.map((p: any, i: number) => (
             <span key={p.name} className={`flex items-center gap-1 text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>
-              <span className="w-2 h-2 rounded-full" style={{ ...{background: t.pieFills[i]}, ...{fontFamily: BODY} }} />{p.name}
+              <span className="w-2 h-2 rounded-full" style={{ background: t.pieFills[i], fontFamily: BODY }} />{p.name}
             </span>
           ))}
         </div>
@@ -809,7 +809,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
         {/* Header */}
         <div className="text-center mb-10">
           {eyebrow && (
-            <motion.p initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem", fontFamily: BODY }}>
               <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -830,7 +830,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
             <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)",}, ...{fontFamily: BODY} }}>
+            <motion.p initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)", fontFamily: BODY }}>
               <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
@@ -875,7 +875,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
                 style={{ width: 6, height: 6, borderRadius: "50%", background: "hsl(145,65%,48%)", flexShrink: 0 }}
               />
-              <span className={`text-[10px] font-semibold tracking-widest uppercase ${t.textAccent}`} style={{ ...{opacity: 0.9}, ...{fontFamily: BODY} }}>Live</span>
+              <span className={`text-[10px] font-semibold tracking-widest uppercase ${t.textAccent}`} style={{ opacity: 0.9, fontFamily: BODY }}>Live</span>
             </div>
             <div className="flex-1 max-w-xs">
               <div className={`rounded ${t.browserUrlBg} px-3 py-1 text-[11px] ${t.browserUrlText} text-center`}>

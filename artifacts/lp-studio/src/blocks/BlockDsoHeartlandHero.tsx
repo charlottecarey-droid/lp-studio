@@ -92,7 +92,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           parts.push(text.slice(lastIndex, match.index));
         }
         parts.push(
-          <span key={key++} style={{ ...{color: PRIMARY}, ...{fontFamily: BODY} }}>{match[1]}</span>
+          <span key={key++} style={{ color: PRIMARY, fontFamily: BODY }}>{match[1]}</span>
         );
         lastIndex = match.index + match[0].length;
       }
@@ -106,7 +106,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       return (
         <>
           {before}
-          <span style={{ ...{color: PRIMARY}, ...{fontFamily: BODY} }}>{company}</span>
+          <span style={{ color: PRIMARY, fontFamily: BODY }}>{company}</span>
           {after}
         </>
       );
@@ -393,7 +393,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         />
         {(p.companyLogoUrl || company) && (
           <>
-            <span style={{ ...{fontSize: "0.75rem", color: "rgba(255,255,255,0.30)", margin: "0 0.125rem", userSelect: "none"}, ...{fontFamily: BODY} }}>×</span>
+            <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.30)", margin: "0 0.125rem", userSelect: "none", fontFamily: BODY }}>×</span>
             {p.companyLogoUrl ? (
               <img
                 src={p.companyLogoUrl}
@@ -411,7 +411,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 }}
               />
             ) : (
-              <span style={{ ...{fontSize: "0.9375rem", fontWeight: 500, color: "rgba(255,255,255,0.75)", letterSpacing: "-0.01em"}, ...{fontFamily: BODY} }}>
+              <span style={{ fontSize: "0.9375rem", fontWeight: 500, color: "rgba(255,255,255,0.75)", letterSpacing: "-0.01em", fontFamily: BODY }}>
                 {company}
               </span>
             )}
@@ -512,7 +512,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               className="relative z-10 flex flex-col justify-center hl-split-content"
             >
               {p.eyebrow && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ ...{fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
                   {p.eyebrow}
                 </motion.p>
               )}
@@ -535,7 +535,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               </motion.h1>
 
               {p.subheadline && (
-                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480,}, ...{fontFamily: BODY} }}>
+                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
                   {p.subheadline}
                 </motion.p>
               )}
@@ -637,7 +637,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               className="relative z-10 flex flex-col justify-center"
             >
               {p.eyebrow && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ ...{fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
                   {p.eyebrow}
                 </motion.p>
               )}
@@ -658,7 +658,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 {renderHeadline()}
               </motion.h1>
               {p.subheadline && (
-                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480,}, ...{fontFamily: BODY} }}>
+                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 480, fontFamily: BODY }}>
                   {p.subheadline}
                 </motion.p>
               )}
@@ -805,7 +805,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               }}
             >
               {p.eyebrow && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ ...{fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
                   {p.eyebrow}
                 </motion.p>
               )}
@@ -828,7 +828,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               </motion.h1>
 
               {p.subheadline && (
-                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ ...{marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, margin: "1.375rem auto 0",}, ...{fontFamily: BODY} }}>
+                <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.375rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, margin: "1.375rem auto 0", fontFamily: BODY }}>
                   {p.subheadline}
                 </motion.p>
               )}
@@ -1099,7 +1099,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         >
           <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
             {p.eyebrow && (
-              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ ...{fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
                 {p.eyebrow}
               </motion.p>
             )}
@@ -1123,7 +1123,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             </motion.h1>
 
             {p.subheadline && (
-              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520,}, ...{fontFamily: BODY} }}>
+              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
                 {p.subheadline}
               </motion.p>
             )}

@@ -195,7 +195,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
             {props.headline}
           </h2>
           {props.subheadline && (
-            <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.7, color: subColor, maxWidth: 560, margin: "0 auto",}, ...{fontFamily: BODY} }}>
+            <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: subColor, maxWidth: 560, margin: "0 auto", fontFamily: BODY }}>
               {props.subheadline}
             </p>
           )}
@@ -470,7 +470,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
 
               {/* Total */}
               <div className="pt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ ...{color: accentColor}, ...{fontFamily: BODY} }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: accentColor, fontFamily: BODY }}>
                   Total Financial Upside / Year ($)
                   {practices > 1 ? ` (${practices} practices)` : ""}
                 </p>
