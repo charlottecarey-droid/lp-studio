@@ -15,7 +15,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) {
   const {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
@@ -51,7 +52,7 @@ class ContentSeriesErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f12", color: "#eeeae3", fontFamily: "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', sans-serif", padding: "2rem" }}>
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f12", color: "#eeeae3", fontFamily: `${BRAND_BODY_FONT}, 'Inter', sans-serif`, padding: "2rem" }}>
           <div style={{ maxWidth: "32rem", textAlign: "center" }}>
             <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", color: "#b59a6e" }}>Content Series — Render Error</h2>
             <p style={{ fontSize: "0.85rem", color: "#7a8088", lineHeight: 1.6 }}>
@@ -142,7 +143,7 @@ function resolveTheme(t: ContentSeriesBlockProps["theme"], brand?: BrandConfig):
   const heading = m.headingColor || m.fg;
   const bodyFont = m.bodyFontFamily
     ? `'${m.bodyFontFamily}', sans-serif`
-    : "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', sans-serif";
+    : `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
   return {
     bg: m.bg,

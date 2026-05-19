@@ -14,7 +14,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, testimonials = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "dark" } = props;

@@ -23,7 +23,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const field = (key: keyof DsoPracticeHeroBlockProps) =>

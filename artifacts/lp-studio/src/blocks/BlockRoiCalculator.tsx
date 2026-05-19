@@ -13,7 +13,8 @@ interface Props {
   onCtaClick?: () => void;
 }
 
-const DISPLAY = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 

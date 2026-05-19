@@ -5,6 +5,7 @@ import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { useBrandConfig } from "@/components/BrandSwatches";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
 interface Props {
   block: { props: DandyProductHeroBlockProps };
@@ -16,8 +17,8 @@ interface Props {
 
 const DANDY_GREEN = "var(--brand-primary)";
 const DANDY_LIME = "var(--brand-accent)";
-const DISPLAY_FONT = `var(--brand-font-display, var(--app-font-display, system-ui)), 'Reckless', Georgia, serif`;
-const SANS_FONT = `var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Reckless', Georgia, serif`;
+const SANS_FONT = `${BRAND_BODY_FONT}, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
 export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, onFieldChange }: Props) {
   const p = block.props;

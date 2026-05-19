@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 import { motion, useScroll, useTransform } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
@@ -62,7 +63,7 @@ function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
   const headingColor = m.headingColor || m.fg;
   const bodyFont = m.bodyFontFamily
     ? `'${m.bodyFontFamily}', sans-serif`
-    : "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', sans-serif";
+    : `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
   return {
     bg: m.bg,

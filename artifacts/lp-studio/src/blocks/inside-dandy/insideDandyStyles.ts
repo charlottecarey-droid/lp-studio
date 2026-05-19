@@ -3,11 +3,12 @@
 // All selectors are namespaced under `.id-block` to prevent leakage.
 
 import { useEffect } from "react";
+import { BRAND_DISPLAY_FONT } from "../../lib/brand-fonts";
 
 const STYLE_ID = "inside-dandy-block-styles";
 
 const CSS = `
-.id-block { --id-teal:#003A30; --id-teal-deep:#001814; --id-cit:#C7E738; --id-green:#1AC065; --id-line:rgba(255,255,255,0.08); --id-display: var(--brand-font-display, var(--app-font-display, system-ui)), Georgia, serif; --id-ease:cubic-bezier(0.7,0,0.18,1); --id-ease-out:cubic-bezier(0.16,1,0.3,1); color:#fff; box-sizing:border-box; }
+.id-block { --id-teal:#003A30; --id-teal-deep:#001814; --id-cit:#C7E738; --id-green:#1AC065; --id-line:rgba(255,255,255,0.08); --id-display: ${BRAND_DISPLAY_FONT}, Georgia, serif; --id-ease:cubic-bezier(0.7,0,0.18,1); --id-ease-out:cubic-bezier(0.16,1,0.3,1); color:#fff; box-sizing:border-box; }
 .id-block *, .id-block *::before, .id-block *::after { box-sizing:border-box; }
 .id-block .id-eyebrow { display:inline-flex; align-items:center; gap:14px; font-size:11px; letter-spacing:0.28em; text-transform:uppercase; color:var(--id-cit); font-weight:500; }
 .id-block .id-eyebrow::before { content:""; width:24px; height:1px; background:var(--id-cit); }

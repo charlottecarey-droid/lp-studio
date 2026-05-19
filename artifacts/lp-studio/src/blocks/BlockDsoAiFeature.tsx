@@ -11,7 +11,8 @@ import { InlineText } from "@/components/InlineText";
 
 const P    = "var(--brand-primary, #0f172a)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies bullets/stats for catalog-added blocks; this fires only for isolated previews.

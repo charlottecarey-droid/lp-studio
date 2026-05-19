@@ -23,7 +23,8 @@ interface Props {
 
 const PRIMARY  = "var(--brand-accent, #C7E738)";
 const MUTED_FG = "hsl(192, 10%, 55%)";
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 
 export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId }: Props) {

@@ -12,7 +12,8 @@ interface Props {
 const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 const FG  = "var(--brand-primary, hsl(152,40%,13%))";
 const MU  = "hsl(152,8%,48%)";
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const StatItem = ({
   stat, i, dark, onUpdateValue, onUpdateLabel,

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 import { motion } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -47,7 +48,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
     "var(--brand-font-display, 'Instrument Serif', 'EB Garamond', Georgia, serif)";
   const bodyFont =
     toFontFamilyValue(props.bodyFont, "sans") ||
-    "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', sans-serif";
+    `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
 
   // Load any catalog fonts the author selected. Without this the browser
   // would silently fall back to a system font and the override would appear

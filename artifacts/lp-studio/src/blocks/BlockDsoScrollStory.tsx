@@ -4,7 +4,8 @@ import type { DsoScrollStoryBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
 // `getBrandStyleVars`). Hardcoded HSL fallbacks preserve the original Dandy

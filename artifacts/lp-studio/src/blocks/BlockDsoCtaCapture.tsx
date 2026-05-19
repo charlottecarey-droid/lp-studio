@@ -7,7 +7,8 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 const AW = "var(--brand-accent, hsl(68,60%,52%))";
 const API_BASE = "/api";
 
@@ -438,7 +439,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Calendar style={{ width: 16, height: 16, color: "var(--brand-primary)" }} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--brand-primary)", fontFamily: "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', system-ui, sans-serif" }}>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--brand-primary)", fontFamily: `${BRAND_BODY_FONT}, 'Inter', system-ui, sans-serif` }}>
                   Schedule a Meeting
                 </span>
               </div>
