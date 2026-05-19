@@ -319,12 +319,28 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       //      [] deps so it only re-fetches on remount). Use page.reload()
       //      to guarantee a fresh mount and a fresh `/api/sales/brand-
       //      context` call that sees the post-save flag. ──
+      // Wait for both the local config (/api/lp/brand) AND the stubbed
+      // brand-context refetch to land after reload — without this the
+      // checklist assertion below can race the post-reload mount and
+      // briefly read stale state (passes individually but flakes in the
+      // full suite where tests run back-to-back under load).
+      const brandContextAfterReload = page.waitForResponse(
+        r => r.url().includes("/api/sales/brand-context") && r.ok(),
+        { timeout: 30_000 },
+      );
+      const brandConfigAfterReload = page.waitForResponse(
+        r => /\/api\/lp\/brand(\?|$)/.test(r.url()) && r.request().method() === "GET" && r.ok(),
+        { timeout: 30_000 },
+      );
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(setupCard).toBeVisible({ timeout: 30_000 });
+      await Promise.all([brandContextAfterReload, brandConfigAfterReload]).catch(() => undefined);
 
       // All five rows must now show green "Done" labels (no "Set it →"
-      // jump links remain) and the counter must read 5 / 5.
-      await expect(setupCard.getByText("5 / 5", { exact: true })).toBeVisible({ timeout: 15_000 });
+      // jump links remain) and the counter must read 5 / 5. Use a longer
+      // timeout — the post-reload render has to wait for two network
+      // round-trips (local config + brand-context) plus React effects.
+      await expect(setupCard.getByText("5 / 5", { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(setupCard.getByText("Done", { exact: true })).toHaveCount(5);
       await expect(setupCard.getByRole("button", { name: /Set it/ })).toHaveCount(0);
 
