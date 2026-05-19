@@ -52,7 +52,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
         <div className="grid md:grid-cols-2 gap-8 items-stretch mb-16">
           <div className="rounded-3xl p-8 md:p-12 opacity-80 flex flex-col" style={{ backgroundColor: oldCardBg }}>
             <div className="mb-8">
-              <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block">OLD WAY</span>
+              <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block" style={{ fontFamily: BODY }}>OLD WAY</span>
               <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)]", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
             </div>
             <ul className="space-y-6 flex-1">
@@ -67,7 +67,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
           <div className="rounded-3xl p-8 md:p-12 flex flex-col ring-2 ring-[rgb(var(--brand-accent-rgb)/0.2)] shadow-xl relative overflow-hidden" style={{ backgroundColor: newCardBg }}>
             <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--brand-accent)] opacity-[0.03] blur-3xl rounded-full" />
             <div className="mb-8 relative z-10">
-              <span className="text-sm font-bold tracking-widest text-[var(--brand-accent)] uppercase mb-2 block">NEW WAY</span>
+              <span className="text-sm font-bold tracking-widest text-[var(--brand-accent)] uppercase mb-2 block" style={{ fontFamily: BODY }}>NEW WAY</span>
               <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-white", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
             </div>
             <ul className="space-y-6 flex-1 relative z-10">

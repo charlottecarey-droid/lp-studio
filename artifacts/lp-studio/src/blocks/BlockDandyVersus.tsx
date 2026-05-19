@@ -58,7 +58,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
         <div className="relative grid md:grid-cols-2">
           {/* VS badge */}
           <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-[var(--brand-accent)] items-center justify-center shadow-lg">
-            <span className="text-[var(--brand-primary)] text-xs font-black tracking-wide">VS</span>
+            <span className="text-[var(--brand-primary)] text-xs font-black tracking-wide" style={{ fontFamily: BODY }}>VS</span>
           </div>
 
           {/* Left card — cream */}

@@ -4,9 +4,10 @@ import type { TestimonialBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
-import { BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: TestimonialBlockProps;
@@ -27,9 +28,9 @@ export function BlockTestimonial({ props, brand, onFieldChange }: Props) {
           "<InlineText value={props.quote} onUpdate={field("quote")} className={cn("text-2xl md:text-4xl font-display text-[var(--brand-primary)] leading-snug", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} multiline style={{ fontFamily: DISPLAY }} />"
         </blockquote>
         <div className="flex flex-col items-center">
-          <InlineText as="strong" value={props.author} onUpdate={field("author")} className={cn(getBodySizeClass(brand), "text-[var(--brand-primary)]")} />
-          <InlineText as="span" value={props.role} onUpdate={field("role")} className={cn("text-sm text-[#4A6358]")} />
-          {props.practiceName && <InlineText as="span" value={props.practiceName} onUpdate={field("practiceName")} className="text-sm text-[#4A6358] mt-1 opacity-80" />}
+          <InlineText as="strong" value={props.author} onUpdate={field("author")} className={cn(getBodySizeClass(brand), "text-[var(--brand-primary)]")} style={{ fontFamily: BODY }} />
+          <InlineText as="span" value={props.role} onUpdate={field("role")} className={cn("text-sm text-[#4A6358]")} style={{ fontFamily: BODY }} />
+          {props.practiceName && <InlineText as="span" value={props.practiceName} onUpdate={field("practiceName")} className="text-sm text-[#4A6358] mt-1 opacity-80" style={{ fontFamily: BODY }} />}
         </div>
       </div>
     </section>

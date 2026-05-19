@@ -62,7 +62,7 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Track the <h2 style={{ fontFamily: DISPLAY }}>, not the outer <section>. The section has 200px of
+    // Track the <h2>, not the outer <section>. The section has 200px of
     // top padding, so if we measured its top edge the animation would
     // complete (raw → 1) while the h2 was still 200px below the fold —
     // visitors saw the statement already fully lit before they could read

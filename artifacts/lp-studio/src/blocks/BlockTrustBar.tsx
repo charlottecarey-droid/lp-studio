@@ -4,7 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import { useCountUp } from "@/hooks/use-count-up";
 import { InlineText } from "@/components/InlineText";
-import { BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 interface Props {
   props: TrustBarBlockProps;
@@ -75,7 +75,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
               value={item.label}
               onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined}
               className="text-sm font-medium uppercase tracking-wider"
-              style={{ color: labelColor }}
+              style={{ color: labelColor, fontFamily: BRAND_BODY_FONT }}
             />
           </div>
         ))}
