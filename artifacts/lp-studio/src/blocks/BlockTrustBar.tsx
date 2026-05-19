@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import { useCountUp } from "@/hooks/use-count-up";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 interface Props {
   props: TrustBarBlockProps;
@@ -58,7 +59,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
           >
             <span
               className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-              style={{ color: statColor }}
+              style={{ color: statColor, fontFamily: BRAND_DISPLAY_FONT }}
             >
               {onFieldChange ? (
                 <InlineText

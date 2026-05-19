@@ -9,7 +9,11 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { CtaButton } from "@/components/CtaButton";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import type { ReactNode } from "react";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -112,6 +116,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           value={props.headline}
           onUpdate={field("headline")}
           className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[var(--brand-primary)]")}
+          style={{ fontFamily: DISPLAY }}
         />
       </motion.div>
       {props.subheadline && (
@@ -122,6 +127,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             onUpdate={field("subheadline")}
             className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[rgb(var(--brand-primary-rgb)/0.7)]", !isSplit && "max-w-2xl")}
             multiline
+            style={{ fontFamily: BODY }}
           />
         </motion.div>
       )}

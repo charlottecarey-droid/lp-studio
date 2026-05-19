@@ -33,7 +33,7 @@ export function BlockHowItWorks({ props, brand, onFieldChange }: Props) {
           <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-slate-100 z-0" />
           {props.steps.map((step, i) => (
             <div key={i} className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full font-display font-bold text-2xl flex items-center justify-center mb-6 shadow-xl border-4 border-white" style={{ backgroundColor: props.circleBg ?? "var(--brand-primary)", color: props.circleText ?? "var(--brand-accent)" }}>
+              <div className="w-16 h-16 rounded-full font-display font-bold text-2xl flex items-center justify-center mb-6 shadow-xl border-4 border-white" style={{ backgroundColor: props.circleBg ?? "var(--brand-primary)", color: props.circleText ?? "var(--brand-accent)", fontFamily: DISPLAY }}>
                 {step.number}
               </div>
               <InlineText as="h3" value={step.title} onUpdate={onFieldChange ? (v) => updateStep(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
