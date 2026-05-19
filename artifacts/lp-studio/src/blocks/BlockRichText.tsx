@@ -1,4 +1,6 @@
 import type { RichTextBlockProps } from "@/lib/block-types";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import type { BrandConfig } from "@/lib/brand-config";
 import { sanitizeHtml } from "@/lib/sanitize";
 
@@ -8,7 +10,7 @@ interface Props {
 }
 
 export function BlockRichText({ props }: Props) {
-  if (!props.html || props.html === "<p></p>") {
+  if (!props.html || props.html === "<p style={{ fontFamily: BODY }}></p>") {
     return (
       <div className="py-12 px-8 text-center text-muted-foreground text-sm italic">
         Rich text block — click to edit content

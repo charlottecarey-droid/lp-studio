@@ -1,4 +1,6 @@
 import type { IdMarqueeBlockProps } from "@/lib/block-types";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { renderEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
@@ -33,9 +35,9 @@ export function BlockIdMarquee({ props, onFieldChange }: Props) {
         {(isEditor ? [0] : [0, 1]).map((pass) => (
           <div key={pass} style={{ display: "inline-flex", alignItems: "center", gap: 80 }}>
             {items.map((item, i) => (
-              <span key={`${pass}-${i}`} className="id-item">
+              <span key={`${pass}-${i}`} className="id-item" style={{ fontFamily: BODY }}>
                 {isEditor && pass === 0 ? (
-                  <InlineText as="span" value={item} onUpdate={(v) => updateItem(i, v)} />
+                  <InlineText as="span" value={item} onUpdate={(v) => updateItem(i, v)} style={{ fontFamily: BODY }}/>
                 ) : (
                   renderEm(item)
                 )}

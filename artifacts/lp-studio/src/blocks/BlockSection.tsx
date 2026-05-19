@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
+const DISPLAY = BRAND_DISPLAY_FONT;
 import type { SectionBlockProps } from "@/lib/block-types/container-blocks";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
@@ -87,8 +90,8 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
               textTransform: "uppercase",
               color: "var(--brand-primary, #003A30)",
               alignSelf: align === "center" ? "center" : undefined,
-            }}
-          />
+              fontFamily: BODY,
+            }}/>
         )}
         {(headline || onFieldChange) && (
           <InlineText
@@ -101,8 +104,8 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
               letterSpacing: "-0.015em",
               lineHeight: 1.15,
               alignSelf: align === "center" ? "center" : undefined,
-            }}
-          />
+              fontFamily: DISPLAY,
+            }}/>
         )}
         {childrenSlot}
       </div>

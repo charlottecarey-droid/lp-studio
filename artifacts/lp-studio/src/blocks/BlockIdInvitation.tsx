@@ -1,4 +1,6 @@
 import type { IdInvitationBlockProps, IdInvitationMeta, IdCtaAction } from "@/lib/block-types";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
@@ -72,8 +74,8 @@ export function BlockIdInvitation({ props, onFieldChange, onCtaClick, pageId, va
               variantId={variantId}
               source="id-invite-cta1"
             >
-              <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} />
-              <span aria-hidden>→</span>
+              <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} style={{ fontFamily: BODY }}/>
+              <span aria-hidden style={{ fontFamily: BODY }}>→</span>
             </CtaButton>
           )}
           {(props.cta2Text || onFieldChange) && (
@@ -106,7 +108,7 @@ export function BlockIdInvitation({ props, onFieldChange, onCtaClick, pageId, va
               variantId={variantId}
               source="id-invite-cta2"
             >
-              <InlineText as="span" value={props.cta2Text ?? ""} onUpdate={f("cta2Text")} />
+              <InlineText as="span" value={props.cta2Text ?? ""} onUpdate={f("cta2Text")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
         </div>
@@ -114,8 +116,8 @@ export function BlockIdInvitation({ props, onFieldChange, onCtaClick, pageId, va
           <div className="id-meta-row">
             {meta.map((m, i) => (
               <div key={i} className="id-item">
-                <InlineText as="b" value={m.heading ?? ""} onUpdate={onFieldChange ? (v) => updateMeta(i, { heading: v }) : undefined} />
-                <InlineText as="span" value={m.text ?? ""} onUpdate={onFieldChange ? (v) => updateMeta(i, { text: v }) : undefined} />
+                <InlineText as="b" value={m.heading ?? ""} onUpdate={onFieldChange ? (v) => updateMeta(i, { heading: v }) : undefined} style={{ fontFamily: BODY }}/>
+                <InlineText as="span" value={m.text ?? ""} onUpdate={onFieldChange ? (v) => updateMeta(i, { text: v }) : undefined} style={{ fontFamily: BODY }}/>
               </div>
             ))}
           </div>

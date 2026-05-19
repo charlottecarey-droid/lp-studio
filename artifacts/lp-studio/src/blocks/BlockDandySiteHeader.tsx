@@ -1,4 +1,6 @@
 import type React from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { useState } from "react";
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -107,7 +109,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
                 <InlineText
                   value={link.label}
                   onUpdate={onFieldChange ? (v) => updateNav(i, "label", v) : undefined}
-                />
+                style={{ fontFamily: BODY }}/>
               </a>
             ))}
           </nav>
@@ -123,18 +125,18 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
               )}
             >
               <Phone className="w-4 h-4" />
-              <InlineText value={props.phoneLabel || props.phoneNumber} onUpdate={field("phoneLabel")} />
+              <InlineText value={props.phoneLabel || props.phoneNumber} onUpdate={field("phoneLabel")} style={{ fontFamily: BODY }}/>
             </a>
           )}
 
           {props.secondaryCtaText && (
             secondaryAction === "chilipiper" ? (
               <ChiliPiperButton url={props.secondaryCtaUrl || brand.chilipiperUrl || "#"} className={secondaryClass}>
-                <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+                <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
               </ChiliPiperButton>
             ) : (
               <button onClick={() => handleClick(secondaryAction, props.secondaryCtaUrl)} className={secondaryClass}>
-                <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+                <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
               </button>
             )
           )}
@@ -142,11 +144,11 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
           {props.primaryCtaText && (
             primaryAction === "chilipiper" ? (
               <ChiliPiperButton url={props.primaryCtaUrl || brand.chilipiperUrl || "#"} className={primaryClass}>
-                <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
+                <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
               </ChiliPiperButton>
             ) : (
               <button onClick={() => handleClick(primaryAction, props.primaryCtaUrl)} className={primaryClass}>
-                <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
+                <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
               </button>
             )
           )}

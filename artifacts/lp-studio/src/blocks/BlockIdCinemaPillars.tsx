@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import type { IdCinemaPillarsBlockProps, IdCinemaPillar } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
@@ -246,8 +248,8 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
         <div className="id-cinema-stepper" aria-hidden>
           {pillars.map((p, i) => (
             <div key={i} className={`id-step${i === active ? " id-active" : ""}`}>
-              <span className="id-dot" />
-              <span>
+              <span className="id-dot" style={{ fontFamily: BODY }}/>
+              <span style={{ fontFamily: BODY }}>
                 {String(i + 1).padStart(2, "0")} / {(p.label ?? "").split("·")[0]?.trim() || `Step ${i + 1}`}
               </span>
             </div>

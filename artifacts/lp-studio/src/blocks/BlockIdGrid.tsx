@@ -1,4 +1,6 @@
 import type { IdGridBlockProps, IdGridCard } from "@/lib/block-types";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm, renderEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
@@ -56,7 +58,7 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
                   as="span"
                   value={card.ctaText ?? ""}
                   onUpdate={onFieldChange ? (v) => updateCard(i, { ctaText: v }) : undefined}
-                />
+                style={{ fontFamily: BODY }}/>
               </>
             );
             return (
@@ -87,7 +89,7 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
                 )}
                 {showCta && (
                   isEditor ? (
-                    <span className="id-grid-cta">{ctaInner}</span>
+                    <span className="id-grid-cta" style={{ fontFamily: BODY }}>{ctaInner}</span>
                   ) : (
                     <a className="id-grid-cta" href={card.ctaUrl || "#"}>
                       {renderEm(card.ctaText ?? "")}

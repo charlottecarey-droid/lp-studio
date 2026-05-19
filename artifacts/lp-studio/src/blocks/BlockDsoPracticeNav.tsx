@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -58,7 +60,7 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
       "transition-all hover:opacity-90 hover:-translate-y-0.5 active:scale-95",
       className
     );
-    const inner = <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />;
+    const inner = <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>;
     if (ctaMode === "chilipiper") {
       return (
         <ChiliPiperButton url={ctaUrl} className={cls} style={ctaBtnStyle}>
@@ -99,10 +101,10 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
         <div className="flex items-center gap-2 shrink-0">
           {props.dsoName && (
             <>
-              <span className="text-white/80 text-sm font-semibold tracking-wide whitespace-nowrap">
-                <InlineText as="span" value={props.dsoName} onUpdate={field("dsoName")} />
+              <span className="text-white/80 text-sm font-semibold tracking-wide whitespace-nowrap" style={{ fontFamily: BODY }}>
+                <InlineText as="span" value={props.dsoName} onUpdate={field("dsoName")} style={{ fontFamily: BODY }}/>
               </span>
-              <span className="text-white/30 text-sm font-light">×</span>
+              <span className="text-white/30 text-sm font-light" style={{ fontFamily: BODY }}>×</span>
             </>
           )}
           <BrandLogo brand={brand} tone="onPrimary" alt={brand.brandName || "Logo"} className="h-6 w-auto" />
@@ -117,7 +119,7 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
               className="px-3 py-1.5 text-sm font-medium text-white/65 hover:text-white rounded-lg transition-colors whitespace-nowrap"
               style={{ "--tw-bg-opacity": "0.08" } as React.CSSProperties}
             >
-              <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, { label: v }) : undefined} />
+              <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
             </a>
           ))}
         </nav>
@@ -182,7 +184,7 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
               onClick={() => setMobileOpen(false)}
               className="block px-3 py-2.5 text-sm font-medium text-white/75 hover:text-white rounded-lg transition-colors"
             >
-              <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, { label: v }) : undefined} />
+              <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
             </a>
           ))}
           <div className="pt-2">

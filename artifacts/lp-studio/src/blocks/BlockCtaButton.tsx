@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
@@ -88,7 +90,7 @@ export function BlockCtaButton({ props, brand, onFieldChange }: Props) {
             <InlineText
               value={props.label}
               onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, label: v }) : undefined}
-            />
+            style={{ fontFamily: BODY }}/>
           </motion.button>
         ) : (
           <motion.a
@@ -102,7 +104,7 @@ export function BlockCtaButton({ props, brand, onFieldChange }: Props) {
             <InlineText
               value={props.label}
               onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, label: v }) : undefined}
-            />
+            style={{ fontFamily: BODY }}/>
           </motion.a>
         )}
       </div>

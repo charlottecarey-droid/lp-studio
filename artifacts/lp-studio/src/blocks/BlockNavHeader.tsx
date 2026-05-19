@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getButtonClasses } from "@/lib/brand-config";
@@ -66,7 +68,7 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId 
     btnStyle?: React.CSSProperties,
   ) => {
     if (!cta?.label) return null;
-    const inner = <InlineText value={cta.label} onUpdate={onLabelEdit} />;
+    const inner = <InlineText value={cta.label} onUpdate={onLabelEdit} style={{ fontFamily: BODY }}/>;
     if (action === "modal-form" || action === "modal-chilipiper") {
       return (
         <motion.button
@@ -136,7 +138,7 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId 
                 <InlineText
                   value={link.label}
                   onUpdate={onFieldChange ? (v) => updateLink(i, "label", v) : undefined}
-                />
+                style={{ fontFamily: BODY }}/>
               </a>
             ))}
           </nav>
@@ -155,7 +157,7 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId 
               <InlineText
                 value={props.phone}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, phone: v }) : undefined}
-              />
+              style={{ fontFamily: BODY }}/>
             </a>
           )}
           {renderCta(
