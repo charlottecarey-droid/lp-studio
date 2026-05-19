@@ -73,6 +73,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
     successHeadline = "You're on the list!",
     successBody = "Check your inbox — we'll be in touch shortly to schedule your demo.",
     backgroundStyle = "dark",
+    hideCaptureForm = false,
   } = props;
 
   const dark          = isDarkBg(backgroundStyle);
@@ -256,7 +257,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
           </motion.p>
 
           {/* ── Success state ── */}
-          {isSuccess ? (
+          {hideCaptureForm ? null : isSuccess ? (
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}

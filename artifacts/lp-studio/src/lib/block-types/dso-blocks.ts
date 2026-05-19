@@ -472,6 +472,7 @@ export interface DsoCtaCaptureBlockProps {
   successHeadline?: string;
   successBody?: string;
   backgroundStyle?: BackgroundStyle;
+  hideCaptureForm?: boolean;
 }
 
 // DSO Practices segment: 8 net-new blocks

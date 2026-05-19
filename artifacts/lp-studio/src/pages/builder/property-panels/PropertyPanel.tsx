@@ -4085,6 +4085,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank for text-only.</p>
               <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
+            <div className="flex items-center justify-between border rounded-lg p-3">
+              <div className="space-y-0.5 pr-3">
+                <Label className="text-xs font-medium">Hide capture form</Label>
+                <p className="text-xs text-muted-foreground leading-snug">Removes the email pill, CTA button, and success state. Headline, body, and trust strip remain.</p>
+              </div>
+              <Switch
+                checked={p.hideCaptureForm ?? false}
+                onCheckedChange={v => onChange({ ...block, props: { ...p, hideCaptureForm: v } })}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image Side</Label>
               <div className="flex gap-2">
