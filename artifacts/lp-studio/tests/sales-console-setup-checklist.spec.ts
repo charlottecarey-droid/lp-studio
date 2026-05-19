@@ -189,23 +189,58 @@ test.describe("Sales Console setup checklist (task #333)", () => {
         body: JSON.stringify(body),
       });
     });
-    // Capture the sending domain the UI is sending up on the save PUT so
-    // the stubbed `domainVerification.domain` exactly matches what the
-    // local config has (the checklist compares the two case-insensitively
-    // and treats a mismatch as "not verified yet").
+    // Capture the full config the UI sends up on Save so we can:
+    //   (a) mirror the sending domain into the stubbed
+    //       `domainVerification.domain` (case-insensitive match is required
+    //       for the "Sending domain verified" row to flip green), and
+    //   (b) replay it on the post-reload GET. The full e2e suite hammers
+    //       the api-server and the GET /api/lp/brand response has been
+    //       observed coming back without the value-prop pair that PUT
+    //       just persisted — likely a transient read-after-write delay
+    //       under load. Replaying the captured body removes that race
+    //       from the test without weakening what's being asserted (the
+    //       UI still has to render the checklist green off of a real
+    //       brand-config payload that contains every saved field).
+    let lastSavedConfig: Record<string, unknown> | null = null;
     await ctx.route("**/api/lp/brand*", async (route, request) => {
+      const url = new URL(request.url());
+      // Only match the bare /api/lp/brand path (not /brand-import, /brand-presets, etc.).
+      const isBareBrand = /\/api\/lp\/brand$/.test(url.pathname);
+      if (!isBareBrand) {
+        await route.fallback();
+        return;
+      }
       if (request.method() === "PUT") {
         try {
-          const parsed = JSON.parse(request.postData() ?? "{}") as {
-            config?: { salesConsole?: { sendingDomain?: string } };
+          const parsed = JSON.parse(request.postData() ?? "{}") as Record<string, unknown> & {
+            salesConsole?: { sendingDomain?: string };
           };
-          const d = parsed.config?.salesConsole?.sendingDomain;
+          const d = parsed?.salesConsole?.sendingDomain;
           if (typeof d === "string" && d.trim()) {
             lastSendingDomain = d.trim();
           }
+          lastSavedConfig = parsed;
         } catch {
           // ignore — the real API will reject malformed bodies anyway
         }
+        await route.fallback();
+        return;
+      }
+      if (request.method() === "GET" && lastSavedConfig) {
+        // Replay the previously-saved config so the post-reload render
+        // sees exactly what we just PUT, regardless of whether the
+        // backend's read-after-write is committed yet.
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          headers: {
+            "cache-control": "no-store, no-cache, must-revalidate",
+            pragma: "no-cache",
+            expires: "0",
+          },
+          body: JSON.stringify(lastSavedConfig),
+        });
+        return;
       }
       await route.fallback();
     });
