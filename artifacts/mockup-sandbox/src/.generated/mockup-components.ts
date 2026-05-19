@@ -20,6 +20,6 @@ export const modules: ModuleMap = {
   "./components/mockups/premium-story-hub-magazine/Dark.tsx": () => import("../components/mockups/premium-story-hub-magazine/Dark.tsx"),
   "./components/mockups/premium-story-hub-magazine/Light.tsx": () => import("../components/mockups/premium-story-hub-magazine/Light.tsx"),
   "./components/mockups/spatial-tour-dynamic-nav/Variant.tsx": () => import("../components/mockups/spatial-tour-dynamic-nav/Variant.tsx"),
-  "./components/mockups/spatial-tour-live-telemetry/Variant.tsx": () => import("../components/mockups/spatial-tour-live-telemetry/Variant.tsx"),
-  "./components/mockups/spatial-tour-video-hero/Variant.tsx": () => import("../components/mockups/spatial-tour-video-hero/Variant.tsx")
+  "./components/mockups/spatial-tour-video-hero/Variant.tsx": () => import("../components/mockups/spatial-tour-video-hero/Variant.tsx"),
+  "./components/mockups/spatial-tour-live-telemetry/Variant.tsx": () => import("../components/mockups/spatial-tour-live-telemetry/Variant.tsx")
 };
