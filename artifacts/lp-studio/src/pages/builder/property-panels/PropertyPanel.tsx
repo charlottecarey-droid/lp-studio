@@ -3318,6 +3318,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Plus className="w-3 h-3" /> Add
                 </Button>
               </div>
+              <div className="space-y-1.5 mb-2">
+                <Label className="text-xs">Layout</Label>
+                <div className="flex gap-2">
+                  {([
+                    { v: "row", label: "Side by side" },
+                    { v: "stack", label: "Stacked" },
+                  ] as const).map(opt => (
+                    <button key={opt.v} onClick={() => onChange({ ...block, props: { ...p, statsLayout: opt.v } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.statsLayout ?? "row") === opt.v ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-2">
                 {stats.map((s, i) => (
                   <div key={i} className="border rounded-lg p-2.5 space-y-1.5 bg-slate-50">

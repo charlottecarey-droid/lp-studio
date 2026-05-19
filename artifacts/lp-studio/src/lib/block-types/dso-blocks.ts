@@ -317,6 +317,7 @@ export interface DsoAiFeatureBlockProps {
   body: string;
   bullets: string[];
   stats: { value: string; label: string }[];
+  statsLayout?: "row" | "stack";
   imageUrl: string;
   videoUrl?: string;
   backgroundStyle?: BackgroundStyle;

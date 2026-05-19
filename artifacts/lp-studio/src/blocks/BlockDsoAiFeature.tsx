@@ -42,6 +42,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
     body      = "Inline AI review catches issues in real time — avoiding costly rework and maximizing throughput before anything reaches the next stage.",
     bullets   = DEFAULT_BULLETS.map(b => b.text),
     stats     = DEFAULT_STATS,
+    statsLayout = "row",
     imageUrl  = "",
     videoUrl  = "",
     backgroundStyle = "muted",
@@ -194,7 +195,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
             viewport={{ once: true }}
             transition={{ delay: 0.15 }}
           >
-            <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", marginBottom: ctaText ? "2rem" : 0 }}>
+            <div style={{ display: "flex", flexDirection: statsLayout === "stack" ? "column" : "row", gap: statsLayout === "stack" ? "1.25rem" : "2rem", flexWrap: statsLayout === "stack" ? "nowrap" : "wrap", marginBottom: ctaText ? "2rem" : 0 }}>
               {stats.map((s, i) => (
                 <motion.div
                   key={i}
