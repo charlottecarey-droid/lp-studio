@@ -205,7 +205,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
                 >
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,2.5vw,2rem)", fontWeight: 600, letterSpacing: "-0.03em", color: fg, lineHeight: 1 }}>
                     {onFieldChange ? (
-                      <InlineText as="span" value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} style={{ fontFamily: BODY }}/>
+                      <InlineText as="span" value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                     ) : (
                       <StatCounter value={s.value} />
                     )}

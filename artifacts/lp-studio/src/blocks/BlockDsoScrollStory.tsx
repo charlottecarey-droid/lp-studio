@@ -124,7 +124,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
             margin: "0 auto 1.25rem",
           }}
         >
-          <InlineText as="span" value={sectionHeading} onUpdate={field("sectionHeading")} multiline style={{ fontFamily: BODY }}/>
+          <InlineText as="span" value={sectionHeading} onUpdate={field("sectionHeading")} multiline style={{ fontFamily: DISPLAY }}/>
         </motion.p>
         {sectionSubheading && (
           <p style={{ fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto", fontFamily: BODY }}>

@@ -224,7 +224,7 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
                 {/* Metric */}
                 <div>
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.75rem,3vw,2.5rem)", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: "0.25rem" }}>
-                    <InlineText as="span" value={stage.metric} onUpdate={updateStage ? (v) => updateStage(i, { metric: v }) : undefined} style={{ fontFamily: BODY }}/>
+                    <InlineText as="span" value={stage.metric} onUpdate={updateStage ? (v) => updateStage(i, { metric: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                   </p>
                   <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, fontFamily: BODY }}>
                     <InlineText as="span" value={stage.metricLabel} onUpdate={updateStage ? (v) => updateStage(i, { metricLabel: v }) : undefined} style={{ fontFamily: BODY }}/>
@@ -233,7 +233,7 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
 
                 {/* Label */}
                 <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.0625rem", fontWeight: 600, color: PFG, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                  <InlineText as="span" value={stage.label} onUpdate={updateStage ? (v) => updateStage(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
+                  <InlineText as="span" value={stage.label} onUpdate={updateStage ? (v) => updateStage(i, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                 </p>
 
                 {/* Body */}

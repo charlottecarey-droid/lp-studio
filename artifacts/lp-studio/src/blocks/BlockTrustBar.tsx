@@ -5,6 +5,7 @@ import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand
 import { useCountUp } from "@/hooks/use-count-up";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+const DISPLAY = BRAND_DISPLAY_FONT;
 
 const BODY = BRAND_BODY_FONT;
 
@@ -67,7 +68,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
                 <InlineText
                   value={item.value}
                   onUpdate={(v) => updateItem(i, { value: v })}
-                style={{ fontFamily: BODY }}/>
+                style={{ fontFamily: DISPLAY }}/>
               ) : (
                 <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
               )}

@@ -273,7 +273,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <CheckCircle2 style={{ width: 18, height: 18, color: AW, flexShrink: 0 }} />
                 <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "1rem", color: pfg }}>
-                  <InlineText value={successHeadline} onUpdate={field("successHeadline")} style={{ fontFamily: BODY }}/>
+                  <InlineText value={successHeadline} onUpdate={field("successHeadline")} style={{ fontFamily: DISPLAY }}/>
                 </span>
               </div>
               <p style={{ fontSize: "0.875rem", color: muted, margin: 0, lineHeight: 1.6, fontFamily: BODY }}>
@@ -359,7 +359,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
                   >
                     {isLoading
                       ? <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />
-                      : <><span style={{ fontFamily: BODY }}>{ctaLabel}</span><ArrowRight style={{ width: 14, height: 14 }} /></>
+                      : <><span style={{ fontFamily: DISPLAY }}>{ctaLabel}</span><ArrowRight style={{ width: 14, height: 14 }} /></>
                     }
                   </button>
                 </div>

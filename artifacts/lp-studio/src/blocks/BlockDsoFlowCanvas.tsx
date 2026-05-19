@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const MUTED = "hsla(48,100%,96%,0.48)";
@@ -200,7 +201,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
                 marginBottom: "0.85rem",
               }}
             >
-              <InlineText as="span" value={stat} onUpdate={field("stat")} style={{ fontFamily: BODY }}/>
+              <InlineText as="span" value={stat} onUpdate={field("stat")} style={{ fontFamily: DISPLAY }}/>
             </motion.p>
             <InlineText as="p" value={statLabel} onUpdate={field("statLabel")} style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, fontFamily: BODY }} />
           </div>
@@ -220,7 +221,7 @@ export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
               marginBottom: "2rem",
             }}>
               {"\u201C"}
-              <InlineText as="span" value={quote} onUpdate={field("quote")} multiline style={{ fontFamily: BODY }}/>
+              <InlineText as="span" value={quote} onUpdate={field("quote")} multiline style={{ fontFamily: DISPLAY }}/>
               {"\u201D"}
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
