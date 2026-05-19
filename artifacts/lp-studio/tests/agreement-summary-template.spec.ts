@@ -84,7 +84,14 @@ test.describe("Agreement Summary one-pager template", () => {
       console.log("[debug] body 1000 chars:", bodyText.slice(0, 1000));
     }
     await expect(page.getByText("Agreement Summary").first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Summary of Dandy Agreement terms")).toBeVisible();
+    // The description is rendered through `sLabel` → `scrubBrand`, which
+    // swaps "Dandy" for the tenant's productName on non-Dandy tenants. The
+    // Royal-tenant fixture is non-Dandy, so the on-screen text becomes
+    // "Summary of <tenant productName> Agreement terms" (e.g. "Summary of
+    // Our Lab Agreement terms"). Match on the stable prefix/suffix instead
+    // of the literal Dandy token so this test isn't tied to the fixture's
+    // tenant name.
+    await expect(page.getByText(/^Summary of .+ Agreement terms$/)).toBeVisible();
   });
 
   test("Generate PDF dialog opens with editable defaults and supports reset", async ({ page }) => {

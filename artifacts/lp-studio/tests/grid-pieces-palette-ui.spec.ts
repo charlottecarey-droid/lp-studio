@@ -109,6 +109,19 @@ async function openBlocksTab(page: Page): Promise<void> {
   }
 }
 
+// "Grid Pieces" lives in the Segment palette (SegmentLibrary), NOT the
+// Blocks palette — BlockLibrary explicitly excludes "Grid Pieces" / "DSO"
+// / "Showcase" to avoid duplicating them across both tabs. The tab is
+// labeled "Segment" (singular — confirmed via the rendered ARIA tree).
+// The audit story for task #122 is still about the same gate
+// (`canUseGridPieces`), so we just open the right tab to read the
+// category header.
+async function openSegmentTab(page: Page): Promise<void> {
+  const tab = page.getByRole("tab", { name: "Segment", exact: true });
+  await expect(tab).toBeVisible({ timeout: 10_000 });
+  await tab.first().click();
+}
+
 test.describe("Grid Pieces palette gating — BuilderEditor UI", () => {
   test("editor without `blocks` perm does NOT see the Grid Pieces category header", async ({ browser, baseURL, request }) => {
     expect(baseURL).toBeTruthy();
@@ -119,17 +132,17 @@ test.describe("Grid Pieces palette gating — BuilderEditor UI", () => {
     const page = await ctx.newPage();
     await page.goto(`/builder/${pageId}`, { waitUntil: "domcontentloaded" });
     await waitForBuilderReady(page);
+    // Open the Blocks tab first (sanity — confirms the palette mounted),
+    // then switch to the Segment tab which is where "Grid Pieces" would
+    // appear if the gate regressed for the editor.
     await openBlocksTab(page);
-
-    // The BlockLibrary renders categories as small-caps <p> headings; the
-    // exact-text match is the user-visible contract. If gating regresses,
-    // this header reappears for the editor.
-    await expect(page.getByText("Grid Pieces", { exact: true })).toHaveCount(0);
-
-    // Sanity: at least one always-visible category IS still rendered. If
-    // this fails, the palette didn't render at all and the negative
-    // assertion above is meaningless.
     await expect(page.getByText("Layout", { exact: true }).first()).toBeVisible();
+    await openSegmentTab(page);
+
+    // The SegmentLibrary renders categories as small-caps <p> headings;
+    // the exact-text match is the user-visible contract. If gating
+    // regresses, this header reappears for the editor.
+    await expect(page.getByText("Grid Pieces", { exact: true })).toHaveCount(0);
 
     await ctx.close();
   });
@@ -143,7 +156,9 @@ test.describe("Grid Pieces palette gating — BuilderEditor UI", () => {
     const page = await ctx.newPage();
     await page.goto(`/builder/${pageId}`, { waitUntil: "domcontentloaded" });
     await waitForBuilderReady(page);
-    await openBlocksTab(page);
+    // Grid Pieces is rendered in the Segment tab (SegmentLibrary), not
+    // the Blocks tab — see openSegmentTab() for why.
+    await openSegmentTab(page);
 
     // The category header is rendered when at least one Grid Piece block
     // is in the catalog — which is always the case for the seeded tenant
