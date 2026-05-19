@@ -96,6 +96,12 @@ if (sentryDsn) {
       "AbortError",
       // Marketo/Munchkin internal noise we can't fix from our side.
       /MktoForms2/i,
+      // Third-party tag (loaded via GTM / Marketo / Facebook in-app
+      // browser) probes `window.webkit.messageHandlers` without a guard.
+      // We also install a defensive stub in `index.html` so the probe
+      // succeeds silently — this entry is belt-and-braces for any tag
+      // injected BEFORE our stub runs (e.g. very old cached pages).
+      /window\.webkit\.messageHandlers/i,
     ],
     denyUrls: [
       /\/\/.*\.marketo\.com\//,
