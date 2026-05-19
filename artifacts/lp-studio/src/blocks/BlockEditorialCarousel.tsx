@@ -47,7 +47,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
     "var(--brand-font-display, 'Instrument Serif', 'EB Garamond', Georgia, serif)";
   const bodyFont =
     toFontFamilyValue(props.bodyFont, "sans") ||
-    "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', sans-serif";
+    "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', sans-serif";
 
   // Load any catalog fonts the author selected. Without this the browser
   // would silently fall back to a system font and the override would appear

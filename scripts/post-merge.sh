@@ -37,6 +37,26 @@ psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_pag
 # registration / edge worker route changes) that build-time checks can't see.
 # Set SMOKE_SKIP_TENANT_HOSTS=1 to skip (e.g. when deploying to an environment
 # where the live hosts aren't yet pointed at this build).
+# Task #356 — Dandy brand font seed. Platform default for `--app-font-display`
+# is a neutral Inter/system stack so non-Dandy tenants (wash, max, etc.) fall
+# back to system-ui when their brand record sets no display font. Dandy
+# specifically must keep Bagoss Standard, so we patch the Dandy brand record
+# to set displayFont/bodyFont explicitly. Idempotent: only fills missing keys,
+# never overwrites a tenant-set value.
+psql "$NEON_DATABASE_URL" -c "
+  UPDATE lp_brand_settings
+  SET config = jsonb_build_object(
+                 'displayFont', 'Bagoss Standard',
+                 'bodyFont',    'Inter'
+               ) || config,
+      updated_at = now()
+  WHERE tenant_id = (SELECT id FROM tenants WHERE slug = 'dandy')
+    AND (
+      COALESCE(NULLIF(config->>'displayFont',''), '') = ''
+      OR COALESCE(NULLIF(config->>'bodyFont',''), '')    = ''
+    );
+"
+
 if [ "${SMOKE_SKIP_TENANT_HOSTS:-0}" != "1" ]; then
   pnpm --filter @workspace/scripts run smoke-tenant-hosts
 fi

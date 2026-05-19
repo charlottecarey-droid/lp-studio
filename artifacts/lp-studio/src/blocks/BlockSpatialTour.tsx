@@ -98,8 +98,8 @@ const INK2 = "#5A6862";
 
 // Bagoss Standard + Inter are loaded globally via `index.css` @font-face,
 // so no runtime font injection is needed here.
-const SERIF = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Bagoss Standard', 'EB Garamond', Georgia, serif";
-const SANS = "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', system-ui, sans-serif";
+const SERIF = "var(--brand-font-display, var(--app-font-display, system-ui)), 'EB Garamond', Georgia, serif";
+const SANS = "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', system-ui, sans-serif";
 
 // ─── Atoms ─────────────────────────────────────────────────────
 function Eyebrow({
@@ -595,7 +595,7 @@ function DandyWordmark({
     return (
       <span
         style={{
-          fontFamily: "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif",
+          fontFamily: "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif",
           fontWeight: 700,
           fontSize: Math.round(height * 0.95),
           lineHeight: 1,

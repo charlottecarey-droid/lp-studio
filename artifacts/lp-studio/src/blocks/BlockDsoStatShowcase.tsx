@@ -6,7 +6,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
 
 // Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
 // vars (set by getBrandStyleVars). Hardcoded fallbacks preserve the original

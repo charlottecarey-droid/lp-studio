@@ -62,7 +62,7 @@ function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
   const headingColor = m.headingColor || m.fg;
   const bodyFont = m.bodyFontFamily
     ? `'${m.bodyFontFamily}', sans-serif`
-    : "var(--brand-font-body, var(--app-font-sans, 'Inter')), 'Inter', sans-serif";
+    : "var(--brand-font-body, var(--app-font-sans, system-ui)), 'Inter', sans-serif";
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
   return {
     bg: m.bg,

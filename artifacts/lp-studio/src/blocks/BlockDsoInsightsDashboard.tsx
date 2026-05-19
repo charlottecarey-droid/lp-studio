@@ -723,7 +723,7 @@ const BG_STYLE: Record<string, React.CSSProperties> = {
   black:    { background: "#000000", color: "#fff" },
   gradient: { background: "radial-gradient(ellipse 120% 100% at 50% 50%, var(--brand-primary) 0%, #001a14 55%, #000000 100%)", color: "#fff" },
 };
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
 
 /* ── Main block component ───────────────────────────────── */
 export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {

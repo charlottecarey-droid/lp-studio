@@ -7,7 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import type { BrandConfig } from "@/lib/brand-config";
 
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
 
 const P      = "var(--brand-primary, #0f172a)";
 const PFG    = "hsl(48,100%,96%)";

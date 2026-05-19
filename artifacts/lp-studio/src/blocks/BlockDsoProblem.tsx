@@ -11,7 +11,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
 
 const P    = "var(--brand-primary, #0f172a)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";

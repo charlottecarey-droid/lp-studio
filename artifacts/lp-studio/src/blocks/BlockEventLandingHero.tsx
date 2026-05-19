@@ -20,7 +20,7 @@ interface Props {
   onFieldChange?: (updated: EventLandingHeroBlockProps) => void;
 }
 
-const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
+const DISPLAY_FONT = "var(--brand-font-display, var(--app-font-display, system-ui)), 'Inter', system-ui, sans-serif";
 
 /** Pick a readable foreground color for the CTA pill given its background. */
 function readableOn(hex: string): string {
