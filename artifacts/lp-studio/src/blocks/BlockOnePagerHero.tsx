@@ -5,8 +5,9 @@ import { BrandLogo } from "@/components/BrandLogo";
 
 const DARK_GREEN = "var(--brand-primary)";
 const LIME = "var(--brand-accent)";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const BODY = `${BRAND_BODY_FONT}, system-ui, sans-serif`;
 
 const MOBILE_STYLES = `
   .one-pager-hero {
@@ -176,7 +177,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                   textTransform: "uppercase" as const,
                   color: accent,
                   marginBottom: "1.25rem",
-                  fontFamily: "sans-serif",
+                  fontFamily: BODY,
                 }}
               />
             )}
@@ -210,7 +211,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                   color: "rgba(255,255,255,0.68)",
                   lineHeight: 1.7,
                   maxWidth: 400,
-                  fontFamily: "sans-serif",
+                  fontFamily: BODY,
                 }}
                 multiline
               />
@@ -227,7 +228,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                 marginTop: "2.5rem",
                 fontSize: "0.875rem",
                 color: "rgba(255,255,255,0.45)",
-                fontFamily: "sans-serif",
+                fontFamily: BODY,
                 position: "relative",
                 zIndex: 1,
               }}
