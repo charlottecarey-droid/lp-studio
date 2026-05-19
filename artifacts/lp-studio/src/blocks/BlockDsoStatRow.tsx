@@ -17,16 +17,13 @@ const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Inter', system-ui, sans-serif";
 
 /**
- * Count-up runs only on viewports ≥640px AND when the user hasn't asked for
- * reduced motion. On phones the section is horizontally scrolled, so off-screen
- * cards would otherwise pop in mid-scroll showing "0" — jarring. Static numbers
- * read better there.
+ * Count-up respects reduced-motion. On phones the stats are laid out as a
+ * 2-column grid (all visible at once), so animation is fine there too.
  */
 function shouldAnimateCount(): boolean {
   if (typeof window === "undefined") return false;
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const isMobile = window.matchMedia?.("(max-width: 639px)").matches;
-  return !reducedMotion && !isMobile;
+  return !reducedMotion;
 }
 
 function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?: string; prefix?: string }) {
@@ -117,21 +114,18 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
         )}
 
         {/*
-          Mobile: horizontal snap-scroll row with each card sized to ~80vw so
-          the next one "peeks" in, signalling there's more. Desktop (sm+):
-          equal-width grid columns inside a bordered card with internal
-          dividers between items.
+          Mobile: 2-column grid so all stats are visible at once (no horizontal
+          scroll). Desktop (sm+): equal-width grid columns inside a bordered
+          card with internal dividers between items.
         */}
         <div
-          className="dso-stat-row flex overflow-x-auto snap-x snap-mandatory sm:grid sm:overflow-visible -mx-6 px-6 sm:mx-0 sm:px-0 gap-3 sm:gap-0 pb-2 sm:pb-0"
+          className="dso-stat-row grid grid-cols-2 sm:grid gap-3 sm:gap-0"
           style={{
             ["--dso-stat-cols" as string]: String(Math.min(items.length, 4)),
             ["--dso-stat-border" as string]: divC,
-            scrollbarWidth: "none",
           }}
         >
           <style>{`
-            .dso-stat-row::-webkit-scrollbar { display: none; }
             @media (min-width: 640px) {
               .dso-stat-row {
                 grid-template-columns: repeat(var(--dso-stat-cols), 1fr);
@@ -151,9 +145,9 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.5 }}
-                className={`snap-start shrink-0 sm:shrink basis-[80%] sm:basis-auto rounded-2xl sm:rounded-none border sm:border-0 ${isLast ? "" : "sm:border-r"}`}
+                className={`rounded-2xl sm:rounded-none border sm:border-0 ${isLast ? "" : "sm:border-r"}`}
                 style={{
-                  padding: "2rem 1.5rem",
+                  padding: "1.25rem 1rem",
                   textAlign: "center",
                   borderColor: divC,
                   background: dark ? "rgba(255,255,255,0.03)" : "#fff",
