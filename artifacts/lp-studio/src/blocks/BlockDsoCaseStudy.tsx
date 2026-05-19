@@ -13,8 +13,8 @@ interface Props {
 const AW = "var(--brand-accent, hsl(68,60%,52%))";
 const FG = "hsl(152,40%,13%)";
 const MU = "hsl(152,8%,48%)";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
-const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+import { BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
+const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies the case-study content for catalog-added blocks; this fires only

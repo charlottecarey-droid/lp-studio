@@ -3,7 +3,7 @@ import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
 import { VideoModal } from "@/components/VideoModal";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_BODY_STACK, BRAND_DISPLAY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 
 const BODY = BRAND_BODY_FONT;
@@ -103,7 +103,7 @@ const INK2 = "#5A6862";
 // Bagoss Standard + Inter are loaded globally via `index.css` @font-face,
 // so no runtime font injection is needed here.
 const SERIF = `${BRAND_DISPLAY_FONT}, 'EB Garamond', Georgia, serif`;
-const SANS = `${BRAND_BODY_FONT}, 'Inter', system-ui, sans-serif`;
+const SANS = BRAND_BODY_STACK;
 
 // ─── Atoms ─────────────────────────────────────────────────────
 function Eyebrow({
@@ -549,7 +549,7 @@ function DandyWordmark({
     return (
       <span
         style={{
-          fontFamily: `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`,
+          fontFamily: BRAND_DISPLAY_STACK,
           fontWeight: 700,
           fontSize: Math.round(height * 0.95),
           lineHeight: 1,

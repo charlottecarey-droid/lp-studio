@@ -24,8 +24,8 @@ const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 const SEC = "hsl(42,18%,96%)";
 const FG  = "hsl(152,40%,13%)";
 const MU  = "hsl(152,8%,48%)";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
-const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+import { BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
+const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 
 const LAB_HIGHLIGHTS = [
   { icon: Microscope, label: "Advanced Materials Lab"  },

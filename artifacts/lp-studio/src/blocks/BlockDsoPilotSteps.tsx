@@ -21,9 +21,9 @@ const P     = "var(--brand-primary, hsl(152,42%,12%))";
 const FG    = "var(--brand-primary, hsl(152,40%,13%))";
 const MU    = "hsl(152,8%,48%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
-const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 const DISPLAY = DISPLAY_FONT;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')

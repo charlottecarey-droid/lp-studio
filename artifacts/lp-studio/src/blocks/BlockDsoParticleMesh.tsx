@@ -4,9 +4,9 @@ import type { DsoParticleMeshBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
-const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 const DISPLAY = DISPLAY_FONT;
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";

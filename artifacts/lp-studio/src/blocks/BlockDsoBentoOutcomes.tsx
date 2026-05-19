@@ -9,8 +9,8 @@ import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
-const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+import { BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
+const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 
 const P     = "var(--brand-primary, #0f172a)";
 const PFG   = "hsl(48,100%,96%)";

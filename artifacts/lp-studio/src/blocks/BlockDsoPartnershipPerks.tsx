@@ -20,9 +20,9 @@ const DEFAULT_PERKS: DsoPartnershipPerksBlockProps["perks"] = [];
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
-const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = BRAND_DISPLAY_STACK;
 
 const ICON_MAP: Record<string, React.ElementType> = {
   gift: Gift,

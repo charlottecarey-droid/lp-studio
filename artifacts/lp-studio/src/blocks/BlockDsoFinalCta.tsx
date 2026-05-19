@@ -23,9 +23,9 @@ interface Props {
 const P     = "hsl(152,42%,12%)";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
-const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 const DISPLAY = DISPLAY_FONT;
 
 export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, pageId, variantId, sessionId }: Props) {
