@@ -57,7 +57,7 @@ psql "$NEON_DATABASE_URL" -c "
                  true
                ),
       updated_at = now()
-  WHERE tenant_id = (SELECT id FROM tenants WHERE slug = 'dandy')
+  WHERE tenant_id IN (SELECT id FROM tenants WHERE slug IN ('dandy','dandy-smb'))
     AND (
       COALESCE(NULLIF(config->>'displayFont',''), '') = ''
       OR COALESCE(NULLIF(config->>'bodyFont',''), '')    = ''
