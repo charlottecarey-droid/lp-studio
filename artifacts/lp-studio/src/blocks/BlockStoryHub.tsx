@@ -341,7 +341,7 @@ export function BlockStoryHub({ props }: Props) {
                 gap: "0.75rem",
               }}
             >
-              <span style={{ ...{width: 8, height: 8, borderRadius: "50%", background: theme.accent, boxShadow: `0 0 8px ${theme.accent}`}, ...{fontFamily: BODY} }} />
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: theme.accent, boxShadow: `0 0 8px ${theme.accent}`, fontFamily: BODY }} />
               {props.eyebrow}
               <span aria-hidden style={{ width: 28, height: 1, background: theme.accent, opacity: 0.5, fontFamily: BODY }} />
             </motion.div>
@@ -696,7 +696,7 @@ export function BlockStoryHub({ props }: Props) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             {/* Sort */}
-            <span style={{ ...{display: "inline-flex", alignItems: "center", gap: "0.5rem", fontSize: "0.75rem", color: theme.muted, border: `1px solid ${theme.divider}`, padding: "0.4rem 0.8rem", borderRadius: 999,}, ...{fontFamily: BODY} }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontSize: "0.75rem", color: theme.muted, border: `1px solid ${theme.divider}`, padding: "0.4rem 0.8rem", borderRadius: 999, fontFamily: BODY }}>
               <span style={{ textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 600, fontFamily: BODY }}>Sort</span>
               <span style={{ color: theme.fg, fontStyle: "italic", fontFamily: displayFont }}>Latest</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1396,7 +1396,7 @@ function StoryCard({
             gap: "0.75rem",
           }}
         >
-          <span style={{ ...{fontSize: "0.625rem", textTransform: "uppercase", letterSpacing: "0.2em", padding: "0.25rem 0.7rem", borderRadius: 999, border: `1px solid ${theme.divider}`, color: theme.muted, fontWeight: 700,}, ...{fontFamily: BODY} }}>
+          <span style={{ fontSize: "0.625rem", textTransform: "uppercase", letterSpacing: "0.2em", padding: "0.25rem 0.7rem", borderRadius: 999, border: `1px solid ${theme.divider}`, color: theme.muted, fontWeight: 700, fontFamily: BODY }}>
             {story.tag}
           </span>
           <span

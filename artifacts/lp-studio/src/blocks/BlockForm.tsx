@@ -1093,7 +1093,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
-                  <label htmlFor={field.id} className={labelClass} style={{ ...(textOverride ? { color: textOverride, opacity: 0.85 } : undefined), ...{fontFamily: BODY} }}>
+                  <label htmlFor={field.id} className={labelClass} style={{ ...(textOverride ? { color: textOverride, opacity: 0.85 } : undefined), fontFamily: BODY }}>
                     {field.label}
                     {field.required && <span className="text-red-400 ml-0.5" style={{ fontFamily: BODY }}>*</span>}
                   </label>

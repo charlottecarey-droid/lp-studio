@@ -228,7 +228,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
             transition={{ duration: 0.45 }}
             style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2rem" }}
           >
-            <span style={{ ...{display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: AW, boxShadow: `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.12)"}`, flexShrink: 0,}, ...{fontFamily: BODY} }} />
+            <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: AW, boxShadow: `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.12)"}`, flexShrink: 0, fontFamily: BODY }} />
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, margin: 0, fontFamily: BODY }}>
               <InlineText value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </p>

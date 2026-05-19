@@ -692,7 +692,7 @@ const LiveEventTicker = ({ t }: { t: Theme }) => {
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "0.45rem 1rem" }}
             >
-              <span style={{ ...{display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: `${typeColor[ev.type] ?? "#999"}22`, color: typeColor[ev.type] ?? "#999", flexShrink: 0,}, ...{fontFamily: BODY} }}>{ev.type}</span>
+              <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: `${typeColor[ev.type] ?? "#999"}22`, color: typeColor[ev.type] ?? "#999", flexShrink: 0, fontFamily: BODY }}>{ev.type}</span>
               <span className={`text-sm font-medium ${t.textPrimary} truncate`} style={{ fontFamily: BODY }}>{ev.dr}</span>
               <span className={`text-xs ${t.textMuted} truncate hidden sm:block`} style={{ fontFamily: BODY }}>· {ev.loc}</span>
               <span className={`text-[10px] ${t.textMuted} ml-auto flex-shrink-0 opacity-60`} style={{ fontFamily: BODY }}>just now</span>

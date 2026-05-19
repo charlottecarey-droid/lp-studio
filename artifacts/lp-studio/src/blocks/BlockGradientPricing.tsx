@@ -131,7 +131,7 @@ export function BlockGradientPricing({ props, brand, onFieldChange }: Props) {
                   ))}
                 </ul>
                 {onFieldChange ? (
-                  <span className={cn( "mt-8 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full font-semibold", )} style={{ ...(featured ? { backgroundColor: accent, color: "#0A0A0A" } : { backgroundColor: "rgba(255,255,255,0.08)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.16)", }), ...{fontFamily: BODY} }}>
+                  <span className={cn( "mt-8 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full font-semibold", )} style={{ ...(featured ? { backgroundColor: accent, color: "#0A0A0A" } : { backgroundColor: "rgba(255,255,255,0.08)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.16)", }), fontFamily: BODY }}>
                     <InlineText as="span" value={tier.ctaText} onUpdate={updateTier ? (v) => updateTier(i, { ctaText: v }) : undefined} style={{ fontFamily: BODY }}/>
                     <ArrowRight className="w-4 h-4" />
                   </span>

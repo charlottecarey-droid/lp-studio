@@ -58,7 +58,7 @@ export function BlockHoursLocation({ props, brand, onFieldChange, onCtaClick }: 
             <h3 className="text-xs uppercase tracking-[0.25em] mb-5 opacity-70" style={{ fontFamily: DISPLAY }}>Hours</h3>
             <ul className="space-y-3">
               {props.hours.map((row, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-4 text-base" style={{ ...(row.highlight ? { color: accent, fontWeight: 600 } : undefined), ...{fontFamily: BODY} }}>
+                <li key={i} className="flex items-baseline justify-between gap-4 text-base" style={{ ...(row.highlight ? { color: accent, fontWeight: 600 } : undefined), fontFamily: BODY }}>
                   <span style={{ fontFamily: BODY }}>{row.day}</span>
                   <span className="tabular-nums opacity-90" style={{ fontFamily: BODY }}>{row.hours}</span>
                 </li>

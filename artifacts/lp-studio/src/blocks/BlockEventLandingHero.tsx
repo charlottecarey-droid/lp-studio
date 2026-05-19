@@ -383,7 +383,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                 // light- and dark-tinted button backgrounds. Color + opacity
                 // are user-editable; defaults (white, intensity=1) reproduce
                 // the original look exactly.
-                <motion.span aria-hidden initial={{ x: "-120%" }} animate={{ x: "220%" }} transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: "easeInOut" }} style={{ ...{position: "absolute", top: 0, left: 0, width: "55%", height: "100%", pointerEvents: "none", background: `linear-gradient(115deg, ${hexToRgba(ctaShineColor, 0)} 0%, ${hexToRgba(ctaShineColor, 0.55)} 50%, ${hexToRgba(ctaShineColor, 0)} 100%)`, opacity: Math.max(0, Math.min(1, ctaShineIntensity)), mixBlendMode: "screen", transform: "skewX(-20deg)",}, ...{fontFamily: BODY} }} />
+                <motion.span aria-hidden initial={{ x: "-120%" }} animate={{ x: "220%" }} transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: "easeInOut" }} style={{ position: "absolute", top: 0, left: 0, width: "55%", height: "100%", pointerEvents: "none", background: `linear-gradient(115deg, ${hexToRgba(ctaShineColor, 0)} 0%, ${hexToRgba(ctaShineColor, 0.55)} 50%, ${hexToRgba(ctaShineColor, 0)} 100%)`, opacity: Math.max(0, Math.min(1, ctaShineIntensity)), mixBlendMode: "screen", transform: "skewX(-20deg)", fontFamily: BODY }} />
               )}
             </motion.button>
           )}

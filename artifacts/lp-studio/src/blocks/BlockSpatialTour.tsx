@@ -418,7 +418,7 @@ function TelemetryStrip({
         <span key={i} style={{ fontFamily: BODY }}>{it}</span>
       ))}
       <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: liveColor, justifySelf: "end", fontFamily: BODY }}>
-        <span style={{ ...{width: 6, height: 6, borderRadius: "50%", background: liveColor, boxShadow: `0 0 6px ${liveColor}`,}, ...{fontFamily: BODY} }} />
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: liveColor, boxShadow: `0 0 6px ${liveColor}`, fontFamily: BODY }} />
         {liveLabel}
       </span>
     </div>
@@ -1004,7 +1004,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
             gap: 10,
           }}
         >
-          <span className="st-anim-rec" style={{ ...{width: 6, height: 6, borderRadius: "50%", background: MINT, boxShadow: `0 0 8px ${MINT}`, animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite",}, ...{fontFamily: BODY} }} />
+          <span className="st-anim-rec" style={{ width: 6, height: 6, borderRadius: "50%", background: MINT, boxShadow: `0 0 8px ${MINT}`, animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite", fontFamily: BODY }} />
           2160P · 60FPS · LOOP
         </div>
       ) : (

@@ -110,7 +110,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
       viewport={{ once: true }}
       style={{ marginBottom: "1.5rem" }}
     >
-      <span style={{ ...{display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: eyebrowC, background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`, border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.125)`}`, borderRadius: "999px", padding: "0.35rem 1rem",}, ...{fontFamily: BODY} }}>
+      <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: eyebrowC, background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`, border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.125)`}`, borderRadius: "999px", padding: "0.35rem 1rem", fontFamily: BODY }}>
         <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
       </span>
     </motion.div>

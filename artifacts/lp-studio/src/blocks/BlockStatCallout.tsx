@@ -27,10 +27,10 @@ function AnimatedStat({ value, enabled, className, style }: { value: string; ena
   const parsed = parseNumeric(value);
   const [count, countRef] = useCountUp(parsed?.num ?? 0, 1600, enabled && !!parsed);
 
-  if (!parsed || !enabled) return <span className={className} style={{ ...(style), ...{fontFamily: BODY} }}>{value}</span>;
+  if (!parsed || !enabled) return <span className={className} style={{ ...(style), fontFamily: BODY }}>{value}</span>;
 
   const display = `${parsed.prefix}${count.toLocaleString()}${parsed.suffix}`;
-  return <span ref={countRef} className={className} style={{ ...(style), ...{fontFamily: BODY} }}>{display}</span>;
+  return <span ref={countRef} className={className} style={{ ...(style), fontFamily: BODY }}>{display}</span>;
 }
 
 export function BlockStatCallout({ props, brand, onFieldChange, animationsEnabled = true }: Props) {

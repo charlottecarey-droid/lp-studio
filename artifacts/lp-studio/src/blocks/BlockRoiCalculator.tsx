@@ -82,7 +82,7 @@ const ResultRow = ({
 }) => (
   <div className="py-1.5">
     <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-0.5" style={{ fontFamily: BODY }}>{label}</p>
-    <p className="text-xl font-bold tracking-tight" style={{ ...(highlight ? { color: accentColor } : { color: "#fff" }), ...{fontFamily: BODY} }}>
+    <p className="text-xl font-bold tracking-tight" style={{ ...(highlight ? { color: accentColor } : { color: "#fff" }), fontFamily: BODY }}>
       {value}
     </p>
   </div>

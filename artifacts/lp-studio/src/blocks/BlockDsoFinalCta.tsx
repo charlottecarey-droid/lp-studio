@@ -193,7 +193,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
         </motion.h2>
 
         {subheadline && (
-          <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.75rem", fontSize: "1.0625rem", color: dark ? `${PFG}99` : "hsl(152,8%,44%)", lineHeight: 1.7,}, ...{fontFamily: BODY} }}>
+          <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ marginTop: "1.75rem", fontSize: "1.0625rem", color: dark ? `${PFG}99` : "hsl(152,8%,44%)", lineHeight: 1.7, fontFamily: BODY }}>
             <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
         )}

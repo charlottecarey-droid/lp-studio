@@ -264,7 +264,7 @@ function MarqueeTags({
     >
       <motion.div style={{ x }} className="flex gap-3 whitespace-nowrap">
         {doubled.map((tag, i) => (
-          <span key={i} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest backdrop-blur" style={{ ...{backgroundColor: tagBg, border: `1px solid ${tagBorder}`, color: tagText,}, ...{fontFamily: BODY} }}>
+          <span key={i} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest backdrop-blur" style={{ backgroundColor: tagBg, border: `1px solid ${tagBorder}`, color: tagText, fontFamily: BODY }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor, fontFamily: BODY }} />
             {tag}
           </span>
