@@ -147,46 +147,72 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
     const panelEls = root.querySelectorAll<HTMLElement>(".id-cinema-text .id-panel");
     const bgEl = root.querySelector<HTMLElement>(".id-cinema-bg");
     let raf = 0;
-    const smoothstep = (t: number) => t * t * (3 - 2 * t);
+    // Sharp S-curve. smootherstep(t) = 6t^5 − 15t^4 + 10t^3; composing it
+    // with itself (`smootherstep(smootherstep(t))`) gives a much steeper
+    // ramp through the midpoint than plain smoothstep, so the awkward
+    // 50/50 dwell where both pillars are half-visible is brief.
+    const smootherstep = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
+    const ease = (t: number) => smootherstep(smootherstep(t));
     const update = () => {
       raf = 0;
       const vh = window.innerHeight;
-      // Crossfade window must match the spacer spacing so two adjacent
-      // pillars actually overlap. Spacers are `holdVh * 100vh` tall, so
-      // their centers are `holdVh * vh` px apart — pick that as the fade
-      // window and adjacent pillars will both have non-zero `--p` while
-      // the user scrolls between them. A previous version used a fixed
-      // 0.55*vh window which was much narrower than the 150vh spacing,
-      // leaving a dead zone between every pair of pillars.
-      const fadeWindow = Math.max(vh * 0.55, holdVh * vh);
-      let nearestI = 0;
-      let nearestDist = Infinity;
+      // Strict complementary crossfade between *exactly two* neighboring
+      // pillars at a time. Find the spacer just above and just below the
+      // viewport center, compute t = how far between them, and assign
+      // opacities (1-t, t). Everything else is 0. This guarantees the
+      // visible opacities always sum to 1 — no white flash between, no
+      // three-way overlap of stacked text, and no period where both
+      // adjacent pillars sit at half-opacity.
+      let beforeI = -1;
+      let beforePos = -Infinity;
+      let afterI = -1;
+      let afterPos = Infinity;
       for (let i = 0; i < pillars.length; i++) {
         const el = spacerRefs.current[i];
         if (!el) continue;
         const r = el.getBoundingClientRect();
-        const center = r.top + r.height / 2;
-        const distance = Math.abs(center - vh / 2);
-        const raw = Math.max(0, 1 - distance / fadeWindow);
-        const eased = smoothstep(raw);
-        layerEls[i]?.style.setProperty("--p", eased.toFixed(4));
-        panelEls[i]?.style.setProperty("--p", eased.toFixed(4));
-        // Pick "active" pillar by which spacer center is closest to the
-        // viewport center, NOT by which has the highest eased value.
-        // In the dead zones between pillars all `eased` collapse to 0,
-        // which would otherwise snap `active` back to index 0 every time
-        // (visibly flashing pillar 0 between every transition).
-        if (distance < nearestDist) {
-          nearestDist = distance;
-          nearestI = i;
+        const pos = (r.top + r.height / 2) - vh / 2;
+        if (pos <= 0 && pos > beforePos) {
+          beforeI = i;
+          beforePos = pos;
         }
+        if (pos > 0 && pos < afterPos) {
+          afterI = i;
+          afterPos = pos;
+        }
+      }
+      const opacities = new Array<number>(pillars.length).fill(0);
+      let activeI = 0;
+      if (beforeI === -1 && afterI === -1) {
+        // No spacers measured yet (initial mount before layout).
+        opacities[0] = 1;
+      } else if (beforeI === -1) {
+        // Above the first pillar — anchor on it.
+        opacities[afterI] = 1;
+        activeI = afterI;
+      } else if (afterI === -1) {
+        // Past the last pillar — anchor on it.
+        opacities[beforeI] = 1;
+        activeI = beforeI;
+      } else {
+        const span = afterPos - beforePos;
+        const t = span > 0 ? (-beforePos) / span : 0;
+        const eased = ease(Math.min(1, Math.max(0, t)));
+        opacities[beforeI] = 1 - eased;
+        opacities[afterI] = eased;
+        activeI = eased >= 0.5 ? afterI : beforeI;
+      }
+      for (let i = 0; i < pillars.length; i++) {
+        const v = opacities[i].toFixed(4);
+        layerEls[i]?.style.setProperty("--p", v);
+        panelEls[i]?.style.setProperty("--p", v);
       }
       // Discrete state still drives the side stepper (color/dot scale) and
       // the background gradient swap, but only re-renders when it actually
       // flips — so the cheap React work doesn't fight the rAF loop.
-      setActive((cur) => (cur === nearestI ? cur : nearestI));
-      if (bgEl && bgEl.dataset.bg !== String(nearestI)) {
-        bgEl.dataset.bg = String(nearestI);
+      setActive((cur) => (cur === activeI ? cur : activeI));
+      if (bgEl && bgEl.dataset.bg !== String(activeI)) {
+        bgEl.dataset.bg = String(activeI);
       }
     };
     const onScroll = () => {
