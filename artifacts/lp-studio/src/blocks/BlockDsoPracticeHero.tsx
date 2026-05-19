@@ -132,7 +132,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
         marginBottom: "1.25rem",
       }}
     >
-      <InlineText as="span" value={headline || "Your practice. Elevated."} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+      <InlineText as="span" value={headline || "Your practice. Elevated."} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
     </motion.h1>
   );
 

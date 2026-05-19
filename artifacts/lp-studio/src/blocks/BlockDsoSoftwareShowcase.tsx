@@ -311,7 +311,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
               )}
               {headline && (
                 <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.875rem)", lineHeight: 1.12, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", margin: 0 }}>
-                  <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+                  <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
                 </h2>
               )}
               {body && (
@@ -348,7 +348,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
           )}
           {headline && (
             <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", marginBottom: "1rem" }}>
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
             </h2>
           )}
           {body && (

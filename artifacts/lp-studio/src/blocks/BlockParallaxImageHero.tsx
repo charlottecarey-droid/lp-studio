@@ -234,7 +234,7 @@ export function BlockParallaxImageHero({
                   as="span"
                   value={props.headline ?? ""}
                   onUpdate={f("headline")}
-                style={{ fontFamily: BODY }}/>
+                style={{ fontFamily: DISPLAY }}/>
               ) : (
                 renderHeadlineWithAccent(
                   props.headline ?? "",

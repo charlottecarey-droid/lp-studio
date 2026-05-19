@@ -64,13 +64,13 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
           />
         )}
         <h1 style={{ fontFamily: DISPLAY }}>
-          <span className="id-line" style={{ fontFamily: BODY }}>
+          <span className="id-line" style={{ fontFamily: DISPLAY }}>
             <EditableEm as="span" className="id-line-inner" value={props.line1 ?? ""} onUpdate={f("line1")} />
           </span>
-          <span className="id-line" style={{ fontFamily: BODY }}>
+          <span className="id-line" style={{ fontFamily: DISPLAY }}>
             <EditableEm as="span" className="id-line-inner" value={props.line2 ?? ""} onUpdate={f("line2")} />
           </span>
-          <span className="id-line" style={{ fontFamily: BODY }}>
+          <span className="id-line" style={{ fontFamily: DISPLAY }}>
             <EditableEm as="span" className="id-line-inner" value={props.line3 ?? ""} onUpdate={f("line3")} />
           </span>
         </h1>

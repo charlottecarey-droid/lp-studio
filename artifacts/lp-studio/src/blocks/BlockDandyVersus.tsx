@@ -48,7 +48,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
             )}
             {props.headline && (
               <h2 className="text-4xl md:text-5xl font-bold text-white leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
+                <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
               </h2>
             )}
           </div>
@@ -67,7 +67,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
               <InlineText value={props.leftLabel} onUpdate={field("leftLabel")} style={{ fontFamily: BODY }}/>
             </span>
             <h3 className="text-3xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: DISPLAY }}>
-              <InlineText value={props.leftTitle} onUpdate={field("leftTitle")} style={{ fontFamily: BODY }}/>
+              <InlineText value={props.leftTitle} onUpdate={field("leftTitle")} style={{ fontFamily: DISPLAY }}/>
             </h3>
             <p className="text-slate-500 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
               <InlineText value={props.leftDesc} onUpdate={field("leftDesc")} style={{ fontFamily: BODY }}/>
@@ -96,7 +96,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
               <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} style={{ fontFamily: BODY }}/>
             </span>
             <h3 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: DISPLAY }}>
-              <InlineText value={props.rightTitle} onUpdate={field("rightTitle")} style={{ fontFamily: BODY }}/>
+              <InlineText value={props.rightTitle} onUpdate={field("rightTitle")} style={{ fontFamily: DISPLAY }}/>
             </h3>
             <p className="text-white/70 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
               <InlineText value={props.rightDesc} onUpdate={field("rightDesc")} style={{ fontFamily: BODY }}/>

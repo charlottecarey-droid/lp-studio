@@ -90,7 +90,7 @@ export function BlockDsoPromises({ props, brand, onFieldChange }: Props) {
                 whiteSpace: "pre-line",
               }}
             >
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
             </motion.h2>
           )}
           {subheadline && (

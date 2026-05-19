@@ -14,6 +14,7 @@ const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies bullets/stats for catalog-added blocks; this fires only for isolated previews.
@@ -162,7 +163,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
               }}
             >
               {onFieldChange ? (
-                <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+                <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
               ) : (
                 <WordReveal
                   text={headline}

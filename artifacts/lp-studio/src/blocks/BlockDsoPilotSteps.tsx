@@ -24,6 +24,7 @@ const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies steps for catalog-added blocks; this fires only for isolated previews.
@@ -130,7 +131,7 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
               letterSpacing: "-0.015em",
             }}
           >
-            <InlineText as="span" value={headline || "Start small. Prove it out.\nThen scale."} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline || "Start small. Prove it out.\nThen scale."} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
             <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: subColor, lineHeight: 1.7, maxWidth: 560, margin: "1.5rem auto 0",}, ...{fontFamily: BODY} }}>
@@ -221,7 +222,7 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
                         letterSpacing: "-0.02em",
                       }}
                     >
-                      <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} style={{ fontFamily: BODY }}/>
+                      <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                     </h3>
                     <p style={{ ...{fontSize: "0.875rem", fontWeight: 500, color: subtitleColor, marginTop: 4,}, ...{fontFamily: BODY} }}>
                       <InlineText as="span" value={step.subtitle} onUpdate={updateStep ? (v) => updateStep(i, { subtitle: v }) : undefined} style={{ fontFamily: BODY }}/>

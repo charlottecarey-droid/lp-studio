@@ -48,7 +48,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
       <div className="max-w-7xl mx-auto px-6">
         {(headline || onFieldChange) && (
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`} style={{ fontFamily: DISPLAY }}>
-            <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </h2>
         )}
         {(subheadline || onFieldChange) && (
@@ -92,7 +92,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
                   </span>
                 )}
                 <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${isDark ? "text-white" : "text-slate-900"}`} style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i, { title: v }) : undefined} style={{ fontFamily: BODY }}/>
+                  <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i, { title: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                 </h3>
                 {(item.description || updateItem) && (
                   <p className={`text-sm leading-relaxed flex-1 ${isDark ? "text-white/70" : "text-slate-500"}`} style={{ fontFamily: BODY }}>

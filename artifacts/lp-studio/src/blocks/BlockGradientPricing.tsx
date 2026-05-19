@@ -60,7 +60,7 @@ export function BlockGradientPricing({ props, brand, onFieldChange }: Props) {
             className="font-bold tracking-tight leading-[1.05]"
             style={{ fontSize: "clamp(2.25rem, 5vw, 4rem)", fontFamily: DISPLAY }}
           >
-            <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </h2>
           {props.subheadline && (
             <p className="text-base lg:text-lg text-white/70 mt-4 leading-relaxed" style={{ fontFamily: BODY }}>

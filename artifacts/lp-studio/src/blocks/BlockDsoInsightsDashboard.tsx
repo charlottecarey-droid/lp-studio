@@ -827,7 +827,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
               color: isDark ? "hsl(48,100%,96%)" : "hsl(152,40%,13%)",
             }}
           >
-            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
             <motion.p initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)",}, ...{fontFamily: BODY} }}>

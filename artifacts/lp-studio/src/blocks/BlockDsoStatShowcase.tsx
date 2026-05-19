@@ -9,6 +9,7 @@ import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 // Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
 // vars (set by getBrandStyleVars). Hardcoded fallbacks preserve the original
@@ -244,7 +245,7 @@ export function BlockDsoStatShowcase({ props, onFieldChange }: Props) {
               margin: "0 auto",
             }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
         </div>
 

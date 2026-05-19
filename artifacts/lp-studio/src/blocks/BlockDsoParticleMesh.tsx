@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const ACCENT_FALLBACK = "hsl(68,60%,52%)";
@@ -258,7 +259,7 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
               marginBottom: "2rem", whiteSpace: "pre-line",
             }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.2 }} style={{ ...{fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440}, ...{fontFamily: BODY} }}>
             <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>

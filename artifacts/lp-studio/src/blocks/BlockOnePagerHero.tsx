@@ -192,7 +192,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                 margin: 0,
               }}
             >
-              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ ...{color: "#fff"}, ...{fontFamily: BODY} }} />
+              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ ...{color: "#fff"}, ...{fontFamily: DISPLAY} }} />
             </h1>
 
             {subtitle !== undefined && (

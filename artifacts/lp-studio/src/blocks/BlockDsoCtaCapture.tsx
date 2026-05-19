@@ -11,6 +11,7 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 const AW = "var(--brand-accent, hsl(68,60%,52%))";
 const API_BASE = "/api";
 
@@ -246,7 +247,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               marginBottom: "1.5rem", whiteSpace: "pre-line",
             }}
           >
-            <InlineText value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
 
           {/* Body */}

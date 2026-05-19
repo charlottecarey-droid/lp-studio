@@ -91,7 +91,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
           </p>
         )}
         <h2 className={cn("text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight", colors.heading)} style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
+          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
         </h2>
         {props.subheadline && (
           <p className={cn("text-lg leading-relaxed max-w-2xl", colors.sub)} style={{ fontFamily: BODY }}>

@@ -215,7 +215,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   className={cn("text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-tight", getHeadingWeightClass(brand))}
                   style={{ color: textLight ? "#ffffff" : FOREST, fontFamily: DISPLAY }}
                 >
-                  <InlineText value={props.overlayHeadline ?? ""} onUpdate={field("overlayHeadline")} multiline style={{ fontFamily: BODY }}/>
+                  <InlineText value={props.overlayHeadline ?? ""} onUpdate={field("overlayHeadline")} multiline style={{ fontFamily: DISPLAY }}/>
                 </h2>
               )}
               {(props.overlaySubheadline || onFieldChange) && (
@@ -384,7 +384,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
           isDark ? "text-white" : "text-[var(--brand-primary)]"
         )} style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+          <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
         </h2>
       )}
       {(props.subheadline || onFieldChange) && (
@@ -503,7 +503,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
                   isDark ? "text-white" : "text-[var(--brand-primary)]"
                 )} style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+                  <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
                 </h2>
               )}
               {(props.subheadline || onFieldChange) && (

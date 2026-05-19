@@ -16,6 +16,7 @@ const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 const ICONS = [TrendingDown, BarChart3, Scale, Wallet];
 
@@ -104,7 +105,7 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
               value={headline || "At scale — even small inefficiencies compound fast."}
               onUpdate={field("headline")}
               multiline
-            style={{ fontFamily: BODY }}/>
+            style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
         </div>
 
@@ -172,7 +173,7 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
                     as="span"
                     value={c.title}
                     onUpdate={updateChallenge ? (v) => updateChallenge(i, { title: v }) : undefined}
-                  style={{ fontFamily: BODY }}/>
+                  style={{ fontFamily: DISPLAY }}/>
                 </h3>
                 <p style={{ ...{fontSize: "0.875rem", color: dark ? "rgba(255,255,255,0.55)" : MU, lineHeight: 1.7,}, ...{fontFamily: BODY} }}>
                   <InlineText

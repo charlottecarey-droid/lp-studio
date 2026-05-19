@@ -23,6 +23,7 @@ interface Props {
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 /** Pick a readable foreground color for the CTA pill given its background. */
 function readableOn(hex: string): string {
@@ -298,7 +299,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               maxWidth: `${headlineMaxWidthCh}ch`,
             }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h1>
 
           {(dateText || locationText) && (
@@ -472,7 +473,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                         letterSpacing: "-0.01em",
                       }}
                     >
-                      <InlineText as="span" value={whatToExpectHeading} onUpdate={field("whatToExpectHeading")} style={{ fontFamily: BODY }}/>
+                      <InlineText as="span" value={whatToExpectHeading} onUpdate={field("whatToExpectHeading")} style={{ fontFamily: DISPLAY }}/>
                     </h2>
                   )}
                   {whatToExpectBody && (
@@ -501,7 +502,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                         letterSpacing: "-0.01em",
                       }}
                     >
-                      <InlineText as="span" value={eventDetailsHeading} onUpdate={field("eventDetailsHeading")} style={{ fontFamily: BODY }}/>
+                      <InlineText as="span" value={eventDetailsHeading} onUpdate={field("eventDetailsHeading")} style={{ fontFamily: DISPLAY }}/>
                     </h3>
                   )}
                   {eventDetailsBody && (
@@ -570,7 +571,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                         letterSpacing: "-0.01em",
                       }}
                     >
-                      <InlineText as="span" value={extraSectionHeading} onUpdate={field("extraSectionHeading")} style={{ fontFamily: BODY }}/>
+                      <InlineText as="span" value={extraSectionHeading} onUpdate={field("extraSectionHeading")} style={{ fontFamily: DISPLAY }}/>
                     </h3>
                   )}
                   {extraSectionBody && (
@@ -607,7 +608,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                         color: detailsTheme.fg,
                       }}
                     >
-                      <InlineText as="span" value={formHeading} onUpdate={field("formHeading")} style={{ fontFamily: BODY }}/>
+                      <InlineText as="span" value={formHeading} onUpdate={field("formHeading")} style={{ fontFamily: DISPLAY }}/>
                     </h3>
                   )}
                   {formSubheading && (

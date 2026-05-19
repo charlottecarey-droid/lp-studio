@@ -4,6 +4,7 @@ import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-type
 import { VideoModal } from "@/components/VideoModal";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const DISPLAY = BRAND_DISPLAY_FONT;
 
 const BODY = BRAND_BODY_FONT;
 
@@ -1140,7 +1141,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.manifestoHeadlineLine1}
             <br />
-            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: BODY} }}>{p.manifestoHeadlineEmphasis}</span>
+            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: DISPLAY} }}>{p.manifestoHeadlineEmphasis}</span>
           </h2>
           <p
             style={{
@@ -1473,7 +1474,7 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.tourHeadlineLine1}
             <br />
-            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT}, ...{fontFamily: BODY} }}>{p.tourHeadlineEmphasis}</span>
+            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT}, ...{fontFamily: DISPLAY} }}>{p.tourHeadlineEmphasis}</span>
             <br />
             {p.tourHeadlineLine3}
           </h2>
@@ -1645,7 +1646,7 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
               <br />
               {p.calloutHeadlineLine2}
               <br />
-              <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: BODY} }}>{p.calloutHeadlineEmphasis}</span>
+              <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: DISPLAY} }}>{p.calloutHeadlineEmphasis}</span>
             </h2>
             <div style={{ marginTop: 36, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
               {p.calloutPoints.map((pt) => (
@@ -1712,7 +1713,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.waysHeadlineLine1}
             <br />
-            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: BODY} }}>{p.waysHeadlineEmphasis}</span>
+            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: DISPLAY} }}>{p.waysHeadlineEmphasis}</span>
           </h2>
         </div>
 
@@ -1879,7 +1880,7 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.calendarHeadlineLine1}
             <br />
-            <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: BODY} }}>{p.calendarHeadlineEmphasis}</span>
+            <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: DISPLAY} }}>{p.calendarHeadlineEmphasis}</span>
           </h2>
           <p
             style={{

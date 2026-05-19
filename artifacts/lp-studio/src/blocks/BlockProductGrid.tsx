@@ -47,7 +47,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
         <div className="text-center max-w-3xl mx-auto mb-12 lg:mb-16">
           {props.headline && (
             <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-primary)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
-              <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+              <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
             </h2>
           )}
           {props.subheadline && (
@@ -83,7 +83,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
                     as="span"
                     value={item.title}
                     onUpdate={updateItemText ? (v) => updateItemText(i, { title: v }) : undefined}
-                  style={{ fontFamily: BODY }}/>
+                  style={{ fontFamily: DISPLAY }}/>
                 </h3>
                 <p className="text-[#4A6358] text-sm leading-relaxed flex-1" style={{ fontFamily: BODY }}>
                   <InlineText

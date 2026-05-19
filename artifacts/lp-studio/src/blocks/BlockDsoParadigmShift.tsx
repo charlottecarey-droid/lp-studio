@@ -85,7 +85,7 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", whiteSpace: "pre-line" }}
             >
-              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
             </motion.h2>
           )}
           {(subheadline || onFieldChange) && (
@@ -116,7 +116,7 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
                 Old Way
               </p>
               <h3 style={{ fontFamily: DISPLAY, fontSize: "1.75rem", fontWeight: 600, color: oldHeadC, lineHeight: 1.15, letterSpacing: "-0.01em" }}>
-                <InlineText value={oldWayLabel} onUpdate={field("oldWayLabel")} style={{ fontFamily: BODY }}/>
+                <InlineText value={oldWayLabel} onUpdate={field("oldWayLabel")} style={{ fontFamily: DISPLAY }}/>
               </h3>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: "1rem" }} aria-label="Old Way">
@@ -172,7 +172,7 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
                 New Way
               </p>
               <h3 style={{ fontFamily: DISPLAY, fontSize: "1.75rem", fontWeight: 600, color: newHeadC, lineHeight: 1.15, letterSpacing: "-0.01em" }}>
-                <InlineText value={newWayLabel} onUpdate={field("newWayLabel")} style={{ fontFamily: BODY }}/>
+                <InlineText value={newWayLabel} onUpdate={field("newWayLabel")} style={{ fontFamily: DISPLAY }}/>
               </h3>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "relative" }} aria-label="New Way">

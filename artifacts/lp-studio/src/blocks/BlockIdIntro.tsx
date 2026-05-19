@@ -135,14 +135,14 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
               : (() => {
                   let letterIdx = 0;
                   return tokens.map((t) => {
-                    if (t.kind === "space") return <span key={t.key} style={{ fontFamily: BODY }}> </span>;
+                    if (t.kind === "space") return <span key={t.key} style={{ fontFamily: DISPLAY }}> </span>;
                     return (
-                      <span key={t.key} className={`id-word${t.isEm ? " id-em-word" : ""}`} aria-hidden style={{ fontFamily: BODY }}>
+                      <span key={t.key} className={`id-word${t.isEm ? " id-em-word" : ""}`} aria-hidden style={{ fontFamily: DISPLAY }}>
                         {t.letters.map((l) => {
                           const lit = letterIdx < litUntil;
                           letterIdx += 1;
                           return (
-                            <span key={l.key} className={`id-letter${lit ? " id-lit" : ""}`} style={{ fontFamily: BODY }}>
+                            <span key={l.key} className={`id-letter${lit ? " id-lit" : ""}`} style={{ fontFamily: DISPLAY }}>
                               {l.ch}
                             </span>
                           );

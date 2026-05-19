@@ -10,6 +10,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 const P      = "var(--brand-primary, #0f172a)";
 const PFG    = "hsl(48,100%,96%)";
@@ -171,7 +172,7 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
                 lineHeight: 1.05,
                 marginBottom: "1.25rem",
               }}>
-                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
+                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: DISPLAY }}/>
               </h1>
               <p style={{ ...{fontSize: "clamp(0.9375rem, 1.1vw, 1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 460,}, ...{fontFamily: BODY} }}>
                 <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>

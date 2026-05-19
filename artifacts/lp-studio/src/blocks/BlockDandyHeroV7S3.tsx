@@ -98,7 +98,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           className="text-5xl md:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight mb-6"
           style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number, fontFamily: DISPLAY }}
         >
-          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
+          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
         </h1>
         {props.subheadline && (
           <p className="text-xl text-white/80 leading-relaxed mb-10 max-w-2xl" style={{ fontFamily: BODY }}>

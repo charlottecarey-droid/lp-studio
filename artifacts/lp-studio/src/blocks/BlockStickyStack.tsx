@@ -83,7 +83,7 @@ export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, page
               <InlineText
                 value={props.headline}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-              style={{ fontFamily: BODY }}/>
+              style={{ fontFamily: DISPLAY }}/>
             </h2>
           )}
         </div>
@@ -220,7 +220,7 @@ function CardLayer({
             </span>
           )}
           <h3 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-5" style={{ fontFamily: DISPLAY }}>
-            <InlineText value={card.title} onUpdate={onChange ? (v) => onChange({ title: v }) : undefined} style={{ fontFamily: BODY }}/>
+            <InlineText value={card.title} onUpdate={onChange ? (v) => onChange({ title: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
           </h3>
           {card.body && (
             <p className="text-base md:text-lg leading-relaxed opacity-80 max-w-md" style={{ fontFamily: BODY }}>

@@ -80,7 +80,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
           </p>
         )}
         <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
+          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
         </h2>
         {props.subheadline && (
           <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>

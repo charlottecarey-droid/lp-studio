@@ -24,6 +24,7 @@ const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies an empty rows array so this fallback only fires when no rows are
@@ -107,7 +108,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
               letterSpacing: "-0.015em",
             }}
           >
-            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
           {subheadline && (
             <motion.p {...subAnim} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: dark ? "rgba(255,255,255,0.60)" : MU, lineHeight: 1.7, maxWidth: 640, margin: "1.5rem auto 0",}, ...{fontFamily: BODY} }}>

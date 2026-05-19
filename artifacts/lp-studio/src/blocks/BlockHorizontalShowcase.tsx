@@ -91,7 +91,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                   <InlineText
                     value={props.headline}
                     onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-                  style={{ fontFamily: BODY }}/>
+                  style={{ fontFamily: DISPLAY }}/>
                 </h2>
               )}
             </div>
@@ -154,7 +154,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                   <InlineText
                     value={panel.title}
                     onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { title: v }, props, onFieldChange) : undefined}
-                  style={{ fontFamily: BODY }}/>
+                  style={{ fontFamily: DISPLAY }}/>
                 </h3>
                 {panel.body && (
                   <p className="text-lg md:text-xl text-white/80 leading-relaxed mb-8 max-w-xl" style={{ fontFamily: BODY }}>

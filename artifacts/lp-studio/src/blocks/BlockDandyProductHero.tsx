@@ -111,7 +111,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const leftContent: ReactNode = (
     <>
       {p.eyebrow && <div style={eyebrowStyle}><InlineText as="span" value={p.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/></div>}
-      <h1 style={{ ...(headlineStyle), ...{fontFamily: DISPLAY} }}><InlineText as="span" value={p.headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/></h1>
+      <h1 style={{ ...(headlineStyle), ...{fontFamily: DISPLAY} }}><InlineText as="span" value={p.headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/></h1>
       {p.subheadline && <p style={{ ...(subStyle), ...{fontFamily: BODY} }}><InlineText as="span" value={p.subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/></p>}
 
       <form

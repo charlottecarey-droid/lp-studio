@@ -359,7 +359,7 @@ export function BlockStoryHub({ props }: Props) {
               }}
             >
               {props.heroTitle}{" "}
-              <span style={{ ...{fontStyle: "italic", color: theme.accent}, ...{fontFamily: BODY} }}>{props.heroAccent}</span>
+              <span style={{ ...{fontStyle: "italic", color: theme.accent}, ...{fontFamily: DISPLAY} }}>{props.heroAccent}</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 10 }}

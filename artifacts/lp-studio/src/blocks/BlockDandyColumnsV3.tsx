@@ -43,7 +43,7 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
             )}
             {props.headline && (
               <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: BODY }}/>
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
               </h2>
             )}
             {props.subheadline && (
@@ -77,7 +77,7 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
                   </span>
                 )}
                 <h3 className="text-xl font-bold text-[var(--brand-primary)] leading-tight" style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} style={{ fontFamily: BODY }}/>
+                  <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} style={{ fontFamily: DISPLAY }}/>
                 </h3>
               </div>
               <p className="text-slate-600 text-base leading-relaxed" style={{ fontFamily: BODY }}>

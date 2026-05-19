@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
 // `getBrandStyleVars`). Hardcoded HSL fallbacks preserve the original Dandy
@@ -220,7 +221,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
                           marginBottom: "1.5rem",
                         }}
                       >
-                        <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
+                        <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: DISPLAY }}/>
                       </h3>
                       <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.72, color: FG_MU, maxWidth: 440}, ...{fontFamily: BODY} }}>
                         <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
@@ -298,7 +299,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
                 {String(i + 1).padStart(2, "0")} / {String(displayChapters.length).padStart(2, "0")}
               </p>
               <h3 style={{ fontFamily: DISPLAY_FONT, fontSize: "1.375rem", fontWeight: 600, color: FG, letterSpacing: "-0.02em", lineHeight: 1.2, marginBottom: "0.875rem" }}>
-                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
+                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: DISPLAY }}/>
               </h3>
               <p style={{ ...{fontSize: "0.9375rem", lineHeight: 1.68, color: FG_MU}, ...{fontFamily: BODY} }}>
                 <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>

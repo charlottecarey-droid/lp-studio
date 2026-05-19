@@ -249,7 +249,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
-              <InlineText as="span" value={props.title || "See everything.\nDo anything."} onUpdate={field("title")} multiline style={{ fontFamily: BODY }}/>
+              <InlineText as="span" value={props.title || "See everything.\nDo anything."} onUpdate={field("title")} multiline style={{ fontFamily: DISPLAY }}/>
             </motion.h2>
           </div>
 
@@ -406,7 +406,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight" style={{ fontFamily: DISPLAY }}>
-                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
+                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                   </h4>
                   <p className="text-[#F2EEE3]/50 text-sm leading-relaxed" style={{ fontFamily: BODY }}>
                     <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>

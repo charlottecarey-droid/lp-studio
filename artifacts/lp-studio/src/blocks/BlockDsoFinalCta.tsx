@@ -26,6 +26,7 @@ const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, pageId, variantId, sessionId }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -185,7 +186,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
           }}
         >
           {onFieldChange ? (
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           ) : (
             headlineLines.length > 1 ? (<>{headlineLines[0]}<br />{headlineLines[1]}</>) : headline
           )}

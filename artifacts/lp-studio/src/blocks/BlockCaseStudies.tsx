@@ -51,7 +51,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
       <div className="max-w-7xl mx-auto px-6">
         {(headline || onFieldChange) && (
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`} style={{ fontFamily: DISPLAY }}>
-            <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </h2>
         )}
         {(subheadline || onFieldChange) && (
@@ -96,7 +96,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               )}
               <div className="relative p-6 md:p-8">
                 <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "md")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-2`} style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={featured.title} onUpdate={updateItem ? (v) => updateItem(0, { title: v }) : undefined} style={{ fontFamily: BODY }}/>
+                  <InlineText value={featured.title} onUpdate={updateItem ? (v) => updateItem(0, { title: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                 </h3>
                 {(featured.categories || updateItem) && (
                   <p className="text-xs uppercase tracking-wider text-white/60" style={{ fontFamily: BODY }}>
@@ -139,7 +139,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               )}
               <div className="relative p-5">
                 <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-1`} style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i + 1, { title: v }) : undefined} style={{ fontFamily: BODY }}/>
+                  <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i + 1, { title: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                 </h3>
                 {(item.categories || updateItem) && (
                   <p className="text-[11px] uppercase tracking-wider text-white/60" style={{ fontFamily: BODY }}>

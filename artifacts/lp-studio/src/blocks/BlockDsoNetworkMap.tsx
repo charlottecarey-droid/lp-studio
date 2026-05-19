@@ -8,6 +8,7 @@ import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
 // `getBrandStyleVars`). Hardcoded HSL/hex fallbacks preserve the original
 // Dandy look when no brand wrapper is present (e.g. isolated previews).
@@ -226,7 +227,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
               whiteSpace: "pre-line",
             }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
 
           <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.16 }} style={{ ...{fontSize: "clamp(0.9375rem,1.1vw,1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 440, marginBottom: "2.5rem"}, ...{fontFamily: BODY} }}>
