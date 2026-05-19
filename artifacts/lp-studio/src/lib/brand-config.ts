@@ -325,6 +325,16 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
     "--brand-border": brand.borderColor || "#e2e8f0",
     "--brand-cta-bg": brand.ctaBackground || accent,
     "--brand-cta-text": brand.ctaText || onAccent,
+    // Numeric heading weight so blocks that drive headings via inline
+    // `style={{ fontWeight: ... }}` (instead of Tailwind classes) can still
+    // inherit the tenant's chosen brand heading weight. Mirrors
+    // HEADING_WEIGHT below: semibold=600, bold=700, extrabold=800, black=900.
+    "--brand-heading-weight": (
+      brand.headingWeight === "semibold" ? "600" :
+      brand.headingWeight === "extrabold" ? "800" :
+      brand.headingWeight === "black" ? "900" :
+      "700"
+    ),
   };
   // Brand fonts. Quote family names containing whitespace and chain a sensible
   // system fallback. The wrapped element re-points Tailwind's `--font-display`

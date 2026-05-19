@@ -161,22 +161,42 @@ export function useBlockCatalog() {
       });
     }
 
-    // generic: ONLY catalog rows are visible. If the API returned a clean empty
-    // list, that is the correct answer (an admin has not enabled any blocks yet)
-    // and we must NOT fall back to BLOCK_REGISTRY — that would expose dental-
-    // only blocks to a non-Dandy tenant. The loading / error paths above already
-    // use BLOCK_REGISTRY to avoid a blank builder while rows === null.
+    // generic: show ALL BLOCK_REGISTRY entries (with Dandy/DSO tokens stripped
+    // from labels via `neutralizeLabel`) so non-Dandy tenants get the full
+    // palette — matching what the AI is allowed to generate. Catalog rows
+    // override label/category/sortOrder/defaultProps for the same blockType,
+    // and an explicit `isEnabled: false` row hides a block. Catalog rows that
+    // reference a custom blockType not in BLOCK_REGISTRY are still surfaced.
+    // Build the disabled set from the raw rows BEFORE filtering by isEnabled.
+    const disabledTypes = new Set(
+      (rows ?? []).filter(r => r.isEnabled === false).map(r => r.blockType),
+    );
     const out: ResolvedBlockDef[] = [];
+    const seenTypes = new Set<string>();
+    for (const def of BLOCK_REGISTRY) {
+      if (disabledTypes.has(def.type)) continue;
+      seenTypes.add(def.type);
+      const cat = catalogByType.get(def.type);
+      const rawLabel = cat?.label || def.label;
+      out.push({
+        type: def.type,
+        label: neutralizeLabel(rawLabel),
+        category: ((cat?.category as BlockCategory) || def.category),
+        defaultProps: cat
+          ? () => ({ ...def.defaultProps(), ...cat.defaultProps })
+          : def.defaultProps,
+        sortOrder: cat?.sortOrder ?? 0,
+        source: cat ? ("catalog" as const) : ("registry" as const),
+      });
+    }
+    // Custom catalog-only rows (no in-code registry entry).
     for (const cat of catalogByType.values()) {
-      const reg = BLOCK_REGISTRY.find(b => b.type === cat.blockType);
-      const rawLabel = cat.label || reg?.label || cat.blockType;
+      if (seenTypes.has(cat.blockType)) continue;
       out.push({
         type: cat.blockType,
-        label: neutralizeLabel(rawLabel),
-        category: (cat.category as BlockCategory) || reg?.category || ("Content" as BlockCategory),
-        defaultProps: reg
-          ? () => ({ ...reg.defaultProps(), ...cat.defaultProps })
-          : () => ({ ...cat.defaultProps }),
+        label: neutralizeLabel(cat.label || cat.blockType),
+        category: (cat.category as BlockCategory) || ("Content" as BlockCategory),
+        defaultProps: () => ({ ...cat.defaultProps }),
         sortOrder: cat.sortOrder ?? 0,
         source: "catalog" as const,
       });

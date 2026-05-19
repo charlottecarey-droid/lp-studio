@@ -90,11 +90,14 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
           </p>
         )}
-        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.05] tracking-tight mb-6">
+        <h1
+          className="text-5xl md:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight mb-6"
+          style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number }}
+        >
           <InlineText value={props.headline} onUpdate={field("headline")} />
         </h1>
         {props.subheadline && (
-          <p className="text-xl text-green-100/80 leading-relaxed mb-10 max-w-2xl">
+          <p className="text-xl text-white/80 leading-relaxed mb-10 max-w-2xl">
             <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
           </p>
         )}
@@ -103,7 +106,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           <div className="flex flex-col items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-6 max-w-md w-full">
             <CheckCircle2 className="w-8 h-8 text-[var(--brand-accent)]" />
             <p className="text-white font-bold text-lg">You're on the list!</p>
-            <p className="text-green-100/70 text-sm">Check your inbox — we'll be in touch shortly.</p>
+            <p className="text-white/70 text-sm">Check your inbox — we'll be in touch shortly.</p>
             {props.chilipiperUrl && (
               <button
                 onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
@@ -139,7 +142,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
         )}
 
         {props.formDisclaimer && formState !== "success" && (
-          <p className="mt-4 text-sm text-green-200/60">
+          <p className="mt-4 text-sm text-white/60">
             <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
           </p>
         )}
@@ -149,7 +152,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
             {(props.trustItems ?? []).map((item, i) => (
               <div key={i} className="flex flex-col items-center gap-0.5">
                 <span className="text-3xl font-bold text-[var(--brand-accent)]">{item.value}</span>
-                <span className="text-sm text-green-200/70">{item.label}</span>
+                <span className="text-sm text-white/70">{item.label}</span>
               </div>
             ))}
           </div>

@@ -87,19 +87,19 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
           </div>
 
           {/* Right card — dark green */}
-          <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ background: "radial-gradient(ellipse at center, #006651 0%, var(--brand-primary) 70%)" }}>
+          <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--brand-primary) 75%, #fff) 0%, var(--brand-primary) 70%)" }}>
             <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4">
               <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} />
             </span>
             <h3 className="text-3xl font-bold text-white mb-3">
               <InlineText value={props.rightTitle} onUpdate={field("rightTitle")} />
             </h3>
-            <p className="text-green-100/70 text-base leading-relaxed mb-6">
+            <p className="text-white/70 text-base leading-relaxed mb-6">
               <InlineText value={props.rightDesc} onUpdate={field("rightDesc")} />
             </p>
             <ul className="flex-1 divide-y divide-white/10">
               {(props.rightBullets ?? []).map((b, i) => (
-                <li key={i} className="flex items-center gap-3 text-base text-green-50 py-3.5">
+                <li key={i} className="flex items-center gap-3 text-base text-white/90 py-3.5">
                   <Check className="w-4 h-4 text-[var(--brand-accent)] shrink-0" strokeWidth={2.5} />
                   <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet("rightBullets", i, v) : undefined} />
                 </li>

@@ -534,7 +534,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 style={{
                   fontFamily: DISPLAY_FONT,
                   fontSize: "clamp(2.25rem, 5vw, 3.75rem)",
-                  fontWeight: 600,
+                  fontWeight: "var(--brand-heading-weight, 600)" as unknown as number,
                   lineHeight: 1.06,
                   letterSpacing: "-0.02em",
                   color: "#fff",
@@ -605,7 +605,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "linear-gradient(135deg, hsl(152 35% 12%) 0%, hsl(72 30% 8%) 100%)",
+                    background: "linear-gradient(135deg, var(--brand-primary, hsl(152 35% 12%)) 0%, color-mix(in srgb, var(--brand-primary, hsl(152 35% 12%)) 70%, #000) 100%)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",

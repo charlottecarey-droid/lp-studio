@@ -48,7 +48,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const leftFr = p.leftColumnFr ?? 1.05;
   const rightFr = p.rightColumnFr ?? 1;
   const cardColor = p.cardColor || "#e8e6df";
-  const cardTextColor = p.cardTextColor || "#0a2b25";
+  const cardTextColor = p.cardTextColor || baseTextColor;
   const imageBgColor = p.imageBackgroundColor || "#ffffff";
 
   // In card variant, copy lives inside the grey card → use cardTextColor.
@@ -90,7 +90,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
     lineHeight: 1.05,
     letterSpacing: "-0.02em",
     color: textColor,
-    fontWeight: 400,
+    fontWeight: "var(--brand-heading-weight, 400)" as unknown as number,
     marginBottom: "1.5rem",
   };
 

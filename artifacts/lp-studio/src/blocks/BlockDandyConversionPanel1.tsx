@@ -21,21 +21,21 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
   const bgMap: Record<string, string> = {
     teal: "var(--brand-primary)",
     lime: "var(--brand-accent)",
-    medium: "#006651",
+    medium: "color-mix(in srgb, var(--brand-primary) 80%, #000)",
     white: "#FFFFFF",
   };
   const textMap: Record<string, { eyebrow: string; heading: string; sub: string; divider: string }> = {
-    teal:   { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-green-100/70",   divider: "border-white/10" },
-    lime:   { eyebrow: "text-[#006651]", heading: "text-[var(--brand-primary)]",  sub: "text-[#004d3f]/70",   divider: "border-[rgb(var(--brand-primary-rgb)/0.1)]" },
-    medium: { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-green-100/70",   divider: "border-white/10" },
-    white:  { eyebrow: "text-[#006651]", heading: "text-[var(--brand-primary)]",  sub: "text-slate-500",      divider: "border-slate-200" },
+    teal:   { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-white/70",   divider: "border-white/10" },
+    lime:   { eyebrow: "text-[var(--brand-primary)]", heading: "text-[var(--brand-primary)]",  sub: "text-[rgb(var(--brand-primary-rgb)/0.7)]",   divider: "border-[rgb(var(--brand-primary-rgb)/0.1)]" },
+    medium: { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-white/70",   divider: "border-white/10" },
+    white:  { eyebrow: "text-[var(--brand-primary)]", heading: "text-[var(--brand-primary)]",  sub: "text-slate-500",      divider: "border-slate-200" },
   };
 
   const bg = props.bgColor ?? bgMap[style] ?? bgMap.teal;
   const colors = textMap[style] ?? textMap.teal;
 
   const primaryBtnCls = style === "lime"
-    ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:bg-[#004d3f]"
+    ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:brightness-90"
     : "bg-[var(--brand-accent)] text-[var(--brand-primary)] hover:brightness-105";
 
   const secondaryBtnCls = style === "lime" || style === "white"
