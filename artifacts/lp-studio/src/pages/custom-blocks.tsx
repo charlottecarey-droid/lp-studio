@@ -497,8 +497,8 @@ export function CustomBlocksContent() {
             <Sparkles className="w-4 h-4" />
             Generate from prompt
           </Button>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="w-4 h-4" />
+          <Button size="lg" onClick={openCreate} className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0">
+            <Plus className="w-4 h-4 mr-2" />
             New Block
           </Button>
         </div>

@@ -81,8 +81,8 @@ export default function LivePages() {
             </p>
           </div>
           <Link href="/tests/new">
-            <Button size="sm" className="rounded-md font-medium text-[13px]">
-              <Play className="w-3.5 h-3.5 mr-1.5" />
+            <Button size="lg" className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0">
+              <Play className="w-4 h-4 mr-2" />
               New Test
             </Button>
           </Link>

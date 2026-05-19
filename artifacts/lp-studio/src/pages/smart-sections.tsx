@@ -372,8 +372,8 @@ export default function SmartSections() {
               </SelectContent>
             </Select>
 
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
+            <Button size="lg" onClick={() => setIsCreateDialogOpen(true)} className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0">
+              <Plus className="w-4 h-4 mr-2" />
               Create Section
             </Button>
           </div>
