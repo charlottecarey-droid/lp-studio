@@ -4,6 +4,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandyVideoTestimonialsBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=400&h=700&fit=crop";
 
@@ -45,17 +49,17 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
         {(props.eyebrow || props.headline || props.subheadline) && (
           <div className="mb-12 max-w-2xl">
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--brand-primary)" }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--brand-primary)", fontFamily: BODY }}>
                 <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
             {props.subheadline && (
-              <p className="text-slate-600 text-lg leading-relaxed">
+              <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
                 <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
               </p>
             )}
@@ -91,11 +95,11 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
 
               {/* Caption */}
               <div className="absolute bottom-5 left-5 right-5">
-                <p className="text-white text-base font-semibold leading-tight">
+                <p className="text-white text-base font-semibold leading-tight" style={{ fontFamily: BODY }}>
                   <InlineText value={item.name} onUpdate={onFieldChange ? (v) => updateItem(i, "name", v) : undefined} />
                 </p>
                 {item.practiceName && (
-                  <p className="text-white/65 text-sm mt-1">
+                  <p className="text-white/65 text-sm mt-1" style={{ fontFamily: BODY }}>
                     <InlineText value={item.practiceName} onUpdate={onFieldChange ? (v) => updateItem(i, "practiceName", v) : undefined} />
                   </p>
                 )}
@@ -147,9 +151,9 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
             ) : null}
           </div>
           <div className="mt-2 text-center text-white pointer-events-none max-w-[480px]">
-            <p className="text-base font-semibold">{activeItem.name}</p>
+            <p className="text-base font-semibold" style={{ fontFamily: BODY }}>{activeItem.name}</p>
             {activeItem.practiceName && (
-              <p className="text-white/65 text-sm mt-1">{activeItem.practiceName}</p>
+              <p className="text-white/65 text-sm mt-1" style={{ fontFamily: BODY }}>{activeItem.practiceName}</p>
             )}
           </div>
         </div>

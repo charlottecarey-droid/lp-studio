@@ -11,6 +11,10 @@ import type {
   GridVideoBlockProps,
 } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const ALIGN_CLASS: Record<"left" | "center" | "right", string> = {
   left: "text-left",
@@ -42,9 +46,9 @@ export function BlockGridImage({ props }: { props: GridImageBlockProps; brand: B
 export function BlockGridHeadlineSub({ props }: { props: GridHeadlineSubBlockProps; brand: BrandConfig }) {
   return (
     <div className={`p-4 ${ALIGN_CLASS[props.align]}`}>
-      <h3 className="text-2xl font-semibold text-slate-900">{props.headline}</h3>
+      <h3 className="text-2xl font-semibold text-slate-900" style={{ fontFamily: DISPLAY }}>{props.headline}</h3>
       {props.subheadline && (
-        <p className="mt-2 text-sm text-slate-600">{props.subheadline}</p>
+        <p className="mt-2 text-sm text-slate-600" style={{ fontFamily: BODY }}>{props.subheadline}</p>
       )}
     </div>
   );
@@ -54,7 +58,7 @@ export function BlockGridParagraphBullets({ props, brand }: { props: GridParagra
   return (
     <div className="p-4 space-y-3">
       {props.paragraph && (
-        <p className="text-base text-slate-700">{props.paragraph}</p>
+        <p className="text-base text-slate-700" style={{ fontFamily: BODY }}>{props.paragraph}</p>
       )}
       {props.bullets?.length > 0 && (
         <ul className="space-y-1.5 text-sm text-slate-700">
@@ -76,9 +80,9 @@ export function BlockGridParagraphBullets({ props, brand }: { props: GridParagra
 export function BlockGridHeadlineParagraph({ props }: { props: GridHeadlineParagraphBlockProps; brand: BrandConfig }) {
   return (
     <div className={`p-4 ${ALIGN_CLASS[props.align]}`}>
-      <h3 className="text-xl font-semibold text-slate-900">{props.headline}</h3>
+      <h3 className="text-xl font-semibold text-slate-900" style={{ fontFamily: DISPLAY }}>{props.headline}</h3>
       {props.paragraph && (
-        <p className="mt-2 text-base text-slate-700 leading-relaxed">{props.paragraph}</p>
+        <p className="mt-2 text-base text-slate-700 leading-relaxed" style={{ fontFamily: BODY }}>{props.paragraph}</p>
       )}
     </div>
   );
@@ -93,9 +97,9 @@ export function BlockGridIconFeature({ props, brand }: { props: GridIconFeatureB
       >
         <span aria-hidden>{props.icon || "✨"}</span>
       </div>
-      <h4 className="text-base font-semibold text-slate-900">{props.headline}</h4>
+      <h4 className="text-base font-semibold text-slate-900" style={{ fontFamily: DISPLAY }}>{props.headline}</h4>
       {props.paragraph && (
-        <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">{props.paragraph}</p>
+        <p className="mt-1.5 text-sm text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>{props.paragraph}</p>
       )}
     </div>
   );
@@ -126,7 +130,7 @@ export function BlockGridQuote({ props, brand }: { props: GridQuoteBlockProps; b
       >
         &ldquo;
       </div>
-      <p className="text-base italic text-slate-800 leading-relaxed">{props.quote}</p>
+      <p className="text-base italic text-slate-800 leading-relaxed" style={{ fontFamily: BODY }}>{props.quote}</p>
       <div className="mt-3 text-sm">
         <div className="font-semibold text-slate-900">{props.attribution}</div>
         {props.role && <div className="text-slate-500">{props.role}</div>}
@@ -141,8 +145,8 @@ export function BlockGridCtaTile({ props }: { props: GridCtaTileBlockProps; bran
       className="p-6 rounded-lg h-full flex flex-col"
       style={{ backgroundColor: props.bgColor || "#003A30", color: props.textColor || "#ffffff" }}
     >
-      <h4 className="text-lg font-semibold">{props.headline}</h4>
-      {props.body && <p className="mt-2 text-sm opacity-90 flex-1">{props.body}</p>}
+      <h4 className="text-lg font-semibold" style={{ fontFamily: DISPLAY }}>{props.headline}</h4>
+      {props.body && <p className="mt-2 text-sm opacity-90 flex-1" style={{ fontFamily: BODY }}>{props.body}</p>}
       {props.ctaText && (
         <a
           href={props.ctaUrl || "#"}
@@ -195,7 +199,7 @@ export function BlockGridVideo({ props }: { props: GridVideoBlockProps; brand: B
         controls
         className="w-full aspect-video rounded bg-black"
       />
-      {props.caption && <p className="text-xs text-slate-500">{props.caption}</p>}
+      {props.caption && <p className="text-xs text-slate-500" style={{ fontFamily: BODY }}>{props.caption}</p>}
     </div>
   );
 }

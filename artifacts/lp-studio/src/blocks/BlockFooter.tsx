@@ -4,6 +4,10 @@ import type { FooterBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: FooterBlockProps;
@@ -60,7 +64,7 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                 <div key={ci}>
                   <p
                     className="text-xs font-semibold tracking-widest uppercase mb-4"
-                    style={{ color: accent }}
+                    style={{ color: accent, fontFamily: BODY }}
                   >
                     <InlineText
                       as="span"
@@ -132,7 +136,7 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
         </div>
 
         <div className="mt-14 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-white/40 text-xs">
+          <p className="text-white/40 text-xs" style={{ fontFamily: BODY }}>
             {onFieldChange ? (
               <InlineText
                 as="span"

@@ -6,6 +6,10 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { InlineImage } from "@/components/InlineImage";
 import { InlineText } from "@/components/InlineText";
 import { motion } from "framer-motion";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: ProductGridBlockProps;
@@ -42,12 +46,12 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-12 lg:mb-16">
           {props.headline && (
-            <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-primary)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}>
+            <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-primary)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
               <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline />
             </h2>
           )}
           {props.subheadline && (
-            <p className={cn(getBodySizeClass(brand), "text-[#4A6358] leading-relaxed")}>
+            <p className={cn(getBodySizeClass(brand), "text-[#4A6358] leading-relaxed")} style={{ fontFamily: BODY }}>
               <InlineText as="span" value={props.subheadline} onUpdate={field("subheadline")} multiline />
             </p>
           )}
@@ -74,14 +78,14 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
                 />
               </div>
               <div className="p-6 flex-1 flex flex-col">
-                <h3 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-2", getHeadingWeightClass(brand))}>
+                <h3 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-2", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
                   <InlineText
                     as="span"
                     value={item.title}
                     onUpdate={updateItemText ? (v) => updateItemText(i, { title: v }) : undefined}
                   />
                 </h3>
-                <p className="text-[#4A6358] text-sm leading-relaxed flex-1">
+                <p className="text-[#4A6358] text-sm leading-relaxed flex-1" style={{ fontFamily: BODY }}>
                   <InlineText
                     as="span"
                     value={item.description}

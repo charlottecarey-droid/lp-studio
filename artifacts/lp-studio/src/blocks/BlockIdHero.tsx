@@ -4,6 +4,10 @@ import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton, type CtaActionMode } from "@/components/CtaButton";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: IdHeroBlockProps;
@@ -59,7 +63,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
             onUpdate={f("eyebrow")}
           />
         )}
-        <h1>
+        <h1 style={{ fontFamily: DISPLAY }}>
           <span className="id-line">
             <EditableEm as="span" className="id-line-inner" value={props.line1 ?? ""} onUpdate={f("line1")} />
           </span>

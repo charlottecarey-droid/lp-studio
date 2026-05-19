@@ -6,6 +6,10 @@ import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSp
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { CtaButton } from "@/components/CtaButton";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: BottomCtaBlockProps;
@@ -33,8 +37,8 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId
   return (
     <section className={cn("w-full bg-[var(--brand-primary)] text-white px-6 text-center", sectionPy)}>
       <div className="max-w-3xl mx-auto">
-        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
-        {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className={cn(getBodySizeClass(brand), "text-white/80 mb-10")} multiline />}
+        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
+        {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className={cn(getBodySizeClass(brand), "text-white/80 mb-10")} style={{ fontFamily: BODY }} multiline />}
         <CtaButton
           ctaAction={action}
           ctaUrl={props.ctaUrl}

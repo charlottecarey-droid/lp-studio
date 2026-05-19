@@ -6,6 +6,10 @@ import type { StickyBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: StickyBarBlockProps;
@@ -58,7 +62,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
       )}
       style={{ ...barBgStyle, color: textColor }}
     >
-      <p className="text-sm font-medium flex-1 text-center">{p.text}</p>
+      <p className="text-sm font-medium flex-1 text-center" style={{ fontFamily: BODY }}>{p.text}</p>
       {p.ctaText && (
         <button
           onClick={() => {

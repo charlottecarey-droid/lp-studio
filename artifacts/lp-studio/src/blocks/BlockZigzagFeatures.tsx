@@ -8,6 +8,10 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { useState } from "react";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop";
 
@@ -36,12 +40,12 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
         {(props.headline || props.subheadline) && (
           <div className={cn("max-w-3xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
-              <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}>
+              <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
             {props.subheadline && (
-              <p className={cn("text-slate-600 leading-relaxed", getBodySizeClass(brand))}>
+              <p className={cn("text-slate-600 leading-relaxed", getBodySizeClass(brand))} style={{ fontFamily: BODY }}>
                 <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
               </p>
             )}
@@ -76,15 +80,13 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
                 value={row.headline}
                 onUpdate={onFieldChange ? (v) => updateRow(i, "headline", v) : undefined}
                 className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "md"), "leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-                style={{ color: brand.primaryColor }}
-              />
+                style={{ color: brand.primaryColor, fontFamily: DISPLAY }} />
               <InlineText
                 as="p"
                 value={row.body}
                 onUpdate={onFieldChange ? (v) => updateRow(i, "body", v) : undefined}
                 className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-slate-600")}
-                multiline
-              />
+                multiline style={{ fontFamily: BODY }} />
               {row.ctaText && (
                 <button
                   onClick={() => {

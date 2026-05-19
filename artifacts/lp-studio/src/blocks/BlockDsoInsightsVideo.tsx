@@ -47,6 +47,10 @@ import closeUpRemakeRates from "@assets/Untitled_31_1774755563382.png";
 import closeUpSpend from "@assets/Untitled_33_1774755563383.png";
 import scanQuality from "@assets/scan_quality_1774760745958.png";
 import provPerf from "@assets/provperf_1774760745956.png";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 type ScreenItem = { src: string; label: string; clipRatio?: number };
 const SCREENS: ScreenItem[] = [
@@ -240,7 +244,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           <div className="overflow-hidden mb-3">
             <motion.h2
               className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] font-display tracking-tight"
-              style={{ lineHeight: 1.12, letterSpacing: "-0.02em" }}
+              style={{ lineHeight: 1.12, letterSpacing: "-0.02em", fontFamily: DISPLAY }}
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
@@ -255,8 +259,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               className="text-lg md:text-xl text-[var(--brand-accent)] font-medium tracking-tight"
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
-              transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
+              transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }} style={{ fontFamily: BODY }}>
               <InlineText as="span" value={props.subtitle || "Before it becomes a problem."} onUpdate={field("subtitle")} multiline />
             </motion.p>
           </div>
@@ -267,8 +270,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               className="text-sm md:text-base text-[#F2EEE3]/55 max-w-lg mx-auto leading-relaxed"
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : { opacity: 0 }}
-              transition={{ duration: 1, delay: 0.6 }}
-            >
+              transition={{ duration: 1, delay: 0.6 }} style={{ fontFamily: BODY }}>
               <InlineText as="span" value={props.description || "The only analytics platform purpose-built for modern dental groups."} onUpdate={field("description")} multiline />
             </motion.p>
           )}
@@ -403,10 +405,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                   <callout.icon className="w-4 h-4 text-[var(--brand-accent)]" />
                 </div>
                 <div>
-                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">
+                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight" style={{ fontFamily: DISPLAY }}>
                     <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} />
                   </h4>
-                  <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">
+                  <p className="text-[#F2EEE3]/50 text-sm leading-relaxed" style={{ fontFamily: BODY }}>
                     <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline />
                   </p>
                 </div>
@@ -450,8 +452,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               <ScanLine className="w-4 h-4 text-[var(--brand-accent)]" />
             </div>
             <div>
-              <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">See every scan</h4>
-              <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">Inspect crown prep geometry and thickness in real time.</p>
+              <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight" style={{ fontFamily: DISPLAY }}>See every scan</h4>
+              <p className="text-[#F2EEE3]/50 text-sm leading-relaxed" style={{ fontFamily: BODY }}>Inspect crown prep geometry and thickness in real time.</p>
             </div>
           </div>
           <div className="w-full relative overflow-hidden">
@@ -486,7 +488,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
 
             <p
               className="text-[#F2EEE3] text-xl md:text-2xl lg:text-3xl font-light leading-snug max-w-2xl text-center mb-8"
-              style={{ letterSpacing: "-0.02em" }}
+              style={{ letterSpacing: "-0.02em", fontFamily: BODY }}
             >
               <InlineText as="span" value={props.quote || "It would be insane not to use it given the data available."} onUpdate={field("quote")} multiline />
             </p>
@@ -494,7 +496,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
               <div className="flex items-center gap-4">
                 <div className="w-10 h-px bg-[#F2EEE3]/25" />
-                <p className="text-[#F2EEE3]/45 text-[11px] font-semibold tracking-[0.18em] uppercase">
+                <p className="text-[#F2EEE3]/45 text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ fontFamily: BODY }}>
                   <InlineText as="span" value={props.quoteAttribution || "Dr. Eller, Clinical Leader"} onUpdate={field("quoteAttribution")} />
                 </p>
                 <div className="w-10 h-px bg-[#F2EEE3]/25" />

@@ -3,6 +3,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyConversionPanel1BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: DandyConversionPanel1BlockProps;
@@ -82,15 +86,15 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
       <div className="max-w-4xl mx-auto px-6 md:px-10 text-center flex flex-col items-center gap-6">
         {props.eyebrow && (
-          <p className={cn("text-xs font-bold uppercase tracking-widest", colors.eyebrow)}>
+          <p className={cn("text-xs font-bold uppercase tracking-widest", colors.eyebrow)} style={{ fontFamily: BODY }}>
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
           </p>
         )}
-        <h2 className={cn("text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight", colors.heading)}>
+        <h2 className={cn("text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight", colors.heading)} style={{ fontFamily: DISPLAY }}>
           <InlineText value={props.headline} onUpdate={field("headline")} />
         </h2>
         {props.subheadline && (
-          <p className={cn("text-lg leading-relaxed max-w-2xl", colors.sub)}>
+          <p className={cn("text-lg leading-relaxed max-w-2xl", colors.sub)} style={{ fontFamily: BODY }}>
             <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
           </p>
         )}

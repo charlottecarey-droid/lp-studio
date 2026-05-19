@@ -4,6 +4,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { useCountUp } from "@/hooks/use-count-up";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: StatCalloutBlockProps;
@@ -52,8 +56,8 @@ export function BlockStatCallout({ props, brand, onFieldChange, animationsEnable
             />
           )}
         </div>
-        <InlineText as="p" value={props.description} onUpdate={field("description")} className={cn(getBodySizeClass(brand), "text-white max-w-xl mx-auto mb-8 leading-relaxed")} multiline />
-        {props.footnote && <InlineText as="p" value={props.footnote} onUpdate={field("footnote")} className="text-sm text-white/50 max-w-lg mx-auto" />}
+        <InlineText as="p" value={props.description} onUpdate={field("description")} className={cn(getBodySizeClass(brand), "text-white max-w-xl mx-auto mb-8 leading-relaxed")} multiline style={{ fontFamily: BODY }} />
+        {props.footnote && <InlineText as="p" value={props.footnote} onUpdate={field("footnote")} className="text-sm text-white/50 max-w-lg mx-auto" style={{ fontFamily: BODY }} />}
       </div>
     </section>
   );

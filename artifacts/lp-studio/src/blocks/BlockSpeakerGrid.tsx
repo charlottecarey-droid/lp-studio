@@ -2,6 +2,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { SpeakerGridBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: SpeakerGridBlockProps;
@@ -42,22 +46,19 @@ export function BlockSpeakerGrid({ props, brand, onFieldChange }: Props) {
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v: string) => updateField("eyebrow", v) : undefined}
               className="text-xs uppercase tracking-[0.3em] mb-3"
-              style={{ color: accent }}
-            />
+              style={{ color: accent, fontFamily: BODY }} />
           )}
           <InlineText
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v: string) => updateField("headline", v) : undefined}
-            className="text-4xl sm:text-5xl font-semibold tracking-tight"
-          />
+            className="text-4xl sm:text-5xl font-semibold tracking-tight" style={{ fontFamily: DISPLAY }} />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v: string) => updateField("subheadline", v) : undefined}
-              className="mt-3 opacity-70 max-w-2xl mx-auto"
-            />
+              className="mt-3 opacity-70 max-w-2xl mx-auto" style={{ fontFamily: BODY }} />
           )}
         </div>
 
@@ -73,10 +74,10 @@ export function BlockSpeakerGrid({ props, brand, onFieldChange }: Props) {
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
-              <h3 className="text-lg font-semibold leading-tight">{sp.name}</h3>
-              <p className="text-sm mt-1" style={{ color: accent }}>{sp.role}</p>
-              {sp.company && <p className="text-sm opacity-70">{sp.company}</p>}
-              {sp.bio && <p className="text-sm opacity-75 mt-2 leading-relaxed">{sp.bio}</p>}
+              <h3 className="text-lg font-semibold leading-tight" style={{ fontFamily: DISPLAY }}>{sp.name}</h3>
+              <p className="text-sm mt-1" style={{ color: accent, fontFamily: BODY }}>{sp.role}</p>
+              {sp.company && <p className="text-sm opacity-70" style={{ fontFamily: BODY }}>{sp.company}</p>}
+              {sp.bio && <p className="text-sm opacity-75 mt-2 leading-relaxed" style={{ fontFamily: BODY }}>{sp.bio}</p>}
               {sp.socialUrl && (
                 <a
                   href={sp.socialUrl}

@@ -2,6 +2,10 @@ import type { IdGridBlockProps, IdGridCard } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm, renderEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: IdGridBlockProps;

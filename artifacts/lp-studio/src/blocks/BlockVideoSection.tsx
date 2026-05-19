@@ -13,6 +13,10 @@ import { ChiliPiperModal } from "./ChiliPiperModal";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -209,7 +213,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
               {(props.overlayHeadline || onFieldChange) && (
                 <h2
                   className={cn("text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-tight", getHeadingWeightClass(brand))}
-                  style={{ color: textLight ? "#ffffff" : FOREST }}
+                  style={{ color: textLight ? "#ffffff" : FOREST, fontFamily: DISPLAY }}
                 >
                   <InlineText value={props.overlayHeadline ?? ""} onUpdate={field("overlayHeadline")} multiline />
                 </h2>
@@ -217,7 +221,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
               {(props.overlaySubheadline || onFieldChange) && (
                 <p
                   className="text-sm sm:text-base md:text-lg font-medium"
-                  style={{ color: textLight ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.7)" }}
+                  style={{ color: textLight ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.7)", fontFamily: BODY }}
                 >
                   <InlineText value={props.overlaySubheadline ?? ""} onUpdate={field("overlaySubheadline")} multiline />
                 </p>
@@ -361,7 +365,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
             <svg className="w-16 h-16 mx-auto mb-3 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <polygon points="5,3 19,12 5,21" />
             </svg>
-            <p className="text-sm font-medium">Add a video URL in the property panel</p>
+            <p className="text-sm font-medium" style={{ fontFamily: BODY }}>Add a video URL in the property panel</p>
           </div>
         </div>
       )}
@@ -379,7 +383,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           "font-display mb-4 leading-tight",
           getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
           isDark ? "text-white" : "text-[var(--brand-primary)]"
-        )}>
+        )} style={{ fontFamily: DISPLAY }}>
           <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline />
         </h2>
       )}
@@ -387,7 +391,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
         <p className={cn(
           getBodySizeClass(brand), "leading-relaxed mb-6",
           isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
-        )}>
+        )} style={{ fontFamily: BODY }}>
           <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
         </p>
       )}
@@ -498,7 +502,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   "font-display mb-4",
                   getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
                   isDark ? "text-white" : "text-[var(--brand-primary)]"
-                )}>
+                )} style={{ fontFamily: DISPLAY }}>
                   <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline />
                 </h2>
               )}
@@ -506,7 +510,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                 <p className={cn(
                   getBodySizeClass(brand), "leading-relaxed",
                   isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
-                )}>
+                )} style={{ fontFamily: BODY }}>
                   <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
                 </p>
               )}

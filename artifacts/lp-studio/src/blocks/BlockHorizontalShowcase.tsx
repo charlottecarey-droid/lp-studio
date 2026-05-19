@@ -7,6 +7,10 @@ import { safeNavigate } from "@/lib/safe-url";
 import { InlineEmailCapture } from "@/components/InlineEmailCapture";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { appendEmailToUrl } from "@/lib/append-email";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: HorizontalShowcaseBlockProps;
@@ -75,7 +79,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
           <div className="absolute top-0 left-0 right-0 z-20 px-6 md:px-12 py-6 md:py-8 flex items-center justify-between gap-4 pointer-events-none">
             <div className="pointer-events-auto">
               {props.eyebrow && (
-                <p className="text-xs font-bold uppercase tracking-widest text-white/70 mb-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/70 mb-1" style={{ fontFamily: BODY }}>
                   <InlineText
                     value={props.eyebrow}
                     onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined}
@@ -83,7 +87,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                 </p>
               )}
               {props.headline && (
-                <h2 className="text-xl md:text-2xl font-semibold text-white tracking-tight">
+                <h2 className="text-xl md:text-2xl font-semibold text-white tracking-tight" style={{ fontFamily: DISPLAY }}>
                   <InlineText
                     value={props.headline}
                     onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
@@ -152,14 +156,14 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                     />
                   </span>
                 )}
-                <h3 className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-[0.95] mb-6">
+                <h3 className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-[0.95] mb-6" style={{ fontFamily: DISPLAY }}>
                   <InlineText
                     value={panel.title}
                     onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { title: v }, props, onFieldChange) : undefined}
                   />
                 </h3>
                 {panel.body && (
-                  <p className="text-lg md:text-xl text-white/80 leading-relaxed mb-8 max-w-xl">
+                  <p className="text-lg md:text-xl text-white/80 leading-relaxed mb-8 max-w-xl" style={{ fontFamily: BODY }}>
                     <InlineText
                       value={panel.body}
                       onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { body: v }, props, onFieldChange) : undefined}

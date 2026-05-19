@@ -3,6 +3,10 @@ import type { IdSpotlightBlockProps } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: IdSpotlightBlockProps;
@@ -76,7 +80,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
               />
             </div>
           )}
-          <h2 id="id-spotlight-h" className="id-spotlight-h">
+          <h2 id="id-spotlight-h" className="id-spotlight-h" style={{ fontFamily: DISPLAY }}>
             <EditableEm
               value={headline}
               onUpdate={onFieldChange ? (v: string) => setField("headline", v) : undefined}
@@ -85,7 +89,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
             />
           </h2>
           {(body || onFieldChange) && (
-            <p className="id-spotlight-body">
+            <p className="id-spotlight-body" style={{ fontFamily: BODY }}>
               <InlineText
                 value={body}
                 onUpdate={onFieldChange ? (v: string) => setField("body", v) : undefined}

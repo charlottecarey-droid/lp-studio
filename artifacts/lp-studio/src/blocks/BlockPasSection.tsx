@@ -5,6 +5,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: PasSectionBlockProps;
@@ -25,8 +29,8 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
     <section className={cn("w-full bg-[var(--brand-primary)] text-white px-6", sectionPy)}>
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
         <div className="md:w-1/2 space-y-6">
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
-          <InlineText as="p" value={props.body} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, body: v }) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-white/80")} multiline />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
+          <InlineText as="p" value={props.body} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, body: v }) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-white/80")} multiline style={{ fontFamily: BODY }} />
         </div>
         <div className="md:w-1/2">
           <ul className="space-y-4">

@@ -3,6 +3,10 @@ import type { IdParallaxShowcaseBlockProps, IdShowcaseFrame } from "@/lib/block-
 import { useInsideDandyStyles, useIdInView } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: IdParallaxShowcaseBlockProps;

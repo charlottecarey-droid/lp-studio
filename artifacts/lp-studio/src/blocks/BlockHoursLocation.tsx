@@ -1,6 +1,10 @@
 import type { BrandConfig } from "@/lib/brand-config";
 import type { HoursLocationBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: HoursLocationBlockProps;
@@ -32,29 +36,26 @@ export function BlockHoursLocation({ props, brand, onFieldChange, onCtaClick }: 
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v: string) => updateField("eyebrow", v) : undefined}
               className="text-xs uppercase tracking-[0.3em] mb-3"
-              style={{ color: accent }}
-            />
+              style={{ color: accent, fontFamily: BODY }} />
           )}
           <InlineText
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v: string) => updateField("headline", v) : undefined}
-            className="text-4xl sm:text-5xl font-serif tracking-tight"
-          />
+            className="text-4xl sm:text-5xl font-serif tracking-tight" style={{ fontFamily: DISPLAY }} />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v: string) => updateField("subheadline", v) : undefined}
-              className="mt-3 opacity-70 max-w-xl mx-auto"
-            />
+              className="mt-3 opacity-70 max-w-xl mx-auto" style={{ fontFamily: BODY }} />
           )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-10">
           {/* Hours */}
           <div className="rounded-2xl p-8 md:p-10" style={{ backgroundColor: `${text}0a`, border: `1px solid ${text}1a` }}>
-            <h3 className="text-xs uppercase tracking-[0.25em] mb-5 opacity-70">Hours</h3>
+            <h3 className="text-xs uppercase tracking-[0.25em] mb-5 opacity-70" style={{ fontFamily: DISPLAY }}>Hours</h3>
             <ul className="space-y-3">
               {props.hours.map((row, i) => (
                 <li
@@ -72,14 +73,14 @@ export function BlockHoursLocation({ props, brand, onFieldChange, onCtaClick }: 
           {/* Location */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: `${text}0a`, border: `1px solid ${text}1a` }}>
             <div className="p-8 md:p-10">
-              <h3 className="text-xs uppercase tracking-[0.25em] mb-5 opacity-70">Find us</h3>
-              <p className="font-serif text-2xl mb-2">{props.businessName}</p>
-              <p className="opacity-80">{props.addressLine1}</p>
-              {props.addressLine2 && <p className="opacity-80">{props.addressLine2}</p>}
+              <h3 className="text-xs uppercase tracking-[0.25em] mb-5 opacity-70" style={{ fontFamily: DISPLAY }}>Find us</h3>
+              <p className="font-serif text-2xl mb-2" style={{ fontFamily: BODY }}>{props.businessName}</p>
+              <p className="opacity-80" style={{ fontFamily: BODY }}>{props.addressLine1}</p>
+              {props.addressLine2 && <p className="opacity-80" style={{ fontFamily: BODY }}>{props.addressLine2}</p>}
               {(props.phone || props.email) && (
                 <div className="mt-4 space-y-1 text-sm opacity-80">
-                  {props.phone && <p>{props.phone}</p>}
-                  {props.email && <p>{props.email}</p>}
+                  {props.phone && <p style={{ fontFamily: BODY }}>{props.phone}</p>}
+                  {props.email && <p style={{ fontFamily: BODY }}>{props.email}</p>}
                 </div>
               )}
               {props.ctaText && props.ctaUrl && (

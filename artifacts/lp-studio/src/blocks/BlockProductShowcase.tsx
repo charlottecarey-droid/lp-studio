@@ -6,6 +6,10 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -39,16 +43,14 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
             value={props.headline}
             onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
             className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-            style={{ color: brand.primaryColor }}
-          />
+            style={{ color: brand.primaryColor, fontFamily: DISPLAY }} />
           {props.subheadline && (
             <InlineText
               as="p"
               value={props.subheadline}
               onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined}
               className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-slate-500 max-w-2xl mx-auto")}
-              multiline
-            />
+              multiline style={{ fontFamily: BODY }} />
           )}
         </div>
 
@@ -78,15 +80,13 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
                 value={card.name}
                 onUpdate={onFieldChange ? (v) => updateCard(i, "name", v) : undefined}
                 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), getHeadingWeightClass(brand))}
-                style={{ color: brand.primaryColor }}
-              />
+                style={{ color: brand.primaryColor, fontFamily: DISPLAY }} />
               <InlineText
                 as="p"
                 value={card.description}
                 onUpdate={onFieldChange ? (v) => updateCard(i, "description", v) : undefined}
                 className="text-sm text-slate-500 leading-relaxed flex-1"
-                multiline
-              />
+                multiline style={{ fontFamily: BODY }} />
               {card.badge && (
                 <div className="mt-2">
                   <span

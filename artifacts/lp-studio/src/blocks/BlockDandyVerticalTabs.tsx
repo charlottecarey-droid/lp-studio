@@ -7,6 +7,10 @@ import type { DandyVerticalTabsBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
 import { ArrowRight } from "lucide-react";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1200&h=900&fit=crop";
 
@@ -34,12 +38,12 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
         {(props.headline || props.subheadline) && (
           <div className={cn("mb-14 max-w-2xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
             {props.subheadline && (
-              <p className="text-slate-600 text-lg leading-relaxed">
+              <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
                 <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
               </p>
             )}
@@ -64,7 +68,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                     i === active ? "bg-[var(--brand-accent)] self-stretch min-h-5" : "bg-transparent h-5"
                   )} />
                   <div>
-                    <h3 className="text-xl font-bold text-[var(--brand-primary)] mb-0 leading-snug">
+                    <h3 className="text-xl font-bold text-[var(--brand-primary)] mb-0 leading-snug" style={{ fontFamily: DISPLAY }}>
                       <InlineText value={tab.title} onUpdate={onFieldChange ? (v) => updateTab(i, "title", v) : undefined} />
                     </h3>
                     {i === active && (
@@ -74,7 +78,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                         transition={{ duration: 0.2 }}
                         className="mt-3"
                       >
-                        <p className="text-base text-slate-600 leading-relaxed mb-4">
+                        <p className="text-base text-slate-600 leading-relaxed mb-4" style={{ fontFamily: BODY }}>
                           <InlineText value={tab.description} onUpdate={onFieldChange ? (v) => updateTab(i, "description", v) : undefined} />
                         </p>
                         {tab.ctaText && (

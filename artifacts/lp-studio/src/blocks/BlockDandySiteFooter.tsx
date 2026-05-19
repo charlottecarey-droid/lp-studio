@@ -4,6 +4,10 @@ import type { DandySiteFooterBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
 import { normalizeHref } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: DandySiteFooterBlockProps;
@@ -70,7 +74,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
               className="h-11 w-auto mb-5"
             />
             {props.disclaimer && (
-              <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
+              <p className="text-sm text-slate-400 leading-relaxed max-w-xs" style={{ fontFamily: BODY }}>
                 <InlineText as="span" value={props.disclaimer} onUpdate={field("disclaimer")} multiline />
               </p>
             )}
@@ -103,7 +107,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
         {/* Bottom bar */}
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-5 text-sm text-slate-400">
-            <p>
+            <p style={{ fontFamily: BODY }}>
               <InlineText as="span" value={copyright} onUpdate={field("copyrightText")} />
             </p>
             <button

@@ -2,6 +2,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { BeforeAfterGalleryBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: BeforeAfterGalleryBlockProps;
@@ -37,22 +41,19 @@ export function BlockBeforeAfterGallery({ props, brand, onFieldChange }: Props) 
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v: string) => updateField("eyebrow", v) : undefined}
               className="text-xs uppercase tracking-[0.3em] mb-3"
-              style={{ color: accent }}
-            />
+              style={{ color: accent, fontFamily: BODY }} />
           )}
           <InlineText
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v: string) => updateField("headline", v) : undefined}
-            className="text-4xl sm:text-5xl font-semibold tracking-tight"
-          />
+            className="text-4xl sm:text-5xl font-semibold tracking-tight" style={{ fontFamily: DISPLAY }} />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v: string) => updateField("subheadline", v) : undefined}
-              className="mt-3 opacity-70 max-w-2xl mx-auto"
-            />
+              className="mt-3 opacity-70 max-w-2xl mx-auto" style={{ fontFamily: BODY }} />
           )}
         </div>
 
@@ -88,7 +89,7 @@ export function BlockBeforeAfterGallery({ props, brand, onFieldChange }: Props) 
                 />
               </figure>
               {pair.caption && (
-                <p className="md:col-span-2 text-sm opacity-70 italic text-center">
+                <p className="md:col-span-2 text-sm opacity-70 italic text-center" style={{ fontFamily: BODY }}>
                   {pair.caption}
                 </p>
               )}

@@ -13,6 +13,10 @@ import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPi
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { safeNavigate } from "@/lib/safe-url";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const API_BASE = "/api";
 
@@ -213,15 +217,15 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
   const headlineGroup = (centered: boolean) => (
     <div className={`flex flex-col gap-5 ${centered ? "items-center text-center max-w-3xl mx-auto" : ""}`}>
       {props.eyebrow && (
-        <p className="text-xs font-bold uppercase tracking-widest text-[#006651]">
+        <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
           <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
         </p>
       )}
-      <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight">
+      <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
         <InlineText value={props.headline} onUpdate={field("headline")} />
       </h2>
       {props.subheadline && (
-        <p className="text-lg text-slate-600 leading-relaxed">
+        <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
           <InlineText value={props.subheadline} onUpdate={field("subheadline")} multiline />
         </p>
       )}
@@ -261,7 +265,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
         )
       )}
       {props.trustNote && (
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: BODY }}>
           <InlineText value={props.trustNote} onUpdate={field("trustNote")} multiline />
         </p>
       )}
@@ -370,12 +374,12 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
   const formCard = (
     <div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100">
       {props.formHeadline && (
-        <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-1">
+        <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-1" style={{ fontFamily: DISPLAY }}>
           <InlineText value={props.formHeadline} onUpdate={field("formHeadline")} />
         </h3>
       )}
       {props.formSubheadline && (
-        <p className="text-sm text-slate-500 mb-7">
+        <p className="text-sm text-slate-500 mb-7" style={{ fontFamily: BODY }}>
           <InlineText value={props.formSubheadline} onUpdate={field("formSubheadline")} />
         </p>
       )}
@@ -384,7 +388,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
         // In-place Chili Piper iframe takes over the card after submit.
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">Schedule a meeting</h3>
+            <h3 className="text-sm font-semibold text-slate-900" style={{ fontFamily: DISPLAY }}>Schedule a meeting</h3>
             <button
               type="button"
               onClick={() => { setChiliPiperHandoffUrl(null); setFormState("success"); }}
@@ -416,7 +420,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             }}
           />
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500" style={{ fontFamily: BODY }}>
             Marketo form is not configured. Add the instance URL, Munchkin ID, and Form ID in the panel.
           </p>
         )
@@ -425,7 +429,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
           <div className="w-16 h-16 rounded-full bg-[var(--brand-accent)] flex items-center justify-center mx-auto mb-5">
             <Check className="w-8 h-8 text-[var(--brand-primary)]" />
           </div>
-          <p className="text-xl font-bold text-[var(--brand-primary)] mb-3">{successMessage}</p>
+          <p className="text-xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: BODY }}>{successMessage}</p>
           {props.chilipiperUrl && !globalForm?.chiliPiperConfig?.url && (
             <button
               onClick={() => setChiliPiperHandoffUrl(buildLegacyCpUrl(props.chilipiperUrl!, collectedEmail()))}
@@ -438,15 +442,15 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
       ) : hasLinkedForm ? (
         // Global form path: render its fields generically.
         props.formId && !globalFormFetched ? (
-          <p className="text-sm text-slate-500">Loading form…</p>
+          <p className="text-sm text-slate-500" style={{ fontFamily: BODY }}>Loading form…</p>
         ) : linkedFields.length === 0 ? (
-          <p className="text-sm text-slate-500">This form has no fields configured yet.</p>
+          <p className="text-sm text-slate-500" style={{ fontFamily: BODY }}>This form has no fields configured yet.</p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {linkedFields.map(renderLinkedField)}
             {submitButton}
             {props.formDisclaimer && (
-              <p className="text-xs text-slate-400 text-center mt-1">
+              <p className="text-xs text-slate-400 text-center mt-1" style={{ fontFamily: BODY }}>
                 <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
               </p>
             )}
@@ -506,7 +510,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
           </div>
           {submitButton}
           {props.formDisclaimer && (
-            <p className="text-xs text-slate-400 text-center mt-1">
+            <p className="text-xs text-slate-400 text-center mt-1" style={{ fontFamily: BODY }}>
               <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
             </p>
           )}

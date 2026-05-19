@@ -3,6 +3,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyVersusBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: DandyVersusBlockProps;
@@ -38,12 +42,12 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
         {(props.eyebrow || props.headline) && (
           <div className="text-center mb-14">
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4" style={{ fontFamily: BODY }}>
                 <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
               </p>
             )}
             {props.headline && (
-              <h2 className="text-4xl md:text-5xl font-bold text-white leading-[1.1] tracking-tight">
+              <h2 className="text-4xl md:text-5xl font-bold text-white leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={field("headline")} />
               </h2>
             )}
@@ -62,10 +66,10 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
               <InlineText value={props.leftLabel} onUpdate={field("leftLabel")} />
             </span>
-            <h3 className="text-3xl font-bold text-[var(--brand-primary)] mb-3">
+            <h3 className="text-3xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: DISPLAY }}>
               <InlineText value={props.leftTitle} onUpdate={field("leftTitle")} />
             </h3>
-            <p className="text-slate-500 text-base leading-relaxed mb-6">
+            <p className="text-slate-500 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
               <InlineText value={props.leftDesc} onUpdate={field("leftDesc")} />
             </p>
             <ul className="flex-1 divide-y divide-slate-200">
@@ -91,10 +95,10 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
             <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4">
               <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} />
             </span>
-            <h3 className="text-3xl font-bold text-white mb-3">
+            <h3 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: DISPLAY }}>
               <InlineText value={props.rightTitle} onUpdate={field("rightTitle")} />
             </h3>
-            <p className="text-white/70 text-base leading-relaxed mb-6">
+            <p className="text-white/70 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
               <InlineText value={props.rightDesc} onUpdate={field("rightDesc")} />
             </p>
             <ul className="flex-1 divide-y divide-white/10">

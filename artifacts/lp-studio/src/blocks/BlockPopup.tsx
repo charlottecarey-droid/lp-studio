@@ -6,6 +6,10 @@ import type { PopupBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: PopupBlockProps;
@@ -125,7 +129,7 @@ function ChilipiperModal({
         {step === "form" ? (
           /* ── Step 1: email capture ──────────────────────────────── */
           <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500" style={{ fontFamily: BODY }}>
               Enter your details and we'll take you straight to the calendar.
             </p>
 
@@ -160,7 +164,7 @@ function ChilipiperModal({
                     : "border-slate-200 focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[rgb(var(--brand-primary-rgb)/0.1)]"
                 )}
               />
-              {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
+              {emailError && <p className="text-xs text-red-500 mt-1" style={{ fontFamily: BODY }}>{emailError}</p>}
             </div>
 
             <button
@@ -177,7 +181,7 @@ function ChilipiperModal({
                 : <>{p.ctaText || "Book a call"} <ChevronRight className="w-4 h-4" /></>}
             </button>
 
-            <p className="text-[10px] text-slate-400 text-center">
+            <p className="text-[10px] text-slate-400 text-center" style={{ fontFamily: BODY }}>
               Your info is shared only for scheduling purposes.
             </p>
           </form>
@@ -249,9 +253,9 @@ function PopupOverlay({
         )}
 
         <div className="p-6">
-          {p.headline && <h3 className="text-xl font-bold mb-2">{p.headline}</h3>}
+          {p.headline && <h3 className="text-xl font-bold mb-2" style={{ fontFamily: DISPLAY }}>{p.headline}</h3>}
           {p.body && (
-            <p className={cn("text-sm mb-4", isDark ? "text-white/70" : "text-slate-600")}>{p.body}</p>
+            <p className={cn("text-sm mb-4", isDark ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>
           )}
           {p.ctaText && (
             <button
@@ -363,8 +367,8 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
                 </span>
               )}
             </div>
-            <p className="text-sm font-semibold text-slate-800 truncate">{p.headline || "(no headline)"}</p>
-            {p.body && <p className="text-xs text-slate-500 truncate mt-0.5">{p.body}</p>}
+            <p className="text-sm font-semibold text-slate-800 truncate" style={{ fontFamily: BODY }}>{p.headline || "(no headline)"}</p>
+            {p.body && <p className="text-xs text-slate-500 truncate mt-0.5" style={{ fontFamily: BODY }}>{p.body}</p>}
           </div>
           {!isBuilder && (
             <button
@@ -395,8 +399,8 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
               </button>
               {p.imageUrl && <div className="w-full h-40 overflow-hidden"><img src={p.imageUrl} alt="" className="w-full h-full object-cover" /></div>}
               <div className="p-6">
-                {p.headline && <h3 className="text-xl font-bold mb-2">{p.headline}</h3>}
-                {p.body && <p className={cn("text-sm mb-4", isDarkBg(p.backgroundStyle) ? "text-white/70" : "text-slate-600")}>{p.body}</p>}
+                {p.headline && <h3 className="text-xl font-bold mb-2" style={{ fontFamily: DISPLAY }}>{p.headline}</h3>}
+                {p.body && <p className={cn("text-sm mb-4", isDarkBg(p.backgroundStyle) ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>}
                 {p.ctaText && (
                   <button
                     className="w-full py-3 px-6 rounded-lg font-semibold text-sm"
@@ -492,8 +496,8 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
         </button>
         {p.imageUrl && <div className="w-full h-40 overflow-hidden"><img src={p.imageUrl} alt="" className="w-full h-full object-cover" /></div>}
         <div className="p-6">
-          {p.headline && <h3 className="text-xl font-bold mb-2">{p.headline}</h3>}
-          {p.body && <p className={cn("text-sm mb-4", isDarkBg(p.backgroundStyle) ? "text-white/70" : "text-slate-600")}>{p.body}</p>}
+          {p.headline && <h3 className="text-xl font-bold mb-2" style={{ fontFamily: DISPLAY }}>{p.headline}</h3>}
+          {p.body && <p className={cn("text-sm mb-4", isDarkBg(p.backgroundStyle) ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>}
           {p.ctaText && (
             <button
               onClick={handleCtaClick}

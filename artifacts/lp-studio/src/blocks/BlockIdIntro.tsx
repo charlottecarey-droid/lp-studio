@@ -3,6 +3,10 @@ import type { IdIntroBlockProps } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { renderEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: IdIntroBlockProps;
@@ -58,7 +62,7 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Track the <h2>, not the outer <section>. The section has 200px of
+    // Track the <h2 style={{ fontFamily: DISPLAY }}>, not the outer <section>. The section has 200px of
     // top padding, so if we measured its top edge the animation would
     // complete (raw → 1) while the h2 was still 200px below the fold —
     // visitors saw the statement already fully lit before they could read
@@ -123,10 +127,9 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
             as="h2"
             multiline
             value={props.statement ?? ""}
-            onUpdate={f("statement")}
-          />
+            onUpdate={f("statement")} style={{ fontFamily: DISPLAY }} />
         ) : (
-          <h2 ref={headingRef} aria-label={(props.statement ?? "").replace(/<\/?em>/g, "")}>
+          <h2 ref={headingRef} aria-label={(props.statement ?? "").replace(/<\/?em>/g, "")} style={{ fontFamily: DISPLAY }}>
             {totalLetters === 0 || !letterReveal
               ? renderEm(props.statement ?? "")
               : (() => {

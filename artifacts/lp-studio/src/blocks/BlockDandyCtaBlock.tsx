@@ -3,6 +3,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: DandyCtaBlockProps;
@@ -71,15 +75,15 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
       <div className={cn("max-w-3xl mx-auto px-6 md:px-10 flex flex-col gap-6", alignClass)}>
         {props.eyebrow && (
-          <p className="text-xs font-bold uppercase tracking-widest text-[#006651]">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
           </p>
         )}
-        <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
           <InlineText value={props.headline} onUpdate={field("headline")} />
         </h2>
         {props.subheadline && (
-          <p className="text-lg text-slate-600 leading-relaxed">
+          <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
             <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
           </p>
         )}
@@ -122,7 +126,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
           )}
         </div>
         {props.disclaimer && (
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: BODY }}>
             <InlineText value={props.disclaimer} onUpdate={field("disclaimer")} />
           </p>
         )}

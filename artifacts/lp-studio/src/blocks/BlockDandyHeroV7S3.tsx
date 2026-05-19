@@ -5,6 +5,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: DandyHeroV7S3BlockProps;
@@ -86,18 +90,18 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
 
       <div className="relative z-10 flex flex-col items-center text-center py-24 md:py-32 px-6 w-full max-w-4xl mx-auto">
         {props.eyebrow && (
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-5" style={{ fontFamily: BODY }}>
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
           </p>
         )}
         <h1
           className="text-5xl md:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight mb-6"
-          style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number }}
+          style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number, fontFamily: DISPLAY }}
         >
           <InlineText value={props.headline} onUpdate={field("headline")} />
         </h1>
         {props.subheadline && (
-          <p className="text-xl text-white/80 leading-relaxed mb-10 max-w-2xl">
+          <p className="text-xl text-white/80 leading-relaxed mb-10 max-w-2xl" style={{ fontFamily: BODY }}>
             <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
           </p>
         )}
@@ -105,8 +109,8 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
         {formState === "success" ? (
           <div className="flex flex-col items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-6 max-w-md w-full">
             <CheckCircle2 className="w-8 h-8 text-[var(--brand-accent)]" />
-            <p className="text-white font-bold text-lg">You're on the list!</p>
-            <p className="text-white/70 text-sm">Check your inbox — we'll be in touch shortly.</p>
+            <p className="text-white font-bold text-lg" style={{ fontFamily: BODY }}>You're on the list!</p>
+            <p className="text-white/70 text-sm" style={{ fontFamily: BODY }}>Check your inbox — we'll be in touch shortly.</p>
             {props.chilipiperUrl && (
               <button
                 onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
@@ -142,7 +146,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
         )}
 
         {props.formDisclaimer && formState !== "success" && (
-          <p className="mt-4 text-sm text-white/60">
+          <p className="mt-4 text-sm text-white/60" style={{ fontFamily: BODY }}>
             <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
           </p>
         )}

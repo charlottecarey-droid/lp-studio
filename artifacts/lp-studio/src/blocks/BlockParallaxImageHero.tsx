@@ -8,6 +8,10 @@ import { InlineText } from "@/components/InlineText";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImagePicker } from "@/components/ImagePicker";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: ParallaxImageHeroBlockProps;
@@ -236,7 +240,7 @@ export function BlockParallaxImageHero({
                 getHeadingWeightClass(brand),
                 getHeadingLetterSpacingClass(brand),
               )}
-              style={{ color: textColor }}
+              style={{ color: textColor, fontFamily: DISPLAY }}
             >
               {isEditor ? (
                 <InlineText

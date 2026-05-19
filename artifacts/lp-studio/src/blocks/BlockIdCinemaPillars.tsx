@@ -3,6 +3,10 @@ import type { IdCinemaPillarsBlockProps, IdCinemaPillar } from "@/lib/block-type
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: IdCinemaPillarsBlockProps;

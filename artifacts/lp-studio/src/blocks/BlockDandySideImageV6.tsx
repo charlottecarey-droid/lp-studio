@@ -5,6 +5,10 @@ import { SECTION_PY } from "@/lib/brand-config";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1200&h=900&fit=crop";
 
@@ -31,15 +35,15 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   const textCol = (
     <div className="flex flex-col justify-center gap-6 py-4">
       {props.eyebrow && (
-        <p className="text-xs font-bold uppercase tracking-widest text-[#006651]">
+        <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
           <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
         </p>
       )}
-      <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight">
+      <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
         <InlineText value={props.headline} onUpdate={field("headline")} />
       </h2>
       {props.subheadline && (
-        <p className="text-lg text-slate-600 leading-relaxed">
+        <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
           <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
         </p>
       )}

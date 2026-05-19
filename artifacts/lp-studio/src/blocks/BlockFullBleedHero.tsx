@@ -13,6 +13,10 @@ import { motion } from "framer-motion";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -270,8 +274,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             value={props.headline}
             onUpdate={field("headline")}
             className={cn("font-display leading-[1.05] max-w-4xl drop-shadow-sm", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-            style={{ color: props.headlineColor || "#ffffff" }}
-          />
+            style={{ color: props.headlineColor || "#ffffff", fontFamily: DISPLAY }} />
 
           {props.subheadline && (
             <InlineText
@@ -279,9 +282,8 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
               value={props.subheadline}
               onUpdate={field("subheadline")}
               className={cn(getBodySizeClass(brand), "max-w-2xl leading-relaxed")}
-              style={{ color: props.subheadlineColor || "rgba(255,255,255,0.8)" }}
-              multiline
-            />
+              style={{ color: props.subheadlineColor || "rgba(255,255,255,0.8)", fontFamily: BODY }}
+              multiline />
           )}
 
           <motion.div
@@ -316,7 +318,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
           </motion.div>
 
           {props.showSocialProof && props.socialProofText && (
-            <p className="text-white/60 text-sm font-medium mt-1">
+            <p className="text-white/60 text-sm font-medium mt-1" style={{ fontFamily: BODY }}>
               {props.socialProofText}
             </p>
           )}

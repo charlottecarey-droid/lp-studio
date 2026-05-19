@@ -7,6 +7,10 @@ import { safeNavigate } from "@/lib/safe-url";
 import { InlineEmailCapture } from "@/components/InlineEmailCapture";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { appendEmailToUrl } from "@/lib/append-email";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: StickyStackBlockProps;
@@ -67,7 +71,7 @@ export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, page
       {props.eyebrow || props.headline ? (
         <div className="sticky top-0 z-0 pt-16 md:pt-24 px-6 md:px-12 text-center pointer-events-none">
           {props.eyebrow && (
-            <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)] mb-2 pointer-events-auto">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)] mb-2 pointer-events-auto" style={{ fontFamily: BODY }}>
               <InlineText
                 value={props.eyebrow}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined}
@@ -75,7 +79,7 @@ export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, page
             </p>
           )}
           {props.headline && (
-            <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 max-w-3xl mx-auto pointer-events-auto">
+            <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 max-w-3xl mx-auto pointer-events-auto" style={{ fontFamily: DISPLAY }}>
               <InlineText
                 value={props.headline}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
@@ -221,11 +225,11 @@ function CardLayer({
               <InlineText value={card.tag} onUpdate={onChange ? (v) => onChange({ tag: v }) : undefined} />
             </span>
           )}
-          <h3 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-5">
+          <h3 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-5" style={{ fontFamily: DISPLAY }}>
             <InlineText value={card.title} onUpdate={onChange ? (v) => onChange({ title: v }) : undefined} />
           </h3>
           {card.body && (
-            <p className="text-base md:text-lg leading-relaxed opacity-80 max-w-md">
+            <p className="text-base md:text-lg leading-relaxed opacity-80 max-w-md" style={{ fontFamily: BODY }}>
               <InlineText value={card.body} onUpdate={onChange ? (v) => onChange({ body: v }) : undefined} />
             </p>
           )}

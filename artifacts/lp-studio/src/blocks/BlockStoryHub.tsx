@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import type { StoryHubBlockProps, StoryHubStory, StoryHubTheme } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 // Customer Story Hub — premium magazine layout.
 //
@@ -361,13 +365,11 @@ export function BlockStoryHub({ props }: Props) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              style={{
-                fontSize: "clamp(1rem, 1.35vw, 1.18rem)",
+              style={{ fontSize: "clamp(1rem, 1.35vw, 1.18rem)",
                 fontWeight: 300,
                 lineHeight: 1.62,
                 color: theme.muted,
-                maxWidth: "36rem",
-              }}
+                maxWidth: "36rem", fontFamily: BODY }}
             >
               {props.subhead}
             </motion.p>

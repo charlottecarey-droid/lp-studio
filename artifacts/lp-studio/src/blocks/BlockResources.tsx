@@ -7,6 +7,10 @@ import { ImageIcon, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: ResourcesBlockProps;
@@ -43,12 +47,12 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
     <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
       <div className="max-w-7xl mx-auto px-6">
         {(headline || onFieldChange) && (
-          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>
+          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`} style={{ fontFamily: DISPLAY }}>
             <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
           </h2>
         )}
         {(subheadline || onFieldChange) && (
-          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed mb-12 lg:mb-16 ${isDark ? "text-white/70" : "text-slate-500"}`}>
+          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed mb-12 lg:mb-16 ${isDark ? "text-white/70" : "text-slate-500"}`} style={{ fontFamily: BODY }}>
             <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
           </p>
         )}
@@ -90,11 +94,11 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
                     <InlineText value={item.category ?? ""} onUpdate={updateItem ? (v) => updateItem(i, { category: v }) : undefined} />
                   </span>
                 )}
-                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${isDark ? "text-white" : "text-slate-900"}`} style={{ fontFamily: DISPLAY }}>
                   <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i, { title: v }) : undefined} />
                 </h3>
                 {(item.description || updateItem) && (
-                  <p className={`text-sm leading-relaxed flex-1 ${isDark ? "text-white/70" : "text-slate-500"}`}>
+                  <p className={`text-sm leading-relaxed flex-1 ${isDark ? "text-white/70" : "text-slate-500"}`} style={{ fontFamily: BODY }}>
                     <InlineText value={item.description ?? ""} onUpdate={updateItem ? (v) => updateItem(i, { description: v }) : undefined} multiline />
                   </p>
                 )}

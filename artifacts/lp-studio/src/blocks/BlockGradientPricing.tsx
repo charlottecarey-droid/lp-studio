@@ -3,6 +3,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { GradientPricingBlockProps } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: GradientPricingBlockProps;
@@ -54,12 +58,12 @@ export function BlockGradientPricing({ props, brand, onFieldChange }: Props) {
           )}
           <h2
             className="font-bold tracking-tight leading-[1.05]"
-            style={{ fontSize: "clamp(2.25rem, 5vw, 4rem)" }}
+            style={{ fontSize: "clamp(2.25rem, 5vw, 4rem)", fontFamily: DISPLAY }}
           >
             <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline />
           </h2>
           {props.subheadline && (
-            <p className="text-base lg:text-lg text-white/70 mt-4 leading-relaxed">
+            <p className="text-base lg:text-lg text-white/70 mt-4 leading-relaxed" style={{ fontFamily: BODY }}>
               <InlineText as="span" value={props.subheadline} onUpdate={field("subheadline")} multiline />
             </p>
           )}
@@ -108,7 +112,7 @@ export function BlockGradientPricing({ props, brand, onFieldChange }: Props) {
                   )}
                 </div>
                 {tier.description && (
-                  <p className="text-sm text-white/65 mt-3 leading-relaxed">
+                  <p className="text-sm text-white/65 mt-3 leading-relaxed" style={{ fontFamily: BODY }}>
                     <InlineText as="span" value={tier.description} onUpdate={updateTier ? (v) => updateTier(i, { description: v }) : undefined} multiline />
                   </p>
                 )}

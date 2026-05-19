@@ -5,6 +5,10 @@ import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandyColumnsV2BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=500&fit=crop";
 
@@ -38,17 +42,17 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
         {(props.eyebrow || props.headline || props.subheadline) && (
           <div className="mb-14 max-w-2xl">
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3" style={{ fontFamily: BODY }}>
                 <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
             {props.subheadline && (
-              <p className="text-slate-600 text-lg leading-relaxed">
+              <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
                 <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
               </p>
             )}
@@ -70,10 +74,10 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
                   loading="lazy"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-3">
+              <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: DISPLAY }}>
                 <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
               </h3>
-              <p className="text-slate-600 text-base leading-relaxed mb-4">
+              <p className="text-slate-600 text-base leading-relaxed mb-4" style={{ fontFamily: BODY }}>
                 <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} />
               </p>
               {(item.bullets ?? []).length > 0 && (

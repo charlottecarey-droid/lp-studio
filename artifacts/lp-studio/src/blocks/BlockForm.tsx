@@ -8,6 +8,10 @@ import { MunchkinLoader } from "@/components/MunchkinLoader";
 import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const API_BASE = "/api";
 
@@ -902,7 +906,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           </div>
           <h3
             className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
-            style={textOverride ? { color: textOverride } : undefined}
+            style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: DISPLAY }}
           >
             {activeSuccessMessage || "Thank you!"}
           </h3>
@@ -926,7 +930,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {props.headline && (
               <h2
                 className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
-                style={textOverride ? { color: textOverride } : undefined}
+                style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: DISPLAY }}
               >
                 {props.headline}
               </h2>
@@ -934,7 +938,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {props.subheadline && (
               <p
                 className={`text-base md:text-lg ${isDark ? "text-white/80" : "text-slate-600"}`}
-                style={textOverride ? { color: textOverride } : undefined}
+                style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: BODY }}
               >
                 {props.subheadline}
               </p>
@@ -955,7 +959,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             // above the isMarketo branch so both modes share this path.
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-3">
-                <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Schedule a meeting</h3>
+                <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-slate-900"}`} style={{ fontFamily: DISPLAY }}>Schedule a meeting</h3>
                 <button
                   type="button"
                   onClick={() => { setChiliPiperHandoffUrl(null); setSubmitted(true); }}
@@ -985,7 +989,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
               // closure captures `globalForm=null` and the Chili Piper
               // handoff silently no-ops on the first submission.
               props.formId && !globalForm && !globalFormFetched ? (
-                <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>Loading form…</p>
+                <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`} style={{ fontFamily: BODY }}>Loading form…</p>
               ) : (
               <>
                 <MarketoForm
@@ -1058,7 +1062,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
               </>
               )
             ) : (
-              <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>
+              <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`} style={{ fontFamily: BODY }}>
                 Marketo form is not configured. Add the instance URL, Munchkin ID, and Form ID in the panel.
               </p>
             )
@@ -1107,7 +1111,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   }}
                 />
                 {fieldErrors[field.id] && (
-                  <p className="text-xs text-red-500 mt-1.5">{fieldErrors[field.id]}</p>
+                  <p className="text-xs text-red-500 mt-1.5" style={{ fontFamily: BODY }}>{fieldErrors[field.id]}</p>
                 )}
               </div>
             ))}
@@ -1120,7 +1124,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           <input ref={honeypotRef} id="_hp" type="text" name="_hp" className="hidden" tabIndex={-1} autoComplete="off" aria-hidden="true" />
 
           {submitError && (
-            <p className="text-sm text-red-500 mt-4">{submitError}</p>
+            <p className="text-sm text-red-500 mt-4" style={{ fontFamily: BODY }}>{submitError}</p>
           )}
 
           <div className="mt-7 flex gap-3">

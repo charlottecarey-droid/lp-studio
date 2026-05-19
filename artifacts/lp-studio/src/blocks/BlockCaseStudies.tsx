@@ -8,6 +8,10 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: CaseStudiesBlockProps;
@@ -46,12 +50,12 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
     <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
       <div className="max-w-7xl mx-auto px-6">
         {(headline || onFieldChange) && (
-          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>
+          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`} style={{ fontFamily: DISPLAY }}>
             <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
           </h2>
         )}
         {(subheadline || onFieldChange) && (
-          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed ${isDark ? "text-white/70" : "text-slate-500"} mb-12 lg:mb-16`}>
+          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed ${isDark ? "text-white/70" : "text-slate-500"} mb-12 lg:mb-16`} style={{ fontFamily: BODY }}>
             <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
           </p>
         )}
@@ -91,11 +95,11 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
                 />
               )}
               <div className="relative p-6 md:p-8">
-                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "md")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-2`}>
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "md")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-2`} style={{ fontFamily: DISPLAY }}>
                   <InlineText value={featured.title} onUpdate={updateItem ? (v) => updateItem(0, { title: v }) : undefined} />
                 </h3>
                 {(featured.categories || updateItem) && (
-                  <p className="text-xs uppercase tracking-wider text-white/60">
+                  <p className="text-xs uppercase tracking-wider text-white/60" style={{ fontFamily: BODY }}>
                     <InlineText value={featured.categories ?? ""} onUpdate={updateItem ? (v) => updateItem(0, { categories: v }) : undefined} />
                   </p>
                 )}
@@ -134,11 +138,11 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
                 />
               )}
               <div className="relative p-5">
-                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-1`}>
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-1`} style={{ fontFamily: DISPLAY }}>
                   <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i + 1, { title: v }) : undefined} />
                 </h3>
                 {(item.categories || updateItem) && (
-                  <p className="text-[11px] uppercase tracking-wider text-white/60">
+                  <p className="text-[11px] uppercase tracking-wider text-white/60" style={{ fontFamily: BODY }}>
                     <InlineText value={item.categories ?? ""} onUpdate={updateItem ? (v) => updateItem(i + 1, { categories: v }) : undefined} />
                   </p>
                 )}
