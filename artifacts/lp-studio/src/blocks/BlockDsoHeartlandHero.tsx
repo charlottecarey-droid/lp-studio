@@ -92,7 +92,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           parts.push(text.slice(lastIndex, match.index));
         }
         parts.push(
-          <span key={key++} style={{ color: PRIMARY, fontFamily: BODY }}>{match[1]}</span>
+          <span key={key++} style={{ color: PRIMARY, fontFamily: DISPLAY_FONT }}>{match[1]}</span>
         );
         lastIndex = match.index + match[0].length;
       }
@@ -106,7 +106,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       return (
         <>
           {before}
-          <span style={{ color: PRIMARY, fontFamily: BODY }}>{company}</span>
+          <span style={{ color: PRIMARY, fontFamily: DISPLAY_FONT }}>{company}</span>
           {after}
         </>
       );
