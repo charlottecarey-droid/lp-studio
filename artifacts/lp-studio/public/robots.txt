@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /editor
+Disallow: /editor/
+
+Sitemap: https://lpstudio.ai/sitemap.xml
