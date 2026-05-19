@@ -45,10 +45,17 @@ psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_pag
 # never overwrites a tenant-set value.
 psql "$NEON_DATABASE_URL" -c "
   UPDATE lp_brand_settings
-  SET config = jsonb_build_object(
-                 'displayFont', 'Bagoss Standard',
-                 'bodyFont',    'Inter'
-               ) || config,
+  SET config = jsonb_set(
+                 jsonb_set(
+                   config,
+                   '{displayFont}',
+                   to_jsonb(COALESCE(NULLIF(config->>'displayFont',''), 'Bagoss Standard')),
+                   true
+                 ),
+                 '{bodyFont}',
+                 to_jsonb(COALESCE(NULLIF(config->>'bodyFont',''), 'Inter')),
+                 true
+               ),
       updated_at = now()
   WHERE tenant_id = (SELECT id FROM tenants WHERE slug = 'dandy')
     AND (
