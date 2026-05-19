@@ -335,12 +335,22 @@ test.describe("Sales Console setup checklist (task #333)", () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(setupCard).toBeVisible({ timeout: 30_000 });
       await Promise.all([brandContextAfterReload, brandConfigAfterReload]).catch(() => undefined);
+      // Give the React effects that consume those responses time to
+      // commit; networkidle is the most reliable signal that both the
+      // local-config fetch AND the brand-context fetch have finished
+      // (we can't rely on a single waitForResponse because in the full
+      // e2e suite the SPA fires several background pings).
+      await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
 
       // All five rows must now show green "Done" labels (no "Set it →"
       // jump links remain) and the counter must read 5 / 5. Use a longer
       // timeout — the post-reload render has to wait for two network
       // round-trips (local config + brand-context) plus React effects.
-      await expect(setupCard.getByText("5 / 5", { exact: true })).toBeVisible({ timeout: 30_000 });
+      // Wrap in toPass so the assertion polls — under full-suite load
+      // the brand-context refetch can finish AFTER the initial check.
+      await expect(async () => {
+        await expect(setupCard.getByText("5 / 5", { exact: true })).toBeVisible({ timeout: 5_000 });
+      }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
       await expect(setupCard.getByText("Done", { exact: true })).toHaveCount(5);
       await expect(setupCard.getByRole("button", { name: /Set it/ })).toHaveCount(0);
 
