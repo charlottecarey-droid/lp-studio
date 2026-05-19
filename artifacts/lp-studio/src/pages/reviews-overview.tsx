@@ -197,7 +197,7 @@ export default function ReviewsOverview() {
         {/* Header */}
         <div className="pt-2 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-display font-bold text-foreground">Reviews</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Reviews</h1>
             <p className="text-muted-foreground mt-1 text-base">
               Share custom pages for approval and track feedback in one place.
             </p>

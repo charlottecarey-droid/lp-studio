@@ -13,7 +13,7 @@ export default function BlocksSettingsPage() {
       >
         {/* Page header + tab triggers */}
         <div className="px-6 md:px-8 lg:px-10 pt-6 pb-0 shrink-0 border-b border-border bg-background">
-          <h1 className="text-2xl font-bold text-foreground">Blocks</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Blocks</h1>
           <p className="text-sm text-muted-foreground mt-1 mb-4">
             Set default content for every block type, or build your own custom HTML blocks.
           </p>

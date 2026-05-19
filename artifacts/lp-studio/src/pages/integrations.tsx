@@ -378,7 +378,7 @@ export default function IntegrationsPage() {
     <AppLayout>
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Integrations</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Integrations</h1>
           <p className="text-sm text-muted-foreground mt-1">Connect LP Studio to external services. Leads are synced automatically after each form submission.</p>
         </div>
         <IntegrationsContent />

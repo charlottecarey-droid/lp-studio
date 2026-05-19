@@ -1620,7 +1620,7 @@ export default function ContentLibrary() {
       <div className="px-6 py-10">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground flex items-center gap-2">
               <BookOpen className="w-6 h-6 text-foreground" />
               Content Library
             </h1>

@@ -175,7 +175,7 @@ export default function ConversionScoring() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">Conversion Scoring</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Conversion Scoring</h1>
             <p className="text-muted-foreground">
               Analyze your landing pages' conversion potential based on real visitor data and page structure
             </p>

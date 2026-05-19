@@ -402,7 +402,7 @@ export default function TemplateMarketplace() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Templates</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Templates</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Clone a ready-made layout to get started quickly, then customize it in the builder.
           </p>

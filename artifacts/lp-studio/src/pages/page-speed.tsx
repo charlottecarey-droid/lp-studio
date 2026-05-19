@@ -157,7 +157,7 @@ export default function PageSpeed() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-slate-900">Page Speed</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Page Speed</h1>
             <p className="text-slate-600 mt-2">Block-level performance analysis across all your landing pages</p>
           </div>
 

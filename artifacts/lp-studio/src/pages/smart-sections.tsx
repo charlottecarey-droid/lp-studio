@@ -332,7 +332,7 @@ export default function SmartSections() {
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-4xl font-bold">Smart Sections</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Smart Sections</h1>
           <p className="text-gray-600 mt-2">
             Create reusable content blocks that sync across all your pages
           </p>

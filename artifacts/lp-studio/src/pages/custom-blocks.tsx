@@ -472,7 +472,7 @@ export function CustomBlocksContent() {
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Custom Blocks</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Custom Blocks</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Build reusable blocks with the rich text editor, custom HTML, or a schema-driven template with editable fields.
           </p>

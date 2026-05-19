@@ -704,7 +704,7 @@ export default function AnalyticsPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Analytics</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               Track visitor activity, page performance, and conversions.
             </p>

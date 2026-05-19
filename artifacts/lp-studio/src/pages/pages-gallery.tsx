@@ -472,7 +472,7 @@ export default function PagesGallery() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-2">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pages</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Pages</h1>
             <p className="text-muted-foreground mt-1 text-sm">Build and publish landing pages with the drag-and-drop editor.</p>
           </div>
           <div className="flex items-center gap-2">
