@@ -4,7 +4,8 @@ import type { DsoScrollStoryBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
@@ -102,20 +103,8 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
       {/* Section header */}
       <div style={{ textAlign: "center", padding: "5rem 1.5rem 0", maxWidth: 1200, margin: "0 auto" }}>
         {eyebrow && (
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: AW,
-              marginBottom: "1rem",
-            }}
-          >
-            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+          <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: AW, marginBottom: "1rem",}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
         )}
         <motion.p
@@ -134,11 +123,11 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
             margin: "0 auto 1.25rem",
           }}
         >
-          <InlineText as="span" value={sectionHeading} onUpdate={field("sectionHeading")} multiline />
+          <InlineText as="span" value={sectionHeading} onUpdate={field("sectionHeading")} multiline style={{ fontFamily: BODY }}/>
         </motion.p>
         {sectionSubheading && (
-          <p style={{ fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-            <InlineText as="span" value={sectionSubheading} onUpdate={field("sectionSubheading")} multiline />
+          <p style={{ ...{fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto"}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={sectionSubheading} onUpdate={field("sectionSubheading")} multiline style={{ fontFamily: BODY }}/>
           </p>
         )}
       </div>
@@ -202,14 +191,7 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
                 </div>
 
                 {/* Chapter counter */}
-                <p style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: AW,
-                  marginBottom: "1.25rem",
-                }}>
+                <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
                   {String(active + 1).padStart(2, "0")} / {String(displayChapters.length).padStart(2, "0")}
                 </p>
 
@@ -238,10 +220,10 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
                           marginBottom: "1.5rem",
                         }}
                       >
-                        <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline />
+                        <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                       </h3>
-                      <p style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: FG_MU, maxWidth: 440 }}>
-                        <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline />
+                      <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.72, color: FG_MU, maxWidth: 440}, ...{fontFamily: BODY} }}>
+                        <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                       </p>
                     </motion.div>
                   ))}
@@ -312,14 +294,14 @@ export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
                 <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
               </div>
               {/* Chapter index */}
-              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "0.75rem" }}>
+              <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "0.75rem"}, ...{fontFamily: BODY} }}>
                 {String(i + 1).padStart(2, "0")} / {String(displayChapters.length).padStart(2, "0")}
               </p>
               <h3 style={{ fontFamily: DISPLAY_FONT, fontSize: "1.375rem", fontWeight: 600, color: FG, letterSpacing: "-0.02em", lineHeight: 1.2, marginBottom: "0.875rem" }}>
-                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline />
+                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
               </h3>
-              <p style={{ fontSize: "0.9375rem", lineHeight: 1.68, color: FG_MU }}>
-                <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline />
+              <p style={{ ...{fontSize: "0.9375rem", lineHeight: 1.68, color: FG_MU}, ...{fontFamily: BODY} }}>
+                <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
               </p>
             </motion.div>
           ))}

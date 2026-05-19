@@ -83,7 +83,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                   <InlineText
                     value={props.eyebrow}
                     onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </p>
               )}
               {props.headline && (
@@ -91,7 +91,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                   <InlineText
                     value={props.headline}
                     onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </h2>
               )}
             </div>
@@ -143,31 +143,25 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                 }`}
               >
                 {panel.tag && (
-                  <span
-                    className="inline-block text-xs font-bold uppercase tracking-widest mb-4 px-3 py-1 rounded-full"
-                    style={{
-                      backgroundColor: panel.accentColor || "var(--brand-accent)",
-                      color: panel.bgColor || "#0B0B0F",
-                    }}
-                  >
+                  <span className="inline-block text-xs font-bold uppercase tracking-widest mb-4 px-3 py-1 rounded-full" style={{ ...{backgroundColor: panel.accentColor || "var(--brand-accent)", color: panel.bgColor || "#0B0B0F",}, ...{fontFamily: BODY} }}>
                     <InlineText
                       value={panel.tag}
                       onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { tag: v }, props, onFieldChange) : undefined}
-                    />
+                    style={{ fontFamily: BODY }}/>
                   </span>
                 )}
                 <h3 className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-[0.95] mb-6" style={{ fontFamily: DISPLAY }}>
                   <InlineText
                     value={panel.title}
                     onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { title: v }, props, onFieldChange) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </h3>
                 {panel.body && (
                   <p className="text-lg md:text-xl text-white/80 leading-relaxed mb-8 max-w-xl" style={{ fontFamily: BODY }}>
                     <InlineText
                       value={panel.body}
                       onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { body: v }, props, onFieldChange) : undefined}
-                    />
+                    style={{ fontFamily: BODY }}/>
                   </p>
                 )}
                 {panel.showEmailCapture ? (
@@ -194,7 +188,7 @@ export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClic
                     <InlineText
                       value={panel.ctaText}
                       onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { ctaText: v }, props, onFieldChange) : undefined}
-                    />
+                    style={{ fontFamily: BODY }}/>
                   </button>
                 ) : null}
 

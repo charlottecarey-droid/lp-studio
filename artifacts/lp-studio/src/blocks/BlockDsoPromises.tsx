@@ -18,7 +18,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -69,13 +70,8 @@ export function BlockDsoPromises({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           {eyebrow && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {headline && (
@@ -94,18 +90,12 @@ export function BlockDsoPromises({ props, brand, onFieldChange }: Props) {
                 whiteSpace: "pre-line",
               }}
             >
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
           )}
           {subheadline && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 600, margin: "1.25rem auto 0" }}
-            >
-              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 600, margin: "1.25rem auto 0"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -148,15 +138,15 @@ export function BlockDsoPromises({ props, brand, onFieldChange }: Props) {
                     as="span"
                     value={promise.title}
                     onUpdate={updatePromise ? (v) => updatePromise(i, { title: v }) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </p>
-                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.625rem", lineHeight: 1.65 }}>
+                <p style={{ ...{fontSize: "0.9375rem", color: descC, marginTop: "0.625rem", lineHeight: 1.65}, ...{fontFamily: BODY} }}>
                   <InlineText
                     as="span"
                     value={promise.desc}
                     onUpdate={updatePromise ? (v) => updatePromise(i, { desc: v }) : undefined}
                     multiline
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </p>
               </motion.div>
             );

@@ -75,7 +75,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
             />
             {props.disclaimer && (
               <p className="text-sm text-slate-400 leading-relaxed max-w-xs" style={{ fontFamily: BODY }}>
-                <InlineText as="span" value={props.disclaimer} onUpdate={field("disclaimer")} multiline />
+                <InlineText as="span" value={props.disclaimer} onUpdate={field("disclaimer")} multiline style={{ fontFamily: BODY }}/>
               </p>
             )}
           </div>
@@ -84,17 +84,17 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
           <div className={cn("grid gap-10", groups.length <= 2 ? "grid-cols-2" : groups.length === 3 ? "grid-cols-3" : "grid-cols-4")}>
             {groups.map((group, i) => (
               <div key={i}>
-                <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)] block mb-5">
-                  <InlineText as="span" value={group.heading} onUpdate={updateGroup ? (v) => updateGroup(i, { heading: v }) : undefined} />
+                <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)] block mb-5" style={{ fontFamily: BODY }}>
+                  <InlineText as="span" value={group.heading} onUpdate={updateGroup ? (v) => updateGroup(i, { heading: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </span>
                 <ul className="space-y-3">
                   {(group.links ?? []).map((link, j) => (
-                    <li key={j}>
+                    <li key={j} style={{ fontFamily: BODY }}>
                       <a
                         href={normalizeHref(link.url)}
                         className="text-base text-slate-500 hover:text-[var(--brand-primary)] transition-colors"
                       >
-                        <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, j, { label: v }) : undefined} />
+                        <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, j, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
                       </a>
                     </li>
                   ))}
@@ -108,7 +108,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-5 text-sm text-slate-400">
             <p style={{ fontFamily: BODY }}>
-              <InlineText as="span" value={copyright} onUpdate={field("copyrightText")} />
+              <InlineText as="span" value={copyright} onUpdate={field("copyrightText")} style={{ fontFamily: BODY }}/>
             </p>
             <button
               type="button"

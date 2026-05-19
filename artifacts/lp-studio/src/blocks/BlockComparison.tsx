@@ -57,7 +57,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
             </div>
             <ul className="space-y-6 flex-1">
               {props.oldWayBullets.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-4">
+                <li key={i} className="flex items-start gap-4" style={{ fontFamily: BODY }}>
                   <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
                   <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateOldBullet(i, v) : undefined} className="text-[#4A6358] font-medium leading-relaxed" multiline style={{ fontFamily: BODY }} />
                 </li>
@@ -72,7 +72,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
             </div>
             <ul className="space-y-6 flex-1 relative z-10">
               {props.newWayBullets.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-4">
+                <li key={i} className="flex items-start gap-4" style={{ fontFamily: BODY }}>
                   <CheckCircle2 className="w-6 h-6 text-[var(--brand-accent)] shrink-0 mt-0.5" />
                   <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateNewBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline style={{ fontFamily: BODY }} />
                 </li>
@@ -111,7 +111,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
             variantId={variantId}
             source="comparison-cta"
           >
-            <InlineText value={props.ctaText} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, ctaText: v }) : undefined} />
+            <InlineText value={props.ctaText} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, ctaText: v }) : undefined} style={{ fontFamily: BODY }}/>
             <ArrowRight className="w-4 h-4 ml-2" />
           </CtaButton>
         </div>

@@ -21,7 +21,8 @@ const PFG   = "hsl(48,100%,96%)";
 const FG    = "hsl(152,40%,13%)";
 const MU    = "hsl(152,8%,48%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
@@ -91,18 +92,8 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
-            <motion.p
-              {...eyebrowAnim}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: dark ? AW : P,
-                marginBottom: "1.25rem",
-              }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p {...eyebrowAnim} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
@@ -116,21 +107,11 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
               letterSpacing: "-0.015em",
             }}
           >
-            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline />
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p
-              {...subAnim}
-              style={{
-                marginTop: "1.5rem",
-                fontSize: "1.0625rem",
-                color: dark ? "rgba(255,255,255,0.60)" : MU,
-                lineHeight: 1.7,
-                maxWidth: 640,
-                margin: "1.5rem auto 0",
-              }}
-            >
-              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+            <motion.p {...subAnim} style={{ ...{marginTop: "1.5rem", fontSize: "1.0625rem", color: dark ? "rgba(255,255,255,0.60)" : MU, lineHeight: 1.7, maxWidth: 640, margin: "1.5rem auto 0",}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -164,7 +145,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 color: "hsla(48,100%,96%,0.5)",
               }}
             >
-              What <InlineText as="span" value={companyName} onUpdate={field("companyName")} /> Needs
+              What <InlineText as="span" value={companyName} onUpdate={field("companyName")} style={{ fontFamily: BODY }}/> Needs
             </div>
             <div
               style={{
@@ -177,7 +158,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              <InlineText as="span" value={providerLabel} onUpdate={field("providerLabel")} />
+              <InlineText as="span" value={providerLabel} onUpdate={field("providerLabel")} style={{ fontFamily: BODY }}/>
             </div>
             <div
               style={{
@@ -190,7 +171,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              <InlineText as="span" value={traditionalLabel} onUpdate={field("traditionalLabel")} />
+              <InlineText as="span" value={traditionalLabel} onUpdate={field("traditionalLabel")} style={{ fontFamily: BODY }}/>
             </div>
           </div>
 
@@ -217,7 +198,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                   letterSpacing: "-0.005em",
                 }}
               >
-                <InlineText as="span" value={row.need} onUpdate={updateRow ? (v) => updateRow(i, { need: v }) : undefined} />
+                <InlineText as="span" value={row.need} onUpdate={updateRow ? (v) => updateRow(i, { need: v }) : undefined} style={{ fontFamily: BODY }}/>
               </div>
               <div
                 style={{
@@ -244,8 +225,8 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 >
                   <Check style={{ width: 11, height: 11, color: P }} strokeWidth={2.5} />
                 </div>
-                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55 }}>
-                  <InlineText as="span" value={row.dandy} onUpdate={updateRow ? (v) => updateRow(i, { dandy: v }) : undefined} multiline />
+                <span style={{ ...{fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55}, ...{fontFamily: BODY} }}>
+                  <InlineText as="span" value={row.dandy} onUpdate={updateRow ? (v) => updateRow(i, { dandy: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </span>
               </div>
               <div
@@ -258,8 +239,8 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
                 }}
               >
                 <Minus style={{ width: 16, height: 16, color: "hsla(152,8%,48%,0.25)", marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55 }}>
-                  <InlineText as="span" value={row.traditional} onUpdate={updateRow ? (v) => updateRow(i, { traditional: v }) : undefined} multiline />
+                <span style={{ ...{fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55}, ...{fontFamily: BODY} }}>
+                  <InlineText as="span" value={row.traditional} onUpdate={updateRow ? (v) => updateRow(i, { traditional: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </span>
               </div>
             </motion.div>
@@ -315,7 +296,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
               variantId={variantId}
               source="dso-comparison"
             >
-              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} /> <ArrowRight style={{ width: 16, height: 16 }} />
+              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/> <ArrowRight style={{ width: 16, height: 16 }} />
             </CtaButton>
           </motion.div>
         )}

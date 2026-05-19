@@ -70,7 +70,7 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                       as="span"
                       value={col.title}
                       onUpdate={updateColumn ? (v) => updateColumn(ci, { title: v }) : undefined}
-                    />
+                    style={{ fontFamily: BODY }}/>
                   </p>
                   <ul className="space-y-2.5">
                     {col.links.map((link, li) => {
@@ -88,14 +88,14 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                         link.label.trim().toLowerCase() === "privacy requests";
                       return (
                         <Fragment key={li}>
-                          <li>
+                          <li style={{ fontFamily: BODY }}>
                             {onFieldChange ? (
-                              <span className="text-white/50 text-sm cursor-text">
+                              <span className="text-white/50 text-sm cursor-text" style={{ fontFamily: BODY }}>
                                 <InlineText
                                   as="span"
                                   value={link.label}
                                   onUpdate={updateLink ? (v) => updateLink(ci, li, { label: v }) : undefined}
-                                />
+                                style={{ fontFamily: BODY }}/>
                               </span>
                             ) : (
                               <a
@@ -109,9 +109,9 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                             )}
                           </li>
                           {isPrivacyRequests && (
-                            <li>
+                            <li style={{ fontFamily: BODY }}>
                               {onFieldChange ? (
-                                <span className="text-white/50 text-sm cursor-text">
+                                <span className="text-white/50 text-sm cursor-text" style={{ fontFamily: BODY }}>
                                   Do Not Sell or Share My Personal Information
                                 </span>
                               ) : (
@@ -148,7 +148,7 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
                       : `© ${new Date().getFullYear()} All rights reserved.`
                 }
                 onUpdate={field("copyrightText")}
-              />
+              style={{ fontFamily: BODY }}/>
             ) : (
               props.copyrightText
                 ? props.copyrightText

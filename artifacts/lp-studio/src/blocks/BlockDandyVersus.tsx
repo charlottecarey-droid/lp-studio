@@ -43,12 +43,12 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
           <div className="text-center mb-14">
             {props.eyebrow && (
               <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4" style={{ fontFamily: BODY }}>
-                <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
+                <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
               </p>
             )}
             {props.headline && (
               <h2 className="text-4xl md:text-5xl font-bold text-white leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={field("headline")} />
+                <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
               </h2>
             )}
           </div>
@@ -63,20 +63,20 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
 
           {/* Left card — cream */}
           <div className="bg-[#F4F2EE] rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none p-10 md:p-12 flex flex-col">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
-              <InlineText value={props.leftLabel} onUpdate={field("leftLabel")} />
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4" style={{ fontFamily: BODY }}>
+              <InlineText value={props.leftLabel} onUpdate={field("leftLabel")} style={{ fontFamily: BODY }}/>
             </span>
             <h3 className="text-3xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: DISPLAY }}>
-              <InlineText value={props.leftTitle} onUpdate={field("leftTitle")} />
+              <InlineText value={props.leftTitle} onUpdate={field("leftTitle")} style={{ fontFamily: BODY }}/>
             </h3>
             <p className="text-slate-500 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
-              <InlineText value={props.leftDesc} onUpdate={field("leftDesc")} />
+              <InlineText value={props.leftDesc} onUpdate={field("leftDesc")} style={{ fontFamily: BODY }}/>
             </p>
             <ul className="flex-1 divide-y divide-slate-200">
               {(props.leftBullets ?? []).map((b, i) => (
-                <li key={i} className="flex items-center gap-3 text-base text-slate-600 py-3.5">
+                <li key={i} className="flex items-center gap-3 text-base text-slate-600 py-3.5" style={{ fontFamily: BODY }}>
                   <CircledX />
-                  <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet("leftBullets", i, v) : undefined} />
+                  <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet("leftBullets", i, v) : undefined} style={{ fontFamily: BODY }}/>
                 </li>
               ))}
             </ul>
@@ -85,27 +85,27 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
                 onClick={() => safeNavigate(props.leftCtaUrl)}
                 className="mt-8 self-start text-[var(--brand-primary)] text-xs font-bold uppercase tracking-wider border border-[rgb(var(--brand-primary-rgb)/0.3)] rounded-full px-6 py-3 hover:border-[var(--brand-primary)] transition-colors"
               >
-                <InlineText value={props.leftCtaText} onUpdate={field("leftCtaText")} />
+                <InlineText value={props.leftCtaText} onUpdate={field("leftCtaText")} style={{ fontFamily: BODY }}/>
               </button>
             )}
           </div>
 
           {/* Right card — dark green */}
           <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--brand-primary) 75%, #fff) 0%, var(--brand-primary) 70%)" }}>
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4">
-              <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} />
+            <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4" style={{ fontFamily: BODY }}>
+              <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} style={{ fontFamily: BODY }}/>
             </span>
             <h3 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: DISPLAY }}>
-              <InlineText value={props.rightTitle} onUpdate={field("rightTitle")} />
+              <InlineText value={props.rightTitle} onUpdate={field("rightTitle")} style={{ fontFamily: BODY }}/>
             </h3>
             <p className="text-white/70 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
-              <InlineText value={props.rightDesc} onUpdate={field("rightDesc")} />
+              <InlineText value={props.rightDesc} onUpdate={field("rightDesc")} style={{ fontFamily: BODY }}/>
             </p>
             <ul className="flex-1 divide-y divide-white/10">
               {(props.rightBullets ?? []).map((b, i) => (
-                <li key={i} className="flex items-center gap-3 text-base text-white/90 py-3.5">
+                <li key={i} className="flex items-center gap-3 text-base text-white/90 py-3.5" style={{ fontFamily: BODY }}>
                   <Check className="w-4 h-4 text-[var(--brand-accent)] shrink-0" strokeWidth={2.5} />
-                  <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet("rightBullets", i, v) : undefined} />
+                  <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet("rightBullets", i, v) : undefined} style={{ fontFamily: BODY }}/>
                 </li>
               ))}
             </ul>
@@ -114,7 +114,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
                 onClick={() => safeNavigate(props.rightCtaUrl)}
                 className="mt-8 self-start text-white text-xs font-bold uppercase tracking-wider border border-white/40 rounded-full px-6 py-3 hover:border-white hover:bg-white/10 transition-colors"
               >
-                <InlineText value={props.rightCtaText} onUpdate={field("rightCtaText")} />
+                <InlineText value={props.rightCtaText} onUpdate={field("rightCtaText")} style={{ fontFamily: BODY }}/>
               </button>
             )}
           </div>

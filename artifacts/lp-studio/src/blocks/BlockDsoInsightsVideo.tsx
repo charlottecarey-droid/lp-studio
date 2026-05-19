@@ -234,8 +234,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             transition={{ duration: 0.7 }}
           >
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
-            <span className="text-[var(--brand-accent)] text-[10px] font-semibold tracking-[0.22em] uppercase">
-              <InlineText as="span" value={props.eyebrow || "Insights"} onUpdate={field("eyebrow")} />
+            <span className="text-[var(--brand-accent)] text-[10px] font-semibold tracking-[0.22em] uppercase" style={{ fontFamily: BODY }}>
+              <InlineText as="span" value={props.eyebrow || "Insights"} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </span>
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
           </motion.div>
@@ -249,7 +249,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
-              <InlineText as="span" value={props.title || "See everything.\nDo anything."} onUpdate={field("title")} multiline />
+              <InlineText as="span" value={props.title || "See everything.\nDo anything."} onUpdate={field("title")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
           </div>
 
@@ -260,7 +260,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }} style={{ fontFamily: BODY }}>
-              <InlineText as="span" value={props.subtitle || "Before it becomes a problem."} onUpdate={field("subtitle")} multiline />
+              <InlineText as="span" value={props.subtitle || "Before it becomes a problem."} onUpdate={field("subtitle")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           </div>
 
@@ -271,7 +271,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 1, delay: 0.6 }} style={{ fontFamily: BODY }}>
-              <InlineText as="span" value={props.description || "The only analytics platform purpose-built for modern dental groups."} onUpdate={field("description")} multiline />
+              <InlineText as="span" value={props.description || "The only analytics platform purpose-built for modern dental groups."} onUpdate={field("description")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -299,7 +299,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 </div>
                 <div className="mx-auto bg-white/[0.06] rounded-md px-4 py-1 flex items-center gap-2 w-72 border border-white/[0.04]">
                   <div className="w-2 h-2 rounded-full bg-[rgb(var(--brand-accent-rgb)/0.6)] shrink-0" />
-                  <span className="text-[10px] text-white/35 tracking-wider truncate font-mono">
+                  <span className="text-[10px] text-white/35 tracking-wider truncate font-mono" style={{ fontFamily: BODY }}>
                     {props.browserUrl || "insights / dashboard"}
                   </span>
                 </div>
@@ -406,10 +406,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight" style={{ fontFamily: DISPLAY }}>
-                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} />
+                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </h4>
                   <p className="text-[#F2EEE3]/50 text-sm leading-relaxed" style={{ fontFamily: BODY }}>
-                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline />
+                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                   </p>
                 </div>
               </div>
@@ -478,11 +478,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
           >
             <div className="w-24 h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.4)] to-transparent mb-10" />
 
-            <span
-              className="block text-[var(--brand-accent)] font-display font-bold leading-none mb-4 select-none"
-              style={{ fontSize: "4rem", lineHeight: 0.85, opacity: 0.9 }}
-              aria-hidden
-            >
+            <span className="block text-[var(--brand-accent)] font-display font-bold leading-none mb-4 select-none" style={{ ...{fontSize: "4rem", lineHeight: 0.85, opacity: 0.9}, ...{fontFamily: BODY} }} aria-hidden>
               &ldquo;
             </span>
 
@@ -490,14 +486,14 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               className="text-[#F2EEE3] text-xl md:text-2xl lg:text-3xl font-light leading-snug max-w-2xl text-center mb-8"
               style={{ letterSpacing: "-0.02em", fontFamily: BODY }}
             >
-              <InlineText as="span" value={props.quote || "It would be insane not to use it given the data available."} onUpdate={field("quote")} multiline />
+              <InlineText as="span" value={props.quote || "It would be insane not to use it given the data available."} onUpdate={field("quote")} multiline style={{ fontFamily: BODY }}/>
             </p>
 
             {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
               <div className="flex items-center gap-4">
                 <div className="w-10 h-px bg-[#F2EEE3]/25" />
                 <p className="text-[#F2EEE3]/45 text-[11px] font-semibold tracking-[0.18em] uppercase" style={{ fontFamily: BODY }}>
-                  <InlineText as="span" value={props.quoteAttribution || "Dr. Eller, Clinical Leader"} onUpdate={field("quoteAttribution")} />
+                  <InlineText as="span" value={props.quoteAttribution || "Dr. Eller, Clinical Leader"} onUpdate={field("quoteAttribution")} style={{ fontFamily: BODY }}/>
                 </p>
                 <div className="w-10 h-px bg-[#F2EEE3]/25" />
               </div>
@@ -521,7 +517,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:opacity-90 transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
-                <InlineText as="span" value={props.ctaLabel} onUpdate={field("ctaLabel")} />
+                <InlineText as="span" value={props.ctaLabel} onUpdate={field("ctaLabel")} style={{ fontFamily: BODY }}/>
                 <ChevronRight className="w-4 h-4" />
               </ChiliPiperButton>
             ) : (
@@ -530,7 +526,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:opacity-90 transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
-                <InlineText as="span" value={props.ctaLabel} onUpdate={field("ctaLabel")} />
+                <InlineText as="span" value={props.ctaLabel} onUpdate={field("ctaLabel")} style={{ fontFamily: BODY }}/>
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}

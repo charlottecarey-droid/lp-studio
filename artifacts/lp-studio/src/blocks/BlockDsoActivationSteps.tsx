@@ -15,7 +15,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) {
@@ -52,13 +53,8 @@ export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           {eyebrow && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {headline && (
@@ -69,18 +65,12 @@ export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) 
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
           )}
           {subheadline && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
-            >
-              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -137,10 +127,10 @@ export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) 
                 }}
               >
                 <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>
-                  <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} />
+                  <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </p>
-                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.5rem", lineHeight: 1.65 }}>
-                  <InlineText as="span" value={step.desc} onUpdate={updateStep ? (v) => updateStep(i, { desc: v }) : undefined} multiline />
+                <p style={{ ...{fontSize: "0.9375rem", color: descC, marginTop: "0.5rem", lineHeight: 1.65}, ...{fontFamily: BODY} }}>
+                  <InlineText as="span" value={step.desc} onUpdate={updateStep ? (v) => updateStep(i, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </p>
               </div>
             </motion.div>
@@ -182,7 +172,7 @@ export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) 
               className={getButtonClasses(brand, "inline-flex items-center gap-2")}
               style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
             >
-              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
               <ArrowRight style={{ width: 16, height: 16 }} />
             </CtaButton>
           </motion.div>

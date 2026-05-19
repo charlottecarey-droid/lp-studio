@@ -64,13 +64,13 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
           />
         )}
         <h1 style={{ fontFamily: DISPLAY }}>
-          <span className="id-line">
+          <span className="id-line" style={{ fontFamily: BODY }}>
             <EditableEm as="span" className="id-line-inner" value={props.line1 ?? ""} onUpdate={f("line1")} />
           </span>
-          <span className="id-line">
+          <span className="id-line" style={{ fontFamily: BODY }}>
             <EditableEm as="span" className="id-line-inner" value={props.line2 ?? ""} onUpdate={f("line2")} />
           </span>
-          <span className="id-line">
+          <span className="id-line" style={{ fontFamily: BODY }}>
             <EditableEm as="span" className="id-line-inner" value={props.line3 ?? ""} onUpdate={f("line3")} />
           </span>
         </h1>
@@ -108,8 +108,8 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               variantId={variantId}
               source="id-hero-cta1"
             >
-              <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} />
-              <span aria-hidden>→</span>
+              <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} style={{ fontFamily: BODY }}/>
+              <span aria-hidden style={{ fontFamily: BODY }}>→</span>
             </CtaButton>
           )}
           {(props.cta2Text || isEditor) && (
@@ -142,13 +142,13 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               variantId={variantId}
               source="id-hero-cta2"
             >
-              <InlineText as="span" value={props.cta2Text ?? ""} onUpdate={f("cta2Text")} />
+              <InlineText as="span" value={props.cta2Text ?? ""} onUpdate={f("cta2Text")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
         </div>
       </div>
       <div className="id-scroll-hint" aria-hidden>
-        <span>Scroll</span>
+        <span style={{ fontFamily: BODY }}>Scroll</span>
         <div className="id-scroll-line" />
       </div>
     </section>

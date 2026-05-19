@@ -290,7 +290,7 @@ function FieldInput({
 
   if (field.type === "checkbox") {
     return (
-      <label htmlFor={field.id} className="flex items-center gap-2 cursor-pointer">
+      <label htmlFor={field.id} className="flex items-center gap-2 cursor-pointer" style={{ fontFamily: BODY }}>
         <input
           id={field.id}
           name={field.id}
@@ -300,7 +300,7 @@ function FieldInput({
           className="w-4 h-4"
           style={{ accentColor: inputAccentColor }}
         />
-        <span className={`text-sm ${isDark ? "text-white/90" : "text-slate-700"}`}>{field.placeholder || field.label}</span>
+        <span className={`text-sm ${isDark ? "text-white/90" : "text-slate-700"}`} style={{ fontFamily: BODY }}>{field.placeholder || field.label}</span>
       </label>
     );
   }
@@ -1071,11 +1071,11 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           {activeMultiStep && totalSteps > 1 && (
             <div className="mb-7">
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-white/70" : "text-slate-500"}`}>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-white/70" : "text-slate-500"}`} style={{ fontFamily: BODY }}>
                   Step {clampedStep + 1} of {totalSteps}
                 </span>
                 {step.title && (
-                  <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
+                  <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`} style={{ fontFamily: BODY }}>
                     {step.title}
                   </span>
                 )}
@@ -1093,9 +1093,9 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
-                  <label htmlFor={field.id} className={labelClass} style={textOverride ? { color: textOverride, opacity: 0.85 } : undefined}>
+                  <label htmlFor={field.id} className={labelClass} style={{ ...(textOverride ? { color: textOverride, opacity: 0.85 } : undefined), ...{fontFamily: BODY} }}>
                     {field.label}
-                    {field.required && <span className="text-red-400 ml-0.5">*</span>}
+                    {field.required && <span className="text-red-400 ml-0.5" style={{ fontFamily: BODY }}>*</span>}
                   </label>
                 )}
                 <FieldInput
@@ -1120,7 +1120,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           {/* Spam honeypot. aria-hidden + tabIndex=-1 keep it out of the
               tab order and AT tree — but Chrome's Issues panel still flags
               <input> without a visible label, so add a hidden label too. */}
-          <label htmlFor="_hp" className="hidden" aria-hidden="true">Leave blank</label>
+          <label htmlFor="_hp" className="hidden" aria-hidden="true" style={{ fontFamily: BODY }}>Leave blank</label>
           <input ref={honeypotRef} id="_hp" type="text" name="_hp" className="hidden" tabIndex={-1} autoComplete="off" aria-hidden="true" />
 
           {submitError && (

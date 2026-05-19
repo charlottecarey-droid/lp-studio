@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+
+const BODY = BRAND_BODY_FONT;
 import { motion, useScroll, useTransform } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
@@ -590,13 +592,8 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
               whileTap={{ scale: 0.98 }}
               transition={EASE_SPRING}
             >
-              <motion.span
-                style={{ position: "absolute", inset: 0, backgroundColor: C.primary }}
-                initial={{ x: "-100%" }}
-                whileHover={{ x: "0%" }}
-                transition={{ duration: 0.4 }}
-              />
-              <span style={{ position: "relative", zIndex: 10 }}>{p.heroCtaText}</span>
+              <motion.span style={{ ...{position: "absolute", inset: 0, backgroundColor: C.primary}, ...{fontFamily: BODY} }} initial={{ x: "-100%" }} whileHover={{ x: "0%" }} transition={{ duration: 0.4 }} />
+              <span style={{ ...{position: "relative", zIndex: 10}, ...{fontFamily: BODY} }}>{p.heroCtaText}</span>
             </motion.a>
           </motion.div>
         </motion.div>
@@ -646,7 +643,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
                   whileHover={{ scale: 1.05, color: "hsl(38 25% 72%)" }}
                   style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(181,154,110,0.8)", display: "flex", alignItems: "center", gap: "0.5rem", cursor: "default" }}
                 >
-                  <motion.span style={{ width: "0.25rem", height: "0.25rem", borderRadius: "50%", backgroundColor: "rgba(181,154,110,0.6)", display: "inline-block" }} whileHover={{ scale: 2 }} />
+                  <motion.span style={{ ...{width: "0.25rem", height: "0.25rem", borderRadius: "50%", backgroundColor: "rgba(181,154,110,0.6)", display: "inline-block"}, ...{fontFamily: BODY} }} whileHover={{ scale: 2 }} />
                   {vp}
                 </motion.span>
               ))}
@@ -1005,13 +1002,8 @@ function SubmitBtn({ label, loading, flex1, primary, bg, bodyFont }: { label: st
       whileTap={{ scale: 0.99 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
     >
-      <motion.span
-        style={{ position: "absolute", inset: 0, backgroundColor: primary }}
-        initial={{ x: "-100%" }}
-        whileHover={{ x: "0%" }}
-        transition={{ duration: 0.4 }}
-      />
-      <span style={{ position: "relative", zIndex: 10 }}>{loading ? "Reserving…" : label}</span>
+      <motion.span style={{ ...{position: "absolute", inset: 0, backgroundColor: primary}, ...{fontFamily: BODY} }} initial={{ x: "-100%" }} whileHover={{ x: "0%" }} transition={{ duration: 0.4 }} />
+      <span style={{ ...{position: "relative", zIndex: 10}, ...{fontFamily: BODY} }}>{loading ? "Reserving…" : label}</span>
     </motion.button>
   );
 }

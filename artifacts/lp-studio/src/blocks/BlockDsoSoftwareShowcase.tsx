@@ -21,6 +21,8 @@ const DEFAULT_FEATURES = [
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
@@ -119,7 +121,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
             className={getButtonClasses(brand, "inline-flex items-center")}
             style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
           >
-            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </ChiliPiperButton>
         ) : (
           <motion.a
@@ -130,7 +132,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
             whileTap={{ scale: 0.96 }}
             transition={SPRING}
           >
-            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </motion.a>
         )}
       </div>
@@ -282,7 +284,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
             }}
           >
             <IconComp style={{ width: 13, height: 13, color: LIME, flexShrink: 0 }} />
-            <InlineText as="span" value={f.label} onUpdate={updateFeature ? (v) => updateFeature(i, { label: v }) : undefined} />
+            <InlineText as="span" value={f.label} onUpdate={updateFeature ? (v) => updateFeature(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
           </div>
         );
       })}
@@ -303,18 +305,18 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
               style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
             >
               {eyebrow && (
-                <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC }}>
-                  <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+                <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC}, ...{fontFamily: BODY} }}>
+                  <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
                 </p>
               )}
               {headline && (
                 <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.875rem)", lineHeight: 1.12, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", margin: 0 }}>
-                  <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+                  <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
                 </h2>
               )}
               {body && (
-                <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, margin: 0 }}>
-                  <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+                <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, margin: 0}, ...{fontFamily: BODY} }}>
+                  <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
                 </p>
               )}
               {renderFeatures()}
@@ -340,18 +342,18 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
           style={{ textAlign: "center", maxWidth: 720, margin: "0 auto 3rem" }}
         >
           {eyebrow && (
-            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem" }}>
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </p>
           )}
           {headline && (
             <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", marginBottom: "1rem" }}>
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </h2>
           )}
           {body && (
-            <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, marginBottom: 0 }}>
-              <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+            <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, marginBottom: 0}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
             </p>
           )}
         </motion.div>

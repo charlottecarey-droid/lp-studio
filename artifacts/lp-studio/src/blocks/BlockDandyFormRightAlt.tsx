@@ -218,15 +218,15 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     <div className={`flex flex-col gap-5 ${centered ? "items-center text-center max-w-3xl mx-auto" : ""}`}>
       {props.eyebrow && (
         <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
-          <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
+          <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
       )}
       <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
-        <InlineText value={props.headline} onUpdate={field("headline")} />
+        <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
       </h2>
       {props.subheadline && (
         <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
-          <InlineText value={props.subheadline} onUpdate={field("subheadline")} multiline />
+          <InlineText value={props.subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
     </div>
@@ -250,15 +250,15 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
         (props.bullets ?? []).length > 0 && (
           <ul className="space-y-4">
             {(props.bullets ?? []).map((b, i) => (
-              <li key={i} className="flex items-start gap-4 text-base text-slate-700">
-                <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center">
+              <li key={i} className="flex items-start gap-4 text-base text-slate-700" style={{ fontFamily: BODY }}>
+                <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center" style={{ fontFamily: BODY }}>
                   <Check className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                 </span>
                 <InlineText
                   value={b}
                   onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined}
                   multiline
-                />
+                style={{ fontFamily: BODY }}/>
               </li>
             ))}
           </ul>
@@ -266,7 +266,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
       )}
       {props.trustNote && (
         <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: BODY }}>
-          <InlineText value={props.trustNote} onUpdate={field("trustNote")} multiline />
+          <InlineText value={props.trustNote} onUpdate={field("trustNote")} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
     </div>
@@ -283,7 +283,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
       {formState === "loading" ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : (
-        <InlineText value={submitText} onUpdate={field("submitText")} />
+        <InlineText value={submitText} onUpdate={field("submitText")} style={{ fontFamily: BODY }}/>
       )}
     </button>
   );
@@ -293,9 +293,9 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     const v = linkedValues[f.id] ?? "";
     const onChange = (val: string) => setLinkedValues((s) => ({ ...s, [f.id]: val }));
     const label = (
-      <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
+      <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide" style={{ fontFamily: BODY }}>
         {f.label}
-        {f.required ? <span className="text-rose-500"> *</span> : null}
+        {f.required ? <span className="text-rose-500" style={{ fontFamily: BODY }}> *</span> : null}
       </label>
     );
     const inputCls =
@@ -337,7 +337,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     }
     if (f.type === "checkbox") {
       return (
-        <label key={f.id} className="flex items-start gap-3 text-sm text-slate-700">
+        <label key={f.id} className="flex items-start gap-3 text-sm text-slate-700" style={{ fontFamily: BODY }}>
           <input
             type="checkbox"
             checked={v === "true"}
@@ -346,7 +346,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             disabled={formState === "loading"}
             className="mt-1"
           />
-          <span>{f.label}{f.required ? <span className="text-rose-500"> *</span> : null}</span>
+          <span style={{ fontFamily: BODY }}>{f.label}{f.required ? <span className="text-rose-500" style={{ fontFamily: BODY }}> *</span> : null}</span>
         </label>
       );
     }
@@ -375,12 +375,12 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     <div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100">
       {props.formHeadline && (
         <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-1" style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.formHeadline} onUpdate={field("formHeadline")} />
+          <InlineText value={props.formHeadline} onUpdate={field("formHeadline")} style={{ fontFamily: BODY }}/>
         </h3>
       )}
       {props.formSubheadline && (
         <p className="text-sm text-slate-500 mb-7" style={{ fontFamily: BODY }}>
-          <InlineText value={props.formSubheadline} onUpdate={field("formSubheadline")} />
+          <InlineText value={props.formSubheadline} onUpdate={field("formSubheadline")} style={{ fontFamily: BODY }}/>
         </p>
       )}
 
@@ -451,7 +451,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             {submitButton}
             {props.formDisclaimer && (
               <p className="text-xs text-slate-400 text-center mt-1" style={{ fontFamily: BODY }}>
-                <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
+                <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} style={{ fontFamily: BODY }}/>
               </p>
             )}
           </form>
@@ -461,7 +461,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">First Name</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide" style={{ fontFamily: BODY }}>First Name</label>
               <input
                 type="text"
                 value={native.firstName}
@@ -473,7 +473,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Last Name</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide" style={{ fontFamily: BODY }}>Last Name</label>
               <input
                 type="text"
                 value={native.lastName}
@@ -486,7 +486,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Work Email</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide" style={{ fontFamily: BODY }}>Work Email</label>
             <input
               type="email"
               value={native.email}
@@ -498,7 +498,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Phone Number</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide" style={{ fontFamily: BODY }}>Phone Number</label>
             <input
               type="tel"
               value={native.phone}
@@ -511,7 +511,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
           {submitButton}
           {props.formDisclaimer && (
             <p className="text-xs text-slate-400 text-center mt-1" style={{ fontFamily: BODY }}>
-              <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
+              <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} style={{ fontFamily: BODY }}/>
             </p>
           )}
         </form>

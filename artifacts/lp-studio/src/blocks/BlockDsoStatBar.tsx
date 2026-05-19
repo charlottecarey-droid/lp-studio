@@ -12,7 +12,8 @@ interface Props {
 const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 const FG  = "var(--brand-primary, hsl(152,40%,13%))";
 const MU  = "hsl(152,8%,48%)";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const StatItem = ({
@@ -65,20 +66,7 @@ const StatItem = ({
         }}
       />
 
-      <InlineText
-        as="p"
-        value={stat.label}
-        onUpdate={onUpdateLabel}
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          color: dark ? "rgba(255,255,255,0.50)" : MU,
-          lineHeight: 1.5,
-          maxWidth: 130,
-        }}
-      />
+      <InlineText as="p" value={stat.label} onUpdate={onUpdateLabel} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: dark ? "rgba(255,255,255,0.50)" : MU, lineHeight: 1.5, maxWidth: 130,}, ...{fontFamily: BODY} }} />
     </motion.div>
   );
 };

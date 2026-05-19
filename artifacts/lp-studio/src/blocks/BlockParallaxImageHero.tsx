@@ -40,20 +40,7 @@ function renderHeadlineWithAccent(headline: string, accent: string | undefined, 
   return (
     <>
       {before}
-      <em
-        style={{
-          color: accentColor,
-          fontStyle: "italic",
-          fontWeight: "inherit",
-          // Bagoss Standard only ships a Regular face (no italic file).
-          // Safari (esp. iPad) refuses to synthesize italic by default
-          // when an @font-face exists for the family — the result is
-          // upright text inside <em>. Explicitly opt into style
-          // synthesis so the browser fakes an oblique slant from the
-          // regular face. Harmless for fonts that DO have a real italic.
-          fontSynthesis: "style",
-        }}
-      >
+      <em style={{ color: accentColor, fontStyle: "italic", fontWeight: "inherit", fontSynthesis: "style", fontFamily: BODY }}>
         {accent}
       </em>
       {after}
@@ -247,7 +234,7 @@ export function BlockParallaxImageHero({
                   as="span"
                   value={props.headline ?? ""}
                   onUpdate={f("headline")}
-                />
+                style={{ fontFamily: BODY }}/>
               ) : (
                 renderHeadlineWithAccent(
                   props.headline ?? "",
@@ -276,7 +263,7 @@ export function BlockParallaxImageHero({
               as="span"
               value={props.ctaText ?? ""}
               onUpdate={f("ctaText")}
-            />
+            style={{ fontFamily: BODY }}/>
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </a>
 
@@ -296,7 +283,7 @@ export function BlockParallaxImageHero({
                 )}
                 value={props.brandMark ?? ""}
                 onUpdate={f("brandMark")}
-              />
+              style={{ fontFamily: BODY }}/>
             )}
           </div>
         </div>

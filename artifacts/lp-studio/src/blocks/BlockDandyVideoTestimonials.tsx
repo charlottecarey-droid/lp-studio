@@ -50,17 +50,17 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
           <div className="mb-12 max-w-2xl">
             {props.eyebrow && (
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--brand-primary)", fontFamily: BODY }}>
-                <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
+                <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}
             {props.headline && (
               <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </h2>
             )}
             {props.subheadline && (
               <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
-                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
+                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}
           </div>
@@ -96,11 +96,11 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
               {/* Caption */}
               <div className="absolute bottom-5 left-5 right-5">
                 <p className="text-white text-base font-semibold leading-tight" style={{ fontFamily: BODY }}>
-                  <InlineText value={item.name} onUpdate={onFieldChange ? (v) => updateItem(i, "name", v) : undefined} />
+                  <InlineText value={item.name} onUpdate={onFieldChange ? (v) => updateItem(i, "name", v) : undefined} style={{ fontFamily: BODY }}/>
                 </p>
                 {item.practiceName && (
                   <p className="text-white/65 text-sm mt-1" style={{ fontFamily: BODY }}>
-                    <InlineText value={item.practiceName} onUpdate={onFieldChange ? (v) => updateItem(i, "practiceName", v) : undefined} />
+                    <InlineText value={item.practiceName} onUpdate={onFieldChange ? (v) => updateItem(i, "practiceName", v) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
                 )}
               </div>

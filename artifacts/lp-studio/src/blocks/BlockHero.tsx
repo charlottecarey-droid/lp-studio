@@ -168,13 +168,13 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             source="hero-cta"
             animationsEnabled={animationsEnabled}
           >
-            <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+            <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
             <ArrowRight className="w-4 h-4 ml-2" />
           </CtaButton>
           {props.showSocialProof && (
             <div className={cn("flex items-center gap-2 text-sm font-medium opacity-80", !isSplit && "justify-center")}>
               <ShieldCheck className="w-4 h-4" />
-              <InlineText as="span" value={props.socialProofText || ""} onUpdate={field("socialProofText")} />
+              <InlineText as="span" value={props.socialProofText || ""} onUpdate={field("socialProofText")} style={{ fontFamily: BODY }}/>
             </div>
           )}
         </div>

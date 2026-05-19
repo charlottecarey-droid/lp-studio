@@ -114,7 +114,7 @@ function ChilipiperModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
-            <span className="text-sm font-semibold text-slate-800">
+            <span className="text-sm font-semibold text-slate-800" style={{ fontFamily: BODY }}>
               {step === "form" ? "Book a call" : "Pick a time"}
             </span>
           </div>
@@ -135,7 +135,7 @@ function ChilipiperModal({
 
             {p.chilipiperCaptureName && (
               <div>
-                <label className="text-xs font-medium text-slate-700 block mb-1">Your name</label>
+                <label className="text-xs font-medium text-slate-700 block mb-1" style={{ fontFamily: BODY }}>Your name</label>
                 <input
                   type="text"
                   value={name}
@@ -147,8 +147,8 @@ function ChilipiperModal({
             )}
 
             <div>
-              <label className="text-xs font-medium text-slate-700 block mb-1">
-                Email address <span className="text-red-500">*</span>
+              <label className="text-xs font-medium text-slate-700 block mb-1" style={{ fontFamily: BODY }}>
+                Email address <span className="text-red-500" style={{ fontFamily: BODY }}>*</span>
               </label>
               <input
                 type="email"
@@ -359,10 +359,10 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--brand-primary-rgb)/0.5)]">Popup</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgb(var(--brand-accent-rgb)/0.3)] text-[var(--brand-primary)] font-medium">{triggerLabel}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--brand-primary-rgb)/0.5)]" style={{ fontFamily: BODY }}>Popup</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgb(var(--brand-accent-rgb)/0.3)] text-[var(--brand-primary)] font-medium" style={{ fontFamily: BODY }}>{triggerLabel}</span>
               {isChiliPiper && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-1">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-1" style={{ fontFamily: BODY }}>
                   <Calendar className="w-2.5 h-2.5" />Chili Piper
                 </span>
               )}
@@ -440,7 +440,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
             }}
           >
             {isChiliPiper
-              ? <span className="flex items-center gap-2"><Calendar className="w-4 h-4" />{p.ctaText || "Book a call"}</span>
+              ? <span className="flex items-center gap-2" style={{ fontFamily: BODY }}><Calendar className="w-4 h-4" />{p.ctaText || "Book a call"}</span>
               : p.ctaText || "Open"
             }
           </button>

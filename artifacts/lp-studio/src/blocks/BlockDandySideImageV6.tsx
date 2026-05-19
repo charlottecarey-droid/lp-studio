@@ -36,25 +36,25 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
     <div className="flex flex-col justify-center gap-6 py-4">
       {props.eyebrow && (
         <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
-          <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
+          <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
       )}
       <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
-        <InlineText value={props.headline} onUpdate={field("headline")} />
+        <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
       </h2>
       {props.subheadline && (
         <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
-          <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
+          <InlineText value={props.subheadline} onUpdate={field("subheadline")} style={{ fontFamily: BODY }}/>
         </p>
       )}
       {(props.bullets ?? []).length > 0 && (
         <ul className="space-y-4 mt-1">
           {(props.bullets ?? []).map((b, i) => (
-            <li key={i} className="flex items-start gap-4 text-base text-slate-700">
-              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center">
+            <li key={i} className="flex items-start gap-4 text-base text-slate-700" style={{ fontFamily: BODY }}>
+              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center" style={{ fontFamily: BODY }}>
                 <Check className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
               </span>
-              <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} />
+              <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} style={{ fontFamily: BODY }}/>
             </li>
           ))}
         </ul>
@@ -87,7 +87,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
             source="dandy-side-image-v6-primary"
             className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
           >
-            <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+            <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </CtaButton>
           {props.secondaryCtaText && (
             <CtaButton
@@ -116,7 +116,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
               source="dandy-side-image-v6-secondary"
               className="border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] font-semibold px-8 py-4 rounded-xl text-base hover:bg-[var(--brand-primary)] hover:text-white transition-all"
             >
-              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
         </div>
@@ -135,7 +135,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
       </div>
       {props.badgeText && (
         <div className="absolute -bottom-5 -right-5 bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-base px-6 py-3.5 rounded-2xl shadow-lg">
-          <InlineText value={props.badgeText} onUpdate={field("badgeText")} />
+          <InlineText value={props.badgeText} onUpdate={field("badgeText")} style={{ fontFamily: BODY }}/>
         </div>
       )}
     </div>

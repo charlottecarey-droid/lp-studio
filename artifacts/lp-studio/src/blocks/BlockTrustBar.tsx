@@ -6,6 +6,8 @@ import { useCountUp } from "@/hooks/use-count-up";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
+const BODY = BRAND_BODY_FONT;
+
 interface Props {
   props: TrustBarBlockProps;
   brand: BrandConfig;
@@ -24,13 +26,13 @@ function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
   const parsed = parseNumeric(value);
   const [count, countRef] = useCountUp(parsed?.num ?? 0, 1400, enabled && !!parsed);
 
-  if (!parsed) return <span>{value}</span>;
+  if (!parsed) return <span style={{ fontFamily: BODY }}>{value}</span>;
 
   const display = enabled
     ? `${parsed.prefix}${count.toLocaleString()}${parsed.suffix}`
     : value;
 
-  return <span ref={countRef}>{display}</span>;
+  return <span ref={countRef} style={{ fontFamily: BODY }}>{display}</span>;
 }
 
 export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
@@ -65,7 +67,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
                 <InlineText
                   value={item.value}
                   onUpdate={(v) => updateItem(i, { value: v })}
-                />
+                style={{ fontFamily: BODY }}/>
               ) : (
                 <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
               )}

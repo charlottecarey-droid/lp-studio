@@ -63,12 +63,9 @@ export function BlockGridParagraphBullets({ props, brand }: { props: GridParagra
       {props.bullets?.length > 0 && (
         <ul className="space-y-1.5 text-sm text-slate-700">
           {props.bullets.map((b: string, i: number) => (
-            <li key={i} className="flex gap-2">
-              <span
-                className="mt-1 inline-block h-1.5 w-1.5 rounded-full shrink-0"
-                style={{ backgroundColor: brand?.primaryColor || "#003A30" }}
-              />
-              <span>{b}</span>
+            <li key={i} className="flex gap-2" style={{ fontFamily: BODY }}>
+              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ ...{backgroundColor: brand?.primaryColor || "#003A30"}, ...{fontFamily: BODY} }} />
+              <span style={{ fontFamily: BODY }}>{b}</span>
             </li>
           ))}
         </ul>
@@ -95,7 +92,7 @@ export function BlockGridIconFeature({ props, brand }: { props: GridIconFeatureB
         className="h-10 w-10 grid place-items-center rounded-md text-xl mb-3"
         style={{ backgroundColor: brand?.accentColor || "#C7E73833" }}
       >
-        <span aria-hidden>{props.icon || "✨"}</span>
+        <span aria-hidden style={{ fontFamily: BODY }}>{props.icon || "✨"}</span>
       </div>
       <h4 className="text-base font-semibold text-slate-900" style={{ fontFamily: DISPLAY }}>{props.headline}</h4>
       {props.paragraph && (

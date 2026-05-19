@@ -87,15 +87,15 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
       <div className="max-w-4xl mx-auto px-6 md:px-10 text-center flex flex-col items-center gap-6">
         {props.eyebrow && (
           <p className={cn("text-xs font-bold uppercase tracking-widest", colors.eyebrow)} style={{ fontFamily: BODY }}>
-            <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
+            <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </p>
         )}
         <h2 className={cn("text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight", colors.heading)} style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.headline} onUpdate={field("headline")} />
+          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
         </h2>
         {props.subheadline && (
           <p className={cn("text-lg leading-relaxed max-w-2xl", colors.sub)} style={{ fontFamily: BODY }}>
-            <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
+            <InlineText value={props.subheadline} onUpdate={field("subheadline")} style={{ fontFamily: BODY }}/>
           </p>
         )}
 
@@ -115,7 +115,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
               variantId={variantId}
               source="dandy-conversion-panel-primary"
             >
-              <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
+              <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
           {props.secondaryCtaText && (
@@ -133,7 +133,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
               variantId={variantId}
               source="dandy-conversion-panel-secondary"
             >
-              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
         </div>

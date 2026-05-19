@@ -35,9 +35,9 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
         <div className="md:w-1/2">
           <ul className="space-y-4">
             {props.bullets?.map((bullet, i) => (
-              <li key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+              <li key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10" style={{ fontFamily: BODY }}>
                 <AlertTriangle className="w-6 h-6 text-[var(--brand-accent)] shrink-0 mt-0.5" />
-                <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline />
+                <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline style={{ fontFamily: BODY }}/>
               </li>
             ))}
           </ul>

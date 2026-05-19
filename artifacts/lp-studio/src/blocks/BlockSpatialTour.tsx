@@ -5,6 +5,8 @@ import { VideoModal } from "@/components/VideoModal";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
+const BODY = BRAND_BODY_FONT;
+
 // ─── Dynamic-nav + video-hero shared bits ─────────────────────
 // Section "kinds" used by the scroll-progress hairline and the section chip
 // in the nav. The actual DOM `id` used per section is namespaced per block
@@ -164,7 +166,7 @@ function PrimaryCTA({
       }}
     >
       {label}
-      <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
+      <span style={{ ...{fontSize: 16, lineHeight: 1}, ...{fontFamily: BODY} }}>→</span>
     </Tag>
   );
 }
@@ -209,20 +211,7 @@ function SecondaryCTA({
         ...style,
       }}
     >
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: "50%",
-          background: MINT,
-          color: FOREST,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 9,
-          paddingLeft: 1,
-        }}
-      >
+      <span style={{ ...{width: 22, height: 22, borderRadius: "50%", background: MINT, color: FOREST, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, paddingLeft: 1,}, ...{fontFamily: BODY} }}>
         ▶
       </span>
       {label}
@@ -425,26 +414,10 @@ function TelemetryStrip({
       }}
     >
       {items.map((it, i) => (
-        <span key={i}>{it}</span>
+        <span key={i} style={{ fontFamily: BODY }}>{it}</span>
       ))}
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          color: liveColor,
-          justifySelf: "end",
-        }}
-      >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: liveColor,
-            boxShadow: `0 0 6px ${liveColor}`,
-          }}
-        />
+      <span style={{ ...{display: "inline-flex", alignItems: "center", gap: 8, color: liveColor, justifySelf: "end",}, ...{fontFamily: BODY} }}>
+        <span style={{ ...{width: 6, height: 6, borderRadius: "50%", background: liveColor, boxShadow: `0 0 6px ${liveColor}`,}, ...{fontFamily: BODY} }} />
         {liveLabel}
       </span>
     </div>
@@ -482,16 +455,9 @@ function FileCode({
       }}
     >
       {showDot && (
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: dotColor,
-          }}
-        />
+        <span style={{ ...{width: 6, height: 6, borderRadius: "50%", background: dotColor,}, ...{fontFamily: BODY} }} />
       )}
-      <span>{text}</span>
+      <span style={{ fontFamily: BODY }}>{text}</span>
     </div>
   );
 }
@@ -527,9 +493,9 @@ function BracketPill({
         ...style,
       }}
     >
-      <span style={{ color: bc, opacity: 0.85 }}>[</span>
-      <span>{children}</span>
-      <span style={{ color: bc, opacity: 0.85 }}>]</span>
+      <span style={{ ...{color: bc, opacity: 0.85}, ...{fontFamily: BODY} }}>[</span>
+      <span style={{ fontFamily: BODY }}>{children}</span>
+      <span style={{ ...{color: bc, opacity: 0.85}, ...{fontFamily: BODY} }}>]</span>
     </span>
   );
 }
@@ -546,21 +512,7 @@ function MintEmphasis({
   style?: React.CSSProperties;
 }) {
   return (
-    <span
-      style={{
-        fontStyle: italic ? "italic" : "normal",
-        // inline-block + small right padding prevents italic glyphs (e.g. the
-        // trailing "b" in "lab") from being clipped by background-clip: text.
-        display: "inline-block",
-        paddingRight: italic ? "0.12em" : 0,
-        backgroundImage: `linear-gradient(180deg, ${WHITE} 0%, ${MINT} 55%, ${MINT} 100%)`,
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        color: "transparent",
-        ...style,
-      }}
-    >
+    <span style={{ fontStyle: italic ? "italic" : "normal", display: "inline-block", paddingRight: italic ? "0.12em" : 0, backgroundImage: `linear-gradient(180deg, ${WHITE} 0%, ${MINT} 55%, ${MINT} 100%)`, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent", fontFamily: BODY, ...style }}>
       {children}
     </span>
   );
@@ -1051,17 +1003,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
             gap: 10,
           }}
         >
-          <span
-            className="st-anim-rec"
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: MINT,
-              boxShadow: `0 0 8px ${MINT}`,
-              animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite",
-            }}
-          />
+          <span className="st-anim-rec" style={{ ...{width: 6, height: 6, borderRadius: "50%", background: MINT, boxShadow: `0 0 8px ${MINT}`, animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite",}, ...{fontFamily: BODY} }} />
           2160P · 60FPS · LOOP
         </div>
       ) : (
@@ -1090,7 +1032,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
               gap: 10,
             }}
           >
-            {p.heroScrollLabel} <span>↓</span>
+            {p.heroScrollLabel} <span style={{ fontFamily: BODY }}>↓</span>
           </div>
           <div style={{ width: 1, height: 36, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
         </div>
@@ -1198,7 +1140,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.manifestoHeadlineLine1}
             <br />
-            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY }}>{p.manifestoHeadlineEmphasis}</span>
+            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: BODY} }}>{p.manifestoHeadlineEmphasis}</span>
           </h2>
           <p
             style={{
@@ -1437,9 +1379,9 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
                 gap: 4,
               }}
             >
-              <span style={{ opacity: 0.55, fontWeight: 400 }}>[</span>
-              <span style={{ fontWeight: 400 }}>{station.number}</span>
-              <span style={{ opacity: 0.55, fontWeight: 400 }}>]</span>
+              <span style={{ ...{opacity: 0.55, fontWeight: 400}, ...{fontFamily: BODY} }}>[</span>
+              <span style={{ ...{fontWeight: 400}, ...{fontFamily: BODY} }}>{station.number}</span>
+              <span style={{ ...{opacity: 0.55, fontWeight: 400}, ...{fontFamily: BODY} }}>]</span>
             </span>
             <div style={{ height: 1, background: "rgb(var(--brand-primary-rgb, 0 58 48) / 0.20)", flex: 1 }} />
             <span
@@ -1531,7 +1473,7 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.tourHeadlineLine1}
             <br />
-            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT }}>{p.tourHeadlineEmphasis}</span>
+            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT}, ...{fontFamily: BODY} }}>{p.tourHeadlineEmphasis}</span>
             <br />
             {p.tourHeadlineLine3}
           </h2>
@@ -1611,20 +1553,12 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
                         letterSpacing: "0.02em",
                       }}
                     >
-                      <span style={{ opacity: 0.55 }}>[</span>
+                      <span style={{ ...{opacity: 0.55}, ...{fontFamily: BODY} }}>[</span>
                       {s.number}
-                      <span style={{ opacity: 0.55 }}>]</span>
+                      <span style={{ ...{opacity: 0.55}, ...{fontFamily: BODY} }}>]</span>
                     </span>
-                    <span>{s.label}</span>
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        color: "rgba(255,255,255,0.55)",
-                        letterSpacing: "0.18em",
-                        textTransform: "uppercase",
-                        fontWeight: 500,
-                      }}
-                    >
+                    <span style={{ fontFamily: BODY }}>{s.label}</span>
+                    <span style={{ ...{fontSize: 10.5, color: "rgba(255,255,255,0.55)", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 500,}, ...{fontFamily: BODY} }}>
                       T+{s.insetDuration}
                     </span>
                   </div>
@@ -1711,7 +1645,7 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
               <br />
               {p.calloutHeadlineLine2}
               <br />
-              <span style={{ color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal" }}>{p.calloutHeadlineEmphasis}</span>
+              <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: BODY} }}>{p.calloutHeadlineEmphasis}</span>
             </h2>
             <div style={{ marginTop: 36, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
               {p.calloutPoints.map((pt) => (
@@ -1778,7 +1712,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.waysHeadlineLine1}
             <br />
-            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY }}>{p.waysHeadlineEmphasis}</span>
+            <span style={{ ...{fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY}, ...{fontFamily: BODY} }}>{p.waysHeadlineEmphasis}</span>
           </h2>
         </div>
 
@@ -1888,19 +1822,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
                   <span style={{ fontFamily: SERIF, fontSize: 16, color: KELLY, letterSpacing: "-0.02em" }}>
                     {w.ctaText}
                   </span>
-                  <span
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      background: KELLY,
-                      color: WHITE,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 14,
-                    }}
-                  >
+                  <span style={{ ...{width: 32, height: 32, borderRadius: "50%", background: KELLY, color: WHITE, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14,}, ...{fontFamily: BODY} }}>
                     →
                   </span>
                 </div>
@@ -1957,7 +1879,7 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.calendarHeadlineLine1}
             <br />
-            <span style={{ color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal" }}>{p.calendarHeadlineEmphasis}</span>
+            <span style={{ ...{color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal"}, ...{fontFamily: BODY} }}>{p.calendarHeadlineEmphasis}</span>
           </h2>
           <p
             style={{

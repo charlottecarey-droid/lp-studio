@@ -4,7 +4,8 @@ import type { DsoParticleMeshBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
@@ -242,13 +243,8 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
           animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
           transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         >
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5, delay: 0.05 }}
-            style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem" }}
-          >
-            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay: 0.05 }} style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem"}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
@@ -262,15 +258,10 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
               marginBottom: "2rem", whiteSpace: "pre-line",
             }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
           </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.55, delay: 0.2 }}
-            style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440 }}
-          >
-            <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.2 }} style={{ ...{fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
           {/* Stat strip */}
@@ -288,7 +279,7 @@ export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
             {stats.map((s, i) => (
               <div key={i}>
                 <InlineText as="p" value={s.value} onUpdate={field(s.valueKey)} style={{ fontFamily: DISPLAY_FONT, fontSize: "2.25rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }} />
-                <InlineText as="p" value={s.label} onUpdate={field(s.labelKey)} style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem" }} />
+                <InlineText as="p" value={s.label} onUpdate={field(s.labelKey)} style={{ ...{fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem"}, ...{fontFamily: BODY} }} />
               </div>
             ))}
           </motion.div>

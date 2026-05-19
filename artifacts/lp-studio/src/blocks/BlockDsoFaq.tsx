@@ -19,7 +19,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
@@ -51,13 +52,8 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3rem" }}>
           {eyebrow && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {headline && (
@@ -68,18 +64,12 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
           )}
           {subheadline && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              style={{ marginTop: "1rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7 }}
-            >
-              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -114,26 +104,14 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
                   gap: "1rem",
                 }}
               >
-                <span
-                  style={{
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    color: qC,
-                    lineHeight: 1.4,
-                    flex: 1,
-                  }}
-                >
+                <span style={{ ...{fontSize: "1rem", fontWeight: 600, color: qC, lineHeight: 1.4, flex: 1,}, ...{fontFamily: BODY} }}>
                   <InlineText
                     as="span"
                     value={item.question}
                     onUpdate={updateItem ? (v) => updateItem(i, { question: v }) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </span>
-                <motion.span
-                  animate={{ rotate: open === i ? 180 : 0 }}
-                  transition={{ duration: 0.22 }}
-                  style={{ flexShrink: 0 }}
-                >
+                <motion.span animate={{ rotate: open === i ? 180 : 0 }} transition={{ duration: 0.22 }} style={{ ...{flexShrink: 0}, ...{fontFamily: BODY} }}>
                   <ChevronDown style={{ width: 18, height: 18, color: chevC }} />
                 </motion.span>
               </button>
@@ -147,20 +125,13 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
                     transition={{ duration: 0.25, ease: "easeInOut" }}
                     style={{ overflow: "hidden" }}
                   >
-                    <p
-                      style={{
-                        padding: "0 1.5rem 1.25rem",
-                        fontSize: "0.9375rem",
-                        color: aC,
-                        lineHeight: 1.75,
-                      }}
-                    >
+                    <p style={{ ...{padding: "0 1.5rem 1.25rem", fontSize: "0.9375rem", color: aC, lineHeight: 1.75,}, ...{fontFamily: BODY} }}>
                       <InlineText
                         as="span"
                         value={item.answer}
                         onUpdate={updateItem ? (v) => updateItem(i, { answer: v }) : undefined}
                         multiline
-                      />
+                      style={{ fontFamily: BODY }}/>
                     </p>
                   </motion.div>
                 )}

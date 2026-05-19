@@ -13,7 +13,8 @@ interface Props {
   onCtaClick?: () => void;
 }
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
@@ -41,12 +42,12 @@ const InputField = ({
   [k: string]: unknown;
 }) => (
   <div>
-    <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">
+    <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block" style={{ fontFamily: BODY }}>
       {label}
     </label>
     <div className="relative">
       {prefix && (
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none" style={{ fontFamily: BODY }}>
           {prefix}
         </span>
       )}
@@ -60,7 +61,7 @@ const InputField = ({
         {...rest}
       />
       {suffix && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none" style={{ fontFamily: BODY }}>
           {suffix}
         </span>
       )}
@@ -80,11 +81,8 @@ const ResultRow = ({
   accentColor: string;
 }) => (
   <div className="py-1.5">
-    <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-0.5">{label}</p>
-    <p
-      className="text-xl font-bold tracking-tight"
-      style={highlight ? { color: accentColor } : { color: "#fff" }}
-    >
+    <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-0.5" style={{ fontFamily: BODY }}>{label}</p>
+    <p className="text-xl font-bold tracking-tight" style={{ ...(highlight ? { color: accentColor } : { color: "#fff" }), ...{fontFamily: BODY} }}>
       {value}
     </p>
   </div>
@@ -197,13 +195,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
             {props.headline}
           </h2>
           {props.subheadline && (
-            <p style={{
-              fontSize: "1.0625rem",
-              lineHeight: 1.7,
-              color: subColor,
-              maxWidth: 560,
-              margin: "0 auto",
-            }}>
+            <p style={{ ...{fontSize: "1.0625rem", lineHeight: 1.7, color: subColor, maxWidth: 560, margin: "0 auto",}, ...{fontFamily: BODY} }}>
               {props.subheadline}
             </p>
           )}
@@ -211,7 +203,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
 
         {/* Practices multiplier */}
         <div className="mb-10 flex items-center justify-center gap-4">
-          <label className="text-sm font-medium text-foreground">Number of practices:</label>
+          <label className="text-sm font-medium text-foreground" style={{ fontFamily: BODY }}>Number of practices:</label>
           <input
             type="number"
             min={1}
@@ -229,8 +221,8 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
             {/* SECTION 1: Fixed Restoration Remake Impact */}
             <div className="space-y-5">
               <div>
-                <h3 className="text-lg font-semibold text-foreground">Fixed Restoration Remake Impact</h3>
-                <p className="text-xs text-muted-foreground mt-1">
+                <h3 className="text-lg font-semibold text-foreground" style={{ fontFamily: DISPLAY }}>Fixed Restoration Remake Impact</h3>
+                <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: BODY }}>
                   Production recovered and costs avoided by reducing remakes.
                 </p>
               </div>
@@ -299,15 +291,15 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
             {/* SECTION 2: Denture Workflow Impact */}
             <div className="space-y-5">
               <div>
-                <h3 className="text-lg font-semibold text-foreground">Denture Workflow Impact</h3>
-                <p className="text-xs text-muted-foreground mt-1">
+                <h3 className="text-lg font-semibold text-foreground" style={{ fontFamily: DISPLAY }}>Denture Workflow Impact</h3>
+                <p className="text-xs text-muted-foreground mt-1" style={{ fontFamily: BODY }}>
                   Chair time freed by reducing intermediate appointments.
                 </p>
               </div>
 
               {/* Scenario toggle */}
               <div>
-                <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2.5 block">
+                <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2.5 block" style={{ fontFamily: BODY }}>
                   Benchmark Scenario:
                 </label>
                 <div className="grid grid-cols-3 gap-0 rounded-full border border-border overflow-hidden">
@@ -327,7 +319,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">
+                <p className="text-[10px] text-muted-foreground mt-1.5" style={{ fontFamily: BODY }}>
                   {apptsSaved} appointments saved per case
                 </p>
               </div>
@@ -415,12 +407,12 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
           {/* ── RIGHT: Results panel ── */}
           <div className="lg:col-span-2">
             <div className="rounded-2xl p-6 md:p-8 space-y-1 sticky top-24" style={{ backgroundColor: "var(--brand-primary)" }}>
-              <h3 className="text-2xl font-medium text-white tracking-tight mb-6">
+              <h3 className="text-2xl font-medium text-white tracking-tight mb-6" style={{ fontFamily: DISPLAY }}>
                 {props.resultsPanelLabel ?? "Your results"}
               </h3>
 
               {/* Denture results */}
-              <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest pt-2">
+              <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest pt-2" style={{ fontFamily: BODY }}>
                 Denture Workflow
               </p>
               <ResultRow
@@ -449,7 +441,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
               <div className="border-t border-white/10 my-3" />
 
               {/* Resto results */}
-              <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest pt-2">
+              <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest pt-2" style={{ fontFamily: BODY }}>
                 Remake Impact
               </p>
               <ResultRow
@@ -478,18 +470,18 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
 
               {/* Total */}
               <div className="pt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: accentColor }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ ...{color: accentColor}, ...{fontFamily: BODY} }}>
                   Total Financial Upside / Year ($)
                   {practices > 1 ? ` (${practices} practices)` : ""}
                 </p>
-                <p className="text-4xl md:text-5xl font-bold text-white tracking-tight">
+                <p className="text-4xl md:text-5xl font-bold text-white tracking-tight" style={{ fontFamily: BODY }}>
                   {fmtDollar(totalAnnualUpside)}
                 </p>
                 {practices > 1 && (
                   <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/50">
-                    <span>Denture: {fmtDollar(denture.incProdYear * practices)}</span>
-                    <span>•</span>
-                    <span>Remakes: {fmtDollar(resto.totalUpsideYear * practices)}</span>
+                    <span style={{ fontFamily: BODY }}>Denture: {fmtDollar(denture.incProdYear * practices)}</span>
+                    <span style={{ fontFamily: BODY }}>•</span>
+                    <span style={{ fontFamily: BODY }}>Remakes: {fmtDollar(resto.totalUpsideYear * practices)}</span>
                   </div>
                 )}
               </div>
@@ -498,7 +490,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
         </div>
 
         {props.disclaimer && (
-          <p className="mt-8 text-[11px] text-muted-foreground/50 leading-relaxed text-center">
+          <p className="mt-8 text-[11px] text-muted-foreground/50 leading-relaxed text-center" style={{ fontFamily: BODY }}>
             {props.disclaimer}
           </p>
         )}

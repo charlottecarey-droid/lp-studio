@@ -23,7 +23,8 @@ interface Props {
 const P     = "hsl(152,42%,12%)";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, pageId, variantId, sessionId }: Props) {
@@ -163,20 +164,8 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
       >
         {eyebrow && (
           <>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: dark ? AW : P,
-                marginBottom: "1.25rem",
-              }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           </>
         )}
@@ -196,26 +185,15 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
           }}
         >
           {onFieldChange ? (
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
           ) : (
             headlineLines.length > 1 ? (<>{headlineLines[0]}<br />{headlineLines[1]}</>) : headline
           )}
         </motion.h2>
 
         {subheadline && (
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            style={{
-              marginTop: "1.75rem",
-              fontSize: "1.0625rem",
-              color: dark ? `${PFG}99` : "hsl(152,8%,44%)",
-              lineHeight: 1.7,
-            }}
-          >
-            <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+          <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.75rem", fontSize: "1.0625rem", color: dark ? `${PFG}99` : "hsl(152,8%,44%)", lineHeight: 1.7,}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
         )}
 
@@ -264,7 +242,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
                 e.currentTarget.style.boxShadow = `0 4px 20px rgb(var(--brand-accent-rgb, 199 231 56) / 0.314)`;
               }}
             >
-              <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} /> <ArrowRight style={{ width: 16, height: 16 }} />
+              <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/> <ArrowRight style={{ width: 16, height: 16 }} />
             </button>
           )}
           {secondaryCtaText && (
@@ -296,7 +274,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
                 e.currentTarget.style.background = "transparent";
               }}
             >
-              <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+              <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
             </button>
           )}
         </motion.div>

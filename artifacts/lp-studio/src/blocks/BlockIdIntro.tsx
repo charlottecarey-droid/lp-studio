@@ -20,16 +20,16 @@ type Token =
 /**
  * Tokenises the statement into words and spaces, with each word broken into
  * individual letters so each letter can fade up as the visitor scrolls.
- * <em>…</em> spans are preserved on the containing word so accent words stay
+ * <em style={{ fontFamily: BODY }}>…</em> spans are preserved on the containing word so accent words stay
  * in the citron accent color and italic via the `.id-em-word` class.
  */
 function tokenize(text: string): Token[] {
   if (!text) return [];
-  const parts = text.split(/(<em>.*?<\/em>)/g);
+  const parts = text.split(/(<em style={{ fontFamily: BODY }}>.*?<\/em>)/g);
   const out: Token[] = [];
   let n = 0;
   parts.forEach((part, pi) => {
-    const m = part.match(/^<em>(.*?)<\/em>$/);
+    const m = part.match(/^<em style={{ fontFamily: BODY }}>(.*?)<\/em>$/);
     const inner = m ? m[1] : part;
     const isEm = !!m;
     // Split on whitespace runs, keeping the runs as separate tokens so we
@@ -62,7 +62,7 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Track the <h2>, not the outer <section>. The section has 200px of
+    // Track the <h2 style={{ fontFamily: DISPLAY }}>, not the outer <section>. The section has 200px of
     // top padding, so if we measured its top edge the animation would
     // complete (raw → 1) while the h2 was still 200px below the fold —
     // visitors saw the statement already fully lit before they could read
@@ -135,14 +135,14 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
               : (() => {
                   let letterIdx = 0;
                   return tokens.map((t) => {
-                    if (t.kind === "space") return <span key={t.key}> </span>;
+                    if (t.kind === "space") return <span key={t.key} style={{ fontFamily: BODY }}> </span>;
                     return (
-                      <span key={t.key} className={`id-word${t.isEm ? " id-em-word" : ""}`} aria-hidden>
+                      <span key={t.key} className={`id-word${t.isEm ? " id-em-word" : ""}`} aria-hidden style={{ fontFamily: BODY }}>
                         {t.letters.map((l) => {
                           const lit = letterIdx < litUntil;
                           letterIdx += 1;
                           return (
-                            <span key={l.key} className={`id-letter${lit ? " id-lit" : ""}`}>
+                            <span key={l.key} className={`id-letter${lit ? " id-lit" : ""}`} style={{ fontFamily: BODY }}>
                               {l.ch}
                             </span>
                           );

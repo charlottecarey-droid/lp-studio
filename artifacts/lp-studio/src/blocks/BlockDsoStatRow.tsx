@@ -14,7 +14,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 /**
@@ -61,7 +62,7 @@ function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?
     return () => obs.disconnect();
   }, [target, animate]);
 
-  return <span ref={ref}>{prefix}{count}{suffix}</span>;
+  return <span ref={ref} style={{ fontFamily: BODY }}>{prefix}{count}{suffix}</span>;
 }
 
 function parseStatValue(value: string): { prefix: string; num: number; suffix: string } | null {
@@ -96,12 +97,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
         {(eyebrow || headline || onFieldChange) && (
           <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
             {(eyebrow || onFieldChange) && (
-              <InlineText
-                as="p"
-                value={eyebrow ?? ""}
-                onUpdate={field("eyebrow")}
-                style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem" }}
-              />
+              <InlineText as="p" value={eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem"}, ...{fontFamily: BODY} }} />
             )}
             {(headline || onFieldChange) && (
               <InlineText
@@ -189,19 +185,9 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
                     ) : item.value}
                   </div>
                 )}
-                <InlineText
-                  as="p"
-                  value={item.label}
-                  onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined}
-                  style={{ fontSize: "0.9375rem", fontWeight: 600, color: labelC, marginBottom: item.detail ? "0.25rem" : 0 }}
-                />
+                <InlineText as="p" value={item.label} onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined} style={{ ...{fontSize: "0.9375rem", fontWeight: 600, color: labelC, marginBottom: item.detail ? "0.25rem" : 0}, ...{fontFamily: BODY} }} />
                 {(item.detail || onFieldChange) && (
-                  <InlineText
-                    as="p"
-                    value={item.detail ?? ""}
-                    onUpdate={onFieldChange ? (v) => updateItem(i, { detail: v }) : undefined}
-                    style={{ fontSize: "0.8125rem", color: detailC, lineHeight: 1.5 }}
-                  />
+                  <InlineText as="p" value={item.detail ?? ""} onUpdate={onFieldChange ? (v) => updateItem(i, { detail: v }) : undefined} style={{ ...{fontSize: "0.8125rem", color: detailC, lineHeight: 1.5}, ...{fontFamily: BODY} }} />
                 )}
               </motion.div>
             );

@@ -5,7 +5,8 @@ import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
 // `getBrandStyleVars`). Hardcoded HSL/hex fallbacks preserve the original
@@ -150,7 +151,7 @@ function TickStat({ target, suffix, label, delay, inView }: {
       <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,3.5vw,2.25rem)", fontWeight: 700, color: AW, letterSpacing: "-0.03em", lineHeight: 1 }}>
         {val.toLocaleString()}{suffix}
       </p>
-      <p style={{ fontSize: "0.75rem", color: MUTED, marginTop: "0.3rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>{label}</p>
+      <p style={{ ...{fontSize: "0.75rem", color: MUTED, marginTop: "0.3rem", letterSpacing: "0.05em", textTransform: "uppercase"}, ...{fontFamily: BODY} }}>{label}</p>
     </div>
   );
 }
@@ -206,13 +207,8 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
       >
         {/* ── Left: text ── */}
         <div style={{ padding: "clamp(3rem,8vw,7rem) clamp(1.5rem,5vw,4.5rem)" }}>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6 }}
-            style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem" }}
-          >
-            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+          <motion.p initial={{ opacity: 0, y: 12 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6 }} style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem"}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
 
           <motion.h2
@@ -230,16 +226,11 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
               whiteSpace: "pre-line",
             }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
           </motion.h2>
 
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.16 }}
-            style={{ fontSize: "clamp(0.9375rem,1.1vw,1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 440, marginBottom: "2.5rem" }}
-          >
-            <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, delay: 0.16 }} style={{ ...{fontSize: "clamp(0.9375rem,1.1vw,1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 440, marginBottom: "2.5rem"}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
 
           {/* Stats strip */}
@@ -291,7 +282,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
                 onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
                 onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
-                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

@@ -300,7 +300,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
               whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
               transition={{ type: "spring", stiffness: 400, damping: 18 }}
             >
-              <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+              <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
               <ArrowRight className="w-4 h-4 ml-2 shrink-0" />
             </motion.button>
 

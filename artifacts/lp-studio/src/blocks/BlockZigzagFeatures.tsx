@@ -41,12 +41,12 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
           <div className={cn("max-w-3xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
               <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </h2>
             )}
             {props.subheadline && (
               <p className={cn("text-slate-600 leading-relaxed", getBodySizeClass(brand))} style={{ fontFamily: BODY }}>
-                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
+                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}
           </div>
@@ -67,12 +67,11 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
           const textEl = (
             <div className="flex flex-col justify-center gap-5">
               {row.tag && (
-                <span className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-fit"
-                  style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}>
+                <span className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-fit" style={{ ...{backgroundColor: brand.accentColor, color: brand.primaryColor}, ...{fontFamily: BODY} }}>
                   <InlineText
                     value={row.tag}
                     onUpdate={onFieldChange ? (v) => updateRow(i, "tag", v) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </span>
               )}
               <InlineText
@@ -102,7 +101,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
                   <InlineText
                     value={row.ctaText}
                     onUpdate={onFieldChange ? (v) => updateRow(i, "ctaText", v) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                   <ArrowRight className="w-4 h-4 shrink-0" />
                 </button>
               )}

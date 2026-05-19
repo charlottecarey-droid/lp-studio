@@ -39,12 +39,12 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
           <div className={cn("mb-14 max-w-2xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
               <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </h2>
             )}
             {props.subheadline && (
               <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
-                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
+                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}
           </div>
@@ -66,10 +66,10 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                   <span className={cn(
                     "mt-1.5 w-1.5 rounded-full shrink-0 transition-all",
                     i === active ? "bg-[var(--brand-accent)] self-stretch min-h-5" : "bg-transparent h-5"
-                  )} />
+                  )} style={{ fontFamily: BODY }}/>
                   <div>
                     <h3 className="text-xl font-bold text-[var(--brand-primary)] mb-0 leading-snug" style={{ fontFamily: DISPLAY }}>
-                      <InlineText value={tab.title} onUpdate={onFieldChange ? (v) => updateTab(i, "title", v) : undefined} />
+                      <InlineText value={tab.title} onUpdate={onFieldChange ? (v) => updateTab(i, "title", v) : undefined} style={{ fontFamily: BODY }}/>
                     </h3>
                     {i === active && (
                       <motion.div
@@ -79,14 +79,14 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                         className="mt-3"
                       >
                         <p className="text-base text-slate-600 leading-relaxed mb-4" style={{ fontFamily: BODY }}>
-                          <InlineText value={tab.description} onUpdate={onFieldChange ? (v) => updateTab(i, "description", v) : undefined} />
+                          <InlineText value={tab.description} onUpdate={onFieldChange ? (v) => updateTab(i, "description", v) : undefined} style={{ fontFamily: BODY }}/>
                         </p>
                         {tab.ctaText && (
                           <button
                             onClick={(e) => { e.stopPropagation(); safeNavigate(tab.ctaUrl); }}
                             className="inline-flex items-center gap-2 text-base font-semibold text-[var(--brand-primary)] hover:text-[#006651] transition-colors"
                           >
-                            <InlineText value={tab.ctaText} onUpdate={onFieldChange ? (v) => updateTab(i, "ctaText", v) : undefined} />
+                            <InlineText value={tab.ctaText} onUpdate={onFieldChange ? (v) => updateTab(i, "ctaText", v) : undefined} style={{ fontFamily: BODY }}/>
                             <ArrowRight className="w-4 h-4" />
                           </button>
                         )}

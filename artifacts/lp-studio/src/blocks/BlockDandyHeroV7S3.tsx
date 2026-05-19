@@ -91,18 +91,18 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
       <div className="relative z-10 flex flex-col items-center text-center py-24 md:py-32 px-6 w-full max-w-4xl mx-auto">
         {props.eyebrow && (
           <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-5" style={{ fontFamily: BODY }}>
-            <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
+            <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </p>
         )}
         <h1
           className="text-5xl md:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight mb-6"
           style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number, fontFamily: DISPLAY }}
         >
-          <InlineText value={props.headline} onUpdate={field("headline")} />
+          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
         </h1>
         {props.subheadline && (
           <p className="text-xl text-white/80 leading-relaxed mb-10 max-w-2xl" style={{ fontFamily: BODY }}>
-            <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
+            <InlineText value={props.subheadline} onUpdate={field("subheadline")} style={{ fontFamily: BODY }}/>
           </p>
         )}
 
@@ -139,7 +139,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
               {formState === "loading" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} />
+                <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
               )}
             </button>
           </form>
@@ -147,7 +147,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
 
         {props.formDisclaimer && formState !== "success" && (
           <p className="mt-4 text-sm text-white/60" style={{ fontFamily: BODY }}>
-            <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
+            <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} style={{ fontFamily: BODY }}/>
           </p>
         )}
 
@@ -155,8 +155,8 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           <div className="mt-14 flex flex-wrap justify-center gap-x-12 gap-y-4 pt-10 border-t border-white/10 w-full">
             {(props.trustItems ?? []).map((item, i) => (
               <div key={i} className="flex flex-col items-center gap-0.5">
-                <span className="text-3xl font-bold text-[var(--brand-accent)]">{item.value}</span>
-                <span className="text-sm text-white/70">{item.label}</span>
+                <span className="text-3xl font-bold text-[var(--brand-accent)]" style={{ fontFamily: BODY }}>{item.value}</span>
+                <span className="text-sm text-white/70" style={{ fontFamily: BODY }}>{item.label}</span>
               </div>
             ))}
           </div>
@@ -172,7 +172,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
             <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
-                <span className="text-sm font-semibold text-[var(--brand-primary)]">Schedule a Meeting</span>
+                <span className="text-sm font-semibold text-[var(--brand-primary)]" style={{ fontFamily: BODY }}>Schedule a Meeting</span>
               </div>
               <button onClick={() => setCpOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded">
                 <X className="w-4 h-4" />

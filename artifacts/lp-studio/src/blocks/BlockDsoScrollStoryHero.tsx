@@ -7,7 +7,8 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import type { BrandConfig } from "@/lib/brand-config";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const P      = "var(--brand-primary, #0f172a)";
@@ -140,15 +141,8 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
         }}
       >
         {/* Eyebrow */}
-        <p style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color: AW,
-          marginBottom: "2.5rem",
-        }}>
-          <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+        <p style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "2.5rem",}, ...{fontFamily: BODY} }}>
+          <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
 
         {/* Animated headline + body */}
@@ -177,15 +171,10 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
                 lineHeight: 1.05,
                 marginBottom: "1.25rem",
               }}>
-                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline />
+                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
               </h1>
-              <p style={{
-                fontSize: "clamp(0.9375rem, 1.1vw, 1.0625rem)",
-                lineHeight: 1.72,
-                color: MUTED,
-                maxWidth: 460,
-              }}>
-                <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline />
+              <p style={{ ...{fontSize: "clamp(0.9375rem, 1.1vw, 1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 460,}, ...{fontFamily: BODY} }}>
+                <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
               </p>
             </motion.div>
           ))}
@@ -228,7 +217,7 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
         </div>
 
         {/* Chapter counter */}
-        <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, marginBottom: "2.5rem" }}>
+        <p style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, marginBottom: "2.5rem"}, ...{fontFamily: BODY} }}>
           {String(active + 1).padStart(2, "0")} / {String(displayChapters.length).padStart(2, "0")}
         </p>
 

@@ -70,7 +70,7 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId
           source="bottom-cta"
           animationsEnabled={animationsEnabled}
         >
-          <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+          <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           <ArrowRight className="w-4 h-4 ml-2" />
         </CtaButton>
       </div>

@@ -4,7 +4,8 @@ import type { DsoCaseFlowBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 const P     = "var(--brand-primary, #003A30)";
 const PFG   = "hsl(48,100%,96%)";
@@ -122,13 +123,8 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
       <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5 }}
-            style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1rem" }}
-          >
-            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1rem"}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 18 }}
@@ -136,15 +132,10 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
             transition={{ duration: 0.65, delay: 0.08 }}
             style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(2rem,4.5vw,3.5rem)", fontWeight: 700, color: PFG, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1rem" }}
           >
-            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
           </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 14 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.55, delay: 0.15 }}
-            style={{ fontSize: "1.0625rem", color: MUTED, lineHeight: 1.68, maxWidth: 540, margin: "0 auto" }}
-          >
-            <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+          <motion.p initial={{ opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.15 }} style={{ ...{fontSize: "1.0625rem", color: MUTED, lineHeight: 1.68, maxWidth: 540, margin: "0 auto"}, ...{fontFamily: BODY} }}>
+            <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
         </div>
 
@@ -232,21 +223,21 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
                 {/* Metric */}
                 <div>
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.75rem,3vw,2.5rem)", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: "0.25rem" }}>
-                    <InlineText as="span" value={stage.metric} onUpdate={updateStage ? (v) => updateStage(i, { metric: v }) : undefined} />
+                    <InlineText as="span" value={stage.metric} onUpdate={updateStage ? (v) => updateStage(i, { metric: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
-                  <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}>
-                    <InlineText as="span" value={stage.metricLabel} onUpdate={updateStage ? (v) => updateStage(i, { metricLabel: v }) : undefined} />
+                  <p style={{ ...{fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED}, ...{fontFamily: BODY} }}>
+                    <InlineText as="span" value={stage.metricLabel} onUpdate={updateStage ? (v) => updateStage(i, { metricLabel: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
                 </div>
 
                 {/* Label */}
                 <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.0625rem", fontWeight: 600, color: PFG, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                  <InlineText as="span" value={stage.label} onUpdate={updateStage ? (v) => updateStage(i, { label: v }) : undefined} />
+                  <InlineText as="span" value={stage.label} onUpdate={updateStage ? (v) => updateStage(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </p>
 
                 {/* Body */}
-                <p style={{ fontSize: "0.875rem", lineHeight: 1.65, color: MUTED, flexGrow: 1 }}>
-                  <InlineText as="span" value={stage.body} onUpdate={updateStage ? (v) => updateStage(i, { body: v }) : undefined} multiline />
+                <p style={{ ...{fontSize: "0.875rem", lineHeight: 1.65, color: MUTED, flexGrow: 1}, ...{fontFamily: BODY} }}>
+                  <InlineText as="span" value={stage.body} onUpdate={updateStage ? (v) => updateStage(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </p>
               </motion.div>
             ))}

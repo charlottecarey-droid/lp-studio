@@ -77,7 +77,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                 onUpdate={onFieldChange ? (v: string) => setField("eyebrow", v) : undefined}
                
                 
-              />
+              style={{ fontFamily: BODY }}/>
             </div>
           )}
           <h2 id="id-spotlight-h" className="id-spotlight-h" style={{ fontFamily: DISPLAY }}>
@@ -96,7 +96,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                 multiline
                
                 
-              />
+              style={{ fontFamily: BODY }}/>
             </p>
           )}
         </div>
@@ -133,13 +133,13 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
             <div className="id-spotlight-card" role="group" aria-label="AI scan results">
               {(cardTitle || onFieldChange) && (
                 <div className="id-sp-card-title">
-                  <span className="id-sp-card-glyph" aria-hidden />
+                  <span className="id-sp-card-glyph" aria-hidden style={{ fontFamily: BODY }}/>
                   <InlineText
                     value={cardTitle}
                     onUpdate={onFieldChange ? (v: string) => setField("cardTitle", v) : undefined}
                    
                     
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </div>
               )}
               {(cardSubtitle || onFieldChange) && (
@@ -149,13 +149,13 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                     onUpdate={onFieldChange ? (v: string) => setField("cardSubtitle", v) : undefined}
                    
                     
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </div>
               )}
               <div className="id-sp-results">
                 {results.map((r, i) => (
                   <div key={i} className={`id-sp-result ${TONE_TO_CLASS[r.tone] || "id-sp-tone-alert"}`}>
-                    <span className="id-sp-dot" aria-hidden />
+                    <span className="id-sp-dot" aria-hidden style={{ fontFamily: BODY }}/>
                     <div className="id-sp-result-text">
                       <div className="id-sp-result-title">{r.title}</div>
                       {r.body && <div className="id-sp-result-body">{r.body}</div>}
@@ -163,7 +163,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                         r.actionUrl ? (
                           <a className="id-sp-result-action" href={r.actionUrl}>{r.actionText}</a>
                         ) : (
-                          <span className="id-sp-result-action">{r.actionText}</span>
+                          <span className="id-sp-result-action" style={{ fontFamily: BODY }}>{r.actionText}</span>
                         )
                       )}
                     </div>
@@ -176,9 +176,9 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
           {steps.length > 0 && (
             <ol className="id-spotlight-stepper" aria-label="Section steps">
               {steps.map((s, i) => (
-                <li key={i} className={`id-sp-step${i === activeStep ? " id-active" : ""}`}>
-                  <span className="id-sp-step-label">{s.label}</span>
-                  <span className="id-sp-step-dot" aria-hidden />
+                <li key={i} className={`id-sp-step${i === activeStep ? " id-active" : ""}`} style={{ fontFamily: BODY }}>
+                  <span className="id-sp-step-label" style={{ fontFamily: BODY }}>{s.label}</span>
+                  <span className="id-sp-step-dot" aria-hidden style={{ fontFamily: BODY }}/>
                 </li>
               ))}
             </ol>

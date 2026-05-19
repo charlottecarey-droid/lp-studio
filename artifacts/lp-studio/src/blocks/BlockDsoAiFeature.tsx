@@ -11,7 +11,8 @@ import { InlineText } from "@/components/InlineText";
 
 const P    = "var(--brand-primary, #0f172a)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
@@ -145,21 +146,8 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
         <div className="grid md:grid-cols-[3fr_2fr] gap-10 items-end mb-10">
           <div>
             {eyebrow && (
-              <motion.p
-                initial={{ opacity: 0, x: -18 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ type: "spring", stiffness: 120, damping: 18 }}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: AW,
-                  marginBottom: "1.25rem",
-                }}
-              >
-                <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+              <motion.p initial={{ opacity: 0, x: -18 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ type: "spring", stiffness: 120, damping: 18 }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+                <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
               </motion.p>
             )}
             <h2
@@ -174,7 +162,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
               }}
             >
               {onFieldChange ? (
-                <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+                <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
               ) : (
                 <WordReveal
                   text={headline}
@@ -184,9 +172,9 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
               )}
             </h2>
             {(body || onFieldChange) && (
-              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: mu }}>
+              <p style={{ ...{fontSize: "1rem", lineHeight: 1.7, color: mu}, ...{fontFamily: BODY} }}>
                 {onFieldChange ? (
-                  <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+                  <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
                 ) : (
                   <WordReveal
                     text={body}
@@ -216,13 +204,13 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
                 >
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,2.5vw,2rem)", fontWeight: 600, letterSpacing: "-0.03em", color: fg, lineHeight: 1 }}>
                     {onFieldChange ? (
-                      <InlineText as="span" value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} />
+                      <InlineText as="span" value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} style={{ fontFamily: BODY }}/>
                     ) : (
                       <StatCounter value={s.value} />
                     )}
                   </p>
-                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem" }}>
-                    <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
+                  <p style={{ ...{fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem"}, ...{fontFamily: BODY} }}>
+                    <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
                 </motion.div>
               ))}
@@ -230,11 +218,11 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
             {ctaText && (
               ctaMode === "chilipiper" ? (
                 <ChiliPiperButton url={ctaUrl ?? ""} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", background: AW, color: P, fontWeight: 600, fontSize: "0.9375rem", cursor: "pointer", border: "none" }}>
-                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
                 </ChiliPiperButton>
               ) : (
                 <a href={ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", background: AW, color: P, fontWeight: 600, fontSize: "0.9375rem", textDecoration: "none" }}>
-                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
                 </a>
               )
             )}
@@ -300,11 +288,11 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
             {bullets.map((text, i) => {
               const Icon = bulletIcons[i % bulletIcons.length];
               return (
-                <li key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <li key={i} style={{ ...{display: "flex", alignItems: "center", gap: "0.75rem"}, ...{fontFamily: BODY} }}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: iconBg, border: `1px solid ${iconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon style={{ width: 13, height: 13, color: AW }} />
                   </div>
-                  <InlineText as="span" value={text} onUpdate={updateBullet ? (v) => updateBullet(i, v) : undefined} style={{ fontSize: "0.9rem", color: mu2 }} />
+                  <InlineText as="span" value={text} onUpdate={updateBullet ? (v) => updateBullet(i, v) : undefined} style={{ ...{fontSize: "0.9rem", color: mu2}, ...{fontFamily: BODY} }} />
                 </li>
               );
             })}

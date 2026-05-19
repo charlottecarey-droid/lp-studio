@@ -67,16 +67,12 @@ export function BlockMenuSection({ props, brand, onFieldChange }: Props) {
               </div>
               <ul className="space-y-5">
                 {course.dishes.map((dish, di) => (
-                  <li key={di} className="flex items-baseline gap-4">
+                  <li key={di} className="flex items-baseline gap-4" style={{ fontFamily: BODY }}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="font-medium text-lg">{dish.name}</span>
+                        <span className="font-medium text-lg" style={{ fontFamily: BODY }}>{dish.name}</span>
                         {dish.tags?.map((t, ti) => (
-                          <span
-                            key={ti}
-                            className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: `${accent}22`, color: accent }}
-                          >
+                          <span key={ti} className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ ...{backgroundColor: `${accent}22`, color: accent}, ...{fontFamily: BODY} }}>
                             {t}
                           </span>
                         ))}

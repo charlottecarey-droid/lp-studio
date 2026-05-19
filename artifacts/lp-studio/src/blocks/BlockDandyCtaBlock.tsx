@@ -76,15 +76,15 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
       <div className={cn("max-w-3xl mx-auto px-6 md:px-10 flex flex-col gap-6", alignClass)}>
         {props.eyebrow && (
           <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
-            <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
+            <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </p>
         )}
         <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.headline} onUpdate={field("headline")} />
+          <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: BODY }}/>
         </h2>
         {props.subheadline && (
           <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
-            <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
+            <InlineText value={props.subheadline} onUpdate={field("subheadline")} style={{ fontFamily: BODY }}/>
           </p>
         )}
         <div className={cn("flex flex-wrap gap-4 mt-2", btnAlignClass)}>
@@ -103,7 +103,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
               variantId={variantId}
               source="dandy-cta-block-primary"
             >
-              <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
+              <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
           {props.secondaryCtaText && (
@@ -121,13 +121,13 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
               variantId={variantId}
               source="dandy-cta-block-secondary"
             >
-              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+              <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}
         </div>
         {props.disclaimer && (
           <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: BODY }}>
-            <InlineText value={props.disclaimer} onUpdate={field("disclaimer")} />
+            <InlineText value={props.disclaimer} onUpdate={field("disclaimer")} style={{ fontFamily: BODY }}/>
           </p>
         )}
       </div>

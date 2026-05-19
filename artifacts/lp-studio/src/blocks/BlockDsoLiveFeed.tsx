@@ -4,7 +4,8 @@ import type { DsoLiveFeedBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 const P     = "var(--brand-primary, #003A30)";
 const PFG   = "hsl(48,100%,96%)";
@@ -114,7 +115,7 @@ function MetricRow({ metric, idx, inView }: { metric: Metric; idx: number; inVie
       }}
     >
       {/* Label */}
-      <p style={{ fontSize: "0.875rem", color: MUTED, fontWeight: 500 }}>{metric.label}</p>
+      <p style={{ ...{fontSize: "0.875rem", color: MUTED, fontWeight: 500}, ...{fontFamily: BODY} }}>{metric.label}</p>
 
       {/* Sparkline */}
       <div className="hidden md:block">
@@ -123,7 +124,7 @@ function MetricRow({ metric, idx, inView }: { metric: Metric; idx: number; inVie
 
       {/* Direction arrow */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-        <span style={{ fontSize: "0.75rem", color: isGood ? AW : "hsl(4,80%,60%)", fontWeight: 700, lineHeight: 1 }}>
+        <span style={{ ...{fontSize: "0.75rem", color: isGood ? AW : "hsl(4,80%,60%)", fontWeight: 700, lineHeight: 1}, ...{fontFamily: BODY} }}>
           {localDir === "up" ? "↑" : "↓"}
         </span>
       </div>
@@ -178,12 +179,8 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
         >
           {/* Left: text */}
           <div style={{ paddingTop: "2rem" }}>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem" }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
@@ -191,15 +188,10 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
               transition={{ delay: 0.08 }}
               style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.875rem,3.5vw,3rem)", fontWeight: 700, color: PFG, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1.5rem", whiteSpace: "pre-line" }}
             >
-              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 16 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: 0.16 }}
-              style={{ fontSize: "1rem", lineHeight: 1.72, color: "hsla(48,100%,96%,0.5)" }}
-            >
-              <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+            <motion.p initial={{ opacity: 0, y: 16 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.16 }} style={{ ...{fontSize: "1rem", lineHeight: 1.72, color: "hsla(48,100%,96%,0.5)"}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={body} onUpdate={field("body")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
 
           </div>
@@ -223,8 +215,8 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
                   <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: c, opacity: 0.7 }} />
                 ))}
               </div>
-              <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED }}>
-                <InlineText as="span" value={terminalLabel} onUpdate={field("terminalLabel")} />
+              <p style={{ ...{fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED}, ...{fontFamily: BODY} }}>
+                <InlineText as="span" value={terminalLabel} onUpdate={field("terminalLabel")} style={{ fontFamily: BODY }}/>
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                 <div style={{
@@ -233,16 +225,16 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
                   border: `1.5px solid ${AW}`,
                   boxShadow: `0 0 6px ${AW}`,
                 }} />
-                <span style={{ fontSize: "0.625rem", color: AW, fontWeight: 700, letterSpacing: "0.1em" }}>LIVE</span>
+                <span style={{ ...{fontSize: "0.625rem", color: AW, fontWeight: 700, letterSpacing: "0.1em"}, ...{fontFamily: BODY} }}>LIVE</span>
               </div>
             </div>
 
             {/* Column headers */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: "1.5rem", padding: "0.6rem 1.5rem", borderBottom: `1px solid ${ROW_BORDER}` }}>
-              <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}>Metric</p>
-              <p className="hidden md:block" style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}>Trend</p>
-              <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}></p>
-              <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, textAlign: "right" }}>Value</p>
+              <p style={{ ...{fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED}, ...{fontFamily: BODY} }}>Metric</p>
+              <p className="hidden md:block" style={{ ...{fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED}, ...{fontFamily: BODY} }}>Trend</p>
+              <p style={{ ...{fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED}, ...{fontFamily: BODY} }}></p>
+              <p style={{ ...{fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, textAlign: "right"}, ...{fontFamily: BODY} }}>Value</p>
             </div>
 
             {/* Rows */}
@@ -255,7 +247,7 @@ export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
             {/* Footer */}
             <div style={{ padding: "0.75rem 1.5rem", borderTop: `1px solid ${ROW_BORDER}`, display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: AW, opacity: 0.6 }} />
-              <p style={{ fontSize: "0.6875rem", color: MUTED, fontStyle: "italic" }}><InlineText as="span" value={footerNote} onUpdate={field("footerNote")} /></p>
+              <p style={{ ...{fontSize: "0.6875rem", color: MUTED, fontStyle: "italic"}, ...{fontFamily: BODY} }}><InlineText as="span" value={footerNote} onUpdate={field("footerNote")} style={{ fontFamily: BODY }}/></p>
             </div>
           </motion.div>
         </div>

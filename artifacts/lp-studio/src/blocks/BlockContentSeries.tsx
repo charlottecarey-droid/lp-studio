@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
-import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+
+const BODY = BRAND_BODY_FONT;
+const DISPLAY = BRAND_DISPLAY_FONT;
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
@@ -54,8 +57,8 @@ class ContentSeriesErrorBoundary extends Component<
       return (
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f12", color: "#eeeae3", fontFamily: `${BRAND_BODY_FONT}, 'Inter', sans-serif`, padding: "2rem" }}>
           <div style={{ maxWidth: "32rem", textAlign: "center" }}>
-            <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem", color: "#b59a6e" }}>Content Series — Render Error</h2>
-            <p style={{ fontSize: "0.85rem", color: "#7a8088", lineHeight: 1.6 }}>
+            <h2 style={{ ...{fontSize: "1.5rem", marginBottom: "1rem", color: "#b59a6e"}, ...{fontFamily: DISPLAY} }}>Content Series — Render Error</h2>
+            <p style={{ ...{fontSize: "0.85rem", color: "#7a8088", lineHeight: 1.6}, ...{fontFamily: BODY} }}>
               {this.state.error?.message ?? "Unknown error"}
             </p>
           </div>
@@ -758,9 +761,9 @@ function HeroFullBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
             </h2>
             {(p.heroGuestName || p.heroGuestTitle) && (
               <p style={{ fontFamily: C.bodyFont, fontSize: "0.82rem", color: C.fg, marginBottom: "0.85rem", letterSpacing: "0.02em" }}>
-                {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
-                {p.heroGuestName && p.heroGuestTitle && <span style={{ color: C.muted }}> · </span>}
-                {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
+                {p.heroGuestName && <span style={{ ...{fontWeight: 500}, ...{fontFamily: BODY} }}>{p.heroGuestName}</span>}
+                {p.heroGuestName && p.heroGuestTitle && <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}> · </span>}
+                {p.heroGuestTitle && <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}>{p.heroGuestTitle}</span>}
               </p>
             )}
             {p.heroEpisodeDescription && (
@@ -909,9 +912,9 @@ function HeroHalfBleed({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme 
             </h2>
             {(p.heroGuestName || p.heroGuestTitle) && (
               <p style={{ fontFamily: C.bodyFont, fontSize: "0.82rem", color: C.fg, marginBottom: "0.85rem", letterSpacing: "0.02em" }}>
-                {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
-                {p.heroGuestName && p.heroGuestTitle && <span style={{ color: C.muted }}> · </span>}
-                {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
+                {p.heroGuestName && <span style={{ ...{fontWeight: 500}, ...{fontFamily: BODY} }}>{p.heroGuestName}</span>}
+                {p.heroGuestName && p.heroGuestTitle && <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}> · </span>}
+                {p.heroGuestTitle && <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}>{p.heroGuestTitle}</span>}
               </p>
             )}
             {p.heroEpisodeDescription && (
@@ -1082,9 +1085,9 @@ function HeroTextOnly({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
             </h2>
             {(p.heroGuestName || p.heroGuestTitle) && (
               <p style={{ fontFamily: C.bodyFont, fontSize: "0.82rem", color: C.fg, marginBottom: "0.85rem", letterSpacing: "0.02em" }}>
-                {p.heroGuestName && <span style={{ fontWeight: 500 }}>{p.heroGuestName}</span>}
-                {p.heroGuestName && p.heroGuestTitle && <span style={{ color: C.muted }}> · </span>}
-                {p.heroGuestTitle && <span style={{ color: C.muted }}>{p.heroGuestTitle}</span>}
+                {p.heroGuestName && <span style={{ ...{fontWeight: 500}, ...{fontFamily: BODY} }}>{p.heroGuestName}</span>}
+                {p.heroGuestName && p.heroGuestTitle && <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}> · </span>}
+                {p.heroGuestTitle && <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}>{p.heroGuestTitle}</span>}
               </p>
             )}
             {p.heroEpisodeDescription && (
@@ -1315,9 +1318,9 @@ function EpisodeCard({
         </h3>
         {(episode.guestName || episode.guestTitle || episode.guestCompany) && (
           <p style={{ fontFamily: C.bodyFont, fontSize: "0.78rem", color: C.fg, marginBottom: "0.7rem" }}>
-            {episode.guestName && <span style={{ fontWeight: 500 }}>{episode.guestName}</span>}
+            {episode.guestName && <span style={{ ...{fontWeight: 500}, ...{fontFamily: BODY} }}>{episode.guestName}</span>}
             {(episode.guestTitle || episode.guestCompany) && (
-              <span style={{ color: C.muted }}>
+              <span style={{ ...{color: C.muted}, ...{fontFamily: BODY} }}>
                 {episode.guestName ? " · " : ""}
                 {[episode.guestTitle, episode.guestCompany].filter(Boolean).join(", ")}
               </span>
@@ -1761,7 +1764,7 @@ function HostCard({ host, C }: { host: ContentSeriesHost; C: ResolvedTheme }) {
           </h4>
           <p style={{ fontFamily: C.bodyFont, fontSize: "0.8rem", color: C.muted, lineHeight: 1.4 }}>
             {host.title}
-            {host.company && <span style={{ color: C.mutedDim }}> · {host.company}</span>}
+            {host.company && <span style={{ ...{color: C.mutedDim}, ...{fontFamily: BODY} }}> · {host.company}</span>}
           </p>
         </div>
       </div>
@@ -1810,7 +1813,7 @@ function SingleHostSpotlight({ host, C }: { host: ContentSeriesHost; C: Resolved
                 {host.name}
               </h3>
               <p style={{ fontFamily: C.bodyFont, fontSize: "0.9rem", color: C.muted, marginBottom: host.bio ? "1.5rem" : "0.5rem" }}>
-                {host.title}{host.company && <span style={{ color: C.mutedDim }}> · {host.company}</span>}
+                {host.title}{host.company && <span style={{ ...{color: C.mutedDim}, ...{fontFamily: BODY} }}> · {host.company}</span>}
               </p>
               {host.bio && (
                 <p style={{ fontFamily: C.bodyFont, fontWeight: 300, fontSize: "1rem", lineHeight: 1.75, color: C.muted }}>
@@ -2082,7 +2085,7 @@ function AvailabilityPicker({
       <p style={{ fontFamily: C.bodyFont, fontSize: "0.78rem", color: C.muted, margin: 0, letterSpacing: "0.02em" }}>
         Select up to {AVAILABILITY_MAX_PICKS} times that work for you
         {selectedEntries.length > 0 && (
-          <span style={{ color: C.primary, fontWeight: 500 }}> · {selectedEntries.length} selected</span>
+          <span style={{ ...{color: C.primary, fontWeight: 500}, ...{fontFamily: BODY} }}> · {selectedEntries.length} selected</span>
         )}
       </p>
       {dates.map(d => {
@@ -2127,8 +2130,8 @@ function AvailabilityPicker({
                 textAlign: "left",
               }}
             >
-              <span style={{ fontSize: "0.95rem", fontWeight: 500 }}>{d.dateLabel}</span>
-              <span style={{ fontSize: "0.75rem", color: C.muted, letterSpacing: "0.05em" }}>
+              <span style={{ ...{fontSize: "0.95rem", fontWeight: 500}, ...{fontFamily: BODY} }}>{d.dateLabel}</span>
+              <span style={{ ...{fontSize: "0.75rem", color: C.muted, letterSpacing: "0.05em"}, ...{fontFamily: BODY} }}>
                 {hasMultiple
                   ? `${d.slots.length} slots${isExpanded ? "" : " · tap to choose"}`
                   : (dateHasSelection ? "Selected ✓" : (singleSlot?.label ?? ""))}
@@ -2552,7 +2555,7 @@ function FormModal({
                         <div key={field.id}>
                           <label style={{ display: "block", fontFamily: C.bodyFont, fontSize: "0.78rem", fontWeight: 500, color: C.fg, marginBottom: "0.4rem", letterSpacing: "0.02em" }}>
                             {field.label}
-                            {field.required && <span style={{ color: C.primary, marginLeft: "0.25rem" }}>*</span>}
+                            {field.required && <span style={{ ...{color: C.primary, marginLeft: "0.25rem"}, ...{fontFamily: BODY} }}>*</span>}
                           </label>
                           {renderField(field)}
                         </div>

@@ -18,7 +18,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
@@ -46,13 +47,8 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           {(eyebrow || onFieldChange) && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            >
-              <InlineText value={eyebrow ?? ""} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem"}, ...{fontFamily: BODY} }}>
+              <InlineText value={eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {(headline || onFieldChange) && (
@@ -63,18 +59,12 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
+              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
           )}
           {(subheadline || onFieldChange) && (
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
-            >
-              <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+            <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0"}, ...{fontFamily: BODY} }}>
+              <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {ctaText && ctaUrl && (
@@ -172,10 +162,10 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
               <div style={{ padding: "1.5rem 1.75rem 2rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
                 <div style={{ textAlign: "center" }}>
                   <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>
-                    <InlineText value={m.name} onUpdate={updateMember ? (v) => updateMember(i, { name: v }) : undefined} />
+                    <InlineText value={m.name} onUpdate={updateMember ? (v) => updateMember(i, { name: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
-                  <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: roleC, marginTop: 3 }}>
-                    <InlineText value={m.role} onUpdate={updateMember ? (v) => updateMember(i, { role: v }) : undefined} />
+                  <p style={{ ...{fontSize: "0.8125rem", fontWeight: 500, color: roleC, marginTop: 3}, ...{fontFamily: BODY} }}>
+                    <InlineText value={m.role} onUpdate={updateMember ? (v) => updateMember(i, { role: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
@@ -193,7 +183,7 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
                       }}
                     >
                       <Mail style={{ width: 13, height: 13, flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</span>
+                      <span style={{ ...{overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}, ...{fontFamily: BODY} }}>{m.email}</span>
                     </a>
                   )}
                   {(m.chilipiperUrl || (m as { chilipiperUrl?: string; calendlyUrl?: string }).calendlyUrl) && (

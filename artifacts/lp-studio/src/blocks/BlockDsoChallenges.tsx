@@ -13,7 +13,8 @@ const P     = "hsl(152,42%,12%)";
 const FG    = "hsl(152,40%,13%)";
 const MU    = "hsl(152,8%,48%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const ICONS = [TrendingDown, BarChart3, Scale, Wallet];
@@ -80,20 +81,8 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
       <div style={{ position: "relative", zIndex: 1, maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ maxWidth: 768, marginBottom: "3.5rem" }}>
           {eyebrow && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: dark ? AW : P,
-                marginBottom: "1.25rem",
-              }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: dark ? AW : P, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
@@ -115,7 +104,7 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
               value={headline || "At scale — even small inefficiencies compound fast."}
               onUpdate={field("headline")}
               multiline
-            />
+            style={{ fontFamily: BODY }}/>
           </motion.h2>
         </div>
 
@@ -183,21 +172,15 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
                     as="span"
                     value={c.title}
                     onUpdate={updateChallenge ? (v) => updateChallenge(i, { title: v }) : undefined}
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </h3>
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    color: dark ? "rgba(255,255,255,0.55)" : MU,
-                    lineHeight: 1.7,
-                  }}
-                >
+                <p style={{ ...{fontSize: "0.875rem", color: dark ? "rgba(255,255,255,0.55)" : MU, lineHeight: 1.7,}, ...{fontFamily: BODY} }}>
                   <InlineText
                     as="span"
                     value={c.desc}
                     onUpdate={updateChallenge ? (v) => updateChallenge(i, { desc: v }) : undefined}
                     multiline
-                  />
+                  style={{ fontFamily: BODY }}/>
                 </p>
               </motion.div>
             );

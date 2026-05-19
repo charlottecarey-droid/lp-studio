@@ -43,17 +43,17 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
           <div className="mb-14 max-w-2xl">
             {props.eyebrow && (
               <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3" style={{ fontFamily: BODY }}>
-                <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
+                <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}
             {props.headline && (
               <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </h2>
             )}
             {props.subheadline && (
               <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
-                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
+                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}
           </div>
@@ -75,17 +75,17 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
                 />
               </div>
               <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: DISPLAY }}>
-                <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
+                <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} style={{ fontFamily: BODY }}/>
               </h3>
               <p className="text-slate-600 text-base leading-relaxed mb-4" style={{ fontFamily: BODY }}>
-                <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} />
+                <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} style={{ fontFamily: BODY }}/>
               </p>
               {(item.bullets ?? []).length > 0 && (
                 <ul className="space-y-2 mb-6 flex-1">
                   {(item.bullets ?? []).map((b, bi) => (
-                    <li key={bi} className="text-base text-slate-500 flex items-start gap-2">
-                      <span className="mt-2 w-2 h-2 rounded-full bg-[var(--brand-accent)] shrink-0" />
-                      <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, bi, v) : undefined} />
+                    <li key={bi} className="text-base text-slate-500 flex items-start gap-2" style={{ fontFamily: BODY }}>
+                      <span className="mt-2 w-2 h-2 rounded-full bg-[var(--brand-accent)] shrink-0" style={{ fontFamily: BODY }}/>
+                      <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, bi, v) : undefined} style={{ fontFamily: BODY }}/>
                     </li>
                   ))}
                 </ul>
@@ -95,10 +95,10 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
                   onClick={() => safeNavigate(item.ctaUrl)}
                   className="mt-auto inline-flex items-center gap-2.5 border-2 border-[var(--brand-primary)] rounded-xl px-6 py-3.5 text-base font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white transition-colors w-fit"
                 >
-                  <span className="w-7 h-7 rounded border border-current flex items-center justify-center shrink-0">
+                  <span className="w-7 h-7 rounded border border-current flex items-center justify-center shrink-0" style={{ fontFamily: BODY }}>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
-                  <InlineText value={item.ctaText} onUpdate={onFieldChange ? (v) => updateItem(i, "ctaText", v) : undefined} />
+                  <InlineText value={item.ctaText} onUpdate={onFieldChange ? (v) => updateItem(i, "ctaText", v) : undefined} style={{ fontFamily: BODY }}/>
                 </button>
               )}
             </div>

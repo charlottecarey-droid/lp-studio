@@ -286,7 +286,7 @@ export function BlockStoryHub({ props }: Props) {
             gap: "0.75rem",
           }}
         >
-          <span aria-hidden style={{ width: 28, height: 1, background: theme.divider }} />
+          <span aria-hidden style={{ ...{width: 28, height: 1, background: theme.divider}, ...{fontFamily: BODY} }} />
           The Customer Stories
         </div>
         <div
@@ -341,9 +341,9 @@ export function BlockStoryHub({ props }: Props) {
                 gap: "0.75rem",
               }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: theme.accent, boxShadow: `0 0 8px ${theme.accent}` }} />
+              <span style={{ ...{width: 8, height: 8, borderRadius: "50%", background: theme.accent, boxShadow: `0 0 8px ${theme.accent}`}, ...{fontFamily: BODY} }} />
               {props.eyebrow}
-              <span aria-hidden style={{ width: 28, height: 1, background: theme.accent, opacity: 0.5 }} />
+              <span aria-hidden style={{ ...{width: 28, height: 1, background: theme.accent, opacity: 0.5}, ...{fontFamily: BODY} }} />
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 10 }}
@@ -359,7 +359,7 @@ export function BlockStoryHub({ props }: Props) {
               }}
             >
               {props.heroTitle}{" "}
-              <span style={{ fontStyle: "italic", color: theme.accent }}>{props.heroAccent}</span>
+              <span style={{ ...{fontStyle: "italic", color: theme.accent}, ...{fontFamily: BODY} }}>{props.heroAccent}</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -405,15 +405,7 @@ export function BlockStoryHub({ props }: Props) {
                   >
                     {m.v}
                   </span>
-                  <span
-                    style={{
-                      fontSize: "0.6875rem",
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                      color: theme.muted,
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span style={{ ...{fontSize: "0.6875rem", letterSpacing: "0.18em", textTransform: "uppercase", color: theme.muted, fontWeight: 600,}, ...{fontFamily: BODY} }}>
                     {m.l}
                   </span>
                 </div>
@@ -476,9 +468,9 @@ export function BlockStoryHub({ props }: Props) {
                 justifyContent: "space-between",
               }}
             >
-              <span>Edited by Sasha L.</span>
-              <span>·</span>
-              <span>{issueLabel}</span>
+              <span style={{ fontFamily: BODY }}>Edited by Sasha L.</span>
+              <span style={{ fontFamily: BODY }}>·</span>
+              <span style={{ fontFamily: BODY }}>{issueLabel}</span>
             </div>
           </motion.aside>
         </div>
@@ -494,18 +486,10 @@ export function BlockStoryHub({ props }: Props) {
             marginBottom: "1.25rem",
           }}
         >
-          <span
-            style={{
-              fontSize: "0.625rem",
-              letterSpacing: "0.32em",
-              textTransform: "uppercase",
-              fontWeight: 700,
-              color: theme.accent,
-            }}
-          >
+          <span style={{ ...{fontSize: "0.625rem", letterSpacing: "0.32em", textTransform: "uppercase", fontWeight: 700, color: theme.accent,}, ...{fontFamily: BODY} }}>
             ★ Editor's pick · No. 01
           </span>
-          <span style={{ flex: 1, height: 1, background: theme.divider }} aria-hidden />
+          <span style={{ ...{flex: 1, height: 1, background: theme.divider}, ...{fontFamily: BODY} }} aria-hidden />
         </div>
 
         <motion.a
@@ -572,16 +556,16 @@ export function BlockStoryHub({ props }: Props) {
               fontWeight: 700,
             }}
           >
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.75rem" }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: "#FFFFFF", boxShadow: "0 0 8px rgba(255,255,255,0.8)" }} />
+            <span style={{ ...{display: "inline-flex", alignItems: "center", gap: "0.75rem"}, ...{fontFamily: BODY} }}>
+              <span style={{ ...{width: 6, height: 6, borderRadius: 999, background: "#FFFFFF", boxShadow: "0 0 8px rgba(255,255,255,0.8)"}, ...{fontFamily: BODY} }} />
               Feature · {props.featured.tag}
             </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ ...{display: "inline-flex", alignItems: "center", gap: "0.5rem"}, ...{fontFamily: BODY} }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 7v5l3 2" />
               </svg>
-              <span>8 min read</span>
+              <span style={{ fontFamily: BODY }}>8 min read</span>
             </span>
           </div>
 
@@ -627,11 +611,11 @@ export function BlockStoryHub({ props }: Props) {
                   fontWeight: 600,
                 }}
               >
-                <span>{props.featured.doctor}</span>
-                <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.55)" }} />
-                <span>{props.featured.practice}</span>
-                <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.55)" }} />
-                <span>{props.featured.location}</span>
+                <span style={{ fontFamily: BODY }}>{props.featured.doctor}</span>
+                <span style={{ ...{width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.55)"}, ...{fontFamily: BODY} }} />
+                <span style={{ fontFamily: BODY }}>{props.featured.practice}</span>
+                <span style={{ ...{width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.55)"}, ...{fontFamily: BODY} }} />
+                <span style={{ fontFamily: BODY }}>{props.featured.location}</span>
               </div>
               <span
                 className="lp-story-featured-cta"
@@ -672,9 +656,9 @@ export function BlockStoryHub({ props }: Props) {
           gap: "1.25rem",
         }}
       >
-        <span style={{ flex: 1, height: 1, background: theme.divider }} aria-hidden />
+        <span style={{ ...{flex: 1, height: 1, background: theme.divider}, ...{fontFamily: BODY} }} aria-hidden />
         <Ornament color={theme.accent} />
-        <span style={{ flex: 1, height: 1, background: theme.divider }} aria-hidden />
+        <span style={{ ...{flex: 1, height: 1, background: theme.divider}, ...{fontFamily: BODY} }} aria-hidden />
       </div>
 
       {/* ── Browse bar (filters + sort + view toggle) ── */}
@@ -707,24 +691,13 @@ export function BlockStoryHub({ props }: Props) {
               gap: "0.75rem",
             }}
           >
-            <span aria-hidden style={{ width: 28, height: 1, background: theme.divider }} />
+            <span aria-hidden style={{ ...{width: 28, height: 1, background: theme.divider}, ...{fontFamily: BODY} }} />
             Browse the archive
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             {/* Sort */}
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.75rem",
-                color: theme.muted,
-                border: `1px solid ${theme.divider}`,
-                padding: "0.4rem 0.8rem",
-                borderRadius: 999,
-              }}
-            >
-              <span style={{ textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 600 }}>Sort</span>
+            <span style={{ ...{display: "inline-flex", alignItems: "center", gap: "0.5rem", fontSize: "0.75rem", color: theme.muted, border: `1px solid ${theme.divider}`, padding: "0.4rem 0.8rem", borderRadius: 999,}, ...{fontFamily: BODY} }}>
+              <span style={{ ...{textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 600}, ...{fontFamily: BODY} }}>Sort</span>
               <span style={{ color: theme.fg, fontStyle: "italic", fontFamily: displayFont }}>Latest</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M6 9l6 6 6-6" />
@@ -804,18 +777,8 @@ export function BlockStoryHub({ props }: Props) {
                   letterSpacing: "-0.005em",
                 }}
               >
-                <span>{filter}</span>
-                <span
-                  style={{
-                    fontSize: "0.65rem",
-                    fontVariantNumeric: "tabular-nums",
-                    padding: "0.05rem 0.4rem",
-                    borderRadius: 999,
-                    background: isActive ? "rgba(255,255,255,0.18)" : theme.divider,
-                    color: isActive ? theme.onAccent : theme.muted,
-                    fontWeight: 700,
-                  }}
-                >
+                <span style={{ fontFamily: BODY }}>{filter}</span>
+                <span style={{ ...{fontSize: "0.65rem", fontVariantNumeric: "tabular-nums", padding: "0.05rem 0.4rem", borderRadius: 999, background: isActive ? "rgba(255,255,255,0.18)" : theme.divider, color: isActive ? theme.onAccent : theme.muted, fontWeight: 700,}, ...{fontFamily: BODY} }}>
                   {count}
                 </span>
               </button>
@@ -837,7 +800,7 @@ export function BlockStoryHub({ props }: Props) {
           {activeFilter !== defaultFilter && (
             <>
               {" · "}
-              <span style={{ color: theme.accent }}>{activeFilter}</span>
+              <span style={{ ...{color: theme.accent}, ...{fontFamily: BODY} }}>{activeFilter}</span>
               <button
                 type="button"
                 onClick={() => setActiveFilter(defaultFilter)}
@@ -919,9 +882,9 @@ export function BlockStoryHub({ props }: Props) {
             gap: "0.75rem",
           }}
         >
-          <span aria-hidden style={{ width: 28, height: 1, background: theme.accent, opacity: 0.6 }} />
+          <span aria-hidden style={{ ...{width: 28, height: 1, background: theme.accent, opacity: 0.6}, ...{fontFamily: BODY} }} />
           From the archive
-          <span aria-hidden style={{ width: 28, height: 1, background: theme.accent, opacity: 0.6 }} />
+          <span aria-hidden style={{ ...{width: 28, height: 1, background: theme.accent, opacity: 0.6}, ...{fontFamily: BODY} }} />
         </div>
         <blockquote
           style={{
@@ -1150,8 +1113,8 @@ export function BlockStoryHub({ props }: Props) {
           fontWeight: 600,
         }}
       >
-        <span>Customer Stories · Vol. III · Issue 04</span>
-        <span>Set in {(theme.displayFontFamily || "Cormorant Garamond").replace(/['"]/g, "")} & {(theme.bodyFontFamily || "Inter").replace(/['"]/g, "")}</span>
+        <span style={{ fontFamily: BODY }}>Customer Stories · Vol. III · Issue 04</span>
+        <span style={{ fontFamily: BODY }}>Set in {(theme.displayFontFamily || "Cormorant Garamond").replace(/['"]/g, "")} & {(theme.bodyFontFamily || "Inter").replace(/['"]/g, "")}</span>
       </footer>
     </div>
   );
@@ -1234,11 +1197,11 @@ function StoryCard({
               gap: "0.6rem",
             }}
           >
-            <span style={{ color: theme.accent }}>{editionNo}</span>
-            <span>·</span>
-            <span>{story.tag}</span>
-            <span>·</span>
-            <span>{readTime} min read</span>
+            <span style={{ ...{color: theme.accent}, ...{fontFamily: BODY} }}>{editionNo}</span>
+            <span style={{ fontFamily: BODY }}>·</span>
+            <span style={{ fontFamily: BODY }}>{story.tag}</span>
+            <span style={{ fontFamily: BODY }}>·</span>
+            <span style={{ fontFamily: BODY }}>{readTime} min read</span>
           </div>
           <h3
             style={{
@@ -1261,11 +1224,11 @@ function StoryCard({
               gap: "0.6rem",
             }}
           >
-            <span>{story.practice}</span>
+            <span style={{ fontFamily: BODY }}>{story.practice}</span>
             {story.location && (
               <>
-                <span>·</span>
-                <span>{story.location}</span>
+                <span style={{ fontFamily: BODY }}>·</span>
+                <span style={{ fontFamily: BODY }}>{story.location}</span>
               </>
             )}
           </div>
@@ -1323,9 +1286,9 @@ function StoryCard({
           gap: "0.75rem",
         }}
       >
-        <span style={{ color: theme.accent }}>{editionNo}</span>
-        <span aria-hidden style={{ flex: 1, height: 1, background: theme.divider }} />
-        <span>{readTime} min read</span>
+        <span style={{ ...{color: theme.accent}, ...{fontFamily: BODY} }}>{editionNo}</span>
+        <span aria-hidden style={{ ...{flex: 1, height: 1, background: theme.divider}, ...{fontFamily: BODY} }} />
+        <span style={{ fontFamily: BODY }}>{readTime} min read</span>
       </div>
 
       <div
@@ -1363,27 +1326,8 @@ function StoryCard({
           }}
         />
         {/* Tag chip pinned over the image */}
-        <span
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 12,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.45rem",
-            padding: "0.32rem 0.7rem",
-            borderRadius: 999,
-            background: "rgba(255,255,255,0.92)",
-            color: "#0C0F12",
-            fontSize: "0.625rem",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            fontWeight: 700,
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-          }}
-        >
-          <span style={{ width: 5, height: 5, borderRadius: 999, background: theme.accent }} />
+        <span style={{ ...{position: "absolute", top: 12, left: 12, display: "inline-flex", alignItems: "center", gap: "0.45rem", padding: "0.32rem 0.7rem", borderRadius: 999, background: "rgba(255,255,255,0.92)", color: "#0C0F12", fontSize: "0.625rem", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 700, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",}, ...{fontFamily: BODY} }}>
+          <span style={{ ...{width: 5, height: 5, borderRadius: 999, background: theme.accent}, ...{fontFamily: BODY} }} />
           {story.tag}
         </span>
         {/* Hover overlay — short excerpt */}
@@ -1404,17 +1348,7 @@ function StoryCard({
             pointerEvents: "none",
           }}
         >
-          <span
-            style={{
-              display: "block",
-              fontSize: "0.625rem",
-              letterSpacing: "0.28em",
-              textTransform: "uppercase",
-              opacity: 0.75,
-              fontWeight: 700,
-              marginBottom: "0.4rem",
-            }}
-          >
+          <span style={{ ...{display: "block", fontSize: "0.625rem", letterSpacing: "0.28em", textTransform: "uppercase", opacity: 0.75, fontWeight: 700, marginBottom: "0.4rem",}, ...{fontFamily: BODY} }}>
             From {story.practice}
           </span>
           <span style={{ fontStyle: "italic", fontFamily: displayFont, fontSize: "1.05rem", lineHeight: 1.3 }}>
@@ -1438,8 +1372,8 @@ function StoryCard({
             fontWeight: 600,
           }}
         >
-          <span>{story.practice}</span>
-          <span>{story.location || "—"}</span>
+          <span style={{ fontFamily: BODY }}>{story.practice}</span>
+          <span style={{ fontFamily: BODY }}>{story.location || "—"}</span>
         </div>
         <h3
           style={{
@@ -1462,18 +1396,7 @@ function StoryCard({
             gap: "0.75rem",
           }}
         >
-          <span
-            style={{
-              fontSize: "0.625rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.2em",
-              padding: "0.25rem 0.7rem",
-              borderRadius: 999,
-              border: `1px solid ${theme.divider}`,
-              color: theme.muted,
-              fontWeight: 700,
-            }}
-          >
+          <span style={{ ...{fontSize: "0.625rem", textTransform: "uppercase", letterSpacing: "0.2em", padding: "0.25rem 0.7rem", borderRadius: 999, border: `1px solid ${theme.divider}`, color: theme.muted, fontWeight: 700,}, ...{fontFamily: BODY} }}>
             {story.tag}
           </span>
           <span

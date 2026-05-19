@@ -14,7 +14,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
@@ -45,13 +46,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           {(eyebrow || onFieldChange) && (
-            <InlineText
-              as="p"
-              value={eyebrow ?? ""}
-              onUpdate={field("eyebrow")}
-              animate={{ y: 10 }}
-              style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            />
+            <InlineText as="p" value={eyebrow ?? ""} onUpdate={field("eyebrow")} animate={{ y: 10 }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem"}, ...{fontFamily: BODY} }} />
           )}
           {(headline || onFieldChange) && (
             <InlineText
@@ -63,14 +58,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
             />
           )}
           {(subheadline || onFieldChange) && (
-            <InlineText
-              as="p"
-              value={subheadline ?? ""}
-              onUpdate={field("subheadline")}
-              multiline
-              animate={{ y: 15, delay: 0.12 }}
-              style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
-            />
+            <InlineText as="p" value={subheadline ?? ""} onUpdate={field("subheadline")} multiline animate={{ y: 15, delay: 0.12 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0"}, ...{fontFamily: BODY} }} />
           )}
         </div>
 
@@ -97,23 +85,14 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
 
               {/* Wrap with literal quote marks to match the prior render output;
                   InlineText edits only the quote body itself. */}
-              <p
-                style={{
-                  fontSize: "0.9375rem",
-                  color: quoteC,
-                  lineHeight: 1.7,
-                  fontStyle: "italic",
-                  flex: 1,
-                  margin: 0,
-                }}
-              >
+              <p style={{ ...{fontSize: "0.9375rem", color: quoteC, lineHeight: 1.7, fontStyle: "italic", flex: 1, margin: 0,}, ...{fontFamily: BODY} }}>
                 "
                 <InlineText
                   as="span"
                   value={t.quote}
                   onUpdate={onFieldChange ? (v) => updateT(i, { quote: v }) : undefined}
                   multiline
-                />
+                style={{ fontFamily: BODY }}/>
                 "
               </p>
 
@@ -133,19 +112,9 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
                   <User style={{ width: 16, height: 16, color: dark ? "rgba(255,255,255,0.5)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.439)` }} />
                 </div>
                 <div>
-                  <InlineText
-                    as="p"
-                    value={t.author}
-                    onUpdate={onFieldChange ? (v) => updateT(i, { author: v }) : undefined}
-                    style={{ fontSize: "0.9375rem", fontWeight: 600, color: authorC, lineHeight: 1.2 }}
-                  />
+                  <InlineText as="p" value={t.author} onUpdate={onFieldChange ? (v) => updateT(i, { author: v }) : undefined} style={{ ...{fontSize: "0.9375rem", fontWeight: 600, color: authorC, lineHeight: 1.2}, ...{fontFamily: BODY} }} />
                   {(t.location || onFieldChange) && (
-                    <InlineText
-                      as="p"
-                      value={t.location ?? ""}
-                      onUpdate={onFieldChange ? (v) => updateT(i, { location: v }) : undefined}
-                      style={{ fontSize: "0.8125rem", color: locC, marginTop: 2 }}
-                    />
+                    <InlineText as="p" value={t.location ?? ""} onUpdate={onFieldChange ? (v) => updateT(i, { location: v }) : undefined} style={{ ...{fontSize: "0.8125rem", color: locC, marginTop: 2}, ...{fontFamily: BODY} }} />
                   )}
                 </div>
               </div>

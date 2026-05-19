@@ -17,7 +17,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
@@ -62,13 +63,7 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
       style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "1.25rem" }}
     >
       {(eyebrow || onFieldChange) && (
-        <InlineText
-          as="p"
-          value={eyebrow ?? ""}
-          onUpdate={field("eyebrow")}
-          animate={{ y: 10 }}
-          style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC }}
-        />
+        <InlineText as="p" value={eyebrow ?? ""} onUpdate={field("eyebrow")} animate={{ y: 10 }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC}, ...{fontFamily: BODY} }} />
       )}
 
       {(headline || onFieldChange) && (
@@ -89,27 +84,15 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
       )}
 
       {(body || onFieldChange) && (
-        <InlineText
-          as="p"
-          value={body ?? ""}
-          onUpdate={field("body")}
-          multiline
-          animate={{ y: 15, delay: 0.12 }}
-          style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC }}
-        />
+        <InlineText as="p" value={body ?? ""} onUpdate={field("body")} multiline animate={{ y: 15, delay: 0.12 }} style={{ ...{fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC}, ...{fontFamily: BODY} }} />
       )}
 
       {bullets.length > 0 && (
         <ul style={{ display: "flex", flexDirection: "column", gap: "0.625rem", listStyle: "none", padding: 0, margin: 0 }}>
           {bullets.map((b, i) => (
-            <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}>
+            <li key={i} style={{ ...{display: "flex", alignItems: "flex-start", gap: "0.625rem"}, ...{fontFamily: BODY} }}>
               <CheckCircle2 style={{ width: 18, height: 18, color: checkC, flexShrink: 0, marginTop: 2 }} />
-              <InlineText
-                as="span"
-                value={b}
-                onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined}
-                style={{ fontSize: "0.9375rem", color: bulletC, lineHeight: 1.55 }}
-              />
+              <InlineText as="span" value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} style={{ ...{fontSize: "0.9375rem", color: bulletC, lineHeight: 1.55}, ...{fontFamily: BODY} }} />
             </li>
           ))}
         </ul>
@@ -183,7 +166,7 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
             <path d="M20 44 C20 32 32 20 44 20" stroke={dark ? LIME : BRAND} strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
             <circle cx="32" cy="32" r="8" fill={dark ? LIME : BRAND} opacity="0.2" />
           </svg>
-          <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.25)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.251)` }}>Add image URL in properties</p>
+          <p style={{ ...{fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.25)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.251)`}, ...{fontFamily: BODY} }}>Add image URL in properties</p>
         </div>
       )}
     </motion.div>

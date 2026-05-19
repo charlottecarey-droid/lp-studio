@@ -11,7 +11,8 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 const P    = "var(--brand-primary, #0f172a)";
@@ -210,7 +211,7 @@ export function BlockDsoProblem({ props, onFieldChange }: Props) {
               >
                 <div>
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.75rem", fontWeight: 700, color: "#fff", lineHeight: 1, letterSpacing: "-0.03em" }}>{statValue}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>{statLabel}</p>
+                  <p style={{ ...{fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3}, ...{fontFamily: BODY} }}>{statLabel}</p>
                 </div>
               </div>
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), ${AW}, rgb(var(--brand-accent-rgb, 59 130 246) / 0))` }} />
@@ -221,20 +222,7 @@ export function BlockDsoProblem({ props, onFieldChange }: Props) {
           {/* ── Right: Copy + problem list ── */}
           <motion.div style={{ y: textY }}>
             {(eyebrow || onFieldChange) && (
-              <InlineText
-                as="p"
-                value={eyebrow ?? ""}
-                onUpdate={field("eyebrow")}
-                animate={{ y: 10 }}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  color: AW,
-                  marginBottom: "1.25rem",
-                }}
-              />
+              <InlineText as="p" value={eyebrow ?? ""} onUpdate={field("eyebrow")} animate={{ y: 10 }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem",}, ...{fontFamily: BODY} }} />
             )}
 
             <InlineText
@@ -254,14 +242,7 @@ export function BlockDsoProblem({ props, onFieldChange }: Props) {
             />
 
             {(body || onFieldChange) && (
-              <InlineText
-                as="p"
-                value={body ?? ""}
-                onUpdate={field("body")}
-                multiline
-                animate={{ y: 15, delay: 0.12 }}
-                style={{ fontSize: "1rem", lineHeight: 1.7, color: mu, marginBottom: "2.75rem" }}
-              />
+              <InlineText as="p" value={body ?? ""} onUpdate={field("body")} multiline animate={{ y: 15, delay: 0.12 }} style={{ ...{fontSize: "1rem", lineHeight: 1.7, color: mu, marginBottom: "2.75rem"}, ...{fontFamily: BODY} }} />
             )}
 
             <div>
@@ -317,13 +298,7 @@ export function BlockDsoProblem({ props, onFieldChange }: Props) {
                           transition: "color 0.2s",
                         }}
                       />
-                      <InlineText
-                        as="p"
-                        value={panel.desc}
-                        onUpdate={panelsEditable ? (v) => updatePanel(i, { desc: v }) : undefined}
-                        multiline
-                        style={{ fontSize: "0.9rem", lineHeight: 1.65, color: mu }}
-                      />
+                      <InlineText as="p" value={panel.desc} onUpdate={panelsEditable ? (v) => updatePanel(i, { desc: v }) : undefined} multiline style={{ ...{fontSize: "0.9rem", lineHeight: 1.65, color: mu}, ...{fontFamily: BODY} }} />
                     </div>
                   </motion.div>
                 );

@@ -63,17 +63,17 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
             <div className={cn("mb-10 max-w-2xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
               {props.eyebrow && (
                 <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-2" style={{ fontFamily: BODY }}>
-                  <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
+                  <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </p>
               )}
               {props.headline && (
                 <h2 className={cn("text-3xl md:text-4xl font-bold text-[var(--brand-primary)] leading-tight mb-2", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
+                  <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </h2>
               )}
               {props.subheadline && (
                 <p className="text-slate-600 text-base leading-relaxed" style={{ fontFamily: BODY }}>
-                  <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
+                  <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY }}/>
                 </p>
               )}
             </div>
@@ -106,7 +106,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                       </div>
                     )}
                     <h3 className={cn("text-xl font-bold text-[var(--brand-primary)] mb-0 leading-snug", isActive && "mb-3")} style={{ fontFamily: DISPLAY }}>
-                      <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
+                      <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} style={{ fontFamily: BODY }}/>
                     </h3>
                     {isActive && (
                       <motion.div
@@ -115,14 +115,14 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                         transition={{ duration: 0.25 }}
                       >
                         <p className="text-slate-600 text-base leading-relaxed mb-3" style={{ fontFamily: BODY }}>
-                          <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} />
+                          <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} style={{ fontFamily: BODY }}/>
                         </p>
                         {item.ctaText && (
                           <button
                             onClick={(e) => { e.stopPropagation(); safeNavigate(item.ctaUrl); }}
                             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-primary)] hover:text-[#006651] transition-colors"
                           >
-                            <InlineText value={item.ctaText} onUpdate={onFieldChange ? (v) => updateItem(i, "ctaText", v) : undefined} />
+                            <InlineText value={item.ctaText} onUpdate={onFieldChange ? (v) => updateItem(i, "ctaText", v) : undefined} style={{ fontFamily: BODY }}/>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         )}

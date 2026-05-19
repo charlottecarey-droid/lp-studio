@@ -215,7 +215,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   className={cn("text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-tight", getHeadingWeightClass(brand))}
                   style={{ color: textLight ? "#ffffff" : FOREST, fontFamily: DISPLAY }}
                 >
-                  <InlineText value={props.overlayHeadline ?? ""} onUpdate={field("overlayHeadline")} multiline />
+                  <InlineText value={props.overlayHeadline ?? ""} onUpdate={field("overlayHeadline")} multiline style={{ fontFamily: BODY }}/>
                 </h2>
               )}
               {(props.overlaySubheadline || onFieldChange) && (
@@ -223,7 +223,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   className="text-sm sm:text-base md:text-lg font-medium"
                   style={{ color: textLight ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.7)", fontFamily: BODY }}
                 >
-                  <InlineText value={props.overlaySubheadline ?? ""} onUpdate={field("overlaySubheadline")} multiline />
+                  <InlineText value={props.overlaySubheadline ?? ""} onUpdate={field("overlaySubheadline")} multiline style={{ fontFamily: BODY }}/>
                 </p>
               )}
               {(props.overlayCtaText || onFieldChange) && (
@@ -235,7 +235,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   whileTap={{ scale: 0.96 }}
                   transition={SPRING}
                 >
-                  <InlineText value={props.overlayCtaText ?? ""} onUpdate={field("overlayCtaText")} />
+                  <InlineText value={props.overlayCtaText ?? ""} onUpdate={field("overlayCtaText")} style={{ fontFamily: BODY }}/>
                 </motion.a>
               )}
             </div>
@@ -384,7 +384,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
           isDark ? "text-white" : "text-[var(--brand-primary)]"
         )} style={{ fontFamily: DISPLAY }}>
-          <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline />
+          <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
         </h2>
       )}
       {(props.subheadline || onFieldChange) && (
@@ -392,7 +392,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           getBodySizeClass(brand), "leading-relaxed mb-6",
           isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
         )} style={{ fontFamily: BODY }}>
-          <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+          <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
       {(props.ctaText || onFieldChange) && (
@@ -404,7 +404,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           whileTap={{ scale: 0.96 }}
           transition={SPRING}
         >
-          <InlineText value={props.ctaText ?? ""} onUpdate={field("ctaText")} />
+          <InlineText value={props.ctaText ?? ""} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           <ArrowRight className="w-4 h-4 ml-2" />
         </motion.button>
       )}
@@ -503,7 +503,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
                   isDark ? "text-white" : "text-[var(--brand-primary)]"
                 )} style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline />
+                  <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
                 </h2>
               )}
               {(props.subheadline || onFieldChange) && (
@@ -511,7 +511,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   getBodySizeClass(brand), "leading-relaxed",
                   isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
                 )} style={{ fontFamily: BODY }}>
-                  <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+                  <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
                 </p>
               )}
             </div>
@@ -527,7 +527,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                 whileTap={{ scale: 0.96 }}
                 transition={SPRING}
               >
-                <InlineText value={props.ctaText ?? ""} onUpdate={field("ctaText")} />
+                <InlineText value={props.ctaText ?? ""} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
                 <ArrowRight className="w-4 h-4 ml-2" />
               </motion.button>
             </div>

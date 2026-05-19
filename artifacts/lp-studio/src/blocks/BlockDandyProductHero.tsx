@@ -7,6 +7,8 @@ import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
+const BODY = BRAND_BODY_FONT;
+
 interface Props {
   block: { props: DandyProductHeroBlockProps };
   onCtaClick?: (url: string, mode?: import("@/lib/block-types").CtaMode) => void;
@@ -18,6 +20,7 @@ interface Props {
 const DANDY_GREEN = "var(--brand-primary)";
 const DANDY_LIME = "var(--brand-accent)";
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Reckless', Georgia, serif`;
+const DISPLAY = DISPLAY_FONT;
 const SANS_FONT = `${BRAND_BODY_FONT}, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
 export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, onFieldChange }: Props) {
@@ -107,9 +110,9 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   // Left column copy + email form (shared by all variants)
   const leftContent: ReactNode = (
     <>
-      {p.eyebrow && <div style={eyebrowStyle}><InlineText as="span" value={p.eyebrow} onUpdate={field("eyebrow")} /></div>}
-      <h1 style={headlineStyle}><InlineText as="span" value={p.headline || ""} onUpdate={field("headline")} multiline /></h1>
-      {p.subheadline && <p style={subStyle}><InlineText as="span" value={p.subheadline} onUpdate={field("subheadline")} multiline /></p>}
+      {p.eyebrow && <div style={eyebrowStyle}><InlineText as="span" value={p.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/></div>}
+      <h1 style={{ ...(headlineStyle), ...{fontFamily: DISPLAY} }}><InlineText as="span" value={p.headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/></h1>
+      {p.subheadline && <p style={{ ...(subStyle), ...{fontFamily: BODY} }}><InlineText as="span" value={p.subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/></p>}
 
       <form
         onSubmit={handleSubmit}
@@ -164,7 +167,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
             transition: "background-color 0.18s ease",
           }}
         >
-          <InlineText as="span" value={p.primaryCtaText || "Get Started"} onUpdate={field("primaryCtaText")} />
+          <InlineText as="span" value={p.primaryCtaText || "Get Started"} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
         </button>
       </form>
 
@@ -178,7 +181,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
             maxWidth: "32rem",
           }}
         >
-          <InlineText as="span" value={p.disclaimer} onUpdate={field("disclaimer")} multiline />
+          <InlineText as="span" value={p.disclaimer} onUpdate={field("disclaimer")} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
     </>

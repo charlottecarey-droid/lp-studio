@@ -14,7 +14,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, #3b82f6)"; /* alpha-concat literal */
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
@@ -72,13 +73,8 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
         {/* ── Header ── */}
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           {(eyebrow || onFieldChange) && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            >
-              <InlineText value={eyebrow ?? ""} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem"}, ...{fontFamily: BODY} }}>
+              <InlineText value={eyebrow ?? ""} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           {(headline || onFieldChange) && (
@@ -89,18 +85,12 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", whiteSpace: "pre-line" }}
             >
-              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
+              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
             </motion.h2>
           )}
           {(subheadline || onFieldChange) && (
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 580, margin: "1.25rem auto 0" }}
-            >
-              <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+            <motion.p initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 580, margin: "1.25rem auto 0"}, ...{fontFamily: BODY} }}>
+              <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -122,11 +112,11 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
             }}
           >
             <div style={{ marginBottom: "1.5rem" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: oldSubC, marginBottom: "0.5rem" }}>
+              <p style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: oldSubC, marginBottom: "0.5rem"}, ...{fontFamily: BODY} }}>
                 Old Way
               </p>
               <h3 style={{ fontFamily: DISPLAY, fontSize: "1.75rem", fontWeight: 600, color: oldHeadC, lineHeight: 1.15, letterSpacing: "-0.01em" }}>
-                <InlineText value={oldWayLabel} onUpdate={field("oldWayLabel")} />
+                <InlineText value={oldWayLabel} onUpdate={field("oldWayLabel")} style={{ fontFamily: BODY }}/>
               </h3>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: "1rem" }} aria-label="Old Way">
@@ -143,8 +133,8 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
                     aria-hidden="true"
                     style={{ width: 20, height: 20, color: oldIconC, flexShrink: 0, marginTop: 1 }}
                   />
-                  <span style={{ fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.6 }}>
-                    <InlineText value={item} onUpdate={updateOldItem ? (v) => updateOldItem(i, v) : undefined} />
+                  <span style={{ ...{fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.6}, ...{fontFamily: BODY} }}>
+                    <InlineText value={item} onUpdate={updateOldItem ? (v) => updateOldItem(i, v) : undefined} style={{ fontFamily: BODY }}/>
                   </span>
                 </motion.li>
               ))}
@@ -178,11 +168,11 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
               }}
             />
             <div style={{ marginBottom: "1.5rem", position: "relative" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: newSubC, marginBottom: "0.5rem" }}>
+              <p style={{ ...{fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: newSubC, marginBottom: "0.5rem"}, ...{fontFamily: BODY} }}>
                 New Way
               </p>
               <h3 style={{ fontFamily: DISPLAY, fontSize: "1.75rem", fontWeight: 600, color: newHeadC, lineHeight: 1.15, letterSpacing: "-0.01em" }}>
-                <InlineText value={newWayLabel} onUpdate={field("newWayLabel")} />
+                <InlineText value={newWayLabel} onUpdate={field("newWayLabel")} style={{ fontFamily: BODY }}/>
               </h3>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "relative" }} aria-label="New Way">
@@ -199,8 +189,8 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
                     aria-hidden="true"
                     style={{ width: 20, height: 20, color: newIconC, flexShrink: 0, marginTop: 1 }}
                   />
-                  <span style={{ fontSize: "0.9375rem", color: newItemC, lineHeight: 1.6, fontWeight: 500 }}>
-                    <InlineText value={item} onUpdate={updateNewItem ? (v) => updateNewItem(i, v) : undefined} />
+                  <span style={{ ...{fontSize: "0.9375rem", color: newItemC, lineHeight: 1.6, fontWeight: 500}, ...{fontFamily: BODY} }}>
+                    <InlineText value={item} onUpdate={updateNewItem ? (v) => updateNewItem(i, v) : undefined} style={{ fontFamily: BODY }}/>
                   </span>
                 </motion.li>
               ))}

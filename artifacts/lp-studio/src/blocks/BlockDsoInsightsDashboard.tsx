@@ -189,11 +189,11 @@ const ThemedTooltip = ({ active, payload, label, t }: { active?: boolean; payloa
   if (!active || !payload?.length) return null;
   return (
     <div className={`rounded-lg border ${t.tooltipBorder} ${t.tooltipBg} px-3 py-2 shadow-lg text-xs`}>
-      <p className={`font-medium ${t.tooltipText} mb-1`}>{label}</p>
+      <p className={`font-medium ${t.tooltipText} mb-1`} style={{ fontFamily: BODY }}>{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} className={t.tooltipMuted}>
-          <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ background: p.color }} />
-          {p.name}: <span className={`${t.tooltipText} font-medium`}>{p.value}</span>
+        <p key={i} className={t.tooltipMuted} style={{ fontFamily: BODY }}>
+          <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ ...{background: p.color}, ...{fontFamily: BODY} }} />
+          {p.name}: <span className={`${t.tooltipText} font-medium`} style={{ fontFamily: BODY }}>{p.value}</span>
         </p>
       ))}
     </div>
@@ -273,10 +273,10 @@ const KPICard = ({
         )}
       </AnimatePresence>
       <div className="flex items-center justify-between">
-        <p className={`text-xs ${t.textMuted}`}>{stat.label}</p>
+        <p className={`text-xs ${t.textMuted}`} style={{ fontFamily: BODY }}>{stat.label}</p>
         <ChevronDown className={`w-3 h-3 ${t.textMuted} transition-transform ${isExpanded ? "rotate-180" : ""}`} />
       </div>
-      <p className={`text-2xl font-bold ${t.textPrimary} mt-1 tabular-nums`}>{displayValue}</p>
+      <p className={`text-2xl font-bold ${t.textPrimary} mt-1 tabular-nums`} style={{ fontFamily: BODY }}>{displayValue}</p>
       <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${
         (stat.label === "Remake Rate" || stat.label === "Avg Turnaround")
           ? (stat.up ? t.textDanger : t.textAccent)
@@ -340,10 +340,10 @@ const OverviewView = ({ t, liveOffset = 0 }: { t: Theme; liveOffset?: number }) 
       </div>
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-5`}>
         <div className="flex items-center justify-between mb-4">
-          <p className={`text-sm font-medium ${t.textPrimary}`}>Monthly Case Volume</p>
+          <p className={`text-sm font-medium ${t.textPrimary}`} style={{ fontFamily: BODY }}>Monthly Case Volume</p>
           <div className={`flex items-center gap-4 text-xs ${t.textMuted}`}>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: t.barFill }} />Cases</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: t.barRemake }} />Remakes</span>
+            <span className="flex items-center gap-1.5" style={{ fontFamily: BODY }}><span className="w-2 h-2 rounded-full" style={{ ...{background: t.barFill}, ...{fontFamily: BODY} }} />Cases</span>
+            <span className="flex items-center gap-1.5" style={{ fontFamily: BODY }}><span className="w-2 h-2 rounded-full" style={{ ...{background: t.barRemake}, ...{fontFamily: BODY} }} />Remakes</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
@@ -368,21 +368,21 @@ const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBac
       <ArrowLeft className="w-3.5 h-3.5" /> All locations
     </button>
     <div className="flex items-center justify-between">
-      <h3 className={`text-lg font-semibold ${t.textPrimary}`}>{loc.name}</h3>
+      <h3 className={`text-lg font-semibold ${t.textPrimary}`} style={{ fontFamily: DISPLAY }}>{loc.name}</h3>
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <p className={`text-xl font-bold ${t.textPrimary}`}>{loc.cases}</p>
-          <p className={`text-[10px] ${t.textMuted}`}>total cases</p>
+          <p className={`text-xl font-bold ${t.textPrimary}`} style={{ fontFamily: BODY }}>{loc.cases}</p>
+          <p className={`text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>total cases</p>
         </div>
         <div className="text-right">
-          <p className={`text-xl font-bold ${loc.remakes > 3.5 ? t.textDanger : t.textAccent}`}>{loc.remakes}%</p>
-          <p className={`text-[10px] ${t.textMuted}`}>remake rate</p>
+          <p className={`text-xl font-bold ${loc.remakes > 3.5 ? t.textDanger : t.textAccent}`} style={{ fontFamily: BODY }}>{loc.remakes}%</p>
+          <p className={`text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>remake rate</p>
         </div>
       </div>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className={`md:col-span-2 rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}>
-        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`}>Monthly Cases & Remakes</p>
+        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`} style={{ fontFamily: BODY }}>Monthly Cases & Remakes</p>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={loc.monthly} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke={t.gridStroke} />
@@ -395,7 +395,7 @@ const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBac
         </ResponsiveContainer>
       </div>
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}>
-        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`}>Product Mix</p>
+        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`} style={{ fontFamily: BODY }}>Product Mix</p>
         <ResponsiveContainer width="100%" height={140}>
           <PieChart>
             <Pie data={loc.products} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={55} innerRadius={30} paddingAngle={3}>
@@ -406,8 +406,8 @@ const LocationDetail = ({ loc, onBack, t }: { loc: typeof locationData[0]; onBac
         </ResponsiveContainer>
         <div className="flex flex-wrap gap-2 mt-2">
           {loc.products.map((p: any, i: number) => (
-            <span key={p.name} className={`flex items-center gap-1 text-[10px] ${t.textMuted}`}>
-              <span className="w-2 h-2 rounded-full" style={{ background: t.pieFills[i] }} />{p.name}
+            <span key={p.name} className={`flex items-center gap-1 text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>
+              <span className="w-2 h-2 rounded-full" style={{ ...{background: t.pieFills[i]}, ...{fontFamily: BODY} }} />{p.name}
             </span>
           ))}
         </div>
@@ -427,23 +427,23 @@ const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBac
         {doc.name.split(" ").slice(1).map((n: string) => n[0]).join("")}
       </div>
       <div>
-        <h3 className={`text-lg font-semibold ${t.textPrimary}`}>{doc.name}</h3>
-        <p className={`text-xs ${t.textMuted}`}>{doc.location}</p>
+        <h3 className={`text-lg font-semibold ${t.textPrimary}`} style={{ fontFamily: DISPLAY }}>{doc.name}</h3>
+        <p className={`text-xs ${t.textMuted}`} style={{ fontFamily: BODY }}>{doc.location}</p>
       </div>
       <div className="ml-auto flex items-center gap-6">
         <div className="text-right">
-          <p className={`text-xl font-bold ${t.textPrimary}`}>{doc.cases}</p>
-          <p className={`text-[10px] ${t.textMuted}`}>cases</p>
+          <p className={`text-xl font-bold ${t.textPrimary}`} style={{ fontFamily: BODY }}>{doc.cases}</p>
+          <p className={`text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>cases</p>
         </div>
         <div className="text-right">
-          <p className={`text-xl font-bold ${doc.accuracy >= 97 ? t.textAccent : t.textPrimary}`}>{doc.accuracy}%</p>
-          <p className={`text-[10px] ${t.textMuted}`}>accuracy</p>
+          <p className={`text-xl font-bold ${doc.accuracy >= 97 ? t.textAccent : t.textPrimary}`} style={{ fontFamily: BODY }}>{doc.accuracy}%</p>
+          <p className={`text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>accuracy</p>
         </div>
       </div>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}>
-        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`}>Cases Over Time</p>
+        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`} style={{ fontFamily: BODY }}>Cases Over Time</p>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={doc.monthly}>
             <defs>
@@ -461,7 +461,7 @@ const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBac
         </ResponsiveContainer>
       </div>
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}>
-        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`}>Accuracy Trend</p>
+        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`} style={{ fontFamily: BODY }}>Accuracy Trend</p>
         <ResponsiveContainer width="100%" height={180}>
           <LineChart data={doc.monthly}>
             <CartesianGrid strokeDasharray="3 3" stroke={t.gridStroke} />
@@ -474,13 +474,13 @@ const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBac
       </div>
     </div>
     <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}>
-      <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`}>Case Type Breakdown</p>
+      <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-3`} style={{ fontFamily: BODY }}>Case Type Breakdown</p>
       <div className="flex items-center gap-6">
         {doc.types.map((typ: any, i: number) => (
           <div key={typ.name} className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs ${t.textMuted}`}>{typ.name}</span>
-              <span className={`text-xs font-medium ${t.textPrimary}`}>{typ.value}%</span>
+              <span className={`text-xs ${t.textMuted}`} style={{ fontFamily: BODY }}>{typ.name}</span>
+              <span className={`text-xs font-medium ${t.textPrimary}`} style={{ fontFamily: BODY }}>{typ.value}%</span>
             </div>
             <div className={`h-2 rounded-full ${t.progressBarBg} overflow-hidden`}>
               <motion.div
@@ -502,11 +502,11 @@ const ProviderDetail = ({ doc, onBack, t }: { doc: typeof providerData[0]; onBac
 const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Theme }) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
     <div className={`grid grid-cols-12 gap-4 px-4 py-2 text-[10px] uppercase tracking-widest ${t.textMuted} font-medium`}>
-      <span className="col-span-4">Location</span>
-      <span className="col-span-2 text-center">Cases</span>
-      <span className="col-span-2 text-center">Remakes</span>
-      <span className="col-span-2 text-center">Score</span>
-      <span className="col-span-2 text-center">Trend</span>
+      <span className="col-span-4" style={{ fontFamily: BODY }}>Location</span>
+      <span className="col-span-2 text-center" style={{ fontFamily: BODY }}>Cases</span>
+      <span className="col-span-2 text-center" style={{ fontFamily: BODY }}>Remakes</span>
+      <span className="col-span-2 text-center" style={{ fontFamily: BODY }}>Score</span>
+      <span className="col-span-2 text-center" style={{ fontFamily: BODY }}>Trend</span>
     </div>
     {locationData.map((loc, i) => (
       <motion.div
@@ -519,10 +519,10 @@ const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
       >
         <div className="col-span-4 flex items-center gap-2">
           <ChevronRight className={`w-3.5 h-3.5 ${t.textAccent} group-hover:translate-x-0.5 transition-transform`} />
-          <span className={`text-sm font-medium ${t.textPrimary}`}>{loc.name}</span>
+          <span className={`text-sm font-medium ${t.textPrimary}`} style={{ fontFamily: BODY }}>{loc.name}</span>
         </div>
-        <span className={`col-span-2 text-center text-sm ${t.textSecondary}`}>{loc.cases}</span>
-        <span className={`col-span-2 text-center text-sm font-medium ${loc.remakes > 3.5 ? t.textDanger : t.textAccent}`}>{loc.remakes}%</span>
+        <span className={`col-span-2 text-center text-sm ${t.textSecondary}`} style={{ fontFamily: BODY }}>{loc.cases}</span>
+        <span className={`col-span-2 text-center text-sm font-medium ${loc.remakes > 3.5 ? t.textDanger : t.textAccent}`} style={{ fontFamily: BODY }}>{loc.remakes}%</span>
         <div className="col-span-2 flex justify-center">
           <div className={`w-full max-w-[60px] h-1.5 rounded-full ${t.scoreBarBg} overflow-hidden`}>
             <motion.div
@@ -535,14 +535,14 @@ const LocationsView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
         </div>
         <div className="col-span-2 flex justify-center">
           {loc.trend === "down" ? (
-            <span className={`flex items-center gap-1 text-xs ${t.textAccent}`}><ArrowDownRight className="w-3 h-3" />Improving</span>
+            <span className={`flex items-center gap-1 text-xs ${t.textAccent}`} style={{ fontFamily: BODY }}><ArrowDownRight className="w-3 h-3" />Improving</span>
           ) : (
-            <span className={`flex items-center gap-1 text-xs ${t.textDanger}`}><ArrowUpRight className="w-3 h-3" />Watch</span>
+            <span className={`flex items-center gap-1 text-xs ${t.textDanger}`} style={{ fontFamily: BODY }}><ArrowUpRight className="w-3 h-3" />Watch</span>
           )}
         </div>
       </motion.div>
     ))}
-    <p className={`text-[11px] ${t.textMuted} text-center pt-2`}>Click a location to see detailed analytics</p>
+    <p className={`text-[11px] ${t.textMuted} text-center pt-2`} style={{ fontFamily: BODY }}>Click a location to see detailed analytics</p>
   </motion.div>
 );
 
@@ -563,24 +563,24 @@ const ProvidersView = ({ onSelect, t }: { onSelect: (i: number) => void; t: Them
             {doc.name.split(" ").slice(1).map((n: string) => n[0]).join("")}
           </div>
           <div>
-            <p className={`text-sm font-medium ${t.textPrimary}`}>{doc.name}</p>
-            <p className={`text-xs ${t.textMuted}`}>{doc.location}</p>
+            <p className={`text-sm font-medium ${t.textPrimary}`} style={{ fontFamily: BODY }}>{doc.name}</p>
+            <p className={`text-xs ${t.textMuted}`} style={{ fontFamily: BODY }}>{doc.location}</p>
           </div>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className={`text-sm font-semibold ${t.textPrimary}`}>{doc.cases}</p>
-            <p className={`text-[10px] ${t.textMuted}`}>cases</p>
+            <p className={`text-sm font-semibold ${t.textPrimary}`} style={{ fontFamily: BODY }}>{doc.cases}</p>
+            <p className={`text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>cases</p>
           </div>
           <div className="text-right">
-            <p className={`text-sm font-semibold ${doc.accuracy >= 97 ? t.textAccent : t.textPrimary}`}>{doc.accuracy}%</p>
-            <p className={`text-[10px] ${t.textMuted}`}>accuracy</p>
+            <p className={`text-sm font-semibold ${doc.accuracy >= 97 ? t.textAccent : t.textPrimary}`} style={{ fontFamily: BODY }}>{doc.accuracy}%</p>
+            <p className={`text-[10px] ${t.textMuted}`} style={{ fontFamily: BODY }}>accuracy</p>
           </div>
           <ChevronRight className={`w-4 h-4 ${t.textMuted} group-hover:translate-x-0.5 transition-all`} />
         </div>
       </motion.div>
     ))}
-    <p className={`text-[11px] ${t.textMuted} text-center pt-2`}>Click a provider to see detailed analytics</p>
+    <p className={`text-[11px] ${t.textMuted} text-center pt-2`} style={{ fontFamily: BODY }}>Click a provider to see detailed analytics</p>
   </motion.div>
 );
 
@@ -589,7 +589,7 @@ const TrendsView = ({ t }: { t: Theme }) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-5`}>
-        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-4`}>Remake Rate Trend</p>
+        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-4`} style={{ fontFamily: BODY }}>Remake Rate Trend</p>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={trendData}>
             <defs>
@@ -610,7 +610,7 @@ const TrendsView = ({ t }: { t: Theme }) => (
         </div>
       </div>
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-5`}>
-        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-4`}>Case Volume Growth</p>
+        <p className={`text-xs ${t.textMuted} uppercase tracking-wider mb-4`} style={{ fontFamily: BODY }}>Case Volume Growth</p>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={trendData}>
             <CartesianGrid strokeDasharray="3 3" stroke={t.gridStroke} />
@@ -638,9 +638,9 @@ const TrendsView = ({ t }: { t: Theme }) => (
           transition={{ delay: 0.3 + i * 0.08 }}
           className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4`}
         >
-          <p className={`text-[10px] ${t.textAccent} uppercase tracking-wider font-medium`}>{card.title}</p>
-          <p className={`text-base font-semibold ${t.textPrimary} mt-2`}>{card.value}</p>
-          <p className={`text-xs ${t.textMuted} mt-1`}>{card.detail}</p>
+          <p className={`text-[10px] ${t.textAccent} uppercase tracking-wider font-medium`} style={{ fontFamily: BODY }}>{card.title}</p>
+          <p className={`text-base font-semibold ${t.textPrimary} mt-2`} style={{ fontFamily: BODY }}>{card.value}</p>
+          <p className={`text-xs ${t.textMuted} mt-1`} style={{ fontFamily: BODY }}>{card.detail}</p>
         </motion.div>
       ))}
     </div>
@@ -677,9 +677,9 @@ const LiveEventTicker = ({ t }: { t: Theme }) => {
             transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
             style={{ width: 7, height: 7, borderRadius: "50%", background: "hsl(145,65%,48%)", flexShrink: 0 }}
           />
-          <span className={`text-[11px] font-semibold uppercase tracking-widest ${t.textMuted}`}>Live Activity</span>
+          <span className={`text-[11px] font-semibold uppercase tracking-widest ${t.textMuted}`} style={{ fontFamily: BODY }}>Live Activity</span>
         </div>
-        <span className={`text-[10px] ${t.textMuted} opacity-60`}>Real-time · Network-wide</span>
+        <span className={`text-[10px] ${t.textMuted} opacity-60`} style={{ fontFamily: BODY }}>Real-time · Network-wide</span>
       </div>
       <div style={{ height: "5.5rem", overflow: "hidden", position: "relative" }}>
         <AnimatePresence initial={false} mode="popLayout">
@@ -692,18 +692,10 @@ const LiveEventTicker = ({ t }: { t: Theme }) => {
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "0.45rem 1rem" }}
             >
-              <span
-                style={{
-                  display: "inline-block", padding: "2px 8px", borderRadius: 999,
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-                  background: `${typeColor[ev.type] ?? "#999"}22`,
-                  color: typeColor[ev.type] ?? "#999",
-                  flexShrink: 0,
-                }}
-              >{ev.type}</span>
-              <span className={`text-sm font-medium ${t.textPrimary} truncate`}>{ev.dr}</span>
-              <span className={`text-xs ${t.textMuted} truncate hidden sm:block`}>· {ev.loc}</span>
-              <span className={`text-[10px] ${t.textMuted} ml-auto flex-shrink-0 opacity-60`}>just now</span>
+              <span style={{ ...{display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: `${typeColor[ev.type] ?? "#999"}22`, color: typeColor[ev.type] ?? "#999", flexShrink: 0,}, ...{fontFamily: BODY} }}>{ev.type}</span>
+              <span className={`text-sm font-medium ${t.textPrimary} truncate`} style={{ fontFamily: BODY }}>{ev.dr}</span>
+              <span className={`text-xs ${t.textMuted} truncate hidden sm:block`} style={{ fontFamily: BODY }}>· {ev.loc}</span>
+              <span className={`text-[10px] ${t.textMuted} ml-auto flex-shrink-0 opacity-60`} style={{ fontFamily: BODY }}>just now</span>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -723,8 +715,10 @@ const BG_STYLE: Record<string, React.CSSProperties> = {
   black:    { background: "#000000", color: "#fff" },
   gradient: { background: "radial-gradient(ellipse 120% 100% at 50% 50%, var(--brand-primary) 0%, #001a14 55%, #000000 100%)", color: "#fff" },
 };
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
+const DISPLAY = DISPLAY_FONT;
 
 /* ── Main block component ───────────────────────────────── */
 export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {
@@ -815,20 +809,8 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
         {/* Header */}
         <div className="text-center mb-10">
           {eyebrow && (
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))",
-                marginBottom: "1.25rem",
-              }}
-            >
-              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            <motion.p initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ ...{fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))", marginBottom: "1.25rem",}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
           <motion.h2
@@ -845,24 +827,11 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
               color: isDark ? "hsl(48,100%,96%)" : "hsl(152,40%,13%)",
             }}
           >
-            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline />
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
           </motion.h2>
           {subheadline && (
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              style={{
-                marginTop: "1.25rem",
-                fontSize: "1.125rem",
-                lineHeight: 1.65,
-                maxWidth: 560,
-                margin: "1.25rem auto 0",
-                color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)",
-              }}
-            >
-              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+            <motion.p initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} style={{ ...{marginTop: "1.25rem", fontSize: "1.125rem", lineHeight: 1.65, maxWidth: 560, margin: "1.25rem auto 0", color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)",}, ...{fontFamily: BODY} }}>
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
             </motion.p>
           )}
         </div>
@@ -883,7 +852,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="hidden sm:inline" style={{ fontFamily: BODY }}>{tab.label}</span>
                 </button>
               );
             })}
@@ -906,7 +875,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
                 style={{ width: 6, height: 6, borderRadius: "50%", background: "hsl(145,65%,48%)", flexShrink: 0 }}
               />
-              <span className={`text-[10px] font-semibold tracking-widest uppercase ${t.textAccent}`} style={{ opacity: 0.9 }}>Live</span>
+              <span className={`text-[10px] font-semibold tracking-widest uppercase ${t.textAccent}`} style={{ ...{opacity: 0.9}, ...{fontFamily: BODY} }}>Live</span>
             </div>
             <div className="flex-1 max-w-xs">
               <div className={`rounded ${t.browserUrlBg} px-3 py-1 text-[11px] ${t.browserUrlText} text-center`}>

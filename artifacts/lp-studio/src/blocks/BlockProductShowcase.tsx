@@ -89,14 +89,11 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
                 multiline style={{ fontFamily: BODY }} />
               {card.badge && (
                 <div className="mt-2">
-                  <span
-                    className="inline-block text-xs font-bold px-3 py-1.5 rounded-full"
-                    style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-                  >
+                  <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full" style={{ ...{backgroundColor: brand.accentColor, color: brand.primaryColor}, ...{fontFamily: BODY} }}>
                     <InlineText
                       value={card.badge}
                       onUpdate={onFieldChange ? (v) => updateCard(i, "badge", v) : undefined}
-                    />
+                    style={{ fontFamily: BODY }}/>
                   </span>
                 </div>
               )}

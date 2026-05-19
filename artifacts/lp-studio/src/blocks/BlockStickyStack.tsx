@@ -75,7 +75,7 @@ export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, page
               <InlineText
                 value={props.eyebrow}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined}
-              />
+              style={{ fontFamily: BODY }}/>
             </p>
           )}
           {props.headline && (
@@ -83,7 +83,7 @@ export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, page
               <InlineText
                 value={props.headline}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-              />
+              style={{ fontFamily: BODY }}/>
             </h2>
           )}
         </div>
@@ -206,7 +206,7 @@ function CardLayer({
             className={`relative h-64 md:h-full ${card.imageSide === "left" ? "md:order-1" : "md:order-2"} flex items-center justify-center`}
             style={{ backgroundColor: card.accentColor || "var(--brand-accent)" }}
           >
-            <span className="text-9xl md:text-[14rem] font-black opacity-20" style={{ color: card.bgColor || "#0B0B0F" }}>
+            <span className="text-9xl md:text-[14rem] font-black opacity-20" style={{ ...{color: card.bgColor || "#0B0B0F"}, ...{fontFamily: BODY} }}>
               {String(index + 1).padStart(2, "0")}
             </span>
           </div>
@@ -215,22 +215,16 @@ function CardLayer({
         {/* Copy side */}
         <div className={`flex flex-col justify-center p-8 md:p-16 ${card.imageSide === "left" ? "md:order-2" : "md:order-1"}`}>
           {card.tag && (
-            <span
-              className="self-start text-xs font-bold uppercase tracking-widest mb-5 px-3 py-1 rounded-full"
-              style={{
-                backgroundColor: card.accentColor || "var(--brand-accent)",
-                color: card.bgColor || "#0B0B0F",
-              }}
-            >
-              <InlineText value={card.tag} onUpdate={onChange ? (v) => onChange({ tag: v }) : undefined} />
+            <span className="self-start text-xs font-bold uppercase tracking-widest mb-5 px-3 py-1 rounded-full" style={{ ...{backgroundColor: card.accentColor || "var(--brand-accent)", color: card.bgColor || "#0B0B0F",}, ...{fontFamily: BODY} }}>
+              <InlineText value={card.tag} onUpdate={onChange ? (v) => onChange({ tag: v }) : undefined} style={{ fontFamily: BODY }}/>
             </span>
           )}
           <h3 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-5" style={{ fontFamily: DISPLAY }}>
-            <InlineText value={card.title} onUpdate={onChange ? (v) => onChange({ title: v }) : undefined} />
+            <InlineText value={card.title} onUpdate={onChange ? (v) => onChange({ title: v }) : undefined} style={{ fontFamily: BODY }}/>
           </h3>
           {card.body && (
             <p className="text-base md:text-lg leading-relaxed opacity-80 max-w-md" style={{ fontFamily: BODY }}>
-              <InlineText value={card.body} onUpdate={onChange ? (v) => onChange({ body: v }) : undefined} />
+              <InlineText value={card.body} onUpdate={onChange ? (v) => onChange({ body: v }) : undefined} style={{ fontFamily: BODY }}/>
             </p>
           )}
 
@@ -255,7 +249,7 @@ function CardLayer({
               }}
               className="self-start mt-7 font-bold px-7 py-3.5 rounded-xl text-sm md:text-base hover:brightness-110 transition-all"
             >
-              <InlineText value={card.ctaText} onUpdate={onChange ? (v) => onChange({ ctaText: v }) : undefined} />
+              <InlineText value={card.ctaText} onUpdate={onChange ? (v) => onChange({ ctaText: v }) : undefined} style={{ fontFamily: BODY }}/>
             </button>
           ) : null}
 

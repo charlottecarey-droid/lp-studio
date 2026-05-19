@@ -23,7 +23,8 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+const BODY = BRAND_BODY_FONT;
 const DISPLAY = `${BRAND_DISPLAY_FONT}, 'Inter', system-ui, sans-serif`;
 
 export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, variantId }: Props) {
@@ -109,21 +110,8 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
       viewport={{ once: true }}
       style={{ marginBottom: "1.5rem" }}
     >
-      <span
-        style={{
-          display: "inline-block",
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color: eyebrowC,
-          background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`,
-          border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.125)`}`,
-          borderRadius: "999px",
-          padding: "0.35rem 1rem",
-        }}
-      >
-        <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+      <span style={{ ...{display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: eyebrowC, background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`, border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.125)`}`, borderRadius: "999px", padding: "0.35rem 1rem",}, ...{fontFamily: BODY} }}>
+        <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
       </span>
     </motion.div>
   ) : null;
@@ -144,27 +132,13 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
         marginBottom: "1.25rem",
       }}
     >
-      <InlineText as="span" value={headline || "Your practice. Elevated."} onUpdate={field("headline")} multiline />
+      <InlineText as="span" value={headline || "Your practice. Elevated."} onUpdate={field("headline")} multiline style={{ fontFamily: BODY }}/>
     </motion.h1>
   );
 
   const subEl = (align: "center" | "left") => subheadline ? (
-    <motion.p
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true }}
-      transition={{ delay: 0.12 }}
-      style={{
-        fontSize: "1.125rem",
-        lineHeight: 1.7,
-        color: subC,
-        marginBottom: "2.25rem",
-        maxWidth: align === "center" ? 600 : undefined,
-        marginLeft: align === "center" ? "auto" : undefined,
-        marginRight: align === "center" ? "auto" : undefined,
-      }}
-    >
-      <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
+    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.12 }} style={{ ...{fontSize: "1.125rem", lineHeight: 1.7, color: subC, marginBottom: "2.25rem", maxWidth: align === "center" ? 600 : undefined, marginLeft: align === "center" ? "auto" : undefined, marginRight: align === "center" ? "auto" : undefined,}, ...{fontFamily: BODY} }}>
+      <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
     </motion.p>
   ) : null;
 
@@ -189,7 +163,7 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
           variantId={variantId}
           source="dso-practice-hero-primary"
         >
-          <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} />
+          <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
         </CtaButton>
       )}
 
@@ -206,31 +180,17 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
           variantId={variantId}
           source="dso-practice-hero-secondary"
         >
-          <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
+          <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
         </CtaButton>
       )}
     </motion.div>
   );
 
   const trustEl = trustLine ? (
-    <motion.p
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true }}
-      transition={{ delay: 0.28 }}
-      style={{
-        marginTop: "1.75rem",
-        fontSize: "0.8125rem",
-        color: trustC,
-        letterSpacing: "0.01em",
-        display: "flex",
-        alignItems: "center",
-        gap: "0.5rem",
-      }}
-    >
-      <span style={{ display: "inline-block", width: 32, height: 1, background: divC }} />
-      <InlineText as="span" value={trustLine} onUpdate={field("trustLine")} />
-      <span style={{ display: "inline-block", width: 32, height: 1, background: divC }} />
+    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ ...{marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", gap: "0.5rem",}, ...{fontFamily: BODY} }}>
+      <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
+      <InlineText as="span" value={trustLine} onUpdate={field("trustLine")} style={{ fontFamily: BODY }}/>
+      <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
     </motion.p>
   ) : null;
 
@@ -357,25 +317,10 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
             {ctasEl}
           </div>
           {trustLine && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.28 }}
-              style={{
-                marginTop: "1.75rem",
-                fontSize: "0.8125rem",
-                color: trustC,
-                letterSpacing: "0.01em",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <span style={{ display: "inline-block", width: 32, height: 1, background: divC }} />
+            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.28 }} style={{ ...{marginTop: "1.75rem", fontSize: "0.8125rem", color: trustC, letterSpacing: "0.01em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",}, ...{fontFamily: BODY} }}>
+              <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
               {trustLine}
-              <span style={{ display: "inline-block", width: 32, height: 1, background: divC }} />
+              <span style={{ ...{display: "inline-block", width: 32, height: 1, background: divC}, ...{fontFamily: BODY} }} />
             </motion.p>
           )}
         </div>
