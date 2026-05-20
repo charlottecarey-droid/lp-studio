@@ -4,8 +4,12 @@ import type { BentoShowcaseBlockProps, BentoShowcaseTile } from "@/lib/block-typ
 import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 import type { ReactNode } from "react";
+
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 interface Props {
   props: BentoShowcaseBlockProps;
@@ -190,7 +194,7 @@ export function BlockBentoShowcase({ props, brand, onFieldChange, childrenSlot }
   return (
     <section
       className="relative font-sans"
-      style={{ backgroundColor: bg, color: text }}
+      style={{ backgroundColor: bg, color: text, fontFamily: BODY }}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
         {(props.eyebrow || props.headline || props.subheadline) && (
@@ -206,7 +210,7 @@ export function BlockBentoShowcase({ props, brand, onFieldChange, childrenSlot }
             {props.headline && (
               <h2
                 className="font-bold tracking-tight leading-[1.05]"
-                style={{ fontSize: "clamp(2rem, 4.5vw, 3.5rem)" }}
+                style={{ fontSize: "clamp(2rem, 4.5vw, 3.5rem)", fontFamily: DISPLAY }}
               >
                 <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline />
               </h2>
