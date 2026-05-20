@@ -39,14 +39,23 @@ async function uploadVideo(file: File, onProgress?: (pct: number) => void): Prom
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onload = () => {
+      const parseJsonSafe = (): { error?: string } | null => {
+        try { return JSON.parse(xhr.responseText) as { error?: string }; } catch { return null; }
+      };
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(JSON.parse(xhr.responseText) as MediaItem);
-      } else {
-        const body = JSON.parse(xhr.responseText) as { error?: string };
-        reject(new Error(body.error ?? "Upload failed"));
+        const parsed = parseJsonSafe();
+        if (parsed) resolve(parsed as unknown as MediaItem);
+        else reject(new Error("Upload succeeded but response was invalid."));
+        return;
       }
+      if (xhr.status === 413) {
+        reject(new Error("File too large for this server. The deployment proxy limits uploads to ~32 MB. Try a smaller file or compress the video."));
+        return;
+      }
+      const parsed = parseJsonSafe();
+      reject(new Error(parsed?.error ?? `Upload failed (status ${xhr.status}).`));
     };
-    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.onerror = () => reject(new Error("Network error during upload."));
     xhr.send(formData);
   });
 }

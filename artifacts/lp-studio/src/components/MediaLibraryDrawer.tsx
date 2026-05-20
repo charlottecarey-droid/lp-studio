@@ -470,10 +470,13 @@ function VideosTab({ onSelect }: { onSelect: (url: string) => void }) {
       xhr.open("POST", "/api/lp/media/upload");
       xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100)); };
       xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error("Upload failed"));
+        if (xhr.status >= 200 && xhr.status < 300) { resolve(); return; }
+        if (xhr.status === 413) { reject(new Error("File too large for this server. The deployment proxy limits uploads to ~32 MB. Try a smaller file or compress the video.")); return; }
+        let msg = `Upload failed (status ${xhr.status}).`;
+        try { const body = JSON.parse(xhr.responseText) as { error?: string }; if (body?.error) msg = body.error; } catch { /* HTML error page from proxy */ }
+        reject(new Error(msg));
       };
-      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.onerror = () => reject(new Error("Network error during upload."));
       xhr.send(formData);
     });
   };
