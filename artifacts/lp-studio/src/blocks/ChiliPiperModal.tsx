@@ -84,6 +84,10 @@ export function useChiliPiperBookingTracking({
   useEffect(() => { submittedRef.current = false; }, [url]);
 
   useEffect(() => {
+    // Skip entirely when this instance has no configured scheduler URL —
+    // it can't have produced the booking and would otherwise write a blank
+    // sibling lead row when the real booking iframe broadcasts on window.
+    if (!url) return;
     const handler = async (event: MessageEvent) => {
       if (submittedRef.current) return;
 
@@ -98,17 +102,23 @@ export function useChiliPiperBookingTracking({
         (typeof d.action === "string" && d.action.toLowerCase().includes("booking"));
 
       if (!isBookingConfirmed) return;
-      submittedRef.current = true;
 
       const lead = extractLeadFromEvent(data);
+      // A real booking always carries identity. If we got nothing, this
+      // is either a stray lifecycle event or a sibling instance picking
+      // up another modal's broadcast — drop it instead of writing a
+      // blank row.
+      if (!lead?.email && !lead?.firstName && !lead?.phone) return;
+      submittedRef.current = true;
+
       const fields: Record<string, string> = {};
-      if (lead?.firstName && lead?.lastName) {
+      if (lead.firstName && lead.lastName) {
         fields["Name"] = `${lead.firstName} ${lead.lastName}`.trim();
-      } else if (lead?.firstName) {
+      } else if (lead.firstName) {
         fields["Name"] = lead.firstName;
       }
-      if (lead?.email) fields["Email"] = lead.email;
-      if (lead?.phone) fields["Phone"] = lead.phone;
+      if (lead.email) fields["Email"] = lead.email;
+      if (lead.phone) fields["Phone"] = lead.phone;
       fields["Booking Source"] = "Chili Piper";
       fields["Chili Piper URL"] = url;
 

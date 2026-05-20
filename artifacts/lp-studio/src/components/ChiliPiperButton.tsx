@@ -36,7 +36,6 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
         (typeof d.action === "string" && d.action.toLowerCase().includes("booking"));
 
       if (!isBookingConfirmed) return;
-      submittedRef.current = true;
 
       const rawLead =
         (d.args as Record<string, unknown>)?.lead ??
@@ -55,6 +54,13 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
         if (typeof l.email === "string" && l.email) fields["Email"] = l.email;
         if (typeof l.phone === "string" && l.phone) fields["Phone"] = l.phone;
       }
+      // Bail when we couldn't extract any identity AND this instance has
+      // no scheduler URL. Either condition alone is enough to prove the
+      // booking didn't originate here, so we skip writing a blank lead
+      // (which is what was filling Sentry-style noise in the leads view).
+      const hasIdentity = !!(fields["Name"] || fields["Email"] || fields["Phone"]);
+      if (!url || !hasIdentity) return;
+      submittedRef.current = true;
       fields["Booking Source"] = "Chili Piper";
       fields["Chili Piper URL"] = url;
 
