@@ -1,6 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Defensive stub for window.webkit.messageHandlers.
+         Facebook/Instagram's in-app browser on iOS exposes a partial
+         `window.webkit` object where `messageHandlers` is undefined (unlike
+         real WKWebView). Third-party snippets below (RB2B, GTM-loaded tags,
+         Apollo, etc.) — as well as scripts injected by the in-app browser
+         itself — sometimes call `window.webkit.messageHandlers.<name>(...)`
+         unconditionally, throwing `TypeError: undefined is not an object`
+         at the very top of the page and breaking pageload.
+
+         Install a no-op Proxy *before* any other inline script runs so
+         arbitrary `.messageHandlers.foo.postMessage(...)` style access
+         silently no-ops instead of throwing. Wrapped in try/catch so a
+         missing Proxy on ancient browsers can never itself break the page. -->
+    <script>
+      try {
+        window.webkit = window.webkit || {};
+        if (!window.webkit.messageHandlers) {
+          window.webkit.messageHandlers = new Proxy({}, {
+            get: function () {
+              return new Proxy(function () {}, {
+                get: function () { return function () {}; },
+                apply: function () {}
+              });
+            }
+          });
+        }
+      } catch (e) { /* no-op: never let the guard itself break pageload */ }
+    </script>
     <!-- RB2B Visitor Identification — partners.meetdandy.com only -->
     <script>if (location.hostname === 'partners.meetdandy.com') { !function(key) {if (window.reb2b) return;window.reb2b = {loaded: true};var s = document.createElement("script");s.async = true;s.src = "https://ddwl4m2hdecbv.cloudfront.net/b/" + key + "/" + key + ".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s, document.getElementsByTagName("script")[0]);}("5NRP9H7ZVYO1"); }</script>
     <!-- Google Tag Manager — lp.meetdandy.com only. Intentionally NOT loaded
