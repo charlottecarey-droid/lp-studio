@@ -111,18 +111,22 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
         )}
 
         {/*
-          Mobile: 2-column grid so all stats are visible at once (no horizontal
-          scroll). Desktop (sm+): equal-width grid columns inside a bordered
+          Mobile: horizontal snap-scroll so 3 or 6 items don't leave an
+          odd card stranded in a 2-col grid. Each item is ~70% viewport
+          width so the next one peeks in to hint scrollability.
+          Desktop (sm+): equal-width grid columns inside a bordered
           card with internal dividers between items.
         */}
         <div
-          className="dso-stat-row grid grid-cols-2 sm:grid gap-3 sm:gap-0"
+          className="dso-stat-row flex overflow-x-auto snap-x snap-mandatory gap-3 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:gap-0 sm:overflow-visible"
           style={{
             ["--dso-stat-cols" as string]: String(Math.min(items.length, 4)),
             ["--dso-stat-border" as string]: divC,
+            scrollbarWidth: "none",
           }}
         >
           <style>{`
+            .dso-stat-row::-webkit-scrollbar { display: none; }
             @media (min-width: 640px) {
               .dso-stat-row {
                 grid-template-columns: repeat(var(--dso-stat-cols), 1fr);
@@ -142,7 +146,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.5 }}
-                className={`rounded-2xl sm:rounded-none border sm:border-0 ${isLast ? "" : "sm:border-r"}`}
+                className={`rounded-2xl sm:rounded-none border sm:border-0 shrink-0 basis-[70%] snap-start sm:basis-auto sm:shrink ${isLast ? "" : "sm:border-r"}`}
                 style={{
                   padding: "1.25rem 1rem",
                   textAlign: "center",
