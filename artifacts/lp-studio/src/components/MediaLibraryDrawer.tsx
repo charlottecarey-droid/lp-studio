@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ensureCsrfToken, clearCsrfToken } from "@/lib/api-fetch";
 import {
   Search, Upload, Loader2, X, Tag, Check, Pencil,
   FolderOpen, ChevronLeft, ChevronRight, Film, Play, Link2, FileText, Trash2,
@@ -459,26 +460,44 @@ function VideosTab({ onSelect }: { onSelect: (url: string) => void }) {
 
   useEffect(() => { fetchVideos(); }, [fetchVideos]);
 
-  const uploadVideo = async (file: File) => {
-    setUploading(true);
-    setUploadPct(0);
+  const uploadVideoOnce = (file: File, csrfToken: string) => {
     return new Promise<void>((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("title", file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/lp/media/upload");
+      xhr.withCredentials = true;
+      if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
       xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100)); };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) { resolve(); return; }
         if (xhr.status === 413) { reject(new Error("File too large for this server. The deployment proxy limits uploads to ~32 MB. Try a smaller file or compress the video.")); return; }
         let msg = `Upload failed (status ${xhr.status}).`;
         try { const body = JSON.parse(xhr.responseText) as { error?: string }; if (body?.error) msg = body.error; } catch { /* HTML error page from proxy */ }
-        reject(new Error(msg));
+        const err = new Error(msg) as Error & { status?: number };
+        err.status = xhr.status;
+        reject(err);
       };
       xhr.onerror = () => reject(new Error("Network error during upload."));
       xhr.send(formData);
     });
+  };
+
+  const uploadVideo = async (file: File) => {
+    setUploading(true);
+    setUploadPct(0);
+    const token = (await ensureCsrfToken()) ?? "";
+    try {
+      await uploadVideoOnce(file, token);
+    } catch (err) {
+      const e = err as Error & { status?: number };
+      const looksLikeCsrf = e.status === 403 && /csrf/i.test(e.message);
+      if (!looksLikeCsrf) throw err;
+      clearCsrfToken();
+      const fresh = (await ensureCsrfToken()) ?? "";
+      await uploadVideoOnce(file, fresh);
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -661,26 +680,43 @@ function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
 
   useEffect(() => { fetchPdfs(); }, [fetchPdfs]);
 
-  const uploadPdf = (file: File) => {
-    setUploading(true);
-    setUploadPct(0);
-    setError("");
+  const uploadPdfOnce = (file: File, csrfToken: string) => {
     return new Promise<void>((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", file);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/lp/pdf/upload");
+      xhr.withCredentials = true;
+      if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
       xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100)); };
       xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else {
-          try { reject(new Error(JSON.parse(xhr.responseText)?.error ?? "Upload failed")); }
-          catch { reject(new Error("Upload failed")); }
-        }
+        if (xhr.status >= 200 && xhr.status < 300) { resolve(); return; }
+        let msg = "Upload failed";
+        try { const body = JSON.parse(xhr.responseText) as { error?: string }; if (body?.error) msg = body.error; } catch { /* ignore */ }
+        const err = new Error(msg) as Error & { status?: number };
+        err.status = xhr.status;
+        reject(err);
       };
       xhr.onerror = () => reject(new Error("Network error"));
       xhr.send(formData);
     });
+  };
+
+  const uploadPdf = async (file: File) => {
+    setUploading(true);
+    setUploadPct(0);
+    setError("");
+    const token = (await ensureCsrfToken()) ?? "";
+    try {
+      await uploadPdfOnce(file, token);
+    } catch (err) {
+      const e = err as Error & { status?: number };
+      const looksLikeCsrf = e.status === 403 && /csrf/i.test(e.message);
+      if (!looksLikeCsrf) throw err;
+      clearCsrfToken();
+      const fresh = (await ensureCsrfToken()) ?? "";
+      await uploadPdfOnce(file, fresh);
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

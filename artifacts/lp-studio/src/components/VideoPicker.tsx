@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, Loader2, Play, Check, X, Film, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ensureCsrfToken, clearCsrfToken } from "@/lib/api-fetch";
 
 interface MediaItem {
   id: string;
@@ -27,7 +28,11 @@ async function fetchMediaLibrary(): Promise<MediaItem[]> {
   return data.items ?? [];
 }
 
-async function uploadVideo(file: File, onProgress?: (pct: number) => void): Promise<MediaItem> {
+async function uploadVideoOnce(
+  file: File,
+  csrfToken: string,
+  onProgress?: (pct: number) => void,
+): Promise<MediaItem> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("title", file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
@@ -35,6 +40,8 @@ async function uploadVideo(file: File, onProgress?: (pct: number) => void): Prom
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/lp/media/upload");
+    xhr.withCredentials = true;
+    if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -53,11 +60,27 @@ async function uploadVideo(file: File, onProgress?: (pct: number) => void): Prom
         return;
       }
       const parsed = parseJsonSafe();
-      reject(new Error(parsed?.error ?? `Upload failed (status ${xhr.status}).`));
+      const err = new Error(parsed?.error ?? `Upload failed (status ${xhr.status}).`) as Error & { status?: number };
+      err.status = xhr.status;
+      reject(err);
     };
     xhr.onerror = () => reject(new Error("Network error during upload."));
     xhr.send(formData);
   });
+}
+
+async function uploadVideo(file: File, onProgress?: (pct: number) => void): Promise<MediaItem> {
+  const token = (await ensureCsrfToken()) ?? "";
+  try {
+    return await uploadVideoOnce(file, token, onProgress);
+  } catch (err) {
+    const e = err as Error & { status?: number };
+    const looksLikeCsrf = e.status === 403 && /csrf/i.test(e.message);
+    if (!looksLikeCsrf) throw err;
+    clearCsrfToken();
+    const fresh = (await ensureCsrfToken()) ?? "";
+    return uploadVideoOnce(file, fresh, onProgress);
+  }
 }
 
 interface VideoThumbnailProps {
