@@ -142,10 +142,9 @@ function buildBriefContextPrompt(brief: BriefContext): string {
 
   if (parts.length === 0) return "";
   return [
-    "ACTIVE CAMPAIGN BRIEF — This overrides any general audience guidance above.",
-    "Write copy SPECIFICALLY for this brief. Do not fall back to generic dental practice copy.",
+    "ACTIVE CAMPAIGN BRIEF — Use this as voice, audience, and tone guidance.",
     parts.join("\n"),
-    "Every word should reflect this specific audience, objective, and value props — not a generic alternative.",
+    "IMPORTANT: This brief is supporting context, not topic direction. If the field being rewritten already has copy, your job is to rewrite THAT copy in the brief's voice — keep the original topic, intent, and concrete specifics intact. Do not replace specific content with generic segment messaging.",
   ].join("\n");
 }
 
@@ -267,16 +266,26 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
     const systemPrompt = [
       brandPrompt,
       dsoContext,
+      briefPrompt,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
+      `ANCHORING RULE: If a field already has copy, your output MUST be a true rewrite of THAT copy — same topic, same intent, same concrete specifics (numbers, product names, named groups). Change wording, rhythm, and structure only. Do not invent a different message. Do not collapse to generic segment copy. Treat the other fields' current copy as a contract for what this block is about.`,
       `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
       `Keep each value under 200 characters unless it is a body/description field (max 400 chars).`,
       `Do not include any explanation, markdown, or extra text — only the JSON object.`,
-      briefPrompt,
     ].filter(Boolean).join("\n");
 
+    const allCurrentLines = Object.entries(currentValues)
+      .filter(([, v]) => typeof v === "string" && v.trim())
+      .map(([k, v]) => `  ${k}: "${v}"`)
+      .join("\n");
+
     const userPrompt = contextParts.length > 0
-      ? `Current copy (use as context, not as a template):\n${contextParts.join("\n")}\n\nGenerate fresh alternatives that feel like natural rewrites.`
+      ? [
+          allCurrentLines ? `Full current block copy (for topic + intent grounding):\n${allCurrentLines}` : "",
+          `Rewrite the following fields. Keep each rewrite on the same topic and intent as its current value above — only change wording.`,
+          `Fields to rewrite: ${validFields.join(", ")}`,
+        ].filter(Boolean).join("\n\n")
       : `Generate on-brand copy for a "${blockType}" block with fields: ${validFields.join(", ")}.`;
 
     try {
@@ -399,21 +408,33 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
     .map(([k, v]) => `  ${k}: "${v}"`)
     .join("\n");
 
+  const hasCurrent = currentValue.trim().length > 0;
+
   const systemPrompt = [
     brandPrompt,
     dsoContext,
+    briefPrompt,
     `You are writing a "${field}" field for a landing page "${blockType}" block.`,
+    hasCurrent
+      ? `ANCHORING RULE: The field already has copy. Your alternatives MUST be true rewrites of that copy — same topic, same intent, same concrete specifics (numbers, product names, named groups, audience). Change wording, rhythm, and structure only. Do not invent a different message. Do not collapse to generic segment copy. Treat the other fields on this block as a contract for what this block is about.`
+      : "",
     `Generate exactly ${safeCount} distinct alternatives. Each must be a non-empty string under 300 characters.`,
     `Return ONLY a valid JSON array of strings — no markdown, no explanation, no wrapper object.`,
     `Example format: ["Option 1", "Option 2", "Option 3"]`,
-    briefPrompt,
   ].filter(Boolean).join("\n");
 
-  const userLines = [`Current "${field}": "${currentValue}"`];
-  if (siblingContext) {
-    userLines.push(`Other fields on this block for context:\n${siblingContext}`);
+  const userLines: string[] = [];
+  if (hasCurrent) {
+    userLines.push(`Current "${field}": "${currentValue}"`);
   }
-  userLines.push(`\nGenerate ${safeCount} fresh, on-brand alternatives for the "${field}" field.`);
+  if (siblingContext) {
+    userLines.push(`Other fields on this block (this is what the block is about — stay on this topic):\n${siblingContext}`);
+  }
+  userLines.push(
+    hasCurrent
+      ? `\nRewrite the "${field}" above ${safeCount} different ways. Same topic, same intent, same specifics — just freshly worded in the brand's voice.`
+      : `\nGenerate ${safeCount} fresh, on-brand alternatives for the "${field}" field.`,
+  );
 
   const callMessages: { role: "system" | "user"; content: string }[] = [
     { role: "system", content: systemPrompt },
