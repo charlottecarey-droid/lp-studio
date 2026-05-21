@@ -149,7 +149,13 @@ function isChunkLoadError(reason: unknown): boolean {
     /Failed to fetch dynamically imported module/i.test(msg) ||
     /Importing a module script failed/i.test(msg) ||
     /error loading dynamically imported module/i.test(msg) ||
-    /ChunkLoadError/i.test(msg)
+    /ChunkLoadError/i.test(msg) ||
+    // Safari (iOS/Mobile Safari) variant: when a stale hashed chunk 404s and the
+    // server returns the SPA index.html with Content-Type: text/html, Safari
+    // refuses to execute it as a module and throws this MIME-type TypeError.
+    /is not a valid JavaScript MIME type/i.test(msg) ||
+    // Chrome variant for module script load failures (e.g. wrong MIME / 404).
+    /Failed to load module script/i.test(msg)
   );
 }
 function tryReloadOnce() {
