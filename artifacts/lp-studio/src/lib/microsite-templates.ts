@@ -927,6 +927,198 @@ function executiveBlocks(): PageBlock[] {
   ] as PageBlock[];
 }
 
+function businessCaseBody(): PageBlock[] {
+  // Sections 2–9 of the Business Case template. Shared across the Split and
+  // Centered hero variants — only the hero block differs between them.
+  return [
+    // 2 — The Situation
+    {
+      id: makeId("pas-section"),
+      type: "pas-section",
+      props: {
+        headline: "The Situation",
+        body: "Scaling a DSO today requires more than acquiring practices. It demands standardizing clinical quality across hundreds of chairs while managing capital expenditure, fragmented lab vendors, and inconsistent provider workflows — all without slowing the engine of growth.",
+        bullets: [
+          "Scanner CAPEX requests piling up at every new acquisition",
+          "Lab vendor sprawl with no centralized quality standard",
+          "Remake rates buried inside per-location P&Ls",
+          "Doctor recruitment pressure tied to clinical experience",
+        ],
+      },
+    },
+    // 3 — The Signal
+    {
+      id: makeId("dso-stat-bar"),
+      type: "dso-stat-bar",
+      props: {
+        stats: [
+          { value: "+312%", label: "Dandy removables YoY across DSO accounts" },
+          { value: "1 in 3", label: "new doctors ask for Dandy by name" },
+          { value: "82%", label: "of pilot offices expand within 90 days" },
+          { value: "2,000+", label: "practices already running on Dandy" },
+        ],
+        backgroundStyle: "white",
+      },
+    },
+    // 4 — The Cost of Inaction
+    {
+      id: makeId("dso-challenges"),
+      type: "dso-challenges",
+      props: {
+        eyebrow: "The Cost of Inaction",
+        headline: "What every quarter of the status quo costs {company_name}.",
+        backgroundStyle: "muted",
+        layout: "4-col",
+        challenges: [
+          { title: "18% remake rate", desc: "Industry-average remakes at scale across {practice_count} practices translate to thousands of lost chair hours and tens of thousands in margin every quarter." },
+          { title: "~1,400 chair hours / yr", desc: "Lost to fragmented denture workflows, multi-appointment crown seats, and rework cycles that digital-first workflows eliminate." },
+          { title: "$40k+ scanner CAPEX", desc: "Per office, every refresh cycle — capital that could be deployed into new locations, doctor recruiting, or marketing instead." },
+          { title: "6–9 lab vendors", desc: "The typical DSO juggles a fragmented vendor stack with no consolidated reporting, quality bar, or negotiating leverage." },
+        ],
+      },
+    },
+    // 5 — The Dandy Difference
+    {
+      id: makeId("dso-comparison"),
+      type: "dso-comparison",
+      props: {
+        eyebrow: "The Dandy Difference",
+        headline: "The old way vs. the {company_name} + Dandy partnership.",
+        subheadline: "One vertically integrated lab partner, one quality standard, real-time visibility across every location — and zero scanner CAPEX.",
+        companyName: "{company_name}",
+        ctaText: "Schedule a working session",
+        ctaUrl: DANDY_CTA_URL,
+        rows: [
+          { need: "Case turnaround", dandy: "5-day crowns, predictable enterprise SLAs", traditional: "7–14 days, no SLA at the group level" },
+          { need: "First-time-right rate", dandy: "96% — AI-backed quality control", traditional: "Variable per lab and per technician" },
+          { need: "Doctor experience", dandy: "Premium scanners + chairside AI Scan Review", traditional: "Per-practice scanner CAPEX, manual rework" },
+          { need: "Data visibility", dandy: "Dandy Hub: live network-wide dashboard", traditional: "Siloed per-practice reports, or none" },
+          { need: "Partnership model", dandy: "Dedicated enterprise team, joint QBRs", traditional: "Transactional vendor relationship" },
+        ],
+      },
+    },
+    // 6 — The Math
+    {
+      id: makeId("trust-bar"),
+      type: "trust-bar",
+      props: {
+        items: [
+          { value: "+24%", label: "Incremental cases / month" },
+          { value: "1,400+", label: "Chair hours saved / year" },
+          { value: "12.5%", label: "Annualized revenue uplift" },
+          { value: "<6 mo", label: "Payback period" },
+        ],
+        bgColor: "#f6f5ee",
+        statColor: "#0f2a1c",
+        labelColor: "#6b7280",
+        countUpEnabled: true,
+      },
+    },
+    {
+      id: makeId("stat-callout"),
+      type: "stat-callout",
+      props: {
+        stat: "12.5%",
+        description: "Modeled annualized revenue uplift for {company_name} based on {practice_count} practices adopting the Dandy digital workflow.",
+        footnote: "Calibrated against APEX Dental Partners and Dental Care Alliance case study data.",
+        countUpEnabled: false,
+      },
+    },
+    // 7 — The Proof
+    {
+      id: makeId("dso-success-stories"),
+      type: "dso-success-stories",
+      props: {
+        eyebrow: "The Proof",
+        headline: "DSOs that built the business case — and never looked back.",
+        cases: [
+          { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue uplift", quote: "Dandy values education, technology, and people. That's what makes them a great partner — not just another lab.", author: "Dr. Layla Lohmann, Founder" },
+          { name: "Dental Care Alliance (300+ offices)", stat: "99%", label: "year-one retention across pilot practices", quote: "The training is incredible. The onboarding is incredible. The whole experience has been incredible — across every region we've rolled out.", author: "Dr. Trey Mueller, Chief Clinical Officer" },
+          { name: "Pacific Northwest Group (42 offices)", stat: "45%", label: "chair time saved on dentures", quote: "Smile+ transformed our denture workflow. We went from 3–5 appointments to a true same-day solution our providers actually love.", author: "VP of Clinical Operations" },
+        ],
+      },
+    },
+    // 8 — The Plan
+    {
+      id: makeId("how-it-works"),
+      type: "how-it-works",
+      props: {
+        headline: "The Plan",
+        steps: [
+          { number: "01", title: "Scope the pilot", description: "Week 1 — align on 5–10 pilot offices, define success metrics, and map current lab relationships." },
+          { number: "02", title: "Onboard & train", description: "Weeks 2–4 — Dandy ships scanners, runs in-office training, and integrates with your existing tech stack." },
+          { number: "03", title: "Measure & validate", description: "Month 2 — track case acceptance, first-time-right, turnaround, and chair hours saved across pilot offices." },
+          { number: "04", title: "Roll out across {company_name}", description: "Month 3+ — scale to all {practice_count} practices with a proven playbook and a dedicated enterprise team." },
+        ],
+        circleBg: "#0f2a1c",
+        circleText: "#c8e84e",
+      },
+    },
+    // 9 — Final CTA
+    {
+      id: makeId("dso-final-cta"),
+      type: "dso-final-cta",
+      props: {
+        eyebrow: "Next Steps",
+        headline: "Let's build the business case for {company_name}.",
+        subheadline: "A 30-minute working session with your dedicated enterprise team. We'll model the math against your {practice_count} practices and align on a pilot scope you can defend internally.",
+        primaryCtaText: "Schedule a working session",
+        primaryCtaUrl: DANDY_CTA_URL,
+        secondaryCtaText: "Download the one-pager",
+        secondaryCtaUrl: "#",
+      },
+    },
+  ] as PageBlock[];
+}
+
+function businessCaseSplitBlocks(): PageBlock[] {
+  return [
+    {
+      id: makeId("hero"),
+      type: "hero",
+      props: {
+        headline: "Building the business case for {company_name}'s next chapter.",
+        subheadline: "The DSO landscape is shifting from fragmented vendor management to centralized, digital-first clinical operations. Here is how leading groups are capitalizing on the change.",
+        ctaText: "Schedule a working session",
+        ctaUrl: DANDY_CTA_URL,
+        ctaColor: "#c8e84e",
+        heroType: "static-image",
+        layout: "split",
+        backgroundStyle: "dark",
+        showSocialProof: true,
+        socialProofText: "THE BUSINESS CASE · Prepared for {company_name}",
+        imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1400&fit=crop",
+        mediaUrl: "",
+      },
+    },
+    ...businessCaseBody(),
+  ] as PageBlock[];
+}
+
+function businessCaseCenteredBlocks(): PageBlock[] {
+  return [
+    {
+      id: makeId("hero"),
+      type: "hero",
+      props: {
+        headline: "The case for {company_name} and Dandy, in plain numbers.",
+        subheadline: "A comprehensive analysis of how transitioning to a fully digital lab partner impacts clinical outcomes, operational efficiency, and EBITDA at scale.",
+        ctaText: "Schedule a working session",
+        ctaUrl: DANDY_CTA_URL,
+        ctaColor: "#c8e84e",
+        heroType: "static-image",
+        layout: "centered",
+        backgroundStyle: "dark",
+        showSocialProof: true,
+        socialProofText: "THE BUSINESS CASE · Prepared for {company_name}",
+        imageUrl: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?q=80&w=1400&fit=crop",
+        mediaUrl: "",
+      },
+    },
+    ...businessCaseBody(),
+  ] as PageBlock[];
+}
+
 export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
   {
     id: "microsite-dandy",
@@ -982,5 +1174,25 @@ export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
     accentColor: "#2ecc71",
     bgColor: "#0a0f0d",
     buildBlocks: executiveBlocks,
+  },
+  {
+    id: "microsite-business-case-split",
+    name: "Business Case — Split",
+    description: "Editorial split hero (dark green + photo) opening a 9-section ROI narrative built for DSO executives. Matches the partners.meetdandy.com editorial cadence.",
+    skinKey: "executive",
+    badge: "Premium",
+    accentColor: "#c8e84e",
+    bgColor: "#0d1f15",
+    buildBlocks: businessCaseSplitBlocks,
+  },
+  {
+    id: "microsite-business-case-centered",
+    name: "Business Case — Centered",
+    description: "Symmetrical monograph-style hero opening the same 9-section ROI narrative. Centered title page for a more formal, restrained first impression.",
+    skinKey: "executive",
+    badge: "Premium",
+    accentColor: "#c8e84e",
+    bgColor: "#0d1f15",
+    buildBlocks: businessCaseCenteredBlocks,
   },
 ];
