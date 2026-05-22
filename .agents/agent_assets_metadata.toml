@@ -6,6 +6,12 @@ uri = "file://artifacts/lp-studio/public/opengraph.png"
 type = "image"
 title = "lp-studio-og-product"
 
+[[generated]]
+id = "wannpUqnICCsqU-90dSpc"
+uri = "file://artifacts/mockup-sandbox/public/images/dental-professional.png"
+type = "image"
+title = "editorial photo of dental professional"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
