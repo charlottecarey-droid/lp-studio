@@ -1,4 +1,15 @@
 @import "tailwindcss";
+
+@font-face {
+  font-family: 'Bagoss Standard';
+  src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),
+       url('./fonts/BagossStandard-Regular.woff') format('woff'),
+       url('./fonts/BagossStandard-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

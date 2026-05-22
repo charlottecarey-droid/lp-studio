@@ -81,7 +81,7 @@
   /* Brand-driven font fallbacks: when a tenant sets `displayFont` / `bodyFont`
      in Brand Settings, the page wrapper writes `--brand-font-display` and
      `--brand-font-body` and these tokens flip without a single block change. */
-  --brand-font-display: var(--app-font-display);
+  --brand-font-display: 'Bagoss Standard', var(--app-font-display);
   --brand-font-body: var(--app-font-sans);
 
   --radius-sm: calc(var(--radius) - 4px);
