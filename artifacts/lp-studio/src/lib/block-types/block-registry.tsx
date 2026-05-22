@@ -124,6 +124,8 @@ import type {
   StoryHubBlockProps,
   EventLandingHeroBlockProps,
   SpatialTourBlockProps,
+  BusinessCaseSplitBlockProps,
+  BusinessCaseCenteredBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -3397,7 +3399,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaSecondaryUrl: "#stories",
       lightTheme: {},
       darkTheme: {},
-    }),
+    } as StoryHubBlockProps),
     thumbnail: () => (
       <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
         <rect width="120" height="80" fill="#0C0F12" rx="4" />
@@ -3417,6 +3419,241 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="10" y="61" width="30" height="14" rx="1" fill="#1A1F25" />
         <rect x="45" y="61" width="30" height="14" rx="1" fill="#1A1F25" />
         <rect x="80" y="61" width="30" height="14" rx="1" fill="#1A1F25" />
+      </svg>
+    ),
+  },
+  {
+    type: "business-case-split" as const,
+    label: "Business Case — Split Hero",
+    category: "DSO Microsites" as BlockCategory,
+    defaultProps: (): BusinessCaseSplitBlockProps => ({
+      forCompanyLabel: "For {company_name}",
+      logoUrl: "/dandy-logo-white.svg",
+      logoAlt: "Dandy",
+      heroImageUrl: "/dental-professional.png",
+      heroEyebrow: "The Business Case",
+      heroHeadline: "Building the business case for {company_name}'s next chapter.",
+      heroSubhead: "The DSO landscape is shifting from fragmented vendor management to centralized, digital-first clinical operations. Here is how leading groups are capitalizing on the change.",
+      heroPrimaryCtaText: "Schedule a working session",
+      heroPrimaryCtaUrl: "#contact",
+      heroSecondaryCtaText: "Read the 5-min summary",
+      heroSecondaryCtaUrl: "#summary",
+      situationEyebrow: "01",
+      situationHeading: "The Situation",
+      situationBody: "Scaling a DSO today requires more than just acquiring practices. It demands standardizing clinical quality across hundreds of chairs while managing capital expenditure. Fragmented labs, varying scanner ecosystems, and high remake rates are silently eroding gross margins and frustrating providers. The model must evolve.",
+      situationStats: [
+        { value: "$40k+", label: "Average scanner capex per office" },
+        { value: "5-7%", label: "Industry average remake rate" },
+        { value: "4+", label: "Distinct lab vendors managed per clinic" },
+      ],
+      signalEyebrow: "02",
+      signalHeading: "Dandy adoption is accelerating",
+      signalCards: [
+        { icon: "trending-up", stat: "+312%", body: "YoY growth in digital removables cases across enterprise partners." },
+        { icon: "users", stat: "1 in 3", body: "New doctors ask for Dandy by name during the recruitment process." },
+        { stat: "", body: "Our associates were demanding better tech. Bringing Dandy in immediately improved our retention and accelerated our digital transition without the upfront capex.", attribution: "VP of Operations, Top 50 DSO" },
+      ],
+      costEyebrow: "03",
+      costHeading: "The Cost of Inaction",
+      costItems: [
+        { stat: "7%", label: "Remake Rate", description: "The analog industry average, costing hours of unbillable chair time." },
+        { stat: "120+", label: "Lost Hours / Year", description: "Per doctor, spent managing physical impressions and lab disputes." },
+        { stat: "$40k", label: "Scanner Capex", description: "The upfront cost to digitize a single practice using traditional models." },
+        { stat: "4-6", label: "Vendor Count", description: "Fragmented lab partners causing inconsistent quality and opaque data." },
+      ],
+      shiftEyebrow: "04",
+      shiftHeading: "The Paradigm Shift",
+      shiftRows: [],
+      shiftOldBullets: [
+        { title: "Analog Impressions", body: "Messy, uncomfortable for patients, prone to distortion and errors." },
+        { title: "Fragmented Lab Network", body: "Managing multiple local labs with varying quality standards and systems." },
+        { title: "Opaque Operations", body: "Zero visibility into remake rates, lab spend, or clinical performance at scale." },
+        { title: "High Capital Expenditure", body: "Purchasing expensive scanners outright and managing hardware lifecycles." },
+      ],
+      shiftNewBullets: [
+        { title: "100% Digital Workflow", body: "Best-in-class intraoral scanners provided, ensuring precise data capture." },
+        { title: "Single Partner", body: "One standardized platform for all indications, from crowns to clear aligners." },
+        { title: "Real-Time Data Visibility", body: "Enterprise dashboard tracking every metric across every practice and doctor." },
+        { title: "Zero Capex Model", body: "Scanners and training included with lab partnership. Immediate ROI." },
+      ],
+      mathEyebrow: "05",
+      mathHeading: "The Math",
+      mathSubhead: "Based on {practice_count} offices",
+      mathOfficeCount: "{practice_count}",
+      mathVolumeLabel: "Est. Monthly Case Volume",
+      mathVolumeValue: "~450",
+      mathStats: [
+        { label: "Gross Margin Uplift", value: "+12%", caption: "Estimated annual improvement" },
+        { label: "Chair Hours Saved", value: "1,200+", caption: "Across the network annually" },
+        { label: "Capex Avoided", value: "$850k", caption: "By utilizing Dandy's scanner model" },
+        { label: "Payback Period", value: "Immediate", caption: "ROI realized in month one" },
+      ],
+      proofEyebrow: "06",
+      proofHeading: "The Proof",
+      proofFeatured: {
+        quote: "Partnering with Dandy was the single highest ROI operational decision we made this year. We digitized 45 practices in 90 days with zero capex, and our doctors couldn't be happier with the clinical quality.",
+        name: "Dr. Sarah Jenkins",
+        title: "Chief Clinical Officer, Summit Smile Group (45 practices)",
+      },
+      proofSecondary: [
+        { quote: "Our remake rate dropped from 6% to under 2% across the entire network in the first quarter.", name: "Michael Chang", title: "COO, Pacific Coast DSO (28 practices)" },
+        { quote: "The enterprise dashboard finally gave us the visibility we needed to standardize care.", name: "Amanda Reyes", title: "VP Operations, Heartland Dental Partners" },
+      ],
+      planEyebrow: "07",
+      planHeading: "The Plan",
+      planSteps: [
+        { num: "01", title: "Scope", timeframe: "Week 1", description: "Identify a 5-office pilot cohort. Baseline current metrics and align on success criteria." },
+        { num: "02", title: "Onboard & Train", timeframe: "Week 2-4", description: "Scanners delivered. White-glove clinical training for doctors and staff." },
+        { num: "03", title: "Measure", timeframe: "Month 2", description: "Track case acceptance, turnaround times, and remake rate improvements." },
+        { num: "04", title: "Scale", timeframe: "Month 3+", description: "Roll out the Dandy operating system organization-wide." },
+      ],
+      finalCtaHeading: "Let's build the business case for {company_name}.",
+      finalCtaSubhead: "Schedule a consultative working session to map out the financial and clinical impact of standardizing on Dandy.",
+      finalCtaPrimaryText: "Schedule a working session",
+      finalCtaPrimaryUrl: "#contact",
+      finalCtaSecondaryText: "or download the one-pager",
+      finalCtaSecondaryUrl: "#download",
+      bgColor: "#f6f5ee",
+      inkColor: "#0f2a1c",
+      darkColor: "#0d1f15",
+      accentColor: "#c8e84e",
+      accentInkColor: "#0d1f15",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#f6f5ee" rx="4" />
+        <rect x="0" y="0" width="66" height="34" fill="#0d1f15" />
+        <rect x="66" y="0" width="54" height="34" fill="#1a3a26" />
+        <rect x="6" y="4" width="14" height="2" rx="1" fill="#fff" />
+        <rect x="6" y="14" width="48" height="3" rx="1" fill="#fff" />
+        <rect x="6" y="19" width="40" height="3" rx="1" fill="#fff" />
+        <rect x="6" y="28" width="22" height="3" rx="1" fill="#c8e84e" />
+        <rect x="6" y="40" width="20" height="2" rx="1" fill="#0f2a1c" />
+        <rect x="30" y="40" width="14" height="2" rx="1" fill="#0f2a1c" opacity="0.4" />
+        <rect x="6" y="46" width="50" height="2" rx="1" fill="#0f2a1c" opacity="0.5" />
+        <rect x="62" y="46" width="50" height="2" rx="1" fill="#0f2a1c" opacity="0.3" />
+        <rect x="6" y="58" width="24" height="14" rx="1" fill="#fff" />
+        <rect x="34" y="58" width="24" height="14" rx="1" fill="#fff" />
+        <rect x="62" y="58" width="24" height="14" rx="1" fill="#0d1f15" />
+        <rect x="90" y="58" width="24" height="14" rx="1" fill="#fff" />
+      </svg>
+    ),
+  },
+  {
+    type: "business-case-centered" as const,
+    label: "Business Case — Centered Hero",
+    category: "DSO Microsites" as BlockCategory,
+    defaultProps: (): BusinessCaseCenteredBlockProps => ({
+      forCompanyLabel: "For {company_name}",
+      logoUrl: "/dandy-logo-white.svg",
+      logoAlt: "Dandy",
+      heroEyebrow: "The Business Case",
+      heroHeadline: "The case for {company_name} and Dandy, in plain numbers.",
+      heroSubhead: "A comprehensive analysis of how transitioning to a fully digital lab partner impacts clinical outcomes, operational efficiency, and EBITDA at scale.",
+      heroPrimaryCtaText: "Schedule a working session",
+      heroPrimaryCtaUrl: "#contact",
+      heroSecondaryCtaText: "Read the 5-min summary",
+      heroSecondaryCtaUrl: "#summary",
+      situationEyebrow: "",
+      situationHeading: "The Situation",
+      situationBody: "DSOs operating at scale are encountering a structural ceiling. Legacy workflows demand massive upfront CAPEX for intraoral scanners, while managing dozens of fragmented local labs creates inconsistent clinical quality and unpredictable costs.",
+      situationBodyExtra: "Meanwhile, clinical recruitment and retention have never been more competitive. Doctors expect modern, digital-first workflows that reduce chair time and eliminate frustrating remakes.",
+      situationStats: [
+        { value: "$30k+", label: "Scanner CAPEX", description: "Average upfront cost per office just for hardware." },
+        { value: "4-6", label: "Vendor Sprawl", description: "Average number of lab partners a typical DSO manages." },
+        { value: "6-8%", label: "Remake Rate", description: "Industry average, resulting in unbillable chair time." },
+      ],
+      signalEyebrow: "THE SIGNAL",
+      signalHeading: "Doctors are demanding a better standard of care.",
+      signalCards: [
+        { stat: "+312%", body: "Growth in Dandy removables YoY across our DSO partners." },
+        { stat: "1 in 3", body: "New clinical hires ask for Dandy by name during recruitment." },
+        { stat: "", body: "We realized we were losing top producers because our legacy lab workflows were frustrating them.", attribution: "VP of Clinical Ops" },
+      ],
+      costEyebrow: "",
+      costHeading: "The Cost of Inaction",
+      costSubhead: "Sticking with the status quo isn't neutral. It actively erodes margin and limits growth potential.",
+      costItems: [
+        { num: "01", stat: "7.2%", label: "Average Remake Rate", description: "Every remake costs an estimated $350 in unbillable chair time." },
+        { num: "02", stat: "1,200", label: "Lost Chair Hours / Yr", description: "Based on an average 10-office DSO relying on analog impressions." },
+        { num: "03", stat: "$35k", label: "Scanner CAPEX", description: "Upfront capital per office that could be deployed for growth." },
+        { num: "04", stat: "12+", label: "Fragmented Vendors", description: "Creating inconsistent quality and opaque unit economics." },
+      ],
+      shiftEyebrow: "",
+      shiftHeading: "The Paradigm Shift",
+      shiftRows: [
+        { category: "Turnaround Time", oldWay: "2-3 weeks, unpredictable", withDandy: "5-7 days, guaranteed" },
+        { category: "First-Time-Right Rate", oldWay: "~92% industry average", withDandy: "99% digital precision" },
+        { category: "Doctor Experience", oldWay: "Analog impressions, blind delivery", withDandy: "100% digital, full case visibility" },
+        { category: "Data & Visibility", oldWay: "Zero central oversight", withDandy: "Real-time DSO analytics dashboard" },
+        { category: "Partnership Model", oldWay: "Transactional vendor", withDandy: "Strategic growth partner (Zero CAPEX)" },
+      ],
+      shiftOldBullets: [],
+      shiftNewBullets: [],
+      mathEyebrow: "",
+      mathHeading: "The Math",
+      mathSubhead: "Based on our analysis for {company_name} across {practice_count} offices.",
+      mathOfficeCount: "{practice_count}",
+      mathVolumeLabel: "Est. Monthly Restorations",
+      mathVolumeValue: "1,450",
+      mathStats: [
+        { label: "Incremental Cases / Mo", value: "+185" },
+        { label: "Chair Hours Saved / Yr", value: "4,200" },
+        { label: "Est. Gross Margin Uplift", value: "+14%" },
+        { label: "Payback Period", value: "Immediate", caption: "(Zero CAPEX model)" },
+      ],
+      proofEyebrow: "",
+      proofHeading: "Trusted by industry leaders",
+      proofFeatured: {
+        quote: "Dandy didn't just digitize our labs; they fundamentally changed our unit economics. We've eliminated scanner CAPEX entirely, reduced remakes to near-zero, and our doctors couldn't be happier. It's the most compelling ROI equation in dental right now.",
+        name: "Dr. Sarah Jenkins",
+        title: "Chief Clinical Officer, Summit Smile Group (42 offices)",
+      },
+      proofSecondary: [
+        { quote: "Rolling out Dandy across 80 locations took less time than a single traditional hardware procurement cycle. The training is phenomenal.", name: "Marcus Thorne", title: "VP Operations, Heartland Dental Partners" },
+        { quote: "The real-time data visibility into lab spend and remake rates across all our clinics has been a game-changer for our finance team.", name: "Elena Rostova", title: "CFO, Pacific Coast DSO" },
+      ],
+      planEyebrow: "",
+      planHeading: "The Activation Plan",
+      planSubhead: "A derisked, systematic approach to rolling out digital workflows.",
+      planSteps: [
+        { num: "01", title: "Scope Pilot", timeframe: "Week 1", description: "Select 5 representative offices to establish baseline metrics." },
+        { num: "02", title: "Onboard & Train", timeframe: "Weeks 2-4", description: "Scanner delivery and in-person clinical training by Dandy experts." },
+        { num: "03", title: "Measure Impact", timeframe: "Month 2", description: "Track case acceptance, turnaround times, and doctor satisfaction." },
+        { num: "04", title: "Org-wide Rollout", timeframe: "Month 3+", description: "Phased deployment across all remaining practices." },
+      ],
+      finalCtaHeading: "Let's build the business case for {company_name}.",
+      finalCtaSubhead: "Schedule a 45-minute working session with our enterprise team to run your specific numbers through our ROI model.",
+      finalCtaPrimaryText: "Schedule a working session",
+      finalCtaPrimaryUrl: "#contact",
+      finalCtaSecondaryText: "or download the one-pager",
+      finalCtaSecondaryUrl: "#download",
+      bgColor: "#f6f5ee",
+      inkColor: "#0d1f15",
+      darkColor: "#0d1f15",
+      accentColor: "#c8e84e",
+      accentInkColor: "#0d1f15",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#f6f5ee" rx="4" />
+        <rect x="0" y="0" width="120" height="34" fill="#0d1f15" />
+        <rect x="6" y="4" width="14" height="2" rx="1" fill="#fff" />
+        <rect x="100" y="4" width="14" height="2" rx="1" fill="#c8e84e" />
+        <rect x="50" y="11" width="20" height="1.5" rx="0.5" fill="#c8e84e" />
+        <rect x="22" y="16" width="76" height="4" rx="1" fill="#fff" />
+        <rect x="32" y="22" width="56" height="3" rx="1" fill="#fff" opacity="0.7" />
+        <rect x="46" y="28" width="28" height="3" rx="1" fill="#c8e84e" />
+        <rect x="6" y="40" width="32" height="3" rx="1" fill="#0d1f15" />
+        <rect x="6" y="46" width="42" height="2" rx="1" fill="#0d1f15" opacity="0.5" />
+        <rect x="56" y="40" width="18" height="14" rx="1" fill="#fff" stroke="#0d1f15" strokeWidth="0.3" />
+        <rect x="76" y="40" width="18" height="14" rx="1" fill="#fff" stroke="#0d1f15" strokeWidth="0.3" />
+        <rect x="96" y="40" width="18" height="14" rx="1" fill="#fff" stroke="#0d1f15" strokeWidth="0.3" />
+        <rect x="6" y="60" width="108" height="14" rx="1" fill="#0d1f15" />
+        <rect x="14" y="65" width="20" height="2" rx="1" fill="#c8e84e" />
+        <rect x="40" y="65" width="20" height="2" rx="1" fill="#c8e84e" />
+        <rect x="66" y="65" width="20" height="2" rx="1" fill="#c8e84e" />
+        <rect x="92" y="65" width="18" height="2" rx="1" fill="#c8e84e" />
       </svg>
     ),
   },
@@ -4896,6 +5133,8 @@ export function createBlock(type: "product-launch"): Extract<PageBlock, { type: 
 export function createBlock(type: "story-hub"): Extract<PageBlock, { type: "story-hub" }>;
 export function createBlock(type: "event-landing-hero"): Extract<PageBlock, { type: "event-landing-hero" }>;
 export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
+export function createBlock(type: "business-case-split"): Extract<PageBlock, { type: "business-case-split" }>;
+export function createBlock(type: "business-case-centered"): Extract<PageBlock, { type: "business-case-centered" }>;
 export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
 export function createBlock(type: "horizontal-showcase"): Extract<PageBlock, { type: "horizontal-showcase" }>;
 export function createBlock(type: "sticky-stack"): Extract<PageBlock, { type: "sticky-stack" }>;
@@ -5003,6 +5242,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "story-hub": return { id, type: "story-hub", props: props as StoryHubBlockProps };
     case "event-landing-hero": return { id, type: "event-landing-hero", props: props as EventLandingHeroBlockProps };
     case "spatial-tour": return { id, type: "spatial-tour", props: props as SpatialTourBlockProps };
+    case "business-case-split": return { id, type: "business-case-split", props: props as BusinessCaseSplitBlockProps };
+    case "business-case-centered": return { id, type: "business-case-centered", props: props as BusinessCaseCenteredBlockProps };
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
     case "horizontal-showcase": return { id, type: "horizontal-showcase", props: props as HorizontalShowcaseBlockProps };
     case "sticky-stack": return { id, type: "sticky-stack", props: props as StickyStackBlockProps };

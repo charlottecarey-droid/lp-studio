@@ -1408,3 +1408,150 @@ export interface EventLandingHeroBlockProps {
   extraSectionHeading?: string;
   extraSectionBody?: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUSINESS CASE — Premium DSO microsite ("Split" + "Centered" hero variants)
+// Two bespoke single-block templates that mirror the partners.meetdandy.com
+// editorial cadence: hero → situation → signal → cost of inaction →
+// paradigm shift → math → proof → plan → final CTA.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BusinessCaseStat {
+  /** Numeric or short string ("$40k+", "5-7%", "4+") */
+  value: string;
+  /** Caption beneath the stat */
+  label: string;
+  /** Optional supporting copy (Centered hero's situation cards) */
+  description?: string;
+}
+
+export interface BusinessCaseSignalCard {
+  /** Lucide icon key — "trending-up" | "users" | "quote" */
+  icon?: "trending-up" | "users" | "quote";
+  stat: string;
+  body: string;
+  /** When provided, the card renders as a dark testimonial card with attribution */
+  attribution?: string;
+}
+
+export interface BusinessCaseCostItem {
+  /** Two-digit numeral ("01") */
+  num?: string;
+  stat: string;
+  label: string;
+  description: string;
+}
+
+export interface BusinessCaseShiftRow {
+  category: string;
+  oldWay: string;
+  withDandy: string;
+}
+
+export interface BusinessCaseShiftBullet {
+  title: string;
+  body: string;
+}
+
+export interface BusinessCaseMathStat {
+  label: string;
+  value: string;
+  /** Optional small caption beneath the value */
+  caption?: string;
+}
+
+export interface BusinessCaseTestimonial {
+  quote: string;
+  name: string;
+  title: string;
+}
+
+export interface BusinessCasePlanStep {
+  num: string;
+  title: string;
+  timeframe: string;
+  description: string;
+}
+
+interface BusinessCaseCommonProps {
+  // Hero — Dandy logo + "For {company_name}" pill + headline
+  forCompanyLabel: string;
+  logoUrl?: string;
+  logoAlt?: string;
+  heroEyebrow: string;
+  heroHeadline: string;
+  heroSubhead: string;
+  heroPrimaryCtaText: string;
+  heroPrimaryCtaUrl: string;
+  heroSecondaryCtaText: string;
+  heroSecondaryCtaUrl: string;
+
+  // Section 2 — The Situation
+  situationEyebrow: string;
+  situationHeading: string;
+  situationBody: string;
+  situationBodyExtra?: string;
+  situationStats: BusinessCaseStat[];
+
+  // Section 3 — The Signal
+  signalEyebrow: string;
+  signalHeading: string;
+  signalCards: BusinessCaseSignalCard[];
+
+  // Section 4 — The Cost of Inaction
+  costEyebrow: string;
+  costHeading: string;
+  costSubhead?: string;
+  costItems: BusinessCaseCostItem[];
+
+  // Section 5 — The Paradigm Shift
+  shiftEyebrow: string;
+  shiftHeading: string;
+  /** Centered variant uses table rows; Split variant uses two parallel bullet lists */
+  shiftRows: BusinessCaseShiftRow[];
+  shiftOldBullets: BusinessCaseShiftBullet[];
+  shiftNewBullets: BusinessCaseShiftBullet[];
+
+  // Section 6 — The Math
+  mathEyebrow: string;
+  mathHeading: string;
+  mathSubhead: string;
+  mathOfficeCount: string;
+  mathVolumeLabel: string;
+  mathVolumeValue: string;
+  mathStats: BusinessCaseMathStat[];
+
+  // Section 7 — The Proof
+  proofEyebrow: string;
+  proofHeading: string;
+  proofFeatured: BusinessCaseTestimonial;
+  proofSecondary: BusinessCaseTestimonial[];
+
+  // Section 8 — The Plan
+  planEyebrow: string;
+  planHeading: string;
+  planSubhead?: string;
+  planSteps: BusinessCasePlanStep[];
+
+  // Section 9 — Final CTA
+  finalCtaHeading: string;
+  finalCtaSubhead: string;
+  finalCtaPrimaryText: string;
+  finalCtaPrimaryUrl: string;
+  finalCtaSecondaryText: string;
+  finalCtaSecondaryUrl: string;
+
+  // Palette
+  bgColor?: string;
+  inkColor?: string;
+  darkColor?: string;
+  accentColor?: string;
+  accentInkColor?: string;
+}
+
+export interface BusinessCaseSplitBlockProps extends BusinessCaseCommonProps {
+  /** Right-side hero image */
+  heroImageUrl: string;
+}
+
+export interface BusinessCaseCenteredBlockProps extends BusinessCaseCommonProps {}

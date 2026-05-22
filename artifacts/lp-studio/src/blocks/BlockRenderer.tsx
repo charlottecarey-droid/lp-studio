@@ -43,6 +43,8 @@ import { BlockOnePagerHero } from "./BlockOnePagerHero";
 import { BlockEventPage } from "./BlockEventPage";
 import { BlockProductLaunch } from "./BlockProductLaunch";
 import { BlockStoryHub } from "./BlockStoryHub";
+import { BlockBusinessCaseSplit } from "./BlockBusinessCaseSplit";
+import { BlockBusinessCaseCentered } from "./BlockBusinessCaseCentered";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -302,6 +304,7 @@ export const NO_REVEAL = new Set<string>([
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
+  "business-case-split", "business-case-centered",
   "content-series",
   // Inside Dandy blocks: own their own scroll-driven internals (sticky cinema
   // pillars, scroll-progress letter reveal, parallax showcase) and the hero's
@@ -856,6 +859,10 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         );
       case "spatial-tour":
         return <BlockSpatialTour props={block.props} />;
+      case "business-case-split":
+        return <BlockBusinessCaseSplit props={block.props} />;
+      case "business-case-centered":
+        return <BlockBusinessCaseCentered props={block.props} />;
       case "scroll-assembly":
         return (
           <BlockScrollAssembly

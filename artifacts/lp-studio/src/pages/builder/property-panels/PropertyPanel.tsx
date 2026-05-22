@@ -5591,6 +5591,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "content-series":
         return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
+      case "business-case-split":
+      case "business-case-centered":
+        return <p className="text-sm text-muted-foreground">Bespoke block. Edit content directly in the canvas (inline editing) or via JSON.</p>;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

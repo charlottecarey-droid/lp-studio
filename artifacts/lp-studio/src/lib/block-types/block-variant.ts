@@ -116,6 +116,8 @@ import type {
   StoryHubBlockProps,
   EventLandingHeroBlockProps,
   SpatialTourBlockProps,
+  BusinessCaseSplitBlockProps,
+  BusinessCaseCenteredBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -232,6 +234,8 @@ export type BlockVariant =
   | { type: "story-hub"; props: StoryHubBlockProps }
   | { type: "event-landing-hero"; props: EventLandingHeroBlockProps }
   | { type: "spatial-tour"; props: SpatialTourBlockProps }
+  | { type: "business-case-split"; props: BusinessCaseSplitBlockProps }
+  | { type: "business-case-centered"; props: BusinessCaseCenteredBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "id-hero"; props: IdHeroBlockProps }

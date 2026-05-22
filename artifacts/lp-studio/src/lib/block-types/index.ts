@@ -220,6 +220,16 @@ export type {
   SpatialTourCalloutPoint,
   SpatialTourWay,
   SpatialTourDate,
+  BusinessCaseSplitBlockProps,
+  BusinessCaseCenteredBlockProps,
+  BusinessCaseStat,
+  BusinessCaseSignalCard,
+  BusinessCaseCostItem,
+  BusinessCaseShiftRow,
+  BusinessCaseShiftBullet,
+  BusinessCaseMathStat,
+  BusinessCaseTestimonial,
+  BusinessCasePlanStep,
 } from "./dso-blocks";
 
 // Utility block types
