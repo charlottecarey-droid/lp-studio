@@ -484,6 +484,54 @@ export const templateStoryHubDarkLuxury: LPTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 10 — Business Case (Split hero)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateBusinessCaseSplit: LPTemplate = {
+  id: "business-case-split",
+  name: "Business Case — Split",
+  description: "Premium DSO microsite making the financial + clinical case for switching to Dandy. Split editorial hero, signals, cost stack, paradigm shift, ROI math, testimonial, and onboarding plan. Lime + dark green palette, Bagoss display type.",
+  framework: "Hero → Signals → Cost → Shift → Math → Proof → Plan → CTA",
+  badge: "Premium",
+  industries: ["dental"] as const,
+  config: {
+    templateId: "business-case-split",
+    heroType: "static-image",
+    layout: "split",
+    backgroundStyle: "dark",
+    headline: "Building the business case for {company_name}'s next chapter.",
+    subheadline: "The DSO landscape is shifting from fragmented vendor management to centralized, digital-first clinical operations.",
+    ctaText: "Schedule a working session",
+    ctaColor: "#c8e84e",
+    ctaUrl: "#contact",
+    showSocialProof: false,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 11 — Business Case (Centered hero)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateBusinessCaseCentered: LPTemplate = {
+  id: "business-case-centered",
+  name: "Business Case — Centered",
+  description: "Premium DSO microsite, centered editorial variant. The case for {company_name} and Dandy in plain numbers — signals, cost stack, comparison-table shift, ROI math, testimonial, and onboarding plan. Lime + dark green palette, Bagoss display type.",
+  framework: "Hero → Signals → Cost → Comparison → Math → Proof → Plan → CTA",
+  badge: "Premium",
+  industries: ["dental"] as const,
+  config: {
+    templateId: "business-case-centered",
+    heroType: "static-image",
+    layout: "centered",
+    backgroundStyle: "dark",
+    headline: "The case for {company_name} and Dandy, in plain numbers.",
+    subheadline: "A comprehensive analysis of how transitioning to a fully digital lab partner impacts clinical outcomes, operational efficiency, and EBITDA at scale.",
+    ctaText: "Schedule a working session",
+    ctaColor: "#c8e84e",
+    ctaUrl: "#contact",
+    showSocialProof: false,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
 // Every shipped template is dental/Dandy-flavored — copy, imagery, and
@@ -501,6 +549,8 @@ const DENTAL_ONLY = ["dental"] as const;
   templateInsideDandySpatialTour,
   templateProductLaunchKeynote,
   templateStoryHubDarkLuxury,
+  templateBusinessCaseSplit,
+  templateBusinessCaseCentered,
 ].forEach((t) => {
   if (!t.industries) t.industries = DENTAL_ONLY;
 });
@@ -515,6 +565,8 @@ export const LP_TEMPLATES: LPTemplate[] = [
   templateInsideDandySpatialTour,
   templateProductLaunchKeynote,
   templateStoryHubDarkLuxury,
+  templateBusinessCaseSplit,
+  templateBusinessCaseCentered,
 ];
 
 export function getTemplateById(id: string): LPTemplate | undefined {

@@ -5284,6 +5284,8 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "inside-dandy-spatial-tour": ["spatial-tour"],
     "product-launch-keynote": ["product-launch"],
     "story-hub-dark-luxury": ["story-hub"],
+    "business-case-split": ["business-case-split"],
+    "business-case-centered": ["business-case-centered"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));
