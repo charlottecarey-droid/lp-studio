@@ -9,10 +9,7 @@ export function Split() {
         {/* Left Col */}
         <div className="w-[55%] h-full flex flex-col justify-between p-12 lg:p-20 z-10">
           <nav className="flex items-center justify-between">
-            {/* Dandy Logo Placeholder */}
-            <div className="text-white font-['Bagoss_Standard'] text-2xl font-bold tracking-tight">
-              Dandy
-            </div>
+            <img src="/dandy-logo-white.svg" alt="Dandy" className="h-7 w-auto" />
             <div className="px-4 py-1.5 rounded-full border border-white/20 text-white/80 text-xs font-medium uppercase tracking-wider">
               For {`{company_name}`}
             </div>

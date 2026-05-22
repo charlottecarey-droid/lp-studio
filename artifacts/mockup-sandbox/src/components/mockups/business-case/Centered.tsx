@@ -7,7 +7,7 @@ export function Centered() {
       {/* 1. Hero */}
       <section className="relative flex flex-col justify-center items-center text-center bg-[#0d1f15] text-[#f6f5ee] px-6 py-20 min-h-[760px] overflow-hidden">
         <div className="absolute top-0 w-full p-6 flex justify-between items-center max-w-7xl mx-auto">
-          <div className="font-['Bagoss_Standard'] text-2xl tracking-tight font-semibold">Dandy</div>
+          <img src="/dandy-logo-white.svg" alt="Dandy" className="h-7 w-auto" />
           <div className="text-xs uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full text-[#c8e84e]">
             For {`{company_name}`}
           </div>
