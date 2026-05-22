@@ -41,13 +41,17 @@ export function BlockBusinessCaseCentered({ props }: Props) {
         </div>
 
         <div className="max-w-4xl mx-auto flex flex-col items-center z-10 mt-16">
-          <div className="w-12 h-[2px] mb-8" style={{ background: accent }} />
-          <h2
-            className="text-xs font-semibold tracking-[0.2em] uppercase mb-6"
-            style={{ color: accent }}
-          >
-            {props.heroEyebrow}
-          </h2>
+          {props.heroEyebrow && (
+            <>
+              <div className="w-12 h-[2px] mb-8" style={{ background: accent }} />
+              <h2
+                className="text-xs font-semibold tracking-[0.2em] uppercase mb-6"
+                style={{ color: accent }}
+              >
+                {props.heroEyebrow}
+              </h2>
+            </>
+          )}
           <h1
             className="text-5xl md:text-7xl font-medium leading-[1.1] mb-8 max-w-4xl"
             style={{ fontFamily: DISPLAY }}
@@ -120,12 +124,14 @@ export function BlockBusinessCaseCentered({ props }: Props) {
         style={{ background: "#0f2a1c", color: bg }}
       >
         <div className="mb-16">
-          <h2
-            className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
-            style={{ color: accent }}
-          >
-            {props.signalEyebrow} →
-          </h2>
+          {props.signalEyebrow && (
+            <h2
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
+              style={{ color: accent }}
+            >
+              {props.signalEyebrow} →
+            </h2>
+          )}
           <h3
             className="text-4xl md:text-5xl max-w-3xl leading-tight"
             style={{ fontFamily: DISPLAY }}

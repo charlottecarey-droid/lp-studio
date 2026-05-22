@@ -40,12 +40,14 @@ export function BlockBusinessCaseSplit({ props }: Props) {
           </nav>
 
           <div className="max-w-2xl mt-12">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="h-px w-8" style={{ background: accent }} />
-              <span className="text-xs font-bold tracking-[0.2em] uppercase" style={{ color: accent }}>
-                {props.heroEyebrow}
-              </span>
-            </div>
+            {props.heroEyebrow && (
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-px w-8" style={{ background: accent }} />
+                <span className="text-xs font-bold tracking-[0.2em] uppercase" style={{ color: accent }}>
+                  {props.heroEyebrow}
+                </span>
+              </div>
+            )}
             <h1
               className="text-white text-5xl lg:text-6xl xl:text-7xl leading-[1.05] tracking-tight mb-8"
               style={{ fontFamily: DISPLAY }}
@@ -94,9 +96,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       {/* 2. The Situation */}
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
-          <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-            {props.situationEyebrow}
-          </span>
+          {props.situationEyebrow && (
+            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
+              {props.situationEyebrow}
+            </span>
+          )}
           <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
             {props.situationHeading}
           </h2>
@@ -123,9 +127,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       {/* 3. The Signal */}
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16 flex-wrap">
-          <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-            {props.signalEyebrow}
-          </span>
+          {props.signalEyebrow && (
+            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
+              {props.signalEyebrow}
+            </span>
+          )}
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-bold tracking-[0.2em] uppercase text-slate-500">THE SIGNAL</span>
             <ArrowRight className="w-4 h-4" style={{ color: accent }} />
@@ -186,9 +192,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       {/* 4. The Cost of Inaction */}
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
-          <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-            {props.costEyebrow}
-          </span>
+          {props.costEyebrow && (
+            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
+              {props.costEyebrow}
+            </span>
+          )}
           <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
             {props.costHeading}
           </h2>
@@ -217,9 +225,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       <section className="px-12 lg:px-20 py-24 lg:py-32" style={{ background: "#1a1a1a" }}>
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-4 mb-20">
-            <span className="text-white/30 text-xl italic" style={{ fontFamily: DISPLAY }}>
-              {props.shiftEyebrow}
-            </span>
+            {props.shiftEyebrow && (
+              <span className="text-white/30 text-xl italic" style={{ fontFamily: DISPLAY }}>
+                {props.shiftEyebrow}
+              </span>
+            )}
             <h2 className="text-white text-4xl lg:text-5xl" style={{ fontFamily: DISPLAY }}>
               {props.shiftHeading}
             </h2>
@@ -263,9 +273,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center justify-between mb-16 flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-              {props.mathEyebrow}
-            </span>
+            {props.mathEyebrow && (
+              <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
+                {props.mathEyebrow}
+              </span>
+            )}
             <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
               {props.mathHeading}
             </h2>
@@ -335,9 +347,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       {/* 7. The Proof */}
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
-          <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-            {props.proofEyebrow}
-          </span>
+          {props.proofEyebrow && (
+            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
+              {props.proofEyebrow}
+            </span>
+          )}
           <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
             {props.proofHeading}
           </h2>
@@ -388,9 +402,11 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       {/* 8. The Plan */}
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-20">
-          <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
-            {props.planEyebrow}
-          </span>
+          {props.planEyebrow && (
+            <span className="text-black/40 text-xl italic" style={{ fontFamily: DISPLAY }}>
+              {props.planEyebrow}
+            </span>
+          )}
           <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
             {props.planHeading}
           </h2>
