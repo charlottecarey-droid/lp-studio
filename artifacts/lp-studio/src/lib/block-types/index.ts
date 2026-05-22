@@ -222,6 +222,7 @@ export type {
   SpatialTourDate,
   BusinessCaseSplitBlockProps,
   BusinessCaseCenteredBlockProps,
+  BusinessCasePremiumBlockProps,
   BusinessCaseStat,
   BusinessCaseSignalCard,
   BusinessCaseCostItem,

@@ -10,6 +10,7 @@ import { BrandSwatches } from "@/components/BrandSwatches";
 import type {
   BusinessCaseSplitBlockProps,
   BusinessCaseCenteredBlockProps,
+  BusinessCasePremiumBlockProps,
   BusinessCaseStat,
   BusinessCaseSignalCard,
   BusinessCaseCostItem,
@@ -20,8 +21,8 @@ import type {
   BusinessCasePlanStep,
 } from "@/lib/block-types";
 
-type Variant = "split" | "centered";
-type AnyProps = BusinessCaseSplitBlockProps | BusinessCaseCenteredBlockProps;
+type Variant = "split" | "centered" | "premium";
+type AnyProps = BusinessCaseSplitBlockProps | BusinessCaseCenteredBlockProps | BusinessCasePremiumBlockProps;
 
 interface Props<P extends AnyProps> {
   props: P;
@@ -158,6 +159,9 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
   // Cast helpers for split-only fields. Centered's `heroImageUrl` is
   // undefined; we gate the UI by variant so the cast is safe.
   const splitProps = props as BusinessCaseSplitBlockProps;
+  // Cast helper for premium-only fields. Other variants don't have these;
+  // we gate the UI on `variant === "premium"` so the cast is safe.
+  const premiumProps = props as BusinessCasePremiumBlockProps;
 
   // ── Section 2: Situation stats ─────────────────────────────────────────
   const setStat = (i: number, patch: Partial<BusinessCaseStat>) => {
@@ -360,7 +364,12 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             <Field label="Secondary CTA URL">
               <Input value={props.heroSecondaryCtaUrl} onChange={(e) => set("heroSecondaryCtaUrl" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
             </Field>
-            {variant === "split" && (
+            {variant === "premium" && (
+              <Field label="Kicker (small label above eyebrow)">
+                <Input value={premiumProps.kicker ?? ""} onChange={(e) => set("kicker" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+              </Field>
+            )}
+            {(variant === "split" || variant === "premium") && (
               <Field label="Hero image (right side)">
                 <ImagePicker
                   value={splitProps.heroImageUrl}
@@ -368,6 +377,22 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                   aiHint="Editorial hero portrait — dental professional"
                 />
               </Field>
+            )}
+            {variant === "premium" && (
+              <>
+                <Field label="Hero image caption (inside image)">
+                  <Input value={premiumProps.heroImageCaption ?? ""} onChange={(e) => set("heroImageCaption" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+                <Field label="Plate label (top-right of image)">
+                  <Input value={premiumProps.plateLabel ?? ""} onChange={(e) => set("plateLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+                <Field label="Volume label (under image, left)">
+                  <Input value={premiumProps.volumeLabel ?? ""} onChange={(e) => set("volumeLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+                <Field label="Issue label (under image, right)">
+                  <Input value={premiumProps.issueLabel ?? ""} onChange={(e) => set("issueLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+              </>
             )}
           </div>
         )}
@@ -533,7 +558,7 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
               <Textarea value={props.shiftHeading} onChange={(e) => set("shiftHeading" as keyof P, e.target.value as P[keyof P])} className="text-xs min-h-16" />
             </Field>
 
-            {variant === "centered" ? (
+            {variant === "centered" || variant === "premium" ? (
               <div className="space-y-2 pt-1">
                 <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Comparison rows</div>
                 {props.shiftRows.map((r, i) => (
@@ -640,6 +665,19 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             <Field label="Volume value">
               <Input value={props.mathVolumeValue} onChange={(e) => set("mathVolumeValue" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
             </Field>
+            {variant === "premium" && (
+              <>
+                <Field label="Hero stat eyebrow (e.g. Incremental Cases / Month)">
+                  <Input value={premiumProps.mathHeroEyebrow ?? ""} onChange={(e) => set("mathHeroEyebrow" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+                <Field label="Hero stat (giant number, e.g. +185)">
+                  <Input value={premiumProps.mathHeroStat ?? ""} onChange={(e) => set("mathHeroStat" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+                <Field label="Hero stat description">
+                  <Textarea value={premiumProps.mathHeroDescription ?? ""} onChange={(e) => set("mathHeroDescription" as keyof P, e.target.value as P[keyof P])} className="text-xs min-h-16" />
+                </Field>
+              </>
+            )}
             <div className="space-y-2 pt-1">
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Stats</div>
               {props.mathStats.map((s, i) => (
@@ -778,6 +816,11 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
         <SectionHeader label="Final CTA" open={open.finalCta} onToggle={() => toggle("finalCta")} />
         {open.finalCta && (
           <div className="space-y-3">
+            {variant === "premium" && (
+              <Field label="Eyebrow (e.g. Next Step)">
+                <Input value={premiumProps.finalCtaEyebrow ?? ""} onChange={(e) => set("finalCtaEyebrow" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+              </Field>
+            )}
             <Field label="Heading">
               <Textarea value={props.finalCtaHeading} onChange={(e) => set("finalCtaHeading" as keyof P, e.target.value as P[keyof P])} className="text-xs min-h-16" />
             </Field>
@@ -796,6 +839,16 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             <Field label="Secondary CTA URL">
               <Input value={props.finalCtaSecondaryUrl} onChange={(e) => set("finalCtaSecondaryUrl" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
             </Field>
+            {variant === "premium" && (
+              <>
+                <Field label="Footer label (left)">
+                  <Input value={premiumProps.footerLeftLabel ?? ""} onChange={(e) => set("footerLeftLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+                <Field label="Footer label (right)">
+                  <Input value={premiumProps.footerRightLabel ?? ""} onChange={(e) => set("footerRightLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                </Field>
+              </>
+            )}
           </div>
         )}
       </div>

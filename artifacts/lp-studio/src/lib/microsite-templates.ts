@@ -937,6 +937,10 @@ function businessCaseCenteredBlocks(): PageBlock[] {
   return [createBlock("business-case-centered")];
 }
 
+function businessCasePremiumBlocks(): PageBlock[] {
+  return [createBlock("business-case-premium")];
+}
+
 export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
   {
     id: "microsite-dandy",
@@ -1012,5 +1016,15 @@ export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
     accentColor: "#c8e84e",
     bgColor: "#0d1f15",
     buildBlocks: businessCaseCenteredBlocks,
+  },
+  {
+    id: "microsite-business-case-premium",
+    name: "Business Case — Premium Editorial",
+    description: "Editorial monograph cover — tall portrait hero card, table of contents, dark Math hero stat. The most refined first impression in the business-case set.",
+    skinKey: "executive",
+    badge: "Premium",
+    accentColor: "#c8e84e",
+    bgColor: "#f6f5ee",
+    buildBlocks: businessCasePremiumBlocks,
   },
 ];

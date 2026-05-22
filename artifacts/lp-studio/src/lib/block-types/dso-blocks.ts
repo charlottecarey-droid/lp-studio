@@ -1555,3 +1555,31 @@ export interface BusinessCaseSplitBlockProps extends BusinessCaseCommonProps {
 }
 
 export interface BusinessCaseCenteredBlockProps extends BusinessCaseCommonProps {}
+
+export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
+  /** Tall portrait hero image on the right column. Optional — a gradient
+   *  fallback renders if missing. */
+  heroImageUrl?: string;
+  /** Small kicker line above the eyebrow (e.g. "Field study · Q1 · Confidential"). */
+  kicker?: string;
+  /** Volume label under the hero image (e.g. "Volume I"). */
+  volumeLabel?: string;
+  /** Issue label under the hero image (e.g. "2025 · No. 01"). */
+  issueLabel?: string;
+  /** Plate label inside the hero image card (e.g. "Plate 01"). */
+  plateLabel?: string;
+  /** Caption inside the hero image card (e.g. "Field study, Q1"). */
+  heroImageCaption?: string;
+  /** Eyebrow above the dark "Math" hero stat (e.g. "Incremental Cases / Month"). */
+  mathHeroEyebrow?: string;
+  /** The giant hero stat in the dark Math section (e.g. "+185"). */
+  mathHeroStat?: string;
+  /** Supporting paragraph next to the giant Math hero stat. */
+  mathHeroDescription?: string;
+  /** Final-CTA eyebrow (e.g. "Next Step"). */
+  finalCtaEyebrow?: string;
+  /** Bottom-of-page hairline footer: left label. */
+  footerLeftLabel?: string;
+  /** Bottom-of-page hairline footer: right label. */
+  footerRightLabel?: string;
+}

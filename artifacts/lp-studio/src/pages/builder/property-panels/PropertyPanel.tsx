@@ -5596,6 +5596,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="split" />;
       case "business-case-centered":
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="centered" />;
+      case "business-case-premium":
+        return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="premium" />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

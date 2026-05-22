@@ -118,6 +118,7 @@ import type {
   SpatialTourBlockProps,
   BusinessCaseSplitBlockProps,
   BusinessCaseCenteredBlockProps,
+  BusinessCasePremiumBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -236,6 +237,7 @@ export type BlockVariant =
   | { type: "spatial-tour"; props: SpatialTourBlockProps }
   | { type: "business-case-split"; props: BusinessCaseSplitBlockProps }
   | { type: "business-case-centered"; props: BusinessCaseCenteredBlockProps }
+  | { type: "business-case-premium"; props: BusinessCasePremiumBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "id-hero"; props: IdHeroBlockProps }

@@ -532,6 +532,30 @@ export const templateBusinessCaseCentered: LPTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 12 — Business Case (Premium Editorial)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateBusinessCasePremium: LPTemplate = {
+  id: "business-case-premium",
+  name: "Business Case — Premium Editorial",
+  description: "Premium DSO microsite, editorial monograph variant. Tall portrait hero card, table of contents strip, dark Math hero stat, and a refined activation timeline. Cream + dark green palette, Bagoss display type.",
+  framework: "Hero → TOC → Situation → Signal → Cost → Shift → Math → Proof → Plan → CTA",
+  badge: "Premium",
+  industries: ["dental"] as const,
+  config: {
+    templateId: "business-case-premium",
+    heroType: "static-image",
+    layout: "split",
+    backgroundStyle: "white",
+    headline: "Why {company_name} doctors keep finding Dandy.",
+    subheadline: "A consultative analysis of how a fully digital lab partner reshapes clinical outcomes, doctor retention, and EBITDA.",
+    ctaText: "Schedule a working session",
+    ctaColor: "#c8e84e",
+    ctaUrl: "#contact",
+    showSocialProof: false,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
 // Every shipped template is dental/Dandy-flavored — copy, imagery, and
@@ -551,6 +575,7 @@ const DENTAL_ONLY = ["dental"] as const;
   templateStoryHubDarkLuxury,
   templateBusinessCaseSplit,
   templateBusinessCaseCentered,
+  templateBusinessCasePremium,
 ].forEach((t) => {
   if (!t.industries) t.industries = DENTAL_ONLY;
 });
@@ -567,6 +592,7 @@ export const LP_TEMPLATES: LPTemplate[] = [
   templateStoryHubDarkLuxury,
   templateBusinessCaseSplit,
   templateBusinessCaseCentered,
+  templateBusinessCasePremium,
 ];
 
 export function getTemplateById(id: string): LPTemplate | undefined {
