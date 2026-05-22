@@ -62,7 +62,7 @@ function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?
     return () => obs.disconnect();
   }, [target, animate]);
 
-  return <span ref={ref} style={{ fontFamily: BODY }}>{prefix}{count}{suffix}</span>;
+  return <span ref={ref} style={{ fontFamily: DISPLAY }}>{prefix}{count}{suffix}</span>;
 }
 
 function parseStatValue(value: string): { prefix: string; num: number; suffix: string } | null {
