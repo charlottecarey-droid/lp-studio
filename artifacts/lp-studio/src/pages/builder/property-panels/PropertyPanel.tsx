@@ -91,6 +91,7 @@ import { HoursLocationPanel } from "./HoursLocationPanel";
 import { BeforeAfterGalleryPanel } from "./BeforeAfterGalleryPanel";
 import { SpeakerGridPanel } from "./SpeakerGridPanel";
 import { ContentSeriesPanel } from "./ContentSeriesPanel";
+import { BusinessCasePanel } from "./BusinessCasePanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -5592,8 +5593,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "content-series":
         return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
       case "business-case-split":
+        return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="split" />;
       case "business-case-centered":
-        return <p className="text-sm text-muted-foreground">Bespoke block. Edit content directly in the canvas (inline editing) or via JSON.</p>;
+        return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="centered" />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
