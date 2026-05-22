@@ -35,7 +35,7 @@ import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
-import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
+import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, templateToBlocks, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import {
   type BlockPath,
@@ -1607,29 +1607,7 @@ export default function BuilderEditor() {
   };
 
   const applyTemplate = (templateId: string) => {
-    if (templateId === "inside-dandy-event") {
-      const block = createBlock("event-page");
-      setBlocks([block]);
-      setSelectedBlockId(null);
-      return;
-    }
-
-    if (templateId === "inside-dandy-spatial-tour") {
-      const block = createBlock("spatial-tour");
-      setBlocks([block]);
-      setSelectedBlockId(null);
-      return;
-    }
-
-    const templateBlockTypes: Record<string, BlockType[]> = {
-      "video-hero": ["hero", "trust-bar", "photo-strip", "stat-callout", "benefits-grid", "testimonial", "product-grid", "bottom-cta"],
-      "problem-first": ["hero", "pas-section", "comparison", "stat-callout", "trust-bar", "benefits-grid", "testimonial", "bottom-cta"],
-      "social-proof-leader": ["hero", "testimonial", "photo-strip", "stat-callout", "trust-bar", "benefits-grid", "bottom-cta"],
-      "how-it-works": ["hero", "how-it-works", "trust-bar", "product-grid", "benefits-grid", "testimonial", "bottom-cta"],
-      "minimal-cta": ["hero", "trust-bar"],
-    };
-    const types = templateBlockTypes[templateId] ?? [];
-    const newBlocks = types.map(t => createBlock(t));
+    const newBlocks = templateToBlocks(templateId);
     setBlocks(newBlocks);
     setSelectedBlockId(null);
   };
