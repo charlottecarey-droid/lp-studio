@@ -5,6 +5,7 @@ export const modules: ModuleMap = {
   "./components/mockups/brand-palettes/Indigo.tsx": () => import("../components/mockups/brand-palettes/Indigo.tsx"),
   "./components/mockups/brand-palettes/Studio.tsx": () => import("../components/mockups/brand-palettes/Studio.tsx"),
   "./components/mockups/business-case/Centered.tsx": () => import("../components/mockups/business-case/Centered.tsx"),
+  "./components/mockups/business-case/Premium.tsx": () => import("../components/mockups/business-case/Premium.tsx"),
   "./components/mockups/business-case/Split.tsx": () => import("../components/mockups/business-case/Split.tsx"),
   "./components/mockups/premium-abm-microsite/Page.tsx": () => import("../components/mockups/premium-abm-microsite/Page.tsx"),
   "./components/mockups/premium-annual-report/Page.tsx": () => import("../components/mockups/premium-annual-report/Page.tsx"),

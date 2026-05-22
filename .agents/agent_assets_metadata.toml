@@ -137,3 +137,9 @@ id = "HRzPYEWRMOwVarD0W7_ne"
 uri = "file://artifacts/lp-studio/public/images/logo.png"
 type = "image"
 title = "LP Studio logo — capital LP"
+
+[[outputs]]
+id = "k4AuJJ9T9IALzJz-C5EDc"
+uri = "file://attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_business-case_Premium.png"
+type = "image"
+title = "Business Case — Premium Editorial (hero)"
