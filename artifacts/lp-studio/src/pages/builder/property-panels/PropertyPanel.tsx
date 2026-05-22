@@ -685,6 +685,78 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
   );
 }
 
+function StatsReorderList<T extends { value: string; label: string }>({
+  stats,
+  onReorder,
+  onUpdate,
+  onRemove,
+}: {
+  stats: T[];
+  onReorder: (from: number, to: number) => void;
+  onUpdate: (i: number, field: "value" | "label", val: string) => void;
+  onRemove: (i: number) => void;
+}) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  return (
+    <>
+      {stats.map((s, i) => {
+        const isDragging = dragIndex === i;
+        const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
+        return (
+          <div
+            key={i}
+            draggable={dragIndex === i}
+            onDragOver={e => {
+              if (dragIndex === null) return;
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+              if (overIndex !== i) setOverIndex(i);
+            }}
+            onDrop={e => {
+              e.preventDefault();
+              if (dragIndex !== null && dragIndex !== i) onReorder(dragIndex, i);
+              setDragIndex(null);
+              setOverIndex(null);
+            }}
+            onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+            className={`flex gap-2 items-start bg-muted/40 rounded-lg p-2 transition-all ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary" : ""}`}
+          >
+            <button
+              type="button"
+              aria-label="Drag to reorder"
+              onMouseDown={() => setDragIndex(i)}
+              onMouseUp={() => { if (dragIndex === i) setDragIndex(null); }}
+              onTouchStart={() => setDragIndex(i)}
+              onTouchEnd={() => { if (dragIndex === i) setDragIndex(null); }}
+              className="cursor-grab active:cursor-grabbing touch-none mt-1.5 p-0.5 text-muted-foreground/60 hover:text-muted-foreground"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex-1 space-y-1.5">
+              <Input
+                className="h-7 text-xs"
+                placeholder="Value (e.g. 30%)"
+                value={s.value}
+                onChange={e => onUpdate(i, "value", e.target.value)}
+              />
+              <Input
+                className="h-7 text-xs"
+                placeholder="Label"
+                value={s.label}
+                onChange={e => onUpdate(i, "label", e.target.value)}
+              />
+            </div>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 mt-1 text-muted-foreground hover:text-destructive" onClick={() => onRemove(i)}>
+              ×
+            </Button>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll }: Props) {
   // Resolve once per render so every child panel + every inline Background
   // <Select> below shares the same brand-aware label set.
@@ -2109,6 +2181,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         };
         const addStat = () => onChange({ ...block, props: { ...p, stats: [...stats, { value: "", label: "" }] } });
         const removeStat = (i: number) => onChange({ ...block, props: { ...p, stats: stats.filter((_, idx) => idx !== i) } });
+        const reorderStat = (from: number, to: number) => {
+          const next = stats.slice();
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved);
+          onChange({ ...block, props: { ...p, stats: next } });
+        };
         return (
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "" }} />
@@ -2690,28 +2768,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </Button>
                 )}
               </div>
-              {stats.map((s, i) => (
-                <div key={i} className="flex gap-2 items-start bg-muted/40 rounded-lg p-2">
-                  <GripVertical className="w-3.5 h-3.5 mt-2.5 text-muted-foreground/40 shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <Input
-                      className="h-7 text-xs"
-                      placeholder="Value (e.g. 30%)"
-                      value={s.value}
-                      onChange={e => updateStat(i, "value", e.target.value)}
-                    />
-                    <Input
-                      className="h-7 text-xs"
-                      placeholder="Label"
-                      value={s.label}
-                      onChange={e => updateStat(i, "label", e.target.value)}
-                    />
-                  </div>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 mt-1 text-muted-foreground hover:text-destructive" onClick={() => removeStat(i)}>
-                    ×
-                  </Button>
-                </div>
-              ))}
+              <StatsReorderList stats={stats} onReorder={reorderStat} onUpdate={updateStat} onRemove={removeStat} />
             </div>
 
             {/* Button colors */}
