@@ -245,20 +245,21 @@ const CSS = `
 .id-cinema.id-cinema-flat .id-cinema-stepper { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-art { display:none; }
 .id-cinema.id-cinema-flat .id-cinema-text { position:relative; inset:auto; padding:0; display:flex; flex-direction:column; pointer-events:auto; }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel { position:relative; inset:auto; opacity:1; transform:none; flex-direction:column; align-items:stretch; gap:0; padding:0; min-height:auto; border-bottom:1px solid var(--id-line); pointer-events:auto; }
-/* Full-bleed art band — mirrors the 100vh viewport-filling video shown in
-   scroll-stacking mode so flat mode looks visually identical per panel. */
-.id-cinema.id-cinema-flat .id-panel-art { position:relative; width:100%; max-width:none; margin:0; aspect-ratio:auto; height:100vh; overflow:hidden; border-radius:0; background:#001814; }
+/* Flat mode: each panel is a self-contained 100vh stage where the text
+   overlays the video — same composition as the sticky/stacked mode, just
+   one panel per scroll page instead of a cross-fading sticky stack. */
+.id-cinema.id-cinema-flat .id-cinema-text .id-panel { position:relative; inset:auto; opacity:1; transform:none; display:block; padding:0; min-height:100vh; border-bottom:1px solid var(--id-line); pointer-events:auto; overflow:hidden; background:#001814; }
+.id-cinema.id-cinema-flat .id-panel-art { position:absolute; inset:0; width:100%; height:100%; max-width:none; margin:0; aspect-ratio:auto; overflow:hidden; border-radius:0; background:#001814; z-index:1; }
 .id-cinema.id-cinema-flat .id-panel-art > * { position:absolute; inset:0; width:100%; height:100%; opacity:1; transform:none; display:flex; align-items:center; justify-content:center; }
 .id-cinema.id-cinema-flat .id-panel-art .id-art-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-/* Padding moved off the panel and onto the text block so the art can
-   bleed edge-to-edge while the copy keeps its breathing room. */
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel .id-meta { padding:96px 60px; }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(1) { background:radial-gradient(ellipse at 30% 60%,#0A4A3E 0%,#001814 70%); }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(2) { background:linear-gradient(135deg,#003A30 0%,#001814 100%); }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(3) { background:#001814; }
-.id-cinema.id-cinema-flat .id-cinema-text .id-panel:nth-child(4) { background:radial-gradient(ellipse at 70% 40%,#0A4A3E 0%,#001814 70%); }
+/* Subtle darkening so light copy stays legible over the video, mirroring
+   the radial bg + noise overlay the sticky mode gets from .id-cinema-bg. */
+.id-cinema.id-cinema-flat .id-panel-art::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,24,20,0.35) 0%,rgba(0,24,20,0.15) 40%,rgba(0,24,20,0.75) 100%); pointer-events:none; z-index:1; }
+.id-cinema.id-cinema-flat .id-cinema-text .id-panel .id-meta { position:relative; z-index:2; min-height:100vh; padding:96px 60px; display:flex; justify-content:space-between; align-items:flex-end; gap:60px; flex-wrap:wrap; }
 .id-cinema.id-cinema-flat .id-cinema-spacer { display:none; }
+@media (max-width: 768px) {
+  .id-cinema.id-cinema-flat .id-cinema-text .id-panel .id-meta { padding:64px 24px; }
+}
 /* art kits — SCAN: dashed concentric rings + radial dots + glowing core */
 .id-art-scan { position:relative; width:600px; height:600px; max-width:90vmin; max-height:90vmin; }
 .id-art-scan .id-ring { position:absolute; inset:0; border-radius:50%; border:1px dashed rgba(199,231,56,0.3); animation:idRotate 30s linear infinite; }
