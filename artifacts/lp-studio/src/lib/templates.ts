@@ -537,7 +537,7 @@ export const templateBusinessCaseCentered: LPTemplate = {
 export const templateBusinessCasePremium: LPTemplate = {
   id: "business-case-premium",
   name: "Business Case — Premium Editorial",
-  description: "Premium DSO microsite, editorial monograph variant. Tall portrait hero card, table of contents strip, dark Math hero stat, and a refined activation timeline. Cream + dark green palette, Bagoss display type.",
+  description: "Premium DSO microsite tuned to organic-demand stories. Centered editorial hero with inline KPIs, then signal → clinical case grid → operational layer → insights comparison → math → proof → plan → CTA. Modeled on the PDS-style 'why doctors keep finding Dandy' narrative.",
   framework: "Hero → TOC → Situation → Signal → Cost → Shift → Math → Proof → Plan → CTA",
   badge: "Premium",
   industries: ["dental"] as const,

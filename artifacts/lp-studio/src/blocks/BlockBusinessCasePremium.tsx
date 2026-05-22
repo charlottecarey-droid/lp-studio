@@ -1,690 +1,452 @@
 import React from "react";
+import { ArrowRight, Check, Quote, Minus, Activity, Clock, LayoutGrid, Inbox } from "lucide-react";
 import type { BusinessCasePremiumBlockProps } from "../lib/block-types/dso-blocks";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
-const DISPLAY = "'Bagoss Standard', 'Times New Roman', Georgia, serif";
-const SANS =
-  "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
-const TOC = [
-  { num: "01", label: "Situation" },
-  { num: "02", label: "Signal" },
-  { num: "03", label: "Cost" },
-  { num: "04", label: "Shift" },
-  { num: "05", label: "Math" },
-  { num: "06", label: "Proof" },
-  { num: "07", label: "Plan" },
-];
-
-const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "Situation", href: "#sec-01" },
-  { label: "Signal", href: "#sec-02" },
-  { label: "Math", href: "#sec-05" },
-  { label: "Proof", href: "#sec-06" },
-  { label: "Plan", href: "#sec-07" },
-];
+const SITUATION_ICONS = [Inbox, Activity, LayoutGrid, Clock];
 
 interface Props {
   props: BusinessCasePremiumBlockProps;
 }
 
-function SectionHeader({
-  num,
-  eyebrow,
-  heading,
-  lede,
-  ink,
-  muted,
-  hairline,
-}: {
-  num: string;
-  eyebrow?: string;
-  heading: string;
-  lede?: string;
-  ink: string;
-  muted: string;
-  hairline: string;
-}) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 mb-20">
-      <div className="lg:col-span-4">
-        <div className="flex items-baseline gap-5">
-          <span
-            className="text-sm tracking-[0.18em] uppercase"
-            style={{ color: muted, fontFamily: SANS }}
-          >
-            {num}
-          </span>
-          <span className="h-px flex-1 max-w-[120px]" style={{ background: hairline }} aria-hidden />
-        </div>
-        {eyebrow && (
-          <div
-            className="mt-4 text-xs tracking-[0.22em] uppercase"
-            style={{ color: ink, fontFamily: SANS, fontWeight: 600 }}
-          >
-            {eyebrow}
-          </div>
-        )}
-      </div>
-      <div className="lg:col-span-8">
-        <h2
-          className="leading-[1.02] tracking-[-0.01em]"
-          style={{ fontFamily: DISPLAY, fontSize: "clamp(36px, 4.6vw, 64px)", color: ink }}
-        >
-          {heading}
-        </h2>
-        {lede && (
-          <p
-            className="mt-6 max-w-2xl"
-            style={{
-              fontFamily: SANS,
-              fontSize: "clamp(16px, 1.2vw, 19px)",
-              lineHeight: 1.55,
-              color: muted,
-            }}
-          >
-            {lede}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Premium Editorial — visually mirrors the Centered Business Case template
+ * but seeded with PDS-style content (inbound demand → clinical challenges →
+ * operational layer → insights → math → proof → plan → CTA).
+ *
+ * Renders up to 4 situationStats and signalCards so it can express richer
+ * PDS-style content while remaining prop-compatible with the rest of the
+ * Business Case family.
+ */
 export function BlockBusinessCasePremium({ props }: Props) {
-  const bg = props.bgColor || "#f6f5ee";
-  const ink = props.inkColor || "#0d1f15";
-  const dark = props.darkColor || "#0d1f15";
-  const accent = props.accentColor || "#c8e84e";
-  const accentInk = props.accentInkColor || "#0d1f15";
-  const muted = "rgba(13,31,21,0.6)";
-  const hairline = "rgba(13,31,21,0.12)";
+  const bg = props.bgColor ?? "#f6f5ee";
+  const ink = props.inkColor ?? "#0d1f15";
+  const dark = props.darkColor ?? "#0d1f15";
+  const accent = props.accentColor ?? "#c8e84e";
+  const accentInk = props.accentInkColor ?? "#0d1f15";
 
-  const brandText = props.logoAlt || "Dandy";
-  const heroImageUrl = props.heroImageUrl;
-  const kicker = props.kicker;
-  const volumeLabel = props.volumeLabel || "Volume I";
-  const issueLabel = props.issueLabel || "2025 · No. 01";
-  const plateLabel = props.plateLabel || "Plate 01";
-  const heroImageCaption = props.heroImageCaption || "Field study, Q1";
+  const logoSrc = props.logoUrl || "/dandy-logo-white.svg";
+  const logoAlt = props.logoAlt || "Dandy";
 
-  const mathHeroEyebrow = props.mathHeroEyebrow || "Incremental Cases / Month";
-  const mathHeroStat = props.mathHeroStat || "+185";
-  const mathHeroDescription =
-    props.mathHeroDescription ||
-    "Estimated incremental restorative cases per month — the compounding effect of digital workflow, doctor retention, and zero-CAPEX scanner deployment.";
-
-  const finalCtaEyebrow = props.finalCtaEyebrow || "Next Step";
-  const footerLeftLabel = props.footerLeftLabel || "Dandy × Partners";
-  const footerRightLabel = props.footerRightLabel || "Confidential · 2025";
-
-  // Eyebrow class
-  const eyebrowStyle: React.CSSProperties = {
-    fontFamily: SANS,
-    letterSpacing: "0.22em",
-    textTransform: "uppercase",
-    fontWeight: 600,
-    fontSize: 11,
-  };
+  const heroStats = (props.situationStats ?? []).slice(0, 4);
 
   return (
-    <div style={{ background: bg, color: ink, fontFamily: SANS, minHeight: "100vh" }}>
-      <style>{`
-        .pe-display { font-family: ${DISPLAY}; letter-spacing: -0.015em; }
-        .pe-num-xxl { font-family: ${DISPLAY}; font-size: clamp(72px, 9vw, 128px); line-height: 0.95; letter-spacing: -0.025em; }
-        .pe-num-xl { font-family: ${DISPLAY}; font-size: clamp(56px, 6vw, 88px); line-height: 1; letter-spacing: -0.02em; }
-        .pe-num-lg { font-family: ${DISPLAY}; font-size: clamp(40px, 4.2vw, 64px); line-height: 1; letter-spacing: -0.02em; }
-        .pe-display-hero { font-family: ${DISPLAY}; font-size: clamp(56px, 7vw, 112px); line-height: 0.98; letter-spacing: -0.025em; font-weight: 500; }
-        .pe-link-underline { position: relative; display: inline-flex; align-items: center; gap: 8px; }
-        .pe-link-underline::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 1px; background: currentColor; opacity: 0.4; }
-        .pe-hero-image-card {
-          background:
-            radial-gradient(120% 80% at 30% 20%, rgba(200,232,78,0.18), transparent 60%),
-            linear-gradient(160deg, #15321f 0%, #0d1f15 55%, #0a1810 100%);
-        }
-      `}</style>
-
-      {/* Sticky dark top nav */}
-      <header
-        className="sticky top-0 z-50 w-full"
-        style={{ background: dark, color: bg, borderBottom: `1px solid rgba(246,245,238,0.08)` }}
+    <div
+      className="min-h-screen font-sans antialiased"
+      style={{ background: bg, color: ink, fontFamily: BODY }}
+    >
+      {/* 1. Hero — centered, dark, with inline KPI strip */}
+      <section
+        className="relative flex flex-col justify-center items-center text-center px-6 py-20 min-h-[760px] overflow-hidden"
+        style={{ background: dark, color: bg }}
       >
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span
-              className="pe-display"
-              style={{ fontSize: 22, color: bg, letterSpacing: "-0.02em" }}
-            >
-              {brandText}
-            </span>
-            {props.forCompanyLabel && (
-              <span
-                className="ml-3 hidden sm:inline-block"
-                style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.55)", fontSize: 10 }}
+        <div className="absolute top-0 w-full p-6 flex justify-between items-center max-w-7xl mx-auto">
+          <img src={logoSrc} alt={logoAlt} className="h-7 w-auto" />
+          <div
+            className="text-xs uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full"
+            style={{ color: accent, fontFamily: BODY }}
+          >
+            {props.forCompanyLabel}
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto flex flex-col items-center z-10 mt-16">
+          {props.heroEyebrow && (
+            <>
+              <div className="w-12 h-[2px] mb-8" style={{ background: accent }} />
+              <h2
+                className="text-xs font-semibold tracking-[0.2em] uppercase mb-6"
+                style={{ color: accent, fontFamily: BODY }}
               >
-                × {props.forCompanyLabel.replace(/^For\s+/i, "")}
-              </span>
+                {props.heroEyebrow}
+              </h2>
+            </>
+          )}
+          <h1
+            className="text-5xl md:text-7xl font-medium leading-[1.1] mb-8 max-w-4xl"
+            style={{ fontFamily: DISPLAY }}
+          >
+            {props.heroHeadline}
+          </h1>
+          <p
+            className="text-lg md:text-xl max-w-2xl mb-12 font-light"
+            style={{ color: `${bg}b0`, fontFamily: BODY }}
+          >
+            {props.heroSubhead}
+          </p>
+          <div className="flex flex-col items-center gap-6">
+            <a
+              href={props.heroPrimaryCtaUrl}
+              className="px-8 py-4 rounded-none font-medium transition-colors flex items-center gap-2 text-sm uppercase tracking-wider hover:opacity-90"
+              style={{ background: accent, color: accentInk, fontFamily: BODY }}
+            >
+              {props.heroPrimaryCtaText} <ArrowRight className="w-4 h-4" />
+            </a>
+            {props.heroSecondaryCtaText && (
+              <a
+                href={props.heroSecondaryCtaUrl}
+                className="transition-colors text-sm underline underline-offset-4"
+                style={{ color: `${bg}80`, fontFamily: BODY }}
+              >
+                {props.heroSecondaryCtaText} →
+              </a>
             )}
           </div>
-          <nav className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.7)" }}
-              >
-                {l.label}
-              </a>
-            ))}
-          </nav>
-          <a
-            href={props.heroPrimaryCtaUrl || "#contact"}
-            style={{
-              ...eyebrowStyle,
-              background: accent,
-              color: accentInk,
-              padding: "10px 18px",
-              borderRadius: 999,
-            }}
-          >
-            Schedule
-          </a>
-        </div>
-      </header>
 
-      {/* 1. HERO */}
-      <section className="relative">
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-20 lg:pt-28 pb-24 lg:pb-32">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-            {/* Left: copy */}
-            <div className="lg:col-span-7">
-              {props.forCompanyLabel && (
-                <div
-                  className="inline-flex items-center gap-2 px-3 py-1.5 mb-10"
-                  style={{ border: `1px solid ${hairline}`, borderRadius: 999 }}
-                >
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ background: accent }}
-                  />
-                  <span style={{ ...eyebrowStyle, color: ink }}>{props.forCompanyLabel}</span>
-                </div>
-              )}
-
-              {kicker && (
-                <div className="mb-6" style={{ ...eyebrowStyle, color: muted }}>
-                  {kicker}
-                </div>
-              )}
-
-              {props.heroEyebrow && (
-                <div className="flex items-center gap-4 mb-8">
-                  <span className="h-px w-10" style={{ background: ink }} />
-                  <span style={{ ...eyebrowStyle, color: ink }}>{props.heroEyebrow}</span>
-                </div>
-              )}
-
-              <h1 className="pe-display-hero" style={{ color: ink, maxWidth: "14ch" }}>
-                {props.heroHeadline}
-              </h1>
-
-              <p
-                className="mt-10 max-w-xl"
-                style={{
-                  fontSize: "clamp(17px, 1.3vw, 21px)",
-                  lineHeight: 1.55,
-                  color: muted,
-                }}
-              >
-                {props.heroSubhead}
-              </p>
-
-              <div className="mt-12 flex flex-wrap items-center gap-8">
-                <a
-                  href={props.heroPrimaryCtaUrl}
-                  style={{
-                    ...eyebrowStyle,
-                    background: accent,
-                    color: accentInk,
-                    padding: "16px 28px",
-                    fontSize: 12,
-                  }}
-                >
-                  {props.heroPrimaryCtaText} →
-                </a>
-                {props.heroSecondaryCtaText && (
-                  <a
-                    href={props.heroSecondaryCtaUrl}
-                    className="pe-link-underline"
-                    style={{ fontFamily: SANS, fontSize: 14, color: ink, fontWeight: 500 }}
+          {heroStats.length > 0 && (
+            <div
+              className="mt-16 pt-10 w-full max-w-4xl grid grid-cols-2 md:grid-cols-4 gap-8 text-left border-t"
+              style={{ borderColor: `${bg}22` }}
+            >
+              {heroStats.map((s, i) => (
+                <div key={i}>
+                  <div
+                    className="text-3xl md:text-4xl mb-2"
+                    style={{ color: accent, fontFamily: DISPLAY }}
                   >
-                    {props.heroSecondaryCtaText}
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Right: tall portrait image card */}
-            <div className="lg:col-span-5">
-              <div
-                className="relative w-full overflow-hidden pe-hero-image-card"
-                style={{ aspectRatio: "3 / 4", borderRadius: 2, border: `1px solid ${hairline}` }}
-              >
-                {heroImageUrl && (
-                  <img
-                    src={heroImageUrl}
-                    alt={props.heroHeadline || "Hero"}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                )}
-                <div
-                  className="absolute left-4 right-4 bottom-4 flex items-center justify-between"
-                  style={{ color: bg }}
-                >
-                  <span style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.85)" }}>
-                    {heroImageCaption}
-                  </span>
-                  <span style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.55)" }}>
-                    {plateLabel}
-                  </span>
+                    {s.value}
+                  </div>
+                  <div
+                    className="text-xs font-semibold tracking-widest uppercase"
+                    style={{ color: `${bg}b0`, fontFamily: BODY }}
+                  >
+                    {s.label}
+                  </div>
                 </div>
-                <div
-                  className="absolute inset-3 pointer-events-none"
-                  style={{ border: `1px solid rgba(246,245,238,0.15)` }}
-                />
-              </div>
-              <div
-                className="mt-4 flex items-baseline justify-between"
-                style={{ ...eyebrowStyle, color: muted }}
-              >
-                <span>{volumeLabel}</span>
-                <span>{issueLabel}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
-          <div className="h-px" style={{ background: hairline }} />
-        </div>
-      </section>
-
-      {/* TABLE OF CONTENTS */}
-      <section>
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
-          <div
-            className="flex items-center justify-between gap-6 py-6 overflow-x-auto"
-            style={{ borderBottom: `1px solid ${hairline}` }}
-          >
-            <span style={{ ...eyebrowStyle, color: muted, whiteSpace: "nowrap" }}>Contents</span>
-            <div className="flex items-center gap-7 lg:gap-10 whitespace-nowrap">
-              {TOC.map((t, i) => (
-                <a
-                  key={t.num}
-                  href={`#sec-${t.num}`}
-                  className="flex items-baseline gap-2"
-                  style={{ color: ink }}
-                >
-                  <span style={{ ...eyebrowStyle, color: muted, fontSize: 10 }}>{t.num}</span>
-                  <span style={{ fontFamily: DISPLAY, fontSize: 15, letterSpacing: "-0.01em" }}>
-                    {t.label}
-                  </span>
-                  {i < TOC.length - 1 && (
-                    <span
-                      className="ml-7 lg:ml-10 hidden md:inline-block"
-                      style={{ color: muted, fontSize: 12 }}
-                    >
-                      ·
-                    </span>
-                  )}
-                </a>
               ))}
             </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* 2. SITUATION */}
-      <section id="sec-01" className="max-w-[1280px] mx-auto px-6 lg:px-10 py-32">
-        <SectionHeader
-          num="01"
-          eyebrow={props.situationEyebrow || "The Situation"}
-          heading={props.situationHeading}
-          lede={props.situationBody}
-          ink={ink}
-          muted={muted}
-          hairline={hairline}
-        />
-
-        {props.situationBodyExtra && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
-            <div className="lg:col-span-4 lg:col-start-5">
+      {/* 2. Situation / Demand — light, headline + lede + KPI cards */}
+      <section className="py-24 px-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+          <div className="lg:col-span-5">
+            {props.situationEyebrow && (
+              <div
+                className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-gray-500"
+                style={{ fontFamily: BODY }}
+              >
+                {props.situationEyebrow}
+              </div>
+            )}
+            <h2 className="text-4xl mb-6" style={{ color: ink, fontFamily: DISPLAY }}>
+              {props.situationHeading}
+            </h2>
+            <p
+              className="text-lg text-gray-700 leading-relaxed mb-6"
+              style={{ fontFamily: BODY }}
+            >
+              {props.situationBody}
+            </p>
+            {props.situationBodyExtra && (
               <p
-                style={{
-                  fontSize: "clamp(16px, 1.15vw, 18px)",
-                  lineHeight: 1.65,
-                  color: muted,
-                }}
+                className="text-lg text-gray-700 leading-relaxed"
+                style={{ fontFamily: BODY }}
               >
                 {props.situationBodyExtra}
               </p>
-            </div>
+            )}
           </div>
-        )}
-
-        <div
-          className="mt-24 grid grid-cols-1 md:grid-cols-3"
-          style={{ borderTop: `1px solid ${hairline}` }}
-        >
-          {props.situationStats.map((s, i) => (
-            <div
-              key={i}
-              className="py-10 md:py-12 px-0 md:px-8 first:md:pl-0 last:md:pr-0"
-              style={{
-                borderRight:
-                  i < props.situationStats.length - 1 ? `1px solid ${hairline}` : "none",
-                borderBottom: `1px solid ${hairline}`,
-              }}
-            >
-              <div className="pe-num-xl" style={{ color: ink }}>
-                {s.value}
-              </div>
-              <div className="mt-6" style={{ ...eyebrowStyle, color: ink }}>
-                {s.label}
-              </div>
-              {s.description && (
-                <p
-                  className="mt-3 max-w-xs"
-                  style={{ fontSize: 14, lineHeight: 1.5, color: muted }}
+          <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {heroStats.map((s, i) => {
+              const Icon = SITUATION_ICONS[i] ?? Activity;
+              return (
+                <div
+                  key={i}
+                  className="bg-white p-8 border border-gray-200 flex flex-col justify-between"
                 >
-                  {s.description}
-                </p>
-              )}
-            </div>
-          ))}
+                  <div>
+                    <Icon className="w-6 h-6 mb-4" style={{ color: accent }} />
+                    <div
+                      className="text-sm font-semibold tracking-wider text-gray-500 uppercase mb-2"
+                      style={{ fontFamily: BODY }}
+                    >
+                      {s.label}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className="text-3xl mb-2"
+                      style={{ color: ink, fontFamily: DISPLAY }}
+                    >
+                      {s.value}
+                    </div>
+                    {s.description && (
+                      <div
+                        className="text-sm text-gray-600"
+                        style={{ fontFamily: BODY }}
+                      >
+                        {s.description}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      {/* 3. SIGNAL */}
-      <section
-        id="sec-02"
-        className="max-w-[1280px] mx-auto px-6 lg:px-10 py-32"
-        style={{ borderTop: `1px solid ${hairline}` }}
-      >
-        <SectionHeader
-          num="02"
-          eyebrow={props.signalEyebrow || "The Signal"}
-          heading={props.signalHeading}
-          ink={ink}
-          muted={muted}
-          hairline={hairline}
-        />
+      <hr className="border-t border-black/10 max-w-7xl mx-auto" />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-px" style={{ background: hairline }}>
+      {/* 3. Signal / Clinical challenges — dark slab grid */}
+      <section
+        className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
+        style={{ background: "#0f2a1c", color: bg }}
+      >
+        <div className="mb-16">
+          {props.signalEyebrow && (
+            <h2
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-4"
+              style={{ color: accent, fontFamily: BODY }}
+            >
+              {props.signalEyebrow} →
+            </h2>
+          )}
+          <h3
+            className="text-4xl md:text-5xl max-w-3xl leading-tight"
+            style={{ fontFamily: DISPLAY }}
+          >
+            {props.signalHeading}
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {props.signalCards.map((card, i) => {
             if (card.attribution) {
               return (
-                <div key={i} className="p-10 flex flex-col" style={{ background: bg }}>
-                  <span
-                    className="pe-display"
-                    style={{ fontSize: 40, color: accent, lineHeight: 1 }}
-                    aria-hidden
-                  >
-                    “
-                  </span>
+                <div key={i} className="border border-white/20 p-8 bg-white/5 relative">
+                  <Quote
+                    className="w-8 h-8 absolute top-6 left-6"
+                    style={{ color: `${accent}4d` }}
+                  />
                   <p
-                    className="mt-2 italic"
-                    style={{
-                      fontFamily: DISPLAY,
-                      fontSize: "clamp(19px, 1.5vw, 23px)",
-                      lineHeight: 1.35,
-                      color: ink,
-                    }}
+                    className="text-lg italic relative z-10 pt-4 mb-6"
+                    style={{ fontFamily: DISPLAY }}
                   >
-                    {card.body}
+                    "{card.body}"
                   </p>
-                  <div className="mt-auto pt-10" style={{ ...eyebrowStyle, color: muted }}>
+                  <div
+                    className="text-sm font-semibold uppercase tracking-wider"
+                    style={{ color: accent, fontFamily: BODY }}
+                  >
                     {card.attribution}
                   </div>
                 </div>
               );
             }
             return (
-              <div key={i} className="p-10" style={{ background: bg }}>
+              <div key={i} className="border border-white/20 p-8">
                 {card.stat && (
-                  <div className="pe-num-lg" style={{ color: ink }}>
+                  <div
+                    className="text-4xl mb-4"
+                    style={{ color: accent, fontFamily: DISPLAY }}
+                  >
                     {card.stat}
                   </div>
                 )}
-                <p
-                  className="mt-8"
-                  style={{ fontSize: 15, lineHeight: 1.55, color: muted, maxWidth: "28ch" }}
-                >
-                  {card.body}
-                </p>
+                <p className="text-lg" style={{ fontFamily: BODY }}>{card.body}</p>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* 4. COST OF INACTION */}
-      <section
-        id="sec-03"
-        className="max-w-[1280px] mx-auto px-6 lg:px-10 py-32"
-        style={{ borderTop: `1px solid ${hairline}` }}
-      >
-        <SectionHeader
-          num="03"
-          eyebrow={props.costEyebrow || "Cost of Inaction"}
-          heading={props.costHeading}
-          lede={props.costSubhead}
-          ink={ink}
-          muted={muted}
-          hairline={hairline}
-        />
+      {/* 4. Cost / Operational layer */}
+      <section className="py-24 px-6 max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          {props.costEyebrow && (
+            <div
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-gray-500"
+              style={{ fontFamily: BODY }}
+            >
+              {props.costEyebrow}
+            </div>
+          )}
+          <h2 className="text-4xl mb-6" style={{ color: ink, fontFamily: DISPLAY }}>
+            {props.costHeading}
+          </h2>
+          {props.costSubhead && (
+            <p
+              className="text-xl text-gray-600 max-w-2xl mx-auto"
+              style={{ fontFamily: BODY }}
+            >
+              {props.costSubhead}
+            </p>
+          )}
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-20">
-          {props.costItems.map((t, idx) => (
-            <div key={idx} style={{ borderTop: `1px solid ${ink}` }} className="pt-8">
-              <div className="flex items-start justify-between">
-                <span style={{ ...eyebrowStyle, color: muted }}>
-                  {t.num ?? String(idx + 1).padStart(2, "0")}
-                </span>
-                {t.label && (
-                  <span style={{ ...eyebrowStyle, color: muted }}>{t.label}</span>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {props.costItems.map((item, idx) => (
+            <div
+              key={idx}
+              className="relative pt-12 border-t-2"
+              style={{ borderColor: ink }}
+            >
+              <div
+                className="absolute top-0 left-0 -mt-[14px] pr-4 text-xl text-gray-400 italic"
+                style={{ background: bg, fontFamily: DISPLAY }}
+              >
+                {item.num ?? String(idx + 1).padStart(2, "0")}
               </div>
-              <div className="pe-num-xxl mt-8" style={{ color: ink }}>
-                {t.stat}
+              <div className="text-5xl mb-2" style={{ color: ink, fontFamily: DISPLAY }}>
+                {item.stat}
               </div>
-              {t.description && (
-                <p
-                  className="mt-8 max-w-md"
-                  style={{ fontSize: 16, lineHeight: 1.55, color: muted }}
-                >
-                  {t.description}
-                </p>
-              )}
+              <div
+                className="font-semibold text-sm tracking-wider uppercase mb-3 text-gray-500"
+                style={{ fontFamily: BODY }}
+              >
+                {item.label}
+              </div>
+              <p className="text-gray-600" style={{ fontFamily: BODY }}>
+                {item.description}
+              </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* 5. PARADIGM SHIFT */}
-      <section
-        id="sec-04"
-        className="max-w-[1280px] mx-auto px-6 lg:px-10 py-32"
-        style={{ borderTop: `1px solid ${hairline}` }}
-      >
-        <SectionHeader
-          num="04"
-          eyebrow={props.shiftEyebrow || "Paradigm Shift"}
-          heading={props.shiftHeading}
-          ink={ink}
-          muted={muted}
-          hairline={hairline}
-        />
+      {/* 5. Shift / "See everything" — comparison table */}
+      <section className="py-24 bg-white border-y border-gray-200">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            {props.shiftEyebrow && (
+              <div
+                className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-gray-500"
+                style={{ fontFamily: BODY }}
+              >
+                {props.shiftEyebrow}
+              </div>
+            )}
+            <h2 className="text-4xl" style={{ color: ink, fontFamily: DISPLAY }}>
+              {props.shiftHeading}
+            </h2>
+          </div>
 
-        <div
-          className="grid grid-cols-12 gap-6 pb-6"
-          style={{ borderBottom: `1px solid ${ink}` }}
-        >
-          <div className="col-span-4" style={{ ...eyebrowStyle, color: ink }}>
-            Category
+          <div className="grid grid-cols-12 gap-8 mb-8 border-b border-gray-200 pb-4">
+            <div
+              className="col-span-4 font-semibold text-sm uppercase tracking-wider text-gray-400"
+              style={{ fontFamily: BODY }}
+            >
+              Category
+            </div>
+            <div
+              className="col-span-4 font-semibold text-sm uppercase tracking-wider text-gray-400"
+              style={{ fontFamily: BODY }}
+            >
+              Before Dandy
+            </div>
+            <div
+              className="col-span-4 font-semibold text-sm uppercase tracking-wider"
+              style={{ color: ink, fontFamily: BODY }}
+            >
+              With Dandy
+            </div>
           </div>
-          <div className="col-span-4" style={{ ...eyebrowStyle, color: muted }}>
-            Yesterday
-          </div>
-          <div className="col-span-4" style={{ ...eyebrowStyle, color: ink }}>
-            With {brandText}
-          </div>
+
+          {props.shiftRows.map((row, idx) => (
+            <div
+              key={idx}
+              className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8 py-6 border-b border-gray-100 last:border-0 items-center"
+            >
+              <div
+                className="col-span-1 md:col-span-4 text-xl"
+                style={{ color: ink, fontFamily: DISPLAY }}
+              >
+                {row.category}
+              </div>
+              <div
+                className="col-span-1 md:col-span-4 text-gray-500 flex items-start gap-2"
+                style={{ fontFamily: BODY }}
+              >
+                <Minus className="w-4 h-4 mt-1 shrink-0" /> {row.oldWay}
+              </div>
+              <div
+                className="col-span-1 md:col-span-4 p-4 border-l-4 font-medium flex items-start gap-2"
+                style={{ background: bg, borderColor: accent, color: ink, fontFamily: BODY }}
+              >
+                <Check className="w-4 h-4 mt-1 shrink-0" style={{ color: accent }} /> {row.withDandy}
+              </div>
+            </div>
+          ))}
         </div>
-
-        {props.shiftRows.map((r, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-12 gap-6 py-7 items-baseline"
-            style={{ borderBottom: `1px solid ${hairline}` }}
-          >
-            <div
-              className="col-span-12 md:col-span-4"
-              style={{
-                fontFamily: DISPLAY,
-                fontSize: "clamp(20px, 1.6vw, 24px)",
-                letterSpacing: "-0.01em",
-                color: ink,
-              }}
-            >
-              {r.category}
-            </div>
-            <div
-              className="col-span-12 md:col-span-4"
-              style={{ fontSize: 16, lineHeight: 1.5, color: muted }}
-            >
-              {r.oldWay}
-            </div>
-            <div className="col-span-12 md:col-span-4 flex items-start gap-3">
-              <span
-                className="mt-2 inline-block w-2 h-2 rounded-full shrink-0"
-                style={{ background: accent }}
-                aria-hidden
-              />
-              <span style={{ fontSize: 16, lineHeight: 1.5, color: ink, fontWeight: 500 }}>
-                {r.withDandy}
-              </span>
-            </div>
-          </div>
-        ))}
       </section>
 
-      {/* 6. MATH — dark */}
-      <section
-        id="sec-05"
-        className="py-32"
-        style={{ background: dark, color: bg, borderTop: `1px solid ${hairline}` }}
-      >
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 mb-20">
-            <div className="lg:col-span-4">
-              <div className="flex items-baseline gap-5">
-                <span style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.5)" }}>05</span>
-                <span
-                  className="h-px flex-1 max-w-[120px]"
-                  style={{ background: "rgba(246,245,238,0.18)" }}
-                />
-              </div>
-              {(props.mathEyebrow || "The Math") && (
-                <div className="mt-4" style={{ ...eyebrowStyle, color: accent }}>
-                  {props.mathEyebrow || "The Math"}
-                </div>
-              )}
+      {/* 6. Math */}
+      <section className="py-24 px-6 max-w-7xl mx-auto">
+        <div className="max-w-3xl mb-12">
+          {props.mathEyebrow && (
+            <div
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-gray-500"
+              style={{ fontFamily: BODY }}
+            >
+              {props.mathEyebrow}
             </div>
-            <div className="lg:col-span-8">
-              <h2
-                className="pe-display"
-                style={{ fontSize: "clamp(36px, 4.6vw, 64px)", color: bg, lineHeight: 1.02 }}
-              >
-                {props.mathHeading}
-              </h2>
-              {props.mathSubhead && (
-                <p
-                  className="mt-6 max-w-2xl"
-                  style={{
-                    fontSize: "clamp(16px, 1.2vw, 19px)",
-                    lineHeight: 1.55,
-                    color: "rgba(246,245,238,0.7)",
-                  }}
-                >
-                  {props.mathSubhead}
-                </p>
-              )}
-            </div>
-          </div>
+          )}
+          <h2 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>
+            {props.mathHeading}
+          </h2>
+          <p className="text-xl text-gray-600" style={{ fontFamily: BODY }}>
+            {props.mathSubhead}
+          </p>
+        </div>
 
-          {/* Hero stat */}
-          <div
-            className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-end pb-16"
-            style={{ borderBottom: `1px solid rgba(246,245,238,0.15)` }}
-          >
-            <div className="lg:col-span-7">
-              <div style={{ ...eyebrowStyle, color: accent }}>{mathHeroEyebrow}</div>
+        <div className="p-8 md:p-12" style={{ background: dark, color: bg }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 pb-12 border-b border-white/20">
+            <div>
+              <label
+                className="block text-xs uppercase tracking-widest mb-2"
+                style={{ color: accent, fontFamily: BODY }}
+              >
+                Number of Offices
+              </label>
               <div
-                className="mt-4"
-                style={{
-                  fontFamily: DISPLAY,
-                  fontSize: "clamp(120px, 18vw, 260px)",
-                  lineHeight: 0.9,
-                  letterSpacing: "-0.035em",
-                  color: bg,
-                  fontWeight: 500,
-                }}
+                className="text-3xl border-b border-white/30 pb-2"
+                style={{ fontFamily: DISPLAY }}
               >
-                {mathHeroStat}
+                {props.mathOfficeCount}
               </div>
             </div>
-            <div className="lg:col-span-5">
-              <p
-                style={{
-                  fontFamily: DISPLAY,
-                  fontSize: "clamp(20px, 1.7vw, 26px)",
-                  lineHeight: 1.35,
-                  color: "rgba(246,245,238,0.85)",
-                  maxWidth: "32ch",
-                }}
+            <div>
+              <label
+                className="block text-xs uppercase tracking-widest mb-2"
+                style={{ color: accent, fontFamily: BODY }}
               >
-                {mathHeroDescription}
-              </p>
+                {props.mathVolumeLabel}
+              </label>
+              <div
+                className="text-3xl border-b border-white/30 pb-2"
+                style={{ fontFamily: DISPLAY }}
+              >
+                {props.mathVolumeValue}
+              </div>
             </div>
           </div>
 
-          {/* Supporting stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 mt-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {props.mathStats.map((s, i) => (
-              <div
-                key={i}
-                className="py-6 px-0 md:px-8 first:md:pl-0 last:md:pr-0"
-                style={{
-                  borderLeft: i > 0 ? `1px solid rgba(246,245,238,0.15)` : "none",
-                }}
-              >
-                <div style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.55)" }}>{s.label}</div>
+              <div key={i}>
                 <div
-                  className="mt-5"
-                  style={{
-                    fontFamily: DISPLAY,
-                    fontSize: "clamp(36px, 3.5vw, 56px)",
-                    lineHeight: 1,
-                    letterSpacing: "-0.02em",
-                    color: accent,
-                  }}
+                  className="text-gray-400 text-sm mb-2"
+                  style={{ fontFamily: BODY }}
+                >
+                  {s.label}
+                </div>
+                <div
+                  className="text-4xl"
+                  style={{ color: accent, fontFamily: DISPLAY }}
                 >
                   {s.value}
                 </div>
                 {s.caption && (
-                  <div className="mt-3" style={{ fontSize: 12, color: "rgba(246,245,238,0.55)" }}>
+                  <div
+                    className="text-xs mt-1 text-gray-500"
+                    style={{ fontFamily: BODY }}
+                  >
                     {s.caption}
                   </div>
                 )}
@@ -694,214 +456,181 @@ export function BlockBusinessCasePremium({ props }: Props) {
         </div>
       </section>
 
-      {/* 7. PROOF */}
-      <section id="sec-06" className="max-w-[1280px] mx-auto px-6 lg:px-10 py-32">
-        <SectionHeader
-          num="06"
-          eyebrow={props.proofEyebrow || "The Proof"}
-          heading={props.proofHeading}
-          ink={ink}
-          muted={muted}
-          hairline={hairline}
-        />
+      {/* 7. Proof */}
+      <section className="py-24 px-6" style={{ background: "#eae8dd" }}>
+        <div className="max-w-7xl mx-auto">
+          {props.proofEyebrow && (
+            <div
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-gray-500 text-center"
+              style={{ fontFamily: BODY }}
+            >
+              {props.proofEyebrow}
+            </div>
+          )}
+          <h2
+            className="text-4xl mb-16 text-center"
+            style={{ color: ink, fontFamily: DISPLAY }}
+          >
+            {props.proofHeading}
+          </h2>
 
-        <figure
-          className="py-16"
-          style={{ borderTop: `1px solid ${hairline}`, borderBottom: `1px solid ${hairline}` }}
-        >
-          <span
-            className="pe-display"
-            style={{ fontSize: 72, color: accent, lineHeight: 0.8, display: "inline-block" }}
-            aria-hidden
-          >
-            “
-          </span>
-          <blockquote
-            className="mt-4 italic"
-            style={{
-              fontFamily: DISPLAY,
-              fontSize: "clamp(28px, 3.2vw, 46px)",
-              lineHeight: 1.2,
-              letterSpacing: "-0.015em",
-              color: ink,
-              maxWidth: "22ch",
-            }}
-          >
-            {props.proofFeatured.quote}
-          </blockquote>
-          <figcaption className="mt-10 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, color: ink }}>
-              {props.proofFeatured.name}
-            </span>
-            <span style={{ ...eyebrowStyle, color: muted }}>{props.proofFeatured.title}</span>
-          </figcaption>
-        </figure>
-
-        {props.proofSecondary.length > 0 && (
-          <div
-            className="grid grid-cols-1 md:grid-cols-2 gap-px mt-16"
-            style={{ background: hairline }}
-          >
-            {props.proofSecondary.map((q, i) => (
-              <div key={i} className="p-10" style={{ background: bg }}>
-                <p
-                  className="italic"
-                  style={{
-                    fontFamily: DISPLAY,
-                    fontSize: "clamp(18px, 1.5vw, 22px)",
-                    lineHeight: 1.4,
-                    color: ink,
-                    maxWidth: "34ch",
-                  }}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+            <div
+              className="md:col-span-7 bg-white p-10 md:p-16 border-t-4"
+              style={{ borderColor: accent }}
+            >
+              <Quote className="w-12 h-12 text-gray-200 mb-6" />
+              <p
+                className="text-2xl md:text-3xl leading-relaxed mb-8"
+                style={{ color: ink, fontFamily: DISPLAY }}
+              >
+                "{props.proofFeatured.quote}"
+              </p>
+              <div>
+                <div
+                  className="font-semibold text-lg"
+                  style={{ fontFamily: BODY }}
                 >
-                  “{q.quote}”
-                </p>
-                <div className="mt-10 flex items-baseline gap-3">
-                  <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 13, color: ink }}>
-                    {q.name}
-                  </span>
-                  <span style={{ ...eyebrowStyle, color: muted }}>{q.title}</span>
+                  {props.proofFeatured.name}
+                </div>
+                <div className="text-gray-500" style={{ fontFamily: BODY }}>
+                  {props.proofFeatured.title}
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="md:col-span-5 flex flex-col gap-8">
+              {props.proofSecondary.map((t, i) => (
+                <div key={i} className="bg-white p-8">
+                  <p
+                    className="text-xl italic text-gray-700 mb-6"
+                    style={{ fontFamily: DISPLAY }}
+                  >
+                    "{t.quote}"
+                  </p>
+                  <div>
+                    <div
+                      className="font-semibold text-sm"
+                      style={{ fontFamily: BODY }}
+                    >
+                      {t.name}
+                    </div>
+                    <div
+                      className="text-xs text-gray-500"
+                      style={{ fontFamily: BODY }}
+                    >
+                      {t.title}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. Plan */}
+      <section className="py-24 px-6 max-w-7xl mx-auto">
+        <div className="mb-16">
+          {props.planEyebrow && (
+            <div
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-4 text-gray-500"
+              style={{ fontFamily: BODY }}
+            >
+              {props.planEyebrow}
+            </div>
+          )}
+          <h2 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>
+            {props.planHeading}
+          </h2>
+          {props.planSubhead && (
+            <p className="text-xl text-gray-600" style={{ fontFamily: BODY }}>
+              {props.planSubhead}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {props.planSteps.map((step, i) => (
+            <div key={i} className="relative">
+              <div
+                className="text-7xl font-bold opacity-30 mb-4"
+                style={{ color: accent, fontFamily: DISPLAY }}
+              >
+                {step.num}
+              </div>
+              <h4 className="font-bold text-lg mb-2" style={{ fontFamily: BODY }}>
+                {step.title}
+              </h4>
+              <p
+                className="text-gray-600 text-sm mb-4 min-h-[60px]"
+                style={{ fontFamily: BODY }}
+              >
+                {step.description}
+              </p>
+              <div
+                className="text-xs uppercase tracking-widest font-semibold border-t border-gray-200 pt-4"
+                style={{ fontFamily: BODY }}
+              >
+                {step.timeframe}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 9. Final CTA */}
+      <section className="text-center py-32 px-6" style={{ background: dark }}>
+        <div className="max-w-3xl mx-auto flex flex-col items-center">
+          {props.finalCtaEyebrow && (
+            <div
+              className="text-xs font-semibold tracking-[0.2em] uppercase mb-6"
+              style={{ color: accent, fontFamily: BODY }}
+            >
+              {props.finalCtaEyebrow}
+            </div>
+          )}
+          <h2
+            className="text-4xl md:text-6xl mb-6 leading-tight"
+            style={{ color: bg, fontFamily: DISPLAY }}
+          >
+            {props.finalCtaHeading}
+          </h2>
+          <p
+            className="text-lg mb-10"
+            style={{ color: `${bg}b0`, fontFamily: BODY }}
+          >
+            {props.finalCtaSubhead}
+          </p>
+          <div className="flex flex-col items-center gap-6">
+            <a
+              href={props.finalCtaPrimaryUrl}
+              className="px-8 py-4 rounded-none font-medium transition-colors flex items-center gap-2 text-sm uppercase tracking-wider hover:opacity-90"
+              style={{ background: accent, color: accentInk, fontFamily: BODY }}
+            >
+              {props.finalCtaPrimaryText} <ArrowRight className="w-4 h-4" />
+            </a>
+            {props.finalCtaSecondaryText && (
+              <a
+                href={props.finalCtaSecondaryUrl}
+                className="transition-colors text-sm underline underline-offset-4"
+                style={{ color: `${bg}80`, fontFamily: BODY }}
+              >
+                {props.finalCtaSecondaryText}
+              </a>
+            )}
+          </div>
+        </div>
+
+        {(props.footerLeftLabel || props.footerRightLabel) && (
+          <div
+            className="max-w-7xl mx-auto mt-24 pt-6 border-t flex justify-between text-xs uppercase tracking-widest"
+            style={{ borderColor: `${bg}22`, color: `${bg}66`, fontFamily: BODY }}
+          >
+            <span>{props.footerLeftLabel}</span>
+            <span>{props.footerRightLabel}</span>
           </div>
         )}
-      </section>
-
-      {/* 8. PLAN */}
-      <section
-        id="sec-07"
-        className="max-w-[1280px] mx-auto px-6 lg:px-10 py-32"
-        style={{ borderTop: `1px solid ${hairline}` }}
-      >
-        <SectionHeader
-          num="07"
-          eyebrow={props.planEyebrow || "Activation Plan"}
-          heading={props.planHeading}
-          lede={props.planSubhead}
-          ink={ink}
-          muted={muted}
-          hairline={hairline}
-        />
-
-        <div className="relative">
-          <div
-            className="hidden md:block absolute left-0 right-0 top-6 h-px"
-            style={{ background: ink }}
-            aria-hidden
-          />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8 relative">
-            {props.planSteps.map((s, i) => (
-              <div key={i} className="relative">
-                <span
-                  className="hidden md:block absolute left-0 -top-[3px] w-1.5 h-1.5 rounded-full"
-                  style={{ background: ink }}
-                  aria-hidden
-                />
-                <div className="pt-10">
-                  <div style={{ ...eyebrowStyle, color: muted }}>
-                    {s.num} · {s.timeframe}
-                  </div>
-                  <h3
-                    className="mt-5"
-                    style={{
-                      fontFamily: DISPLAY,
-                      fontSize: "clamp(22px, 1.8vw, 28px)",
-                      letterSpacing: "-0.01em",
-                      color: ink,
-                    }}
-                  >
-                    {s.title}
-                  </h3>
-                  <p
-                    className="mt-4 max-w-xs"
-                    style={{ fontSize: 14, lineHeight: 1.55, color: muted }}
-                  >
-                    {s.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 9. FINAL CTA — dark */}
-      <section id="contact" className="py-32 lg:py-40" style={{ background: dark, color: bg }}>
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div className="lg:col-span-8">
-              {finalCtaEyebrow && (
-                <div className="mb-8" style={{ ...eyebrowStyle, color: accent }}>
-                  {finalCtaEyebrow}
-                </div>
-              )}
-              <h2
-                className="pe-display"
-                style={{
-                  fontSize: "clamp(48px, 6vw, 88px)",
-                  lineHeight: 1,
-                  color: bg,
-                  letterSpacing: "-0.025em",
-                  maxWidth: "16ch",
-                }}
-              >
-                {props.finalCtaHeading}
-              </h2>
-              <p
-                className="mt-10 max-w-xl"
-                style={{
-                  fontSize: "clamp(16px, 1.2vw, 19px)",
-                  lineHeight: 1.55,
-                  color: "rgba(246,245,238,0.7)",
-                }}
-              >
-                {props.finalCtaSubhead}
-              </p>
-            </div>
-            <div className="lg:col-span-4 flex lg:items-end lg:justify-end">
-              <div className="flex flex-col items-start gap-6">
-                <a
-                  href={props.finalCtaPrimaryUrl}
-                  style={{
-                    ...eyebrowStyle,
-                    background: accent,
-                    color: accentInk,
-                    padding: "18px 32px",
-                    fontSize: 12,
-                  }}
-                >
-                  {props.finalCtaPrimaryText} →
-                </a>
-                {props.finalCtaSecondaryText && (
-                  <a
-                    href={props.finalCtaSecondaryUrl}
-                    className="pe-link-underline"
-                    style={{
-                      fontFamily: SANS,
-                      fontSize: 14,
-                      color: "rgba(246,245,238,0.7)",
-                    }}
-                  >
-                    {props.finalCtaSecondaryText}
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="mt-24 pt-8 flex flex-wrap items-center justify-between gap-4"
-            style={{ borderTop: `1px solid rgba(246,245,238,0.15)` }}
-          >
-            <span style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.5)" }}>
-              {footerLeftLabel}
-            </span>
-            <span style={{ ...eyebrowStyle, color: "rgba(246,245,238,0.5)" }}>
-              {footerRightLabel}
-            </span>
-          </div>
-        </div>
       </section>
     </div>
   );
