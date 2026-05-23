@@ -203,10 +203,12 @@ const CSS = `
 @media (max-width: 900px) {
   .id-spotlight { padding:80px 0 100px; }
   .id-spotlight-grid { grid-template-columns:1fr; gap:32px; padding:0 24px; }
-  .id-spotlight-stage { min-height:auto; }
-  .id-spotlight-card { position:static; transform:none; width:100%; margin-top:16px; }
-  .id-spotlight-stepper { position:static; transform:none; flex-direction:row; justify-content:flex-start; gap:14px; margin-top:16px; }
-  .id-sp-step { gap:6px; }
+  /* On phones the floating card, stepper, and dark video void overlap
+   * each other awkwardly — there isn't room for the editorial split-
+   * panel layout to breathe. Hide the entire stage on small screens
+   * so the section reads as a clean headline + body feature; the
+   * desktop layout is unchanged. */
+  .id-spotlight-stage { display:none; }
 }
 .id-cinema-text { position:absolute; inset:0; padding:0 60px 80px; z-index:5; pointer-events:none; }
 /* Panels use the same scroll-driven --p (0..1) variable as the layers,
