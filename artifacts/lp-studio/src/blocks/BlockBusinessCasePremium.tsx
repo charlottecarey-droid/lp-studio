@@ -555,15 +555,13 @@ export function BlockBusinessCasePremium({ props }: Props) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.25 }}
               transition={{ duration: 0.55, delay: idx * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="relative pt-12 border-t-2 group transition-[border-color] duration-300"
-              style={{ borderColor: ink }}
+              className="group relative pt-10"
             >
-              <div
-                className="absolute top-0 left-0 -mt-[14px] pr-4 text-xl italic"
-                style={{ background: bg, color: `${ink}66`, fontFamily: DISPLAY }}
-              >
-                {item.num ?? String(idx + 1).padStart(2, "0")}
-              </div>
+              <span
+                aria-hidden
+                className="block h-[3px] w-10 mb-8 origin-left transition-transform duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-[2.4]"
+                style={{ background: accent }}
+              />
               <div className="text-5xl mb-2" style={{ color: ink, fontFamily: DISPLAY }}>
                 {item.stat}
               </div>
