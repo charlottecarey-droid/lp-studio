@@ -1565,6 +1565,18 @@ export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
   /** Tall portrait hero image on the right column. Optional — a gradient
    *  fallback renders if missing. */
   heroImageUrl?: string;
+  /** Object-position of the hero image (which part stays in frame when cropped).
+   *  Defaults to "center". Affects both the centered overlay and split layouts. */
+  heroImageFocus?:
+    | "center"
+    | "top"
+    | "bottom"
+    | "left"
+    | "right"
+    | "top-left"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-right";
   /** Optional editorial image rendered inside the Situation section under
    *  the lede paragraph. */
   situationImageUrl?: string;

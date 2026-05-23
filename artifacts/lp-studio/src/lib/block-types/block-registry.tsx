@@ -3682,6 +3682,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heroSecondaryCtaUrl: "",
       heroLayout: "split-image-right",
       heroImageUrl: "",
+      heroImageFocus: "center",
       heroImageCaption: "Field study · 8 active practices · 30+ inbound requests",
       situationImageUrl: "",
       proofImageUrl: "",

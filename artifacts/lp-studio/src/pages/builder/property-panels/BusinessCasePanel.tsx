@@ -453,6 +453,29 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
               </Field>
             )}
             {variant === "premium" && (
+              <Field label="Image focus (what stays in frame)">
+                <Select
+                  value={premiumProps.heroImageFocus ?? "center"}
+                  onValueChange={(v) => set("heroImageFocus" as keyof P, v as P[keyof P])}
+                >
+                  <SelectTrigger className="text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="center">Center</SelectItem>
+                    <SelectItem value="top">Top</SelectItem>
+                    <SelectItem value="bottom">Bottom</SelectItem>
+                    <SelectItem value="left">Left</SelectItem>
+                    <SelectItem value="right">Right</SelectItem>
+                    <SelectItem value="top-left">Top-left</SelectItem>
+                    <SelectItem value="top-right">Top-right</SelectItem>
+                    <SelectItem value="bottom-left">Bottom-left</SelectItem>
+                    <SelectItem value="bottom-right">Bottom-right</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+            {variant === "premium" && (
               <>
                 <Field label="Hero image caption (overlay on image)">
                   <Input value={premiumProps.heroImageCaption ?? ""} onChange={(e) => set("heroImageCaption" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />

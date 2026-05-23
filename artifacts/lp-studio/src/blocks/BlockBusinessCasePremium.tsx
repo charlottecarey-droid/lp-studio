@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { ArrowRight, Check, Quote, X as XIcon, Activity, Clock, LayoutGrid, Inbox } from "lucide-react";
 import type { BusinessCasePremiumBlockProps } from "../lib/block-types/dso-blocks";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
@@ -7,6 +8,34 @@ const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
 const SITUATION_ICONS = [Inbox, Activity, LayoutGrid, Clock];
+
+const FOCUS_MAP: Record<NonNullable<BusinessCasePremiumBlockProps["heroImageFocus"]>, string> = {
+  center: "center",
+  top: "center top",
+  bottom: "center bottom",
+  left: "left center",
+  right: "right center",
+  "top-left": "left top",
+  "top-right": "right top",
+  "bottom-left": "left bottom",
+  "bottom-right": "right bottom",
+};
+
+/** Tasteful scroll-reveal wrapper. Fades and lifts content into view once,
+ *  honoring reduced-motion preference (framer-motion handles this). */
+const Reveal: React.FC<
+  React.PropsWithChildren<{ delay?: number; y?: number; className?: string }>
+> = ({ children, delay = 0, y = 24, className }) => (
+  <motion.div
+    initial={{ opacity: 0, y }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, amount: 0.2 }}
+    transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
 
 interface Props {
   props: BusinessCasePremiumBlockProps;
@@ -39,6 +68,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
   const heroStats = (props.situationStats ?? []).slice(0, 4);
   const useSplitHero = (props.heroLayout ?? "centered") === "split-image-right";
   const forPillMode = props.forPillMode ?? "pill";
+  const heroFocus = FOCUS_MAP[props.heroImageFocus ?? "center"];
 
   const renderForPill = () => {
     if (forPillMode === "hidden") return null;
@@ -152,10 +182,11 @@ export function BlockBusinessCasePremium({ props }: Props) {
       >
         <a
           href={props.heroPrimaryCtaUrl}
-          className="px-8 py-4 rounded-none font-medium transition-colors flex items-center gap-2 text-sm uppercase tracking-wider hover:opacity-90"
+          className="group px-8 py-4 rounded-none font-medium transition-all duration-300 flex items-center gap-2 text-sm uppercase tracking-wider hover:opacity-90 hover:-translate-y-0.5 hover:shadow-lg"
           style={{ background: accent, color: accentInk, fontFamily: BODY }}
         >
-          {props.heroPrimaryCtaText} <ArrowRight className="w-4 h-4" />
+          {props.heroPrimaryCtaText}
+          <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
         </a>
         {props.heroSecondaryCtaText && (
           <a
@@ -173,17 +204,18 @@ export function BlockBusinessCasePremium({ props }: Props) {
   // Image column for split-image-right hero. Falls back to a sophisticated
   // dark gradient + diagonal hatch + accent rail when no image is supplied.
   const renderHeroImageCol = () => (
-    <div className="relative w-full h-full min-h-[420px] lg:min-h-[760px] overflow-hidden">
+    <div className="group relative w-full h-full min-h-[420px] lg:min-h-[760px] overflow-hidden">
       {props.heroImageUrl ? (
         <>
           <img
             src={props.heroImageUrl}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04]"
+            style={{ objectPosition: heroFocus }}
             loading="lazy"
           />
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 pointer-events-none"
             style={{
               background: `linear-gradient(180deg, ${dark}33 0%, transparent 30%, transparent 60%, ${dark}cc 100%)`,
             }}
@@ -313,7 +345,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
 
       {/* 2. Situation / Demand */}
       <section className="py-24 px-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <Reveal className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
             {props.situationEyebrow && (
               <div
@@ -341,11 +373,12 @@ export function BlockBusinessCasePremium({ props }: Props) {
               </p>
             )}
             {props.situationImageUrl && (
-              <div className="mt-8 border-t-2 pt-6" style={{ borderColor: accent }}>
+              <div className="mt-8 border-t-2 pt-6 overflow-hidden group" style={{ borderColor: accent }}>
                 <img
                   src={props.situationImageUrl}
                   alt=""
-                  className="w-full h-64 object-cover"
+                  className="w-full h-64 object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
+                  style={{ objectPosition: heroFocus }}
                   loading="lazy"
                 />
               </div>
@@ -355,9 +388,14 @@ export function BlockBusinessCasePremium({ props }: Props) {
             {heroStats.map((s, i) => {
               const Icon = SITUATION_ICONS[i] ?? Activity;
               return (
-                <div
+                <motion.div
                   key={i}
-                  className="bg-white p-8 border border-gray-200 flex flex-col justify-between"
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.25 }}
+                  transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ y: -4 }}
+                  className="bg-white p-8 border border-gray-200 flex flex-col justify-between transition-shadow duration-300 hover:shadow-lg hover:border-gray-300"
                 >
                   <div>
                     <Icon className="w-6 h-6 mb-4" style={{ color: accent }} />
@@ -384,11 +422,11 @@ export function BlockBusinessCasePremium({ props }: Props) {
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <hr className="border-t border-black/10 max-w-7xl mx-auto" />
@@ -418,7 +456,15 @@ export function BlockBusinessCasePremium({ props }: Props) {
           {props.signalCards.map((card, i) => {
             if (card.attribution) {
               return (
-                <div key={i} className="border border-white/20 p-8 bg-white/5 relative">
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ y: -4 }}
+                  className="border border-white/20 p-8 bg-white/5 relative transition-colors duration-300 hover:bg-white/[0.08] hover:border-white/30"
+                >
                   <Quote
                     className="w-8 h-8 absolute top-6 left-6"
                     style={{ color: `${accent}4d` }}
@@ -435,11 +481,19 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   >
                     {card.attribution}
                   </div>
-                </div>
+                </motion.div>
               );
             }
             return (
-              <div key={i} className="border border-white/20 p-8">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                whileHover={{ y: -4 }}
+                className="border border-white/20 p-8 transition-colors duration-300 hover:bg-white/[0.05] hover:border-white/30"
+              >
                 {card.stat && (
                   <div
                     className="text-4xl mb-4"
@@ -451,7 +505,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                 <p className="text-lg" style={{ fontFamily: BODY }}>
                   {card.body}
                 </p>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -483,9 +537,13 @@ export function BlockBusinessCasePremium({ props }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {props.costItems.map((item, idx) => (
-            <div
+            <motion.div
               key={idx}
-              className="relative pt-12 border-t-2"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.25 }}
+              transition={{ duration: 0.55, delay: idx * 0.08, ease: [0.22, 1, 0.36, 1] }}
+              className="relative pt-12 border-t-2 group transition-[border-color] duration-300"
               style={{ borderColor: ink }}
             >
               <div
@@ -504,7 +562,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                 {item.label}
               </div>
               <p style={{ color: `${ink}99`, fontFamily: BODY }}>{item.description}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
@@ -554,9 +612,13 @@ export function BlockBusinessCasePremium({ props }: Props) {
               const zebra = idx % 2 === 1;
               const rowBg = zebra ? `${ink}08` : "transparent";
               return (
-                <div
+                <motion.div
                   key={idx}
-                  className="grid grid-cols-1 md:grid-cols-12 border-t"
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={{ duration: 0.45, delay: idx * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                  className="grid grid-cols-1 md:grid-cols-12 border-t group/row"
                   style={{ borderColor: `${ink}14` }}
                 >
                   <div
@@ -595,7 +657,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                     />
                     <span className="text-base leading-snug">{row.withDandy}</span>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -737,11 +799,12 @@ export function BlockBusinessCasePremium({ props }: Props) {
               style={{ borderColor: accent }}
             >
               {props.proofImageUrl && (
-                <div className="w-full aspect-[16/9] overflow-hidden">
+                <div className="w-full aspect-[16/9] overflow-hidden group">
                   <img
                     src={props.proofImageUrl}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04]"
+                    style={{ objectPosition: heroFocus }}
                     loading="lazy"
                   />
                 </div>
@@ -878,10 +941,11 @@ export function BlockBusinessCasePremium({ props }: Props) {
           <div className="flex flex-col items-center gap-6">
             <a
               href={props.finalCtaPrimaryUrl}
-              className="px-8 py-4 rounded-none font-medium transition-colors flex items-center gap-2 text-sm uppercase tracking-wider hover:opacity-90"
+              className="group px-8 py-4 rounded-none font-medium transition-all duration-300 flex items-center gap-2 text-sm uppercase tracking-wider hover:opacity-90 hover:-translate-y-0.5 hover:shadow-lg"
               style={{ background: accent, color: accentInk, fontFamily: BODY }}
             >
-              {props.finalCtaPrimaryText} <ArrowRight className="w-4 h-4" />
+              {props.finalCtaPrimaryText}
+              <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </a>
             {props.finalCtaSecondaryText && (
               <a
