@@ -25,15 +25,19 @@ interface Props {
 /*  Per-piece animation                                                      */
 /* ------------------------------------------------------------------------- */
 
-function fromOffset(from: ScrollAssemblyPiece["from"]): { x: number; y: number; rotate: number; scale: number } {
+function fromOffset(from: ScrollAssemblyPiece["from"]): { x: number; y: number; rotate: number; scale: number; blur: number } {
+  // Editorial entrance offsets — tightened from the cartoony ±260px / ±8°
+  // version. Premium reveals are smaller in travel and zero in rotation;
+  // the cinematic feel comes from the long ease curve + a slight blur-out,
+  // not from the magnitude of motion. (Apple/Linear/Stripe motion language.)
   switch (from) {
-    case "left":   return { x: -260, y: 0,    rotate: -8,  scale: 0.9 };
-    case "right":  return { x: 260,  y: 0,    rotate: 8,   scale: 0.9 };
-    case "top":    return { x: 0,    y: -180, rotate: 0,   scale: 0.85 };
-    case "bottom": return { x: 0,    y: 180,  rotate: 0,   scale: 0.85 };
-    case "scale":  return { x: 0,    y: 0,    rotate: 0,   scale: 0.4 };
+    case "left":   return { x: -90,  y: 0,    rotate: 0, scale: 0.96, blur: 14 };
+    case "right":  return { x: 90,   y: 0,    rotate: 0, scale: 0.96, blur: 14 };
+    case "top":    return { x: 0,    y: -64,  rotate: 0, scale: 0.96, blur: 10 };
+    case "bottom": return { x: 0,    y: 64,   rotate: 0, scale: 0.96, blur: 10 };
+    case "scale":  return { x: 0,    y: 0,    rotate: 0, scale: 0.78, blur: 16 };
     case "fade":
-    default:       return { x: 0,    y: 0,    rotate: 0,   scale: 1 };
+    default:       return { x: 0,    y: 0,    rotate: 0, scale: 1,    blur: 6  };
   }
 }
 
@@ -63,11 +67,16 @@ function PieceView({
   const y       = useTransform(scrollYProgress, [start, end], [offset.y, 0]);
   const rotate  = useTransform(scrollYProgress, [start, end], [offset.rotate, 0]);
   const scale   = useTransform(scrollYProgress, [start, end], [offset.scale, 1]);
+  // Blur clears slightly faster than the translate completes so the piece
+  // resolves into sharpness at ~75% of the reveal window — the focal lock
+  // feels cinematic instead of stopping abruptly.
+  const blurPx  = useTransform(scrollYProgress, [start, start + (end - start) * 0.75, end], [offset.blur, 0, 0]);
+  const filter  = useTransform(blurPx, (b) => (b > 0.2 ? `blur(${b.toFixed(2)}px)` : "none"));
 
   if (piece.kind === "image") {
     return (
       <motion.div
-        style={{ opacity, x, y, rotate, scale, willChange: "transform, opacity" }}
+        style={{ opacity, x, y, rotate, scale, filter, willChange: "transform, opacity, filter" }}
         className="relative"
       >
         <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-white/10 to-white/0 blur-xl" />
@@ -85,10 +94,10 @@ function PieceView({
     return (
       <motion.div
         style={{
-          opacity, x, y, rotate, scale,
+          opacity, x, y, rotate, scale, filter,
           background: `radial-gradient(circle at 30% 30%, ${c} 0%, ${c} 60%, rgba(0,0,0,0.15) 100%)`,
           boxShadow: `0 20px 60px -10px ${c}55, 0 0 0 1px rgba(0,0,0,0.04) inset`,
-          willChange: "transform, opacity",
+          willChange: "transform, opacity, filter",
         }}
         className="w-28 h-28 rounded-3xl"
       />
@@ -96,29 +105,45 @@ function PieceView({
   }
 
   // text-display | text-headline | text-body
+  // Tightened type scale: display dropped from text-[10rem] (160px) to
+  // clamp(64–128px) so it never bursts out of the focal column on wide
+  // screens; tracking goes hard-negative for editorial weight; leading
+  // tight at 0.88 so two display lines stack as one composed wordmark.
   const sizeClass =
-    piece.kind === "text-display"  ? "text-6xl md:text-8xl lg:text-[10rem] font-bold tracking-tight leading-[0.92]" :
-    piece.kind === "text-headline" ? "text-3xl md:text-5xl font-bold tracking-tight leading-tight" :
-                                     "text-base md:text-lg max-w-xl leading-relaxed";
+    piece.kind === "text-display"  ? "font-semibold" :
+    piece.kind === "text-headline" ? "text-2xl md:text-4xl font-medium" :
+                                     "text-base md:text-lg max-w-xl";
 
+  const inlineSize =
+    piece.kind === "text-display"  ? { fontSize: "clamp(3.75rem, 9.5vw, 8rem)", letterSpacing: "-0.045em", lineHeight: 0.88 } :
+    piece.kind === "text-headline" ? { letterSpacing: "-0.025em", lineHeight: 1.06 } :
+                                     { lineHeight: 1.55, letterSpacing: "0.005em" };
+
+  // Premium default colors on dark theme: display = soft white (not pure)
+  // so it doesn't fight the citron accent piece; body = warmer grey for
+  // legibility without harshness. The piece's own color always wins.
   const defaultColor =
     piece.kind === "text-body"
-      ? (theme === "dark" ? "rgba(255,255,255,0.75)" : "rgb(71 85 105)")
-      : (theme === "dark" ? "#fff" : "var(--brand-primary)");
+      ? (theme === "dark" ? "rgba(255,255,255,0.62)" : "rgb(71 85 105)")
+      : (theme === "dark" ? "rgba(255,255,255,0.96)" : "var(--brand-primary)");
 
   return (
     <motion.div
       style={{
-        opacity, x, y, rotate, scale,
+        opacity, x, y, rotate, scale, filter,
         color: piece.color || defaultColor,
-        willChange: "transform, opacity",
+        willChange: "transform, opacity, filter",
       }}
       className={sizeClass}
     >
       <InlineText
         value={piece.content}
         onUpdate={onTextChange}
-        style={{ fontFamily: piece.kind === "text-body" ? BODY : DISPLAY }}
+        style={{
+          fontFamily: piece.kind === "text-body" ? BODY : DISPLAY,
+          fontFeatureSettings: '"ss01", "kern", "liga"',
+          ...inlineSize,
+        }}
       />
     </motion.div>
   );
@@ -139,23 +164,28 @@ function FloatingImage({
   total: number;
   scrollYProgress: MotionValue<number>;
 }) {
-  // Scatter images deterministically across the viewport with varying parallax.
+  // Premium scatter: pulled out of the focal center band, smaller scales,
+  // and pushed further into the corners so the focal text always has air.
+  // Old positions clustered around top:30%/left:50% which crashed straight
+  // into the headline — replaced with a deliberate outer ring layout.
   const positions: Array<{ top: string; left: string; rot: number; size: number; depth: number }> = [
-    { top: "8%",  left: "4%",  rot: -8,  size: 220, depth: 0.6 },
-    { top: "62%", left: "78%", rot: 6,   size: 260, depth: 1.0 },
-    { top: "48%", left: "2%",  rot: -4,  size: 180, depth: 0.8 },
-    { top: "14%", left: "76%", rot: 9,   size: 200, depth: 1.2 },
-    { top: "78%", left: "30%", rot: -3,  size: 160, depth: 0.7 },
-    { top: "30%", left: "50%", rot: 4,   size: 140, depth: 1.4 },
+    { top: "6%",  left: "5%",  rot: -5,  size: 170, depth: 0.55 },
+    { top: "70%", left: "82%", rot: 4,   size: 190, depth: 0.85 },
+    { top: "52%", left: "3%",  rot: -3,  size: 150, depth: 0.7  },
+    { top: "10%", left: "80%", rot: 6,   size: 160, depth: 1.0  },
+    { top: "82%", left: "12%", rot: -2,  size: 130, depth: 0.6  },
+    { top: "62%", left: "58%", rot: 3,   size: 110, depth: 1.15 },
   ];
   const pos = positions[index % positions.length];
 
   // Drift + slight rotate as scroll advances. Items further "back" (smaller depth) move less.
   const y = useTransform(scrollYProgress, [0, 1], [60 * pos.depth, -120 * pos.depth]);
   const x = useTransform(scrollYProgress, [0, 1], [(index % 2 === 0 ? -1 : 1) * 30 * pos.depth, (index % 2 === 0 ? 1 : -1) * 30 * pos.depth]);
-  const rotate = useTransform(scrollYProgress, [0, 1], [pos.rot, pos.rot + (index % 2 === 0 ? 4 : -4)]);
-  // Fade at very start and very end so they don't compete with focal pieces.
-  const opacity = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0, 0.55, 0.55, 0.2]);
+  const rotate = useTransform(scrollYProgress, [0, 1], [pos.rot, pos.rot + (index % 2 === 0 ? 2 : -2)]);
+  // Max opacity dropped from 0.55 → 0.22 so the parallax tiles read as
+  // ambient background texture rather than as content competing with the
+  // focal copy. They still drift, just at quiet volume.
+  const opacity = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0, 0.22, 0.22, 0.06]);
 
   // Lift larger items in front. Total used to keep keys stable.
   void total;
@@ -167,15 +197,19 @@ function FloatingImage({
         top: pos.top,
         left: pos.left,
         width: pos.size,
-        height: pos.size * 0.75,
+        height: pos.size * 0.72,
         x, y, rotate, opacity,
         zIndex: Math.round(pos.depth * 2),
+        // Tile-blur + saturation drop gives the floating images a soft
+        // photographic quality. They now read as memory/atmosphere instead
+        // of as full-resolution product shots fighting for attention.
+        filter: "blur(1px) saturate(0.85)",
         willChange: "transform, opacity",
       }}
-      className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/10 pointer-events-none"
+      className="rounded-2xl overflow-hidden ring-1 ring-white/5 pointer-events-none"
     >
       <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/20" />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%)" }} />
     </motion.div>
   );
 }
@@ -341,7 +375,12 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
   const ctaY = useTransform(scrollYProgress, [0.85, 0.95], [12, 0]);
   const hintOpacity = useTransform(scrollYProgress, [0, 0.06], [0.6, 0]);
   // Vignette + center spotlight that brightens as you scroll into the focal area.
-  const spotlightOpacity = useTransform(scrollYProgress, [0, 0.4, 0.95], [0, 0.45, 0.2]);
+  // Capped lower (was 0.45) so the spotlight reads as a subtle halo rather
+  // than a stage-lit beam that washes out the type.
+  const spotlightOpacity = useTransform(scrollYProgress, [0, 0.4, 0.95], [0, 0.22, 0.10]);
+  // Vignette fades IN as the scroll progresses — the surrounding area dims
+  // to push focus onto the focal text. Subtle (max 0.35 alpha).
+  const vignetteOpacity = useTransform(scrollYProgress, [0, 0.3, 0.85, 1], [0, 0.25, 0.35, 0.2]);
 
   const updatePieceText = (i: number, v: string) => {
     if (!onFieldChange) return;
@@ -393,6 +432,17 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
             background: `radial-gradient(ellipse at center, ${theme === "dark" ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.85)"} 0%, transparent 60%)`,
           }}
           className="absolute inset-0 pointer-events-none"
+        />
+
+        {/* Edge vignette — darkens the outer ring as you scroll into the
+            focal zone, focusing the eye on the wordmark. Required for the
+            premium "cinema" framing: floating tiles dim, headline sharpens. */}
+        <motion.div
+          style={{
+            opacity: vignetteOpacity,
+            background: `radial-gradient(ellipse 90% 70% at center, transparent 45%, ${theme === "dark" ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.18)"} 100%)`,
+          }}
+          className="absolute inset-0 pointer-events-none z-20"
         />
 
         {/* Foreground: pieces */}
