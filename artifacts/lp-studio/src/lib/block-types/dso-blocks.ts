@@ -1557,9 +1557,20 @@ export interface BusinessCaseSplitBlockProps extends BusinessCaseCommonProps {
 export interface BusinessCaseCenteredBlockProps extends BusinessCaseCommonProps {}
 
 export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
+  /** Hero layout variant. "centered" (default for existing pages) is the
+   *  original full-bleed centered editorial hero; "split-image-right" puts
+   *  the headline/CTA on the dark left column and a full-bleed image on
+   *  the right column with editorial overlays (plate label, caption). */
+  heroLayout?: "centered" | "split-image-right";
   /** Tall portrait hero image on the right column. Optional — a gradient
    *  fallback renders if missing. */
   heroImageUrl?: string;
+  /** Optional editorial image rendered inside the Situation section under
+   *  the lede paragraph. */
+  situationImageUrl?: string;
+  /** Optional portrait / scene image above the featured testimonial in the
+   *  Proof section. Renders inside the same accent-rule card. */
+  proofImageUrl?: string;
   /** Small kicker line above the eyebrow (e.g. "Field study · Q1 · Confidential"). */
   kicker?: string;
   /** Volume label under the hero image (e.g. "Volume I"). */

@@ -441,7 +441,7 @@ async function runMigrationsBody(): Promise<void> {
       // (before/after gallery, speaker grids, carousels) and bento tile
       // backgrounds were repopulated in the seed file but never reached
       // the DB because the v19 marker was already present.
-      const SEED_MARKER = "global_templates_seed_v23";
+      const SEED_MARKER = "global_templates_seed_v24";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
