@@ -123,7 +123,12 @@ function PieceView({
                                      "text-base md:text-lg max-w-xl";
 
   const inlineSize =
-    piece.kind === "text-display"  ? { fontSize: "clamp(3.75rem, 9.5vw, 8rem)", letterSpacing: "-0.045em", lineHeight: 0.88 } :
+    // Display: pushed harder on both ends — min raised 3.75→4rem so it
+    // never looks timid on phones, max raised 8→9.5rem so it has real
+    // editorial confidence on desktop, tracking tightened -0.045em →
+    // -0.055em, leading from 0.88 → 0.86 so two display lines compose
+    // as one wordmark instead of as two stacked sentences.
+    piece.kind === "text-display"  ? { fontSize: "clamp(4rem, 10vw, 9.5rem)", letterSpacing: "-0.055em", lineHeight: 0.86 } :
     piece.kind === "text-headline" ? { letterSpacing: "-0.025em", lineHeight: 1.06 } :
                                      { lineHeight: 1.55, letterSpacing: "0.005em" };
 
@@ -431,10 +436,27 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
   const ctaText = theme === "dark" ? brandPrimary : "var(--brand-primary)";
 
   return (
+    // Bleed the section UP into the previous block + fade the bg in
+    // from transparent across the top ~22vh so the seam between the
+    // intro block and this section dissolves. The user explicitly
+    // asked for this — "make it look like this is fading out from
+    // the intro block." Negative margin lets the prior block's last
+    // ~140px of content sit underneath the start of the gradient
+    // strip; the strip then resolves into the full section bg.
+    // Wrapped in position:relative + zIndex:1 so the bleed paints
+    // *over* the previous block instead of being clipped under it.
     <div
       ref={containerRef}
-      style={{ height: `${heightVh}vh`, backgroundColor: bg }}
-      className="relative w-full"
+      style={{
+        height: `${heightVh}vh`,
+        marginTop: -140,
+        paddingTop: 0,
+        position: "relative",
+        zIndex: 1,
+        backgroundColor: "transparent",
+        backgroundImage: `linear-gradient(to bottom, transparent 0, ${bg} 22vh, ${bg} 100%)`,
+      }}
+      className="w-full"
     >
       <div className="sticky top-0 h-screen w-full overflow-hidden">
         {/* Layer: ambient gradient orbs */}
