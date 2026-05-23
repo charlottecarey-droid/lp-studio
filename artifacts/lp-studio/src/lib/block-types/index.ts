@@ -114,6 +114,8 @@ export type {
   IdSpotlightBlockProps,
   IdSpotlightResult,
   IdSpotlightStep,
+  IdReservationPassBlockProps,
+  IdReservationPassMeta,
   IdCtaAction,
   ContentSeriesEpisode,
   EpisodeStatus,

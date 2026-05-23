@@ -64,6 +64,7 @@ import type {
   IdInvitationBlockProps,
   IdGridBlockProps,
   IdSpotlightBlockProps,
+  IdReservationPassBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
@@ -4395,6 +4396,75 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "id-reservation-pass" as const,
+    label: "Inside Dandy · Reservation Pass (Final CTA)",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdReservationPassBlockProps => ({
+      ordinal: "№ 001",
+      status: "RESERVATION OPEN",
+      eyebrow: "LIMITED ENGAGEMENT · DYKEMA · JULY 2026",
+      headline: "Reserve your <em>front-row</em> seat.",
+      body: "A 6–8 minute spatial experience on Apple Vision Pro. One real case, end to end — scan intake, AI design, robotic milling, QC, shipping. Twenty-four seats only.",
+      seatsRemainingText: "12 of 24 seats remaining",
+      passLabel: "DANDY · INSIDE PASS",
+      passSerial: "№ INSIDE-2026-0418",
+      meta: [
+        { label: "DATE", value: "July 14 – 16, 2026" },
+        { label: "LOCATION", value: "Dykema Lounge · Booth 412" },
+        { label: "DURATION", value: "6 – 8 minutes" },
+      ],
+      primaryCtaText: "Reserve your seat",
+      primaryCtaUrl: "#",
+      primaryCtaAction: "url",
+      chilipiperUrl: "",
+      secondaryCtaText: "Press inquiry",
+      secondaryCtaUrl: "mailto:press@meetdandy.com",
+      backgroundImageUrl: "",
+      footerNotes: ["PRESS", "INVESTORS", "BOOTH 412"],
+      accentColor: "#C7E738",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <radialGradient id="rp-bg" cx="50%" cy="0%" r="80%">
+            <stop offset="0%" stopColor="#0A4A3E" />
+            <stop offset="100%" stopColor="#00120F" />
+          </radialGradient>
+        </defs>
+        <rect width="120" height="70" fill="url(#rp-bg)" rx="4" />
+        <circle cx="20" cy="14" r="14" fill="#C7E738" opacity="0.18" />
+        <circle cx="100" cy="58" r="16" fill="#50C8A0" opacity="0.18" />
+        {/* corner HUD */}
+        <path d="M6 6 H14 M6 6 V14" stroke="#C7E738" strokeWidth="0.6" fill="none" />
+        <path d="M114 6 H106 M114 6 V14" stroke="#C7E738" strokeWidth="0.6" fill="none" />
+        <path d="M6 64 H14 M6 64 V56" stroke="#C7E738" strokeWidth="0.6" fill="none" />
+        <path d="M114 64 H106 M114 64 V56" stroke="#C7E738" strokeWidth="0.6" fill="none" />
+        {/* ordinal + status */}
+        <text x="10" y="13" fontSize="3.2" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">№ 001</text>
+        <circle cx="100" cy="11" r="1" fill="#C7E738" />
+        <text x="113" y="13" fontSize="3" fill="rgba(255,255,255,0.7)" textAnchor="end" fontFamily="ui-monospace, monospace">OPEN</text>
+        {/* headline */}
+        <text x="60" y="28" fontSize="6.6" fill="#fff" fontFamily="Georgia, serif" textAnchor="middle">Reserve your</text>
+        <text x="60" y="37" fontSize="6.6" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif" textAnchor="middle">front-row seat.</text>
+        {/* pass card */}
+        <rect x="22" y="42" width="76" height="22" rx="3" fill="rgba(8,30,24,0.85)" stroke="#C7E738" strokeOpacity="0.5" strokeWidth="0.5" />
+        <text x="26" y="47" fontSize="2.2" fill="#C7E738" fontFamily="ui-monospace, monospace">DANDY · INSIDE PASS</text>
+        <text x="94" y="47" fontSize="2.2" fill="rgba(255,255,255,0.4)" textAnchor="end" fontFamily="ui-monospace, monospace">№ 0418</text>
+        {/* perforation */}
+        <circle cx="22" cy="52" r="1.4" fill="#00120F" stroke="#C7E738" strokeOpacity="0.4" strokeWidth="0.3" />
+        <circle cx="98" cy="52" r="1.4" fill="#00120F" stroke="#C7E738" strokeOpacity="0.4" strokeWidth="0.3" />
+        <line x1="25" y1="52" x2="95" y2="52" stroke="#C7E738" strokeOpacity="0.5" strokeDasharray="1 1" strokeWidth="0.4" />
+        {/* meta */}
+        <text x="28" y="58" fontSize="2" fill="rgba(255,255,255,0.45)" fontFamily="ui-monospace, monospace">DATE</text>
+        <text x="28" y="62" fontSize="2.6" fill="#fff" fontFamily="Georgia, serif">Jul 14–16</text>
+        <text x="54" y="58" fontSize="2" fill="rgba(255,255,255,0.45)" fontFamily="ui-monospace, monospace">LOC</text>
+        <text x="54" y="62" fontSize="2.6" fill="#fff" fontFamily="Georgia, serif">Dykema</text>
+        <text x="78" y="58" fontSize="2" fill="rgba(255,255,255,0.45)" fontFamily="ui-monospace, monospace">DUR</text>
+        <text x="78" y="62" fontSize="2.6" fill="#fff" fontFamily="Georgia, serif">6–8 min</text>
+      </svg>
+    ),
+  },
+  {
     type: "bold-statement",
     label: "Bold Statement",
     category: "Content",
@@ -5182,6 +5252,7 @@ export function createBlock(type: "id-stats"): Extract<PageBlock, { type: "id-st
 export function createBlock(type: "id-invitation"): Extract<PageBlock, { type: "id-invitation" }>;
 export function createBlock(type: "id-grid"): Extract<PageBlock, { type: "id-grid" }>;
 export function createBlock(type: "id-spotlight"): Extract<PageBlock, { type: "id-spotlight" }>;
+export function createBlock(type: "id-reservation-pass"): Extract<PageBlock, { type: "id-reservation-pass" }>;
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
 export function createBlock(type: "editorial-carousel"): Extract<PageBlock, { type: "editorial-carousel" }>;
@@ -5417,6 +5488,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "id-invitation": return { id, type: "id-invitation", props: props as IdInvitationBlockProps };
     case "id-grid": return { id, type: "id-grid", props: props as IdGridBlockProps };
     case "id-spotlight": return { id, type: "id-spotlight", props: props as IdSpotlightBlockProps };
+    case "id-reservation-pass": return { id, type: "id-reservation-pass", props: props as IdReservationPassBlockProps };
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
     case "editorial-carousel": return { id, type: "editorial-carousel", props: props as EditorialCarouselBlockProps };

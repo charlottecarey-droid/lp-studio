@@ -62,6 +62,7 @@ import type {
   IdInvitationBlockProps,
   IdGridBlockProps,
   IdSpotlightBlockProps,
+  IdReservationPassBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
@@ -249,6 +250,7 @@ export type BlockVariant =
   | { type: "id-invitation"; props: IdInvitationBlockProps }
   | { type: "id-grid"; props: IdGridBlockProps }
   | { type: "id-spotlight"; props: IdSpotlightBlockProps }
+  | { type: "id-reservation-pass"; props: IdReservationPassBlockProps }
   | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
   | { type: "gradient-pricing"; props: GradientPricingBlockProps }
   | { type: "editorial-carousel"; props: EditorialCarouselBlockProps }

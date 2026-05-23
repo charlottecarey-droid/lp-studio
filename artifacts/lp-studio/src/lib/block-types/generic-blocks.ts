@@ -1694,3 +1694,46 @@ export interface IdInvitationBlockProps extends CtaModalConfig {
   cta2VideoUrl?: string;
   meta?: IdInvitationMeta[];
 }
+
+export interface IdReservationPassMeta {
+  /** Tiny uppercase label, e.g. "DATE". */
+  label: string;
+  /** Display value, set in serif, e.g. "July 14 – 16, 2026". */
+  value: string;
+}
+
+export interface IdReservationPassBlockProps extends CtaModalConfig {
+  /** Top-left ordinal mark set in serif italic, e.g. "№ 001". */
+  ordinal?: string;
+  /** Top-right status line, rendered with a pulsing mint dot. */
+  status?: string;
+  /** Eyebrow tag above the headline. */
+  eyebrow?: string;
+  /** Display headline. Wrap accent words in <em>…</em> for italic citron. */
+  headline: string;
+  /** Lede / body paragraph below the headline. */
+  body?: string;
+  /** Optional "12 of 24 seats remaining" pill — leave blank to hide. */
+  seatsRemainingText?: string;
+  /** Top label printed on the pass card, e.g. "DANDY · INSIDE PASS". */
+  passLabel?: string;
+  /** Pass serial line shown right-aligned in the top of the card. */
+  passSerial?: string;
+  /** Three meta rows printed on the pass (date · location · duration). */
+  meta: IdReservationPassMeta[];
+  /** Primary CTA on the pass. */
+  primaryCtaText: string;
+  primaryCtaUrl?: string;
+  primaryCtaAction?: IdCtaAction;
+  /** Used when primaryCtaAction === "chilipiper". */
+  chilipiperUrl?: string;
+  /** Optional secondary ghost link rendered alongside the primary CTA. */
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  /** Optional background photo behind the orbs (kept low-opacity). */
+  backgroundImageUrl?: string;
+  /** Tiny tertiary footer line, e.g. ["PRESS", "INVESTORS", "BOOTH 412"]. */
+  footerNotes?: string[];
+  /** Accent color override (defaults to brand citron). */
+  accentColor?: string;
+}

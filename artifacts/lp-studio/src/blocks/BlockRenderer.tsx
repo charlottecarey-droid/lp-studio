@@ -117,6 +117,7 @@ import { BlockIdStats } from "./BlockIdStats";
 import { BlockIdInvitation } from "./BlockIdInvitation";
 import { BlockIdGrid } from "./BlockIdGrid";
 import { BlockIdSpotlight } from "./BlockIdSpotlight";
+import { BlockIdReservationPass } from "./BlockIdReservationPass";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
 import { BlockMenuSection } from "./BlockMenuSection";
@@ -949,6 +950,13 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockIdGrid props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-spotlight":
         return <BlockIdSpotlight props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-reservation-pass":
+        return (
+          <BlockIdReservationPass
+            props={block.props}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl || "") : undefined}
+          />
+        );
       case "bento-showcase":
         return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null} />;
       case "gradient-pricing":
