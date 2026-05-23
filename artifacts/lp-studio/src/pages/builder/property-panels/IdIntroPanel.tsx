@@ -29,6 +29,17 @@ export function IdIntroPanel({ props, onChange }: Props) {
       </div>
       <div className="flex items-center justify-between border rounded-md p-3">
         <div className="pr-3">
+          <Label className="text-xs font-medium">Flush bottom</Label>
+          <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">
+            Removes the section's bottom padding so the block ends right
+            after the text — useful for visually merging with the block
+            below (e.g. a parallax hero on the same dark background).
+          </p>
+        </div>
+        <Switch checked={!!props.flushBottom} onCheckedChange={(v) => u({ flushBottom: v })} />
+      </div>
+      <div className="flex items-center justify-between border rounded-md p-3">
+        <div className="pr-3">
           <Label className="text-xs font-medium">Letter-by-letter reveal</Label>
           <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">
             Each letter fades in as the visitor scrolls. Off = the full statement

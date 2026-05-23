@@ -115,7 +115,7 @@ export function BlockIdIntro({ props, onFieldChange }: Props) {
   const litUntil = isEditor || !letterReveal ? totalLetters : Math.ceil(progress * totalLetters * 1.15 * speed);
 
   return (
-    <section ref={sectionRef} className="id-block id-intro">
+    <section ref={sectionRef} className={`id-block id-intro${props.flushBottom ? " id-intro--flush" : ""}`}>
       <div className="id-inner">
         {(props.eyebrow || onFieldChange) && (
           <InlineText as="div" className="id-eyebrow" value={props.eyebrow ?? ""} onUpdate={f("eyebrow")} />

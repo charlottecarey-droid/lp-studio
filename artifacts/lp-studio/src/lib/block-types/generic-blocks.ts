@@ -1534,6 +1534,11 @@ export interface IdIntroBlockProps {
    *  values > 1 light letters faster (less scroll needed), values < 1
    *  slow it down. Clamped to [0.25, 4]. Defaults to 1. */
   letterRevealSpeed?: number;
+  /** When true, removes the section's bottom padding so the block ends
+   *  flush with the bottom of its text. Useful for visually merging
+   *  this intro with the block immediately below (e.g. a parallax hero
+   *  sharing the same dark teal background). Defaults to false. */
+  flushBottom?: boolean;
 }
 
 export interface IdCinemaPillar {

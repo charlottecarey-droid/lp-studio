@@ -117,6 +117,7 @@ const CSS = `
 
 /* INTRO — word-by-word brighten on scroll progress (set as inline style on each word) */
 .id-intro { padding:200px 40px; background:var(--id-teal-deep); position:relative; }
+.id-intro.id-intro--flush { padding-bottom:0; }
 .id-intro .id-inner { max-width:1200px; margin:0 auto; }
 .id-intro .id-eyebrow { margin-bottom:48px; }
 .id-intro h2 { font-size:clamp(40px,5.6vw,84px); line-height:1.15; letter-spacing:-0.018em; color:#fff; max-width:18ch; margin:0; }
