@@ -64,7 +64,11 @@ export function BlockParallaxImageHero({
   const textColor = props.textColor || "#FFFFFF";
   const overlayColor = props.overlayColor || "#000000";
   const overlayAlpha = Math.max(0, Math.min(100, props.overlayOpacity ?? 35)) / 100;
-  const parallaxStrength = Math.max(0, Math.min(1, props.parallaxStrength ?? 0.35));
+  // Default bumped 0.35 → 0.6 so the parallax effect is obvious out of
+  // the box. At strength 1.0 the image is perfectly stationary in
+  // screen space (true "fixed background" parallax); at 0.6 it moves
+  // at ~40% of scroll speed — clearly slower than the page.
+  const parallaxStrength = Math.max(0, Math.min(1, props.parallaxStrength ?? 0.6));
   // Expanded height presets — see ParallaxImageHeroBlockProps.minHeight.
   // Falls back to 100vh for unknown/legacy values so old pages stay full-bleed.
   const HEIGHT_MAP: Record<string, string> = {
@@ -106,18 +110,19 @@ export function BlockParallaxImageHero({
       // Centre-relative scroll progress: 0 when the section's centre is
       // at the viewport centre, negative as the section moves up past
       // it, positive while it's still below. Anchoring to the centre
-      // gives a symmetric +/- translation range that fits inside our
-      // fixed 30% overscan regardless of which direction you scroll.
+      // gives a symmetric +/- translation range.
       const sectionCentre = rect.top + rect.height / 2;
       const viewportCentre = vh / 2;
       const offset = viewportCentre - sectionCentre;
-      // Max translation = 22% of section height — safely inside the
-      // 30% inset buffer so the image edge never peeks through.
-      const maxTravel = rect.height * 0.22;
-      // Travel scales linearly with strength. At strength 1.0 the image
-      // hits maxTravel by the time the section reaches the viewport edge;
-      // at 0.35 (default) it covers ~35% of that range — clearly visible
-      // motion without being gimmicky.
+      // At strength 1.0 we want the image to stay perfectly fixed in
+      // screen space (classic "fixed background" parallax). The full
+      // scroll range from "section enters viewport" to "section leaves
+      // viewport" is (rect.height + vh); centred, that's ±(h+vh)/2.
+      // So at strength 1.0 max travel needs to span the entire half-
+      // range. The image div is 80% overscanned top + bottom (260% of
+      // section height) so this fits comfortably without exposing the
+      // edge. Travel scales linearly with strength below 1.0.
+      const maxTravel = (rect.height + vh) / 2;
       const raw = offset * parallaxStrength;
       const translate = Math.max(-maxTravel, Math.min(maxTravel, raw));
       img.style.transform = `translate3d(0, ${translate}px, 0)`;
@@ -157,12 +162,10 @@ export function BlockParallaxImageHero({
         color: textColor,
       }}
     >
-      {/* Parallax media layer. Fixed 30% overscan top + bottom (so the
-          image div is ~160% of section height) — independent of strength.
-          The translate3d in the scroll handler is clamped to ±22% of the
-          section so the edge never exposes. Previously the inset + scale
-          were tied to parallaxStrength, which meant cranking the slider
-          mostly just enlarged the image instead of giving more motion. */}
+      {/* Parallax media layer. 80% overscan top + bottom so the image div
+          is 260% of section height — large enough that even at strength
+          1.0 (image perfectly fixed in screen space) the edge never
+          exposes as you scroll a vh-tall section past the viewport. */}
       <div
         ref={imageRef}
         className="absolute inset-x-0 will-change-transform overflow-hidden"
@@ -171,8 +174,8 @@ export function BlockParallaxImageHero({
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          top: "-30%",
-          bottom: "-30%",
+          top: "-80%",
+          bottom: "-80%",
         }}
       >
         {props.videoUrl && (
