@@ -424,8 +424,24 @@ export interface ParallaxImageHeroBlockProps {
   overlayOpacity: number;
   overlayColor?: string;
   parallaxStrength: number;
-  minHeight: "full" | "large";
+  /** Section height preset. Expanded beyond the original full/large pair
+   *  so the block can read as a strip inside a larger section instead of
+   *  always occupying a full viewport. Maps to vh values in the renderer:
+   *  full=100, large=85, medium=70, compact=55, small=40, slim=28. */
+  minHeight: "full" | "large" | "medium" | "compact" | "small" | "slim";
   textColor?: string;
+  /** Edge gradient that fades the section into a solid color along the
+   *  top, bottom, or both edges — used to visually stitch the parallax
+   *  strip into the section above and/or below so it doesn't read as
+   *  its own standalone section. "none" (default) disables the fade. */
+  edgeFade?: "none" | "top" | "bottom" | "both";
+  /** Solid color the edge fade resolves to. Should match the bg of the
+   *  adjacent section for a seamless blend. Defaults to the section's
+   *  own dark fallback (#0a0a0a). */
+  edgeFadeColor?: string;
+  /** Percent of section height covered by each edge fade (0–60). Larger
+   *  values give a longer, softer blend. Default 25. */
+  edgeFadeSize?: number;
 }
 
 export interface RoiCalculatorBlockProps {

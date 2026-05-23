@@ -890,6 +890,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       parallaxStrength: 0.35,
       minHeight: "full",
       textColor: "#FFFFFF",
+      edgeFade: "none",
+      edgeFadeColor: "#0a0a0a",
+      edgeFadeSize: 25,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

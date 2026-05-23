@@ -143,14 +143,83 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Section height</Label>
-          <Select value={props.minHeight ?? "full"} onValueChange={(v) => u({ minHeight: v as "full" | "large" })}>
+          <Select
+            value={props.minHeight ?? "full"}
+            onValueChange={(v) =>
+              u({ minHeight: v as "full" | "large" | "medium" | "compact" | "small" | "slim" })
+            }
+          >
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="full">Full viewport (100vh)</SelectItem>
               <SelectItem value="large">Large (85vh)</SelectItem>
+              <SelectItem value="medium">Medium (70vh)</SelectItem>
+              <SelectItem value="compact">Compact (55vh)</SelectItem>
+              <SelectItem value="small">Small (40vh)</SelectItem>
+              <SelectItem value="slim">Slim strip (28vh)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Use Compact / Small / Slim when the parallax should sit inside a larger section rather than fill the screen.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Edge fade (blend into adjacent sections)
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Fade direction</Label>
+          <Select
+            value={props.edgeFade ?? "none"}
+            onValueChange={(v) => u({ edgeFade: v as "none" | "top" | "bottom" | "both" })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No fade</SelectItem>
+              <SelectItem value="top">Fade in from top (blend into section above)</SelectItem>
+              <SelectItem value="bottom">Fade out at bottom (blend into section below)</SelectItem>
+              <SelectItem value="both">Fade both edges</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        {(props.edgeFade ?? "none") !== "none" && (
+          <>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Fade color (match adjacent section)</Label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={props.edgeFadeColor ?? "#0a0a0a"}
+                  onChange={(e) => u({ edgeFadeColor: e.target.value })}
+                  className="h-8 w-10 p-0 border rounded cursor-pointer"
+                />
+                <Input
+                  value={props.edgeFadeColor ?? ""}
+                  onChange={(e) => u({ edgeFadeColor: e.target.value })}
+                  className="h-8 text-xs font-mono"
+                  placeholder="#0a0a0a"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Pick the background color of the section above/below so the fade resolves invisibly into it.
+              </p>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">
+                Fade size: {props.edgeFadeSize ?? 25}% of section
+              </Label>
+              <Slider
+                min={0}
+                max={60}
+                step={5}
+                value={[props.edgeFadeSize ?? 25]}
+                onValueChange={([v]) => u({ edgeFadeSize: v })}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -65,7 +65,27 @@ export function BlockParallaxImageHero({
   const overlayColor = props.overlayColor || "#000000";
   const overlayAlpha = Math.max(0, Math.min(100, props.overlayOpacity ?? 35)) / 100;
   const parallaxStrength = Math.max(0, Math.min(1, props.parallaxStrength ?? 0.35));
-  const minH = props.minHeight === "large" ? "85vh" : "100vh";
+  // Expanded height presets — see ParallaxImageHeroBlockProps.minHeight.
+  // Falls back to 100vh for unknown/legacy values so old pages stay full-bleed.
+  const HEIGHT_MAP: Record<string, string> = {
+    full: "100vh",
+    large: "85vh",
+    medium: "70vh",
+    compact: "55vh",
+    small: "40vh",
+    slim: "28vh",
+  };
+  const minH = HEIGHT_MAP[props.minHeight ?? "full"] ?? "100vh";
+
+  // Edge fade: a top and/or bottom gradient that resolves to a solid
+  // color so the section can blend into the bg of whatever sits above
+  // or below it. Sized as a percentage of the section so it scales with
+  // the chosen height preset.
+  const edgeFade = props.edgeFade ?? "none";
+  const edgeFadeColor = props.edgeFadeColor || "#0a0a0a";
+  const edgeFadeSize = Math.max(0, Math.min(60, props.edgeFadeSize ?? 25));
+  const showFadeTop = edgeFade === "top" || edgeFade === "both";
+  const showFadeBottom = edgeFade === "bottom" || edgeFade === "both";
 
   useEffect(() => {
     if (!animationsEnabled || isEditor) return;
@@ -167,6 +187,28 @@ export function BlockParallaxImageHero({
           backgroundColor: `rgba(${hexToRgbParts(overlayColor)}, ${overlayAlpha})`,
         }}
       />
+
+      {/* Edge fade overlays — sit above the image + overlay tint but
+          below the content (z-10) so the headline/CTAs stay crisp while
+          the section's top/bottom edges melt into adjacent sections. */}
+      {showFadeTop && edgeFadeSize > 0 && (
+        <div
+          className="absolute inset-x-0 top-0 z-10 pointer-events-none"
+          style={{
+            height: `${edgeFadeSize}%`,
+            background: `linear-gradient(to bottom, ${edgeFadeColor} 0%, ${edgeFadeColor} 10%, transparent 100%)`,
+          }}
+        />
+      )}
+      {showFadeBottom && edgeFadeSize > 0 && (
+        <div
+          className="absolute inset-x-0 bottom-0 z-10 pointer-events-none"
+          style={{
+            height: `${edgeFadeSize}%`,
+            background: `linear-gradient(to top, ${edgeFadeColor} 0%, ${edgeFadeColor} 10%, transparent 100%)`,
+          }}
+        />
+      )}
 
       {/* Editor-only image picker */}
       {isEditor && (
