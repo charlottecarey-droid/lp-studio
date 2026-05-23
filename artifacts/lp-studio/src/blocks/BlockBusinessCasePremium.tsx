@@ -756,14 +756,14 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   {s.label}
                 </div>
                 <div
-                  className="text-4xl"
+                  className="text-4xl border-b border-white/30 pb-2"
                   style={{ color: accent, fontFamily: DISPLAY }}
                 >
                   {s.value}
                 </div>
                 {s.caption && (
                   <div
-                    className="text-xs mt-1"
+                    className="text-xs mt-2"
                     style={{ color: `${bg}66`, fontFamily: BODY }}
                   >
                     {s.caption}
