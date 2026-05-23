@@ -758,7 +758,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {props.mathStats.map((s, i) => (
-              <div key={i}>
+              <div key={i} className="flex flex-col">
                 <div
                   className="text-[10px] uppercase tracking-[0.2em] mb-2 font-semibold"
                   style={{ color: `${bg}99`, fontFamily: BODY }}
@@ -766,19 +766,17 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   {s.label}
                 </div>
                 <div
-                  className="text-4xl border-b border-white/30 pb-2"
+                  className="text-4xl border-b border-white/40 pb-2"
                   style={{ color: accent, fontFamily: DISPLAY }}
                 >
                   {s.value}
                 </div>
-                {s.caption && (
-                  <div
-                    className="text-xs mt-2"
-                    style={{ color: `${bg}66`, fontFamily: BODY }}
-                  >
-                    {s.caption}
-                  </div>
-                )}
+                <div
+                  className="text-xs mt-2 min-h-[1.25rem]"
+                  style={{ color: `${bg}66`, fontFamily: BODY }}
+                >
+                  {s.caption ?? "\u00A0"}
+                </div>
               </div>
             ))}
           </div>
