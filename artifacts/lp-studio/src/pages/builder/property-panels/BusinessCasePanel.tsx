@@ -365,6 +365,22 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
               <Input value={props.heroSecondaryCtaUrl} onChange={(e) => set("heroSecondaryCtaUrl" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
             </Field>
             {variant === "premium" && (
+              <Field label="Hero layout">
+                <Select
+                  value={premiumProps.heroLayout ?? "centered"}
+                  onValueChange={(v) => set("heroLayout" as keyof P, v as P[keyof P])}
+                >
+                  <SelectTrigger className="text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="centered">Centered (dark hero)</SelectItem>
+                    <SelectItem value="split-image-right">Split — image right (full bleed)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+            {variant === "premium" && (
               <Field label="Kicker (small label above eyebrow)">
                 <Input value={premiumProps.kicker ?? ""} onChange={(e) => set("kicker" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
               </Field>
@@ -380,16 +396,16 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             )}
             {variant === "premium" && (
               <>
-                <Field label="Hero image caption (inside image)">
+                <Field label="Hero image caption (overlay on image)">
                   <Input value={premiumProps.heroImageCaption ?? ""} onChange={(e) => set("heroImageCaption" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
                 </Field>
                 <Field label="Plate label (top-right of image)">
                   <Input value={premiumProps.plateLabel ?? ""} onChange={(e) => set("plateLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
                 </Field>
-                <Field label="Volume label (under image, left)">
+                <Field label="Volume label (in header bar)">
                   <Input value={premiumProps.volumeLabel ?? ""} onChange={(e) => set("volumeLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
                 </Field>
-                <Field label="Issue label (under image, right)">
+                <Field label="Issue label (in header bar)">
                   <Input value={premiumProps.issueLabel ?? ""} onChange={(e) => set("issueLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
                 </Field>
               </>
@@ -415,6 +431,15 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             <Field label="Body (continued)">
               <Textarea value={props.situationBodyExtra ?? ""} onChange={(e) => set("situationBodyExtra" as keyof P, e.target.value as P[keyof P])} className="text-xs min-h-16" />
             </Field>
+            {variant === "premium" && (
+              <Field label="Editorial image (optional, under lede)">
+                <ImagePicker
+                  value={premiumProps.situationImageUrl ?? ""}
+                  onChange={(v) => set("situationImageUrl" as keyof P, v as P[keyof P])}
+                  aiHint="Editorial photo — clinic interior or hands-at-work"
+                />
+              </Field>
+            )}
             <div className="space-y-2 pt-1">
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Stats</div>
               {props.situationStats.map((s, i) => (
@@ -720,6 +745,15 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             <Field label="Heading">
               <Textarea value={props.proofHeading} onChange={(e) => set("proofHeading" as keyof P, e.target.value as P[keyof P])} className="text-xs min-h-16" />
             </Field>
+            {variant === "premium" && (
+              <Field label="Featured-quote image (optional, above quote)">
+                <ImagePicker
+                  value={premiumProps.proofImageUrl ?? ""}
+                  onChange={(v) => set("proofImageUrl" as keyof P, v as P[keyof P])}
+                  aiHint="Portrait or scene photo — clinician at the chair"
+                />
+              </Field>
+            )}
             <div className="space-y-2 p-2 border border-border rounded">
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Featured testimonial</div>
               <Field label="Quote">
