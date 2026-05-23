@@ -22,23 +22,39 @@ const FOCUS_MAP: Record<NonNullable<BusinessCasePremiumBlockProps["heroImageFocu
 };
 
 /** Tasteful scroll-reveal wrapper. Fades and lifts content into view once,
- *  honoring reduced-motion preference (framer-motion handles this). */
+ *  honoring reduced-motion preference (framer-motion handles this).
+ *  In the builder we render a plain <div> so live editing stays snappy
+ *  (no IntersectionObserver / animation state per render). */
 const Reveal: React.FC<
-  React.PropsWithChildren<{ delay?: number; y?: number; className?: string }>
-> = ({ children, delay = 0, y = 24, className }) => (
-  <motion.div
-    initial={{ opacity: 0, y }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.2 }}
-    transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
-    className={className}
-  >
-    {children}
-  </motion.div>
-);
+  React.PropsWithChildren<{
+    delay?: number;
+    y?: number;
+    className?: string;
+    isBuilder?: boolean;
+  }>
+> = ({ children, delay = 0, y = 24, className, isBuilder }) => {
+  if (isBuilder) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <motion.div
+      initial={{ opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
 
 interface Props {
   props: BusinessCasePremiumBlockProps;
+  /** When true, the block is being rendered inside the LP Studio builder.
+   *  We skip framer-motion scroll/hover animations in this mode to keep
+   *  editing snappy — they would otherwise re-mount on every keystroke. */
+  isBuilder?: boolean;
 }
 
 /**
@@ -54,7 +70,21 @@ interface Props {
  * and an upgraded comparison table (zebra rows, dark "With Dandy" pillar,
  * stronger ink contrast).
  */
-export function BlockBusinessCasePremium({ props }: Props) {
+export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
+  /** In the builder, render plain divs and strip framer-motion animation props
+   *  so each keystroke doesn't re-create IntersectionObservers + animation state. */
+  const M: React.ElementType = isBuilder
+    ? (({
+        initial: _i,
+        animate: _a,
+        whileInView: _w,
+        whileHover: _wh,
+        viewport: _v,
+        transition: _t,
+        ...rest
+      }: Record<string, unknown>) => <div {...(rest as React.HTMLAttributes<HTMLDivElement>)} />)
+    : motion.div;
+
   const bg = props.bgColor ?? "#f6f5ee";
   const ink = props.inkColor ?? "#0d1f15";
   const dark = props.darkColor ?? "#0d1f15";
@@ -345,7 +375,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
 
       {/* 2. Situation / Demand */}
       <section className="py-24 px-6 max-w-7xl mx-auto">
-        <Reveal className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <Reveal isBuilder={isBuilder} className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
             {props.situationEyebrow && (
               <div
@@ -388,7 +418,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
             {heroStats.map((s, i) => {
               const Icon = SITUATION_ICONS[i] ?? Activity;
               return (
-                <motion.div
+                <M
                   key={i}
                   initial={{ opacity: 0, y: 16 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -426,7 +456,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                       </div>
                     )}
                   </div>
-                </motion.div>
+                </M>
               );
             })}
           </div>
@@ -460,7 +490,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
           {props.signalCards.map((card, i) => {
             if (card.kind === "stat") {
               return (
-                <motion.div
+                <M
                   key={i}
                   initial={{ opacity: 0, y: 16 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -494,12 +524,12 @@ export function BlockBusinessCasePremium({ props }: Props) {
                       {card.body}
                     </p>
                   )}
-                </motion.div>
+                </M>
               );
             }
             if (card.attribution) {
               return (
-                <motion.div
+                <M
                   key={i}
                   initial={{ opacity: 0, y: 16 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -528,11 +558,11 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   >
                     {card.attribution}
                   </div>
-                </motion.div>
+                </M>
               );
             }
             return (
-              <motion.div
+              <M
                 key={i}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -556,7 +586,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                 <p className="text-lg" style={{ fontFamily: BODY }}>
                   {card.body}
                 </p>
-              </motion.div>
+              </M>
             );
           })}
         </div>
@@ -588,7 +618,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {props.costItems.map((item, idx) => (
-            <motion.div
+            <M
               key={idx}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -611,7 +641,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                 {item.label}
               </div>
               <p style={{ color: `${ink}99`, fontFamily: BODY }}>{item.description}</p>
-            </motion.div>
+            </M>
           ))}
         </div>
       </section>
@@ -661,7 +691,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
               const zebra = idx % 2 === 1;
               const rowBg = zebra ? `${ink}08` : "transparent";
               return (
-                <motion.div
+                <M
                   key={idx}
                   initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -706,7 +736,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                     />
                     <span className="text-base leading-snug">{row.withDandy}</span>
                   </div>
-                </motion.div>
+                </M>
               );
             })}
           </div>

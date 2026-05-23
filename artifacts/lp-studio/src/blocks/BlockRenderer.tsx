@@ -865,7 +865,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "business-case-centered":
         return <BlockBusinessCaseCentered props={block.props} />;
       case "business-case-premium":
-        return <BlockBusinessCasePremium props={block.props} />;
+        return <BlockBusinessCasePremium props={block.props} isBuilder={isBuilder} />;
       case "scroll-assembly":
         return (
           <BlockScrollAssembly
