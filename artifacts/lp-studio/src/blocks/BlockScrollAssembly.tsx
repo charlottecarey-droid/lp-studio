@@ -436,27 +436,17 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
   const ctaText = theme === "dark" ? brandPrimary : "var(--brand-primary)";
 
   return (
-    // Bleed the section UP into the previous block + fade the bg in
-    // from transparent across the top ~22vh so the seam between the
-    // intro block and this section dissolves. The user explicitly
-    // asked for this — "make it look like this is fading out from
-    // the intro block." Negative margin lets the prior block's last
-    // ~140px of content sit underneath the start of the gradient
-    // strip; the strip then resolves into the full section bg.
-    // Wrapped in position:relative + zIndex:1 so the bleed paints
-    // *over* the previous block instead of being clipped under it.
+    // Solid edge restored. Previously this wrapper used a transparent
+    // top + linear-gradient fade-in to dissolve the seam with the
+    // intro block above. That assumed the two blocks were adjacent —
+    // when another block sits between them the transparent strip
+    // showed through to the in-between block's bg as a visible
+    // horizontal band. Reverted to a flat fill so the section always
+    // owns its top edge regardless of what sits above it.
     <div
       ref={containerRef}
-      style={{
-        height: `${heightVh}vh`,
-        marginTop: -140,
-        paddingTop: 0,
-        position: "relative",
-        zIndex: 1,
-        backgroundColor: "transparent",
-        backgroundImage: `linear-gradient(to bottom, transparent 0, ${bg} 22vh, ${bg} 100%)`,
-      }}
-      className="w-full"
+      style={{ height: `${heightVh}vh`, backgroundColor: bg }}
+      className="relative w-full"
     >
       <div className="sticky top-0 h-screen w-full overflow-hidden">
         {/* Layer: ambient gradient orbs */}
