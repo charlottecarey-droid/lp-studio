@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
@@ -184,6 +185,18 @@ export function SpatialTourPanel({ props: p, onChange, brandVoiceSet }: Props) {
           </Field>
           <Field label="Hero Video" hint="Optional looping mp4/webm. When set, replaces the static hero with a Ken-Burns video stage + vignette + REC indicator. Leave blank to use the static hero.">
             <VideoPicker value={p.heroVideoUrl ?? ""} onChange={v => set({ heroVideoUrl: v })} />
+          </Field>
+          <Field
+            label={`Image Brightness — ${Math.round(((p.heroMediaBrightness ?? 0.8)) * 100)}%`}
+            hint="Lighten or darken the hero photo/video. 100% = original. Lower values mute the image so white headline type pops; higher values reveal more of the underlying photo."
+          >
+            <Slider
+              min={30}
+              max={150}
+              step={1}
+              value={[Math.round(((p.heroMediaBrightness ?? 0.8)) * 100)]}
+              onValueChange={(v) => set({ heroMediaBrightness: (v[0] ?? 80) / 100 })}
+            />
           </Field>
           <Field label="Eyebrow" hint="Small uppercase text above the headline">
             <AiTextField type="input" value={p.heroEyebrow} onChange={v => set({ heroEyebrow: v })} fieldLabel="Hero Eyebrow" brandVoiceSet={brandVoiceSet}

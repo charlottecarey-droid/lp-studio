@@ -1215,6 +1215,9 @@ export interface SpatialTourBlockProps {
   heroTrailerUrl?: string;
   heroVisionChipText: string;
   heroScrollLabel: string;
+  /** Brightness multiplier applied to the hero image/video filter. 1.0 = no
+   *  change. Range 0.3–1.5. Defaults to 0.8 when unset. */
+  heroMediaBrightness?: number;
 
   // Marquee
   marqueeItems: SpatialTourMarqueeItem[];

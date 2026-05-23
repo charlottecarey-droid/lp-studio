@@ -713,12 +713,19 @@ function HeroVideoStage({
   videoUrl,
   posterUrl,
   reducedMotion,
+  brightness,
 }: {
   videoUrl?: string;
   posterUrl?: string;
   reducedMotion: boolean;
+  brightness?: number;
 }) {
   const useVideo = !!videoUrl && !reducedMotion;
+  const b = Math.max(0.3, Math.min(1.5, brightness ?? 0.8));
+  const videoFilter = `brightness(${b}) saturate(0.95) contrast(1.05)`;
+  // Static fallback gets a slightly lower brightness because it's not in
+  // motion — keeps the visual weight similar between the two paths.
+  const imgFilter = `brightness(${(b - 0.04).toFixed(2)}) saturate(0.95) contrast(1.05)`;
   return (
     <>
       <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
@@ -742,11 +749,7 @@ function HeroVideoStage({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center 40%",
-              // Was brightness(0.62) — too dark, killed the underlying
-              // photo so the hero read as "noisy black" rather than a
-              // moody portrait. 0.82 keeps it cinematic but lets the
-              // subject actually come through.
-              filter: "brightness(0.82) saturate(0.95) contrast(1.05)",
+              filter: videoFilter,
             }}
           />
         ) : posterUrl ? (
@@ -761,10 +764,7 @@ function HeroVideoStage({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center 40%",
-              // Was 0.6 — same issue as the video filter above. 0.78
-              // is dark enough to keep white type legible at any
-              // weight without crushing the photo to mud.
-              filter: "brightness(0.78) saturate(0.95) contrast(1.05)",
+              filter: imgFilter,
               animation: reducedMotion ? "none" : "st-ken-burns 18s ease-in-out infinite",
             }}
           />
@@ -893,6 +893,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           videoUrl={p.heroVideoUrl}
           posterUrl={p.heroImageUrl}
           reducedMotion={reducedMotion}
+          brightness={p.heroMediaBrightness}
         />
       </motion.div>
 
