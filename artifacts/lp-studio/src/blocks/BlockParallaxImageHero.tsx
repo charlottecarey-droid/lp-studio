@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -56,7 +57,6 @@ export function BlockParallaxImageHero({
   animationsEnabled = true,
 }: Props) {
   const sectionRef = useRef<HTMLElement>(null);
-  const imageRef = useRef<HTMLDivElement>(null);
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
   const isEditor = !!onFieldChange;
 
@@ -91,55 +91,42 @@ export function BlockParallaxImageHero({
   const showFadeTop = edgeFade === "top" || edgeFade === "both";
   const showFadeBottom = edgeFade === "bottom" || edgeFade === "both";
 
-  useEffect(() => {
-    if (!animationsEnabled || isEditor) return;
+  // Parallax driven by framer-motion's scroll progress (same pattern as
+  // ScrollAssembly / Switchback). The previous implementation used a
+  // manual window scroll listener + getBoundingClientRect + rAF. That
+  // worked locally but silently no-op'd on the live page — the most
+  // likely cause was that the bare DOM mutation (img.style.transform)
+  // sat outside React's commit lifecycle, so when any ancestor
+  // re-rendered (e.g. linked-form style provider, brand font loader,
+  // ScrollReveal entering view further down the page) the inline
+  // transform got blown away between scroll ticks. Driving the
+  // transform through a motion value keeps it owned by framer-motion
+  // and re-applied on every frame.
+  //
+  // offset ["start end" → "end start"] means progress is 0 when the
+  // section's top edge first crosses the viewport's bottom edge, and
+  // 1 when the section's bottom edge crosses the viewport's top edge —
+  // i.e. the entire window during which any pixel of the section is
+  // on screen. Mapping that to [-1, +1] gives a symmetric ±travel
+  // range centred on "section perfectly centred in viewport".
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  });
+  const parallaxY = useTransform(scrollYProgress, (p) => {
+    if (!animationsEnabled || isEditor) return 0;
     const sec = sectionRef.current;
-    const img = imageRef.current;
-    if (!sec || !img) return;
-    const reduceMotion = typeof window !== "undefined"
-      && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return;
-
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      const rect = sec.getBoundingClientRect();
-      const vh = window.innerHeight || 1;
-      // Only animate while section is in/near viewport
-      if (rect.bottom < -200 || rect.top > vh + 200) return;
-      // Centre-relative scroll progress: 0 when the section's centre is
-      // at the viewport centre, negative as the section moves up past
-      // it, positive while it's still below. Anchoring to the centre
-      // gives a symmetric +/- translation range.
-      const sectionCentre = rect.top + rect.height / 2;
-      const viewportCentre = vh / 2;
-      const offset = viewportCentre - sectionCentre;
-      // At strength 1.0 we want the image to stay perfectly fixed in
-      // screen space (classic "fixed background" parallax). The full
-      // scroll range from "section enters viewport" to "section leaves
-      // viewport" is (rect.height + vh); centred, that's ±(h+vh)/2.
-      // So at strength 1.0 max travel needs to span the entire half-
-      // range. The image div is 80% overscanned top + bottom (260% of
-      // section height) so this fits comfortably without exposing the
-      // edge. Travel scales linearly with strength below 1.0.
-      const maxTravel = (rect.height + vh) / 2;
-      const raw = offset * parallaxStrength;
-      const translate = Math.max(-maxTravel, Math.min(maxTravel, raw));
-      img.style.transform = `translate3d(0, ${translate}px, 0)`;
-    };
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [animationsEnabled, isEditor, parallaxStrength]);
+    if (!sec) return 0;
+    const h = sec.offsetHeight || 0;
+    const vh = (typeof window !== "undefined" ? window.innerHeight : 0) || 1;
+    // At strength 1.0 the image must stay perfectly fixed in viewport
+    // space across the full pass, which means travelling (h + vh) /2 in
+    // each direction from the centred point. Image overscan is 80% top
+    // + 80% bottom (260% of section height) so this fits without ever
+    // exposing the edge.
+    const maxTravel = (h + vh) / 2;
+    return (p - 0.5) * 2 * maxTravel * parallaxStrength;
+  });
 
   const handleCtaClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -166,8 +153,7 @@ export function BlockParallaxImageHero({
           is 260% of section height — large enough that even at strength
           1.0 (image perfectly fixed in screen space) the edge never
           exposes as you scroll a vh-tall section past the viewport. */}
-      <div
-        ref={imageRef}
+      <motion.div
         className="absolute inset-x-0 will-change-transform overflow-hidden"
         style={{
           backgroundImage: !props.videoUrl && props.imageUrl ? `url("${props.imageUrl}")` : undefined,
@@ -176,6 +162,7 @@ export function BlockParallaxImageHero({
           backgroundRepeat: "no-repeat",
           top: "-80%",
           bottom: "-80%",
+          y: parallaxY,
         }}
       >
         {props.videoUrl && (
@@ -192,7 +179,7 @@ export function BlockParallaxImageHero({
             className="w-full h-full object-cover"
           />
         )}
-      </div>
+      </motion.div>
 
       {/* Empty-state placeholder when no media set */}
       {!props.imageUrl && !props.videoUrl && (
