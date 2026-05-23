@@ -85,6 +85,10 @@ export function BlockParallaxImageHero({
   // color so the section can blend into the bg of whatever sits above
   // or below it. Sized as a percentage of the section so it scales with
   // the chosen height preset.
+  // Media scale — 1.0 keeps current "cover" sizing; <1 shrinks the
+  // image/video toward the centre and exposes the section bg around it.
+  const mediaScale = Math.max(0.3, Math.min(1.5, props.mediaScale ?? 1));
+
   const edgeFade = props.edgeFade ?? "none";
   const edgeFadeColor = props.edgeFadeColor || "#0a0a0a";
   const edgeFadeSize = Math.max(0, Math.min(60, props.edgeFadeSize ?? 25));
@@ -156,29 +160,43 @@ export function BlockParallaxImageHero({
       <motion.div
         className="absolute inset-x-0 will-change-transform overflow-hidden"
         style={{
-          backgroundImage: !props.videoUrl && props.imageUrl ? `url("${props.imageUrl}")` : undefined,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
           top: "-80%",
           bottom: "-80%",
           y: parallaxY,
         }}
       >
-        {props.videoUrl && (
-          <video
-            key={props.videoUrl}
-            src={props.videoUrl}
-            poster={props.imageUrl || undefined}
-            autoPlay={props.videoAutoplay !== false}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden
-            className="w-full h-full object-cover"
-          />
-        )}
+        {/* Inner wrapper holds the actual media. Scaling here (rather
+            than on the motion.div) keeps the parallax y-transform
+            isolated from the size transform — otherwise framer-motion
+            would have to multiplex both onto a single transform string,
+            and at scale < 1 the parallax travel range would shrink with
+            the media. transformOrigin centres the shrink/zoom on the
+            section's middle so the framing stays balanced. */}
+        <div
+          className="w-full h-full"
+          style={{
+            backgroundImage: !props.videoUrl && props.imageUrl ? `url("${props.imageUrl}")` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            transform: mediaScale !== 1 ? `scale(${mediaScale})` : undefined,
+            transformOrigin: "center center",
+          }}
+        >
+          {props.videoUrl && (
+            <video
+              key={props.videoUrl}
+              src={props.videoUrl}
+              poster={props.imageUrl || undefined}
+              autoPlay={props.videoAutoplay !== false}
+              muted
+              loop
+              playsInline
+              aria-hidden
+              className="w-full h-full object-cover"
+            />
+          )}
+        </div>
       </motion.div>
 
       {/* Empty-state placeholder when no media set */}

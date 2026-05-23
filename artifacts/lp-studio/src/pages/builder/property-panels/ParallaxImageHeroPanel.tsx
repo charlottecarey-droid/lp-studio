@@ -119,6 +119,23 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">
+            Image / video size: {Math.round((props.mediaScale ?? 1) * 100)}%
+          </Label>
+          <Slider
+            min={30}
+            max={150}
+            step={5}
+            value={[Math.round((props.mediaScale ?? 1) * 100)]}
+            onValueChange={([v]) => u({ mediaScale: v / 100 })}
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            100% = fills the section (default). Lower values shrink the
+            image/video toward the centre and let the section's background
+            show around it; higher values zoom in.
+          </p>
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">
             Overlay opacity: {props.overlayOpacity ?? 35}%
           </Label>
           <Slider

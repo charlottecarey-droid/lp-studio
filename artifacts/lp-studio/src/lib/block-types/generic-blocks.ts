@@ -442,6 +442,12 @@ export interface ParallaxImageHeroBlockProps {
   /** Percent of section height covered by each edge fade (0–60). Larger
    *  values give a longer, softer blend. Default 25. */
   edgeFadeSize?: number;
+  /** Visual scale of the background image / video inside the section.
+   *  1.0 (default) = "cover" — media fills the section the same as
+   *  before. Values < 1 shrink the media toward the centre and let the
+   *  section's fallback background show around it; values > 1 zoom in.
+   *  Clamped to [0.3, 1.5]. */
+  mediaScale?: number;
 }
 
 export interface RoiCalculatorBlockProps {
