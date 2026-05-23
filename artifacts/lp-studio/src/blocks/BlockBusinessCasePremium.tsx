@@ -879,34 +879,70 @@ export function BlockBusinessCasePremium({ props }: Props) {
             </div>
 
             <div className="md:col-span-5 flex flex-col gap-8">
-              {props.proofSecondary.map((t, i) => (
-                <div
-                  key={i}
-                  className="bg-white p-8 border-l-2"
-                  style={{ borderColor: `${ink}22` }}
-                >
-                  <p
-                    className="text-xl italic mb-6 leading-relaxed"
-                    style={{ color: `${ink}cc`, fontFamily: DISPLAY }}
-                  >
-                    "{t.quote}"
-                  </p>
-                  <div>
+              {props.proofSecondary.map((t, i) => {
+                if (t.kind === "stat") {
+                  return (
                     <div
-                      className="font-semibold text-sm"
-                      style={{ color: ink, fontFamily: BODY }}
+                      key={i}
+                      className="bg-white p-8 border-l-2"
+                      style={{ borderColor: accent }}
                     >
-                      {t.name}
+                      {t.title && (
+                        <div
+                          className="text-[10px] uppercase tracking-[0.3em] mb-3 font-semibold"
+                          style={{ color: accent, fontFamily: BODY }}
+                        >
+                          {t.title}
+                        </div>
+                      )}
+                      {t.name && (
+                        <div
+                          className="text-5xl leading-none mb-4"
+                          style={{ color: accent, fontFamily: DISPLAY }}
+                        >
+                          {t.name}
+                        </div>
+                      )}
+                      {t.quote && (
+                        <p
+                          className="text-base leading-relaxed"
+                          style={{ color: `${ink}99`, fontFamily: BODY }}
+                        >
+                          {t.quote}
+                        </p>
+                      )}
                     </div>
-                    <div
-                      className="text-xs"
-                      style={{ color: `${ink}80`, fontFamily: BODY }}
+                  );
+                }
+                return (
+                  <div
+                    key={i}
+                    className="bg-white p-8 border-l-2"
+                    style={{ borderColor: `${ink}22` }}
+                  >
+                    <p
+                      className="text-xl italic mb-6 leading-relaxed"
+                      style={{ color: `${ink}cc`, fontFamily: DISPLAY }}
                     >
-                      {t.title}
+                      "{t.quote}"
+                    </p>
+                    <div>
+                      <div
+                        className="font-semibold text-sm"
+                        style={{ color: ink, fontFamily: BODY }}
+                      >
+                        {t.name}
+                      </div>
+                      <div
+                        className="text-xs"
+                        style={{ color: `${ink}80`, fontFamily: BODY }}
+                      >
+                        {t.title}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

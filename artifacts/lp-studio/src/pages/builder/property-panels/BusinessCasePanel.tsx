@@ -864,20 +864,32 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
               {props.proofSecondary.map((t, i) => (
                 <div key={i} className="space-y-2 p-2 border border-border rounded">
                   <ArrayItemHeader
-                    label="Testimonial"
+                    label={t.kind === "stat" ? "Stat card" : "Testimonial"}
                     index={i}
                     total={props.proofSecondary.length}
                     onMoveUp={() => moveSecondary(i, -1)}
                     onMoveDown={() => moveSecondary(i, 1)}
                     onRemove={() => removeSecondary(i)}
                   />
-                  <Field label="Quote">
+                  <Field label="Card type">
+                    <Select
+                      value={t.kind ?? "quote"}
+                      onValueChange={(v) => setSecondary(i, { kind: v as BusinessCaseTestimonial["kind"] })}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quote">Quote / testimonial</SelectItem>
+                        <SelectItem value="stat">Stat card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label={t.kind === "stat" ? "Caption (supporting copy under stat)" : "Quote"}>
                     <Textarea value={t.quote} onChange={(e) => setSecondary(i, { quote: e.target.value })} className="text-xs min-h-16" />
                   </Field>
-                  <Field label="Name">
+                  <Field label={t.kind === "stat" ? "Stat value (big number)" : "Name"}>
                     <Input value={t.name} onChange={(e) => setSecondary(i, { name: e.target.value })} className="text-xs h-8" />
                   </Field>
-                  <Field label="Title">
+                  <Field label={t.kind === "stat" ? "Eyebrow label (optional, above stat)" : "Title"}>
                     <Input value={t.title} onChange={(e) => setSecondary(i, { title: e.target.value })} className="text-xs h-8" />
                   </Field>
                 </div>

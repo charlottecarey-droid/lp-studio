@@ -1468,6 +1468,15 @@ export interface BusinessCaseMathStat {
 }
 
 export interface BusinessCaseTestimonial {
+  /**
+   * Card variant for proofSecondary cards (premium business case).
+   *  - "quote" (default): italic quote with name/title attribution.
+   *  - "stat": big accent stat. `name` becomes the big number,
+   *    `title` becomes the small eyebrow above it, `quote` becomes
+   *    the supporting caption below.
+   *  Ignored for proofFeatured (which always renders as a quote).
+   */
+  kind?: "quote" | "stat";
   quote: string;
   name: string;
   title: string;
