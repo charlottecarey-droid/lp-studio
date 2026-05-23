@@ -211,6 +211,7 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
                 ctaAction={primaryAction}
                 ctaUrl={p.primaryCtaUrl}
                 chilipiperUrl={p.chilipiperUrl}
+                videoUrl={p.videoUrl}
                 modalChilipiperUrl={p.modalChilipiperUrl}
                 modalFormSource={p.modalFormSource}
                 modalFormId={p.modalFormId}
@@ -243,18 +244,38 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
               </CtaButton>
 
               {p.secondaryCtaText && (
-                <a
+                <CtaButton
+                  ctaAction={(p.secondaryCtaAction ?? "url") as CtaActionMode}
+                  ctaUrl={p.secondaryCtaUrl}
+                  chilipiperUrl={p.secondaryChilipiperUrl}
+                  videoUrl={p.secondaryVideoUrl}
+                  modalChilipiperUrl={p.modalChilipiperUrl}
+                  modalFormSource={p.modalFormSource}
+                  modalFormId={p.modalFormId}
+                  modalMarketoBaseUrl={p.modalMarketoBaseUrl}
+                  modalMarketoMunchkinId={p.modalMarketoMunchkinId}
+                  modalMarketoFormId={p.modalMarketoFormId}
+                  modalChiliPiperHandoffUrl={p.modalChiliPiperHandoffUrl}
+                  modalChiliPiperHandoffMode={p.modalChiliPiperHandoffMode}
+                  modalChiliPiperHandoffFieldMap={p.modalChiliPiperHandoffFieldMap}
+                  modalHeadline={p.modalHeadline}
+                  modalSubheadline={p.modalSubheadline}
+                  modalSubmitText={p.modalSubmitText}
+                  modalSuccessMessage={p.modalSuccessMessage}
+                  modalDisclaimer={p.modalDisclaimer}
+                  modalShowFirstName={p.modalShowFirstName}
+                  modalShowLastName={p.modalShowLastName}
+                  modalShowPhone={p.modalShowPhone}
+                  modalShowCompany={p.modalShowCompany}
+                  brand={brand ?? undefined}
+                  pageId={ctx.pageId ?? undefined}
+                  variantId={ctx.variantId ?? undefined}
+                  source="id-reservation-pass-secondary"
                   className="id-pass__cta-secondary"
-                  href={p.secondaryCtaUrl || "#"}
-                  onClick={(ev) => {
-                    if (!p.secondaryCtaUrl || p.secondaryCtaUrl === "#") {
-                      ev.preventDefault();
-                    }
-                  }}
                 >
                   {p.secondaryCtaText}
                   <span aria-hidden> →</span>
-                </a>
+                </CtaButton>
               )}
             </div>
           </div>

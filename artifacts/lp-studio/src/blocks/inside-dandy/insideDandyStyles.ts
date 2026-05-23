@@ -195,7 +195,7 @@ const CSS = `
 .id-sp-result-body { font:400 12px/1.4 var(--id-body, system-ui, sans-serif); color:inherit; opacity:0.7; }
 .id-sp-result-action { display:inline-block; font:500 12px/1.4 var(--id-body, system-ui, sans-serif); color:#0A1F1B; text-decoration:underline; text-underline-offset:2px; margin-top:6px; }
 .id-sp-result + .id-sp-result .id-sp-result-action { color:var(--id-cit, #C7E738); }
-.id-spotlight-stepper { position:absolute; right:-8px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:18px; list-style:none; padding:0; margin:0; z-index:2; }
+.id-spotlight-stepper { position:absolute; right:24px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:18px; list-style:none; padding:0; margin:0; z-index:3; pointer-events:none; text-shadow:0 1px 6px rgba(0,0,0,0.65); }
 .id-sp-step { display:flex; align-items:center; gap:14px; justify-content:flex-end; font:500 10px/1 var(--id-mono, ui-monospace, monospace); letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.35); }
 .id-sp-step.id-active { color:#fff; }
 .id-sp-step-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.3); transition:all 240ms var(--id-ease); }

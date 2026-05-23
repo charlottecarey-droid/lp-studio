@@ -131,6 +131,7 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
             <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
             <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
             <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+            <SelectItem value="video-modal" className="text-xs">Open video in modal</SelectItem>
           </SelectContent>
         </Select>
       </Field>
@@ -142,6 +143,11 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
       {p.primaryCtaAction === "chilipiper" && (
         <Field label="Chili Piper URL">
           <Input className="h-8 text-xs font-mono" value={p.chilipiperUrl ?? ""} onChange={(e) => set("chilipiperUrl", e.target.value)} placeholder="https://meetdandy.chilipiper.com/router/…" />
+        </Field>
+      )}
+      {p.primaryCtaAction === "video-modal" && (
+        <Field label="Video URL">
+          <Input className="h-8 text-xs font-mono" value={p.videoUrl ?? ""} onChange={(e) => set("videoUrl", e.target.value)} placeholder="https://… .mp4 or YouTube/Vimeo URL" />
         </Field>
       )}
       {(p.primaryCtaAction === "modal-form" || p.primaryCtaAction === "modal-chilipiper") && (
@@ -156,9 +162,43 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
       <Field label="Label">
         <Input className="h-8 text-xs" value={p.secondaryCtaText ?? ""} onChange={(e) => set("secondaryCtaText", e.target.value)} placeholder="Press inquiry" />
       </Field>
-      <Field label="URL">
-        <Input className="h-8 text-xs" value={p.secondaryCtaUrl ?? ""} onChange={(e) => set("secondaryCtaUrl", e.target.value)} placeholder="mailto:press@meetdandy.com" />
+      <Field label="Action">
+        <Select
+          value={p.secondaryCtaAction ?? "url"}
+          onValueChange={(v) => set("secondaryCtaAction", v as NonNullable<IdReservationPassBlockProps["secondaryCtaAction"]>)}
+        >
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+            <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
+            <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+            <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+            <SelectItem value="video-modal" className="text-xs">Open video in modal</SelectItem>
+          </SelectContent>
+        </Select>
       </Field>
+      {(p.secondaryCtaAction ?? "url") === "url" && (
+        <Field label="URL">
+          <Input className="h-8 text-xs" value={p.secondaryCtaUrl ?? ""} onChange={(e) => set("secondaryCtaUrl", e.target.value)} placeholder="mailto:press@meetdandy.com" />
+        </Field>
+      )}
+      {p.secondaryCtaAction === "chilipiper" && (
+        <Field label="Chili Piper URL">
+          <Input className="h-8 text-xs font-mono" value={p.secondaryChilipiperUrl ?? ""} onChange={(e) => set("secondaryChilipiperUrl", e.target.value)} placeholder="https://meetdandy.chilipiper.com/router/…" />
+        </Field>
+      )}
+      {p.secondaryCtaAction === "video-modal" && (
+        <Field label="Video URL">
+          <Input className="h-8 text-xs font-mono" value={p.secondaryVideoUrl ?? ""} onChange={(e) => set("secondaryVideoUrl", e.target.value)} placeholder="https://… .mp4 or YouTube/Vimeo URL" />
+        </Field>
+      )}
+      {(p.secondaryCtaAction === "modal-form" || p.secondaryCtaAction === "modal-chilipiper") && (
+        <CtaButtonModalConfigSection
+          ctaAction={p.secondaryCtaAction}
+          value={p}
+          onChange={(next) => onChange({ ...p, ...next })}
+        />
+      )}
 
       <SectionHeader>Stage</SectionHeader>
       <Field label="Background image URL (optional)">

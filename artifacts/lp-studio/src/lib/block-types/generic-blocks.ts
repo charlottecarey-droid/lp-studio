@@ -1727,9 +1727,16 @@ export interface IdReservationPassBlockProps extends CtaModalConfig {
   primaryCtaAction?: IdCtaAction;
   /** Used when primaryCtaAction === "chilipiper". */
   chilipiperUrl?: string;
+  /** Used when primaryCtaAction === "video-modal" — opens a video lightbox. */
+  videoUrl?: string;
   /** Optional secondary ghost link rendered alongside the primary CTA. */
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  secondaryCtaAction?: IdCtaAction;
+  /** Used when secondaryCtaAction === "chilipiper". */
+  secondaryChilipiperUrl?: string;
+  /** Used when secondaryCtaAction === "video-modal". */
+  secondaryVideoUrl?: string;
   /** Optional background photo behind the orbs (kept low-opacity). */
   backgroundImageUrl?: string;
   /** Tiny tertiary footer line, e.g. ["PRESS", "INVESTORS", "BOOTH 412"]. */
