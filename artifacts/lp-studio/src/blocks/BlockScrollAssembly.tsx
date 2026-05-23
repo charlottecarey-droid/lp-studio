@@ -74,16 +74,23 @@ function PieceView({
   const filter  = useTransform(blurPx, (b) => (b > 0.2 ? `blur(${b.toFixed(2)}px)` : "none"));
 
   if (piece.kind === "image") {
+    // Premium image piece: object-contain + no rounded frame so PNGs
+    // with transparent backgrounds (product shots, headset, etc.) sit
+    // flat without a visible "card" around them. The old version
+    // applied rounded-2xl + shadow-2xl + ring which manufactured a
+    // dark rounded rectangle around any transparent image — exactly
+    // the "weird shadow" reported on the hero. A very soft elliptical
+    // floor shadow underneath gives weight without enclosing the cutout.
     return (
       <motion.div
         style={{ opacity, x, y, rotate, scale, filter, willChange: "transform, opacity, filter" }}
-        className="relative"
+        className="relative flex flex-col items-center"
       >
-        <div className="absolute -inset-3 rounded-3xl bg-gradient-to-br from-white/10 to-white/0 blur-xl" />
         <img
           src={piece.content}
           alt=""
-          className="relative rounded-2xl shadow-2xl object-cover w-full max-w-md aspect-[4/3] ring-1 ring-black/5"
+          className="relative object-contain w-full max-w-md max-h-[60vh]"
+          style={{ filter: `drop-shadow(0 30px 40px ${theme === "dark" ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.25)"})` }}
         />
       </motion.div>
     );
@@ -158,16 +165,18 @@ function FloatingImage({
   index,
   total,
   scrollYProgress,
+  isEditor,
+  onRemove,
 }: {
   src: string;
   index: number;
   total: number;
   scrollYProgress: MotionValue<number>;
+  isEditor?: boolean;
+  onRemove?: () => void;
 }) {
   // Premium scatter: pulled out of the focal center band, smaller scales,
   // and pushed further into the corners so the focal text always has air.
-  // Old positions clustered around top:30%/left:50% which crashed straight
-  // into the headline — replaced with a deliberate outer ring layout.
   const positions: Array<{ top: string; left: string; rot: number; size: number; depth: number }> = [
     { top: "6%",  left: "5%",  rot: -5,  size: 170, depth: 0.55 },
     { top: "70%", left: "82%", rot: 4,   size: 190, depth: 0.85 },
@@ -182,14 +191,17 @@ function FloatingImage({
   const y = useTransform(scrollYProgress, [0, 1], [60 * pos.depth, -120 * pos.depth]);
   const x = useTransform(scrollYProgress, [0, 1], [(index % 2 === 0 ? -1 : 1) * 30 * pos.depth, (index % 2 === 0 ? 1 : -1) * 30 * pos.depth]);
   const rotate = useTransform(scrollYProgress, [0, 1], [pos.rot, pos.rot + (index % 2 === 0 ? 2 : -2)]);
-  // Max opacity dropped from 0.55 → 0.22 so the parallax tiles read as
-  // ambient background texture rather than as content competing with the
-  // focal copy. They still drift, just at quiet volume.
-  const opacity = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0, 0.22, 0.22, 0.06]);
+  // Bumped 0.22 → 0.35 max because the new clean treatment (no framing,
+  // no saturation drop) lets them sit comfortably hotter without
+  // competing with the focal copy.
+  const opacity = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0, 0.35, 0.35, 0.12]);
 
   // Lift larger items in front. Total used to keep keys stable.
   void total;
 
+  // Editor gets a remove × on hover. Viewer mode stays fully passive
+  // (pointer-events-none on the wrapper so floating tiles never block
+  // clicks on the focal copy underneath).
   return (
     <motion.div
       style={{
@@ -200,16 +212,35 @@ function FloatingImage({
         height: pos.size * 0.72,
         x, y, rotate, opacity,
         zIndex: Math.round(pos.depth * 2),
-        // Tile-blur + saturation drop gives the floating images a soft
-        // photographic quality. They now read as memory/atmosphere instead
-        // of as full-resolution product shots fighting for attention.
-        filter: "blur(1px) saturate(0.85)",
         willChange: "transform, opacity",
       }}
-      className="rounded-2xl overflow-hidden ring-1 ring-white/5 pointer-events-none"
+      className={`group ${isEditor ? "" : "pointer-events-none"}`}
     >
-      <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-      <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%)" }} />
+      {/*
+        No framing wrapper — previously the image sat inside a
+        rounded-2xl + ring-1 + dark gradient overlay container, which
+        drew a visible rounded-rectangle "shadow" around any PNG with a
+        transparent background (the user's floating product shots).
+        Letting the <img> render flat preserves alpha so transparent
+        cutouts truly float.
+      */}
+      <img
+        src={src}
+        alt=""
+        className="w-full h-full object-contain pointer-events-none select-none"
+        loading="lazy"
+        draggable={false}
+      />
+      {isEditor && onRemove && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-black/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+          aria-label="Remove floating image"
+        >
+          ×
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -422,6 +453,11 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
             index={i}
             total={floatingImages.length}
             scrollYProgress={scrollYProgress}
+            isEditor={!!onFieldChange}
+            onRemove={onFieldChange ? () => {
+              const next = floatingImages.filter((_, idx) => idx !== i);
+              onFieldChange({ ...props, floatingImages: next });
+            } : undefined}
           />
         ))}
 
@@ -447,7 +483,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
 
         {/* Foreground: pieces */}
         <div className="relative z-30 h-full w-full flex items-center justify-center">
-          <div className="relative w-full max-w-6xl mx-auto px-6 md:px-10 flex flex-col items-center gap-6 md:gap-8 text-center">
+          <div className="relative w-full max-w-6xl mx-auto px-6 md:px-10 flex flex-col items-center gap-2 md:gap-3 text-center">
             {props.eyebrow && (
               <p
                 className="text-xs font-bold uppercase tracking-[0.25em] mb-1 px-4 py-1.5 rounded-full"
