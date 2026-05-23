@@ -196,12 +196,17 @@ function SecondaryCTA({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 10,
+        gap: 12,
         padding: "15px 26px",
         borderRadius: 999,
-        background: "transparent",
+        // Slight white tint instead of fully transparent — gives the
+        // pill enough body that it doesn't disappear next to the
+        // glowing primary CTA on a dark hero.
+        background: "rgba(255,255,255,0.04)",
         color: WHITE,
-        border: "1px solid rgba(255,255,255,0.40)",
+        // Border was 0.40 — too quiet next to a solid primary CTA.
+        // 0.60 reads as a real interactive control without competing.
+        border: "1px solid rgba(255,255,255,0.60)",
         fontFamily: SANS,
         fontSize: 13,
         fontWeight: 600,
@@ -212,7 +217,7 @@ function SecondaryCTA({
         ...style,
       }}
     >
-      <span style={{ width: 22, height: 22, borderRadius: "50%", background: MINT, color: FOREST, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, paddingLeft: 1, fontFamily: BODY }}>
+      <span style={{ width: 24, height: 24, borderRadius: "50%", background: MINT, color: FOREST, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, paddingLeft: 1, fontFamily: BODY, boxShadow: `0 0 12px ${MINT}55` }}>
         ▶
       </span>
       {label}
@@ -737,7 +742,11 @@ function HeroVideoStage({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center 40%",
-              filter: "brightness(0.62) saturate(0.95) contrast(1.05)",
+              // Was brightness(0.62) — too dark, killed the underlying
+              // photo so the hero read as "noisy black" rather than a
+              // moody portrait. 0.82 keeps it cinematic but lets the
+              // subject actually come through.
+              filter: "brightness(0.82) saturate(0.95) contrast(1.05)",
             }}
           />
         ) : posterUrl ? (
@@ -752,7 +761,10 @@ function HeroVideoStage({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center 40%",
-              filter: "brightness(0.6) saturate(0.95) contrast(1.05)",
+              // Was 0.6 — same issue as the video filter above. 0.78
+              // is dark enough to keep white type legible at any
+              // weight without crushing the photo to mud.
+              filter: "brightness(0.78) saturate(0.95) contrast(1.05)",
               animation: reducedMotion ? "none" : "st-ken-burns 18s ease-in-out infinite",
             }}
           />
@@ -809,8 +821,12 @@ function HeroVideoStage({
         style={{
           position: "absolute",
           inset: 0,
+          // Was 0.35/0.65 — combined with the heavy brightness filter
+          // this completely hid the photo at the edges. Softer
+          // 0.20/0.45 keeps the eye-leading vignette without erasing
+          // the image.
           background:
-            "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.65) 100%)",
+            "radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.20) 75%, rgba(0,0,0,0.45) 100%)",
           pointerEvents: "none",
         }}
       />
@@ -819,8 +835,12 @@ function HeroVideoStage({
         style={{
           position: "absolute",
           inset: 0,
+          // Was 0.55/0.30/0.10 — third overlay stacked on top of the
+          // brightness filter + vignette. With all three combined the
+          // image was almost invisible. Cut to 0.28/0.14/0.04 so the
+          // brand wash still tints the frame without nuking it.
           background:
-            "linear-gradient(100deg, rgb(var(--brand-primary-rgb, 0 35 29) / 0.55) 0%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.30) 45%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.10) 100%)",
+            "linear-gradient(100deg, rgb(var(--brand-primary-rgb, 0 35 29) / 0.28) 0%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.14) 45%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.04) 100%)",
         }}
       />
       <DotGrid opacity={0.45} />
@@ -917,14 +937,21 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
         <h1
           style={{
             fontFamily: SERIF,
-            fontSize: "clamp(56px, 9vw, 124px)",
-            lineHeight: 0.92,
-            letterSpacing: "-0.045em",
+            // Was clamp(56px, 9vw, 124px) — at 124px max with a
+            // 3-line headline the type swallowed the whole hero, wrapped
+            // awkwardly, and crowded the eyebrow + subhead. 96px max
+            // (and a tighter 7.2vw mid) keeps the same editorial
+            // presence while letting the photo and copy breathe.
+            fontSize: "clamp(48px, 7.2vw, 96px)",
+            lineHeight: 0.95,
+            letterSpacing: "-0.04em",
             fontWeight: 400,
             margin: 0,
             color: WHITE,
-            maxWidth: 1100,
-            textShadow: hasVideo ? "0 2px 24px rgba(0,0,0,0.35)" : undefined,
+            maxWidth: 980,
+            // Slightly stronger shadow so the (now smaller) headline
+            // still anchors over the (now brighter) photo.
+            textShadow: hasVideo ? "0 2px 28px rgba(0,0,0,0.45)" : "0 2px 24px rgba(0,0,0,0.35)",
           }}
         >
           {p.heroHeadlineLine1}
@@ -943,14 +970,22 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
 
         <p
           style={{
-            marginTop: 40,
+            // Was 40 — the gap orphaned the subhead off the headline.
+            // 24 keeps them visually paired as one block of copy.
+            marginTop: 24,
             marginBottom: 0,
-            fontSize: 19,
+            fontSize: 18,
             lineHeight: 1.55,
-            color: hasVideo ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
-            maxWidth: 540,
+            // Bumped weight from default 400 → 450ish via 500 for the
+            // non-video case so it doesn't read anemic against a high-
+            // contrast photo.
+            fontWeight: hasVideo ? 400 : 450,
+            // Was 540 — too narrow, forcing 3-line wraps that broke
+            // phrases mid-clause. 620 lets ~75ch flow comfortably.
+            color: hasVideo ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.88)",
+            maxWidth: 620,
             fontFamily: SANS,
-            textShadow: hasVideo ? "0 1px 12px rgba(0,0,0,0.45)" : undefined,
+            textShadow: hasVideo ? "0 1px 12px rgba(0,0,0,0.45)" : "0 1px 10px rgba(0,0,0,0.35)",
           }}
         >
           {p.heroBody}
@@ -1016,14 +1051,17 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-end",
-            gap: 14,
-            opacity: 0.85,
+            // Was 0.85 — the indicator was nearly invisible against
+            // the dark hero. Full opacity plus the animated chevron
+            // below makes the scroll affordance read at a glance.
+            gap: 12,
+            opacity: 1,
             zIndex: 2,
           }}
         >
           <div
             style={{
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: "0.24em",
               textTransform: "uppercase",
               color: MINT,
@@ -1031,11 +1069,28 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
               display: "inline-flex",
               alignItems: "center",
               gap: 10,
+              textShadow: "0 1px 8px rgba(0,0,0,0.55)",
             }}
           >
             {p.heroScrollLabel} <span style={{ fontFamily: BODY }}>↓</span>
           </div>
-          <div style={{ width: 1, height: 36, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
+          <div style={{ width: 1, height: 42, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
+          {/* Subtle pulsing chevron below the stem so the affordance
+              actually animates — static scroll labels get ignored. */}
+          <span
+            className="st-anim-scroll-chev"
+            aria-hidden
+            style={{
+              color: MINT,
+              fontSize: 14,
+              lineHeight: 1,
+              fontFamily: BODY,
+              marginTop: -6,
+              animation: reducedMotion ? "none" : "st-rec-blink 1.8s ease-in-out infinite",
+            }}
+          >
+            ↓
+          </span>
         </div>
       )}
     </div>
