@@ -575,6 +575,18 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                     onMoveDown={() => moveSignal(i, 1)}
                     onRemove={() => removeSignal(i)}
                   />
+                  <Field label="Card type">
+                    <Select
+                      value={c.kind ?? "quote"}
+                      onValueChange={(v) => setSignal(i, { kind: v as BusinessCaseSignalCard["kind"] })}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quote">Quote / testimonial</SelectItem>
+                        <SelectItem value="stat">Stat card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
                   <Field label="Icon">
                     <Select value={c.icon ?? "trending-up"} onValueChange={(v) => setSignal(i, { icon: v as BusinessCaseSignalCard["icon"] })}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -585,13 +597,13 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Stat / headline">
+                  <Field label={c.kind === "stat" ? "Stat value (big number)" : "Stat / headline (optional)"}>
                     <Input value={c.stat} onChange={(e) => setSignal(i, { stat: e.target.value })} className="text-xs h-8" />
                   </Field>
-                  <Field label="Body">
+                  <Field label={c.kind === "stat" ? "Caption (supporting copy under stat)" : "Body (quote text)"}>
                     <Textarea value={c.body} onChange={(e) => setSignal(i, { body: e.target.value })} className="text-xs min-h-16" />
                   </Field>
-                  <Field label="Attribution (optional — turns into dark testimonial card)">
+                  <Field label={c.kind === "stat" ? "Eyebrow label (optional, above stat)" : "Attribution (optional — turns into dark testimonial card)"}>
                     <Input value={c.attribution ?? ""} onChange={(e) => setSignal(i, { attribution: e.target.value })} className="text-xs h-8" />
                   </Field>
                 </div>

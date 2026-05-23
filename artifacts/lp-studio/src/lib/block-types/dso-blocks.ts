@@ -1428,9 +1428,16 @@ export interface BusinessCaseStat {
 export interface BusinessCaseSignalCard {
   /** Lucide icon key — "trending-up" | "users" | "quote" */
   icon?: "trending-up" | "users" | "quote";
+  /**
+   * Card variant.
+   *  - "quote" (default): testimonial-style card. `body` is the quote, `attribution` is the source.
+   *  - "stat": metric card. `stat` is the big number, `body` is the supporting caption,
+   *    `attribution` (optional) renders as a small eyebrow above the stat.
+   */
+  kind?: "quote" | "stat";
   stat: string;
   body: string;
-  /** When provided, the card renders as a dark testimonial card with attribution */
+  /** Testimonial source (quote kind) or eyebrow label (stat kind). */
   attribution?: string;
 }
 

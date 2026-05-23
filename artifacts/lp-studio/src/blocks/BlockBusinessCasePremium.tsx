@@ -458,6 +458,45 @@ export function BlockBusinessCasePremium({ props }: Props) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {props.signalCards.map((card, i) => {
+            if (card.kind === "stat") {
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  className="group border border-white/20 p-8 relative transition-colors duration-300 hover:bg-white/[0.05] hover:border-white/30 overflow-hidden flex flex-col"
+                >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-0 left-0 h-[2px] w-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{ background: accent }}
+                  />
+                  {card.attribution && (
+                    <div
+                      className="text-[10px] uppercase tracking-[0.3em] mb-3 font-semibold"
+                      style={{ color: accent, fontFamily: BODY }}
+                    >
+                      {card.attribution}
+                    </div>
+                  )}
+                  {card.stat && (
+                    <div
+                      className="text-5xl md:text-6xl leading-none mb-4"
+                      style={{ color: accent, fontFamily: DISPLAY }}
+                    >
+                      {card.stat}
+                    </div>
+                  )}
+                  {card.body && (
+                    <p className="text-base leading-relaxed" style={{ color: `${bg}cc`, fontFamily: BODY }}>
+                      {card.body}
+                    </p>
+                  )}
+                </motion.div>
+              );
+            }
             if (card.attribution) {
               return (
                 <motion.div
