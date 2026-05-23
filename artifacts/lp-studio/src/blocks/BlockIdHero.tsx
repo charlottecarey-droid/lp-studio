@@ -117,7 +117,20 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
       style={{ ["--id-hero-h1-scale" as never]: String(headlineScale) }}
     >
       {props.bgImage && (
-        <div className="id-hero-bg" style={{ backgroundImage: `url(${props.bgImage})` }} />
+        <div
+          className="id-hero-bg"
+          style={{
+            backgroundImage: `url(${props.bgImage})`,
+            // Override the stylesheet's `filter` so the user can tune the
+            // photo brightness from the panel. Clamp to a safe range and
+            // keep the saturate/contrast values from insideDandyStyles in
+            // sync so only the brightness changes here.
+            filter: `saturate(0.42) contrast(1.04) brightness(${Math.max(
+              0.3,
+              Math.min(1.5, props.bgBrightness ?? 0.88),
+            ).toFixed(2)})`,
+          }}
+        />
       )}
       <div className="id-hero-overlay" />
       <div className="id-hero-grid" />

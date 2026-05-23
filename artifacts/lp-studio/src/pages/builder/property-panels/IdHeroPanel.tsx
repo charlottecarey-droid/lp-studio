@@ -186,6 +186,24 @@ export function IdHeroPanel({ props, onChange }: Props) {
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background image</div>
         <ImagePicker value={props.bgImage ?? ""} onChange={(v) => u({ bgImage: v || undefined })} placeholder="Upload or paste a URL" />
+        <div>
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">Image brightness</Label>
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {Math.round((props.bgBrightness ?? 0.88) * 100)}%
+            </span>
+          </div>
+          <Slider
+            min={0.3}
+            max={1.5}
+            step={0.02}
+            value={[props.bgBrightness ?? 0.88]}
+            onValueChange={(v) => u({ bgBrightness: v[0] })}
+          />
+          <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+            Lighten or darken the hero background. 100% = original photo. Lower mutes the image so the headline pops; higher reveals more of the photo.
+          </p>
+        </div>
       </div>
     </div>
   );

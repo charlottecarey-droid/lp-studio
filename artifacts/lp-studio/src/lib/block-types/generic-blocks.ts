@@ -1515,6 +1515,9 @@ export interface IdHeroBlockProps extends CtaModalConfig {
   cta2ChilipiperUrl?: string;
   cta2VideoUrl?: string;
   bgImage?: string;
+  /** Brightness multiplier applied to the background image filter.
+   *  1.0 = original. Range 0.3–1.5. Defaults to 0.88 when unset. */
+  bgBrightness?: number;
   /** Horizontal alignment of the hero content. Defaults to "center". */
   align?: "center" | "left";
   /** Multiplier applied to the headline font-size, 0.5..1.5. Defaults to 1.
