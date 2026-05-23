@@ -105,6 +105,8 @@ ALLOWED field types (strict — never invent others): ${SCHEMA_FIELD_TYPES.join(
 
 TEMPLATE RULES:
 - Plain HTML + inline <style> only. No <script>, no <iframe>, no on* handlers, no javascript: URLs, no external <link>/<script src>.
+- BACKGROUND VIDEO: use HTML5 <video autoplay muted loop playsinline preload="metadata" poster="{{poster_image}}"><source src="{{video_url}}" type="video/mp4" /></video> — NEVER use <iframe> for video (YouTube/Vimeo embeds are blocked). Declare the video URL as a "url" field and the poster as an "image" field in the schema. Background videos must be muted for browsers to autoplay them.
+- INTERACTIVITY: CSS-only (e.g. :hover, :focus, transitions). NO JavaScript, NO on* event handlers — they are blocked by validation. Forms must be plain <form action="..."> POSTs or <a href="..."> CTAs; do not attach onclick/onsubmit handlers.
 - The template engine is a tiny Handlebars subset. Supported placeholders ONLY:
     * {{field_id}}                              — scalar field, HTML-escaped
     * {{#each list_id}} … {{/each}}             — iterate a top-level "list" field
