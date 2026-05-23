@@ -543,7 +543,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
             {props.showEmailCapture ? (
               <motion.div
                 style={{ opacity: ctaOpacity, y: ctaY, width: "100%", display: "flex", justifyContent: "center" }}
-                className="mt-4"
+                className="mt-6"
               >
                 <InlineEmailCapture
                   email={email}
@@ -553,7 +553,34 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
                   buttonText={props.ctaText || "Get started"}
                   buttonBg={accentColor}
                   buttonColor={brandPrimary}
-                  pillBg={theme === "dark" ? "rgba(255,255,255,0.95)" : "#ffffff"}
+                  // On dark themes, drop the stark white Mailchimp-style pill
+                  // for an editorial glass treatment — translucent fill,
+                  // hairline mint border, white input text. Matches the
+                  // muted "Watch the trailer" ghost button in the hero.
+                  pillBg={theme === "dark" ? "rgba(255,255,255,0.04)" : "#ffffff"}
+                  pillBorder={
+                    theme === "dark"
+                      ? `${accentColor}55`
+                      : "rgba(0,0,0,0.08)"
+                  }
+                  inputColor={theme === "dark" ? "#ffffff" : "#0f172a"}
+                  placeholderColor={
+                    theme === "dark" ? "rgba(255,255,255,0.55)" : undefined
+                  }
+                  pillShadow={
+                    theme === "dark"
+                      ? "0 30px 80px -28px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04) inset"
+                      : "0 18px 40px -16px rgba(0,0,0,0.35)"
+                  }
+                  // Soft mint halo on the citron submit button — same
+                  // shadow language as the hero primary CTA so the two
+                  // sections read as one design system, not two.
+                  buttonShadow={
+                    theme === "dark"
+                      ? `0 0 0 1px ${accentColor}66, 0 10px 28px -8px ${accentColor}66`
+                      : `0 8px 22px -8px ${accentColor}80`
+                  }
+                  maxWidth="480px"
                 />
               </motion.div>
             ) : props.ctaText ? (

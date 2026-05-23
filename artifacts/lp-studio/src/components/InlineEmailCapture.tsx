@@ -18,6 +18,12 @@ interface Props {
   pillBorder?: string;
   /** Maximum width. */
   maxWidth?: string;
+  /** Placeholder color (defaults to inherited muted gray). */
+  placeholderColor?: string;
+  /** Submit button drop shadow / glow override. */
+  buttonShadow?: string;
+  /** Pill outer shadow override (defaults to a heavy editorial drop). */
+  pillShadow?: string;
   className?: string;
   style?: CSSProperties;
 }
@@ -40,10 +46,17 @@ export function InlineEmailCapture({
   inputColor = "#0f172a",
   pillBorder = "rgba(0,0,0,0.08)",
   maxWidth = "440px",
+  placeholderColor,
+  buttonShadow,
+  pillShadow = "0 18px 40px -16px rgba(0,0,0,0.35)",
   className,
   style,
 }: Props) {
   const [touched, setTouched] = useState(false);
+  // Scoped placeholder color via a CSS variable + inline <style> tag so
+  // callers (e.g. the dark-themed scroll assembly final CTA) can lighten
+  // the placeholder without overriding the input text color.
+  const phStyleId = "iec-ph-" + (placeholderColor ? "set" : "default");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -58,6 +71,7 @@ export function InlineEmailCapture({
     <form
       onSubmit={handleSubmit}
       className={className}
+      data-iec={phStyleId}
       style={{
         width: "100%",
         maxWidth,
@@ -66,11 +80,16 @@ export function InlineEmailCapture({
         background: pillBg,
         borderRadius: "9999px",
         padding: "6px",
-        boxShadow: "0 18px 40px -16px rgba(0,0,0,0.35)",
+        boxShadow: pillShadow,
         border: `1px solid ${pillBorder}`,
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
         ...style,
       }}
     >
+      {placeholderColor && (
+        <style>{`form[data-iec="${phStyleId}"] input::placeholder{color:${placeholderColor};opacity:1}`}</style>
+      )}
       <input
         type="email"
         value={email}
@@ -102,7 +121,8 @@ export function InlineEmailCapture({
           fontSize: "0.9rem",
           cursor: "pointer",
           whiteSpace: "nowrap",
-          transition: "filter 120ms ease",
+          transition: "filter 120ms ease, box-shadow 200ms ease",
+          boxShadow: buttonShadow,
         }}
         onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.06)")}
         onMouseLeave={(e) => (e.currentTarget.style.filter = "")}
