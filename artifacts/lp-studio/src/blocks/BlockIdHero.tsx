@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { IdHeroBlockProps, IdCtaAction } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
@@ -26,11 +26,43 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
   useInsideDandyStyles();
   const isEditor = !!onFieldChange;
   const [ready, setReady] = useState(isEditor);
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (isEditor) return;
     const t = window.setTimeout(() => setReady(true), 80);
     return () => window.clearTimeout(t);
+  }, [isEditor]);
+
+  // Headline fade-on-scroll. As the user scrolls past the hero, the giant
+  // headline + lead fade and slightly shrink so the next section feels like
+  // the payoff instead of a comedown (Apple product-page trick). Disabled in
+  // editor mode and for users who prefer reduced motion. Written as a CSS
+  // var so the styling stays in the stylesheet (no per-frame React renders).
+  useEffect(() => {
+    if (isEditor) return;
+    if (typeof window === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const el = sectionRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const h = el.offsetHeight || 1;
+      const top = el.getBoundingClientRect().top;
+      // 0 at top of hero, 1 once scrolled one full hero-height past it.
+      const t = Math.max(0, Math.min(1, -top / h));
+      el.style.setProperty("--id-hero-scroll", t.toFixed(3));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [isEditor]);
 
   const f = (k: keyof IdHeroBlockProps) =>
@@ -43,6 +75,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
 
   return (
     <section
+      ref={sectionRef}
       className={`id-block id-hero${ready ? " id-ready" : ""}${
         props.align === "left" ? " id-hero-align-left" : ""
       }`}

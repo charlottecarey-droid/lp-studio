@@ -419,10 +419,30 @@ const CSS = `
   .id-showcase .id-frame.id-f2, .id-showcase .id-frame.id-f3 { margin-left:auto; margin-right:auto; margin-top:48px; }
 }
 
+/* Headline fade-on-scroll. BlockIdHero writes --id-hero-scroll (0..1) to the
+   .id-hero section as the viewport scrolls past it. We fade & gently shrink
+   the headline + lead so the next section feels like the payoff instead of
+   a comedown (Apple product-page trick). Pure CSS off the var — no React
+   re-renders. Disabled in reduced-motion via the clause below. */
+.id-hero h1 {
+  opacity:calc(1 - var(--id-hero-scroll, 0) * 0.85);
+  transform:scale(calc(1 - var(--id-hero-scroll, 0) * 0.06)) translateY(calc(var(--id-hero-scroll, 0) * -16px));
+  transform-origin:50% 30%;
+  transition:opacity 120ms linear, transform 120ms linear;
+  will-change:opacity, transform;
+}
+.id-hero .id-lead,
+.id-hero .id-hero-eyebrow,
+.id-hero .id-ctas {
+  opacity:calc(1 - var(--id-hero-scroll, 0) * 1.15);
+}
+.id-hero .id-scroll-hint { opacity:calc(1 - var(--id-hero-scroll, 0) * 2); }
+
 @media (prefers-reduced-motion: reduce) {
   .id-block .id-reveal,
   .id-hero .id-hero-bg,
   .id-hero .id-hero-eyebrow,
+  .id-hero h1,
   .id-hero h1 .id-line .id-line-inner,
   .id-hero .id-lead,
   .id-hero .id-ctas,
