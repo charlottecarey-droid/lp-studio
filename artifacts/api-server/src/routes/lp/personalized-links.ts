@@ -303,9 +303,40 @@ router.patch("/lp/personalized-links/:token/engagement", async (req, res): Promi
 });
 
 router.get("/lp/page-alert-emails", async (req, res): Promise<void> => {
+  // Batched form: ?pageIds=1,2,3 returns { [pageId]: AlertEmail[] }
+  if (req.query.pageIds !== undefined) {
+    const raw = String(req.query.pageIds);
+    const pageIds = raw
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && !isNaN(n));
+    if (pageIds.length === 0) {
+      res.json({});
+      return;
+    }
+    try {
+      const result = await db.execute(
+        sql`SELECT id, email, page_id FROM lp_page_alert_emails WHERE page_id = ANY(${pageIds}) ORDER BY created_at`,
+      );
+      const map: Record<number, Array<{ id: number; email: string }>> = {};
+      for (const pid of pageIds) map[pid] = [];
+      for (const row of result.rows as Array<{ id: number; email: string; page_id: number }>) {
+        const pid = Number(row.page_id);
+        if (!map[pid]) map[pid] = [];
+        map[pid].push({ id: row.id, email: row.email });
+      }
+      res.json(map);
+      return;
+    } catch (err) {
+      logger.error({ err }, "Failed to list alert emails (batched)");
+      res.status(500).json({ error: "Failed to list alert emails" });
+      return;
+    }
+  }
+
   const pageId = req.query.pageId ? parseInt(String(req.query.pageId), 10) : null;
   if (!pageId || isNaN(pageId)) {
-    res.status(400).json({ error: "pageId query param is required" });
+    res.status(400).json({ error: "pageId or pageIds query param is required" });
     return;
   }
   try {

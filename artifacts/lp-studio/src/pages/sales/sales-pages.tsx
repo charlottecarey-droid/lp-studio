@@ -387,6 +387,34 @@ export default function SalesPages() {
     } catch { /* noop */ }
   }
 
+  async function loadAlertEmailsBulk(pageIds: number[]) {
+    if (!pageIds.length) return;
+    // Chunk to avoid overly long URLs for very large page lists.
+    const CHUNK = 200;
+    const chunks: number[][] = [];
+    for (let i = 0; i < pageIds.length; i += CHUNK) {
+      chunks.push(pageIds.slice(i, i + CHUNK));
+    }
+    try {
+      const results = await Promise.all(
+        chunks.map(async (ids) => {
+          const res = await fetch(`${API_BASE}/lp/page-alert-emails?pageIds=${ids.join(",")}`);
+          if (!res.ok) return {} as Record<string, AlertEmail[]>;
+          return (await res.json()) as Record<string, AlertEmail[]>;
+        }),
+      );
+      setAlertEmails(prev => {
+        const next = new Map(prev);
+        for (const map of results) {
+          for (const [pid, emails] of Object.entries(map)) {
+            next.set(Number(pid), emails ?? []);
+          }
+        }
+        return next;
+      });
+    } catch { /* noop */ }
+  }
+
   async function addAlertEmail(pageId: number, email: string) {
     if (!email.trim()) return;
     setAlertSaving(true);
@@ -448,7 +476,7 @@ export default function SalesPages() {
         setAccounts(accts);
         // Pre-load alert subscriptions for all pages so the strip shows correct state
         const allPageIds = normalized.flatMap(a => a.pages.map(p => p.pageId));
-        allPageIds.forEach((pid: number) => loadAlertEmails(pid));
+        loadAlertEmailsBulk(allPageIds);
       })
       .catch((err) => console.error("Failed to load microsites:", err))
       .finally(() => setLoading(false));
