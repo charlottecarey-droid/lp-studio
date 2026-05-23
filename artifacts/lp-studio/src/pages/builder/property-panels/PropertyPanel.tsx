@@ -1105,8 +1105,40 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="border-t pt-3 space-y-2">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary CTA (optional)</Label>
               <Input className="h-8 text-xs" placeholder="Button label" value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} />
-              <Input className="h-8 text-xs" placeholder="URL" value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Action</Label>
+                <Select
+                  value={p.primaryCtaAction ?? "url"}
+                  onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaAction: v as NonNullable<typeof p.primaryCtaAction> } })}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+                    <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
+                    <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                    <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(p.primaryCtaAction ?? "url") === "url" && (
+                <Input className="h-8 text-xs" placeholder="URL" value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} />
+              )}
+              {p.primaryCtaAction === "chilipiper" && (
+                <Input
+                  className="h-8 text-xs font-mono"
+                  placeholder="https://meetdandy.chilipiper.com/router/your-router"
+                  value={p.chilipiperUrl ?? ""}
+                  onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })}
+                />
+              )}
             </div>
+            {(p.primaryCtaAction === "modal-form" || p.primaryCtaAction === "modal-chilipiper") && (
+              <CtaButtonModalConfigSection
+                ctaAction={p.primaryCtaAction}
+                value={p}
+                onChange={(next) => onChange({ ...block, props: { ...p, ...next } })}
+              />
+            )}
             <div className="space-y-1.5">
               <ColorField label="CTA color" value={p.accentColor ?? "var(--brand-accent)"} onChange={v => onChange({ ...block, props: { ...p, accentColor: v } })} />
             </div>

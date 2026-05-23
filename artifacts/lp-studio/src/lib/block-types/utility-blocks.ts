@@ -66,7 +66,7 @@ export interface StickyHeaderNavLink {
   href: string;
 }
 
-export interface StickyHeaderBlockProps {
+export interface StickyHeaderBlockProps extends CtaModalConfig {
   logoUrl?: string;
   logoAlt?: string;
   /** Optional partner / company shown after logo as "× Company" */
@@ -75,6 +75,11 @@ export interface StickyHeaderBlockProps {
   navLinks?: StickyHeaderNavLink[];
   primaryCtaText?: string;
   primaryCtaUrl?: string;
+  /** How the primary CTA behaves on click. Defaults to "url" so existing
+   *  pages keep their plain-link behavior. */
+  primaryCtaAction?: NavCtaAction;
+  /** Used when primaryCtaAction === "chilipiper" (direct iframe popup). */
+  chilipiperUrl?: string;
   /** Visual theme. "dark" uses blurred dark glass; "light" uses white glass. */
   theme?: "dark" | "light";
   /** CTA pill background color (defaults to Dandy primary). */
