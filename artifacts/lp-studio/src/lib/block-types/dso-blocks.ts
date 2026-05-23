@@ -1603,12 +1603,18 @@ export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
   /** How tightly the hero photo is cropped to fill its column.
    *  "fill" (default) uses object-cover — the image fills the column edge
    *  to edge and may crop heavily (current behavior).
+   *  "fill-natural" sizes the image to the column's WIDTH at its natural
+   *  aspect ratio (still full-bleed edge to edge horizontally — no inset
+   *  frame). For portrait subjects in a tall column this shows much more
+   *  of the body than "fill" without leaving a visible frame around the
+   *  image; any vertical gap is filled by the brand-dark column color,
+   *  matching the partners.meetdandy.com Heartland hero treatment.
    *  "fit-wide" uses object-cover but scales the image down ~85% inside
    *  the column so more of the subject is visible, with the brand-dark
-   *  background filling the surrounding band.
+   *  background filling the surrounding band as an editorial frame.
    *  "fit" uses object-contain — the entire image is visible, never
    *  cropped, with the brand-dark background filling any letterboxing. */
-  heroImageZoom?: "fill" | "fit-wide" | "fit";
+  heroImageZoom?: "fill" | "fill-natural" | "fit-wide" | "fit";
   /** Optional editorial image rendered inside the Situation section under
    *  the lede paragraph. */
   situationImageUrl?: string;

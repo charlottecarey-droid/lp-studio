@@ -256,13 +256,49 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   // "color" keeps the photo in its natural colors and only applies the
   // bottom-darken + left-edge fade for legibility/blend.
   const isColor = (props.heroImageTone ?? "greyscale") === "color";
-  // Zoom control: drives object-fit + an inset on the image element so
-  // we can effectively "zoom out" from the default cover crop. The dark
-  // column background shows through any letterboxing/inset, which reads
-  // as an intentional editorial frame.
+  // Zoom control: drives sizing strategy on the hero image so users can
+  // pull back from the default close crop without changing the source.
+  // The dark column background shows through any gap, which reads as an
+  // intentional editorial frame.
   const heroZoom = props.heroImageZoom ?? "fill";
-  const heroObjectFit: "cover" | "contain" = heroZoom === "fit" ? "contain" : "cover";
-  // fit-wide insets the image inside the column so cover crops less of it.
+  // Per-mode <img> styling. fill = object-cover edge-to-edge (current
+  // behavior). fill-natural = full-bleed horizontally at natural aspect
+  // (matches Heartland-style hero — image sized to column width, top
+  // anchored, dark column fills any vertical gap, no inset frame).
+  // fit-wide = cover but inset 6% inside the column for an editorial
+  // frame. fit = object-contain so the full image is visible.
+  const heroImgStyle: React.CSSProperties =
+    heroZoom === "fill-natural"
+      ? {
+          // Width-anchored full bleed: spans the column horizontally at
+          // its natural aspect ratio. Vertical anchor follows heroFocus.
+          width: "100%",
+          height: "auto",
+          left: 0,
+          right: 0,
+          top: heroFocus.startsWith("bottom") ? "auto" : 0,
+          bottom: heroFocus.startsWith("bottom") ? 0 : "auto",
+        }
+      : heroZoom === "fit-wide"
+        ? {
+            objectFit: "cover",
+            objectPosition: heroFocus,
+            width: "88%",
+            height: "88%",
+          }
+        : heroZoom === "fit"
+          ? {
+              objectFit: "contain",
+              objectPosition: heroFocus,
+              width: "100%",
+              height: "100%",
+            }
+          : {
+              objectFit: "cover",
+              objectPosition: heroFocus,
+              width: "100%",
+              height: "100%",
+            };
   const heroInsetClass = heroZoom === "fit-wide" ? "inset-[6%]" : "inset-0";
   const renderHeroImageCol = () => (
     <div
@@ -275,15 +311,10 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
             src={props.heroImageUrl}
             alt=""
             className={
-              `absolute ${heroInsetClass} w-auto h-auto max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] ` +
+              `absolute ${heroInsetClass} max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] ` +
               (isColor ? "" : "mix-blend-luminosity opacity-80")
             }
-            style={{
-              objectFit: heroObjectFit,
-              objectPosition: heroFocus,
-              width: heroZoom === "fit-wide" ? "88%" : "100%",
-              height: heroZoom === "fit-wide" ? "88%" : "100%",
-            }}
+            style={heroImgStyle}
             loading="lazy"
           />
           {/* Brand-dark tint overlay only in greyscale mode — would mute

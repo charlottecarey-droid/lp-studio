@@ -502,6 +502,7 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fill">Fill column (close crop)</SelectItem>
+                    <SelectItem value="fill-natural">Full-bleed, natural size (Heartland-style)</SelectItem>
                     <SelectItem value="fit-wide">Zoomed out (small frame)</SelectItem>
                     <SelectItem value="fit">Show full image (no crop)</SelectItem>
                   </SelectContent>
