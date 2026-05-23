@@ -264,7 +264,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
           {steps.length > 0 && (
             <ol className="id-spotlight-stepper" aria-label="Section steps">
               {steps.map((s, i) => (
-                <li key={i} className={`id-sp-step${i === effectiveStep && (!autoAnimate || cardVisible) ? " id-active" : ""}`} style={{ fontFamily: BODY }}>
+                <li key={i} className={`id-sp-step${i === effectiveStep ? " id-active" : ""}`} style={{ fontFamily: BODY }}>
                   <span className="id-sp-step-label" style={{ fontFamily: BODY }}>{s.label}</span>
                   <span className="id-sp-step-dot" aria-hidden style={{ fontFamily: BODY }}/>
                 </li>
