@@ -26,18 +26,19 @@ interface Props {
 /* ------------------------------------------------------------------------- */
 
 function fromOffset(from: ScrollAssemblyPiece["from"]): { x: number; y: number; rotate: number; scale: number; blur: number } {
-  // Editorial entrance offsets — tightened from the cartoony ±260px / ±8°
-  // version. Premium reveals are smaller in travel and zero in rotation;
-  // the cinematic feel comes from the long ease curve + a slight blur-out,
-  // not from the magnitude of motion. (Apple/Linear/Stripe motion language.)
+  // Editorial entrance offsets — premium reveals are small in travel,
+  // zero in rotation. Cinematic feel comes from the long ease curve
+  // + a quick focus-pull, not the magnitude of motion. Blur amounts
+  // halved from the previous pass (14/16/10/6) — the old values left
+  // type smeared past the resolve point and slowed the visual rhythm.
   switch (from) {
-    case "left":   return { x: -90,  y: 0,    rotate: 0, scale: 0.96, blur: 14 };
-    case "right":  return { x: 90,   y: 0,    rotate: 0, scale: 0.96, blur: 14 };
-    case "top":    return { x: 0,    y: -64,  rotate: 0, scale: 0.96, blur: 10 };
-    case "bottom": return { x: 0,    y: 64,   rotate: 0, scale: 0.96, blur: 10 };
-    case "scale":  return { x: 0,    y: 0,    rotate: 0, scale: 0.78, blur: 16 };
+    case "left":   return { x: -72,  y: 0,    rotate: 0, scale: 0.97, blur: 7 };
+    case "right":  return { x: 72,   y: 0,    rotate: 0, scale: 0.97, blur: 7 };
+    case "top":    return { x: 0,    y: -48,  rotate: 0, scale: 0.97, blur: 5 };
+    case "bottom": return { x: 0,    y: 48,   rotate: 0, scale: 0.97, blur: 5 };
+    case "scale":  return { x: 0,    y: 0,    rotate: 0, scale: 0.84, blur: 8 };
     case "fade":
-    default:       return { x: 0,    y: 0,    rotate: 0, scale: 1,    blur: 6  };
+    default:       return { x: 0,    y: 0,    rotate: 0, scale: 1,    blur: 3 };
   }
 }
 
@@ -257,18 +258,21 @@ function GradientOrbs({
   const y1 = useTransform(scrollYProgress, [0, 1], [0, -200]);
   const y2 = useTransform(scrollYProgress, [0, 1], [0, 160]);
   const y3 = useTransform(scrollYProgress, [0, 1], [0, -100]);
+  // Orb alphas dropped (55/40/33 → 30/22/14) so the ambient glows read
+  // as atmosphere rather than as colored spotlights that fight with
+  // the floating tiles and the citron headline accent for attention.
   return (
     <>
       <motion.div
-        style={{ y: y1, background: `radial-gradient(circle, ${accentColor}55 0%, transparent 70%)` }}
+        style={{ y: y1, background: `radial-gradient(circle, ${accentColor}30 0%, transparent 72%)` }}
         className="absolute -top-32 -right-32 w-[42rem] h-[42rem] rounded-full blur-3xl pointer-events-none"
       />
       <motion.div
-        style={{ y: y2, background: `radial-gradient(circle, ${brandPrimary}40 0%, transparent 70%)` }}
+        style={{ y: y2, background: `radial-gradient(circle, ${brandPrimary}22 0%, transparent 72%)` }}
         className="absolute -bottom-40 -left-32 w-[44rem] h-[44rem] rounded-full blur-3xl pointer-events-none"
       />
       <motion.div
-        style={{ y: y3, background: `radial-gradient(circle, ${accentColor}33 0%, transparent 70%)` }}
+        style={{ y: y3, background: `radial-gradient(circle, ${accentColor}14 0%, transparent 72%)` }}
         className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[28rem] h-[28rem] rounded-full blur-3xl pointer-events-none"
       />
     </>
@@ -406,9 +410,9 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
   const ctaY = useTransform(scrollYProgress, [0.85, 0.95], [12, 0]);
   const hintOpacity = useTransform(scrollYProgress, [0, 0.06], [0.6, 0]);
   // Vignette + center spotlight that brightens as you scroll into the focal area.
-  // Capped lower (was 0.45) so the spotlight reads as a subtle halo rather
-  // than a stage-lit beam that washes out the type.
-  const spotlightOpacity = useTransform(scrollYProgress, [0, 0.4, 0.95], [0, 0.22, 0.10]);
+  // Capped further (was 0.22) so the spotlight reads as a subtle halo
+  // rather than a stage-lit beam that washes out the type on dark bgs.
+  const spotlightOpacity = useTransform(scrollYProgress, [0, 0.4, 0.95], [0, 0.12, 0.06]);
   // Vignette fades IN as the scroll progresses — the surrounding area dims
   // to push focus onto the focal text. Subtle (max 0.35 alpha).
   const vignetteOpacity = useTransform(scrollYProgress, [0, 0.3, 0.85, 1], [0, 0.25, 0.35, 0.2]);
@@ -485,18 +489,31 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
         <div className="relative z-30 h-full w-full flex items-center justify-center">
           <div className="relative w-full max-w-6xl mx-auto px-6 md:px-10 flex flex-col items-center gap-2 md:gap-3 text-center">
             {props.eyebrow && (
-              <p
-                className="text-xs font-bold uppercase tracking-[0.25em] mb-1 px-4 py-1.5 rounded-full"
-                style={{ color: eyebrowColor,
-                  border: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.25)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.2)"}`,
-                  backgroundColor: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.6)",
-                  backdropFilter: "blur(8px)", fontFamily: BODY }}
+              // Refined eyebrow: dropped the heavy bordered pill in favour
+              // of a quiet accented label with a 24px hairline. Reads as
+              // an editorial section marker (Apple, Linear, Stripe) instead
+              // of a billboard tag. Accent dot left + hairline right give
+              // it presence without enclosing it in a chip.
+              <div
+                className="mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase"
+                style={{ color: eyebrowColor, fontFamily: BODY, letterSpacing: "0.22em" }}
               >
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: accentColor }}
+                />
                 <InlineText
+                  as="span"
                   value={props.eyebrow}
                   onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined}
-                style={{ fontFamily: BODY }}/>
-              </p>
+                  style={{ fontFamily: BODY }}
+                />
+                <span
+                  aria-hidden
+                  className="inline-block w-8 h-px"
+                  style={{ backgroundColor: theme === "dark" ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)" }}
+                />
+              </div>
             )}
 
             {pieces.map((piece, i) => (
@@ -535,9 +552,13 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
                   y: ctaY,
                   backgroundColor: ctaBg,
                   color: ctaText,
-                  boxShadow: `0 20px 50px -12px ${accentColor}80`,
+                  // Softer halo (50% → 35% alpha, larger blur, no
+                  // downward bias) so the button glows rather than
+                  // casting a heavy product-page drop shadow.
+                  boxShadow: `0 8px 32px -8px ${accentColor}59, 0 1px 0 rgba(255,255,255,0.08) inset`,
+                  letterSpacing: "-0.005em",
                 }}
-                className="mt-4 font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+                className="mt-5 font-semibold px-7 py-3 rounded-full text-sm md:text-base hover:brightness-105 transition-all"
               >
                 <InlineText
                   value={props.ctaText}
