@@ -1593,6 +1593,13 @@ export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
     | "top-right"
     | "bottom-left"
     | "bottom-right";
+  /** Tone treatment for the split-image-right hero photo.
+   *  "greyscale" (default) applies mix-blend-luminosity + 80% opacity +
+   *  brand-dark overlay so the photo desaturates and unifies with the
+   *  dark text column — matches the BlockBusinessCaseSplit look.
+   *  "color" leaves the photo in its natural colors with only the
+   *  bottom-darken + left-edge fade for legibility. */
+  heroImageTone?: "greyscale" | "color";
   /** Optional editorial image rendered inside the Situation section under
    *  the lede paragraph. */
   situationImageUrl?: string;

@@ -250,11 +250,12 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
 
   // Image column for split-image-right hero. Falls back to a sophisticated
   // dark gradient + diagonal hatch + accent rail when no image is supplied.
-  // Image treatment matches the BlockBusinessCaseSplit hero: luminosity blend
-  // + 80% opacity desaturates the photo to a tonal grey, an overlay tint
-  // pulls it toward brand-dark, and a left-edge gradient fades the image
-  // into the dark text column so the split feels like one continuous spread
-  // instead of two stitched-together panels.
+  // Tone control: "greyscale" (default) desaturates the image via
+  // mix-blend-luminosity + 80% opacity + brand-dark overlay so the photo
+  // unifies with the dark text column (matches BlockBusinessCaseSplit).
+  // "color" keeps the photo in its natural colors and only applies the
+  // bottom-darken + left-edge fade for legibility/blend.
+  const isColor = (props.heroImageTone ?? "greyscale") === "color";
   const renderHeroImageCol = () => (
     <div className="group relative w-full h-full min-h-[360px] lg:min-h-[620px] overflow-hidden">
       {props.heroImageUrl ? (
@@ -262,16 +263,21 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           <img
             src={props.heroImageUrl}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover mix-blend-luminosity opacity-80 transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04]"
+            className={
+              "absolute inset-0 w-full h-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] " +
+              (isColor ? "" : "mix-blend-luminosity opacity-80")
+            }
             style={{ objectPosition: heroFocus }}
             loading="lazy"
           />
-          {/* Brand-dark tint overlay (mix-blend-overlay) deepens shadows
-              toward the brand color without crushing highlights. */}
-          <div
-            className="absolute inset-0 pointer-events-none mix-blend-overlay"
-            style={{ background: `${dark}33` }}
-          />
+          {/* Brand-dark tint overlay only in greyscale mode — would mute
+              and shift the colors in color mode. */}
+          {!isColor && (
+            <div
+              className="absolute inset-0 pointer-events-none mix-blend-overlay"
+              style={{ background: `${dark}33` }}
+            />
+          )}
           {/* Left-edge gradient fade so the image bleeds into the dark
               text column on the left. 8rem on lg+ matches the Split hero. */}
           <div
