@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { pool } from "@workspace/db";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
-import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved } from "../lib/tenantHosts";
+import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
 import { TOP_TIER_PLANS } from "../lib/tenantSettings";
@@ -1057,6 +1057,14 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       );
 
       await client.query("COMMIT");
+
+      // Drop the in-memory tenant-host cache on this instance so the brand-new
+      // slug resolves immediately via `<slug>.<wildcardBase>` instead of
+      // 404-ing for up to TTL_MS (60s). Mirrors admin.ts tenant-mutation
+      // routes. NOTE: only invalidates THIS process's cache — other
+      // instances in a multi-replica deploy still pick up the new tenant
+      // on their own 60s refresh.
+      invalidateTenantHostCache();
 
       // Refresh the session with the new tenantId and Admin permissions
       const newSess = JSON.stringify({
