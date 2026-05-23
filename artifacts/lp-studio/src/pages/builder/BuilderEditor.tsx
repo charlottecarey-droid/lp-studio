@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
 import { motion, type TargetAndTransition } from "framer-motion";
 import { useRoute, useLocation } from "wouter";
 import { trackView } from "@/hooks/use-recently-viewed";
@@ -972,15 +972,25 @@ export default function BuilderEditor() {
   // the server bypass history (use setBlocksRaw directly).
   const historyPastRef = useRef<PageBlock[][]>([]);
   const historyFutureRef = useRef<PageBlock[][]>([]);
+  const lastSnapshotAtRef = useRef<number>(0);
   const HISTORY_LIMIT = 50;
+  // Coalesce rapid mutations (typing in an inspector input) into a single
+  // undo snapshot. Without this, each keystroke pushes a full copy of the
+  // blocks array onto the history stack — slow and gives the user one tiny
+  // undo step per character. 500ms ≈ a natural pause between edits.
+  const HISTORY_COALESCE_MS = 500;
   const setBlocks = useCallback<typeof setBlocksRaw>((updater) => {
     setBlocksRaw((prev) => {
       const next = typeof updater === "function"
         ? (updater as (p: PageBlock[]) => PageBlock[])(prev)
         : updater;
       if (next === prev) return prev;
-      historyPastRef.current.push(prev);
-      if (historyPastRef.current.length > HISTORY_LIMIT) historyPastRef.current.shift();
+      const now = Date.now();
+      if (now - lastSnapshotAtRef.current > HISTORY_COALESCE_MS) {
+        historyPastRef.current.push(prev);
+        if (historyPastRef.current.length > HISTORY_LIMIT) historyPastRef.current.shift();
+        lastSnapshotAtRef.current = now;
+      }
       historyFutureRef.current = [];
       return next;
     });
@@ -991,6 +1001,7 @@ export default function BuilderEditor() {
       if (past === undefined) return prev;
       historyFutureRef.current.push(prev);
       if (historyFutureRef.current.length > HISTORY_LIMIT) historyFutureRef.current.shift();
+      lastSnapshotAtRef.current = 0;
       return past;
     });
   }, []);
@@ -1000,6 +1011,7 @@ export default function BuilderEditor() {
       if (next === undefined) return prev;
       historyPastRef.current.push(prev);
       if (historyPastRef.current.length > HISTORY_LIMIT) historyPastRef.current.shift();
+      lastSnapshotAtRef.current = 0;
       return next;
     });
   }, []);
@@ -3529,7 +3541,7 @@ interface SortableCanvasBlockProps {
   renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
+function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -3779,3 +3791,8 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     </div>
   );
 }
+
+/** Memoize so typing in the inspector only re-renders the selected block's
+ *  canvas wrapper, not every block on the page. The parent passes callbacks
+ *  via useCallback so shallow-equal props comparison stays stable. */
+const SortableCanvasBlock = memo(SortableCanvasBlockInner);

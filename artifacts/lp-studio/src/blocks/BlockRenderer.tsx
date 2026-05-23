@@ -131,7 +131,7 @@ import { BlockStack } from "./BlockStack";
 import type { BlockPath } from "@/lib/block-tree";
 import { Reveal } from "@/components/Reveal";
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { memo, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 
 interface Props {
@@ -315,7 +315,7 @@ export const NO_REVEAL = new Set<string>([
   "spacer",
 ]);
 
-export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
+function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
   // Helper: render the children slot for container/overlay blocks. Uses the
   // caller-supplied renderChild (builder chrome) when provided, otherwise
   // recurses into BlockRenderer directly (viewer/published pages).
@@ -1001,3 +1001,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
     </PageContextProvider>
   );
 }
+
+/** Memoize so a keystroke in the inspector that updates one block doesn't
+ *  reconcile every other block on the page. Parent already wraps callbacks
+ *  in useCallback so default shallow-equal props comparison works well. */
+export const BlockRenderer = memo(BlockRendererInner);
