@@ -85,9 +85,13 @@ export function BlockParallaxImageHero({
   // color so the section can blend into the bg of whatever sits above
   // or below it. Sized as a percentage of the section so it scales with
   // the chosen height preset.
-  // Media scale — 1.0 keeps current "cover" sizing; <1 shrinks the
-  // image/video toward the centre and exposes the section bg around it.
-  const mediaScale = Math.max(0.3, Math.min(1.5, props.mediaScale ?? 1));
+  // Media scale — 1.0 (default) renders the image at "natural cover"
+  // (image is exactly viewport-sized, minimum zoom for full bleed).
+  // Values > 1 zoom further in. Values < 1 are not useful here: the
+  // image is already at its minimum zoom that keeps the section
+  // fully covered, so going below 1 would only crop the image
+  // further. Clamp at 1.0 lower bound.
+  const mediaScale = Math.max(1, Math.min(2, props.mediaScale ?? 1));
 
   const edgeFade = props.edgeFade ?? "none";
   const edgeFadeColor = props.edgeFadeColor || "#0a0a0a";
@@ -96,23 +100,31 @@ export function BlockParallaxImageHero({
   const showFadeBottom = edgeFade === "bottom" || edgeFade === "both";
 
   // Parallax driven by framer-motion's scroll progress (same pattern as
-  // ScrollAssembly / Switchback). The previous implementation used a
-  // manual window scroll listener + getBoundingClientRect + rAF. That
-  // worked locally but silently no-op'd on the live page — the most
-  // likely cause was that the bare DOM mutation (img.style.transform)
-  // sat outside React's commit lifecycle, so when any ancestor
-  // re-rendered (e.g. linked-form style provider, brand font loader,
-  // ScrollReveal entering view further down the page) the inline
-  // transform got blown away between scroll ticks. Driving the
-  // transform through a motion value keeps it owned by framer-motion
-  // and re-applied on every frame.
+  // ScrollAssembly / Switchback).
   //
-  // offset ["start end" → "end start"] means progress is 0 when the
-  // section's top edge first crosses the viewport's bottom edge, and
-  // 1 when the section's bottom edge crosses the viewport's top edge —
-  // i.e. the entire window during which any pixel of the section is
-  // on screen. Mapping that to [-1, +1] gives a symmetric ±travel
-  // range centred on "section perfectly centred in viewport".
+  // Image-layer geometry: the image div is exactly viewport-height tall
+  // (height: max(100%, 100vh) — clamped to at least 100vh so even
+  // shorter section presets still get a full-viewport image, and to
+  // 100% so taller presets stay covered). At cover sizing this means
+  // the image fits the viewport with the minimum possible zoom — what
+  // you actually see is the photo's natural framing rather than a
+  // 2.6× crop. This is the fix for "everything is so big": previously
+  // the layer was 260% of section height (top: -80%; bottom: -80%) to
+  // give the parallax travel room, and cover-fitting an image into
+  // that very tall box forced the heavy zoom.
+  //
+  // With a viewport-sized image we don't need overscan — instead we
+  // translate the image up/down inside the section and let the
+  // section's overflow-hidden clip whatever pokes outside. The math
+  // below keeps the image always covering the on-screen portion of
+  // the section: at every visible scroll position, the image's
+  // coverage range strictly contains the section's visible range, so
+  // the fallback bg never shows through.
+  //
+  // offset ["start end" → "end start"]: p=0 when the section's top
+  // first touches viewport bottom, p=1 when the section's bottom
+  // exits viewport top. The full window during which any pixel of
+  // the section is on screen.
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start end", "end start"],
@@ -123,13 +135,11 @@ export function BlockParallaxImageHero({
     if (!sec) return 0;
     const h = sec.offsetHeight || 0;
     const vh = (typeof window !== "undefined" ? window.innerHeight : 0) || 1;
-    // At strength 1.0 the image must stay perfectly fixed in viewport
-    // space across the full pass, which means travelling (h + vh) /2 in
-    // each direction from the centred point. Image overscan is 80% top
-    // + 80% bottom (260% of section height) so this fits without ever
-    // exposing the edge.
-    const maxTravel = (h + vh) / 2;
-    return (p - 0.5) * 2 * maxTravel * parallaxStrength;
+    // At strength 1.0 the image stays perfectly fixed in viewport
+    // space (classic "fixed background" parallax). Full scroll range
+    // through the section is (h + vh); the symmetric ±travel from the
+    // centred point is therefore (h + vh) / 2.
+    return (p - 0.5) * (h + vh) * parallaxStrength;
   });
 
   const handleCtaClick = (e: React.MouseEvent) => {
@@ -153,25 +163,25 @@ export function BlockParallaxImageHero({
         color: textColor,
       }}
     >
-      {/* Parallax media layer. 80% overscan top + bottom so the image div
-          is 260% of section height — large enough that even at strength
-          1.0 (image perfectly fixed in screen space) the edge never
-          exposes as you scroll a vh-tall section past the viewport. */}
+      {/* Parallax media layer. Centred vertically and sized to exactly
+          viewport-height (clamped to at least the section so taller
+          presets stay covered) — at cover sizing this gives the image
+          its natural, minimum-zoom framing instead of the 2.6× crop
+          the old overscan forced. The translate range below moves
+          the image up/down by (h + vh)/2; the section's overflow-
+          hidden clips anything that pokes out. */}
       <motion.div
-        className="absolute inset-x-0 will-change-transform overflow-hidden"
+        className="absolute inset-x-0 top-0 will-change-transform overflow-hidden"
         style={{
-          top: "-80%",
-          bottom: "-80%",
+          height: "max(100%, 100vh)",
           y: parallaxY,
         }}
       >
-        {/* Inner wrapper holds the actual media. Scaling here (rather
-            than on the motion.div) keeps the parallax y-transform
-            isolated from the size transform — otherwise framer-motion
-            would have to multiplex both onto a single transform string,
-            and at scale < 1 the parallax travel range would shrink with
-            the media. transformOrigin centres the shrink/zoom on the
-            section's middle so the framing stays balanced. */}
+        {/* Inner wrapper holds the actual media. Keeping the user-
+            facing mediaScale transform on a separate element from the
+            framer-motion y-transform on the parent keeps the two
+            independent — the parallax travel range stays the same
+            regardless of zoom. Defaults to scale 1.0 = natural fit. */}
         <div
           className="w-full h-full"
           style={{
