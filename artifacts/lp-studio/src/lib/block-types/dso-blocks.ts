@@ -1593,4 +1593,21 @@ export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
   footerLeftLabel?: string;
   /** Bottom-of-page hairline footer: right label. */
   footerRightLabel?: string;
+  /** What renders in the top-right of the hero header bar.
+   *  - "pill" (default for existing pages): the "For {company}" pill using forCompanyLabel
+   *  - "logo": a partner / company logo image (forPillLogoUrl)
+   *  - "cta":  a small accent-colored CTA button (forPillCtaText / forPillCtaUrl)
+   *  - "hidden": nothing renders */
+  forPillMode?: "pill" | "logo" | "cta" | "hidden";
+  /** Logo image URL when forPillMode === "logo". */
+  forPillLogoUrl?: string;
+  /** Alt text for the partner logo when forPillMode === "logo". */
+  forPillLogoAlt?: string;
+  /** Button label when forPillMode === "cta". */
+  forPillCtaText?: string;
+  /** Button URL when forPillMode === "cta". */
+  forPillCtaUrl?: string;
+  /** Background color for the "With Dandy" column in the comparison table.
+   *  Defaults to darkColor when omitted, so existing pages are unchanged. */
+  tableAccentColor?: string;
 }

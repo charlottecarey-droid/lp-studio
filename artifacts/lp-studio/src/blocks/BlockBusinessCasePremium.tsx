@@ -31,12 +31,49 @@ export function BlockBusinessCasePremium({ props }: Props) {
   const dark = props.darkColor ?? "#0d1f15";
   const accent = props.accentColor ?? "#c8e84e";
   const accentInk = props.accentInkColor ?? "#0d1f15";
+  const tableAccent = props.tableAccentColor ?? dark;
 
   const logoSrc = props.logoUrl || "/dandy-logo-white.svg";
   const logoAlt = props.logoAlt || "Dandy";
 
   const heroStats = (props.situationStats ?? []).slice(0, 4);
   const useSplitHero = (props.heroLayout ?? "centered") === "split-image-right";
+  const forPillMode = props.forPillMode ?? "pill";
+
+  const renderForPill = () => {
+    if (forPillMode === "hidden") return null;
+    if (forPillMode === "logo" && props.forPillLogoUrl) {
+      return (
+        <img
+          src={props.forPillLogoUrl}
+          alt={props.forPillLogoAlt || ""}
+          className="h-7 w-auto max-w-[180px] object-contain"
+        />
+      );
+    }
+    if (forPillMode === "cta" && props.forPillCtaText) {
+      return (
+        <a
+          href={props.forPillCtaUrl || "#"}
+          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] font-semibold px-4 py-2 rounded-full transition-opacity hover:opacity-90"
+          style={{ background: accent, color: accentInk, fontFamily: BODY }}
+        >
+          {props.forPillCtaText}
+          <ArrowRight className="w-3 h-3" />
+        </a>
+      );
+    }
+    // default "pill"
+    if (!props.forCompanyLabel) return null;
+    return (
+      <div
+        className="text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-full"
+        style={{ background: `${accent}1f`, color: accent, fontFamily: BODY }}
+      >
+        {props.forCompanyLabel}
+      </div>
+    );
+  };
 
   const renderHeaderBar = () => (
     <div className="absolute top-0 left-0 right-0 z-20 p-6 flex justify-between items-center gap-4 max-w-7xl mx-auto">
@@ -55,12 +92,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
           </div>
         )}
       </div>
-      <div
-        className="text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-full"
-        style={{ background: `${accent}1f`, color: accent, fontFamily: BODY }}
-      >
-        {props.forCompanyLabel}
-      </div>
+      {renderForPill()}
     </div>
   );
 
@@ -511,7 +543,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
               </div>
               <div
                 className="col-span-4 px-6 py-4 text-[10px] font-semibold tracking-[0.3em] uppercase"
-                style={{ background: dark, color: accent, fontFamily: BODY }}
+                style={{ background: tableAccent, color: accent, fontFamily: BODY }}
               >
                 With Dandy
               </div>
@@ -551,7 +583,7 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   <div
                     className="col-span-1 md:col-span-4 px-6 py-6 flex items-start gap-3 font-medium border-l-2"
                     style={{
-                      background: dark,
+                      background: tableAccent,
                       color: bg,
                       borderColor: accent,
                       fontFamily: BODY,

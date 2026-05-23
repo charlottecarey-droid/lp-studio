@@ -3664,6 +3664,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "DSO Microsites" as BlockCategory,
     defaultProps: (): BusinessCasePremiumBlockProps => ({
       forCompanyLabel: "For {{company_name}}",
+      forPillMode: "pill",
+      forPillLogoUrl: "",
+      forPillLogoAlt: "",
+      forPillCtaText: "",
+      forPillCtaUrl: "",
+      tableAccentColor: "",
       logoUrl: "/dandy-logo-white.svg",
       logoAlt: "Dandy",
       kicker: "Field study · Confidential",

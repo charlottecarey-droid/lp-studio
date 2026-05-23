@@ -312,6 +312,14 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
             <ColorRow label="Dark surface" value={props.darkColor} fallback={PALETTE_FB.darkColor} onChange={(v) => set("darkColor" as keyof P, v as P[keyof P])} />
             <ColorRow label="Accent" value={props.accentColor} fallback={PALETTE_FB.accentColor} onChange={(v) => set("accentColor" as keyof P, v as P[keyof P])} />
             <ColorRow label="On accent" value={props.accentInkColor} fallback={PALETTE_FB.accentInkColor} onChange={(v) => set("accentInkColor" as keyof P, v as P[keyof P])} />
+            {variant === "premium" && (
+              <ColorRow
+                label="Table accent column"
+                value={premiumProps.tableAccentColor ?? ""}
+                fallback={props.darkColor || PALETTE_FB.darkColor}
+                onChange={(v) => set("tableAccentColor" as keyof P, v as P[keyof P])}
+              />
+            )}
           </div>
         )}
       </div>
@@ -321,9 +329,59 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
         <SectionHeader label="Brand" open={open.brand} onToggle={() => toggle("brand")} />
         {open.brand && (
           <div className="space-y-3">
-            <Field label='"For …" pill text'>
-              <Input value={props.forCompanyLabel} onChange={(e) => set("forCompanyLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
-            </Field>
+            {variant === "premium" ? (
+              <>
+                <Field label="Top-right corner shows">
+                  <Select
+                    value={premiumProps.forPillMode ?? "pill"}
+                    onValueChange={(v) => set("forPillMode" as keyof P, v as P[keyof P])}
+                  >
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pill">"For …" pill</SelectItem>
+                      <SelectItem value="logo">Partner logo</SelectItem>
+                      <SelectItem value="cta">CTA button</SelectItem>
+                      <SelectItem value="hidden">Hidden</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {(premiumProps.forPillMode ?? "pill") === "pill" && (
+                  <Field label='"For …" pill text'>
+                    <Input value={props.forCompanyLabel} onChange={(e) => set("forCompanyLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                  </Field>
+                )}
+                {premiumProps.forPillMode === "logo" && (
+                  <>
+                    <Field label="Partner logo image">
+                      <ImagePicker
+                        value={premiumProps.forPillLogoUrl ?? ""}
+                        onChange={(v) => set("forPillLogoUrl" as keyof P, v as P[keyof P])}
+                        aiHint="Partner / customer logo (light-on-dark works best)"
+                      />
+                    </Field>
+                    <Field label="Partner logo alt text">
+                      <Input value={premiumProps.forPillLogoAlt ?? ""} onChange={(e) => set("forPillLogoAlt" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                    </Field>
+                  </>
+                )}
+                {premiumProps.forPillMode === "cta" && (
+                  <>
+                    <Field label="CTA button text">
+                      <Input value={premiumProps.forPillCtaText ?? ""} onChange={(e) => set("forPillCtaText" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                    </Field>
+                    <Field label="CTA button URL">
+                      <Input value={premiumProps.forPillCtaUrl ?? ""} onChange={(e) => set("forPillCtaUrl" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+                    </Field>
+                  </>
+                )}
+              </>
+            ) : (
+              <Field label='"For …" pill text'>
+                <Input value={props.forCompanyLabel} onChange={(e) => set("forCompanyLabel" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />
+              </Field>
+            )}
             <Field label="Logo">
               <ImagePicker
                 value={props.logoUrl ?? ""}
