@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { ArrowRight, Check, Quote, X as XIcon, Activity, Clock, LayoutGrid, Inbox } from "lucide-react";
 import type { BusinessCasePremiumBlockProps } from "../lib/block-types/dso-blocks";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import type { BrandConfig } from "../lib/brand-config";
+import { BrandLogo } from "../components/BrandLogo";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -51,6 +53,11 @@ const Reveal: React.FC<
 
 interface Props {
   props: BusinessCasePremiumBlockProps;
+  /** Tenant brand config. When present, the block defaults its colors,
+   *  fonts, logo, and "with <brandName>" labels to the tenant brand so
+   *  the same template renders correctly for any DSO. Per-block props
+   *  still win over brand defaults. */
+  brand?: BrandConfig;
   /** When true, the block is being rendered inside the LP Studio builder.
    *  We skip framer-motion scroll/hover animations in this mode to keep
    *  editing snappy — they would otherwise re-mount on every keystroke. */
@@ -70,7 +77,7 @@ interface Props {
  * and an upgraded comparison table (zebra rows, dark "With Dandy" pillar,
  * stronger ink contrast).
  */
-export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
+export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   /** In the builder, render plain divs and strip framer-motion animation props
    *  so each keystroke doesn't re-create IntersectionObservers + animation state. */
   const M: React.ElementType = isBuilder
@@ -85,15 +92,21 @@ export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
       }: Record<string, unknown>) => <div {...(rest as React.HTMLAttributes<HTMLDivElement>)} />)
     : motion.div;
 
-  const bg = props.bgColor ?? "#f6f5ee";
-  const ink = props.inkColor ?? "#0d1f15";
-  const dark = props.darkColor ?? "#0d1f15";
-  const accent = props.accentColor ?? "#c8e84e";
-  const accentInk = props.accentInkColor ?? "#0d1f15";
+  // Color defaults: per-block prop > tenant brand > Dandy editorial fallback.
+  // `dark` is the dark hero strip; we use brand primary so non-Dandy tenants
+  // get their own dark surface instead of Dandy forest green.
+  const bg = props.bgColor ?? brand?.pageBackground ?? "#f6f5ee";
+  const ink = props.inkColor ?? brand?.primaryColor ?? "#0d1f15";
+  const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
+  const accent = props.accentColor ?? brand?.accentColor ?? "#c8e84e";
+  const accentInk = props.accentInkColor ?? brand?.ctaText ?? "#0d1f15";
   const tableAccent = props.tableAccentColor ?? dark;
 
-  const logoSrc = props.logoUrl || "/dandy-logo-white.svg";
-  const logoAlt = props.logoAlt || "Dandy";
+  // Logo + brand-name labels. `brand.brandName` flows from brand settings so
+  // a tenant labelled "Heartland" gets "With Heartland" / "Before Heartland"
+  // in the comparison table without per-page overrides.
+  const brandName = brand?.brandName?.trim() || "Dandy";
+  const logoAlt = props.logoAlt || brandName;
 
   const heroStats = (props.situationStats ?? []).slice(0, 4);
   const useSplitHero = (props.heroLayout ?? "centered") === "split-image-right";
@@ -138,7 +151,11 @@ export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
   const renderHeaderBar = () => (
     <div className="absolute top-0 left-0 right-0 z-20 p-6 flex justify-between items-center gap-4 max-w-7xl mx-auto">
       <div className="flex items-center gap-6">
-        <img src={logoSrc} alt={logoAlt} className="h-7 w-auto" />
+        {brand ? (
+          <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
+        ) : (
+          <img src={props.logoUrl || "/dandy-logo-white.svg"} alt={logoAlt} className="h-7 w-auto" />
+        )}
         {(props.volumeLabel || props.issueLabel) && (
           <div
             className="hidden md:flex items-center gap-3 text-[10px] font-semibold tracking-[0.3em] uppercase"
@@ -255,7 +272,7 @@ export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
         <div
           className="absolute inset-0"
           style={{
-            background: `radial-gradient(circle at 30% 20%, ${accent}1f 0%, transparent 55%), linear-gradient(135deg, ${dark} 0%, #15321f 100%)`,
+            background: `radial-gradient(circle at 30% 20%, ${accent}1f 0%, transparent 55%), linear-gradient(135deg, ${dark} 0%, ${ink} 100%)`,
           }}
         >
           <div
@@ -468,7 +485,7 @@ export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
       {/* 3. Signal */}
       <section
         className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
-        style={{ background: "#0f2a1c", color: bg }}
+        style={{ background: dark, color: bg }}
       >
         <div className="mb-16">
           {props.signalEyebrow && (
@@ -676,13 +693,13 @@ export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
                 className="col-span-4 px-6 py-4 text-[10px] font-semibold tracking-[0.3em] uppercase border-l"
                 style={{ color: `${ink}99`, borderColor: `${ink}1a`, fontFamily: BODY }}
               >
-                Before Dandy
+                Before {brandName}
               </div>
               <div
                 className="col-span-4 px-6 py-4 text-[10px] font-semibold tracking-[0.3em] uppercase"
                 style={{ background: tableAccent, color: accent, fontFamily: BODY }}
               >
-                With Dandy
+                With {brandName}
               </div>
             </div>
 
@@ -853,7 +870,12 @@ export function BlockBusinessCasePremium({ props, isBuilder }: Props) {
       </section>
 
       {/* 7. Proof */}
-      <section className="py-24 px-6" style={{ background: "#eae8dd" }}>
+      {/* Math-section footer band — slightly darker than the page bg.
+          Mix ink (≈12%) into bg via overlay so it tints with brand. */}
+      <section
+        className="py-24 px-6 relative"
+        style={{ background: bg, boxShadow: `inset 0 0 0 100vmax ${ink}14` }}
+      >
         <div className="max-w-7xl mx-auto">
           {props.proofEyebrow && (
             <div

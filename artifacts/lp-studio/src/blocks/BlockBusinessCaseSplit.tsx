@@ -1,8 +1,12 @@
 import React from "react";
 import { ArrowRight, Check, Quote, Minus, TrendingUp, Users } from "lucide-react";
 import type { BusinessCaseSplitBlockProps, BusinessCaseSignalCard } from "../lib/block-types/dso-blocks";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import type { BrandConfig } from "../lib/brand-config";
+import { BrandLogo } from "../components/BrandLogo";
 
-const DISPLAY = "'Bagoss Standard', 'Times New Roman', serif";
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const SIGNAL_ICONS: Record<NonNullable<BusinessCaseSignalCard["icon"]>, React.FC<{ className?: string }>> = {
   "trending-up": TrendingUp,
@@ -12,28 +16,36 @@ const SIGNAL_ICONS: Record<NonNullable<BusinessCaseSignalCard["icon"]>, React.FC
 
 interface Props {
   props: BusinessCaseSplitBlockProps;
+  /** Tenant brand config. Drives default colors, fonts, logo, and the
+   *  "With <brandName>" label so the same template renders correctly
+   *  for any DSO. Per-block props still win. */
+  brand?: BrandConfig;
 }
 
-export function BlockBusinessCaseSplit({ props }: Props) {
-  const bg = props.bgColor ?? "#f6f5ee";
-  const ink = props.inkColor ?? "#0f2a1c";
-  const dark = props.darkColor ?? "#0d1f15";
-  const accent = props.accentColor ?? "#c8e84e";
-  const accentInk = props.accentInkColor ?? "#0d1f15";
+export function BlockBusinessCaseSplit({ props, brand }: Props) {
+  const bg = props.bgColor ?? brand?.pageBackground ?? "#f6f5ee";
+  const ink = props.inkColor ?? brand?.primaryColor ?? "#0f2a1c";
+  const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
+  const accent = props.accentColor ?? brand?.accentColor ?? "#c8e84e";
+  const accentInk = props.accentInkColor ?? brand?.ctaText ?? "#0d1f15";
 
-  const logoSrc = props.logoUrl || "/dandy-logo-white.svg";
-  const logoAlt = props.logoAlt || "Dandy";
+  const brandName = brand?.brandName?.trim() || "Dandy";
+  const logoAlt = props.logoAlt || brandName;
 
   return (
     <div
       className="min-h-screen text-slate-800 font-sans"
-      style={{ background: bg, fontFamily: "Inter, system-ui, sans-serif" }}
+      style={{ background: bg, fontFamily: BODY }}
     >
       {/* 1. Hero — split */}
       <section className="relative w-full h-[720px] flex overflow-hidden" style={{ background: dark }}>
         <div className="w-full md:w-[55%] h-full flex flex-col justify-between p-12 lg:p-20 z-10">
           <nav className="flex items-center justify-between">
-            <img src={logoSrc} alt={logoAlt} className="h-7 w-auto" />
+            {brand ? (
+              <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
+            ) : (
+              <img src={props.logoUrl || "/dandy-logo-white.svg"} alt={logoAlt} className="h-7 w-auto" />
+            )}
             <div className="px-4 py-1.5 rounded-full border border-white/20 text-white/80 text-xs font-medium uppercase tracking-wider">
               {props.forCompanyLabel}
             </div>
@@ -222,7 +234,7 @@ export function BlockBusinessCaseSplit({ props }: Props) {
       </section>
 
       {/* 5. The Paradigm Shift — split bullets */}
-      <section className="px-12 lg:px-20 py-24 lg:py-32" style={{ background: "#1a1a1a" }}>
+      <section className="px-12 lg:px-20 py-24 lg:py-32" style={{ background: dark }}>
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-4 mb-20">
             {props.shiftEyebrow && (
@@ -254,7 +266,7 @@ export function BlockBusinessCaseSplit({ props }: Props) {
                 className="text-sm font-bold tracking-[0.2em] uppercase mb-12 flex items-center gap-3"
                 style={{ color: accent }}
               >
-                <Check className="w-4 h-4" /> With Dandy
+                <Check className="w-4 h-4" /> With {brandName}
               </h3>
               <ul className="space-y-10">
                 {props.shiftNewBullets.map((b, i) => (
@@ -319,7 +331,10 @@ export function BlockBusinessCaseSplit({ props }: Props) {
                   key={i}
                   className="p-6"
                   style={{
-                    background: isLast ? dark : "#f9f8f4",
+                    // Alternating row bg: slight ink-tint of the page bg
+                    // so the table stripe darkens with brand instead of
+                    // locking to Dandy's cream.
+                    background: isLast ? dark : `color-mix(in srgb, ${ink} 5%, ${bg})`,
                     color: isLast ? "#fff" : undefined,
                   }}
                 >

@@ -1,29 +1,37 @@
 import React from "react";
 import { ArrowRight, Check, Quote, Minus, Activity, Clock, LayoutGrid } from "lucide-react";
 import type { BusinessCaseCenteredBlockProps } from "../lib/block-types/dso-blocks";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import type { BrandConfig } from "../lib/brand-config";
+import { BrandLogo } from "../components/BrandLogo";
 
-const DISPLAY = "'Bagoss Standard', 'Times New Roman', serif";
+const DISPLAY = BRAND_DISPLAY_FONT;
+const BODY = BRAND_BODY_FONT;
 
 const SITUATION_ICONS = [Activity, LayoutGrid, Clock];
 
 interface Props {
   props: BusinessCaseCenteredBlockProps;
+  /** Tenant brand config. Drives default colors, fonts, logo, and the
+   *  "With <brandName>" comparison-table label so the same template
+   *  renders correctly for any DSO. Per-block props still win. */
+  brand?: BrandConfig;
 }
 
-export function BlockBusinessCaseCentered({ props }: Props) {
-  const bg = props.bgColor ?? "#f6f5ee";
-  const ink = props.inkColor ?? "#0d1f15";
-  const dark = props.darkColor ?? "#0d1f15";
-  const accent = props.accentColor ?? "#c8e84e";
-  const accentInk = props.accentInkColor ?? "#0d1f15";
+export function BlockBusinessCaseCentered({ props, brand }: Props) {
+  const bg = props.bgColor ?? brand?.pageBackground ?? "#f6f5ee";
+  const ink = props.inkColor ?? brand?.primaryColor ?? "#0d1f15";
+  const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
+  const accent = props.accentColor ?? brand?.accentColor ?? "#c8e84e";
+  const accentInk = props.accentInkColor ?? brand?.ctaText ?? "#0d1f15";
 
-  const logoSrc = props.logoUrl || "/dandy-logo-white.svg";
-  const logoAlt = props.logoAlt || "Dandy";
+  const brandName = brand?.brandName?.trim() || "Dandy";
+  const logoAlt = props.logoAlt || brandName;
 
   return (
     <div
       className="min-h-screen font-sans antialiased"
-      style={{ background: bg, color: ink, fontFamily: "Inter, system-ui, sans-serif" }}
+      style={{ background: bg, color: ink, fontFamily: BODY }}
     >
       {/* 1. Hero — centered */}
       <section
@@ -31,7 +39,11 @@ export function BlockBusinessCaseCentered({ props }: Props) {
         style={{ background: dark, color: bg }}
       >
         <div className="absolute top-0 w-full p-6 flex justify-between items-center max-w-7xl mx-auto">
-          <img src={logoSrc} alt={logoAlt} className="h-7 w-auto" />
+          {brand ? (
+            <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
+          ) : (
+            <img src={props.logoUrl || "/dandy-logo-white.svg"} alt={logoAlt} className="h-7 w-auto" />
+          )}
           <div
             className="text-xs uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full"
             style={{ color: accent }}
@@ -121,7 +133,7 @@ export function BlockBusinessCaseCentered({ props }: Props) {
       {/* 3. The Signal — dark slab */}
       <section
         className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
-        style={{ background: "#0f2a1c", color: bg }}
+        style={{ background: dark, color: bg }}
       >
         <div className="mb-16">
           {props.signalEyebrow && (
@@ -231,7 +243,7 @@ export function BlockBusinessCaseCentered({ props }: Props) {
               className="col-span-4 font-semibold text-sm uppercase tracking-wider"
               style={{ color: ink }}
             >
-              With Dandy
+              With {brandName}
             </div>
           </div>
 
@@ -316,7 +328,11 @@ export function BlockBusinessCaseCentered({ props }: Props) {
       </section>
 
       {/* 7. The Proof */}
-      <section className="py-24 px-6" style={{ background: "#eae8dd" }}>
+      {/* Footer band: tint the page bg with ink so it darkens with brand. */}
+      <section
+        className="py-24 px-6 relative"
+        style={{ background: bg, boxShadow: `inset 0 0 0 100vmax ${ink}14` }}
+      >
         <div className="max-w-7xl mx-auto">
           <h2
             className="text-4xl mb-16 text-center"

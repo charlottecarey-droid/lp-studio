@@ -861,11 +861,11 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
       case "spatial-tour":
         return <BlockSpatialTour props={block.props} />;
       case "business-case-split":
-        return <BlockBusinessCaseSplit props={block.props} />;
+        return <BlockBusinessCaseSplit props={block.props} brand={brand} />;
       case "business-case-centered":
-        return <BlockBusinessCaseCentered props={block.props} />;
+        return <BlockBusinessCaseCentered props={block.props} brand={brand} />;
       case "business-case-premium":
-        return <BlockBusinessCasePremium props={block.props} isBuilder={isBuilder} />;
+        return <BlockBusinessCasePremium props={block.props} brand={brand} isBuilder={isBuilder} />;
       case "scroll-assembly":
         return (
           <BlockScrollAssembly
