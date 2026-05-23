@@ -53,14 +53,14 @@ const CSS = `
 .id-hero.id-ready .id-hero-eyebrow { opacity:1; transform:translateY(0); }
 
 .id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:calc(clamp(48px,8vw,140px) * var(--id-hero-h1-scale, 1)); line-height:0.94; letter-spacing:-0.032em; color:#fff; margin:0; overflow-wrap:break-word; word-break:normal; hyphens:auto; }
-/* Each line uses a clip-path that only crops top/bottom — wide text can still
-   bleed sideways without being chopped, while the translateY entrance animation
-   stays hidden behind the clip. */
-.id-hero h1 .id-line { display:block; clip-path:inset(0 -100vw 0 -100vw); padding:0.18em 0 0.22em; margin:-0.18em 0 -0.22em; }
-.id-hero h1 .id-line .id-line-inner { display:block; transform:translateY(140%); transition:transform 1100ms var(--id-ease-out); will-change:transform; }
-.id-hero.id-ready h1 .id-line:nth-child(1) .id-line-inner { transform:translateY(0); transition-delay:200ms; }
-.id-hero.id-ready h1 .id-line:nth-child(2) .id-line-inner { transform:translateY(0); transition-delay:340ms; }
-.id-hero.id-ready h1 .id-line:nth-child(3) .id-line-inner { transform:translateY(0); transition-delay:480ms; }
+/* Headline reveal: the whole h1 fades in as one block, timed to overlap
+   the bg image's 1800ms opacity entrance (scale-down keeps running for
+   16s after). No per-line clip / stagger / translateY — the headline
+   simply resolves into view in concert with the image settling behind it. */
+.id-hero h1 { opacity:0; transition:opacity 1600ms 200ms var(--id-ease-out); will-change:opacity; }
+.id-hero h1 .id-line { display:block; }
+.id-hero h1 .id-line .id-line-inner { display:block; }
+.id-hero.id-ready h1 { opacity:1; }
 /* Slightly tighter, narrower lead — feels like editorial body copy not
    marketing landing-page filler. */
 .id-hero .id-lead { font-size:clamp(15px,1.3vw,18px); line-height:1.65; color:rgba(255,255,255,0.72); max-width:560px; margin:40px auto 52px; font-weight:350; letter-spacing:0.005em; opacity:0; transform:translateY(8px); transition:opacity 1100ms 720ms var(--id-ease-out), transform 1100ms 720ms var(--id-ease-out); }
@@ -518,7 +518,6 @@ const CSS = `
   .id-hero .id-hero-bg,
   .id-hero .id-hero-eyebrow,
   .id-hero h1,
-  .id-hero h1 .id-line .id-line-inner,
   .id-hero .id-lead,
   .id-hero .id-ctas,
   .id-hero .id-scroll-hint,
