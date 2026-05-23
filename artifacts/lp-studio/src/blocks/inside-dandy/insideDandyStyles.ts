@@ -438,6 +438,81 @@ const CSS = `
 }
 .id-hero .id-scroll-hint { opacity:calc(1 - var(--id-hero-scroll, 0) * 2); }
 
+/* Cursor-tracking signal orb. BlockIdHero writes eased --id-orb-x / --id-orb-y
+   (px offsets) on the .id-hero section so the lime halo drifts gently toward
+   the cursor while at rest, then settles back to center. Pure-CSS consumption
+   — keeps the existing entrance transform (translate -50% / -50%) intact and
+   just composes the parallax offset on top via the var defaults. */
+.id-hero.id-ready .id-signal-orb {
+  transform:translate(calc(-50% + var(--id-orb-x, 0px)), calc(-50% + var(--id-orb-y, 0px))) scale(1);
+}
+
+/* Hero background micro-zoom. CSS rule: 'animation' shorthand wins over
+   'transition' on the same property, so we can't keep the original 16s
+   scale(1.12)→scale(1) transition AND add a breathe animation on transform
+   — the animation would clobber the entrance. Instead we bake both into a
+   single keyframes: start at the entrance scale, glide to 1 over the first
+   ~30%, then continuously breathe between 1 and 1.045. Total cycle 30s so
+   the entrance feels deliberate, then breathe takes over invisibly. */
+@keyframes idHeroBreathe {
+  0%   { transform:scale(1.12); }
+  30%  { transform:scale(1.00); }
+  65%  { transform:scale(1.045); }
+  100% { transform:scale(1.00); }
+}
+.id-hero.id-ready .id-hero-bg {
+  animation:idHeroBreathe 30s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* Id-grid reveal-on-scroll. BlockIdGrid adds .id-grid-revealed once the
+   block enters the viewport. Cards stagger in (intro → 4 cards) using
+   transition-delay on nth-child. Same visual language as the hero h1
+   reveal (translateY + opacity, cinematic easing). */
+.id-grid .id-grid-intro,
+.id-grid .id-grid-card {
+  opacity:0;
+  transform:translateY(28px);
+  transition:opacity 900ms var(--id-ease-out), transform 900ms var(--id-ease-out);
+  will-change:opacity, transform;
+}
+.id-grid.id-grid-revealed .id-grid-intro { opacity:1; transform:none; transition-delay:0ms; }
+.id-grid.id-grid-revealed .id-grid-card { opacity:1; transform:none; }
+.id-grid.id-grid-revealed .id-grid-card:nth-child(1) { transition-delay:180ms; }
+.id-grid.id-grid-revealed .id-grid-card:nth-child(2) { transition-delay:300ms; }
+.id-grid.id-grid-revealed .id-grid-card:nth-child(3) { transition-delay:420ms; }
+.id-grid.id-grid-revealed .id-grid-card:nth-child(4) { transition-delay:540ms; }
+
+/* Cinema-pillar video fade-in. Each <video> mounts with opacity:0 until
+   BlockIdCinemaPillars receives the loadeddata event and toggles
+   .id-video-ready — fades the first frame in instead of flashing in
+   mid-decode. The crossfade between active pillars (driven by --p on the
+   parent .id-layer) is unaffected. */
+.id-art-video { opacity:0; transition:opacity 600ms var(--id-ease-out); }
+.id-art-video.id-video-ready { opacity:1; }
+
+/* Page-wide scroll-progress bar. BlockIdHero writes --scroll-progress on
+   <html>. Rendered as a 2px fixed line at the top of the viewport that
+   scales horizontally from 0 to 1 as the visitor reads (Apple/Linear
+   style). Scoped via :has(.id-block) so non-Inside-Dandy pages don't get
+   it. z-index 60 sits above the sticky-header (z-50) but below modals. */
+[data-lp-page]:has(.id-block)::after {
+  content:"";
+  position:fixed;
+  top:0; left:0; right:0;
+  height:2px;
+  z-index:60;
+  background:linear-gradient(90deg, var(--brand-accent, #C7E738) 0%, #1AC065 100%);
+  transform-origin:0 0;
+  transform:scaleX(var(--scroll-progress, 0));
+  transition:transform 80ms linear;
+  pointer-events:none;
+  box-shadow:0 0 12px rgba(199,231,56,0.5);
+  opacity:calc(0.3 + var(--scroll-progress, 0) * 0.7);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-lp-page]:has(.id-block)::after { display:none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .id-block .id-reveal,
   .id-hero .id-hero-bg,
@@ -451,6 +526,9 @@ const CSS = `
   .id-hero .id-btn-primary > [aria-hidden],
   .id-hero .id-btn-ghost::after,
   .id-hero .id-signal-orb,
+  .id-hero.id-ready .id-hero-bg,
+  .id-grid .id-grid-intro,
+  .id-grid .id-grid-card,
   .id-art-bars .id-bar,
   .id-showcase .id-frame .id-frame-img,
   .id-intro h2 .id-word { opacity:1 !important; transform:none !important; transition:none !important; animation:none !important; }
@@ -485,19 +563,17 @@ const CSS = `
    support (older Safari) silently get nothing — pure enhancement. */
 @supports (animation-timeline: scroll()) {
   [data-lp-page]:has(.id-block)::after {
-    content:"";
-    position:fixed;
-    top:0;
-    left:0;
-    height:2px;
-    width:100%;
-    background:#C7E738;
+    /* When scroll-timeline is available, prefer it: zero JS, perfectly
+       smooth, no rAF cost. Visual properties match the JS-driven version
+       above (gradient + glow + z-index 60 above the sticky header). */
+    background:linear-gradient(90deg, var(--brand-accent, #C7E738) 0%, #1AC065 100%);
+    box-shadow:0 0 12px rgba(199,231,56,0.5);
+    z-index:60;
     transform:scaleX(0);
-    transform-origin:left center;
-    z-index:49;
-    pointer-events:none;
+    transform-origin:0 0;
     animation:idScrollProgress linear both;
     animation-timeline:scroll(root);
+    transition:none;
   }
   @keyframes idScrollProgress { to { transform:scaleX(1); } }
 }

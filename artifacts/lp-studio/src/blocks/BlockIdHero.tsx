@@ -34,11 +34,14 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
     return () => window.clearTimeout(t);
   }, [isEditor]);
 
-  // Headline fade-on-scroll. As the user scrolls past the hero, the giant
-  // headline + lead fade and slightly shrink so the next section feels like
-  // the payoff instead of a comedown (Apple product-page trick). Disabled in
-  // editor mode and for users who prefer reduced motion. Written as a CSS
-  // var so the styling stays in the stylesheet (no per-frame React renders).
+  // Hero scroll choreography. Drives three things off the same rAF loop:
+  //   1. --id-hero-scroll (0..1, local) — fades & shrinks the giant headline
+  //      as the user scrolls past, so the next section feels like the payoff.
+  //   2. --scroll-progress (0..1, global on <html>) — feeds the page-wide
+  //      progress bar at the top of the viewport (Apple/Linear-style).
+  //   3. --id-orb-x / --id-orb-y (px offsets, local) — soft cursor parallax
+  //      for the .id-signal-orb so the hero feels alive at rest.
+  // Disabled in editor mode and for prefers-reduced-motion.
   useEffect(() => {
     if (isEditor) return;
     if (typeof window === "undefined") return;
@@ -46,22 +49,54 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
     const el = sectionRef.current;
     if (!el) return;
     let raf = 0;
-    const update = () => {
+    // Mouse target (where the orb wants to drift toward) and current
+    // position (eased per-frame for a heavy, premium feel — not snappy).
+    let tx = 0, ty = 0, cx = 0, cy = 0;
+    let running = true;
+    const tick = () => {
       raf = 0;
       const h = el.offsetHeight || 1;
       const top = el.getBoundingClientRect().top;
-      // 0 at top of hero, 1 once scrolled one full hero-height past it.
       const t = Math.max(0, Math.min(1, -top / h));
       el.style.setProperty("--id-hero-scroll", t.toFixed(3));
+      // Page-wide scroll progress (full document, 0..1).
+      const de = document.documentElement;
+      const max = (de.scrollHeight - window.innerHeight) || 1;
+      const sp = Math.max(0, Math.min(1, window.scrollY / max));
+      de.style.setProperty("--scroll-progress", sp.toFixed(4));
+      // Ease orb toward target.
+      cx += (tx - cx) * 0.08;
+      cy += (ty - cy) * 0.08;
+      el.style.setProperty("--id-orb-x", `${cx.toFixed(1)}px`);
+      el.style.setProperty("--id-orb-y", `${cy.toFixed(1)}px`);
+      if (running && (Math.abs(tx - cx) > 0.1 || Math.abs(ty - cy) > 0.1)) {
+        raf = requestAnimationFrame(tick);
+      }
     };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    const onMove = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      // Only react while the cursor is roughly over the hero (avoid drifting
+      // the orb based on mouse-move events happening 5 sections down).
+      if (e.clientY < r.top - 200 || e.clientY > r.bottom + 200) return;
+      const nx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      const ny = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      // Cap travel so the orb stays inside the visor halo region.
+      tx = Math.max(-1, Math.min(1, nx)) * 64;
+      ty = Math.max(-1, Math.min(1, ny)) * 40;
+      schedule();
+    };
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule, { passive: true });
+    window.addEventListener("pointermove", onMove, { passive: true });
     return () => {
+      running = false;
       if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("pointermove", onMove);
+      document.documentElement.style.removeProperty("--scroll-progress");
     };
   }, [isEditor]);
 

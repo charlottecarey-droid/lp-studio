@@ -16,8 +16,9 @@ type ArtKind = (typeof ART_KINDS)[number];
 
 // The art layer for a given kind. All five are rendered at once; CSS opacity
 // crossfades between them based on which one has `.id-active`.
-function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind; videoSrc?: string; videoPosition?: string; isActive: boolean }) {
+function PillarArt({ kind, videoSrc, videoPosition, isActive, isNear }: { kind: ArtKind; videoSrc?: string; videoPosition?: string; isActive: boolean; isNear: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [firstFrame, setFirstFrame] = useState(false);
   // `autoPlay` only fires on initial mount, so when the user scrolls to a
   // pillar that wasn't active at first paint its video never starts. Drive
   // play/pause imperatively from `isActive` instead.
@@ -38,21 +39,25 @@ function PillarArt({ kind, videoSrc, videoPosition, isActive }: { kind: ArtKind;
     if (!videoSrc) {
       return <div className="id-art-video id-art-video-empty" aria-hidden />;
     }
-    // Only the *active* pillar's video preloads anything from the network on
-    // mount. Inactive pillars defer entirely (`preload="none"`) — the imperative
-    // play() in the effect above will trigger a load when the user scrolls to
-    // them. Without this, every pillar's video (5–10 MP4s, multi-MB each) hits
-    // the network in parallel during initial page load and competes with the
-    // hero's bg image, fonts, and JS chunks for bandwidth.
+    // Two-stage lazy strategy:
+    //   1. `isNear` is true once the parent's IntersectionObserver reports
+    //      the pillar is within ~150% viewport — only then do we attach the
+    //      real `src` so the network fetch + decode start. Pillars far below
+    //      the fold don't touch the network at all.
+    //   2. Once the browser delivers the first frame (`loadeddata`), we add
+    //      `.id-video-ready` which fades the video in over 600ms instead of
+    //      flashing in mid-decode.
+    const realSrc = isNear ? videoSrc : undefined;
     return (
       <video
         ref={videoRef}
-        className="id-art-video"
-        src={videoSrc}
+        className={`id-art-video${firstFrame ? " id-video-ready" : ""}`}
+        src={realSrc}
         muted
         loop
         playsInline
         preload={isActive ? "metadata" : "none"}
+        onLoadedData={() => setFirstFrame(true)}
         style={{ objectPosition: videoPosition || "center" }}
         aria-hidden
       />
@@ -126,7 +131,12 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
   const isEditor = !!onFieldChange;
   const sectionRef = useRef<HTMLElement>(null);
   const spacerRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const layerRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [active, setActive] = useState(0);
+  // Tracks which pillars are within ~150% of the viewport so their videos
+  // can attach `src` and begin decoding. Pillars far below the fold stay at
+  // `false` so the page never fetches all 4 videos in parallel on load.
+  const [nearSet, setNearSet] = useState<Set<number>>(() => new Set([0]));
 
   // Scroll-driven crossfade. Replaces the previous discrete "active index
   // flips at the 50% line + fixed 900ms CSS transition" model with a
@@ -230,6 +240,39 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [isEditor, pillars.length, props.pillarStackedScroll, holdVh]);
+
+  // Lazy-decode IntersectionObserver. In editor mode we mark everything as
+  // near so all videos render normally for the author. In published mode we
+  // only mark a pillar as `near` once its art layer enters the rootMargin
+  // window — the PillarArt component then attaches `src` and decodes.
+  useEffect(() => {
+    if (isEditor) {
+      setNearSet(new Set(pillars.map((_, i) => i)));
+      return;
+    }
+    if (typeof window === "undefined" || typeof IntersectionObserver === "undefined") {
+      setNearSet(new Set(pillars.map((_, i) => i)));
+      return;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        setNearSet((prev) => {
+          let changed = false;
+          const next = new Set(prev);
+          for (const e of entries) {
+            const idx = Number((e.target as HTMLElement).dataset.pillarIdx ?? -1);
+            if (idx < 0) continue;
+            if (e.isIntersecting && !next.has(idx)) { next.add(idx); changed = true; }
+          }
+          return changed ? next : prev;
+        });
+      },
+      { rootMargin: "150% 0px 150% 0px" },
+    );
+    for (const el of layerRefs.current) if (el) obs.observe(el);
+    return () => obs.disconnect();
+  }, [isEditor, pillars.length]);
+
   const flatMode = !stackedScroll && !isEditor;
 
   const updatePillar = (i: number, patch: Partial<IdCinemaPillar>) => {
@@ -259,12 +302,18 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
           {pillars.map((p, i) => {
             const kind = normalizeArt(p.art);
             return (
-              <div key={i} className={`id-layer${i === active ? " id-active" : ""}${kind === "bars" ? " id-pillar-bars" : ""}`}>
+              <div
+                key={i}
+                ref={(el) => { layerRefs.current[i] = el; }}
+                data-pillar-idx={i}
+                className={`id-layer${i === active ? " id-active" : ""}${kind === "bars" ? " id-pillar-bars" : ""}`}
+              >
                 <PillarArt
                   kind={kind}
                   videoSrc={p.videoSrc}
                   videoPosition={p.videoPosition}
                   isActive={i === active}
+                  isNear={nearSet.has(i)}
                 />
               </div>
             );
@@ -282,6 +331,7 @@ export function BlockIdCinemaPillars({ props, onFieldChange }: Props) {
                       videoSrc={p.videoSrc}
                       videoPosition={p.videoPosition}
                       isActive
+                      isNear
                     />
                   </div>
                 )}

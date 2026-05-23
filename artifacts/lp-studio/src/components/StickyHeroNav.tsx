@@ -61,14 +61,33 @@ export function StickyHeroNav({
   position = "fixed",
   invertLogo,
 }: StickyHeroNavProps) {
-  const [scrolled, setScrolled] = useState(false);
+  // `progress` is a continuous 0..1 ramp that begins at scrollThreshold and
+  // saturates one viewport-height later. We still derive a boolean `scrolled`
+  // off it for the height transition + sizing, but the visual properties
+  // (bg alpha, blur radius, shadow) interpolate so the nav crossfades into
+  // its glass state instead of popping. Throttled to one update per frame.
+  const [progress, setProgress] = useState(0);
+  const scrolled = progress > 0.02;
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > scrollThreshold);
-    onScroll();
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const y = window.scrollY;
+      const ramp = Math.max(200, window.innerHeight * 0.6);
+      const next = Math.max(0, Math.min(1, (y - scrollThreshold) / ramp));
+      setProgress((cur) => (Math.abs(cur - next) < 0.005 ? cur : next));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(compute); };
+    compute();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [scrollThreshold]);
 
   const isDark = theme === "dark";
@@ -79,16 +98,20 @@ export function StickyHeroNav({
   const dividerColor = isDark ? "rgba(255,255,255,0.30)" : "rgba(15,23,42,0.30)";
   const companyTextColor = isDark ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.85)";
 
+  // Continuous glass crossfade. At progress=0 the nav is fully transparent
+  // (so it blends into the hero). As progress climbs the dark/light glass
+  // fills in. Final alpha matches what the old binary state used to jump to.
+  const bgAlpha = (isDark ? 0.72 : 0.82) * progress;
+  const blurPx = 18 * progress;
+  const satPct = 100 + 60 * progress;
   const scrolledBg = isDark
-    ? "rgba(8, 22, 20, 0.72)"
-    : "rgba(255, 255, 255, 0.82)";
-  // At top of page: fully transparent so the nav perfectly blends into the
-  // hero behind it. Any gradient/tint here creates a visible band-edge that
-  // reads as a faint horizontal line — we only want a backdrop after scroll.
+    ? `rgba(8, 22, 20, ${bgAlpha.toFixed(3)})`
+    : `rgba(255, 255, 255, ${bgAlpha.toFixed(3)})`;
   const transparentBg = "transparent";
+  const borderAlpha = 0.08 * progress;
   const scrolledBorder = isDark
-    ? "1px solid rgba(255,255,255,0.08)"
-    : "1px solid rgba(15,23,42,0.08)";
+    ? `1px solid rgba(255,255,255,${borderAlpha.toFixed(3)})`
+    : `1px solid rgba(15,23,42,${borderAlpha.toFixed(3)})`;
 
   const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!href.startsWith("#")) return;
@@ -116,16 +139,17 @@ export function StickyHeroNav({
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className={`${position === "fixed" ? "fixed" : position === "absolute" ? "absolute" : "sticky"} top-0 left-0 right-0 ${position === "absolute" ? "z-20" : "z-50"}`}
         style={{
-          background: scrolled ? scrolledBg : transparentBg,
-          backdropFilter: scrolled ? "blur(18px) saturate(160%)" : "none",
-          WebkitBackdropFilter: scrolled ? "blur(18px) saturate(160%)" : "none",
-          borderBottom: scrolled ? scrolledBorder : "1px solid transparent",
-          boxShadow: scrolled
+          background: progress > 0 ? scrolledBg : transparentBg,
+          backdropFilter: progress > 0 ? `blur(${blurPx.toFixed(1)}px) saturate(${satPct.toFixed(0)}%)` : "none",
+          WebkitBackdropFilter: progress > 0 ? `blur(${blurPx.toFixed(1)}px) saturate(${satPct.toFixed(0)}%)` : "none",
+          borderBottom: progress > 0 ? scrolledBorder : "1px solid transparent",
+          boxShadow: progress > 0
             ? (isDark
-              ? "0 1px 0 rgba(255,255,255,0.04), 0 12px 32px -16px rgba(0,0,0,0.5)"
-              : "0 1px 0 rgba(15,23,42,0.04), 0 12px 32px -16px rgba(15,23,42,0.18)")
+              ? `0 1px 0 rgba(255,255,255,${(0.04 * progress).toFixed(3)}), 0 12px 32px -16px rgba(0,0,0,${(0.5 * progress).toFixed(3)})`
+              : `0 1px 0 rgba(15,23,42,${(0.04 * progress).toFixed(3)}), 0 12px 32px -16px rgba(15,23,42,${(0.18 * progress).toFixed(3)})`)
             : "none",
-          transition: "background 320ms ease, backdrop-filter 320ms ease, border-color 320ms ease, box-shadow 320ms ease",
+          // Visual props now ramp per-frame from rAF; only height stays on a
+          // CSS transition since `scrolled` is still a boolean for sizing.
         }}
       >
         <div

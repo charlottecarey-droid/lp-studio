@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { IdGridBlockProps, IdGridCard } from "@/lib/block-types";
 import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
@@ -26,8 +27,37 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
     onFieldChange({ ...props, cards: next });
   };
 
+  // Reveal-on-scroll. Fires once when the grid enters the viewport so the
+  // intro + 4 cards stagger in (matches the existing hero h1 reveal). In
+  // editor mode + reduced-motion we render fully visible from mount.
+  const sectionRef = useRef<HTMLElement>(null);
+  const [revealed, setRevealed] = useState(isEditor);
+  useEffect(() => {
+    if (isEditor || revealed) return;
+    if (typeof window === "undefined" || typeof IntersectionObserver === "undefined") {
+      setRevealed(true);
+      return;
+    }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setRevealed(true);
+      return;
+    }
+    const el = sectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) { setRevealed(true); obs.disconnect(); break; }
+        }
+      },
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.05 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [isEditor, revealed]);
+
   return (
-    <section className="id-block id-grid">
+    <section ref={sectionRef} className={`id-block id-grid${revealed ? " id-grid-revealed" : ""}`}>
       <div className="id-inner">
         <div className="id-grid-intro">
           {(props.eyebrow || isEditor) && (
