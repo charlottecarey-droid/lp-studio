@@ -55,9 +55,12 @@ const CSS = `
 .id-hero h1 { font-family:var(--id-display); font-weight:400; font-size:calc(clamp(48px,8vw,140px) * var(--id-hero-h1-scale, 1)); line-height:0.94; letter-spacing:-0.032em; color:#fff; margin:0; overflow-wrap:break-word; word-break:normal; hyphens:auto; }
 /* Headline reveal: the whole h1 fades in as one block, timed to overlap
    the bg image's 1800ms opacity entrance (scale-down keeps running for
-   16s after). No per-line clip / stagger / translateY — the headline
-   simply resolves into view in concert with the image settling behind it. */
-.id-hero h1 { opacity:0; transition:opacity 1600ms 200ms var(--id-ease-out); will-change:opacity; }
+   16s after). Uses a linear curve — ease-out curves frontload opacity
+   changes so the headline reads as "popped in" rather than "faded in";
+   linear keeps the rise uniform so the eye actually perceives the fade.
+   Duration bumped to 2400ms + 400ms delay so the entrance lingers long
+   enough to feel intentional alongside the bg settling in behind. */
+.id-hero h1 { opacity:0; transition:opacity 2400ms 400ms linear; will-change:opacity; }
 .id-hero h1 .id-line { display:block; }
 .id-hero h1 .id-line .id-line-inner { display:block; }
 .id-hero.id-ready h1 { opacity:1; }
