@@ -173,7 +173,11 @@ const CSS = `
 .id-spotlight-media { position:relative; width:100%; aspect-ratio:16/10; border-radius:16px; overflow:hidden; }
 .id-spotlight-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
 .id-spotlight-empty { background:repeating-linear-gradient(45deg, rgba(199,231,56,0.06) 0 12px, transparent 12px 24px); border:1px dashed rgba(199,231,56,0.3); }
-.id-spotlight-card { position:absolute; left:50%; bottom:6%; transform:translateX(-25%); width:min(360px, 60%); background:rgba(15,28,26,0.92); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:18px 18px 14px; box-shadow:0 24px 60px -20px rgba(0,0,0,0.7); color:#fff; z-index:2; }
+.id-spotlight-card { position:absolute; left:50%; bottom:6%; transform:translateX(-25%); width:min(360px, 60%); background:rgba(15,28,26,0.92); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:18px 18px 14px; box-shadow:0 24px 60px -20px rgba(0,0,0,0.7); color:#fff; z-index:2; opacity:1; transition:opacity 700ms var(--id-ease-out), transform 700ms var(--id-ease-out); }
+.id-spotlight-card.id-sp-card-hidden { opacity:0; transform:translateX(-25%) translateY(8px); }
+.id-sp-result-anim { animation:id-sp-result-in 520ms var(--id-ease-out) both; }
+@keyframes id-sp-result-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.id-sp-step { transition:color 360ms var(--id-ease-out); }
 .id-sp-card-title { display:flex; align-items:center; gap:8px; font:500 11px/1 var(--id-mono, ui-monospace, monospace); letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.65); }
 .id-sp-card-glyph { width:14px; height:14px; border-radius:50%; border:1.5px solid var(--id-cit, #C7E738); position:relative; flex:0 0 auto; }
 .id-sp-card-glyph::after { content:""; position:absolute; inset:3px; background:var(--id-cit, #C7E738); border-radius:50%; opacity:0.4; }

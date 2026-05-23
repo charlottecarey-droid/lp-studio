@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { IdSpotlightBlockProps } from "@/lib/block-types";
 import { useInsideDandyStyles } from "./inside-dandy/insideDandyStyles";
 import { EditableEm } from "./inside-dandy/idHelpers";
@@ -32,6 +32,59 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
   const results = props.results ?? [];
   const steps = props.steps ?? [];
   const activeStep = Math.max(0, Math.min(steps.length - 1, props.activeStep ?? 0));
+
+  // Auto-cycle the stepper + result card in published view (not while
+  // editing). Sequence: step 0 → 1 → … → last, each result fades in
+  // beneath its label; on the final step we hold a beat longer so the
+  // confirmation reads, then the whole card fades out and the loop
+  // restarts from step 0.
+  const autoAnimate = !onFieldChange && steps.length > 1;
+  const [animIndex, setAnimIndex] = useState(0);
+  const [cardVisible, setCardVisible] = useState(true);
+  useEffect(() => {
+    if (!autoAnimate) {
+      setAnimIndex(activeStep);
+      setCardVisible(true);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const prefersReduced =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      setAnimIndex(0);
+      setCardVisible(true);
+      return;
+    }
+    const total = steps.length;
+    const stepMs = 2000;
+    const holdLastMs = 1100;
+    const fadeMs = 800;
+    const cycleMs = stepMs * (total - 1) + stepMs + holdLastMs + fadeMs;
+    const timers: number[] = [];
+    const run = () => {
+      setCardVisible(true);
+      setAnimIndex(0);
+      for (let i = 1; i < total; i++) {
+        timers.push(window.setTimeout(() => setAnimIndex(i), i * stepMs));
+      }
+      timers.push(
+        window.setTimeout(() => setCardVisible(false), stepMs * (total - 1) + stepMs + holdLastMs),
+      );
+    };
+    run();
+    const loop = window.setInterval(run, cycleMs);
+    timers.push(loop);
+    return () => {
+      timers.forEach((t) => {
+        clearTimeout(t);
+        clearInterval(t);
+      });
+    };
+  }, [autoAnimate, steps.length, activeStep]);
+
+  const effectiveStep = autoAnimate ? animIndex : activeStep;
+  const activeResult = autoAnimate ? results[animIndex] ?? results[0] : null;
 
   const setField = <K extends keyof IdSpotlightBlockProps>(key: K, value: IdSpotlightBlockProps[K]) => {
     if (!onFieldChange) return;
@@ -130,7 +183,11 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
           </div>
 
           {(cardTitle || cardSubtitle || results.length > 0) && (
-            <div className="id-spotlight-card" role="group" aria-label="AI scan results">
+            <div
+              className={`id-spotlight-card${autoAnimate && !cardVisible ? " id-sp-card-hidden" : ""}`}
+              role="group"
+              aria-label="AI scan results"
+            >
               {(cardTitle || onFieldChange) && (
                 <div className="id-sp-card-title">
                   <span className="id-sp-card-glyph" aria-hidden style={{ fontFamily: BODY }}/>
@@ -153,22 +210,42 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
                 </div>
               )}
               <div className="id-sp-results">
-                {results.map((r, i) => (
-                  <div key={i} className={`id-sp-result ${TONE_TO_CLASS[r.tone] || "id-sp-tone-alert"}`}>
-                    <span className="id-sp-dot" aria-hidden style={{ fontFamily: BODY }}/>
-                    <div className="id-sp-result-text">
-                      <div className="id-sp-result-title">{r.title}</div>
-                      {r.body && <div className="id-sp-result-body">{r.body}</div>}
-                      {r.actionText && (
-                        r.actionUrl ? (
-                          <a className="id-sp-result-action" href={r.actionUrl}>{r.actionText}</a>
-                        ) : (
-                          <span className="id-sp-result-action" style={{ fontFamily: BODY }}>{r.actionText}</span>
-                        )
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {autoAnimate
+                  ? activeResult && (
+                      <div
+                        key={animIndex}
+                        className={`id-sp-result id-sp-result-anim ${TONE_TO_CLASS[activeResult.tone] || "id-sp-tone-alert"}`}
+                      >
+                        <span className="id-sp-dot" aria-hidden style={{ fontFamily: BODY }} />
+                        <div className="id-sp-result-text">
+                          <div className="id-sp-result-title">{activeResult.title}</div>
+                          {activeResult.body && <div className="id-sp-result-body">{activeResult.body}</div>}
+                          {activeResult.actionText && (
+                            activeResult.actionUrl ? (
+                              <a className="id-sp-result-action" href={activeResult.actionUrl}>{activeResult.actionText}</a>
+                            ) : (
+                              <span className="id-sp-result-action" style={{ fontFamily: BODY }}>{activeResult.actionText}</span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )
+                  : results.map((r, i) => (
+                      <div key={i} className={`id-sp-result ${TONE_TO_CLASS[r.tone] || "id-sp-tone-alert"}`}>
+                        <span className="id-sp-dot" aria-hidden style={{ fontFamily: BODY }} />
+                        <div className="id-sp-result-text">
+                          <div className="id-sp-result-title">{r.title}</div>
+                          {r.body && <div className="id-sp-result-body">{r.body}</div>}
+                          {r.actionText && (
+                            r.actionUrl ? (
+                              <a className="id-sp-result-action" href={r.actionUrl}>{r.actionText}</a>
+                            ) : (
+                              <span className="id-sp-result-action" style={{ fontFamily: BODY }}>{r.actionText}</span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ))}
               </div>
             </div>
           )}
@@ -176,7 +253,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
           {steps.length > 0 && (
             <ol className="id-spotlight-stepper" aria-label="Section steps">
               {steps.map((s, i) => (
-                <li key={i} className={`id-sp-step${i === activeStep ? " id-active" : ""}`} style={{ fontFamily: BODY }}>
+                <li key={i} className={`id-sp-step${i === effectiveStep && (!autoAnimate || cardVisible) ? " id-active" : ""}`} style={{ fontFamily: BODY }}>
                   <span className="id-sp-step-label" style={{ fontFamily: BODY }}>{s.label}</span>
                   <span className="id-sp-step-dot" aria-hidden style={{ fontFamily: BODY }}/>
                 </li>
