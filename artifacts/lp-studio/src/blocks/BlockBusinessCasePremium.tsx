@@ -250,22 +250,38 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
 
   // Image column for split-image-right hero. Falls back to a sophisticated
   // dark gradient + diagonal hatch + accent rail when no image is supplied.
+  // Image treatment matches the BlockBusinessCaseSplit hero: luminosity blend
+  // + 80% opacity desaturates the photo to a tonal grey, an overlay tint
+  // pulls it toward brand-dark, and a left-edge gradient fades the image
+  // into the dark text column so the split feels like one continuous spread
+  // instead of two stitched-together panels.
   const renderHeroImageCol = () => (
-    <div className="group relative w-full h-full min-h-[420px] lg:min-h-[760px] overflow-hidden">
+    <div className="group relative w-full h-full min-h-[360px] lg:min-h-[620px] overflow-hidden">
       {props.heroImageUrl ? (
         <>
           <img
             src={props.heroImageUrl}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04]"
+            className="absolute inset-0 w-full h-full object-cover mix-blend-luminosity opacity-80 transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04]"
             style={{ objectPosition: heroFocus }}
             loading="lazy"
           />
+          {/* Brand-dark tint overlay (mix-blend-overlay) deepens shadows
+              toward the brand color without crushing highlights. */}
           <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: `linear-gradient(180deg, ${dark}33 0%, transparent 30%, transparent 60%, ${dark}cc 100%)`,
-            }}
+            className="absolute inset-0 pointer-events-none mix-blend-overlay"
+            style={{ background: `${dark}33` }}
+          />
+          {/* Left-edge gradient fade so the image bleeds into the dark
+              text column on the left. 8rem on lg+ matches the Split hero. */}
+          <div
+            className="absolute inset-y-0 left-0 w-24 lg:w-32 pointer-events-none"
+            style={{ background: `linear-gradient(to right, ${dark}, transparent)` }}
+          />
+          {/* Subtle bottom darken so plate caption + chrome stay legible. */}
+          <div
+            className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none"
+            style={{ background: `linear-gradient(to top, ${dark}99, transparent)` }}
           />
         </>
       ) : (
@@ -369,10 +385,15 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
     >
       {/* 1. Hero */}
       {useSplitHero ? (
+        // Shortened from min-h-[760px] → 640px to match the more compact
+        // proportions of BlockBusinessCaseSplit — the section now reads as
+        // a focused editorial hero rather than a full-viewport stage.
+        // Padding tightened in lockstep (py-32 → py-20) so the text column
+        // stays vertically centered against the shorter image column.
         <section className="relative overflow-hidden" style={{ background: dark, color: bg }}>
           {renderHeaderBar()}
-          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[760px]">
-            <div className="flex items-center px-6 py-24 lg:px-16 lg:py-32 xl:pl-24">
+          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[640px]">
+            <div className="flex items-center px-6 py-20 lg:px-16 lg:py-24 xl:pl-24">
               {renderHeroTextCol("left")}
             </div>
             <div className="relative">{renderHeroImageCol()}</div>
