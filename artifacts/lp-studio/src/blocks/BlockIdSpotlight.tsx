@@ -33,14 +33,13 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
   const steps = props.steps ?? [];
   const activeStep = Math.max(0, Math.min(steps.length - 1, props.activeStep ?? 0));
 
-  // Auto-cycle the stepper + result card in published view (not while
-  // editing). Sequence: step 0 → 1 → … → last, each result fades in
-  // beneath its label; on the final step we hold a beat longer so the
-  // confirmation reads, then the whole card fades out and the loop
-  // restarts from step 0.
+  // Auto-cycle the stepper in published view (not while editing).
+  // Sequence: each step lights up in turn; the result card *only*
+  // appears on the final ("confirmation") step, fades in smoothly,
+  // holds, then fades out before the loop restarts.
   const autoAnimate = !onFieldChange && steps.length > 1;
   const [animIndex, setAnimIndex] = useState(0);
-  const [cardVisible, setCardVisible] = useState(true);
+  const [cardVisible, setCardVisible] = useState(false);
   useEffect(() => {
     if (!autoAnimate) {
       setAnimIndex(activeStep);
@@ -52,24 +51,33 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
-      setAnimIndex(0);
+      setAnimIndex(steps.length - 1);
       setCardVisible(true);
       return;
     }
     const total = steps.length;
-    const stepMs = 2000;
-    const holdLastMs = 1100;
-    const fadeMs = 800;
-    const cycleMs = stepMs * (total - 1) + stepMs + holdLastMs + fadeMs;
+    const stepMs = 1800;
+    const fadeInDelay = 250; // beat after CONFIRMATION lights before card appears
+    const cardHoldMs = 2400; // how long the confirmation reads on-screen
+    const fadeOutMs = 1100; // matches the CSS transition
+    const cycleMs = stepMs * total + fadeInDelay + cardHoldMs + fadeOutMs;
     const timers: number[] = [];
     const run = () => {
-      setCardVisible(true);
+      setCardVisible(false);
       setAnimIndex(0);
       for (let i = 1; i < total; i++) {
         timers.push(window.setTimeout(() => setAnimIndex(i), i * stepMs));
       }
+      // Fade card in shortly after the final step lights up.
       timers.push(
-        window.setTimeout(() => setCardVisible(false), stepMs * (total - 1) + stepMs + holdLastMs),
+        window.setTimeout(() => setCardVisible(true), stepMs * (total - 1) + fadeInDelay),
+      );
+      // Fade card out after it has held.
+      timers.push(
+        window.setTimeout(
+          () => setCardVisible(false),
+          stepMs * (total - 1) + fadeInDelay + cardHoldMs,
+        ),
       );
     };
     run();
@@ -84,7 +92,9 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
   }, [autoAnimate, steps.length, activeStep]);
 
   const effectiveStep = autoAnimate ? animIndex : activeStep;
-  const activeResult = autoAnimate ? results[animIndex] ?? results[0] : null;
+  // Card always shows the *last* result (the "confirmation"), regardless of
+  // which step is currently lit — the other steps are just lead-up.
+  const activeResult = autoAnimate ? results[results.length - 1] ?? results[0] : null;
 
   const setField = <K extends keyof IdSpotlightBlockProps>(key: K, value: IdSpotlightBlockProps[K]) => {
     if (!onFieldChange) return;
@@ -187,6 +197,7 @@ export function BlockIdSpotlight({ props, onFieldChange }: Props) {
               className={`id-spotlight-card${autoAnimate && !cardVisible ? " id-sp-card-hidden" : ""}`}
               role="group"
               aria-label="AI scan results"
+              aria-hidden={autoAnimate && !cardVisible}
             >
               {(cardTitle || onFieldChange) && (
                 <div className="id-sp-card-title">
