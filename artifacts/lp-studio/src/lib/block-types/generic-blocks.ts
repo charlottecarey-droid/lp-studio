@@ -1596,6 +1596,10 @@ export interface IdParallaxShowcaseBlockProps {
   /** Strength of the on-enter parallax zoom, 0..1. Defaults to 0.5.
    *  0 = no zoom, 1 = strong zoom (scale 1.16 → 1). */
   parallaxStrength?: number;
+  /** Cut the section's bottom padding to 0 so the next block (e.g. a
+   *  video showcase on the same dark background) reads as a visual
+   *  continuation rather than a separate section. */
+  flushBottom?: boolean;
 }
 
 export interface IdSpotlightResult {

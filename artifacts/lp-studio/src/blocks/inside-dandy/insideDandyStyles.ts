@@ -336,6 +336,7 @@ const CSS = `
 
 /* PARALLAX SHOWCASE */
 .id-showcase { position:relative; background:var(--id-teal-deep); padding:200px 0 240px; overflow:hidden; }
+.id-showcase.id-showcase--flush-bottom { padding-bottom:0; }
 .id-showcase .id-head { max-width:1280px; margin:0 auto 120px; padding:0 40px; display:grid; grid-template-columns:1fr 1.4fr; gap:80px; align-items:end; }
 .id-showcase .id-head .id-eyebrow { margin-bottom:24px; }
 .id-showcase .id-head h2 { font-size:clamp(40px,5vw,76px); line-height:1.05; letter-spacing:-0.018em; color:#fff; margin:0; }

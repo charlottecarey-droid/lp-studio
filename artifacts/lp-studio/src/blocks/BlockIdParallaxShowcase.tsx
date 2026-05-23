@@ -60,7 +60,7 @@ export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
 
   return (
     <section
-      className="id-block id-showcase"
+      className={`id-block id-showcase${props.flushBottom ? " id-showcase--flush-bottom" : ""}`}
       style={{ ["--id-parallax-start" as never]: String(startScale) }}
     >
       <div className="id-head">

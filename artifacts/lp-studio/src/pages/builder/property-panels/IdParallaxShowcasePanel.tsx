@@ -62,6 +62,22 @@ export function IdParallaxShowcasePanel({ props, onChange }: Props) {
           Controls how much each frame zooms as it scrolls into view.
           0% = no zoom, 100% = strong zoom-out reveal.
         </p>
+        <label className="flex items-start gap-2 pt-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!props.flushBottom}
+            onChange={(e) => u({ flushBottom: e.target.checked })}
+            className="mt-0.5"
+          />
+          <span className="text-[11px] leading-snug">
+            <span className="font-medium">Flush bottom</span>
+            <span className="block text-[10px] text-muted-foreground">
+              Removes bottom padding so the next block (e.g. a video
+              showcase on the same dark background) flows in
+              seamlessly.
+            </span>
+          </span>
+        </label>
       </div>
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Frames (3 max)</div>
       {frames.map((fr, i) => {
