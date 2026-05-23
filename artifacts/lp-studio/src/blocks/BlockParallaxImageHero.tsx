@@ -101,12 +101,26 @@ export function BlockParallaxImageHero({
       raf = 0;
       const rect = sec.getBoundingClientRect();
       const vh = window.innerHeight || 1;
-      // Distance from top of section to top of viewport (positive when scrolled past)
-      const offset = -rect.top;
       // Only animate while section is in/near viewport
       if (rect.bottom < -200 || rect.top > vh + 200) return;
-      const translate = offset * parallaxStrength;
-      img.style.transform = `translate3d(0, ${translate}px, 0) scale(${1 + parallaxStrength * 0.5})`;
+      // Centre-relative scroll progress: 0 when the section's centre is
+      // at the viewport centre, negative as the section moves up past
+      // it, positive while it's still below. Anchoring to the centre
+      // gives a symmetric +/- translation range that fits inside our
+      // fixed 30% overscan regardless of which direction you scroll.
+      const sectionCentre = rect.top + rect.height / 2;
+      const viewportCentre = vh / 2;
+      const offset = viewportCentre - sectionCentre;
+      // Max translation = 22% of section height — safely inside the
+      // 30% inset buffer so the image edge never peeks through.
+      const maxTravel = rect.height * 0.22;
+      // Travel scales linearly with strength. At strength 1.0 the image
+      // hits maxTravel by the time the section reaches the viewport edge;
+      // at 0.35 (default) it covers ~35% of that range — clearly visible
+      // motion without being gimmicky.
+      const raw = offset * parallaxStrength;
+      const translate = Math.max(-maxTravel, Math.min(maxTravel, raw));
+      img.style.transform = `translate3d(0, ${translate}px, 0)`;
     };
     const onScroll = () => {
       if (raf) return;
@@ -143,18 +157,22 @@ export function BlockParallaxImageHero({
         color: textColor,
       }}
     >
-      {/* Parallax media layer (oversized to allow translation without exposing edges) */}
+      {/* Parallax media layer. Fixed 30% overscan top + bottom (so the
+          image div is ~160% of section height) — independent of strength.
+          The translate3d in the scroll handler is clamped to ±22% of the
+          section so the edge never exposes. Previously the inset + scale
+          were tied to parallaxStrength, which meant cranking the slider
+          mostly just enlarged the image instead of giving more motion. */}
       <div
         ref={imageRef}
-        className="absolute inset-0 will-change-transform overflow-hidden"
+        className="absolute inset-x-0 will-change-transform overflow-hidden"
         style={{
           backgroundImage: !props.videoUrl && props.imageUrl ? `url("${props.imageUrl}")` : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          transform: `scale(${1 + parallaxStrength * 0.5})`,
-          top: `-${parallaxStrength * 50}%`,
-          bottom: `-${parallaxStrength * 50}%`,
+          top: "-30%",
+          bottom: "-30%",
         }}
       >
         {props.videoUrl && (
@@ -293,21 +311,30 @@ export function BlockParallaxImageHero({
           </div>
         </div>
 
-        {/* Bottom row: CTA (left) + brand mark (right) */}
+        {/* Bottom row: CTA (left) + brand mark (right).
+            CTA hides entirely in viewer mode when ctaText is blank — that's
+            the user's "off switch" for the link/arrow. In editor mode it
+            always renders (with a placeholder) so the field is still
+            reachable to add text back later. */}
         <div className="flex items-end justify-between gap-4 px-6 sm:px-10 lg:px-16 pb-6 sm:pb-8 lg:pb-10">
-          <a
-            href={props.ctaUrl || "#"}
-            onClick={handleCtaClick}
-            className="group inline-flex items-center gap-2 text-sm sm:text-base border-b border-white/70 pb-1 hover:border-white transition-colors"
-            style={{ color: textColor }}
-          >
-            <InlineText
-              as="span"
-              value={props.ctaText ?? ""}
-              onUpdate={f("ctaText")}
-            style={{ fontFamily: BODY }}/>
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </a>
+          {(isEditor || (props.ctaText ?? "").trim().length > 0) ? (
+            <a
+              href={props.ctaUrl || "#"}
+              onClick={handleCtaClick}
+              className="group inline-flex items-center gap-2 text-sm sm:text-base border-b border-white/70 pb-1 hover:border-white transition-colors"
+              style={{ color: textColor }}
+            >
+              <InlineText
+                as="span"
+                value={props.ctaText ?? ""}
+                onUpdate={f("ctaText")}
+              style={{ fontFamily: BODY }}/>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </a>
+          ) : (
+            // Empty spacer keeps the brand mark right-aligned via justify-between.
+            <span aria-hidden />
+          )}
 
           <div className="flex items-center gap-2 text-2xl sm:text-3xl lg:text-4xl">
             {props.brandMarkLogoUrl ? (
