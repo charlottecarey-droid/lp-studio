@@ -1043,57 +1043,9 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           <span className="st-anim-rec" style={{ width: 6, height: 6, borderRadius: "50%", background: MINT, boxShadow: `0 0 8px ${MINT}`, animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite", fontFamily: BODY }} />
           2160P · 60FPS · LOOP
         </div>
-      ) : (
-        <div
-          style={{
-            position: "absolute",
-            right: 56,
-            bottom: 40,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            // Was 0.85 — the indicator was nearly invisible against
-            // the dark hero. Full opacity plus the animated chevron
-            // below makes the scroll affordance read at a glance.
-            gap: 12,
-            opacity: 1,
-            zIndex: 2,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              letterSpacing: "0.24em",
-              textTransform: "uppercase",
-              color: MINT,
-              fontWeight: 600,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-              textShadow: "0 1px 8px rgba(0,0,0,0.55)",
-            }}
-          >
-            {p.heroScrollLabel} <span style={{ fontFamily: BODY }}>↓</span>
-          </div>
-          <div style={{ width: 1, height: 42, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
-          {/* Subtle pulsing chevron below the stem so the affordance
-              actually animates — static scroll labels get ignored. */}
-          <span
-            className="st-anim-scroll-chev"
-            aria-hidden
-            style={{
-              color: MINT,
-              fontSize: 14,
-              lineHeight: 1,
-              fontFamily: BODY,
-              marginTop: -6,
-              animation: reducedMotion ? "none" : "st-rec-blink 1.8s ease-in-out infinite",
-            }}
-          >
-            ↓
-          </span>
-        </div>
-      )}
+      ) : null}
+      {/* Scroll affordance removed — user feedback: barely noticeable
+          against the dark hero and not worth the visual weight. */}
     </div>
   );
 }
