@@ -492,6 +492,23 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
               </Field>
             )}
             {variant === "premium" && (
+              <Field label="Image zoom">
+                <Select
+                  value={premiumProps.heroImageZoom ?? "fill"}
+                  onValueChange={(v) => set("heroImageZoom" as keyof P, v as P[keyof P])}
+                >
+                  <SelectTrigger className="text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fill">Fill column (close crop)</SelectItem>
+                    <SelectItem value="fit-wide">Zoomed out (small frame)</SelectItem>
+                    <SelectItem value="fit">Show full image (no crop)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+            {variant === "premium" && (
               <>
                 <Field label="Hero image caption (overlay on image)">
                   <Input value={premiumProps.heroImageCaption ?? ""} onChange={(e) => set("heroImageCaption" as keyof P, e.target.value as P[keyof P])} className="text-xs h-8" />

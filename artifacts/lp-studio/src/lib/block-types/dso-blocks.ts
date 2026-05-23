@@ -1600,6 +1600,15 @@ export interface BusinessCasePremiumBlockProps extends BusinessCaseCommonProps {
    *  "color" leaves the photo in its natural colors with only the
    *  bottom-darken + left-edge fade for legibility. */
   heroImageTone?: "greyscale" | "color";
+  /** How tightly the hero photo is cropped to fill its column.
+   *  "fill" (default) uses object-cover — the image fills the column edge
+   *  to edge and may crop heavily (current behavior).
+   *  "fit-wide" uses object-cover but scales the image down ~85% inside
+   *  the column so more of the subject is visible, with the brand-dark
+   *  background filling the surrounding band.
+   *  "fit" uses object-contain — the entire image is visible, never
+   *  cropped, with the brand-dark background filling any letterboxing. */
+  heroImageZoom?: "fill" | "fit-wide" | "fit";
   /** Optional editorial image rendered inside the Situation section under
    *  the lede paragraph. */
   situationImageUrl?: string;

@@ -3697,6 +3697,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heroImageUrl: "",
       heroImageFocus: "center",
       heroImageTone: "greyscale",
+      heroImageZoom: "fill",
       heroImageCaption: "Field study · 8 active practices · 30+ inbound requests",
       situationImageUrl: "",
       proofImageUrl: "",

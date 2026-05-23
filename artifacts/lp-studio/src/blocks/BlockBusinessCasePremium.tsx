@@ -256,18 +256,34 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   // "color" keeps the photo in its natural colors and only applies the
   // bottom-darken + left-edge fade for legibility/blend.
   const isColor = (props.heroImageTone ?? "greyscale") === "color";
+  // Zoom control: drives object-fit + an inset on the image element so
+  // we can effectively "zoom out" from the default cover crop. The dark
+  // column background shows through any letterboxing/inset, which reads
+  // as an intentional editorial frame.
+  const heroZoom = props.heroImageZoom ?? "fill";
+  const heroObjectFit: "cover" | "contain" = heroZoom === "fit" ? "contain" : "cover";
+  // fit-wide insets the image inside the column so cover crops less of it.
+  const heroInsetClass = heroZoom === "fit-wide" ? "inset-[6%]" : "inset-0";
   const renderHeroImageCol = () => (
-    <div className="group relative w-full h-full min-h-[360px] lg:min-h-[620px] overflow-hidden">
+    <div
+      className="group relative w-full h-full min-h-[360px] lg:min-h-[620px] overflow-hidden"
+      style={heroZoom !== "fill" ? { background: dark } : undefined}
+    >
       {props.heroImageUrl ? (
         <>
           <img
             src={props.heroImageUrl}
             alt=""
             className={
-              "absolute inset-0 w-full h-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] " +
+              `absolute ${heroInsetClass} w-auto h-auto max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] ` +
               (isColor ? "" : "mix-blend-luminosity opacity-80")
             }
-            style={{ objectPosition: heroFocus }}
+            style={{
+              objectFit: heroObjectFit,
+              objectPosition: heroFocus,
+              width: heroZoom === "fit-wide" ? "88%" : "100%",
+              height: heroZoom === "fit-wide" ? "88%" : "100%",
+            }}
             loading="lazy"
           />
           {/* Brand-dark tint overlay only in greyscale mode — would mute
