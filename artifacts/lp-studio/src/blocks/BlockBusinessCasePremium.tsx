@@ -394,9 +394,13 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.25 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  whileHover={{ y: -4 }}
-                  className="bg-white p-8 border border-gray-200 flex flex-col justify-between transition-shadow duration-300 hover:shadow-lg hover:border-gray-300"
+                  className="group relative bg-white p-8 border border-gray-200 flex flex-col justify-between transition-colors duration-300 hover:border-gray-300 overflow-hidden"
                 >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-0 left-0 h-[2px] w-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{ background: accent }}
+                  />
                   <div>
                     <Icon className="w-6 h-6 mb-4" style={{ color: accent }} />
                     <div
@@ -462,9 +466,13 @@ export function BlockBusinessCasePremium({ props }: Props) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  whileHover={{ y: -4 }}
-                  className="border border-white/20 p-8 bg-white/5 relative transition-colors duration-300 hover:bg-white/[0.08] hover:border-white/30"
+                  className="group border border-white/20 p-8 bg-white/5 relative transition-colors duration-300 hover:bg-white/[0.08] hover:border-white/30 overflow-hidden"
                 >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-0 left-0 h-[2px] w-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{ background: accent }}
+                  />
                   <Quote
                     className="w-8 h-8 absolute top-6 left-6"
                     style={{ color: `${accent}4d` }}
@@ -491,9 +499,13 @@ export function BlockBusinessCasePremium({ props }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                whileHover={{ y: -4 }}
-                className="border border-white/20 p-8 transition-colors duration-300 hover:bg-white/[0.05] hover:border-white/30"
+                className="group border border-white/20 p-8 relative transition-colors duration-300 hover:bg-white/[0.05] hover:border-white/30 overflow-hidden"
               >
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute bottom-0 left-0 h-[2px] w-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  style={{ background: accent }}
+                />
                 {card.stat && (
                   <div
                     className="text-4xl mb-4"
