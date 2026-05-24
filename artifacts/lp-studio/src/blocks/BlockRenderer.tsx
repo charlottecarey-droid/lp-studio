@@ -113,6 +113,7 @@ import { BlockIdMarquee } from "./BlockIdMarquee";
 import { BlockIdIntro } from "./BlockIdIntro";
 import { BlockIdCinemaPillars } from "./BlockIdCinemaPillars";
 import { BlockIdParallaxShowcase } from "./BlockIdParallaxShowcase";
+import { BlockIdSystemFlow } from "./BlockIdSystemFlow";
 import { BlockIdStats } from "./BlockIdStats";
 import { BlockIdInvitation } from "./BlockIdInvitation";
 import { BlockIdGrid } from "./BlockIdGrid";
@@ -942,6 +943,8 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockIdCinemaPillars props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-parallax-showcase":
         return <BlockIdParallaxShowcase props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "id-system-flow":
+        return <BlockIdSystemFlow props={block.props} />;
       case "id-stats":
         return <BlockIdStats props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "id-invitation":

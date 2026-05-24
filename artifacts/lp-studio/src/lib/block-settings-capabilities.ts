@@ -139,6 +139,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "id-cinema-pillars": SELF_STYLED,
   "id-spotlight": SELF_STYLED,
   "id-parallax-showcase": SELF_STYLED,
+  "id-system-flow": SELF_STYLED,
   "id-stats": SELF_STYLED,
   "id-invitation": SELF_STYLED,
   "id-grid": SELF_STYLED,

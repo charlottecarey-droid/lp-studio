@@ -58,6 +58,7 @@ import type {
   IdIntroBlockProps,
   IdCinemaPillarsBlockProps,
   IdParallaxShowcaseBlockProps,
+  IdSystemFlowBlockProps,
   IdStatsBlockProps,
   IdInvitationBlockProps,
   IdGridBlockProps,
@@ -246,6 +247,7 @@ export type BlockVariant =
   | { type: "id-intro"; props: IdIntroBlockProps }
   | { type: "id-cinema-pillars"; props: IdCinemaPillarsBlockProps }
   | { type: "id-parallax-showcase"; props: IdParallaxShowcaseBlockProps }
+  | { type: "id-system-flow"; props: IdSystemFlowBlockProps }
   | { type: "id-stats"; props: IdStatsBlockProps }
   | { type: "id-invitation"; props: IdInvitationBlockProps }
   | { type: "id-grid"; props: IdGridBlockProps }

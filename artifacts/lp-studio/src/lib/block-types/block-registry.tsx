@@ -60,6 +60,7 @@ import type {
   IdIntroBlockProps,
   IdCinemaPillarsBlockProps,
   IdParallaxShowcaseBlockProps,
+  IdSystemFlowBlockProps,
   IdStatsBlockProps,
   IdInvitationBlockProps,
   IdGridBlockProps,
@@ -4269,6 +4270,42 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "id-system-flow" as const,
+    label: "Inside Dandy · System Flow",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdSystemFlowBlockProps => ({
+      eyebrow: "SECTION 01 · THE SYSTEM",
+      headline: "One connected system. <em>Powered by AI.</em>",
+      metricLabel: "STATIONS",
+      metricValue: "5 · <em>end to end</em>",
+      activeIndex: 2,
+      stations: [
+        { timestamp: "00:00", label: "Scan", tag: "CAPTURE", category: "CHAIRSIDE", title: "AI <em>Scan</em>", description: "Better inputs, fewer remakes." },
+        { timestamp: "00:24", label: "Design", tag: "AI STUDIO", category: "STUDIO", title: "AI <em>Design</em>", description: "Clinical consistency, every case." },
+        { timestamp: "02:46", label: "Mill", tag: "ROBOTICS", category: "FLOOR", title: "Precision <em>Robotics</em>", description: "Micron precision, at scale.", activeCaseId: "CASE № D-4472 · CROWN #19" },
+        { timestamp: "03:54", label: "QC", tag: "VERIFY", category: "QC LINE", title: "AI <em>QC</em>", description: "Four checkpoints, end to end." },
+        { timestamp: "04:22", label: "Data", tag: "NETWORK", category: "NETWORK", title: "<em>Data</em> & Intelligence", description: "Case-level visibility, one pane." },
+      ],
+      footerBadge: "ONE SYSTEM",
+      footerBody: "Not five products bolted together — <em>one connected line</em>, scan to ship, with AI running through every step.",
+      footerMetricLabel: "MEDIAN TAT",
+      footerMetricValue: "3.2 days",
+      ctaText: "Tour the system",
+      ctaUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <line x1="14" y1="35" x2="106" y2="35" stroke="#C7E738" strokeOpacity="0.35" strokeDasharray="2 2" />
+        {[18, 38, 60, 82, 102].map((x, i) => (
+          <circle key={i} cx={x} cy="35" r="6" fill={i === 2 ? "#C7E738" : "none"} stroke="#C7E738" strokeOpacity={i === 2 ? 1 : 0.5} strokeWidth="1" />
+        ))}
+        <text x="14" y="14" fontSize="6" fill="#fff" fontFamily="monospace" opacity="0.7">SECTION 01</text>
+        <text x="14" y="56" fontSize="6" fill="#C7E738" fontFamily="monospace" opacity="0.7">SCAN · DESIGN · MILL</text>
+      </svg>
+    ),
+  },
+  {
     type: "id-stats" as const,
     label: "Inside Dandy · Stats",
     category: "Showcase" as BlockCategory,
@@ -5248,6 +5285,7 @@ export function createBlock(type: "id-marquee"): Extract<PageBlock, { type: "id-
 export function createBlock(type: "id-intro"): Extract<PageBlock, { type: "id-intro" }>;
 export function createBlock(type: "id-cinema-pillars"): Extract<PageBlock, { type: "id-cinema-pillars" }>;
 export function createBlock(type: "id-parallax-showcase"): Extract<PageBlock, { type: "id-parallax-showcase" }>;
+export function createBlock(type: "id-system-flow"): Extract<PageBlock, { type: "id-system-flow" }>;
 export function createBlock(type: "id-stats"): Extract<PageBlock, { type: "id-stats" }>;
 export function createBlock(type: "id-invitation"): Extract<PageBlock, { type: "id-invitation" }>;
 export function createBlock(type: "id-grid"): Extract<PageBlock, { type: "id-grid" }>;
@@ -5484,6 +5522,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "id-intro": return { id, type: "id-intro", props: props as IdIntroBlockProps };
     case "id-cinema-pillars": return { id, type: "id-cinema-pillars", props: props as IdCinemaPillarsBlockProps };
     case "id-parallax-showcase": return { id, type: "id-parallax-showcase", props: props as IdParallaxShowcaseBlockProps };
+    case "id-system-flow": return { id, type: "id-system-flow", props: props as IdSystemFlowBlockProps };
     case "id-stats": return { id, type: "id-stats", props: props as IdStatsBlockProps };
     case "id-invitation": return { id, type: "id-invitation", props: props as IdInvitationBlockProps };
     case "id-grid": return { id, type: "id-grid", props: props as IdGridBlockProps };

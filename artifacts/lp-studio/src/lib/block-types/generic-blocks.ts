@@ -1607,6 +1607,54 @@ export interface IdParallaxShowcaseBlockProps {
   spatialOverlay?: boolean;
 }
 
+export interface IdSystemFlowStation {
+  /** Timestamp shown above the label, e.g. "00:24". Free text so it can be
+   *  used for cycle counts or step counts too. */
+  timestamp?: string;
+  /** Italic serif step name, e.g. "Design". */
+  label: string;
+  /** Tiny uppercase tag under the label, e.g. "AI STUDIO". */
+  tag?: string;
+  /** Tiny uppercase eyebrow above the bottom block title, e.g. "STUDIO". */
+  category?: string;
+  /** Bottom-block title with optional <em> for the lime accent, e.g.
+   *  "AI <em>Design</em>". */
+  title: string;
+  /** One-line description shown under the bottom-block title. */
+  description?: string;
+  /** Optional case-id chip shown on the rail when this station is active,
+   *  e.g. "CASE № D-4472 · CROWN #19". Only rendered on the active
+   *  station; leave blank to omit. */
+  activeCaseId?: string;
+}
+
+export interface IdSystemFlowBlockProps {
+  /** Top-left eyebrow shown with a citron dot, e.g. "SECTION 01 · THE SYSTEM". */
+  eyebrow?: string;
+  /** Two-line headline. Wrap accent words in <em>…</em> for italic citron. */
+  headline: string;
+  /** Right-side metric label above the value, e.g. "STATIONS". */
+  metricLabel?: string;
+  /** Right-side metric value, e.g. "5 · end to end". <em> supported. */
+  metricValue?: string;
+  /** The stations on the rail. 3–6 read best; the circles auto-number 01–N. */
+  stations: IdSystemFlowStation[];
+  /** Zero-based index of the active station — filled citron + case chip. */
+  activeIndex?: number;
+  /** Footer pill on the bottom-left, e.g. "ONE SYSTEM". */
+  footerBadge?: string;
+  /** Footer paragraph, <em> supported. */
+  footerBody?: string;
+  /** Footer right metric label, e.g. "MEDIAN TAT". */
+  footerMetricLabel?: string;
+  /** Footer right metric value (italic), e.g. "3.2 days". */
+  footerMetricValue?: string;
+  /** Footer CTA text, e.g. "Tour the system". */
+  ctaText?: string;
+  /** Footer CTA href. */
+  ctaUrl?: string;
+}
+
 export interface IdSpotlightResult {
   /** Tone color for the leading dot. One of: alert | warn | ok | info. */
   tone: string;

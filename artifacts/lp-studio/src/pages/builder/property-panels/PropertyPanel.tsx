@@ -82,6 +82,7 @@ import { IdCinemaPillarsPanel } from "./IdCinemaPillarsPanel";
 import { IdSpotlightPanel } from "./IdSpotlightPanel";
 import { IdReservationPassPanel } from "./IdReservationPassPanel";
 import { IdParallaxShowcasePanel } from "./IdParallaxShowcasePanel";
+import { IdSystemFlowPanel } from "./IdSystemFlowPanel";
 import { IdStatsPanel } from "./IdStatsPanel";
 import { IdInvitationPanel } from "./IdInvitationPanel";
 import { IdGridPanel } from "./IdGridPanel";
@@ -5430,6 +5431,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <IdCinemaPillarsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-parallax-showcase":
         return <IdParallaxShowcasePanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "id-system-flow":
+        return <IdSystemFlowPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-stats":
         return <IdStatsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-invitation":

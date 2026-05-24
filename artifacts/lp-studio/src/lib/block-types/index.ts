@@ -116,6 +116,8 @@ export type {
   IdSpotlightStep,
   IdReservationPassBlockProps,
   IdReservationPassMeta,
+  IdSystemFlowBlockProps,
+  IdSystemFlowStation,
   IdCtaAction,
   ContentSeriesEpisode,
   EpisodeStatus,
