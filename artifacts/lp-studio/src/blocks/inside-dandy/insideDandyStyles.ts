@@ -425,6 +425,7 @@ const CSS = `
    accents, Bagoss display type, and hairline dividers as the rest of the
    ID suite. */
 .id-grid { position:relative; background:var(--id-teal-deep); padding:200px 40px 220px; overflow:hidden; }
+.id-grid.id-grid-flush-bottom { padding-bottom:0; }
 .id-grid::before { content:""; position:absolute; left:50%; top:-10%; transform:translateX(-50%); width:120vh; height:120vh; border-radius:50%; background:radial-gradient(circle at 50% 50%,rgba(199,231,56,0.06) 0%,rgba(199,231,56,0) 60%); pointer-events:none; z-index:0; }
 .id-grid .id-inner { position:relative; z-index:1; max-width:1240px; margin:0 auto; }
 .id-grid .id-grid-intro { text-align:center; max-width:820px; margin:0 auto 120px; display:flex; flex-direction:column; align-items:center; gap:32px; }
@@ -449,6 +450,7 @@ const CSS = `
 .id-grid .id-grid-card:hover .id-grid-cta::after { transform:translateX(4px); }
 @media (max-width:780px) {
   .id-grid { padding:120px 24px 140px; }
+  .id-grid.id-grid-flush-bottom { padding-bottom:0; }
   .id-grid .id-grid-intro { margin-bottom:64px; gap:24px; }
   .id-grid .id-grid-cards { grid-template-columns:1fr; border-left:none; border-top:1px solid var(--id-line); }
   .id-grid .id-grid-card { padding:48px 8px 40px; min-height:0; border-right:none; }

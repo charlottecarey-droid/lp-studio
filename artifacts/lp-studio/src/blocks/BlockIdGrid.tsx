@@ -57,7 +57,7 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
   }, [isEditor, revealed]);
 
   return (
-    <section ref={sectionRef} className={`id-block id-grid${revealed ? " id-grid-revealed" : ""}`}>
+    <section ref={sectionRef} className={`id-block id-grid${revealed ? " id-grid-revealed" : ""}${props.flushBottom ? " id-grid-flush-bottom" : ""}`}>
       <div className="id-inner">
         <div className="id-grid-intro">
           {(props.eyebrow || isEditor) && (

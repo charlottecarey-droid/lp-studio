@@ -1,6 +1,7 @@
 import type { IdGridBlockProps, IdGridCard } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
@@ -18,6 +19,16 @@ export function IdGridPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout</div>
+        <div className="flex items-center justify-between gap-3 rounded-md border p-2">
+          <div className="space-y-0.5">
+            <Label className="text-xs">Flush with next block</Label>
+            <p className="text-[11px] text-muted-foreground leading-snug">Remove bottom padding so the next block sits flush.</p>
+          </div>
+          <Switch checked={!!props.flushBottom} onCheckedChange={(v) => u({ flushBottom: v })} />
+        </div>
+      </div>
       <div className="space-y-2">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Centered intro</div>
         <Input placeholder="Eyebrow" value={props.eyebrow ?? ""} onChange={(e) => u({ eyebrow: e.target.value })} className="h-8 text-xs" />

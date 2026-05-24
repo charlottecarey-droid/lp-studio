@@ -1848,6 +1848,9 @@ export interface IdGridBlockProps {
   subheading?: string;
   /** Exactly four cards rendered in a 2x2 grid (numbered 01–04). */
   cards: IdGridCard[];
+  /** When true, removes the block's bottom padding so the next block sits
+   *  flush against the grid's bottom border. Defaults to false. */
+  flushBottom?: boolean;
 }
 
 export interface IdInvitationBlockProps extends CtaModalConfig {
