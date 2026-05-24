@@ -35,6 +35,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   NoSuchKey,
   NotFound,
 } from "@aws-sdk/client-s3";
@@ -197,6 +198,57 @@ export async function publishedHtmlExistsInR2(
     }
     throw err;
   }
+}
+
+/**
+ * List object keys in the bucket. Used by debugging / inventory tools
+ * (scripts/list-r2-objects.ts) and by future reconciliation jobs
+ * (e.g. orphan-host cleanup). Handles pagination automatically — CF R2
+ * caps ListObjectsV2 at 1000 keys per call.
+ *
+ * `prefix` is optional and is matched server-side. To list everything
+ * under a specific host, pass `${encodeURIComponent(host)}/`.
+ *
+ * Returns the raw stored keys (already URL-encoded). Use
+ * `decodeURIComponent` on each segment to recover the human-readable
+ * host/slug pair.
+ *
+ * Returns null when R2 isn't configured so the caller can warn cleanly
+ * instead of crashing on a missing-secret development setup.
+ */
+export async function listR2Objects(
+  prefix?: string,
+): Promise<{ key: string; size: number; lastModified: Date | null }[] | null> {
+  const cfg = getR2Config();
+  if (!cfg) return null;
+  const out: { key: string; size: number; lastModified: Date | null }[] = [];
+  let continuationToken: string | undefined;
+  // Hard page-count cap as a safety net: 100 pages × 1000 = 100k keys.
+  // The bucket is expected to hold ~ (#published pages) × (#hosts per
+  // tenant); blowing past this means something is very wrong (orphan
+  // accumulation, accidental write loop) and we'd rather fail fast.
+  for (let page = 0; page < 100; page++) {
+    const res = await cfg.client.send(
+      new ListObjectsV2Command({
+        Bucket: cfg.bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    for (const obj of res.Contents ?? []) {
+      if (!obj.Key) continue;
+      out.push({
+        key: obj.Key,
+        size: obj.Size ?? 0,
+        lastModified: obj.LastModified ?? null,
+      });
+    }
+    if (!res.IsTruncated) return out;
+    continuationToken = res.NextContinuationToken;
+  }
+  throw new Error(
+    `listR2Objects: hit 100-page safety cap (>100000 keys). Bucket may need cleanup.`,
+  );
 }
 
 /**
