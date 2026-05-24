@@ -181,6 +181,15 @@ const MARKETING_PATHS = new Set(["/", "/privacy", "/terms"]);
 
 function isMarketingHost(): boolean {
   if (typeof window === "undefined") return false;
+  // Prerender-only escape hatch: scripts/prerender-marketing.mjs sets this
+  // flag via Playwright's addInitScript() before the bundle evaluates, so
+  // the marketing app mounts during build-time snapshotting even though the
+  // headless host (127.0.0.1) is not lpstudio.ai. The flag is NEVER set in
+  // a real browser, so the SaaS/marketing host boundary is preserved at
+  // runtime. Keep this above the env.DEV branch so it works in both modes.
+  if ((window as unknown as { __LP_STUDIO_PRERENDER__?: boolean }).__LP_STUDIO_PRERENDER__) {
+    return true;
+  }
   if (import.meta.env.DEV) {
     try {
       const params = new URLSearchParams(window.location.search);

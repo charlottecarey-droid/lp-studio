@@ -1,7 +1,14 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function Terms() {
+  usePageMeta({
+    title: "Terms of Service — LP Studio",
+    description:
+      "The terms that govern your use of LP Studio, including account responsibilities, acceptable use, billing, and limitations of liability.",
+    canonical: "https://lpstudio.ai/terms",
+  });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>
       <Navbar />

@@ -1,7 +1,14 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function Privacy() {
+  usePageMeta({
+    title: "Privacy Policy — LP Studio",
+    description:
+      "How LP Studio collects, uses, and protects your data, including Google user data handled under Google's Limited Use requirements.",
+    canonical: "https://lpstudio.ai/privacy",
+  });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>
       <Navbar />
