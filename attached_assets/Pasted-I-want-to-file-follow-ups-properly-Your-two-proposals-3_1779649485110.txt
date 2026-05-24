@@ -1,0 +1,35 @@
+I want to file follow-ups properly. Your two proposals (#371 Lighthouse, #372 block coverage) cover a sliver of what this work actually surfaced. Below is the complete list, including framing fixes on yours.
+Two things to do first
+
+Rewrite #371 and #372 per the framing notes below.
+File all of these — grouped as I've structured them, not as 12 separate tickets — and link them all from the #364 PR description.
+
+
+Framing fixes on your two
+#372 as currently written: says "the QA bar was a curated subset" — that's not accurate. The QA bar was synthetic fixtures, because prerenderLpPage hangs in dev. No real blocks were rendered end-to-end in this session. Rewrite to reflect that. Also strike "Playwright-based snapshot pipeline" — that's not what shipped; we explicitly rejected snapshot-the-running-SPA earlier.
+#371 as currently written: says "Task #364 set Lighthouse SEO ≥ 90 as the success bar." First I'm hearing of that target. Where did it come from? If from a product/SEO requirement doc, point me at it. If inferred, flag it in the ticket so whoever owns SEO at Dandy can confirm before we automate against it. Also: don't fail CI on a single Lighthouse run — scores fluctuate 5-10 points run-to-run. Alert on sustained regression across multiple runs instead.
+
+Full follow-up list, grouped into 5 tickets
+Ticket 1 (BLOCKING production deploy): meetdandy.com zone + production routing
+Where does the meetdandy.com zone live today? How does the existing prod og-bot-router receive traffic from lp.meetdandy.com and partners.meetdandy.com? Is dandy-lp-prerendered (R2 bucket) in the same CF account as wherever the prod worker is deployed? R2 bindings can't cross accounts. The current deploy attempt to --env production failed because the zone isn't in the lpstudio.ai CF account. Answer required before any prod deploy of the new worker.
+Ticket 2: lp_pages.tenant_id schema drift
+Pre-existing bug, affects routes beyond #364. Drizzle schema declares tenant_id; dev DB has only account_id. Several existing routes already query tenant_id (sales/campaigns.ts, sales/web-one-pager.ts, plus #364's rendered.ts). Need to determine: (a) does prod DB have tenant_id while dev is stale, (b) is Drizzle silently aliasing tenantId to account_id, or (c) are existing routes silently broken in prod? Verify before this drift causes a real production incident.
+Ticket 3: Operationalize the prerender pipeline (consolidated)
+Checklist:
+
+Configure Sentry alert rule on prerender_r2_write_failed tag → route to on-call channel. The consistency model's "logged loudly" assumption only holds if someone is alerted.
+Apply 2500ms tier-2 timeout (signal: AbortSignal.timeout(2500)) to existing prod og-bot-router worker (commit 3a143fb6) for parity with new worker. Low severity (current code path only fires on bot UAs) but should match.
+Smoke-test the reconciliation admin endpoint POST /api/admin/lp/reconcile-prerender once after first prod publishes. Confirm it walks lp_pages WHERE status='published', detects R2 misses, and re-renders.
+Social preview validation: after prod deploy, run a real published page through LinkedIn Post Inspector, Meta Sharing Debugger, Slack unfurl. Confirm OG image dimensions are 1200×630, og:url is absolute HTTPS, twitter:card is set correctly. This was one of #364's original goals; verify it works in the wild.
+Optional: daily Slack digest of [RECONCILE_NEEDED] event counts if Sentry alone is too noisy or too quiet a channel for ops. Decide after a week of Sentry data.
+
+Ticket 4: Validate end-to-end against real data (depends on prerender-hang fix)
+prerenderLpPage hangs at 30s on page.waitForFunction in the Replit dev workspace. Means the full publish → render → per-host R2 write loop has never been exercised end-to-end against real lp-studio blocks in any environment in this session. Subtasks:
+
+4a (blocker for 4b, 4c): Fix or characterize the dev-environment prerender hang. Likely candidates: review token handling on the preview route, x-lp-prerender header triggering a hanging code path, or Replit-specific Vite proxy + headless Chromium interaction. Either fix it or document why it doesn't apply to staging/prod.
+4b (rewrite of #372): Verify every published-page block type renders correctly through prerender. Audit which block types are used on published pages, render each through prerenderLpPage, confirm visual + functional correctness (forms submit, ROI sliders work, spatial tour interactions hydrate). Patch any blocks with SSR-unsafe code (window/document access in render body).
+4c: First production publish is the integration test for the full write-loop flow. Watch api-server logs carefully on the first 5-10 real publishes — confirm N R2 PUTs for an N-host tenant, no [RECONCILE_NEEDED] events, no unexpected fallback to single-host fallback path.
+4d (rewrite of #371): Automated Lighthouse SEO check for published pages. Verify the ≥90 target is a real product requirement before automating against it. Alert on sustained regressions, don't hard-fail CI on single runs.
+
+Ticket 5: Document the consistency model
+The "R2-first, OS-only-on-R2-success, DB-is-truth, OS-never-newer-than-R2" framing is in the PR description but should also live somewhere durable in the repo. Options: a docs/landing-pages-prerender.md file, or a top-of-file comment block in triggerPublishedRender.ts. The next person modifying this code needs to find the reasoning, not re-derive it.
