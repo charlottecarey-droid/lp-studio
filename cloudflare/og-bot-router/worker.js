@@ -40,8 +40,18 @@
  *   npx wrangler deploy
  *
  * Bindings required (see wrangler.toml):
- *   PRERENDERED_LP  R2 bucket binding → `dandy-lp-prerendered`
- *   API_ORIGIN      vars entry → e.g. "https://ent.meetdandy.com"
+ *   PRERENDERED_LP        R2 bucket binding → `dandy-lp-prerendered`
+ *   API_ORIGIN            vars entry → e.g. "https://ent.meetdandy.com"
+ *   HOST_OVERRIDE_ENABLED (STAGING ONLY) when set to "1", the worker
+ *                         honors X-LP-Host or ?__host= to override the
+ *                         R2 lookup host. Used for the workers.dev
+ *                         staging gate where the request Host header
+ *                         is the workers.dev URL, not a tenant host.
+ *                         The production env block in wrangler.toml
+ *                         does NOT set this var — header/query param
+ *                         are silently ignored in production, so they
+ *                         can't be spoofed even if an attacker sends
+ *                         them.
  */
 
 // Root-level path segments that are known SPA app routes / static assets
@@ -124,6 +134,22 @@ async function fromApiServer(env, request, slug) {
   }
 }
 
+/**
+ * Resolve the host used for R2 key lookup. Normally `url.hostname`,
+ * but on staging (HOST_OVERRIDE_ENABLED === "1") we accept an override
+ * via `X-LP-Host` header or `?__host=` query param so the gate script
+ * can exercise per-host keys from the workers.dev URL. In production
+ * the env var is absent, so the override is silently ignored.
+ */
+function resolveLookupHost(url, request, env) {
+  if (env.HOST_OVERRIDE_ENABLED !== "1") return url.hostname;
+  const headerOverride = request.headers.get("x-lp-host");
+  if (headerOverride && headerOverride.trim()) return headerOverride.trim();
+  const queryOverride = url.searchParams.get("__host");
+  if (queryOverride && queryOverride.trim()) return queryOverride.trim();
+  return url.hostname;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -136,10 +162,12 @@ export default {
       return fetch(request);
     }
 
-    // Tier 1 — R2 binding. Keyed by request host directly.
+    const lookupHost = resolveLookupHost(url, request, env);
+
+    // Tier 1 — R2 binding. Keyed by lookup host directly.
     // If api-server is down right now, this still works — we make NO
     // upstream call in this tier.
-    const r2 = await fromR2(env, url.hostname, slug);
+    const r2 = await fromR2(env, lookupHost, slug);
     if (r2) return r2;
 
     // Tier 2 — api-server. CF edge cache + SWR + stale-if-error handle

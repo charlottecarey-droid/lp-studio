@@ -14,11 +14,14 @@ workers_dev = true
 binding     = "PRERENDERED_LP"
 bucket_name = "dandy-lp-prerendered"
 
-# api-server origin. Retained for any future tier-2 use; the current
-# worker read path does NOT call api-server (per-host R2 keys make the
-# lookup unnecessary). Overridable per environment.
+# api-server origin (used by tier-2 fallback in worker.js).
+# HOST_OVERRIDE_ENABLED enables X-LP-Host / ?__host= override for the
+# staging gate (worker.js#resolveLookupHost). Intentionally absent
+# from [env.production.vars] so production silently ignores the
+# override even if an attacker sends the header.
 [vars]
 API_ORIGIN = "https://ent.meetdandy.com"
+HOST_OVERRIDE_ENABLED = "1"
 
 # ---------------------------------------------------------------------
 # Production environment. Deploy with: `npx wrangler deploy --env production`.
