@@ -27,6 +27,38 @@ export function IdSystemFlowPanel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <SectionHeader>Spacing</SectionHeader>
+      <div className="grid grid-cols-3 gap-2">
+        <Field label="Top (px)">
+          <Input
+            type="number"
+            className="h-8 text-xs"
+            value={p.paddingTop ?? ""}
+            placeholder="auto"
+            onChange={(e) => set("paddingTop", e.target.value === "" ? undefined : Number(e.target.value))}
+          />
+        </Field>
+        <Field label="Bottom (px)">
+          <Input
+            type="number"
+            className="h-8 text-xs"
+            value={p.paddingBottom ?? ""}
+            placeholder="auto"
+            onChange={(e) => set("paddingBottom", e.target.value === "" ? undefined : Number(e.target.value))}
+          />
+        </Field>
+        <Field label="Sides (px)">
+          <Input
+            type="number"
+            className="h-8 text-xs"
+            value={p.paddingX ?? ""}
+            placeholder="auto"
+            onChange={(e) => set("paddingX", e.target.value === "" ? undefined : Number(e.target.value))}
+          />
+        </Field>
+      </div>
+      <p className="text-[10px] text-muted-foreground -mt-2">Leave blank to use the responsive defaults (~96–140px vertical, 24–56px horizontal).</p>
+
       <SectionHeader>Header</SectionHeader>
       <Field label="Eyebrow">
         <Input className="h-8 text-xs" value={p.eyebrow ?? ""} onChange={(e) => set("eyebrow", e.target.value)} placeholder="SECTION 01 · THE SYSTEM" />

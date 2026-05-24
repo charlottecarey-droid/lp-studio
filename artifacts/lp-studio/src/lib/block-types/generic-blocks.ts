@@ -1722,6 +1722,13 @@ export interface IdSystemFlowBlockProps {
   ctaText?: string;
   /** Footer CTA href. */
   ctaUrl?: string;
+  /** Top padding in px. Overrides the responsive default (~96–140px). */
+  paddingTop?: number;
+  /** Bottom padding in px. Overrides the responsive default (~96–140px). */
+  paddingBottom?: number;
+  /** Horizontal (left & right) padding in px. Overrides the responsive
+   *  default (~24–56px). */
+  paddingX?: number;
 }
 
 export interface IdSpotlightResult {

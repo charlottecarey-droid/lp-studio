@@ -29,7 +29,10 @@ export function BlockIdSystemFlow({ props }: Props) {
       style={{
         background: TEAL,
         color: "#fff",
-        padding: "clamp(96px, 10vw, 140px) clamp(24px, 4vw, 56px)",
+        paddingTop: props.paddingTop != null ? `${props.paddingTop}px` : "clamp(96px, 10vw, 140px)",
+        paddingBottom: props.paddingBottom != null ? `${props.paddingBottom}px` : "clamp(96px, 10vw, 140px)",
+        paddingLeft: props.paddingX != null ? `${props.paddingX}px` : "clamp(24px, 4vw, 56px)",
+        paddingRight: props.paddingX != null ? `${props.paddingX}px` : "clamp(24px, 4vw, 56px)",
         fontFamily: HEAD,
         fontWeight: 350,
         position: "relative",
