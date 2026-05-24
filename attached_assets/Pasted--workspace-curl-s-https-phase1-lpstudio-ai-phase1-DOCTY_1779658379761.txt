@@ -1,0 +1,47 @@
+/workspace$ curl -s https://phase1.lpstudio.ai/phase1 
+<!DOCTYPE html>
+<html lang="en" data-prerendered="1" style=""><head>
+    <!-- Defensive stub for `window.webkit.messageHandlers`. iOS Safari
+         (and the Facebook / Instagram in-app browsers in particular) does
+         NOT define `window.webkit` outside of a WKWebView bridge, but
+         several third-party tags we load via GTM / Marketo probe it
+         without a guard (e.g. `window.webkit.messageHandlers.foo`),
+         which throws `TypeError: undefined is not an object` and
+         bubbles to Sentry. Defining a harmless empty stub at the top
+         of <head> — before ANY other script runs — lets the probe read
+         `undefined` instead of throwing, eliminating the error class
+         entirely. Safe to set on real WKWebViews too: native bridges
+         set `window.webkit` BEFORE any page script runs, so our `if`
+         guard leaves real bridges untouched. -->
+    <script>
+      if (typeof window.webkit === 'undefined') {
+        window.webkit = { messageHandlers: {} };
+      } else if (!window.webkit.messageHandlers) {
+        window.webkit.messageHandlers = {};
+      }
+    </script>
+    <!-- RB2B Visitor Identification — partners.meetdandy.com only -->
+    <script>if (location.hostname === 'partners.meetdandy.com') { !function(key) {if (window.reb2b) return;window.reb2b = {loaded: true};var s = document.createElement("script");s.async = true;s.src = "https://ddwl4m2hdecbv.cloudfront.net/b/" + key + "/" + key + ".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s, document.getElementsByTagName("script")[0]);}("5NRP9H7ZVYO1"); }</script>
+    <!-- Google Tag Manager — lp.meetdandy.com only. Intentionally NOT loaded
+         on partners.meetdandy.com (the GTM container ships marketing popups
+         we don't want firing for partner traffic). -->
+    <script>if (location.hostname === 'lp.meetdandy.com') { (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NHJFVSJ'); }</script>
+    <!-- End Google Tag Manager -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <!-- Force browsers to revalidate index.html on every navigation so a fresh
+         deploy's hashed /assets/* filenames are picked up immediately, instead
+         of a stale cached HTML pointing at chunk URLs that no longer exist.
+         Hashed asset files themselves stay long-cached (they're content-hashed). -->
+    <meta http-equiv="cache-control" content="no-store">
+    <meta http-equiv="pragma" content="no-cache">
+    <meta http-equiv="expires" content="0">
+    
+    <link rel="icon" type="image/svg+xml" href="/lpstudio-favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&amp;display=swap" rel="stylesheet">
