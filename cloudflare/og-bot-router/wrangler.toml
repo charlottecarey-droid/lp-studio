@@ -2,13 +2,10 @@ name       = "og-bot-router"
 main       = "worker.js"
 compatibility_date = "2024-01-01"
 
-# Routes: intercept traffic on every meetdandy.com host that serves landing
-# pages. The /* wildcard means all paths reach the worker, but the script
-# itself only intercepts root-slug + /lp/<slug> URLs (see APP_PATH_DENY).
-routes = [
-  { pattern = "lp.meetdandy.com/*",       zone_name = "meetdandy.com" },
-  { pattern = "partners.meetdandy.com/*", zone_name = "meetdandy.com" },
-]
+# Enables the workers.dev URL (og-bot-router.<account>.workers.dev) for
+# staging-gate testing. Default `wrangler deploy` (no --env) publishes
+# here WITHOUT attaching the production meetdandy.com routes.
+workers_dev = true
 
 # R2 bucket containing prerendered landing-page HTML (task #364).
 # Provisioned manually by the user; writes are made by the api-server's
@@ -17,7 +14,31 @@ routes = [
 binding     = "PRERENDERED_LP"
 bucket_name = "dandy-lp-prerendered"
 
-# api-server origin for tier-2 fallback (when R2 misses) and tenant
-# host → tenant ID resolution. Overridable per environment.
+# api-server origin. Retained for any future tier-2 use; the current
+# worker read path does NOT call api-server (per-host R2 keys make the
+# lookup unnecessary). Overridable per environment.
 [vars]
+API_ORIGIN = "https://ent.meetdandy.com"
+
+# ---------------------------------------------------------------------
+# Production environment. Deploy with: `npx wrangler deploy --env production`.
+# Note: named environments in wrangler do NOT inherit top-level
+# [[r2_buckets]] / [vars] — they're duplicated below so production has
+# the same R2 binding and origin var as the default (staging) deploy.
+# ---------------------------------------------------------------------
+[env.production]
+
+# Routes: intercept traffic on every meetdandy.com host that serves landing
+# pages. The /* wildcard means all paths reach the worker, but the script
+# itself only intercepts root-slug + /lp/<slug> URLs (see APP_PATH_DENY).
+routes = [
+  { pattern = "lp.meetdandy.com/*",       zone_name = "meetdandy.com" },
+  { pattern = "partners.meetdandy.com/*", zone_name = "meetdandy.com" },
+]
+
+[[env.production.r2_buckets]]
+binding     = "PRERENDERED_LP"
+bucket_name = "dandy-lp-prerendered"
+
+[env.production.vars]
 API_ORIGIN = "https://ent.meetdandy.com"
