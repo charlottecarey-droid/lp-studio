@@ -267,17 +267,69 @@ function FlowStyles() {
       .id-flow__cta:hover { color: ${CITRON}; gap: 12px; }
 
       @media (max-width: 900px) {
-        .id-flow { padding: 80px 24px 64px; }
-        .id-flow__head { grid-template-columns: 1fr; gap: 24px; }
+        .id-flow { padding: 72px 22px 64px; }
+        .id-flow__inner { display: flex; flex-direction: column; }
+        .id-flow__head { grid-template-columns: 1fr; gap: 24px; order: 0; margin-bottom: 8px; }
         .id-flow__metric { text-align: left; }
-        .id-flow__grid, .id-flow__rail-wrap { grid-template-columns: 1fr !important; }
+        .id-flow__divider { margin: 18px 0; }
+        .id-flow__divider--top { order: 1; }
+
+        /* Hide duplicated timestamp/label row on mobile - same info appears in cell below */
+        .id-flow__top { display: none; }
+
+        /* Interleave circles + cells so each station reads as a self-contained pair */
+        .id-flow__rail-wrap,
+        .id-flow__bottom { display: contents; }
         .id-flow__rail-line, .id-flow__rail-glow { display: none; }
-        .id-flow__circle-cell { flex-direction: row; gap: 16px; justify-content: flex-start; }
-        .id-flow__case-chip { position: static; transform: none; padding-left: 0; }
-        .id-flow__case-chip::before { display: none; }
-        .id-flow__top, .id-flow__cell { padding-right: 0; }
+        .id-flow__case-chip { display: none; }
+
+        .id-flow__circle-cell {
+          flex-direction: row;
+          gap: 18px;
+          justify-content: flex-start;
+          align-items: center;
+          padding: 18px 0 4px;
+          border-top: 1px solid ${DIVIDER};
+        }
+        .id-flow__circle {
+          width: 44px;
+          min-width: 44px;
+          height: 44px;
+          aspect-ratio: 1;
+          font-size: 14px;
+          flex: 0 0 44px;
+        }
+        .id-flow__circle--active {
+          box-shadow: 0 0 24px rgba(199,231,56,0.45), 0 0 0 1px rgba(199,231,56,0.4), 0 0 0 6px rgba(199,231,56,0.06);
+        }
+        .id-flow__circle--active::before { inset: -6px; }
+
+        .id-flow__cell { padding: 0 0 14px 62px; margin-top: -8px; }
         .id-flow__cell::before { display: none; }
-        .id-flow__footer { grid-template-columns: 1fr; gap: 24px; }
+        .id-flow__cell-cat { margin-bottom: 6px; }
+        .id-flow__cell-title { font-size: 22px; margin-bottom: 6px; }
+        .id-flow__cell-desc { font-size: 13px; max-width: none; }
+
+        /* nth-child reorder: each station = circle (order 2n) + cell (order 2n+1) */
+        /* circle-cells are children 3-12 of __rail-wrap (after rail-line + rail-glow) */
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(3)  { order: 2; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(4)  { order: 4; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(5)  { order: 6; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(6)  { order: 8; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(7)  { order: 10; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(8)  { order: 12; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(9)  { order: 14; }
+        .id-flow__rail-wrap > .id-flow__circle-cell:nth-child(10) { order: 16; }
+        .id-flow__bottom > .id-flow__cell:nth-child(1) { order: 3; }
+        .id-flow__bottom > .id-flow__cell:nth-child(2) { order: 5; }
+        .id-flow__bottom > .id-flow__cell:nth-child(3) { order: 7; }
+        .id-flow__bottom > .id-flow__cell:nth-child(4) { order: 9; }
+        .id-flow__bottom > .id-flow__cell:nth-child(5) { order: 11; }
+        .id-flow__bottom > .id-flow__cell:nth-child(6) { order: 13; }
+        .id-flow__bottom > .id-flow__cell:nth-child(7) { order: 15; }
+        .id-flow__bottom > .id-flow__cell:nth-child(8) { order: 17; }
+
+        .id-flow__footer { grid-template-columns: 1fr; gap: 24px; order: 99; }
         .id-flow__footer-metric { text-align: left; }
       }
     `}</style>

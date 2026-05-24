@@ -811,11 +811,48 @@ function PassStyles() {
         background: color-mix(in srgb, var(--id-pass-accent) 60%, transparent);
       }
 
+      @media (max-width: 780px) {
+        .id-pass { padding: 56px 18px 64px; }
+        .id-pass__hud { inset: 18px; }
+        .id-pass__hud-corner { width: 36px; height: 36px; }
+        .id-pass__inner { gap: 28px; }
+        .id-pass__ribbon {
+          font-size: 10px;
+          letter-spacing: 0.18em;
+          gap: 12px;
+          flex-wrap: wrap;
+          row-gap: 8px;
+        }
+        .id-pass__ordinal { font-size: 14px; }
+        .id-pass__column { gap: 18px; }
+        .id-pass__headline { font-size: clamp(40px, 11vw, 56px); line-height: 1.0; }
+        .id-pass__body { font-size: 15px; line-height: 1.55; }
+        .id-pass__card {
+          margin-top: 8px;
+          padding: 22px 20px;
+          border-radius: 18px;
+          gap: 16px;
+        }
+        .id-pass__card-top { font-size: 10px; letter-spacing: 0.16em; gap: 8px; flex-wrap: wrap; }
+        .id-pass__perf { margin: 0 -4px; }
+        .id-pass__perf-dot { width: 10px; height: 10px; }
+        .id-pass__meta-label { font-size: 9.5px; letter-spacing: 0.22em; }
+        .id-pass__meta-value { font-size: 16px; }
+        .id-pass__footer {
+          gap: 12px;
+          row-gap: 8px;
+          font-size: 9.5px;
+          letter-spacing: 0.22em;
+        }
+      }
       @media (max-width: 640px) {
-        .id-pass__meta-grid { grid-template-columns: 1fr; gap: 14px; }
+        .id-pass__meta-grid { grid-template-columns: 1fr 1fr; gap: 14px 18px; }
         .id-pass__cta-row { flex-direction: column; align-items: stretch; }
         .id-pass__cta-primary { justify-content: center; }
         .id-pass__cta-secondary { text-align: center; }
+      }
+      @media (max-width: 420px) {
+        .id-pass__meta-grid { grid-template-columns: 1fr; }
       }
       @media (prefers-reduced-motion: reduce) {
         .id-pass__bg-orb,
