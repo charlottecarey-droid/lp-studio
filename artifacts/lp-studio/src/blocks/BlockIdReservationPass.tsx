@@ -650,52 +650,85 @@ function PassStyles() {
         flex-wrap: wrap;
         gap: 18px;
       }
+      /* CTA buttons — mirror the Inside Dandy hero (.id-hero .id-btn)
+         so a reservation pass placed on its own page reads as the same
+         cinematic family. Accent var keeps per-instance color overrides. */
       .id-pass__cta-primary {
         display: inline-flex !important;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         padding: 16px 26px !important;
-        border-radius: 999px !important;
-        background: var(--id-pass-accent) !important;
-        color: #002218 !important;
-        font-weight: 600 !important;
-        font-size: 15px !important;
-        letter-spacing: 0.01em;
-        border: none !important;
-        cursor: pointer;
+        font-size: 13px !important;
+        letter-spacing: 0.06em;
+        font-weight: 500 !important;
         text-decoration: none !important;
+        border-radius: 6px !important;
+        border: 1px solid transparent !important;
+        background: var(--id-pass-accent) !important;
+        color: var(--id-teal-deep, #002218) !important;
+        cursor: pointer;
         box-shadow:
-          0 0 0 1px color-mix(in srgb, var(--id-pass-accent) 90%, white 10%),
-          0 18px 40px -12px color-mix(in srgb, var(--id-pass-accent) 70%, transparent),
-          0 0 60px -10px color-mix(in srgb, var(--id-pass-accent) 80%, transparent);
-        transition: transform 180ms ease, box-shadow 220ms ease;
+          0 1px 0 rgba(255, 255, 255, 0.35) inset,
+          0 12px 32px color-mix(in srgb, var(--id-pass-accent) 18%, transparent);
+        transition:
+          transform 280ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+          box-shadow 280ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+          background 280ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1));
       }
       .id-pass__cta-primary:hover {
         transform: translateY(-1px);
         box-shadow:
-          0 0 0 1px color-mix(in srgb, var(--id-pass-accent) 95%, white 12%),
-          0 22px 46px -10px color-mix(in srgb, var(--id-pass-accent) 78%, transparent),
-          0 0 80px -8px color-mix(in srgb, var(--id-pass-accent) 90%, transparent);
+          0 1px 0 rgba(255, 255, 255, 0.4) inset,
+          0 18px 40px color-mix(in srgb, var(--id-pass-accent) 28%, transparent);
       }
       .id-pass__cta-arrow {
-        font-size: 1.05em;
-        transition: transform 220ms ease;
+        display: inline-block;
+        transform: translateX(0);
+        transition: transform 280ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1));
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.9;
       }
       .id-pass__cta-primary:hover .id-pass__cta-arrow {
-        transform: translateX(3px);
+        transform: translateX(4px);
+        opacity: 1;
       }
       .id-pass__cta-secondary {
-        color: rgba(241, 251, 239, 0.78);
-        font-size: 13.5px;
-        letter-spacing: 0.04em;
-        text-decoration: none;
-        border-bottom: 1px solid rgba(241, 251, 239, 0.25);
-        padding-bottom: 2px;
-        transition: color 180ms ease, border-color 180ms ease;
+        position: relative;
+        background: transparent !important;
+        border: 0 !important;
+        color: rgba(255, 255, 255, 0.78) !important;
+        padding: 16px 4px !important;
+        border-radius: 0 !important;
+        font-size: 13px !important;
+        letter-spacing: 0.06em;
+        font-weight: 500 !important;
+        text-decoration: none !important;
+        cursor: pointer;
+        transition: color 280ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1));
+      }
+      .id-pass__cta-secondary::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        bottom: 10px;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.32);
+        transform-origin: left center;
+        transition:
+          background 280ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+          transform 320ms var(--id-ease, cubic-bezier(0.22, 1, 0.36, 1));
       }
       .id-pass__cta-secondary:hover {
-        color: #fff;
-        border-color: var(--id-pass-accent);
+        color: #fff !important;
+        background: transparent !important;
+        transform: none;
+        box-shadow: none;
+      }
+      .id-pass__cta-secondary:hover::after {
+        background: var(--id-pass-accent);
+        transform: scaleX(1.04);
       }
 
       /* footer notes */

@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { ImagePicker } from "@/components/ImagePicker";
 import { Trash2, Plus } from "lucide-react";
 
 interface Props {
@@ -201,8 +202,13 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
       )}
 
       <SectionHeader>Stage</SectionHeader>
-      <Field label="Background image URL (optional)">
-        <Input className="h-8 text-xs" value={p.backgroundImageUrl ?? ""} onChange={(e) => set("backgroundImageUrl", e.target.value)} placeholder="https://…" />
+      <Field label="Background image (optional)">
+        <ImagePicker
+          value={p.backgroundImageUrl ?? ""}
+          onChange={(v) => set("backgroundImageUrl", v || undefined)}
+          placeholder="Upload or paste a URL"
+          aiHint="Cinematic dark interior scene for a luxury restaurant reservation pass"
+        />
       </Field>
       <Field label="Accent color">
         <div className="flex items-center gap-2">
