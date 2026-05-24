@@ -1729,6 +1729,13 @@ export interface IdSystemFlowBlockProps {
   /** Horizontal (left & right) padding in px. Overrides the responsive
    *  default (~24–56px). */
   paddingX?: number;
+  /** Hide the eyebrow + headline + right-side metric and start the section
+   *  directly at the timestamp/rail. Useful when the previous block
+   *  already provides the title. */
+  hideHeader?: boolean;
+  /** Hide the radial citron wash at the top so the section fades into a
+   *  matching dark block above it seamlessly. */
+  hideHeaderGlow?: boolean;
 }
 
 export interface IdSpotlightResult {

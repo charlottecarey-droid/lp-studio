@@ -25,7 +25,7 @@ export function BlockIdSystemFlow({ props }: Props) {
 
   return (
     <section
-      className="id-block id-flow"
+      className={`id-block id-flow${props.hideHeaderGlow ? " id-flow--no-glow" : ""}`}
       style={{
         background: TEAL,
         color: "#fff",
@@ -43,35 +43,40 @@ export function BlockIdSystemFlow({ props }: Props) {
       <div className="id-flow__inner">
 
       {/* Header */}
-      <div className="id-flow__head">
-        <div>
-          {props.eyebrow && (
-            <div className="id-flow__eyebrow">
-              <span className="id-flow__eyebrow-dot" aria-hidden />
-              <span dangerouslySetInnerHTML={{ __html: props.eyebrow }} />
-            </div>
-          )}
-          <h2
-            className="id-flow__headline"
-            dangerouslySetInnerHTML={{ __html: props.headline }}
-          />
-        </div>
-        {(props.metricLabel || props.metricValue) && (
-          <div className="id-flow__metric">
-            {props.metricLabel && (
-              <div className="id-flow__metric-label">{props.metricLabel}</div>
-            )}
-            {props.metricValue && (
-              <div
-                className="id-flow__metric-value"
-                dangerouslySetInnerHTML={{ __html: props.metricValue }}
+      {!props.hideHeader && (
+        <>
+          <div className="id-flow__head">
+            <div>
+              {props.eyebrow && (
+                <div className="id-flow__eyebrow">
+                  <span className="id-flow__eyebrow-dot" aria-hidden />
+                  <span dangerouslySetInnerHTML={{ __html: props.eyebrow }} />
+                </div>
+              )}
+              <h2
+                className="id-flow__headline"
+                dangerouslySetInnerHTML={{ __html: props.headline }}
               />
+            </div>
+            {(props.metricLabel || props.metricValue) && (
+              <div className="id-flow__metric">
+                {props.metricLabel && (
+                  <div className="id-flow__metric-label">{props.metricLabel}</div>
+                )}
+                {props.metricValue && (
+                  <div
+                    className="id-flow__metric-value"
+                    dangerouslySetInnerHTML={{ __html: props.metricValue }}
+                  />
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      <hr className="id-flow__divider" />
+          <hr className="id-flow__divider" />
+        </>
+      )}
+      {props.hideHeader && <hr className="id-flow__divider id-flow__divider--top" />}
 
       {/* Top meta row: timestamp / italic label / tag */}
       <div
@@ -204,6 +209,8 @@ function FlowStyles() {
       .id-flow { box-sizing: border-box; }
       .id-flow *, .id-flow *::before, .id-flow *::after { box-sizing: border-box; }
       .id-flow::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(199,231,56,0.06), transparent 60%); pointer-events: none; }
+      .id-flow--no-glow::before { display: none; }
+      .id-flow__divider--top { margin-top: 0; }
       .id-flow > * { position: relative; }
       .id-flow__inner { max-width: 1280px; margin: 0 auto; }
 

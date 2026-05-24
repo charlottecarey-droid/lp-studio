@@ -59,6 +59,32 @@ export function IdSystemFlowPanel({ props: p, onChange }: Props) {
       </div>
       <p className="text-[10px] text-muted-foreground -mt-2">Leave blank to use the responsive defaults (~96–140px vertical, 24–56px horizontal).</p>
 
+      <SectionHeader>Layout</SectionHeader>
+      <label className="flex items-start gap-2 text-xs cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={!!p.hideHeader}
+          onChange={(e) => set("hideHeader", e.target.checked || undefined)}
+        />
+        <span>
+          <span className="font-medium">Start at the rail</span>
+          <span className="block text-[10px] text-muted-foreground leading-snug">Hide the eyebrow, headline and right-side metric so the section opens directly on the timestamp row.</span>
+        </span>
+      </label>
+      <label className="flex items-start gap-2 text-xs cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={!!p.hideHeaderGlow}
+          onChange={(e) => set("hideHeaderGlow", e.target.checked || undefined)}
+        />
+        <span>
+          <span className="font-medium">Remove top glow</span>
+          <span className="block text-[10px] text-muted-foreground leading-snug">Removes the soft citron radial wash at the top so the block fades seamlessly into a dark section above it.</span>
+        </span>
+      </label>
+
       <SectionHeader>Header</SectionHeader>
       <Field label="Eyebrow">
         <Input className="h-8 text-xs" value={p.eyebrow ?? ""} onChange={(e) => set("eyebrow", e.target.value)} placeholder="SECTION 01 · THE SYSTEM" />
