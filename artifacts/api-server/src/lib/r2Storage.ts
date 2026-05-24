@@ -80,21 +80,53 @@ export function isR2Configured(): boolean {
   return getR2Config() !== null;
 }
 
-function r2KeyFor(tenantId: number, slug: string): string {
-  // Slug is URL-safe per schema validation, but encode defensively against
-  // any path-traversal attempt (`../`, `/`).
-  return `${tenantId}/${encodeURIComponent(slug)}.html`;
+/**
+ * R2 object key layout (task #364, per-host revision).
+ *
+ * Key = `<host>/<encodeURIComponent(slug)>.html`
+ *
+ * Rationale (read the architectural note in worker.js too): keying by
+ * host instead of tenant ID lets the CF worker resolve a request to an
+ * R2 key using ONLY the request's Host header — no api-server call, no
+ * tenant lookup, no cache to keep warm. The whole point of R2 mirroring
+ * is to survive api-server outages; an api-server-dependent tenant
+ * lookup in the read path would defeat that.
+ *
+ * Cost: one R2 PUT per host the tenant owns per publish (typically 1-4).
+ *
+ * Bonus correctness win: the rendered HTML carries host-specific
+ * canonical/og:url tags, so per-host storage is also semantically
+ * correct for multi-host tenants — not just a workaround.
+ *
+ * `host` is normalized (lowercase, port stripped) at this boundary so
+ * callers don't have to think about it.
+ */
+function normalizeHostForKey(host: string): string {
+  return host.split(":")[0].trim().toLowerCase();
+}
+
+function r2KeyFor(host: string, slug: string): string {
+  const h = normalizeHostForKey(host);
+  // Slug is URL-safe per schema validation; encode defensively against
+  // path-traversal (`../`, `/`). Host is encoded for the same reason —
+  // hostnames don't legally contain `/` but defense in depth.
+  return `${encodeURIComponent(h)}/${encodeURIComponent(slug)}.html`;
 }
 
 /**
- * Upload HTML for a published page to R2. Throws on failure — the caller
- * (triggerPublishedRender) treats a throw as "R2 write failed, do not
- * proceed to OS write, log loudly, leave R2 at prior version."
+ * Upload HTML for a published page to R2 under the given host. Throws
+ * on failure — the caller (triggerPublishedRender) treats a throw as
+ * "R2 write failed, do not proceed to OS write, log loudly, leave R2
+ * at prior version."
+ *
+ * For multi-host tenants, call once per host with the per-host HTML
+ * (canonical URL inside the HTML matches the key's host).
  */
 export async function uploadPublishedHtmlToR2(
-  tenantId: number,
+  host: string,
   slug: string,
   html: string,
+  meta?: { tenantId?: number },
 ): Promise<void> {
   const cfg = getR2Config();
   if (!cfg) {
@@ -103,13 +135,13 @@ export async function uploadPublishedHtmlToR2(
   await cfg.client.send(
     new PutObjectCommand({
       Bucket: cfg.bucket,
-      Key: r2KeyFor(tenantId, slug),
+      Key: r2KeyFor(host, slug),
       Body: Buffer.from(html, "utf8"),
       ContentType: "text/html; charset=utf-8",
-      // Tenant ID metadata for human auditing (`wrangler r2 object info` etc).
-      // Not used for access control.
+      // Human-auditing metadata (`wrangler r2 object info`). Not access control.
       Metadata: {
-        "tenant-id": String(tenantId),
+        ...(meta?.tenantId !== undefined ? { "tenant-id": String(meta.tenantId) } : {}),
+        host: normalizeHostForKey(host),
         "rendered-at": new Date().toISOString(),
       },
     }),
@@ -124,14 +156,14 @@ export async function uploadPublishedHtmlToR2(
  * worker binding.
  */
 export async function readPublishedHtmlFromR2(
-  tenantId: number,
+  host: string,
   slug: string,
 ): Promise<{ html: string; lastModified: Date | null } | null> {
   const cfg = getR2Config();
   if (!cfg) return null;
   try {
     const out = await cfg.client.send(
-      new GetObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(tenantId, slug) }),
+      new GetObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(host, slug) }),
     );
     const body = await out.Body?.transformToString("utf-8");
     return {
@@ -140,7 +172,6 @@ export async function readPublishedHtmlFromR2(
     };
   } catch (err) {
     if (err instanceof NoSuchKey || err instanceof NotFound) return null;
-    // The SDK can also throw a generic error with name === "NoSuchKey" depending on transport.
     if (err && typeof err === "object" && "name" in err && (err as { name: string }).name === "NoSuchKey") return null;
     throw err;
   }
@@ -148,14 +179,14 @@ export async function readPublishedHtmlFromR2(
 
 /** Lightweight existence check (no body download). */
 export async function publishedHtmlExistsInR2(
-  tenantId: number,
+  host: string,
   slug: string,
 ): Promise<boolean> {
   const cfg = getR2Config();
   if (!cfg) return false;
   try {
     await cfg.client.send(
-      new HeadObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(tenantId, slug) }),
+      new HeadObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(host, slug) }),
     );
     return true;
   } catch (err) {
@@ -174,12 +205,12 @@ export async function publishedHtmlExistsInR2(
  * decides whether to proceed to the OS delete.
  */
 export async function deletePublishedHtmlFromR2(
-  tenantId: number,
+  host: string,
   slug: string,
 ): Promise<void> {
   const cfg = getR2Config();
   if (!cfg) return;
   await cfg.client.send(
-    new DeleteObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(tenantId, slug) }),
+    new DeleteObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(host, slug) }),
   );
 }

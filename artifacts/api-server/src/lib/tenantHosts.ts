@@ -183,6 +183,44 @@ export async function getKnownTenantOrigins(): Promise<Set<string>> {
 }
 
 /**
+ * Enumerate every host through which a tenant's pages are publicly
+ * reachable. Used by the prerender pipeline (task #364) to know which
+ * R2 keys to write per page: with per-host keying we need one
+ * `<host>/<slug>.html` object per host so the CF worker can read it
+ * without any tenant-resolution step.
+ *
+ * Sources (in priority order):
+ *   1. tenant.domain          (admin host)
+ *   2. tenant.micrositeDomain (visitor-facing custom domain)
+ *   3. `<slug>.<base>` for each WILDCARD_BASE_HOSTS entry (the default
+ *      wildcard subdomains we always control)
+ *
+ * Result is lowercased and de-duplicated, but otherwise preserves the
+ * priority order so callers that need a "primary" host can take [0].
+ *
+ * Returns an empty array if the tenant is not found / not active.
+ */
+export async function getActiveHostsForTenant(tenantId: number): Promise<string[]> {
+  const c = await getCache();
+  const t = c.byTenantId.get(tenantId);
+  if (!t) return [];
+  const ordered: string[] = [];
+  const push = (h: string | null | undefined) => {
+    if (!h) return;
+    const lower = h.toLowerCase().trim();
+    if (!lower) return;
+    if (ordered.includes(lower)) return;
+    ordered.push(lower);
+  };
+  push(t.domain);
+  push(t.micrositeDomain);
+  if (t.slug) {
+    for (const base of WILDCARD_BASE_HOSTS) push(`${t.slug.toLowerCase()}.${base}`);
+  }
+  return ordered;
+}
+
+/**
  * Resolve the canonical outbound origin for a tenant — used when building
  * URLs that will be embedded in outbound emails (personalized microsite
  * links, click-tracking links, unsubscribe links). Prefers the tenant's

@@ -13,9 +13,17 @@
  *
  *   2. R2 is the visitor-facing read source (CF worker → R2 binding).
  *      Replit OS is the debug-only read source (`GET /api/lp/rendered/:slug`).
+ *      R2 objects are keyed by `<host>/<slug>.html` — one object per
+ *      host the tenant owns. Per-host keying eliminates the worker's
+ *      tenant-resolution step, so the worker's read path makes ZERO
+ *      api-server calls (the whole point of R2 mirroring is to survive
+ *      api-server outages — an api-server-dependent tenant lookup
+ *      would defeat that). OS is keyed by `<tenantId>/<slug>.html` —
+ *      debug endpoint always knows tenant from the auth context.
  *
- *   3. Write order on publish: R2 (awaited) → OS (fire-and-forget).
- *      Delete order on unpublish: R2 → OS, both best-effort.
+ *   3. Write order on publish: R2 (awaited, looped per host) → OS
+ *      (fire-and-forget). Delete order on unpublish: R2 (per host) → OS,
+ *      both best-effort.
  *
  *   4. **Invariant: OS never holds a version newer than R2.** If R2 write
  *      fails, OS is not written either; both stay at the prior version.
@@ -36,7 +44,7 @@
 import * as Sentry from "@sentry/node";
 import { db, lpPagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { findTenantByHost } from "./tenantHosts";
+import { findTenantByHost, getActiveHostsForTenant } from "./tenantHosts";
 import { prerenderLpPage } from "./prerenderLpPage";
 import { injectPageMeta } from "./injectPageMeta";
 import { uploadPublishedHtml, deletePublishedHtml } from "./publishedHtmlStorage";
@@ -107,24 +115,41 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     return outcome;
   }
 
-  // Resolve canonical host + tenant name.
-  let canonicalHost = (opts.requestHost ?? "").trim().toLowerCase();
+  // Resolve tenant name + the full set of hosts the tenant publishes on.
+  //
+  // For per-host R2 keys we need to write one object per host. The
+  // requestHost (if present) is only used to pick a tenantName when the
+  // helper happens to know it; the canonical authoritative list comes
+  // from getActiveHostsForTenant.
   let tenantName = "";
-  if (canonicalHost) {
-    const match = await findTenantByHost(canonicalHost);
+  const requestHost = (opts.requestHost ?? "").trim().toLowerCase();
+  if (requestHost) {
+    const match = await findTenantByHost(requestHost);
     if (match && match.tenantId === page.tenantId) {
       tenantName = match.tenantName;
-    } else {
-      canonicalHost = "";
-    }
-  }
-  if (!canonicalHost) {
-    canonicalHost = (process.env.LP_STUDIO_PUBLIC_HOST || "").trim().toLowerCase();
-    if (!canonicalHost && process.env.REPLIT_DEV_DOMAIN) {
-      canonicalHost = process.env.REPLIT_DEV_DOMAIN;
     }
   }
   if (!tenantName) tenantName = page.title;
+
+  const tenantHosts = await getActiveHostsForTenant(page.tenantId);
+  // Fallback chain when the tenant has no hosts registered (edge case in
+  // dev / partial-config tenants): use requestHost, then env defaults, so
+  // we still produce one object the CF worker can find.
+  const fallbackHost =
+    requestHost ||
+    (process.env.LP_STUDIO_PUBLIC_HOST || "").trim().toLowerCase() ||
+    (process.env.REPLIT_DEV_DOMAIN || "").trim().toLowerCase();
+  const hostsToWrite =
+    tenantHosts.length > 0 ? tenantHosts : (fallbackHost ? [fallbackHost] : []);
+  if (hostsToWrite.length === 0) {
+    outcome.skipped = "render_failed";
+    outcome.error = "no hosts to write — tenant has no domains/microsite/wildcards and no fallback host configured";
+    outcome.durationMs = Date.now() - t0;
+    console.warn("[triggerPublishedRender] no hosts to write", {
+      pageId: page.id, tenantId: page.tenantId,
+    });
+    return outcome;
+  }
 
   // Race guard: snapshot updatedAt before render so we can detect a
   // concurrent edit superseding us after the render finishes.
@@ -162,61 +187,80 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     return outcome;
   }
 
-  const withMeta = injectPageMeta(html, {
-    title: page.title,
-    metaTitle: page.metaTitle,
-    metaDescription: page.metaDescription,
-    ogImage: page.ogImage,
-    slug: page.slug,
-    canonicalHost,
-    tenantName,
-  });
+  const buildHtmlForHost = (host: string): string =>
+    injectPageMeta(html, {
+      title: page.title,
+      metaTitle: page.metaTitle,
+      metaDescription: page.metaDescription,
+      ogImage: page.ogImage,
+      slug: page.slug,
+      canonicalHost: host,
+      tenantName,
+    });
 
-  // ── R2 write (awaited, visitor-facing) ────────────────────────────────
+  // ── R2 write (awaited, visitor-facing, looped per host) ──────────────
+  // We loop sequentially so that a transient R2 failure on host N stops
+  // us from writing partial state to OS. Partial R2 writes (some hosts
+  // ok, one failed) ARE possible — we treat that as r2_write_failed and
+  // leave the other hosts' R2 objects updated (no point reverting
+  // successful writes). Operator action: rerun render or backfill.
   if (isR2Configured()) {
-    try {
-      await uploadPublishedHtmlToR2(page.tenantId, page.slug, withMeta);
-      outcome.r2Ok = true;
-      outcome.renderedVersionUpdatedAt = post.updatedAt ?? null;
-    } catch (err) {
-      // R2 failed. Stop. Do NOT write OS. Both caches stay at prior version.
+    let failedHost: string | null = null;
+    let firstError: unknown = null;
+    for (const host of hostsToWrite) {
+      try {
+        await uploadPublishedHtmlToR2(host, page.slug, buildHtmlForHost(host), {
+          tenantId: page.tenantId,
+        });
+      } catch (err) {
+        failedHost = host;
+        firstError = err;
+        break;
+      }
+    }
+    if (failedHost !== null) {
       outcome.skipped = "r2_write_failed";
-      outcome.error = err instanceof Error ? err.message : String(err);
+      const errMsg = firstError instanceof Error ? firstError.message : String(firstError);
+      outcome.error = `host=${failedHost}: ${errMsg}`;
       outcome.durationMs = Date.now() - t0;
-      const errMsg = err instanceof Error ? err.message : String(err);
       console.warn("[triggerPublishedRender][RECONCILE_NEEDED] R2 write failed", {
         pageId: page.id,
         tenantId: page.tenantId,
         slug: page.slug,
+        failedHost,
+        attemptedHosts: hostsToWrite,
         err: errMsg,
       });
       Sentry.captureMessage("prerender_r2_write_failed", {
         level: "error",
-        tags: {
-          subsystem: "lp-prerender",
-          outcome: "r2_write_failed",
-        },
+        tags: { subsystem: "lp-prerender", outcome: "r2_write_failed" },
         extra: {
           pageId: page.id,
           tenantId: page.tenantId,
           slug: page.slug,
+          failedHost,
+          attemptedHosts: hostsToWrite,
           error: errMsg,
         },
       });
       return outcome;
     }
+    outcome.r2Ok = true;
+    outcome.renderedVersionUpdatedAt = post.updatedAt ?? null;
   } else {
     // No R2 configured (dev/CI). Treat OS as the visitor source for
     // backwards compat and don't enforce the R2-first invariant.
-    // This branch will go away once R2 credentials are in every env.
     outcome.r2Ok = true;
   }
 
-  // ── OS write (fire-and-forget, debug-only, ordered AFTER R2) ─────────
-  // We DO still await here for telemetry purposes but failures don't
-  // affect the outcome the visitor sees.
+  // ── OS write (debug-only, single object keyed by tenantId, AFTER R2) ─
+  // OS sees one canonical version (built for the primary host — first in
+  // the priority order). Debug endpoint resolves tenant from auth
+  // context, so tenantId-keyed storage there is correct.
+  const primaryHost = hostsToWrite[0];
+  const osHtml = buildHtmlForHost(primaryHost);
   try {
-    await uploadPublishedHtml(page.tenantId, page.slug, withMeta);
+    await uploadPublishedHtml(page.tenantId, page.slug, osHtml);
     outcome.osOk = true;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -259,19 +303,36 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
 export function triggerPublishedDelete(tenantId: number, slug: string): void {
   void (async () => {
     if (isR2Configured()) {
-      try {
-        await deletePublishedHtmlFromR2(tenantId, slug);
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err);
+      // Delete from every host the tenant currently has. If a host was
+      // removed from the tenant before this delete fires the orphan
+      // object stays — but the host no longer routes to the worker so
+      // visitors can't reach it. Cleanup of orphan host directories is
+      // a periodic-script follow-up.
+      const hosts = await getActiveHostsForTenant(tenantId);
+      let failedHost: string | null = null;
+      let firstError: unknown = null;
+      for (const host of hosts) {
+        try {
+          await deletePublishedHtmlFromR2(host, slug);
+        } catch (err) {
+          failedHost = host;
+          firstError = err;
+          break;
+        }
+      }
+      if (failedHost !== null) {
+        const errMsg = firstError instanceof Error ? firstError.message : String(firstError);
         console.warn("[triggerPublishedDelete][RECONCILE_NEEDED] R2 delete failed", {
           tenantId,
           slug,
+          failedHost,
+          attemptedHosts: hosts,
           err: errMsg,
         });
         Sentry.captureMessage("prerender_r2_delete_failed", {
           level: "error",
           tags: { subsystem: "lp-prerender", outcome: "r2_delete_failed" },
-          extra: { tenantId, slug, error: errMsg },
+          extra: { tenantId, slug, failedHost, attemptedHosts: hosts, error: errMsg },
         });
         return; // do NOT proceed to OS delete
       }

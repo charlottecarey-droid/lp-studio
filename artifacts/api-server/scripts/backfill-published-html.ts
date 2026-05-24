@@ -28,6 +28,7 @@ import { db, lpPagesTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { renderAndStoreNow } from "../src/lib/triggerPublishedRender";
 import { publishedHtmlExistsInR2, isR2Configured } from "../src/lib/r2Storage";
+import { getActiveHostsForTenant } from "../src/lib/tenantHosts";
 
 interface Args {
   tenantId?: number;
@@ -67,17 +68,24 @@ async function processPage(page: { id: number; tenantId: number; slug: string },
   const t0 = Date.now();
   if (onlyMissing && isR2Configured()) {
     try {
-      const exists = await publishedHtmlExistsInR2(page.tenantId, page.slug);
-      if (exists) {
-        return { pageId: page.id, tenantId: page.tenantId, slug: page.slug, outcome: "skipped_already_in_r2", durationMs: Date.now() - t0 };
+      // With per-host keys, "already in R2" means "every host the tenant
+      // currently owns has its own object". A partial backfill (e.g. a
+      // host added after the last publish) must NOT skip — re-render so
+      // the new host gets its object too.
+      const hosts = await getActiveHostsForTenant(page.tenantId);
+      if (hosts.length > 0) {
+        const checks = await Promise.all(hosts.map((h) => publishedHtmlExistsInR2(h, page.slug)));
+        if (checks.every(Boolean)) {
+          return { pageId: page.id, tenantId: page.tenantId, slug: page.slug, outcome: "skipped_already_in_r2", durationMs: Date.now() - t0 };
+        }
       }
     } catch {
       /* fall through and attempt render */
     }
   }
-  // Don't try to look up a per-tenant host — the trigger falls back to
-  // LP_STUDIO_PUBLIC_HOST / REPLIT_DEV_DOMAIN, which yields a sane
-  // canonical URL even when run from a CLI context with no request.
+  // Trigger falls back to LP_STUDIO_PUBLIC_HOST / REPLIT_DEV_DOMAIN when
+  // the tenant has no registered hosts, which yields a sane canonical
+  // URL even when run from a CLI context with no request.
   const result = await renderAndStoreNow({ pageId: page.id, requestHost: null });
   if (result.r2Ok && result.osOk) {
     return { pageId: page.id, tenantId: page.tenantId, slug: page.slug, outcome: "succeeded", durationMs: result.durationMs };
