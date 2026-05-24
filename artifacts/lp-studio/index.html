@@ -75,6 +75,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <!-- Google Tag Manager (noscript) — lp.meetdandy.com only, see head. -->
     <script>if (location.hostname === 'lp.meetdandy.com') { var n=document.createElement('noscript');var f=document.createElement('iframe');f.src='https://www.googletagmanager.com/ns.html?id=GTM-NHJFVSJ';f.height='0';f.width='0';f.style.cssText='display:none;visibility:hidden';n.appendChild(f);document.body.insertBefore(n, document.body.firstChild); }</script>
     <!-- End Google Tag Manager (noscript) -->
+    <!-- Hide the pre-rendered marketing markup on hosts that mount the SaaS
+         app (app.lpstudio.ai, tenant subdomains, custom tenant domains).
+         Without this, SaaS visitors briefly see the marketing homepage
+         before createRoot() in main.tsx replaces #root with the auth/app
+         shell. The marketing app does its own host check in App.tsx and
+         reveals the document when it mounts, so marketing visitors never
+         see the hidden state.
+
+         Mirrors `isMarketingHost()` in src/App.tsx — keep them in sync. -->
+    <script>
+      (function () {
+        try {
+          var h = (location.hostname || "").toLowerCase();
+          var p = location.pathname.replace(/\/+$/, "") || "/";
+          var qs = new URLSearchParams(location.search);
+          var preview = qs.get("preview");
+          var isMarketingPath = p === "/" || p === "/privacy" || p === "/terms";
+          var isMarketingHost = h === "lpstudio.ai" || h === "www.lpstudio.ai";
+          var isDev = h === "localhost" || h === "127.0.0.1" || h.endsWith(".replit.dev");
+          var marketing = preview === "marketing"
+            || (preview !== "app" && isMarketingHost)
+            || (preview !== "app" && isDev && isMarketingPath);
+          if (!marketing) {
+            document.documentElement.style.visibility = "hidden";
+            // Reveal on next frame after main.tsx executes; main.tsx also
+            // clears this explicitly. Belt-and-suspenders timeout so a
+            // bundle load failure doesn't leave the page permanently
+            // hidden — the SaaS app's ErrorBoundary still needs to render.
+            setTimeout(function () {
+              document.documentElement.style.visibility = "";
+            }, 4000);
+          }
+        } catch (_) {
+          /* ignore — fall through to visible */
+        }
+      })();
+    </script>
     <!-- Pre-mount loading indicator. Replaced as soon as React mounts into #root,
          so users see motion immediately on cold loads instead of a white screen
          while the JS bundle downloads. -->

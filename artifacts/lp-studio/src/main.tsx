@@ -213,3 +213,14 @@ createRoot(rootElement).render(
     <App />
   </Sentry.ErrorBoundary>,
 );
+
+// Reveal the document after React has rendered. The inline script in
+// index.html hides <html> on non-marketing hosts to prevent a flash of
+// the prerendered marketing homepage while the SaaS bundle replaces
+// #root. Once React has mounted (and either kept the marketing content
+// or replaced it with the SaaS shell), it's safe to reveal again.
+requestAnimationFrame(() => {
+  if (document.documentElement.style.visibility === "hidden") {
+    document.documentElement.style.visibility = "";
+  }
+});

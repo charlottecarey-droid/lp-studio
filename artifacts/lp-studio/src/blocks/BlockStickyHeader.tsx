@@ -37,18 +37,30 @@ export function BlockStickyHeader({ props: p, brand, onCtaClick, isBuilder }: Pr
   const action = p.primaryCtaAction ?? "url";
 
   const handleCta = () => {
-    // Host hook (analytics, builder preview) always fires first.
-    onCtaClick?.();
     if (action === "modal-form" || action === "modal-chilipiper") {
+      // Modal actions handle themselves locally — do NOT call the host
+      // onCtaClick callback because on the published viewer it always
+      // navigates to primaryCtaUrl (or brand.defaultCtaUrl) in a new tab,
+      // which would double-fire alongside the modal. The viewer's
+      // document-level click listener still records the CTA click for
+      // engagement tracking.
       setFormOpen(true);
       return;
     }
     if (action === "chilipiper") {
+      // Same as above — don't invoke the host nav callback for ChiliPiper
+      // popups; just open the scheduler.
       if (p.chilipiperUrl) setCpOpen(true);
       return;
     }
-    // "url" — the anchor handler has preventDefault'd because we passed
-    // an onPrimaryCtaClick; navigate explicitly so the link still works.
+    // "url" — let the host hook handle navigation when present (builder
+    // preview swallows it; viewer navigates + tracks). When no host hook
+    // is wired (e.g. design sandbox), fall back to navigating ourselves
+    // since the anchor's default was preventDefault'd.
+    if (onCtaClick) {
+      onCtaClick();
+      return;
+    }
     const url = p.primaryCtaUrl;
     if (url && url !== "#") {
       const trimmed = url.trim();
