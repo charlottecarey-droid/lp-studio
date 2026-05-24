@@ -1600,6 +1600,11 @@ export interface IdParallaxShowcaseBlockProps {
    *  video showcase on the same dark background) reads as a visual
    *  continuation rather than a separate section. */
   flushBottom?: boolean;
+  /** Overlay each frame with a spatial-computing-style HUD: four
+   *  citron L-brackets in the corners and a center reticle with a
+   *  crosshair. Mirrors the look of an Apple Vision Pro target.
+   *  Defaults to true. */
+  spatialOverlay?: boolean;
 }
 
 export interface IdSpotlightResult {

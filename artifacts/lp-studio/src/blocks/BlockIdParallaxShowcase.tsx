@@ -14,9 +14,10 @@ interface FrameProps {
   index: number;
   onUpdate?: (patch: Partial<IdShowcaseFrame>) => void;
   isEditor: boolean;
+  showSpatial: boolean;
 }
 
-function Frame({ frame, index, onUpdate, isEditor }: FrameProps) {
+function Frame({ frame, index, onUpdate, isEditor, showSpatial }: FrameProps) {
   const ref = useRef<HTMLDivElement>(null);
   useIdInView(ref, { threshold: isEditor ? 0 : 0.2 });
   return (
@@ -31,6 +32,15 @@ function Frame({ frame, index, onUpdate, isEditor }: FrameProps) {
         />
       )}
       <div className="id-frame-vignette" />
+      {showSpatial && (
+        <div className="id-frame-spatial" aria-hidden>
+          <span className="id-frame-spatial-corner id-frame-spatial-corner--tl" />
+          <span className="id-frame-spatial-corner id-frame-spatial-corner--tr" />
+          <span className="id-frame-spatial-corner id-frame-spatial-corner--bl" />
+          <span className="id-frame-spatial-corner id-frame-spatial-corner--br" />
+          <span className="id-frame-spatial-reticle" />
+        </div>
+      )}
       <div className="id-frame-caption">
         <div>
           <InlineText as="div" className="id-frame-label" value={frame.label ?? ""} onUpdate={onUpdate ? (v) => onUpdate({ label: v }) : undefined} />
@@ -85,6 +95,7 @@ export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
             frame={fr}
             index={i}
             isEditor={isEditor}
+            showSpatial={props.spatialOverlay ?? true}
             onUpdate={onFieldChange ? (patch) => updateFrame(i, patch) : undefined}
           />
         ))}

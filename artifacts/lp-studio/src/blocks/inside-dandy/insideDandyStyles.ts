@@ -355,6 +355,16 @@ const CSS = `
 .id-showcase .id-frame .id-frame-where { font-size:11px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.5); font-weight:500; }
 .id-showcase .id-frame .id-frame-caption h4 { font-size:clamp(24px,2.6vw,40px); line-height:1.05; letter-spacing:-0.012em; color:#fff; max-width:18ch; margin:12px 0 0; }
 .id-showcase .id-frame .id-frame-caption h4 em { color:var(--id-cit); }
+.id-showcase .id-frame .id-frame-spatial { position:absolute; inset:0; pointer-events:none; z-index:2; }
+.id-showcase .id-frame .id-frame-spatial-corner { position:absolute; width:clamp(28px,3.4vw,52px); height:clamp(28px,3.4vw,52px); border:0 solid var(--id-cit); filter:drop-shadow(0 0 6px rgba(199,231,56,0.35)); }
+.id-showcase .id-frame .id-frame-spatial-corner--tl { top:clamp(14px,1.6vw,24px); left:clamp(14px,1.6vw,24px); border-top-width:1.5px; border-left-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-corner--tr { top:clamp(14px,1.6vw,24px); right:clamp(14px,1.6vw,24px); border-top-width:1.5px; border-right-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-corner--bl { bottom:clamp(14px,1.6vw,24px); left:clamp(14px,1.6vw,24px); border-bottom-width:1.5px; border-left-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-corner--br { bottom:clamp(14px,1.6vw,24px); right:clamp(14px,1.6vw,24px); border-bottom-width:1.5px; border-right-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-reticle { position:absolute; left:50%; top:50%; width:clamp(110px,16vw,200px); height:clamp(110px,16vw,200px); border:1.5px solid var(--id-cit); border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 24px rgba(199,231,56,0.18), inset 0 0 24px rgba(199,231,56,0.08); }
+.id-showcase .id-frame .id-frame-spatial-reticle::before, .id-showcase .id-frame .id-frame-spatial-reticle::after { content:""; position:absolute; left:50%; top:50%; background:var(--id-cit); box-shadow:0 0 6px rgba(199,231,56,0.5); }
+.id-showcase .id-frame .id-frame-spatial-reticle::before { width:14px; height:1.5px; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-reticle::after { width:1.5px; height:14px; transform:translate(-50%,-50%); }
 
 /* STATS */
 .id-stats { position:relative; padding:160px 40px; background:var(--id-teal-deep); border-top:1px solid var(--id-line); }

@@ -78,6 +78,21 @@ export function IdParallaxShowcasePanel({ props, onChange }: Props) {
             </span>
           </span>
         </label>
+        <label className="flex items-start gap-2 pt-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={props.spatialOverlay ?? true}
+            onChange={(e) => u({ spatialOverlay: e.target.checked })}
+            className="mt-0.5"
+          />
+          <span className="text-[11px] leading-snug">
+            <span className="font-medium">Spatial overlay</span>
+            <span className="block text-[10px] text-muted-foreground">
+              Adds four citron L-brackets in the corners and a centered
+              reticle/crosshair over each frame — Vision-Pro style.
+            </span>
+          </span>
+        </label>
       </div>
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Frames (3 max)</div>
       {frames.map((fr, i) => {
