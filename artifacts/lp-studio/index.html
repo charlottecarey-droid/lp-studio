@@ -75,54 +75,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <!-- Google Tag Manager (noscript) — lp.meetdandy.com only, see head. -->
     <script>if (location.hostname === 'lp.meetdandy.com') { var n=document.createElement('noscript');var f=document.createElement('iframe');f.src='https://www.googletagmanager.com/ns.html?id=GTM-NHJFVSJ';f.height='0';f.width='0';f.style.cssText='display:none;visibility:hidden';n.appendChild(f);document.body.insertBefore(n, document.body.firstChild); }</script>
     <!-- End Google Tag Manager (noscript) -->
-    <!-- Prevent the pre-rendered marketing markup from flashing on hosts that
-         mount the SaaS app (app.lpstudio.ai, tenant subdomains, custom tenant
-         domains). Without this, SaaS visitors would briefly see the static
-         marketing homepage before createRoot() in main.tsx replaces #root
-         with the auth/app shell.
-
-         Strategy: on non-marketing hosts, swap #root back to just the
-         pre-mount loader BEFORE the JS bundle runs. This both hides the
-         marketing content AND keeps the loader visible (vs the old
-         html.visibility=hidden approach, which left SaaS users staring at
-         a blank screen during cold boot).
-
-         Mirrors `isMarketingHost()` in src/App.tsx — keep them in sync. -->
-    <script>
-      (function () {
-        try {
-          var h = (location.hostname || "").toLowerCase();
-          var p = location.pathname.replace(/\/+$/, "") || "/";
-          var qs = new URLSearchParams(location.search);
-          var preview = qs.get("preview");
-          var isMarketingPath = p === "/" || p === "/privacy" || p === "/terms";
-          var isMarketingHost = h === "lpstudio.ai" || h === "www.lpstudio.ai";
-          var isDev = h === "localhost" || h === "127.0.0.1" || h.endsWith(".replit.dev");
-          var marketing = preview === "marketing"
-            || (preview !== "app" && isMarketingHost)
-            || (preview !== "app" && isDev && isMarketingPath);
-          if (!marketing) {
-            // Replace prerendered marketing content with just the loader.
-            // Use DOMContentLoaded if #root isn't parsed yet (this script
-            // runs in <head>); otherwise apply immediately.
-            var swap = function () {
-              var root = document.getElementById("root");
-              if (root) {
-                root.innerHTML =
-                  '<div id="pre-mount-loader" aria-hidden="true"><div></div></div>';
-              }
-            };
-            if (document.getElementById("root")) {
-              swap();
-            } else {
-              document.addEventListener("DOMContentLoaded", swap, { once: true });
-            }
-          }
-        } catch (_) {
-          /* ignore — fall through to whatever is in the DOM */
-        }
-      })();
-    </script>
     <!-- Pre-mount loading indicator. Replaced as soon as React mounts into #root,
          so users see motion immediately on cold loads instead of a white screen
          while the JS bundle downloads. -->
@@ -149,6 +101,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <div id="root">
       <div id="pre-mount-loader" aria-hidden="true"><div></div></div>
     </div>
+    <!-- Prevent the prerendered marketing markup from flashing on hosts
+         that mount the SaaS app (app.lpstudio.ai, tenant subdomains,
+         custom tenant domains). On non-marketing hosts, swap #root back
+         to just the pre-mount loader. This script is placed AFTER #root
+         exists in the DOM and BEFORE the deferred module script, so it
+         runs synchronously while #root still holds the prerendered
+         marketing snapshot, and finishes before main.tsx executes —
+         which means React mounts into the loader-only #root and is
+         never clobbered. SaaS users see the loader (not a blank screen)
+         and never glimpse marketing UI.
+
+         Mirrors `isMarketingHost()` in src/App.tsx — keep in sync. -->
+    <script>
+      (function () {
+        try {
+          var h = (location.hostname || "").toLowerCase();
+          var p = location.pathname.replace(/\/+$/, "") || "/";
+          var qs = new URLSearchParams(location.search);
+          var preview = qs.get("preview");
+          var isMarketingPath = p === "/" || p === "/privacy" || p === "/terms";
+          var isMarketingHost = h === "lpstudio.ai" || h === "www.lpstudio.ai";
+          var isDev = h === "localhost" || h === "127.0.0.1" || h.endsWith(".replit.dev");
+          var marketing = preview === "marketing"
+            || (preview !== "app" && isMarketingHost)
+            || (preview !== "app" && isDev && isMarketingPath);
+          if (!marketing) {
+            var root = document.getElementById("root");
+            if (root) {
+              root.innerHTML =
+                '<div id="pre-mount-loader" aria-hidden="true"><div></div></div>';
+            }
+          }
+        } catch (_) {
+          /* ignore — fall through to whatever is in the DOM */
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
