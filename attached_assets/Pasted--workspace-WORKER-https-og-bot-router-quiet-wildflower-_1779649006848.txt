@@ -1,0 +1,96 @@
+~/workspace$ WORKER="https://og-bot-router.quiet-wildflower-1336.workers.dev"
+~/workspace$ curl -sD- -o bodyA.html -H "X-LP-Host: gate-ha.example.com" "$WORKER/gate-isolation"
+HTTP/2 200 
+date: Sun, 24 May 2026 18:55:35 GMT
+content-type: text/html; charset=utf-8
+cache-control: public, max-age=60, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+last-modified: Sun, 24 May 2026 18:44:32 GMT
+x-lp-source: r2
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=6XMijngvtgFYyOXfewMHa1ZsuTCuopkP5wb8sLbs%2Bww4ubn5x1Q3L4NeZImTZB4v%2FvhcBSkNjuuZrwrXdcT5jFyryubvZT%2BgwbgBGUeAKDJ%2Bh1hmPSXgr%2BF9NIPg8Yni7vUcehTWIcDbNbgcfNQw%2BiXdFIpWqO9q%2BszX4TYxqMvTJA%3D%3D"}]}
+server: cloudflare
+cf-ray: a00e83f66c6a2d01-ATL
+alt-svc: h3=":443"; ma=86400
+
+~/workspace$ cat bodyA.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>gate fixture: gate-isolation @ gate-ha.example.com</title>
+  <meta name="x-lp-gate-marker" content="ISOLATION-A" />
+</head>
+<body>
+  <h1>ISOLATION-A</h1>
+  <p>This is a synthetic R2 fixture for task #364 gate validation.</p>
+  <p>Slug: <code>gate-isolation</code></p>
+  <p>Host: <code>gate-ha.example.com</code></p>
+  <!-- Marker for curl/grep assertions: ISOLATION-A -->
+</body>
+</html>
+~/workspace$ curl -sD- -o bodyB.html -H "X-LP-Host: gate-hb.example.com" "$WORKER/gate-isolation"
+HTTP/2 200 
+date: Sun, 24 May 2026 18:55:52 GMT
+content-type: text/html; charset=utf-8
+cache-control: public, max-age=60, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+last-modified: Sun, 24 May 2026 18:44:32 GMT
+x-lp-source: r2
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=lGOsZO%2FGiuFt6OD6esAL%2B%2BQY7KQ2DGQws9v1Ut3W3fvHJqCFx5brQTqtaKI%2BMiAJMhMIgG%2BKUey4axYQLP7X64VuuUw090YhN0pdYuMVAxKtzag42rQHaOGgadMn0eIGG%2BFhe%2F8OcVrUWcO1FDLhXYfEKxfAf6XekKQQP5s6eb53tw%3D%3D"}]}
+server: cloudflare
+cf-ray: a00e845e0ff27886-ATL
+alt-svc: h3=":443"; ma=86400
+
+~/workspace$ cat bodyB.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>gate fixture: gate-isolation @ gate-hb.example.com</title>
+  <meta name="x-lp-gate-marker" content="ISOLATION-B" />
+</head>
+<body>
+  <h1>ISOLATION-B</h1>
+  <p>This is a synthetic R2 fixture for task #364 gate validation.</p>
+  <p>Slug: <code>gate-isolation</code></p>
+  <p>Host: <code>gate-hb.example.com</code></p>
+  <!-- Marker for curl/grep assertions: ISOLATION-B -->
+</body>
+</html>
+~/workspace$ diff bodyA.html bodyB.html
+5,6c5,6
+<   <title>gate fixture: gate-isolation @ gate-ha.example.com</title>
+<   <meta name="x-lp-gate-marker" content="ISOLATION-A" />
+---
+>   <title>gate fixture: gate-isolation @ gate-hb.example.com</title>
+>   <meta name="x-lp-gate-marker" content="ISOLATION-B" />
+9c9
+<   <h1>ISOLATION-A</h1>
+---
+>   <h1>ISOLATION-B</h1>
+12,13c12,13
+<   <p>Host: <code>gate-ha.example.com</code></p>
+<   <!-- Marker for curl/grep assertions: ISOLATION-A -->
+---
+>   <p>Host: <code>gate-hb.example.com</code></p>
+>   <!-- Marker for curl/grep assertions: ISOLATION-B -->
+~/workspace$ time curl -sD- -o /dev/null -H "X-LP-Host: gate-h1.example.com" "$WORKER/gate-missing"
+HTTP/2 404 
+date: Sun, 24 May 2026 18:56:20 GMT
+content-type: text/html; charset=UTF-8
+cf-ray: a00e85111927b241-ATL
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+referrer-policy: same-origin
+x-frame-options: SAMEORIGIN
+x-lp-source: spa-fallback
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=y8nJWhLvED3FDvKi7LBeU3z9y8G5x6Rf64sE%2FIyaWjngI01cjeAl4zvcVf9RAnHi4ZVogEgPA508RmKYFXz90MsZy0aMn2KwVrbYkObbnr1ew2t727L3NHv%2F52NHqrSbar16Ti2XB%2Fl%2BXUURLVn%2F2e%2F7wyIPkEIZIGVViYLlgLogPw%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+alt-svc: h3=":443"; ma=86400
+
+
+real    0m0.169s
+user    0m0.029s
+sys 0m0.013s
+~/workspace$ 
