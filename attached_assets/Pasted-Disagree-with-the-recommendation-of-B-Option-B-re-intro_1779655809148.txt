@@ -1,0 +1,26 @@
+Disagree with the recommendation of B. Option B re-introduces api-server as a single point of failure for visitor reads — if api-server is down, the Express middleware is also down, and visitors get nothing. That undoes the core outage-resilience property of the architecture we built. "B is operationally simpler" is true; "B preserves the value we built" is not. Let's not pretend that tradeoff isn't real.
+Going with A. The plan:
+Phase 1: Validate worker-serves-R2 on a subdomain I fully control with no Custom Hostname needed.
+
+I add a DNS record test.lpstudio.ai → wherever Replit needs (CNAME to my Replit app probably). Tell me exactly what to add.
+You update wrangler.toml's [env.production] to use *.lpstudio.ai/* and lpstudio.ai/* routes. Show me the diff, don't deploy.
+We create a test tenant in prod with micrositeDomain = test.lpstudio.ai, publish a test page so per-host R2 write fires. Show me what tenant data I need to insert.
+Deploy worker --env production.
+I curl https://test.lpstudio.ai/<test-slug> and confirm: 200, X-LP-Source: r2, real per-page meta, real content.
+
+If Phase 1 passes, the architecture works end-to-end on real traffic with real CF in the path.
+Phase 2: Validate Custom Hostname flow on a domain I own.
+
+Use meetdandy-lp.com (which I own via Replit) as the Custom Hostname test.
+Walk me through setting it up as a Custom Hostname under the lpstudio.ai zone, including the DCV record I add to the meetdandy-lp.com DNS.
+Either create a test tenant with micrositeDomain = meetdandy-lp.com, or temporarily flip an existing test tenant's micrositeDomain to it. Suggest the simpler approach.
+I curl https://meetdandy-lp.com/<test-slug> and confirm same as step 5.
+
+If Phase 2 passes, I have a proven runbook for Dandy.
+Phase 3: Slack Dandy with the exact DCV records and CNAME change for lp.meetdandy.com, partners.meetdandy.com, ent.meetdandy.com. Cut those over one at a time.
+Before any of this:
+
+Backward compat check: confirm the new worker handles lpstudio.ai/lp/<slug> URLs (the existing legacy traffic). If the new worker can't serve those correctly, we need a fallback or migration plan before deploying to prod.
+Custom Hostname routing: confirm whether meetdandy-lp.com being a Custom Hostname needs anything in wrangler.toml (you mentioned no routes block for Custom Hostnames — verify).
+
+Don't update .local/followups.md yet. Once Phase 1 is green I'll know if the architecture I described actually holds in production. If something blows up in Phase 1, we revisit.
