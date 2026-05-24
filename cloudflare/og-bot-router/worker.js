@@ -106,6 +106,16 @@ async function fromR2(env, host, slug) {
   return new Response(obj.body, { status: 200, headers });
 }
 
+// Hard cap on the tier-2 fetch. The whole point of the R2 prerender
+// architecture is that visitors don't wait on api-server availability.
+// CF's default subrequest timeout is ~30s; on a real outage that means
+// every cold-cache request hangs 30s before tier-3 SPA fallback — a
+// strict regression vs the previous worker, which only fired api-server
+// fetches for bot UAs (real users were never blocked at all). 2500ms
+// leaves room for one real call (P99 of /api/lp/rendered is ~few
+// hundred ms) but bails out fast on a stuck/dead origin.
+const TIER2_TIMEOUT_MS = 2500;
+
 async function fromApiServer(env, request, slug) {
   const url = new URL(request.url);
   const upstream = `${env.API_ORIGIN}/api/lp/rendered/${encodeURIComponent(slug)}`;
@@ -122,6 +132,10 @@ async function fromApiServer(env, request, slug) {
       cacheTtlByStatus: { "200-299": 300, "404": 60, "500-599": 0 },
       cacheEverything: true,
     },
+    // AbortSignal.timeout is supported by the CF Workers runtime and is
+    // honored by fetch() — both connect and total-response time are
+    // bounded by it. On expiry, fetch() rejects with an AbortError.
+    signal: AbortSignal.timeout(TIER2_TIMEOUT_MS),
   });
   try {
     const r = await fetch(upstreamReq);
@@ -130,6 +144,10 @@ async function fromApiServer(env, request, slug) {
     headers.set("X-LP-Source", "api-server");
     return new Response(r.body, { status: 200, headers });
   } catch {
+    // AbortError (timeout), DNS failure, TCP error — all collapse to
+    // "tier-2 unavailable; fall through to SPA". Intentionally silent
+    // because under a real outage this fires on every request and we
+    // don't want to flood worker logs.
     return null;
   }
 }
