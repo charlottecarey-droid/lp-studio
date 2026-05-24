@@ -1141,6 +1141,21 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               />
             )}
             <div className="space-y-1.5">
+              <Label className="text-xs">CTA style</Label>
+              <div className="flex gap-2">
+                {([["pill","Compact pill"],["pass","Reservation-pass"]] as const).map(([v,lbl]) => (
+                  <button
+                    key={v}
+                    onClick={() => onChange({ ...block, props: { ...p, ctaStyle: v } })}
+                    className={`flex-1 py-1.5 text-xs rounded border ${(p.ctaStyle ?? "pill") === v ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">"Reservation-pass" matches the larger citron CTA used on the Inside-Dandy reservation pass block.</p>
+            </div>
+            <div className="space-y-1.5">
               <ColorField label="CTA color" value={p.accentColor ?? "var(--brand-accent)"} onChange={v => onChange({ ...block, props: { ...p, accentColor: v } })} />
             </div>
           </div>

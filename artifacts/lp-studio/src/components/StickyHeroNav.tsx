@@ -33,6 +33,13 @@ export interface StickyHeroNavProps {
   /** Accent color for the CTA button. Defaults to Dandy primary. */
   accentColor?: string;
   accentTextColor?: string;
+  /** CTA visual treatment.
+   *  - "pill"  (default): the original compact rounded-pill nav button.
+   *  - "pass": flatter 6px-radius citron rectangle with an inset white
+   *    highlight, soft glow and an arrow that slides on hover — same
+   *    shape used by the Inside-Dandy reservation pass primary CTA, so
+   *    a header above that block reads as the same button family. */
+  ctaStyle?: "pill" | "pass";
   /** Position. "fixed" overlays content (premium hero feel). "sticky" stays in flow.
    *  "absolute" pins to nearest positioned ancestor (used in the page builder so
    *  the nav cannot escape the hero block's bounds). */
@@ -58,6 +65,7 @@ export function StickyHeroNav({
   theme = "dark",
   accentColor = DEFAULT_ACCENT,
   accentTextColor = "hsl(192, 30%, 6%)",
+  ctaStyle = "pill",
   position = "fixed",
   invertLogo,
 }: StickyHeroNavProps) {
@@ -241,23 +249,51 @@ export function StickyHeroNav({
           {/* Right side */}
           <div className="flex items-center gap-3">
             {primaryCtaText && (
-              <a
-                href={primaryCtaUrl || "#"}
-                onClick={handleCta}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90"
-                style={{
-                  background: accentColor,
-                  color: accentTextColor,
-                  padding: "0.5rem 1.125rem",
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.01em",
-                  cursor: "pointer",
-                }}
-              >
-                {primaryCtaText}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
+              ctaStyle === "pass" ? (
+                <a
+                  href={primaryCtaUrl || "#"}
+                  onClick={handleCta}
+                  className="stky-hero-pass-cta hidden sm:inline-flex items-center justify-center gap-2.5"
+                  style={{
+                    background: accentColor,
+                    color: accentTextColor,
+                    minWidth: "200px",
+                    padding: "0.85rem 1.75rem",
+                    fontSize: "0.8125rem",
+                    fontWeight: 500,
+                    letterSpacing: "0.06em",
+                    borderRadius: "6px",
+                    border: "1px solid transparent",
+                    textDecoration: "none",
+                    cursor: "pointer",
+                    boxShadow:
+                      "0 1px 0 rgba(255,255,255,0.35) inset, 0 12px 32px rgba(199,231,56,0.18)",
+                    transition:
+                      "transform 280ms cubic-bezier(0.22,1,0.36,1), box-shadow 280ms cubic-bezier(0.22,1,0.36,1)",
+                  }}
+                >
+                  {primaryCtaText}
+                  <ArrowRight className="w-3.5 h-3.5 stky-hero-pass-arrow" />
+                </a>
+              ) : (
+                <a
+                  href={primaryCtaUrl || "#"}
+                  onClick={handleCta}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90"
+                  style={{
+                    background: accentColor,
+                    color: accentTextColor,
+                    padding: "0.5rem 1.125rem",
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.01em",
+                    cursor: "pointer",
+                  }}
+                >
+                  {primaryCtaText}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              )
             )}
 
             {(links.length > 0 || primaryCtaText) && (
@@ -313,23 +349,57 @@ export function StickyHeroNav({
                     handleCta(e);
                     setMobileOpen(false);
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full mt-2"
-                  style={{
-                    background: accentColor,
-                    color: accentTextColor,
-                    padding: "0.6rem 1.25rem",
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                  }}
+                  className={`inline-flex items-center justify-center gap-1.5 mt-2 ${ctaStyle === "pass" ? "stky-hero-pass-cta" : "rounded-full"}`}
+                  style={
+                    ctaStyle === "pass"
+                      ? {
+                          background: accentColor,
+                          color: accentTextColor,
+                          padding: "0.85rem 1.75rem",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          letterSpacing: "0.06em",
+                          borderRadius: "6px",
+                          boxShadow:
+                            "0 1px 0 rgba(255,255,255,0.35) inset, 0 12px 32px rgba(199,231,56,0.18)",
+                        }
+                      : {
+                          background: accentColor,
+                          color: accentTextColor,
+                          padding: "0.6rem 1.25rem",
+                          fontSize: "0.875rem",
+                          fontWeight: 600,
+                        }
+                  }
                 >
                   {primaryCtaText}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className={`w-4 h-4 ${ctaStyle === "pass" ? "stky-hero-pass-arrow" : ""}`} />
                 </a>
               )}
             </nav>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Pass-style CTA: hover lift + arrow slide. Scoped to .stky-hero-pass-cta
+          so it cannot bleed into the default pill button or any other anchor. */}
+      {ctaStyle === "pass" && (
+        <style>{`
+          .stky-hero-pass-cta .stky-hero-pass-arrow {
+            transform: translateX(0);
+            transition: transform 280ms cubic-bezier(0.22,1,0.36,1);
+            opacity: 0.9;
+          }
+          .stky-hero-pass-cta:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 18px 40px rgba(199,231,56,0.28) !important;
+          }
+          .stky-hero-pass-cta:hover .stky-hero-pass-arrow {
+            transform: translateX(4px);
+            opacity: 1;
+          }
+        `}</style>
+      )}
     </>
   );
 }

@@ -70,6 +70,7 @@ export function BlockStickyHeader({ props: p, brand, onCtaClick, isBuilder }: Pr
         onPrimaryCtaClick={handleCta}
         theme={p.theme ?? "dark"}
         accentColor={p.accentColor}
+        ctaStyle={p.ctaStyle}
         position={isBuilder ? "absolute" : (p.position ?? "fixed")}
         invertLogo={p.invertLogo}
         scrollThreshold={p.scrollThreshold ?? 40}
