@@ -184,6 +184,84 @@ export function IdHeroPanel({ props, onChange }: Props) {
         </div>
       </div>
       <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Edge fades</div>
+        <p className="text-[10px] text-muted-foreground leading-snug -mt-1">
+          Optional soft gradient overlays that let the hero blend into the block above or below. Set the color to match the neighboring section.
+        </p>
+
+        {/* Top fade */}
+        <label className="flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!props.fadeTop}
+            onChange={(e) => u({ fadeTop: e.target.checked || undefined })}
+          />
+          <span className="font-medium">Top fade</span>
+        </label>
+        {props.fadeTop && (
+          <div className="pl-5 space-y-2">
+            <div className="flex items-center gap-2">
+              <Label className="text-[11px] text-muted-foreground w-12 shrink-0">Color</Label>
+              <input
+                type="color"
+                value={(props.fadeTopColor || "#000000").slice(0, 7)}
+                onChange={(e) => u({ fadeTopColor: e.target.value })}
+                className="w-7 h-7 rounded border border-border bg-transparent cursor-pointer"
+              />
+              <Input
+                value={props.fadeTopColor ?? ""}
+                onChange={(e) => u({ fadeTopColor: e.target.value })}
+                placeholder="#000000 or transparent"
+                className="h-7 text-[11px] font-mono"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] text-muted-foreground">Height</Label>
+                <span className="text-[11px] font-mono text-muted-foreground">{props.fadeTopHeight ?? 160}px</span>
+              </div>
+              <Slider min={20} max={500} step={10} value={[props.fadeTopHeight ?? 160]} onValueChange={(v) => u({ fadeTopHeight: v[0] })} />
+            </div>
+          </div>
+        )}
+
+        {/* Bottom fade */}
+        <label className="flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!props.fadeBottom}
+            onChange={(e) => u({ fadeBottom: e.target.checked || undefined })}
+          />
+          <span className="font-medium">Bottom fade</span>
+        </label>
+        {props.fadeBottom && (
+          <div className="pl-5 space-y-2">
+            <div className="flex items-center gap-2">
+              <Label className="text-[11px] text-muted-foreground w-12 shrink-0">Color</Label>
+              <input
+                type="color"
+                value={(props.fadeBottomColor || "#000000").slice(0, 7)}
+                onChange={(e) => u({ fadeBottomColor: e.target.value })}
+                className="w-7 h-7 rounded border border-border bg-transparent cursor-pointer"
+              />
+              <Input
+                value={props.fadeBottomColor ?? ""}
+                onChange={(e) => u({ fadeBottomColor: e.target.value })}
+                placeholder="#000000 or transparent"
+                className="h-7 text-[11px] font-mono"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] text-muted-foreground">Height</Label>
+                <span className="text-[11px] font-mono text-muted-foreground">{props.fadeBottomHeight ?? 200}px</span>
+              </div>
+              <Slider min={20} max={500} step={10} value={[props.fadeBottomHeight ?? 200]} onValueChange={(v) => u({ fadeBottomHeight: v[0] })} />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background image</div>
         <ImagePicker value={props.bgImage ?? ""} onChange={(v) => u({ bgImage: v || undefined })} placeholder="Upload or paste a URL" />
         <div>

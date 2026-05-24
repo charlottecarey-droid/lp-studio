@@ -135,6 +135,38 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
       <div className="id-hero-overlay" />
       <div className="id-hero-grid" />
       <div className="id-signal-orb" aria-hidden />
+      {props.fadeTop && (
+        <div
+          className="id-hero-fade id-hero-fade-top"
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: `${Math.max(20, Math.min(600, props.fadeTopHeight ?? 160))}px`,
+            background: `linear-gradient(to bottom, ${props.fadeTopColor || "#000000"} 0%, transparent 100%)`,
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
+        />
+      )}
+      {props.fadeBottom && (
+        <div
+          className="id-hero-fade id-hero-fade-bottom"
+          aria-hidden
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: `${Math.max(20, Math.min(600, props.fadeBottomHeight ?? 200))}px`,
+            background: `linear-gradient(to top, ${props.fadeBottomColor || "#000000"} 0%, transparent 100%)`,
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
+        />
+      )}
       <div className="id-hero-content">
         {(props.eyebrow || isEditor) && (
           <InlineText

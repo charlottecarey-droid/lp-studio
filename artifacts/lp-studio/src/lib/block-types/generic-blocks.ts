@@ -1523,6 +1523,24 @@ export interface IdHeroBlockProps extends CtaModalConfig {
   /** Multiplier applied to the headline font-size, 0.5..1.5. Defaults to 1.
    *  Use this to shrink the headline so long words don't get clipped. */
   headlineScale?: number;
+  /** Enable a soft gradient fade at the top of the hero so the section
+   *  blends into the page or app chrome above it. Defaults to false. */
+  fadeTop?: boolean;
+  /** Color the top fade resolves into. Defaults to "#000000". Use the
+   *  background color of the section above (or "transparent") to blend
+   *  seamlessly. */
+  fadeTopColor?: string;
+  /** Height of the top fade in px. 40–400 reads well. Defaults to 160. */
+  fadeTopHeight?: number;
+  /** Enable a soft gradient fade at the bottom of the hero so the section
+   *  blends into the block below it. Defaults to false. */
+  fadeBottom?: boolean;
+  /** Color the bottom fade resolves into. Defaults to "#000000". Use the
+   *  background color of the section below (or "transparent") to blend
+   *  seamlessly. */
+  fadeBottomColor?: string;
+  /** Height of the bottom fade in px. 40–400 reads well. Defaults to 200. */
+  fadeBottomHeight?: number;
 }
 
 export interface IdMarqueeBlockProps {
