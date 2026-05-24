@@ -169,12 +169,28 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
       )}
       <div className="id-hero-content">
         {(props.eyebrow || isEditor) && (
-          <InlineText
-            as="div"
-            className="id-hero-eyebrow"
-            value={props.eyebrow ?? ""}
-            onUpdate={f("eyebrow")}
-          />
+          <div className="id-hero-eyebrow-wrap" style={{ display: "inline-flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
+            {props.eyebrowLive && (
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-block",
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#C7E738",
+                  boxShadow: "0 0 0 0 rgba(199,231,56,0.7)",
+                  animation: "idHeroLivePulse 1.8s ease-out infinite",
+                }}
+              />
+            )}
+            <InlineText
+              as="span"
+              className="id-hero-eyebrow"
+              value={props.eyebrow ?? ""}
+              onUpdate={f("eyebrow")}
+            />
+          </div>
         )}
         <h1 style={{ fontFamily: DISPLAY }}>
           <span className="id-line" style={{ fontFamily: DISPLAY }}>
@@ -217,12 +233,13 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               modalShowCompany={props.modalShowCompany}
               onClick={cta1Action === "url" && props.cta1Url ? () => onCtaClick?.(props.cta1Url!) : undefined}
               className="id-btn id-btn-primary"
+              style={props.primaryCtaTextColor ? { color: props.primaryCtaTextColor } : undefined}
               pageId={pageId}
               variantId={variantId}
               source="id-hero-cta1"
             >
-              <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} style={{ fontFamily: BODY }}/>
-              <span aria-hidden style={{ fontFamily: BODY }}>→</span>
+              <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} style={{ fontFamily: BODY, color: props.primaryCtaTextColor }}/>
+              <span aria-hidden style={{ fontFamily: BODY, color: props.primaryCtaTextColor }}>→</span>
             </CtaButton>
           )}
           {(props.cta2Text || isEditor) && (
@@ -255,6 +272,27 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               variantId={variantId}
               source="id-hero-cta2"
             >
+              {props.playGlyph && (
+                <span
+                  aria-hidden
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    border: "1px solid currentColor",
+                    fontSize: 7,
+                    lineHeight: 1,
+                    paddingLeft: 2,
+                    marginRight: 8,
+                    opacity: 0.85,
+                  }}
+                >
+                  ▶
+                </span>
+              )}
               <InlineText as="span" value={props.cta2Text ?? ""} onUpdate={f("cta2Text")} style={{ fontFamily: BODY }}/>
             </CtaButton>
           )}

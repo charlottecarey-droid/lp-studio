@@ -437,6 +437,9 @@ const CSS = `
 .id-grid .id-grid-card:hover { background:rgba(199,231,56,0.025); }
 .id-grid .id-grid-card .id-grid-num { font-family:var(--id-display); font-size:18px; line-height:1; letter-spacing:0.04em; color:var(--id-cit); font-feature-settings:"tnum"; font-weight:400; }
 .id-grid .id-grid-card .id-grid-eyebrow { font-size:10px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(255,255,255,0.55); font-weight:500; }
+.id-grid .id-grid-card .id-grid-chip { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; padding:4px 9px 4px 8px; margin-top:-4px; border:1px solid rgba(199,231,56,0.35); border-radius:999px; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--id-cit); font-weight:500; background:rgba(199,231,56,0.04); }
+.id-grid .id-grid-card .id-grid-chip::before { content:""; width:5px; height:5px; border-radius:50%; background:var(--id-cit); box-shadow:0 0 6px rgba(199,231,56,0.7); }
+@keyframes idHeroLivePulse { 0% { box-shadow:0 0 0 0 rgba(199,231,56,0.55); } 70% { box-shadow:0 0 0 8px rgba(199,231,56,0); } 100% { box-shadow:0 0 0 0 rgba(199,231,56,0); } }
 .id-grid .id-grid-card .id-grid-headline { font-family:var(--id-display); font-weight:400; font-size:clamp(24px,2.2vw,32px); line-height:1.12; letter-spacing:-0.012em; color:#fff; margin:0; }
 .id-grid .id-grid-card .id-grid-headline em { color:var(--id-cit); font-style:italic; }
 .id-grid .id-grid-card .id-grid-body { font-size:15px; line-height:1.55; color:rgba(255,255,255,0.7); margin:0; font-weight:300; }

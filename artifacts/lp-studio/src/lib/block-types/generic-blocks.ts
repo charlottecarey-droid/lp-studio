@@ -1541,6 +1541,16 @@ export interface IdHeroBlockProps extends CtaModalConfig {
   fadeBottomColor?: string;
   /** Height of the bottom fade in px. 40–400 reads well. Defaults to 200. */
   fadeBottomHeight?: number;
+  /** Show a small pulsing citron dot before the eyebrow text — a live
+   *  status microdetail (Linear/Vercel style). Defaults to false. */
+  eyebrowLive?: boolean;
+  /** Prepend a small ▶ play glyph to the ghost (cta2) button so it reads
+   *  as a video trigger instead of a plain link. Defaults to false. */
+  playGlyph?: boolean;
+  /** Override the text color on the primary (cta1) button. Use a dark
+   *  brand color like "#001814" on a citron fill for a more restrained,
+   *  premium look (vs. the default near-black). */
+  primaryCtaTextColor?: string;
 }
 
 export interface IdMarqueeBlockProps {
@@ -1824,6 +1834,10 @@ export interface IdGridCard {
   ctaText?: string;
   /** Optional CTA href. */
   ctaUrl?: string;
+  /** Optional availability / status chip shown next to the eyebrow, e.g.
+   *  "Available now", "By request", "2 dates · 24 seats". Telegraphs
+   *  exclusivity / scarcity. Defaults to none. */
+  chip?: string;
 }
 
 export interface IdGridBlockProps {

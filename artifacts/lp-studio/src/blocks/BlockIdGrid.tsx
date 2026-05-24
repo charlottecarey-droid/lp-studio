@@ -102,6 +102,9 @@ export function BlockIdGrid({ props, onFieldChange }: Props) {
                     onUpdate={onFieldChange ? (v) => updateCard(i, { eyebrow: v }) : undefined}
                   />
                 )}
+                {(card.chip || isEditor) && card.chip ? (
+                  <span className="id-grid-chip">{card.chip}</span>
+                ) : null}
                 <EditableEm
                   as="h3"
                   className="id-grid-headline"

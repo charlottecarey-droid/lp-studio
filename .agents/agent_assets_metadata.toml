@@ -143,3 +143,9 @@ id = "k4AuJJ9T9IALzJz-C5EDc"
 uri = "file://attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_business-case_Premium.png"
 type = "image"
 title = "Business Case — Premium Editorial (hero)"
+
+[[outputs]]
+id = "-e_HPSgvDxXEMneIvO8vA"
+uri = "file://attached_assets/screenshots/lp-premium-pre-deploy.png"
+type = "image"
+title = "dandy-ai-lp-copy-premium (live now, before code deploy)"
