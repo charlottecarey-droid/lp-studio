@@ -118,6 +118,81 @@ Replit's deployment edge only honours the `Host` header for hostnames explicitly
 - **Passthrough hosts**: `lpstudio.ai`, `www.lpstudio.ai`, and `app.lpstudio.ai` bypass the worker (already registered as Replit custom domains).
 - See `cloudflare/tenant-host-router/README.md` for deploy + DNS steps.
 
+## LP-Studio prerender ops (task #364)
+
+Published LP-Studio landing pages are rendered to static HTML and served
+from Cloudflare R2 by the `tenant-host-router` worker
+(`cloudflare/tenant-host-router/`). Visitor reads make ZERO api-server
+calls — that's the whole point of the R2 cache.
+
+### Required production env vars
+
+| Env var | Required where | Why |
+|---|---|---|
+| `LP_STUDIO_RENDER_BASE_URL` | api-server (prod) | Base URL Playwright loads to snapshot a published page. **MUST be set** to the canonical SPA host, e.g. `https://render.lpstudio.ai`. If unset, `prerenderLpPage.resolveLpStudioBaseUrl()` falls through to `REPLIT_DEV_DOMAIN` (wrong DB context in a deploy) or `127.0.0.1:3000` (nothing listening), and every publish silently produces empty HTML. The api-server emits a loud Sentry error (`prerender_config_missing_render_base_url`) and `console.error` at boot if this is unset in production — do not ignore it. |
+| `R2_*` (account id, bucket, access key, secret) | api-server (prod) | Per-host R2 writes from `triggerPublishedRender`. |
+| `LP_STUDIO_PUBLIC_HOST` | api-server (optional) | Used only as a fallback host for tenants with no registered hosts. Normal tenants get their hosts from `getActiveHostsForTenant`. |
+
+`render.lpstudio.ai` is a dedicated render-only subdomain (DNS record
+under the existing `lpstudio.ai` Cloudflare zone, no Custom Hostname
+needed). Using a dedicated subdomain — instead of reusing
+`app.lpstudio.ai` — keeps Playwright prerender traffic greppable in
+logs and independently rate-limitable.
+
+### Onboarding a new custom domain (two-step)
+
+Custom Hostnames on Cloudflare SaaS do **NOT** inherit zone-level Worker
+routes — this is silent and was discovered the hard way during phase 2.
+Adding a new tenant domain requires BOTH:
+
+1. Cloudflare SaaS Custom Hostname for `<domain>` (TLS + edge routing).
+2. Explicit Worker Route `<domain>/*` on the `lpstudio.ai` zone bound to
+   the `tenant-host-router` worker. Codified in
+   `cloudflare/tenant-host-router/wrangler.toml`; redeploy after adding.
+
+Skip step 2 and visitors silently passthrough to the origin (api-server
+SSR fallback) with no `x-lp-source: r2` header. Verify with:
+
+```
+curl -sI --resolve <domain>:443:<cf-ip> "https://<domain>/<slug>" | grep -i x-lp-source
+```
+
+### Backfill / repair
+
+`artifacts/api-server/scripts/backfill-published-html.ts` re-renders
+published pages and writes them to R2. Use after onboarding a new
+tenant, after a render outage, or to verify the pipeline end-to-end.
+
+```
+cd artifacts/api-server && env DATABASE_URL=$NEON_DATABASE_URL \
+  LP_STUDIO_RENDER_BASE_URL=https://render.lpstudio.ai \
+  pnpm --filter @workspace/api-server exec tsx \
+  scripts/backfill-published-html.ts --tenant=<id> --only-missing
+```
+
+~10s/page. Splits cleanly per-tenant if Playwright cold-start makes a
+single run exceed your shell timeout.
+
+### Sentry alerting surface
+
+Every fire-and-forget failure path in `triggerPublishedRender` /
+`triggerPublishedDelete` emits a structured Sentry message. Benign
+races (page deleted mid-render, concurrent edit superseded the render,
+publish→draft toggle during render) are intentionally silent — they're
+correct behavior, not failures. Everything else alerts:
+
+| Sentry message | Level | When |
+|---|---|---|
+| `prerender_config_missing_render_base_url` | error | api-server boot, prod, env unset |
+| `prerender_uncaught` | error | Unhandled throw escapes `renderAndStore` |
+| `prerender_no_hosts_to_write` | error | Tenant has no domains/microsite/wildcards (broken config) |
+| `prerender_render_failed` | error | Playwright threw — the May 2026 regression shape |
+| `prerender_r2_write_failed` | error | R2 PUT failed; OS not written; visitor cache stale |
+| `prerender_os_write_failed_benign` | warning | OS write failed AFTER R2 succeeded; debug endpoint lags, visitors fine |
+| `prerender_delete_uncaught` | error | Unhandled throw in delete path |
+| `prerender_r2_delete_failed` | error | R2 DELETE failed; OS not deleted; visitors still see page |
+| `prerender_os_delete_failed_benign` | warning | OS delete failed AFTER R2 succeeded |
+
 # External Dependencies
 
 - **pnpm**: Monorepo package manager.

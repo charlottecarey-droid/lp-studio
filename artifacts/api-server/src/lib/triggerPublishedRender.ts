@@ -86,7 +86,13 @@ export interface RenderOutcome {
 /** Background trigger — never throws to the caller. */
 export function triggerPublishedRender(opts: TriggerPublishedRenderOpts): void {
   void renderAndStore(opts).catch((err) => {
+    const errMsg = err instanceof Error ? err.message : String(err);
     console.warn("[triggerPublishedRender] uncaught", { pageId: opts.pageId, err });
+    Sentry.captureMessage("prerender_uncaught", {
+      level: "error",
+      tags: { subsystem: "lp-prerender", outcome: "uncaught" },
+      extra: { pageId: opts.pageId, error: errMsg },
+    });
   });
 }
 
@@ -148,6 +154,15 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     console.warn("[triggerPublishedRender] no hosts to write", {
       pageId: page.id, tenantId: page.tenantId,
     });
+    Sentry.captureMessage("prerender_no_hosts_to_write", {
+      level: "error",
+      tags: { subsystem: "lp-prerender", outcome: "no_hosts_to_write" },
+      extra: {
+        pageId: page.id,
+        tenantId: page.tenantId,
+        slug: page.slug,
+      },
+    });
     return outcome;
   }
 
@@ -163,6 +178,22 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     outcome.error = err instanceof Error ? err.message : String(err);
     outcome.durationMs = Date.now() - t0;
     console.warn("[triggerPublishedRender] prerender failed", { pageId: opts.pageId, err });
+    // Render failures are how the May 2026 silent regression manifested
+    // (LP_STUDIO_RENDER_BASE_URL unset on prod → Playwright loaded the
+    // wrong base URL → SPA never rendered the page → blank HTML → R2
+    // never updated). Alert loudly so the next regression of this shape
+    // is caught the first time it happens, not the 100th.
+    Sentry.captureMessage("prerender_render_failed", {
+      level: "error",
+      tags: { subsystem: "lp-prerender", outcome: "render_failed" },
+      extra: {
+        pageId: page.id,
+        tenantId: page.tenantId,
+        slug: page.slug,
+        attemptedHosts: hostsToWrite,
+        error: outcome.error,
+      },
+    });
     return outcome;
   }
 
@@ -353,7 +384,13 @@ export function triggerPublishedDelete(tenantId: number, slug: string): void {
       });
     }
   })().catch((err) => {
+    const errMsg = err instanceof Error ? err.message : String(err);
     console.warn("[triggerPublishedDelete] uncaught", { tenantId, slug, err });
+    Sentry.captureMessage("prerender_delete_uncaught", {
+      level: "error",
+      tags: { subsystem: "lp-prerender", outcome: "delete_uncaught" },
+      extra: { tenantId, slug, error: errMsg },
+    });
   });
 }
 

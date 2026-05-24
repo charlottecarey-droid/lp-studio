@@ -15,7 +15,53 @@ import { pool } from "@workspace/db";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
+import { Sentry } from "./lib/sentry";
 import { setReady } from "./lib/readiness";
+
+/**
+ * Startup check for the LP-Studio prerender pipeline (task #364 follow-up).
+ *
+ * `triggerPublishedRender` shells out to Playwright against a base URL
+ * resolved from `LP_STUDIO_RENDER_BASE_URL` (see `lib/prerenderLpPage.ts`
+ * `resolveLpStudioBaseUrl`). If that env var is unset in production the
+ * resolver falls through to `REPLIT_DEV_DOMAIN` (per-workspace, wrong DB
+ * context) or `127.0.0.1:3000` (nothing listening) — Playwright either
+ * fails or renders an empty page, R2 never gets written, and visitors
+ * stay on the SSR fallback indefinitely with no surfaced error.
+ *
+ * In May 2026 this exact misconfiguration shipped silently and was only
+ * caught when an operator noticed lpstudio.ai pages weren't appearing in
+ * R2. This loud-on-boot check ensures the next regression is caught at
+ * deploy time, not weeks later.
+ *
+ * Not fail-fast: the api-server still serves everything else (publish
+ * itself succeeds, SSR fallback works, only the static-HTML cache is
+ * stale) so a missing render base URL is degrade-not-crash. A loud
+ * Sentry error + console.error gives ops the signal without taking the
+ * whole service down.
+ */
+function checkPrerenderConfig(): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.LP_STUDIO_RENDER_BASE_URL) return;
+  const msg =
+    "LP_STUDIO_RENDER_BASE_URL is not set on the production deployment. " +
+    "Auto-prerender on publish will fail silently (Playwright will load the " +
+    "wrong SPA host and produce empty HTML). Set it to a canonical SPA host " +
+    "such as https://render.lpstudio.ai and restart. See replit.md " +
+    "(LP-Studio prerender ops).";
+  console.error(`[startup] ${msg}`);
+  Sentry.captureMessage("prerender_config_missing_render_base_url", {
+    level: "error",
+    tags: {
+      subsystem: "lp-prerender",
+      outcome: "startup_config_missing",
+    },
+    extra: {
+      missing_env: "LP_STUDIO_RENDER_BASE_URL",
+      note: msg,
+    },
+  });
+}
 
 const SLUG_REDIRECT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
 // Task #152 — warn admins ~7 days before an old workspace URL stops working.
@@ -187,6 +233,10 @@ const httpServer = app.listen(port, (err) => {
   }
   setReady();
   logger.info({ port }, "Server listening — API ready");
+
+  // Verify the LP-Studio prerender pipeline has its required prod env
+  // configured. No-op outside production.
+  checkPrerenderConfig();
 
   // Periodic cleanup of expired workspace URL redirects (task #136).
   // Runs once at boot and then on a fixed interval. Failures are logged
