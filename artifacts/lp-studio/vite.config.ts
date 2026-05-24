@@ -4,7 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
-import { publishedPageProxyPlugin } from "./src/server/publishedPageProxyPlugin";
 
 /**
  * Force the SPA shell (index.html) to revalidate on every visit so returning
@@ -61,10 +60,6 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     noCacheHtmlPlugin(),
-    // Task #364: serve prerendered published-page HTML at /:slug and
-    // /lp/:slug before falling back to the SPA index.html. Drafts,
-    // /preview/:slug, and dashboard routes are NEVER intercepted.
-    publishedPageProxyPlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
