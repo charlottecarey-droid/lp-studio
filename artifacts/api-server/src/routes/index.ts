@@ -33,6 +33,7 @@ const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/lp\/rss\/parse$/ },      // POST /lp/rss/parse — public RSS proxy/parser for content-series live sync
   { method: "GET",  pattern: /^\/lp\/podcast-availability$/ }, // GET /lp/podcast-availability?sheetId=…&tab=… — public Google Sheets-backed slot picker for content-series guest forms
   { method: "GET",  pattern: /^\/lp\/og-preview\// },     // GET /lp/og-preview/:slug — OG meta HTML for social bots
+  { method: "GET",  pattern: /^\/lp\/rendered\// },       // GET /lp/rendered/:slug — prerendered published HTML (task #364)
   { method: "GET",  pattern: /^\/lp\/public-pages$/ },    // GET /lp/public-pages?tag=… — tenant-scoped, published-only page list for the Story Hub block on published landing pages
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
   { method: "GET",  pattern: /^\/sales\/track\// },        // GET /sales/track/click-hotlink, /sales/track/open — click/open tracking from emails

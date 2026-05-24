@@ -1,0 +1,200 @@
+/**
+ * Render a published landing page to static HTML via Playwright (Chromium).
+ *
+ * Drives the running lp-studio service from inside the API server, captures
+ * the hydrated DOM, and post-processes the result so the file on disk has
+ * exact per-page <title>/<meta>/OG tags from lp_pages columns regardless
+ * of what the SPA's `usePageMeta` hook did during the snapshot.
+ *
+ * Why Playwright (not server-side renderToString):
+ *   - lp-studio's ~150 blocks include scroll-driven and `window`-aware
+ *     components (BlockForm reads localStorage in render; BlockSpatialTour
+ *     mounts pointer/scroll listeners; many headers read scroll position).
+ *     Patching all of them for SSR-safety is a separate, multi-day audit.
+ *   - The api-server is a separate workspace package and can't import
+ *     lp-studio's `.tsx` blocks directly without a cross-workspace SSR
+ *     build (vite ssr entry, externalized deps, etc.) — also multi-day.
+ *   - Marketing-site prerender (task #363) already proved Playwright on
+ *     this NixOS container; reusing the pattern is additive.
+ *
+ * Cost: 3–10 s per publish. Acceptable for a flow that runs at most once
+ * per publish/unpublish/edit, not per visitor.
+ *
+ * Snapshot target: GET ${baseUrl}/preview/${slug}?reviewToken=${token}.
+ * The /preview route is public-with-token (lp/index.ts allowlist) and
+ * mounts LandingPageViewer with the page's hydrated config — exactly what
+ * a published visitor sees, without any session-bound chrome.
+ *
+ * Task #364.
+ */
+import { execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { db, lpPageReviewsTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+
+let cachedChromium: string | null | undefined;
+
+/** Reuse the marketing-prerender chromium-detection dance (see #363). */
+function detectSystemChromium(): string | undefined {
+  if (cachedChromium !== undefined) return cachedChromium ?? undefined;
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+    cachedChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    return cachedChromium;
+  }
+  for (const name of ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"]) {
+    try {
+      const out = execSync(`command -v ${name} 2>/dev/null`, { encoding: "utf8" }).trim();
+      if (out && existsSync(out)) {
+        cachedChromium = out;
+        return out;
+      }
+    } catch {
+      /* keep looking */
+    }
+  }
+  cachedChromium = null;
+  return undefined;
+}
+
+/**
+ * Base URL of the running lp-studio service. In Replit dev the api-server
+ * and lp-studio share REPLIT_DEV_DOMAIN via the path-based proxy
+ * (lp-studio at `/`, api-server at `/api`). In production we expect an
+ * explicit override via env var so we can render against the canonical
+ * tenant host (so client-side host-based logic in the SPA, like
+ * tenant resolution, matches what visitors will see).
+ */
+function resolveLpStudioBaseUrl(): string {
+  const override = process.env.LP_STUDIO_RENDER_BASE_URL;
+  if (override) return override.replace(/\/$/, "");
+  const dev = process.env.REPLIT_DEV_DOMAIN;
+  if (dev) return `https://${dev}`;
+  // Last-ditch fallback for purely local dev. Real publishes will fail
+  // here (no preview service) and surface a logged warning to the caller.
+  return "http://127.0.0.1:3000";
+}
+
+/**
+ * Mint (or reuse) a review token for a page so the preview endpoint
+ * authenticates the snapshot request without a logged-in session. Reusing
+ * the most recent pending token avoids piling up rows on every re-publish.
+ */
+async function ensureReviewToken(pageId: number): Promise<string> {
+  const [existing] = await db
+    .select({ token: lpPageReviewsTable.token })
+    .from(lpPageReviewsTable)
+    .where(and(eq(lpPageReviewsTable.pageId, pageId), eq(lpPageReviewsTable.status, "pending")))
+    .orderBy(desc(lpPageReviewsTable.createdAt))
+    .limit(1);
+  if (existing?.token) return existing.token;
+  const fresh = randomBytes(24).toString("hex");
+  const [inserted] = await db
+    .insert(lpPageReviewsTable)
+    .values({ pageId, token: fresh, status: "pending" })
+    .returning({ token: lpPageReviewsTable.token });
+  return inserted?.token ?? fresh;
+}
+
+export interface PrerenderOptions {
+  /** lp_pages.id — used to mint the review token. */
+  pageId: number;
+  /** lp_pages.slug — used to build the preview URL. */
+  slug: string;
+  /** Override the snapshot base URL; defaults to the resolved lp-studio host. */
+  baseUrlOverride?: string;
+  /** Hard timeout for the whole render (browser launch + nav + settle). */
+  timeoutMs?: number;
+}
+
+/**
+ * Render a single page and return the raw HTML the headless browser saw.
+ * Caller is responsible for any meta post-processing + storage upload.
+ *
+ * Throws on hard failures (browser launch, navigation 4xx/5xx, mount
+ * timeout). Callers should treat this as best-effort and not let it fail
+ * the upstream publish request — render-on-publish is fire-and-forget.
+ */
+export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const baseUrl = (opts.baseUrlOverride || resolveLpStudioBaseUrl()).replace(/\/$/, "");
+
+  const token = await ensureReviewToken(opts.pageId);
+  const url = `${baseUrl}/preview/${encodeURIComponent(opts.slug)}?reviewToken=${encodeURIComponent(token)}&prerender=1`;
+
+  // Dynamic import so the playwright cost isn't paid by the api-server at
+  // boot (it's only used on publish events, not on hot paths).
+  const { chromium } = await import("playwright");
+  const executablePath = detectSystemChromium();
+
+  const browser = await chromium.launch({
+    headless: true,
+    ...(executablePath ? { executablePath } : {}),
+  });
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      // Marker the SPA can pick up if it ever wants to skip side-effects
+      // (analytics beacons, popup auto-open timers, etc.) during a render.
+      extraHTTPHeaders: { "x-lp-prerender": "1" },
+    });
+    const page = await context.newPage();
+
+    // Useful debug surface if a publish render starts failing in prod.
+    page.on("pageerror", (err) => console.warn(`[prerender] pageerror ${opts.slug}:`, err.message));
+    page.on("requestfailed", (req) => {
+      const f = req.failure();
+      if (f) console.warn(`[prerender] reqfail ${opts.slug}: ${req.url()} ${f.errorText}`);
+    });
+
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    if (!response || !response.ok()) {
+      throw new Error(
+        `prerender ${opts.slug} failed to load (${response?.status() ?? "no-response"}): ${url}`,
+      );
+    }
+
+    // Wait for React to mount real content (not just the pre-mount loader)
+    // and for the SPA's useEffect-driven head meta to land. Same heuristic
+    // as scripts/prerender-marketing.mjs.
+    await page.waitForFunction(
+      // Browser-context callback (typed `any` because the api-server tsconfig
+      // doesn't include the DOM lib — Playwright serialises the function and
+      // runs it inside Chromium where `document` is real).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((): any => {
+        const doc = (globalThis as any).document;
+        const root = doc?.getElementById("root");
+        if (!root) return false;
+        const hasRealChildren = Array.from(root.children as ArrayLike<{ id?: string }>).some(
+          (c) => c?.id !== "pre-mount-loader",
+        );
+        return hasRealChildren && !!doc.title && doc.title.length > 0;
+      }) as unknown as string,
+      { timeout: timeoutMs },
+    );
+    // Short settle for post-mount effects (font swap, image decode, lazy
+    // children mounting after their parent fades in).
+    await page.waitForTimeout(500);
+
+    // Strip the pre-mount loader and tag the snapshot so we can detect
+    // prerendered HTML at runtime (matches the marketing prerender).
+    // Browser-context callback; see note above re: DOM lib not in tsconfig.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.evaluate((): any => {
+      const doc = (globalThis as any).document;
+      doc.documentElement.setAttribute("data-prerendered", "1");
+      const loader = doc.getElementById("pre-mount-loader");
+      if (loader) loader.remove();
+    });
+
+    const body = await page.content();
+    await context.close();
+    // Normalise to a single DOCTYPE prefix (page.content() returns one
+    // already, but defensively re-prefix in case future playwright versions
+    // change the format).
+    return `<!DOCTYPE html>\n${body.replace(/^<!DOCTYPE [^>]+>\s*/i, "")}`;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}

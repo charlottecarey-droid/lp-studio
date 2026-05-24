@@ -10,6 +10,7 @@ import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import crypto from "node:crypto";
+import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/triggerPublishedRender";
 
 const router = Router();
 
@@ -461,6 +462,13 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         createdBy: req.authUser?.email ?? null,
       })
       .returning();
+    // Task #364: kick off prerender if the page was created directly as
+    // `published` (superadmin / publish-perm tool). Fire-and-forget — the
+    // user's 201 returns immediately and the rendered HTML lands a few
+    // seconds later. Visitors that beat the render see SPA fallback.
+    if (page && page.status === "published") {
+      triggerPublishedRender({ pageId: page.id, requestHost: getRequestHost(req) });
+    }
     res.status(201).json(page);
   } catch (err) {
     if (isDbError(err) && err.code === "23505") {
@@ -662,6 +670,9 @@ router.post("/lp/pages/:pageId/approve", async (req, res): Promise<void> => {
     });
     if (!result.ok) asanaWarning = result.warning ?? null;
   }
+  // Task #364: approve = first time the page becomes publicly published.
+  // Kick off prerender so visitors get static HTML w/ per-page OG meta.
+  triggerPublishedRender({ pageId: id, requestHost: getRequestHost(req) });
   res.json({ page: updated, asanaWarning });
 });
 
@@ -812,6 +823,13 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (segmentId !== undefined) updates.segmentId = segmentId ?? null;
   updates.updatedBy = req.authUser?.email ?? null;
 
+  // Capture pre-update state so we can detect status transitions + slug
+  // renames for the prerender cache lifecycle (task #364).
+  const [preUpdate] = await db
+    .select({ status: lpPagesTable.status, slug: lpPagesTable.slug })
+    .from(lpPagesTable)
+    .where(ownershipWhere);
+
   try {
     const [page] = await db
       .update(lpPagesTable)
@@ -821,6 +839,24 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     if (!page) {
       res.status(404).json({ error: "Page not found" });
       return;
+    }
+    // Task #364: keep the prerendered HTML cache in sync with the row.
+    //   • newly published → render
+    //   • published → published with content changes → re-render
+    //   • published → anything else → delete cached file
+    //   • slug renamed while published → delete old slug's file, render new
+    if (preUpdate) {
+      const wasPublished = preUpdate.status === "published";
+      const isPublished = page.status === "published";
+      const slugChanged = preUpdate.slug !== page.slug;
+      if (wasPublished && slugChanged) {
+        triggerPublishedDelete(page.tenantId, preUpdate.slug);
+      }
+      if (isPublished) {
+        triggerPublishedRender({ pageId: page.id, requestHost: getRequestHost(req) });
+      } else if (wasPublished) {
+        triggerPublishedDelete(page.tenantId, page.slug);
+      }
     }
     res.json(page);
   } catch (err) {
@@ -1073,7 +1109,17 @@ router.delete("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
+  // Capture slug/status BEFORE the delete so we can clean up the rendered
+  // HTML file in object storage (task #364). DB row is the source of truth;
+  // the cache is best-effort.
+  const [pre] = await db
+    .select({ slug: lpPagesTable.slug, status: lpPagesTable.status })
+    .from(lpPagesTable)
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
   await db.delete(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+  if (pre && pre.status === "published") {
+    triggerPublishedDelete(tenantId, pre.slug);
+  }
   res.json({ ok: true });
 });
 

@@ -57,3 +57,23 @@ GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
 CSRF_SECRET = "268344ad13f6913d51164263fbdc8c7e7aa70fd2f2a6ef7d461d768fe328623de88cc190b767b1f3f49ed23c941f97e4"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 8082
+externalPort = 3002
+
+[[ports]]
+localPort = 24565
+externalPort = 3000
+
+[[ports]]
+localPort = 24566
+externalPort = 3001

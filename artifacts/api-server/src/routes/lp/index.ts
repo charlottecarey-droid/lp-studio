@@ -42,12 +42,18 @@ import programmaticPagesRouter from "./programmatic-pages";
 import adMapRouter from "./ad-map";
 import rssSyncRouter from "./rss-sync";
 import podcastAvailabilityRouter from "./podcast-availability";
+import renderedRouter from "./rendered";
 
 const router = Router();
 
 router.use(testsRouter);
 router.use(variantsRouter);
 router.use(trackingRouter);
+// Task #364: serves prerendered published landing-page HTML keyed by
+// (tenant_id, slug). Public — tenant resolved from request host. Falls
+// through to 404 for drafts/preview/unrendered pages so the SPA edge
+// can take over.
+router.use(renderedRouter);
 router.use(resultsRouter);
 router.use(brandRouter);
 router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/pages/:pageId catching /lp/pages/performance/batch
