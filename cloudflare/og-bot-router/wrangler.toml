@@ -19,8 +19,14 @@ bucket_name = "dandy-lp-prerendered"
 # staging gate (worker.js#resolveLookupHost). Intentionally absent
 # from [env.production.vars] so production silently ignores the
 # override even if an attacker sends the header.
+#
+# API_ORIGIN here is intentionally pointed at a non-routable address
+# (TEST-NET-1, RFC 5737) so the staging worker has NO working tier-2.
+# This makes the gate's "api-server DOWN" steps real (step 4) and
+# prevents the staging worker from accidentally hammering production
+# api-server. Production env below points at the real origin.
 [vars]
-API_ORIGIN = "https://ent.meetdandy.com"
+API_ORIGIN = "https://192.0.2.1"
 HOST_OVERRIDE_ENABLED = "1"
 
 # ---------------------------------------------------------------------
