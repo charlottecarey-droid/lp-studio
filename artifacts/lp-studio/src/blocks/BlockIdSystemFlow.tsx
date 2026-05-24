@@ -213,9 +213,9 @@ function FlowStyles() {
       .id-flow__top-tag { font-family: ${MONO}; font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
 
       .id-flow__rail-wrap { position: relative; display: grid; gap: 24px; padding: 36px 0 28px; }
-      .id-flow__rail-line { position: absolute; left: 8%; right: 8%; top: 50%; height: 1px; background: repeating-linear-gradient(to right, ${RAIL} 0 6px, transparent 6px 12px); transform: translateY(-50%); pointer-events: none; }
-      .id-flow__circle-cell { display: flex; flex-direction: column; align-items: center; position: relative; }
-      .id-flow__circle { position: relative; width: clamp(64px, 6vw, 88px); aspect-ratio: 1; border-radius: 50%; border: 1.5px solid ${RAIL}; background: ${TEAL}; display: flex; align-items: center; justify-content: center; font-family: ${SERIF}; font-style: italic; font-size: clamp(20px, 1.8vw, 26px); color: rgba(255,255,255,0.65); transition: all 240ms ease; z-index: 1; }
+      .id-flow__rail-line { position: absolute; left: 8%; right: 8%; top: 50%; height: 1px; background: repeating-linear-gradient(to right, ${RAIL} 0 6px, transparent 6px 12px); transform: translateY(-50%); pointer-events: none; z-index: 0; }
+      .id-flow__circle-cell { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+      .id-flow__circle { position: relative; width: clamp(64px, 6vw, 88px); aspect-ratio: 1; border-radius: 50%; border: 1.5px solid ${RAIL}; background: transparent; display: flex; align-items: center; justify-content: center; font-family: ${SERIF}; font-style: italic; font-size: clamp(20px, 1.8vw, 26px); color: rgba(255,255,255,0.65); transition: all 240ms ease; }
       .id-flow__circle--active { background: ${CITRON}; border-color: ${CITRON}; color: ${TEAL}; box-shadow: 0 0 36px rgba(199,231,56,0.45), 0 0 0 6px rgba(199,231,56,0.08); }
       .id-flow__circle-pulse { position: absolute; right: -22px; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: ${CITRON}; box-shadow: 0 0 14px rgba(199,231,56,0.8); transform: translateY(-50%); animation: id-flow-pulse 1.6s ease-in-out infinite; }
       @keyframes id-flow-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
