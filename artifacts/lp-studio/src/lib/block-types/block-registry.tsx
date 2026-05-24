@@ -61,6 +61,7 @@ import type {
   IdCinemaPillarsBlockProps,
   IdParallaxShowcaseBlockProps,
   IdSystemFlowBlockProps,
+  IdFormBlockProps,
   IdStatsBlockProps,
   IdInvitationBlockProps,
   IdGridBlockProps,
@@ -4306,6 +4307,57 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "id-form" as const,
+    label: "Inside Dandy · Form",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): IdFormBlockProps => ({
+      eyebrow: "GET IN TOUCH",
+      headline: "Let's see if Dandy <em>fits your lab</em>.",
+      subheadline: "Tell us a little about your practice — a member of our team will reach out within one business day.",
+      metaItems: [
+        { label: "RESPONSE TIME", value: "Under <em>1 business day</em>" },
+        { label: "LOCATIONS", value: "Provo · NYC · Remote" },
+      ],
+      fields: [
+        { name: "first-name", label: "First name", type: "text", required: true, placeholder: "Jane" },
+        { name: "last-name", label: "Last name", type: "text", required: true, placeholder: "Doe" },
+        { name: "email", label: "Work email", type: "email", required: true, placeholder: "jane@practice.com", fullWidth: true },
+        { name: "practice", label: "Practice or organization", type: "text", placeholder: "Smile Dental", fullWidth: true },
+        { name: "role", label: "Role", type: "select", placeholder: "Select your role", options: [
+          { label: "Dentist", value: "dentist" },
+          { label: "Office Manager", value: "office-manager" },
+          { label: "DSO Leader", value: "dso-leader" },
+          { label: "Other", value: "other" },
+        ] },
+        { name: "monthly-cases", label: "Monthly cases", type: "select", placeholder: "Estimate", options: [
+          { label: "Under 25", value: "<25" },
+          { label: "25 – 100", value: "25-100" },
+          { label: "100 – 500", value: "100-500" },
+          { label: "500+", value: "500+" },
+        ] },
+        { name: "message", label: "What are you trying to solve?", type: "textarea", placeholder: "A few sentences is plenty.", fullWidth: true, rows: 4 },
+      ],
+      submitText: "Request a conversation",
+      submittingText: "Sending…",
+      submitUrl: "",
+      successHeadline: "Thanks — we'll be in touch.",
+      successBody: "A member of our team will reach out within one business day.",
+      legal: "By submitting, you agree to our <a href=\"#\">privacy policy</a>.",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001814" rx="4" />
+        <text x="10" y="16" fontSize="6" fill="#C7E738" fontFamily="monospace" opacity="0.8">GET IN TOUCH</text>
+        <text x="10" y="28" fontSize="8" fill="#fff" fontFamily="Georgia, serif" fontStyle="italic">Let's talk.</text>
+        <rect x="64" y="10" width="46" height="50" rx="3" fill="#0A2925" stroke="#1f3a36" strokeWidth="0.5" />
+        <rect x="68" y="16" width="38" height="6" rx="1" fill="#06120f" stroke="#1e2e2b" strokeWidth="0.4" />
+        <rect x="68" y="26" width="38" height="6" rx="1" fill="#06120f" stroke="#1e2e2b" strokeWidth="0.4" />
+        <rect x="68" y="36" width="38" height="12" rx="1" fill="#06120f" stroke="#1e2e2b" strokeWidth="0.4" />
+        <rect x="68" y="52" width="22" height="5" rx="2.5" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
     type: "id-stats" as const,
     label: "Inside Dandy · Stats",
     category: "Showcase" as BlockCategory,
@@ -5286,6 +5338,7 @@ export function createBlock(type: "id-intro"): Extract<PageBlock, { type: "id-in
 export function createBlock(type: "id-cinema-pillars"): Extract<PageBlock, { type: "id-cinema-pillars" }>;
 export function createBlock(type: "id-parallax-showcase"): Extract<PageBlock, { type: "id-parallax-showcase" }>;
 export function createBlock(type: "id-system-flow"): Extract<PageBlock, { type: "id-system-flow" }>;
+export function createBlock(type: "id-form"): Extract<PageBlock, { type: "id-form" }>;
 export function createBlock(type: "id-stats"): Extract<PageBlock, { type: "id-stats" }>;
 export function createBlock(type: "id-invitation"): Extract<PageBlock, { type: "id-invitation" }>;
 export function createBlock(type: "id-grid"): Extract<PageBlock, { type: "id-grid" }>;
@@ -5523,6 +5576,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "id-cinema-pillars": return { id, type: "id-cinema-pillars", props: props as IdCinemaPillarsBlockProps };
     case "id-parallax-showcase": return { id, type: "id-parallax-showcase", props: props as IdParallaxShowcaseBlockProps };
     case "id-system-flow": return { id, type: "id-system-flow", props: props as IdSystemFlowBlockProps };
+    case "id-form": return { id, type: "id-form", props: props as IdFormBlockProps };
     case "id-stats": return { id, type: "id-stats", props: props as IdStatsBlockProps };
     case "id-invitation": return { id, type: "id-invitation", props: props as IdInvitationBlockProps };
     case "id-grid": return { id, type: "id-grid", props: props as IdGridBlockProps };

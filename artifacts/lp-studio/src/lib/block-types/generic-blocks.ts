@@ -1609,6 +1609,73 @@ export interface IdParallaxShowcaseBlockProps {
   spatialOverlayOpacity?: number;
 }
 
+/** A single field inside an Inside Dandy form block. */
+export interface IdFormField {
+  /** Form field name (becomes the POST key). Kebab/snake recommended. */
+  name: string;
+  /** Visible label above the input. */
+  label: string;
+  /** Input type. `textarea` and `select` render their specific controls. */
+  type: "text" | "email" | "tel" | "url" | "textarea" | "select";
+  /** Placeholder shown when empty. */
+  placeholder?: string;
+  /** Whether the field is required. */
+  required?: boolean;
+  /** Make the field span the full width of the two-column grid. */
+  fullWidth?: boolean;
+  /** Rows for textarea. Defaults to 4. */
+  rows?: number;
+  /** Options for `select`. */
+  options?: { label: string; value?: string }[];
+}
+
+/** Optional left-column meta item (e.g. "RESPONSE TIME — Under 1 business day"). */
+export interface IdFormMetaItem {
+  label: string;
+  /** HTML allowed — use <em> for accent color. */
+  value: string;
+}
+
+/** A premium, Inside-Dandy-themed lead/contact form block with full color
+ *  control so it can fit any page on the site, light or dark. */
+export interface IdFormBlockProps {
+  eyebrow?: string;
+  /** HTML allowed — use <em> for the accent-colored phrase. */
+  headline?: string;
+  /** HTML allowed. */
+  subheadline?: string;
+  /** Optional small left-column meta items (response time, locations, etc). */
+  metaItems?: IdFormMetaItem[];
+  /** Form fields (rendered in a 2-column grid on desktop). */
+  fields: IdFormField[];
+  /** Submit button label. Defaults to "Submit". */
+  submitText?: string;
+  /** Label shown while the form is submitting. Defaults to "Sending…". */
+  submittingText?: string;
+  /** Optional URL to POST the form data as JSON. Leave blank for demo mode
+   *  (just shows success state). */
+  submitUrl?: string;
+  /** Success state headline. */
+  successHeadline?: string;
+  /** Success state body (HTML allowed). */
+  successBody?: string;
+  /** Fine print under the submit button (HTML allowed). */
+  legal?: string;
+  // ─── color overrides (all optional, default to the Inside Dandy palette) ──
+  backgroundColor?: string;
+  accent?: string;
+  headlineColor?: string;
+  subheadlineColor?: string;
+  surfaceColor?: string;
+  borderColor?: string;
+  labelColor?: string;
+  inputBg?: string;
+  inputBorder?: string;
+  inputText?: string;
+  buttonBg?: string;
+  buttonText?: string;
+}
+
 export interface IdSystemFlowStation {
   /** Timestamp shown above the label, e.g. "00:24". Free text so it can be
    *  used for cycle counts or step counts too. */
