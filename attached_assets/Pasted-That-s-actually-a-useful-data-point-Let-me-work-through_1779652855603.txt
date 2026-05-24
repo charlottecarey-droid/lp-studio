@@ -1,0 +1,34 @@
+That's actually a useful data point. Let me work through what it likely means.
+"Only domain I see is lpstudio.ai/lp/*" — so on the Workers & Pages → og-bot-router → Triggers page, the only route bound to the existing prod worker is lpstudio.ai/lp/*. That tells us a few things:
+The most likely picture
+The existing prod worker doesn't handle lp.meetdandy.com or partners.meetdandy.com at all. It handles lpstudio.ai/lp/* — meaning it processes URLs like lpstudio.ai/lp/some-slug, not subdomain-based tenant URLs.
+This is probably why the original meetdandy.com zone routing in the new wrangler.toml was confused — that was speculative config that was never tested against production, because production today doesn't route tenant subdomains through this worker.
+If that's right, the picture of how Dandy's landing pages serve traffic today is probably:
+
+lp.meetdandy.com DNS points to your infrastructure somehow (CNAME, custom hostname, or maybe directly to the SPA backend)
+That traffic hits lp-studio (the SPA) directly, not through this worker
+The bot-router only kicks in for the lpstudio.ai/lp/* URL pattern (an older URL structure?)
+
+Two questions you need to answer
+Before any deploy, you need to know:
+
+What URL do real Dandy visitors actually see? Is it lp.meetdandy.com/<slug> or lpstudio.ai/lp/<slug> or both? If you publish a landing page through lp-studio today, what URL does the system give you to share?
+For URLs like lp.meetdandy.com/<slug> — what infrastructure handles those requests today? Probably one of:
+
+
+Direct DNS to your SPA hosting (no CF worker involved)
+CF Custom Hostnames (Cloudflare for SaaS) routing to a worker or SPA
+Something else
+
+The dashboard check should also show this. Click around in Websites (does lpstudio.ai appear? click into it and check DNS) and look at SSL/TLS → Custom Hostnames if it exists.
+What to send the agent
+
+The only route bound to the existing prod og-bot-router is lpstudio.ai/lp/*. Nothing about lp.meetdandy.com or partners.meetdandy.com is configured on this worker.
+That changes the picture significantly. Before deploying anything:
+
+What URL pattern does the publish flow today expect visitors to use? When a Dandy team member publishes a landing page in lp-studio, what URL does the system tell them to share — lp.meetdandy.com/<slug>, lpstudio.ai/lp/<slug>, or both?
+If lp.meetdandy.com/<slug> is a real visitor URL today, what infrastructure handles it? It's clearly not this worker. Look at the lp-studio app code — does it accept requests on lp.meetdandy.com, render the SPA, and serve from there? Are there CF Custom Hostnames configured under the lpstudio.ai zone? Is there a separate worker or service I'm not aware of?
+Given the answer to (2), where does the new worker actually need to be routed so it intercepts visitor requests for prerendered HTML? It may not be lp.meetdandy.com directly — it might be a path under lpstudio.ai, or a custom hostname configuration, or something else.
+
+The architecture we built assumes the worker sits in front of every tenant subdomain request and reads R2 by host. If today's infrastructure doesn't route those requests through this worker at all, that's a much bigger gap than a wrangler config typo. I need to understand the current visitor flow end-to-end before deploying anything.
+Walk me through: a visitor types lp.meetdandy.com/example in their browser → what happens, step by step, in the current production setup?
