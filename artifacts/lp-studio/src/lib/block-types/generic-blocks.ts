@@ -1739,6 +1739,10 @@ export interface IdReservationPassBlockProps extends CtaModalConfig {
   secondaryVideoUrl?: string;
   /** Optional background photo behind the orbs (kept low-opacity). */
   backgroundImageUrl?: string;
+  /** Opacity of the background photo, 0–1. Defaults to 0.16 so the photo
+   *  sits quietly behind the cinematic orbs/grid; raise it to make the
+   *  photo more prominent or lower it to fade it further. */
+  backgroundImageOpacity?: number;
   /** Tiny tertiary footer line, e.g. ["PRESS", "INVESTORS", "BOOTH 412"]. */
   footerNotes?: string[];
   /** Accent color override (defaults to brand citron). */

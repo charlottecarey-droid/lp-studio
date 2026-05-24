@@ -124,7 +124,15 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
         {p.backgroundImageUrl && (
           <div
             className="id-pass__bg-photo"
-            style={{ backgroundImage: `url(${p.backgroundImageUrl})` }}
+            style={{
+              backgroundImage: `url(${p.backgroundImageUrl})`,
+              // Allow the panel to override the default 0.16 baked into
+              // the stylesheet — clamp to [0,1] so a malformed input
+              // can't blow past the photo into the dark surface.
+              ...(typeof p.backgroundImageOpacity === "number"
+                ? { opacity: Math.max(0, Math.min(1, p.backgroundImageOpacity)) }
+                : null),
+            }}
           />
         )}
         <div className="id-pass__bg-orb id-pass__bg-orb--a" />

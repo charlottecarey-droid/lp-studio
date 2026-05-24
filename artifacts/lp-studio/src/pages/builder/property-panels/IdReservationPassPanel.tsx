@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/select";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import { ImagePicker } from "@/components/ImagePicker";
-import { Trash2, Plus } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 
 interface Props {
   props: IdReservationPassBlockProps;
@@ -27,6 +28,13 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
   const setMeta = (next: IdReservationPassMeta[]) => set("meta", next);
   const updateMeta = (i: number, patch: Partial<IdReservationPassMeta>) =>
     setMeta(meta.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  const moveMeta = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= meta.length) return;
+    const next = meta.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    setMeta(next);
+  };
 
   const footerNotes = p.footerNotes ?? [];
   const setFooterNotes = (next: string[]) => set("footerNotes", next);
@@ -89,14 +97,37 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
           <div key={i} className="rounded border bg-muted/30 p-2 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Row {i + 1}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                onClick={() => setMeta(meta.filter((_, idx) => idx !== i))}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-0.5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 disabled:opacity-40"
+                  disabled={i === 0}
+                  onClick={() => moveMeta(i, -1)}
+                  title="Move up"
+                >
+                  <ArrowUp className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 disabled:opacity-40"
+                  disabled={i === meta.length - 1}
+                  onClick={() => moveMeta(i, 1)}
+                  title="Move down"
+                >
+                  <ArrowDown className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setMeta(meta.filter((_, idx) => idx !== i))}
+                  title="Delete row"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
             <Input
               className="h-7 text-xs font-mono"
@@ -210,6 +241,24 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
           aiHint="Cinematic dark interior scene for a luxury restaurant reservation pass"
         />
       </Field>
+      {p.backgroundImageUrl && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Background opacity</Label>
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {Math.round((p.backgroundImageOpacity ?? 0.16) * 100)}%
+            </span>
+          </div>
+          <Slider
+            min={0}
+            max={1}
+            step={0.02}
+            value={[p.backgroundImageOpacity ?? 0.16]}
+            onValueChange={([v]) => set("backgroundImageOpacity", v)}
+          />
+          <p className="text-[11px] text-muted-foreground">Default 16% keeps the photo as a quiet wash behind the orbs. Raise it to make the photo dominant.</p>
+        </div>
+      )}
       <Field label="Accent color">
         <div className="flex items-center gap-2">
           <input
