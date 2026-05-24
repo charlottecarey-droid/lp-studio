@@ -234,6 +234,7 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
                 pageId={ctx.pageId ?? undefined}
                 variantId={ctx.variantId ?? undefined}
                 source="id-reservation-pass"
+                modalTheme="dark"
                 onClick={handlePrimaryCtaClick}
                 className="id-pass__cta-primary"
               >
@@ -271,6 +272,7 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
                   pageId={ctx.pageId ?? undefined}
                   variantId={ctx.variantId ?? undefined}
                   source="id-reservation-pass-secondary"
+                  modalTheme="dark"
                   className="id-pass__cta-secondary"
                 >
                   {p.secondaryCtaText}

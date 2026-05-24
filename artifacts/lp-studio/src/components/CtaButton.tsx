@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
-import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { EmailCaptureModal, type EmailCaptureModalTheme } from "@/components/EmailCaptureModal";
 import { VideoModal } from "@/components/VideoModal";
 import { useBrandConfig } from "@/components/BrandSwatches";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -38,6 +38,9 @@ export interface CtaButtonProps extends CtaModalConfig {
   variantId?: number;
   /** Free-form source label saved with leads (e.g. "hero-cta"). */
   source?: string;
+  /** Visual theme for the modal-form surface. "dark" suits dark
+   *  cinematic blocks (Inside Dandy, Reservation Pass). Defaults to "light". */
+  modalTheme?: EmailCaptureModalTheme;
   animationsEnabled?: boolean;
   children: React.ReactNode;
 }
@@ -84,6 +87,7 @@ export function CtaButton({
   pageId,
   variantId,
   source,
+  modalTheme,
   animationsEnabled = true,
   children,
 }: CtaButtonProps) {
@@ -192,6 +196,7 @@ export function CtaButton({
         pageId={resolvedPageId}
         variantId={resolvedVariantId}
         source={source}
+        theme={modalTheme}
       />
     </>
   );

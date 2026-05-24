@@ -12,6 +12,7 @@ import { useLinkedFormStyle } from "@/components/LinkedFormStyleContext";
 
 export type EmailCaptureModalMode = "form" | "chilipiper";
 export type EmailCaptureFormSource = "simple" | "linked" | "marketo";
+export type EmailCaptureModalTheme = "light" | "dark";
 
 const LINKED_FORM_DEFAULTS: Partial<FormBlockProps> = {
   headline: "",
@@ -67,6 +68,10 @@ export interface EmailCaptureModalProps {
   /** Optional theme. Defaults to brand-primary / brand-accent CSS vars. */
   primaryColor?: string;
   accentColor?: string;
+  /** Visual theme for the simple-form surface. "dark" matches dark
+   *  cinematic pages (e.g. Inside Dandy / Reservation Pass). Defaults
+   *  to "light". Only affects the simple-form branch. */
+  theme?: EmailCaptureModalTheme;
   /** Brand passed through to embedded BlockForm when formSource === "linked". */
   brand?: BrandConfig;
   /** Submit metadata. */
@@ -102,6 +107,7 @@ export function EmailCaptureModal({
   chiliPiperConfig,
   primaryColor,
   accentColor,
+  theme = "light",
   brand,
   pageId,
   variantId,
@@ -192,9 +198,13 @@ export function EmailCaptureModal({
     setState("success");
   };
 
-  const inputCls =
-    "w-full border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-900 outline-none transition-colors";
-  const labelCls = "block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide";
+  const isDark = theme === "dark";
+  const inputCls = isDark
+    ? "w-full bg-white/[0.04] border border-white/15 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/30 outline-none transition-colors focus:bg-white/[0.06]"
+    : "w-full border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-900 outline-none transition-colors";
+  const labelCls = isDark
+    ? "block text-[10px] font-medium text-white/55 mb-1.5 uppercase tracking-[0.22em]"
+    : "block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide";
 
   const onBackdrop = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -395,10 +405,28 @@ export function EmailCaptureModal({
           </div>
         </div>
       ) : (
-        <div className="relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl">
+        <div
+          className={
+            isDark
+              ? "relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+              : "relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl"
+          }
+          style={
+            isDark
+              ? {
+                  background:
+                    "radial-gradient(120% 80% at 0% 0%, rgba(199,231,56,0.10), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(10,74,62,0.55), transparent 60%), #061714",
+                }
+              : undefined
+          }
+        >
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+            className={
+              isDark
+                ? "absolute top-3 right-3 text-white/60 hover:text-white transition-colors p-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] z-10"
+                : "absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+            }
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -408,21 +436,44 @@ export function EmailCaptureModal({
               <div className="py-6 text-center">
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-                  style={{ backgroundColor: accent }}
+                  style={{ backgroundColor: isDark ? "#C7E738" : accent }}
                 >
-                  <Check className="w-7 h-7" style={{ color: primary }} />
+                  <Check className="w-7 h-7" style={{ color: isDark ? "#061714" : primary }} />
                 </div>
-                <p className="text-lg font-bold mb-2" style={{ color: primary }}>
+                <p
+                  className="text-lg font-bold mb-2"
+                  style={{ color: isDark ? "#ffffff" : primary }}
+                >
                   {cfg.successMessage}
                 </p>
               </div>
             ) : (
               <>
-                <h3 className="text-xl font-bold mb-1" style={{ color: primary }}>
+                <h3
+                  className={
+                    isDark
+                      ? "text-2xl font-light mb-1 leading-tight"
+                      : "text-xl font-bold mb-1"
+                  }
+                  style={{
+                    color: isDark ? "#ffffff" : primary,
+                    fontFamily: isDark
+                      ? '"Bagoss Standard", Georgia, serif'
+                      : undefined,
+                  }}
+                >
                   {cfg.headline}
                 </h3>
                 {cfg.subheadline && (
-                  <p className="text-sm text-slate-500 mb-5">{cfg.subheadline}</p>
+                  <p
+                    className={
+                      isDark
+                        ? "text-sm text-white/55 mb-5"
+                        : "text-sm text-slate-500 mb-5"
+                    }
+                  >
+                    {cfg.subheadline}
+                  </p>
                 )}
                 <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
                   {(cfg.showFirstName || cfg.showLastName) && (
@@ -437,7 +488,7 @@ export function EmailCaptureModal({
                             placeholder="Jane"
                             className={inputCls}
                             style={{ borderColor: undefined }}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = primary)}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
                             onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                             required
                             disabled={state === "loading"}
@@ -453,7 +504,7 @@ export function EmailCaptureModal({
                             onChange={(e) => setData({ ...data, lastName: e.target.value })}
                             placeholder="Smith"
                             className={inputCls}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = primary)}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
                             onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                             required
                             disabled={state === "loading"}
@@ -470,7 +521,7 @@ export function EmailCaptureModal({
                       onChange={(e) => setData({ ...data, email: e.target.value })}
                       placeholder="jane@yourpractice.com"
                       className={inputCls}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = primary)}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
                       onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                       required
                       disabled={state === "loading"}
@@ -485,7 +536,7 @@ export function EmailCaptureModal({
                         onChange={(e) => setData({ ...data, phone: e.target.value })}
                         placeholder="(555) 000-0000"
                         className={inputCls}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = primary)}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
                         onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                         disabled={state === "loading"}
                       />
@@ -500,7 +551,7 @@ export function EmailCaptureModal({
                         onChange={(e) => setData({ ...data, company: e.target.value })}
                         placeholder="Acme Dental"
                         className={inputCls}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = primary)}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
                         onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                         disabled={state === "loading"}
                       />
@@ -509,13 +560,29 @@ export function EmailCaptureModal({
                   <button
                     type="submit"
                     disabled={state === "loading"}
-                    className="w-full font-bold py-3.5 rounded-xl text-base hover:brightness-105 transition-all mt-1 flex items-center justify-center gap-2 disabled:opacity-70"
-                    style={{ backgroundColor: accent, color: primary }}
+                    className="w-full font-semibold py-3.5 rounded-xl text-base hover:brightness-110 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
+                    style={
+                      isDark
+                        ? {
+                            backgroundColor: "#C7E738",
+                            color: "#061714",
+                            boxShadow: "0 12px 32px -12px rgba(199,231,56,0.45)",
+                          }
+                        : { backgroundColor: accent, color: primary }
+                    }
                   >
                     {state === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : cfg.submitText}
                   </button>
                   {cfg.disclaimer && (
-                    <p className="text-xs text-slate-400 text-center mt-1">{cfg.disclaimer}</p>
+                    <p
+                      className={
+                        isDark
+                          ? "text-xs text-white/40 text-center mt-1"
+                          : "text-xs text-slate-400 text-center mt-1"
+                      }
+                    >
+                      {cfg.disclaimer}
+                    </p>
                   )}
                 </form>
               </>
