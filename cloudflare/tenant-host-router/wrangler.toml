@@ -9,12 +9,21 @@ compatibility_date = "2024-01-01"
 # The route DOES match app.lpstudio.ai and www.lpstudio.ai, but the worker
 # itself short-circuits those (PASSTHROUGH_HOSTS) so they pass through.
 #
-# Custom Hostnames (e.g. lp.meetdandy.com, partners.meetdandy.com,
-# meetdandy-lp.com, and any future ENT customer domain) are bound to this
-# worker via the CF dashboard (SSL/TLS → Custom Hostnames), NOT here.
-# Wrangler does not manage Custom Hostname bindings.
+# Customer-owned domains (e.g. meetdandy-lp.com, lp.meetdandy.com, and any
+# future ENT customer domain) onboard via TWO independent CF steps that
+# wrangler does NOT manage:
+#   1. SSL/TLS → Custom Hostnames → "Add hostname"  (provisions the cert
+#      and routes traffic into CF via Fallback Origin)
+#   2. The lpstudio.ai zone → Workers Routes → "Add route" with pattern
+#      `<customer-domain>/*` and Worker `tenant-host-router`  (causes this
+#      worker to fire on the customer hostname — without it, traffic
+#      bypasses the worker entirely and goes straight to the Fallback
+#      Origin / Replit edge; R2 is never consulted).
+# Verified Phase 2 (task #364, May 2026): both steps required; either
+# alone silently falls back to passthrough.
 routes = [
   { pattern = "*.lpstudio.ai/*", zone_name = "lpstudio.ai" },
+  { pattern = "meetdandy-lp.com/*", zone_name = "lpstudio.ai" },
 ]
 
 # R2 bucket containing prerendered landing-page HTML (task #364).
