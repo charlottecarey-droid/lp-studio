@@ -259,6 +259,62 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
           <p className="text-[11px] text-muted-foreground">Default 16% keeps the photo as a quiet wash behind the orbs. Raise it to make the photo dominant.</p>
         </div>
       )}
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Edge fade (blend into adjacent sections)
+        </Label>
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-muted-foreground">Fade direction</Label>
+          <Select
+            value={p.edgeFade ?? "none"}
+            onValueChange={(v) => set("edgeFade", v as NonNullable<IdReservationPassBlockProps["edgeFade"]>)}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none" className="text-xs">No fade</SelectItem>
+              <SelectItem value="top" className="text-xs">Fade in from top</SelectItem>
+              <SelectItem value="bottom" className="text-xs">Fade out at bottom</SelectItem>
+              <SelectItem value="both" className="text-xs">Fade both edges</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(p.edgeFade ?? "none") !== "none" && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Fade color (match adjacent section)</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={p.edgeFadeColor ?? "#061714"}
+                  onChange={(e) => set("edgeFadeColor", e.target.value)}
+                  className="h-7 w-10 rounded cursor-pointer border border-slate-200 p-0.5"
+                />
+                <Input
+                  className="h-7 text-xs font-mono"
+                  value={p.edgeFadeColor ?? "#061714"}
+                  onChange={(e) => set("edgeFadeColor", e.target.value)}
+                  placeholder="#061714"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Pick the background color of the section above/below so the fade resolves invisibly into it.</p>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] text-muted-foreground">Fade size</Label>
+                <span className="text-[11px] font-mono text-muted-foreground">{p.edgeFadeSize ?? 25}% of section</span>
+              </div>
+              <Slider
+                min={0}
+                max={60}
+                step={5}
+                value={[p.edgeFadeSize ?? 25]}
+                onValueChange={([v]) => set("edgeFadeSize", v)}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
       <Field label="Accent color">
         <div className="flex items-center gap-2">
           <input

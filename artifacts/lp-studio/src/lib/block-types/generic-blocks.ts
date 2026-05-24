@@ -1743,6 +1743,16 @@ export interface IdReservationPassBlockProps extends CtaModalConfig {
    *  sits quietly behind the cinematic orbs/grid; raise it to make the
    *  photo more prominent or lower it to fade it further. */
   backgroundImageOpacity?: number;
+  /** Edge fade gradient direction. Adds a top and/or bottom linear-gradient
+   *  overlay that resolves to a solid color, so the block blends invisibly
+   *  into the section above/below. Mirrors the parallax-hero edge fade. */
+  edgeFade?: "none" | "top" | "bottom" | "both";
+  /** Color the edge fade resolves to. Pick the bg color of the section
+   *  above/below for a seamless blend. Defaults to the pass's dark teal. */
+  edgeFadeColor?: string;
+  /** Size of the fade band as a percentage of section height (0–60).
+   *  Defaults to 25 to match the parallax hero. */
+  edgeFadeSize?: number;
   /** Tiny tertiary footer line, e.g. ["PRESS", "INVESTORS", "BOOTH 412"]. */
   footerNotes?: string[];
   /** Accent color override (defaults to brand citron). */

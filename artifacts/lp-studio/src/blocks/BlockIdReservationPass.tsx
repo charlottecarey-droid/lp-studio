@@ -139,6 +139,48 @@ export function BlockIdReservationPass({ props: p, onCtaClick }: Props) {
         <div className="id-pass__bg-orb id-pass__bg-orb--b" />
         <div className="id-pass__bg-grid" />
         <div className="id-pass__bg-vignette" />
+        {/* Edge fade overlays — sit above every other bg layer but below the
+            content (.id-pass__inner has its own z-index). Mirrors the
+            parallax-hero edge fade so the block can blend into the section
+            above or below without a hard seam. */}
+        {(() => {
+          const edgeFade = p.edgeFade ?? "none";
+          const edgeFadeColor = p.edgeFadeColor || "#061714";
+          const edgeFadeSize = Math.max(0, Math.min(60, p.edgeFadeSize ?? 25));
+          if (edgeFade === "none" || edgeFadeSize === 0) return null;
+          const showTop = edgeFade === "top" || edgeFade === "both";
+          const showBottom = edgeFade === "bottom" || edgeFade === "both";
+          return (
+            <>
+              {showTop && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: "0 0 auto 0",
+                    height: `${edgeFadeSize}%`,
+                    background: `linear-gradient(to bottom, ${edgeFadeColor} 0%, ${edgeFadeColor} 10%, transparent 100%)`,
+                    pointerEvents: "none",
+                    zIndex: 5,
+                  }}
+                />
+              )}
+              {showBottom && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: "auto 0 0 0",
+                    height: `${edgeFadeSize}%`,
+                    background: `linear-gradient(to top, ${edgeFadeColor} 0%, ${edgeFadeColor} 10%, transparent 100%)`,
+                    pointerEvents: "none",
+                    zIndex: 5,
+                  }}
+                />
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <CornerHud inView={inView} />
