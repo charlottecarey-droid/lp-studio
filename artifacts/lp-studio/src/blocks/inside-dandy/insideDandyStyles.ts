@@ -356,15 +356,43 @@ const CSS = `
 .id-showcase .id-frame .id-frame-caption h4 { font-size:clamp(24px,2.6vw,40px); line-height:1.05; letter-spacing:-0.012em; color:#fff; max-width:18ch; margin:12px 0 0; }
 .id-showcase .id-frame .id-frame-caption h4 em { color:var(--id-cit); }
 .id-showcase .id-frame .id-frame-spatial { position:absolute; inset:0; pointer-events:none; z-index:2; }
-.id-showcase .id-frame .id-frame-spatial-corner { position:absolute; width:clamp(28px,3.4vw,52px); height:clamp(28px,3.4vw,52px); border:0 solid var(--id-cit); filter:drop-shadow(0 0 6px rgba(199,231,56,0.35)); }
+/* Corner brackets — outer L plus a short inner tick that hooks back
+   toward the center, giving the bracket a sculpted, instrument-like
+   weight rather than a flat single line. */
+.id-showcase .id-frame .id-frame-spatial-corner { position:absolute; width:clamp(32px,3.8vw,58px); height:clamp(32px,3.8vw,58px); border:0 solid var(--id-cit); filter:drop-shadow(0 0 8px rgba(199,231,56,0.45)); }
+.id-showcase .id-frame .id-frame-spatial-corner::before, .id-showcase .id-frame .id-frame-spatial-corner::after { content:""; position:absolute; background:var(--id-cit); opacity:0.85; box-shadow:0 0 6px rgba(199,231,56,0.5); }
+.id-showcase .id-frame .id-frame-spatial-corner::before { width:10px; height:1px; }
+.id-showcase .id-frame .id-frame-spatial-corner::after { width:1px; height:10px; }
 .id-showcase .id-frame .id-frame-spatial-corner--tl { top:clamp(14px,1.6vw,24px); left:clamp(14px,1.6vw,24px); border-top-width:1.5px; border-left-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-corner--tl::before { top:8px; left:-1px; }
+.id-showcase .id-frame .id-frame-spatial-corner--tl::after { top:-1px; left:8px; }
 .id-showcase .id-frame .id-frame-spatial-corner--tr { top:clamp(14px,1.6vw,24px); right:clamp(14px,1.6vw,24px); border-top-width:1.5px; border-right-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-corner--tr::before { top:8px; right:-1px; }
+.id-showcase .id-frame .id-frame-spatial-corner--tr::after { top:-1px; right:8px; }
 .id-showcase .id-frame .id-frame-spatial-corner--bl { bottom:clamp(14px,1.6vw,24px); left:clamp(14px,1.6vw,24px); border-bottom-width:1.5px; border-left-width:1.5px; }
+.id-showcase .id-frame .id-frame-spatial-corner--bl::before { bottom:8px; left:-1px; }
+.id-showcase .id-frame .id-frame-spatial-corner--bl::after { bottom:-1px; left:8px; }
 .id-showcase .id-frame .id-frame-spatial-corner--br { bottom:clamp(14px,1.6vw,24px); right:clamp(14px,1.6vw,24px); border-bottom-width:1.5px; border-right-width:1.5px; }
-.id-showcase .id-frame .id-frame-spatial-reticle { position:absolute; left:50%; top:50%; width:clamp(110px,16vw,200px); height:clamp(110px,16vw,200px); border:1.5px solid var(--id-cit); border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 24px rgba(199,231,56,0.18), inset 0 0 24px rgba(199,231,56,0.08); }
-.id-showcase .id-frame .id-frame-spatial-reticle::before, .id-showcase .id-frame .id-frame-spatial-reticle::after { content:""; position:absolute; left:50%; top:50%; background:var(--id-cit); box-shadow:0 0 6px rgba(199,231,56,0.5); }
-.id-showcase .id-frame .id-frame-spatial-reticle::before { width:14px; height:1.5px; transform:translate(-50%,-50%); }
-.id-showcase .id-frame .id-frame-spatial-reticle::after { width:1.5px; height:14px; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-corner--br::before { bottom:8px; right:-1px; }
+.id-showcase .id-frame .id-frame-spatial-corner--br::after { bottom:-1px; right:8px; }
+
+/* Reticle stack — a faint outer ring, a solid inner ring with a soft
+   radial wash, four cardinal hash ticks, the crosshair, and a center
+   pip. The breathing animation keeps it from feeling static. */
+.id-showcase .id-frame .id-frame-spatial-reticle { position:absolute; left:50%; top:50%; width:clamp(120px,17vw,220px); height:clamp(120px,17vw,220px); border:1.5px solid var(--id-cit); border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 28px rgba(199,231,56,0.22), inset 0 0 32px rgba(199,231,56,0.08); background:radial-gradient(circle at center, rgba(199,231,56,0.07) 0%, rgba(199,231,56,0.02) 55%, transparent 75%); animation:id-reticle-breathe 4.8s ease-in-out infinite; }
+@keyframes id-reticle-breathe { 0%, 100% { box-shadow:0 0 28px rgba(199,231,56,0.22), inset 0 0 32px rgba(199,231,56,0.08); } 50% { box-shadow:0 0 38px rgba(199,231,56,0.32), inset 0 0 40px rgba(199,231,56,0.12); } }
+.id-showcase .id-frame .id-frame-spatial-reticle::before { content:""; position:absolute; left:50%; top:50%; width:calc(100% + 18px); height:calc(100% + 18px); border:1px dashed rgba(199,231,56,0.35); border-radius:50%; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-reticle::after { content:""; position:absolute; left:50%; top:50%; width:38%; height:38%; border:1px solid rgba(199,231,56,0.45); border-radius:50%; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-cross { position:absolute; left:50%; top:50%; width:18px; height:18px; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-cross::before, .id-showcase .id-frame .id-frame-spatial-cross::after { content:""; position:absolute; left:50%; top:50%; background:var(--id-cit); box-shadow:0 0 6px rgba(199,231,56,0.6); }
+.id-showcase .id-frame .id-frame-spatial-cross::before { width:18px; height:1.5px; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-cross::after { width:1.5px; height:18px; transform:translate(-50%,-50%); }
+.id-showcase .id-frame .id-frame-spatial-pip { position:absolute; left:50%; top:50%; width:4px; height:4px; background:var(--id-cit); border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 8px rgba(199,231,56,0.9); }
+.id-showcase .id-frame .id-frame-spatial-tick { position:absolute; background:var(--id-cit); box-shadow:0 0 4px rgba(199,231,56,0.55); }
+.id-showcase .id-frame .id-frame-spatial-tick--n { left:50%; top:calc(50% - clamp(78px,11vw,142px)); width:1.5px; height:10px; transform:translateX(-50%); }
+.id-showcase .id-frame .id-frame-spatial-tick--s { left:50%; top:calc(50% + clamp(68px,10vw,132px)); width:1.5px; height:10px; transform:translateX(-50%); }
+.id-showcase .id-frame .id-frame-spatial-tick--e { left:calc(50% + clamp(68px,10vw,132px)); top:50%; width:10px; height:1.5px; transform:translateY(-50%); }
+.id-showcase .id-frame .id-frame-spatial-tick--w { left:calc(50% - clamp(78px,11vw,142px)); top:50%; width:10px; height:1.5px; transform:translateY(-50%); }
 
 /* STATS */
 .id-stats { position:relative; padding:160px 40px; background:var(--id-teal-deep); border-top:1px solid var(--id-line); }

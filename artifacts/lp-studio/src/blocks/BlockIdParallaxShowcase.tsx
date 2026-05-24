@@ -38,7 +38,13 @@ function Frame({ frame, index, onUpdate, isEditor, showSpatial }: FrameProps) {
           <span className="id-frame-spatial-corner id-frame-spatial-corner--tr" />
           <span className="id-frame-spatial-corner id-frame-spatial-corner--bl" />
           <span className="id-frame-spatial-corner id-frame-spatial-corner--br" />
+          <span className="id-frame-spatial-tick id-frame-spatial-tick--n" />
+          <span className="id-frame-spatial-tick id-frame-spatial-tick--s" />
+          <span className="id-frame-spatial-tick id-frame-spatial-tick--e" />
+          <span className="id-frame-spatial-tick id-frame-spatial-tick--w" />
           <span className="id-frame-spatial-reticle" />
+          <span className="id-frame-spatial-cross" />
+          <span className="id-frame-spatial-pip" />
         </div>
       )}
       <div className="id-frame-caption">
