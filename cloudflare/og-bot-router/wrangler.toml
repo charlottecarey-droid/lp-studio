@@ -4,9 +4,20 @@ compatibility_date = "2024-01-01"
 
 # Routes: intercept traffic on every meetdandy.com host that serves landing
 # pages. The /* wildcard means all paths reach the worker, but the script
-# itself only re-routes social-bot requests to landing-page URLs — everything
-# else passes through unchanged.
+# itself only intercepts root-slug + /lp/<slug> URLs (see APP_PATH_DENY).
 routes = [
   { pattern = "lp.meetdandy.com/*",       zone_name = "meetdandy.com" },
   { pattern = "partners.meetdandy.com/*", zone_name = "meetdandy.com" },
 ]
+
+# R2 bucket containing prerendered landing-page HTML (task #364).
+# Provisioned manually by the user; writes are made by the api-server's
+# `triggerPublishedRender` via the S3-compatible API.
+[[r2_buckets]]
+binding     = "PRERENDERED_LP"
+bucket_name = "dandy-lp-prerendered"
+
+# api-server origin for tier-2 fallback (when R2 misses) and tenant
+# host → tenant ID resolution. Overridable per environment.
+[vars]
+API_ORIGIN = "https://ent.meetdandy.com"

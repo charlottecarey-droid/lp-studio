@@ -11,6 +11,7 @@ import blockCatalogRouter from "./blockCatalog";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import webhooksRouter from "./webhooks";
 import cspReportRouter from "./cspReport";
+import tenantByHostRouter from "./tenant-by-host";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -59,6 +60,10 @@ router.use((req, _res, next) => {
 
 router.use(healthRouter);
 router.use(cspReportRouter);
+// /api/tenant-by-host — public, cacheable host→tenant resolver for the
+// CF worker (task #364). Mounted before the auth guard since it's not
+// under /lp/* or /sales/* — it's a top-level public endpoint.
+router.use(tenantByHostRouter);
 router.use(authRouter);
 router.use(lpRouter);
 router.use(storageRouter);
