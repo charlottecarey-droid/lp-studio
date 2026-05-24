@@ -8,9 +8,22 @@ compatibility_date = "2024-01-01"
 #
 # The route DOES match app.lpstudio.ai and www.lpstudio.ai, but the worker
 # itself short-circuits those (PASSTHROUGH_HOSTS) so they pass through.
+#
+# Custom Hostnames (e.g. lp.meetdandy.com, partners.meetdandy.com,
+# meetdandy-lp.com, and any future ENT customer domain) are bound to this
+# worker via the CF dashboard (SSL/TLS → Custom Hostnames), NOT here.
+# Wrangler does not manage Custom Hostname bindings.
 routes = [
   { pattern = "*.lpstudio.ai/*", zone_name = "lpstudio.ai" },
 ]
+
+# R2 bucket containing prerendered landing-page HTML (task #364).
+# Worker reads `<host>/<slug>.html` keys on every GET/HEAD to a
+# landing-page URL. Provisioned manually; writes are made by the
+# api-server's `triggerPublishedRender` via the S3-compatible API.
+[[r2_buckets]]
+binding     = "PRERENDERED_LP"
+bucket_name = "dandy-lp-prerendered"
 
 # WORKER_HOST_SECRET is provided as a worker secret (not stored in this file).
 # Set it with:  npx wrangler secret put WORKER_HOST_SECRET

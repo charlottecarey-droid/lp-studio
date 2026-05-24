@@ -30,41 +30,22 @@ API_ORIGIN = "https://192.0.2.1"
 HOST_OVERRIDE_ENABLED = "1"
 
 # ---------------------------------------------------------------------
-# Production environment. Deploy with: `npx wrangler deploy --env production`.
-# Note: named environments in wrangler do NOT inherit top-level
-# [[r2_buckets]] / [vars] — they're duplicated below so production has
-# the same R2 binding and origin var as the default (staging) deploy.
+# DEPRECATED — production environment removed.
+#
+# The R2 prerender logic that this worker was built for (task #364) has
+# been merged into `cloudflare/tenant-host-router/worker.js`, which already
+# owns the *.lpstudio.ai/* route binding and the X-Original-Host
+# rewrite-to-Replit fallback that visitors actually need.
+#
+# Two workers binding overlapping routes (og-bot-router on *.lpstudio.ai
+# vs tenant-host-router on *.lpstudio.ai) is a route conflict that CF
+# rejects. Rather than split R2 logic across two workers, the cleaner
+# architecture is: tenant-host-router does R2 read → on miss falls
+# through its existing bot-OG / passthrough / rewrite logic.
+#
+# The currently-deployed og-bot-router (bound via CF dashboard to
+# `lpstudio.ai/lp/*` for legacy traffic) continues to serve until
+# retired — no `--env production` deploy from this repo will touch it.
+# When retired, delete this worker from CF dashboard and remove this
+# directory.
 # ---------------------------------------------------------------------
-[env.production]
-
-# Routes: intercept all traffic on the lpstudio.ai zone (apex + every
-# subdomain). The worker's extractSlug + APP_PATH_DENY pass through non-
-# page paths (/, /api/*, /admin/*, static assets, etc.) unchanged, so
-# binding the whole zone is safe — admin pages and API calls flow to
-# origin without interception.
-#
-# Custom Hostnames under this zone (lp.meetdandy.com, partners.meetdandy.com,
-# meetdandy-lp.com, ent.meetdandy.com, and any future ENT customer domain)
-# are bound to this worker via the CF dashboard (SSL/TLS → Custom Hostnames),
-# NOT via this routes block. Wrangler does not manage Custom Hostname
-# bindings.
-#
-# Backward compat: legacy lpstudio.ai/lp/<slug> URLs are still handled —
-# extractSlug matches both /lp/<slug> and /<slug>. R2 miss on those keys
-# falls through tier-2 → SPA, identical to today's behavior.
-routes = [
-  { pattern = "*.lpstudio.ai/*", zone_name = "lpstudio.ai" },
-  { pattern = "lpstudio.ai/*",   zone_name = "lpstudio.ai" },
-]
-
-[[env.production.r2_buckets]]
-binding     = "PRERENDERED_LP"
-bucket_name = "dandy-lp-prerendered"
-
-[env.production.vars]
-# Real Replit api-server prod origin (= the admin/app host, which is just
-# the api-server with host-based tenant resolution). Worker tier-2 fallback
-# calls https://app.lpstudio.ai/api/lp/rendered/:slug with X-Forwarded-Host
-# set to the visitor's hostname — rendered.ts resolves the tenant from
-# that header.
-API_ORIGIN = "https://app.lpstudio.ai"
