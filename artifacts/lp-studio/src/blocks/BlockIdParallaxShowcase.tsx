@@ -15,9 +15,10 @@ interface FrameProps {
   onUpdate?: (patch: Partial<IdShowcaseFrame>) => void;
   isEditor: boolean;
   showSpatial: boolean;
+  spatialOpacity: number;
 }
 
-function Frame({ frame, index, onUpdate, isEditor, showSpatial }: FrameProps) {
+function Frame({ frame, index, onUpdate, isEditor, showSpatial, spatialOpacity }: FrameProps) {
   const ref = useRef<HTMLDivElement>(null);
   useIdInView(ref, { threshold: isEditor ? 0 : 0.2 });
   return (
@@ -33,7 +34,7 @@ function Frame({ frame, index, onUpdate, isEditor, showSpatial }: FrameProps) {
       )}
       <div className="id-frame-vignette" />
       {showSpatial && (
-        <div className="id-frame-spatial" aria-hidden>
+        <div className="id-frame-spatial" aria-hidden style={{ opacity: spatialOpacity }}>
           <span className="id-frame-spatial-corner id-frame-spatial-corner--tl" />
           <span className="id-frame-spatial-corner id-frame-spatial-corner--tr" />
           <span className="id-frame-spatial-corner id-frame-spatial-corner--bl" />
@@ -102,6 +103,7 @@ export function BlockIdParallaxShowcase({ props, onFieldChange }: Props) {
             index={i}
             isEditor={isEditor}
             showSpatial={props.spatialOverlay ?? true}
+            spatialOpacity={Math.max(0, Math.min(1, props.spatialOverlayOpacity ?? 1))}
             onUpdate={onFieldChange ? (patch) => updateFrame(i, patch) : undefined}
           />
         ))}

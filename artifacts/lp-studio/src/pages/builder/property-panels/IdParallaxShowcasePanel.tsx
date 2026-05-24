@@ -93,6 +93,27 @@ export function IdParallaxShowcasePanel({ props, onChange }: Props) {
             </span>
           </span>
         </label>
+        {(props.spatialOverlay ?? true) && (
+          <div className="pt-2 pl-6 space-y-1">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span className="uppercase tracking-wider">Overlay opacity</span>
+              <span className="tabular-nums">
+                {Math.round((props.spatialOverlayOpacity ?? 1) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={props.spatialOverlayOpacity ?? 1}
+              onChange={(e) =>
+                u({ spatialOverlayOpacity: parseFloat(e.target.value) })
+              }
+              className="w-full accent-[#C7E738]"
+            />
+          </div>
+        )}
       </div>
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Frames (3 max)</div>
       {frames.map((fr, i) => {

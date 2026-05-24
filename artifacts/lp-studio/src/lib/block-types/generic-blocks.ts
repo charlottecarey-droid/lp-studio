@@ -1605,6 +1605,8 @@ export interface IdParallaxShowcaseBlockProps {
    *  crosshair. Mirrors the look of an Apple Vision Pro target.
    *  Defaults to true. */
   spatialOverlay?: boolean;
+  /** Opacity of the spatial overlay (0..1). Defaults to 1. */
+  spatialOverlayOpacity?: number;
 }
 
 export interface IdSystemFlowStation {
