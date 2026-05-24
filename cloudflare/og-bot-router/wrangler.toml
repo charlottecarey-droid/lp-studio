@@ -37,12 +37,24 @@ HOST_OVERRIDE_ENABLED = "1"
 # ---------------------------------------------------------------------
 [env.production]
 
-# Routes: intercept traffic on every meetdandy.com host that serves landing
-# pages. The /* wildcard means all paths reach the worker, but the script
-# itself only intercepts root-slug + /lp/<slug> URLs (see APP_PATH_DENY).
+# Routes: intercept all traffic on the lpstudio.ai zone (apex + every
+# subdomain). The worker's extractSlug + APP_PATH_DENY pass through non-
+# page paths (/, /api/*, /admin/*, static assets, etc.) unchanged, so
+# binding the whole zone is safe — admin pages and API calls flow to
+# origin without interception.
+#
+# Custom Hostnames under this zone (lp.meetdandy.com, partners.meetdandy.com,
+# meetdandy-lp.com, ent.meetdandy.com, and any future ENT customer domain)
+# are bound to this worker via the CF dashboard (SSL/TLS → Custom Hostnames),
+# NOT via this routes block. Wrangler does not manage Custom Hostname
+# bindings.
+#
+# Backward compat: legacy lpstudio.ai/lp/<slug> URLs are still handled —
+# extractSlug matches both /lp/<slug> and /<slug>. R2 miss on those keys
+# falls through tier-2 → SPA, identical to today's behavior.
 routes = [
-  { pattern = "lp.meetdandy.com/*",       zone_name = "meetdandy.com" },
-  { pattern = "partners.meetdandy.com/*", zone_name = "meetdandy.com" },
+  { pattern = "*.lpstudio.ai/*", zone_name = "lpstudio.ai" },
+  { pattern = "lpstudio.ai/*",   zone_name = "lpstudio.ai" },
 ]
 
 [[env.production.r2_buckets]]
@@ -50,4 +62,9 @@ binding     = "PRERENDERED_LP"
 bucket_name = "dandy-lp-prerendered"
 
 [env.production.vars]
-API_ORIGIN = "https://ent.meetdandy.com"
+# Real Replit api-server prod origin (= the admin/app host, which is just
+# the api-server with host-based tenant resolution). Worker tier-2 fallback
+# calls https://app.lpstudio.ai/api/lp/rendered/:slug with X-Forwarded-Host
+# set to the visitor's hostname — rendered.ts resolves the tenant from
+# that header.
+API_ORIGIN = "https://app.lpstudio.ai"
