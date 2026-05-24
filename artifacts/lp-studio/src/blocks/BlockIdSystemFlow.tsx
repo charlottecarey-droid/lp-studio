@@ -40,7 +40,7 @@ export function BlockIdSystemFlow({ props }: Props) {
       }}
     >
       <FlowStyles />
-      <div className="id-flow__inner">
+      <div className="id-flow__inner" style={props.maxWidth != null ? { maxWidth: `${props.maxWidth}px` } : undefined}>
 
       {/* Header */}
       {!props.hideHeader && (

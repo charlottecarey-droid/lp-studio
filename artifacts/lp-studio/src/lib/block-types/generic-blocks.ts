@@ -1747,6 +1747,10 @@ export interface IdSystemFlowBlockProps {
   /** Horizontal (left & right) padding in px. Overrides the responsive
    *  default (~24–56px). */
   paddingX?: number;
+  /** Max content width in px. Caps how wide the rail + grid stretch
+   *  inside the section. Defaults to 1280. Try 1440–1680 for a wider
+   *  feel on big screens. */
+  maxWidth?: number;
   /** Hide the eyebrow + headline + right-side metric and start the section
    *  directly at the timestamp/rail. Useful when the previous block
    *  already provides the title. */

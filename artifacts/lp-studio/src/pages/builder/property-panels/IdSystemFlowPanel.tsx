@@ -58,6 +58,16 @@ export function IdSystemFlowPanel({ props: p, onChange }: Props) {
         </Field>
       </div>
       <p className="text-[10px] text-muted-foreground -mt-2">Leave blank to use the responsive defaults (~96–140px vertical, 24–56px horizontal).</p>
+      <Field label="Max content width (px)">
+        <Input
+          type="number"
+          className="h-8 text-xs"
+          value={p.maxWidth ?? ""}
+          placeholder="1280"
+          onChange={(e) => set("maxWidth", e.target.value === "" ? undefined : Number(e.target.value))}
+        />
+      </Field>
+      <p className="text-[10px] text-muted-foreground -mt-2">Caps the inner rail + grid width. Default 1280px — try 1440–1680 for a wider feel.</p>
 
       <SectionHeader>Layout</SectionHeader>
       <label className="flex items-start gap-2 text-xs cursor-pointer">
