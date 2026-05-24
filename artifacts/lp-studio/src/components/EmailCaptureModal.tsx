@@ -199,6 +199,27 @@ export function EmailCaptureModal({
   };
 
   const isDark = theme === "dark";
+  // Dark fallbacks for the linked ("global form") branch. Per-page
+  // LinkedFormStyle overrides still win — these only kick in when a dark
+  // CTA opens a linked form and the page hasn't set its own colors, so a
+  // global form dropped into a dark cinematic block (e.g. the reservation
+  // pass) doesn't pop a white card on top of the dark surface.
+  const linkedDarkDefaults = {
+    cardBg: "#061714",
+    text: "#ffffff",
+    border: "#C7E738",
+    button: "#C7E738",
+    buttonText: "#061714",
+  } as const;
+  const effectiveLinkedStyle = isDark
+    ? {
+        cardBg: linkedStyle?.cardBg ?? linkedDarkDefaults.cardBg,
+        text: linkedStyle?.text ?? linkedDarkDefaults.text,
+        border: linkedStyle?.border ?? linkedDarkDefaults.border,
+        button: linkedStyle?.button ?? linkedDarkDefaults.button,
+        buttonText: linkedStyle?.buttonText ?? linkedDarkDefaults.buttonText,
+      }
+    : linkedStyle;
   const inputCls = isDark
     ? "w-full bg-white/[0.04] border border-white/15 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/30 outline-none transition-colors focus:bg-white/[0.06]"
     : "w-full border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-900 outline-none transition-colors";
@@ -364,11 +385,18 @@ export function EmailCaptureModal({
         // looked cramped at max-w-lg).
         <div
           className="relative w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
-          style={{ backgroundColor: linkedStyle?.cardBg ?? "#ffffff", color: linkedStyle?.text }}
+          style={{
+            backgroundColor: effectiveLinkedStyle?.cardBg ?? "#ffffff",
+            color: effectiveLinkedStyle?.text,
+          }}
         >
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+            className={
+              isDark
+                ? "absolute top-3 right-3 text-white/60 hover:text-white transition-colors p-1.5 rounded-full bg-white/10 hover:bg-white/15 z-10"
+                : "absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+            }
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -385,12 +413,15 @@ export function EmailCaptureModal({
                   successMessage: cfg.successMessage,
                   // Per-page color overrides flow through the existing
                   // BlockForm style props so the in-modal linked form
-                  // matches the host page's chosen palette.
-                  ...(linkedStyle?.cardBg ? { cardBgColor: linkedStyle.cardBg } : {}),
-                  ...(linkedStyle?.border ? { inputAccentColor: linkedStyle.border } : {}),
-                  ...(linkedStyle?.button ? { submitButtonColor: linkedStyle.button } : {}),
-                  ...(linkedStyle?.buttonText ? { submitButtonTextColor: linkedStyle.buttonText } : {}),
-                  ...(linkedStyle?.text ? { textColor: linkedStyle.text } : {}),
+                  // matches the host page's chosen palette. In dark-theme
+                  // mode (e.g. CTA from the Inside-Dandy reservation pass)
+                  // `effectiveLinkedStyle` fills in dark defaults wherever
+                  // the page hasn't set its own override.
+                  ...(effectiveLinkedStyle?.cardBg ? { cardBgColor: effectiveLinkedStyle.cardBg } : {}),
+                  ...(effectiveLinkedStyle?.border ? { inputAccentColor: effectiveLinkedStyle.border } : {}),
+                  ...(effectiveLinkedStyle?.button ? { submitButtonColor: effectiveLinkedStyle.button } : {}),
+                  ...(effectiveLinkedStyle?.buttonText ? { submitButtonTextColor: effectiveLinkedStyle.buttonText } : {}),
+                  ...(effectiveLinkedStyle?.text ? { textColor: effectiveLinkedStyle.text } : {}),
                 }}
                 brand={brand}
                 pageId={pageId}
