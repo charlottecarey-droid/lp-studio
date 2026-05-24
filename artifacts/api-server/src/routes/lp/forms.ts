@@ -114,6 +114,10 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
       // authored strings (event name + formName) and an enabled flag —
       // no secrets.
       gtmDataLayerConfig: lpFormsTable.gtmDataLayerConfig,
+      // Visual styling (FormStyling shape). Operator-authored color /
+      // font tokens — no secrets, safe to expose on the public viewer
+      // so BlockForm can apply the Inside Dandy / AVP look on render.
+      styling: lpFormsTable.styling,
     }).from(lpFormsTable).where(
       and(eq(lpFormsTable.tenantId, tenantMatch.tenantId), eq(lpFormsTable.id, id)),
     );
@@ -148,6 +152,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
     "emailRecipients", "webhookUrl", "marketoConfig", "salesforceConfig",
     "chiliPiperConfig", "gtmDataLayerConfig",
     "sendFollowUpToSubmitter", "followUpTemplateId",
+    "styling",
   ];
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const key of allowed) {
@@ -189,6 +194,7 @@ router.post("/lp/forms/:id/duplicate", async (req, res): Promise<void> => {
       salesforceConfig: src.salesforceConfig,
       chiliPiperConfig: src.chiliPiperConfig,
       gtmDataLayerConfig: src.gtmDataLayerConfig,
+      styling: src.styling,
     })
     .returning();
   res.status(201).json(copy);

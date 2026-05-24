@@ -9,6 +9,7 @@ import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPi
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { type FormStyling, hasFormStyling } from "@/lib/form-styling";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -83,6 +84,14 @@ interface GlobalFormConfig {
    *    formName: "Demo Form" }).
    */
   gtmDataLayerConfig?: GtmDataLayerConfig | null;
+  /**
+   * Per-form visual styling (FormStyling shape). When populated, BlockForm
+   * overrides its block-level surface / input / button / font tokens with
+   * these values so a single linked global form carries the Inside Dandy
+   * / Apple Vision Pro look across every CTA that references it. NULL or
+   * an empty object falls through to the legacy per-block styling path.
+   */
+  styling?: FormStyling | null;
 }
 
 interface Props {
@@ -207,6 +216,10 @@ function FieldInput({
   inputRadius,
   inputAccentColor,
   isDark,
+  inputBg,
+  inputBorder,
+  inputText,
+  fontBody,
 }: {
   field: FormField;
   value: string;
@@ -215,13 +228,27 @@ function FieldInput({
   inputRadius: string;
   inputAccentColor: string;
   isDark: boolean;
+  /** FormStyling override — when set, replaces the bg/border/text Tailwind classes with inline styles so AVP-style translucent surfaces work. */
+  inputBg?: string;
+  inputBorder?: string;
+  inputText?: string;
+  fontBody?: string;
 }) {
-  const baseInput = `w-full px-4 py-3.5 text-base outline-none transition-colors border ${inputRadius} ${isDark ? "bg-white/95 text-slate-900" : "bg-white text-slate-900"}`;
-  const borderClass = error ? "border-red-400" : "border-slate-200";
-  const focusStyle = { ["--tw-ring-color" as string]: inputAccentColor } as React.CSSProperties;
+  const hasStyling = !!(inputBg || inputBorder || inputText);
+  const baseInput = hasStyling
+    ? `w-full px-4 py-3.5 text-base outline-none transition-colors border ${inputRadius}`
+    : `w-full px-4 py-3.5 text-base outline-none transition-colors border ${inputRadius} ${isDark ? "bg-white/95 text-slate-900" : "bg-white text-slate-900"}`;
+  const borderClass = error ? "border-red-400" : (hasStyling ? "" : "border-slate-200");
+  const focusStyle: React.CSSProperties = {
+    ["--tw-ring-color" as string]: inputAccentColor,
+    ...(inputBg ? { backgroundColor: inputBg } : null),
+    ...(inputBorder && !error ? { borderColor: inputBorder } : null),
+    ...(inputText ? { color: inputText } : null),
+    ...(fontBody ? { fontFamily: fontBody } : null),
+  };
   const onFocus = (e: React.FocusEvent<HTMLElement>) => { e.currentTarget.style.borderColor = inputAccentColor; };
   const onBlur = (e: React.FocusEvent<HTMLElement>) => {
-    e.currentTarget.style.borderColor = "";
+    e.currentTarget.style.borderColor = error ? "" : (inputBorder ?? "");
     // Normalize website-like fields on blur (not while typing) so the
     // visitor's paste isn't mangled mid-flight. Only fires when the
     // result actually differs to avoid a spurious render.
@@ -739,16 +766,28 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
     }
   };
 
-  // Brand-aware defaults (Dandy-style)
-  const submitBg = props.submitButtonColor || brand.accentColor || "var(--brand-accent)";
-  const submitFg = props.submitButtonTextColor || brand.primaryColor || "var(--brand-primary)";
-  const inputAccent = props.inputAccentColor || brand.primaryColor || "var(--brand-primary)";
-  const cardBg = props.cardBgColor || (isDark ? undefined : "#ffffff");
+  // Per-form styling override (lp_forms.styling). When the linked global
+  // form carries a FormStyling object, its tokens win over the per-block
+  // colors — that's how a single global form (e.g. the Spatial Tour
+  // form 1425) renders with the Inside Dandy / Apple Vision Pro look on
+  // every CTA without each form block needing to be re-themed.
+  const formStyling: FormStyling | null = hasFormStyling(globalForm?.styling) ? globalForm!.styling! : null;
+
+  // Brand-aware defaults (Dandy-style), with FormStyling taking precedence.
+  const submitBg = formStyling?.buttonBg || props.submitButtonColor || brand.accentColor || "var(--brand-accent)";
+  const submitFg = formStyling?.buttonText || props.submitButtonTextColor || brand.primaryColor || "var(--brand-primary)";
+  const inputAccent = formStyling?.accent || props.inputAccentColor || brand.primaryColor || "var(--brand-primary)";
+  const cardBg = formStyling?.surface || props.cardBgColor || (isDark ? undefined : "#ffffff");
+  const cardBorderColor = formStyling?.border;
   // Optional global text colour override (per-page linked-form styling).
   // When set, applied as inline `color` to the form section so headline,
   // labels, helper text and body inherit it — overriding the hardcoded
   // Tailwind text-slate / brand colours used elsewhere in this block.
-  const textOverride = (props as { textColor?: string }).textColor;
+  const textOverride = formStyling?.headlineColor || (props as { textColor?: string }).textColor;
+  const subheadlineColor = formStyling?.subheadlineColor;
+  const labelColorOverride = formStyling?.labelColor;
+  const displayFont = formStyling?.fontDisplay || DISPLAY;
+  const bodyFont = formStyling?.fontBody || BODY;
   const cardStyle = props.cardStyle ?? "elevated";
   const cardRadius = props.cardRadius ?? "2xl";
   const radiusClass = { lg: "rounded-lg", xl: "rounded-xl", "2xl": "rounded-2xl", "3xl": "rounded-3xl" }[cardRadius];
@@ -763,7 +802,9 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
     ? `block text-xs font-semibold mb-2 uppercase tracking-wide ${isDark ? "text-white/70" : "text-slate-500"}`
     : `block text-sm font-medium mb-1.5 ${isDark ? "text-gray-200" : "text-slate-700"}`;
 
-  const bgInlineStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
+  const bgInlineStyle = formStyling?.background
+    ? { background: formStyling.background }
+    : (props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined);
 
   const isMarketo = props.formMode === "marketo";
 
@@ -906,7 +947,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           </div>
           <h3
             className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
-            style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: DISPLAY }}
+            style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: displayFont }}
           >
             {activeSuccessMessage || "Thank you!"}
           </h3>
@@ -930,7 +971,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {props.headline && (
               <h2
                 className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
-                style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: DISPLAY }}
+                style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: displayFont }}
               >
                 {props.headline}
               </h2>
@@ -938,7 +979,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {props.subheadline && (
               <p
                 className={`text-base md:text-lg ${isDark ? "text-white/80" : "text-slate-600"}`}
-                style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: BODY }}
+                style={{ ...(subheadlineColor ? { color: subheadlineColor } : (textOverride ? { color: textOverride } : undefined)), fontFamily: bodyFont }}
               >
                 {props.subheadline}
               </p>
@@ -947,8 +988,12 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         )}
 
         <div
-          className={`${radiusClass} ${cardShadowClass} p-8 md:p-10 ${isDark && !cardBg ? "bg-white/10 border-white/20" : ""}`}
-          style={cardBg ? { backgroundColor: cardBg } : undefined}
+          className={`${radiusClass} ${formStyling ? "" : cardShadowClass} p-8 md:p-10 ${isDark && !cardBg ? "bg-white/10 border-white/20" : ""}`}
+          style={{
+            ...(cardBg ? { backgroundColor: cardBg } : undefined),
+            ...(cardBorderColor ? { border: `1px solid ${cardBorderColor}` } : undefined),
+            ...(formStyling ? { backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" } : undefined),
+          }}
         >
           {chiliPiperHandoffUrl ? (
             // In-place swap: once the visitor has submitted the form (native
@@ -1093,9 +1138,9 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
-                  <label htmlFor={field.id} className={labelClass} style={{ ...(textOverride ? { color: textOverride, opacity: 0.85 } : undefined), fontFamily: BODY }}>
+                  <label htmlFor={field.id} className={labelClass} style={{ ...(labelColorOverride ? { color: labelColorOverride, opacity: 1 } : (textOverride ? { color: textOverride, opacity: 0.85 } : undefined)), fontFamily: bodyFont }}>
                     {field.label}
-                    {field.required && <span className="text-red-400 ml-0.5" style={{ fontFamily: BODY }}>*</span>}
+                    {field.required && <span className="text-red-400 ml-0.5" style={{ fontFamily: bodyFont }}>*</span>}
                   </label>
                 )}
                 <FieldInput
@@ -1105,6 +1150,10 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   inputRadius={inputRadiusClass}
                   inputAccentColor={inputAccent}
                   isDark={isDark}
+                  inputBg={formStyling?.inputBg}
+                  inputBorder={formStyling?.inputBorder}
+                  inputText={formStyling?.inputText}
+                  fontBody={formStyling?.fontBody}
                   onChange={val => {
                     setFieldValues(prev => ({ ...prev, [field.id]: val }));
                     setFieldErrors(prev => ({ ...prev, [field.id]: null }));
