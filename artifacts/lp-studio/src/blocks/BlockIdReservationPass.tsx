@@ -656,8 +656,10 @@ function PassStyles() {
       .id-pass__cta-primary {
         display: inline-flex !important;
         align-items: center;
-        gap: 12px;
-        padding: 16px 26px !important;
+        justify-content: center;
+        gap: 14px;
+        min-width: 260px;
+        padding: 18px 40px !important;
         font-size: 13px !important;
         letter-spacing: 0.06em;
         font-weight: 500 !important;
