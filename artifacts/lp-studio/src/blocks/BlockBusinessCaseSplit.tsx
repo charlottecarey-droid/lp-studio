@@ -28,6 +28,11 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
   const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
   const accent = props.accentColor ?? brand?.accentColor ?? "#c8e84e";
   const accentInk = props.accentInkColor ?? brand?.ctaText ?? "#0d1f15";
+  // Per-surface headline tokens fall back to ink/bg so existing pages render
+  // unchanged. `headline` paints display-font headings on the light page
+  // surface; `headlineOnDark` paints them on the dark sections.
+  const headline = props.headlineColor ?? ink;
+  const headlineOnDark = props.headlineOnDarkColor ?? bg;
 
   const brandName = brand?.brandName?.trim() || "Dandy";
   const logoAlt = props.logoAlt || brandName;
@@ -61,8 +66,8 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               </div>
             )}
             <h1
-              className="text-white text-5xl lg:text-6xl xl:text-7xl leading-[1.05] tracking-tight mb-8"
-              style={{ fontFamily: DISPLAY }}
+              className="text-5xl lg:text-6xl xl:text-7xl leading-[1.05] tracking-tight mb-8"
+              style={{ fontFamily: DISPLAY, color: headlineOnDark }}
             >
               {props.heroHeadline}
             </h1>
@@ -113,7 +118,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               {props.situationEyebrow}
             </span>
           )}
-          <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.situationHeading}
           </h2>
         </div>
@@ -128,7 +133,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           <div className="lg:col-span-6 lg:col-start-7 flex flex-col justify-center gap-8">
             {props.situationStats.map((s, i) => (
               <div key={i} className="border-l-2 pl-6 py-1" style={{ borderColor: accent }}>
-                <div className="text-3xl mb-2" style={{ color: ink, fontFamily: DISPLAY }}>{s.value}</div>
+                <div className="text-3xl mb-2" style={{ color: headline, fontFamily: DISPLAY }}>{s.value}</div>
                 <div className="text-sm font-medium uppercase tracking-wider text-slate-500">{s.label}</div>
               </div>
             ))}
@@ -147,7 +152,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-bold tracking-[0.2em] uppercase text-slate-500">THE SIGNAL</span>
             <ArrowRight className="w-4 h-4" style={{ color: accent }} />
-            <span className="text-2xl md:text-3xl" style={{ color: ink, fontFamily: DISPLAY }}>
+            <span className="text-2xl md:text-3xl" style={{ color: headline, fontFamily: DISPLAY }}>
               {props.signalHeading}
             </span>
           </div>
@@ -192,7 +197,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
                   <div className="mb-6" style={{ color: accent }}>
                     <Icon className="w-8 h-8" />
                   </div>
-                  <h3 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>{card.stat}</h3>
+                  <h3 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>{card.stat}</h3>
                   <p className="text-slate-600 leading-relaxed">{card.body}</p>
                 </div>
               </div>
@@ -209,7 +214,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               {props.costEyebrow}
             </span>
           )}
-          <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.costHeading}
           </h2>
         </div>
@@ -222,7 +227,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
             <div key={i}>
               <div
                 className="text-5xl mb-4 border-b-2 border-black/5 pb-4"
-                style={{ color: ink, fontFamily: DISPLAY }}
+                style={{ color: headline, fontFamily: DISPLAY }}
               >
                 {item.stat}
               </div>
@@ -242,7 +247,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
                 {props.shiftEyebrow}
               </span>
             )}
-            <h2 className="text-white text-4xl lg:text-5xl" style={{ fontFamily: DISPLAY }}>
+            <h2 className="text-4xl lg:text-5xl" style={{ fontFamily: DISPLAY, color: headlineOnDark }}>
               {props.shiftHeading}
             </h2>
           </div>
@@ -290,7 +295,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
                 {props.mathEyebrow}
               </span>
             )}
-            <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
+            <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
               {props.mathHeading}
             </h2>
           </div>
@@ -305,7 +310,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               </label>
               <div
                 className="text-2xl border-b border-slate-300 pb-2"
-                style={{ color: ink, fontFamily: DISPLAY }}
+                style={{ color: headline, fontFamily: DISPLAY }}
               >
                 {props.mathOfficeCount}
               </div>
@@ -316,7 +321,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               </label>
               <div
                 className="text-2xl border-b border-slate-300 pb-2"
-                style={{ color: ink, fontFamily: DISPLAY }}
+                style={{ color: headline, fontFamily: DISPLAY }}
               >
                 {props.mathVolumeValue}
               </div>
@@ -344,7 +349,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
                   >
                     {s.label}
                   </div>
-                  <div className="text-3xl mb-2" style={{ color: isLast ? "#fff" : ink, fontFamily: DISPLAY }}>
+                  <div className="text-3xl mb-2" style={{ color: isLast ? headlineOnDark : headline, fontFamily: DISPLAY }}>
                     {s.value}
                   </div>
                   {s.caption && (
@@ -367,7 +372,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               {props.proofEyebrow}
             </span>
           )}
-          <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.proofHeading}
           </h2>
         </div>
@@ -377,7 +382,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
             <Quote className="w-12 h-12 mb-8" style={{ color: accent }} />
             <h3
               className="text-3xl lg:text-4xl leading-tight mb-8"
-              style={{ color: ink, fontFamily: DISPLAY }}
+              style={{ color: headline, fontFamily: DISPLAY }}
             >
               "{props.proofFeatured.quote}"
             </h3>
@@ -422,7 +427,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
               {props.planEyebrow}
             </span>
           )}
-          <h2 className="text-4xl lg:text-5xl" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl lg:text-5xl" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.planHeading}
           </h2>
         </div>
@@ -433,7 +438,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
             <div key={i} className="relative z-10">
               <div
                 className="w-12 h-12 border-2 rounded-full flex items-center justify-center text-xl mb-6"
-                style={{ background: bg, borderColor: ink, color: ink, fontFamily: DISPLAY }}
+                style={{ background: bg, borderColor: ink, color: headline, fontFamily: DISPLAY }}
               >
                 {step.num}
               </div>
@@ -455,8 +460,8 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
         <div className="max-w-3xl mx-auto flex flex-col items-center">
           <div className="w-16 h-1 mb-12" style={{ background: accent }} />
           <h2
-            className="text-white text-4xl lg:text-6xl leading-tight mb-8"
-            style={{ fontFamily: DISPLAY }}
+            className="text-4xl lg:text-6xl leading-tight mb-8"
+            style={{ fontFamily: DISPLAY, color: headlineOnDark }}
           >
             {props.finalCtaHeading}
           </h2>

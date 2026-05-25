@@ -24,6 +24,11 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
   const dark = props.darkColor ?? brand?.primaryColor ?? "#0d1f15";
   const accent = props.accentColor ?? brand?.accentColor ?? "#c8e84e";
   const accentInk = props.accentInkColor ?? brand?.ctaText ?? "#0d1f15";
+  // Per-surface headline tokens — fall back to ink/bg so existing pages
+  // render unchanged. `headline` paints display-font headings on the light
+  // page surface; `headlineOnDark` paints them on the dark sections.
+  const headline = props.headlineColor ?? ink;
+  const headlineOnDark = props.headlineOnDarkColor ?? bg;
 
   const brandName = brand?.brandName?.trim() || "Dandy";
   const logoAlt = props.logoAlt || brandName;
@@ -66,7 +71,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           )}
           <h1
             className="text-5xl md:text-7xl font-medium leading-[1.1] mb-8 max-w-4xl"
-            style={{ fontFamily: DISPLAY }}
+            style={{ fontFamily: DISPLAY, color: headlineOnDark }}
           >
             {props.heroHeadline}
           </h1>
@@ -96,7 +101,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
-            <h2 className="text-4xl mb-6" style={{ color: ink, fontFamily: DISPLAY }}>
+            <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
               {props.situationHeading}
             </h2>
             <p className="text-lg text-gray-700 leading-relaxed mb-6">{props.situationBody}</p>
@@ -116,7 +121,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
                     </div>
                   </div>
                   <div>
-                    <div className="text-3xl mb-2" style={{ color: ink, fontFamily: DISPLAY }}>
+                    <div className="text-3xl mb-2" style={{ color: headline, fontFamily: DISPLAY }}>
                       {s.value}
                     </div>
                     {s.description && <div className="text-sm text-gray-600">{s.description}</div>}
@@ -146,7 +151,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           )}
           <h3
             className="text-4xl md:text-5xl max-w-3xl leading-tight"
-            style={{ fontFamily: DISPLAY }}
+            style={{ fontFamily: DISPLAY, color: headlineOnDark }}
           >
             {props.signalHeading}
           </h3>
@@ -190,7 +195,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       {/* 4. The Cost of Inaction */}
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl mb-6" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.costHeading}
           </h2>
           {props.costSubhead && (
@@ -211,7 +216,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
               >
                 {item.num ?? String(idx + 1).padStart(2, "0")}
               </div>
-              <div className="text-5xl mb-2" style={{ color: ink, fontFamily: DISPLAY }}>
+              <div className="text-5xl mb-2" style={{ color: headline, fontFamily: DISPLAY }}>
                 {item.stat}
               </div>
               <div className="font-semibold text-sm tracking-wider uppercase mb-3 text-gray-500">
@@ -227,7 +232,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       <section className="py-24 bg-white border-y border-gray-200">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl" style={{ color: ink, fontFamily: DISPLAY }}>
+            <h2 className="text-4xl" style={{ color: headline, fontFamily: DISPLAY }}>
               {props.shiftHeading}
             </h2>
           </div>
@@ -254,7 +259,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
             >
               <div
                 className="col-span-1 md:col-span-4 text-xl"
-                style={{ color: ink, fontFamily: DISPLAY }}
+                style={{ color: headline, fontFamily: DISPLAY }}
               >
                 {row.category}
               </div>
@@ -275,7 +280,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       {/* 6. The Math */}
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="max-w-3xl mb-12">
-          <h2 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.mathHeading}
           </h2>
           <p className="text-xl text-gray-600">{props.mathSubhead}</p>
@@ -292,7 +297,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
               </label>
               <div
                 className="text-3xl border-b border-white/30 pb-2"
-                style={{ fontFamily: DISPLAY }}
+                style={{ fontFamily: DISPLAY, color: headlineOnDark }}
               >
                 {props.mathOfficeCount}
               </div>
@@ -306,7 +311,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
               </label>
               <div
                 className="text-3xl border-b border-white/30 pb-2"
-                style={{ fontFamily: DISPLAY }}
+                style={{ fontFamily: DISPLAY, color: headlineOnDark }}
               >
                 {props.mathVolumeValue}
               </div>
@@ -336,7 +341,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
         <div className="max-w-7xl mx-auto">
           <h2
             className="text-4xl mb-16 text-center"
-            style={{ color: ink, fontFamily: DISPLAY }}
+            style={{ color: headline, fontFamily: DISPLAY }}
           >
             {props.proofHeading}
           </h2>
@@ -349,7 +354,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
               <Quote className="w-12 h-12 text-gray-200 mb-6" />
               <p
                 className="text-2xl md:text-3xl leading-relaxed mb-8"
-                style={{ color: ink, fontFamily: DISPLAY }}
+                style={{ color: headline, fontFamily: DISPLAY }}
               >
                 "{props.proofFeatured.quote}"
               </p>
@@ -382,7 +387,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       {/* 8. The Plan */}
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="mb-16">
-          <h2 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.planHeading}
           </h2>
           {props.planSubhead && <p className="text-xl text-gray-600">{props.planSubhead}</p>}
@@ -412,7 +417,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
         <div className="max-w-3xl mx-auto flex flex-col items-center">
           <h2
             className="text-4xl md:text-6xl mb-6 leading-tight"
-            style={{ color: bg, fontFamily: DISPLAY }}
+            style={{ color: headlineOnDark, fontFamily: DISPLAY }}
           >
             {props.finalCtaHeading}
           </h2>

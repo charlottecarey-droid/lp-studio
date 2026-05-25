@@ -1566,6 +1566,12 @@ interface BusinessCaseCommonProps {
   darkColor?: string;
   accentColor?: string;
   accentInkColor?: string;
+  /** Color for display-font headlines rendered on the light "page" surface.
+   *  Falls back to `inkColor` when unset so existing pages render unchanged. */
+  headlineColor?: string;
+  /** Color for display-font headlines rendered on the dark surface.
+   *  Falls back to `bgColor` when unset so existing pages render unchanged. */
+  headlineOnDarkColor?: string;
 }
 
 export interface BusinessCaseSplitBlockProps extends BusinessCaseCommonProps {

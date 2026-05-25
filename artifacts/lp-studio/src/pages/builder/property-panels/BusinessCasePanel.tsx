@@ -309,7 +309,19 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
           <div className="space-y-2">
             <ColorRow label="Background" value={props.bgColor} fallback={PALETTE_FB.bgColor} onChange={(v) => set("bgColor" as keyof P, v as P[keyof P])} />
             <ColorRow label="Text" value={props.inkColor} fallback={PALETTE_FB.inkColor} onChange={(v) => set("inkColor" as keyof P, v as P[keyof P])} />
+            <ColorRow
+              label="Headline"
+              value={props.headlineColor}
+              fallback={props.inkColor || PALETTE_FB.inkColor}
+              onChange={(v) => set("headlineColor" as keyof P, v as P[keyof P])}
+            />
             <ColorRow label="Dark surface" value={props.darkColor} fallback={PALETTE_FB.darkColor} onChange={(v) => set("darkColor" as keyof P, v as P[keyof P])} />
+            <ColorRow
+              label="Headline on dark"
+              value={props.headlineOnDarkColor}
+              fallback={props.bgColor || PALETTE_FB.bgColor}
+              onChange={(v) => set("headlineOnDarkColor" as keyof P, v as P[keyof P])}
+            />
             <ColorRow label="Accent" value={props.accentColor} fallback={PALETTE_FB.accentColor} onChange={(v) => set("accentColor" as keyof P, v as P[keyof P])} />
             <ColorRow label="On accent" value={props.accentInkColor} fallback={PALETTE_FB.accentInkColor} onChange={(v) => set("accentInkColor" as keyof P, v as P[keyof P])} />
             {variant === "premium" && (

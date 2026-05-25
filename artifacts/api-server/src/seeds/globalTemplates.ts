@@ -2677,6 +2677,8 @@ const BUSINESS_CASE_SPLIT_PROPS = {
   darkColor: "#0d1f15",
   accentColor: "#c8e84e",
   accentInkColor: "#0d1f15",
+  headlineColor: "#0f2a1c",
+  headlineOnDarkColor: "#f6f5ee",
 } as Record<string, unknown>;
 
 const BUSINESS_CASE_CENTERED_PROPS = {
@@ -2769,6 +2771,8 @@ const BUSINESS_CASE_CENTERED_PROPS = {
   darkColor: "#0d1f15",
   accentColor: "#c8e84e",
   accentInkColor: "#0d1f15",
+  headlineColor: "#0d1f15",
+  headlineOnDarkColor: "#f6f5ee",
 } as Record<string, unknown>;
 
 const BUSINESS_CASE_PREMIUM_PROPS = {
@@ -2880,6 +2884,8 @@ const BUSINESS_CASE_PREMIUM_PROPS = {
   darkColor: "#0d1f15",
   accentColor: "#c8e84e",
   accentInkColor: "#0d1f15",
+  headlineColor: "#0d1f15",
+  headlineOnDarkColor: "#f6f5ee",
 } as Record<string, unknown>;
 
 const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [

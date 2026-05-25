@@ -101,6 +101,11 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   const accent = props.accentColor ?? brand?.accentColor ?? "#c8e84e";
   const accentInk = props.accentInkColor ?? brand?.ctaText ?? "#0d1f15";
   const tableAccent = props.tableAccentColor ?? dark;
+  // Per-surface headline tokens — fall back to ink/bg so existing pages
+  // render unchanged. `headline` paints display-font headings on the light
+  // page surface; `headlineOnDark` paints them on the dark sections.
+  const headline = props.headlineColor ?? ink;
+  const headlineOnDark = props.headlineOnDarkColor ?? bg;
 
   // Logo + brand-name labels. `brand.brandName` flows from brand settings so
   // a tenant labelled "Heartland" gets "With Heartland" / "Before Heartland"
@@ -209,7 +214,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
             ? "text-5xl md:text-7xl max-w-4xl"
             : "text-5xl md:text-6xl xl:text-7xl")
         }
-        style={{ fontFamily: DISPLAY }}
+        style={{ fontFamily: DISPLAY, color: headlineOnDark }}
       >
         {props.heroHeadline}
       </h1>
@@ -476,7 +481,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                 {props.situationEyebrow}
               </div>
             )}
-            <h2 className="text-4xl mb-6" style={{ color: ink, fontFamily: DISPLAY }}>
+            <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
               {props.situationHeading}
             </h2>
             <p
@@ -534,7 +539,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                   <div>
                     <div
                       className="text-3xl mb-2"
-                      style={{ color: ink, fontFamily: DISPLAY }}
+                      style={{ color: headline, fontFamily: DISPLAY }}
                     >
                       {s.value}
                     </div>
@@ -572,7 +577,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           )}
           <h3
             className="text-4xl md:text-5xl max-w-3xl leading-tight"
-            style={{ fontFamily: DISPLAY }}
+            style={{ fontFamily: DISPLAY, color: headlineOnDark }}
           >
             {props.signalHeading}
           </h3>
@@ -694,7 +699,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
               {props.costEyebrow}
             </div>
           )}
-          <h2 className="text-4xl mb-6" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.costHeading}
           </h2>
           {props.costSubhead && (
@@ -722,7 +727,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                 className="block h-[3px] w-10 mb-8 origin-left transition-transform duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-[2.4]"
                 style={{ background: accent }}
               />
-              <div className="text-5xl mb-2" style={{ color: ink, fontFamily: DISPLAY }}>
+              <div className="text-5xl mb-2" style={{ color: headline, fontFamily: DISPLAY }}>
                 {item.stat}
               </div>
               <div
@@ -749,7 +754,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                 {props.shiftEyebrow}
               </div>
             )}
-            <h2 className="text-4xl" style={{ color: ink, fontFamily: DISPLAY }}>
+            <h2 className="text-4xl" style={{ color: headline, fontFamily: DISPLAY }}>
               {props.shiftHeading}
             </h2>
           </div>
@@ -793,7 +798,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                 >
                   <div
                     className="col-span-1 md:col-span-4 px-6 py-6 text-lg md:text-xl flex items-center"
-                    style={{ color: ink, background: rowBg, fontFamily: DISPLAY }}
+                    style={{ color: headline, background: rowBg, fontFamily: DISPLAY }}
                   >
                     {row.category}
                   </div>
@@ -845,7 +850,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
               {props.mathEyebrow}
             </div>
           )}
-          <h2 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.mathHeading}
           </h2>
           <p className="text-xl" style={{ color: `${ink}99`, fontFamily: BODY }}>
@@ -895,7 +900,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
               </label>
               <div
                 className="text-3xl border-b border-white/30 pb-2"
-                style={{ fontFamily: DISPLAY }}
+                style={{ fontFamily: DISPLAY, color: headlineOnDark }}
               >
                 {props.mathOfficeCount}
               </div>
@@ -909,7 +914,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
               </label>
               <div
                 className="text-3xl border-b border-white/30 pb-2"
-                style={{ fontFamily: DISPLAY }}
+                style={{ fontFamily: DISPLAY, color: headlineOnDark }}
               >
                 {props.mathVolumeValue}
               </div>
@@ -961,7 +966,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           )}
           <h2
             className="text-4xl mb-16 text-center"
-            style={{ color: ink, fontFamily: DISPLAY }}
+            style={{ color: headline, fontFamily: DISPLAY }}
           >
             {props.proofHeading}
           </h2>
@@ -986,7 +991,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                 <Quote className="w-12 h-12 text-gray-200 mb-6" />
                 <p
                   className="text-2xl md:text-3xl leading-relaxed mb-8"
-                  style={{ color: ink, fontFamily: DISPLAY }}
+                  style={{ color: headline, fontFamily: DISPLAY }}
                 >
                   "{props.proofFeatured.quote}"
                 </p>
@@ -1085,7 +1090,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
               {props.planEyebrow}
             </div>
           )}
-          <h2 className="text-4xl mb-4" style={{ color: ink, fontFamily: DISPLAY }}>
+          <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
             {props.planHeading}
           </h2>
           {props.planSubhead && (
@@ -1140,7 +1145,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           )}
           <h2
             className="text-4xl md:text-6xl mb-6 leading-tight"
-            style={{ color: bg, fontFamily: DISPLAY }}
+            style={{ color: headlineOnDark, fontFamily: DISPLAY }}
           >
             {props.finalCtaHeading}
           </h2>
