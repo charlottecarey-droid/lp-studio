@@ -209,6 +209,12 @@ const CSS = `
    * so the section reads as a clean headline + body feature; the
    * desktop layout is unchanged. */
   .id-spotlight-stage { display:none; }
+  /* Stepper is positioned absolutely against .id-spotlight-grid, not the
+     stage — when the stage is display:none on phones the stepper would
+     otherwise float over the next block as 3-4 dim mono labels reading
+     as "random lines" above whatever block follows (e.g. the id-grid
+     numbered cards). Hide it alongside the stage on mobile. */
+  .id-spotlight-stepper { display:none; }
 }
 .id-cinema-text { position:absolute; inset:0; padding:0 60px 80px; z-index:5; pointer-events:none; }
 /* Panels use the same scroll-driven --p (0..1) variable as the layers,

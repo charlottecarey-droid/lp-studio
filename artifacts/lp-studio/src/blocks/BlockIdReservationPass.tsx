@@ -816,14 +816,13 @@ function PassStyles() {
         .id-pass__hud { inset: 18px; }
         .id-pass__hud-corner { width: 36px; height: 36px; }
         .id-pass__inner { gap: 28px; }
-        .id-pass__ribbon {
-          font-size: 10px;
-          letter-spacing: 0.18em;
-          gap: 12px;
-          flex-wrap: wrap;
-          row-gap: 8px;
-        }
-        .id-pass__ordinal { font-size: 14px; }
+        /* On phones the ordinal/status ribbon ("№ 001 · RESERVATION OPEN")
+           and the centered eyebrow rule ("LIMITED ENGAGEMENT · …") add
+           visual noise without clarifying the offer — strip both so the
+           block reads as: headline → body → pass card → CTA. Desktop
+           keeps the full editorial framing. */
+        .id-pass__ribbon { display: none; }
+        .id-pass__eyebrow { display: none; }
         .id-pass__column { gap: 18px; }
         .id-pass__headline { font-size: clamp(40px, 11vw, 56px); line-height: 1.0; }
         .id-pass__body { font-size: 15px; line-height: 1.55; }
