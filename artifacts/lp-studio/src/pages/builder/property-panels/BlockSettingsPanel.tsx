@@ -24,6 +24,13 @@ interface Props {
    */
   modalTheme?: "light" | "dark";
   onModalThemeChange?: (v: "light" | "dark" | undefined) => void;
+  /**
+   * Brand-level default `modalTheme` from Brand Settings → Form &
+   * Modal Styling. Surfaced as a third "Brand default" option so
+   * editors can see what they'd inherit when they clear the per-block
+   * override. Omit when there's no brand default configured.
+   */
+  brandDefaultModalTheme?: "light" | "dark" | null;
 }
 
 const SPACING_OPTIONS = [
@@ -118,7 +125,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, onModalThemeChange }: Props) {
+export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, onModalThemeChange, brandDefaultModalTheme }: Props) {
   const s = settings ?? {};
   const set = <K extends keyof BlockSettings>(k: K, v: BlockSettings[K]) =>
     onChange({ ...s, [k]: v });
@@ -145,12 +152,31 @@ export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, 
               Shell color for CTA modal openers on this block
             </Label>
             <div className="flex gap-2">
+              {/* "Brand default" clears the per-block override so the
+                  brand-level value from Brand Settings → Form & Modal
+                  Styling wins. We surface the resolved label so the
+                  editor sees what they'd inherit. */}
+              {(() => {
+                const brandLbl = brandDefaultModalTheme
+                  ? `Brand default (${brandDefaultModalTheme === "dark" ? "Dark" : "Light"})`
+                  : "Brand default";
+                const active = modalTheme == null;
+                return (
+                  <button
+                    key="brand"
+                    type="button"
+                    onClick={() => onModalThemeChange?.(undefined)}
+                    className={`flex-1 py-1.5 text-xs rounded border ${active ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {brandLbl}
+                  </button>
+                );
+              })()}
               {([
                 ["light", "Light"],
                 ["dark", "Dark"],
               ] as const).map(([v, lbl]) => {
-                const current = modalTheme ?? "light";
-                const active = current === v;
+                const active = modalTheme === v;
                 return (
                   <button
                     key={v}
@@ -164,7 +190,7 @@ export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, 
               })}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Use <span className="font-medium">Dark</span> on cinematic / dark sections so the modal blends in; <span className="font-medium">Light</span> elsewhere.
+              Use <span className="font-medium">Dark</span> on cinematic / dark sections so the modal blends in; <span className="font-medium">Light</span> elsewhere. <span className="font-medium">Brand default</span> follows Brand Settings.
             </p>
           </div>
           <Separator />

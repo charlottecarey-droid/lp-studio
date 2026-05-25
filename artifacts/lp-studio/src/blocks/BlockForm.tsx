@@ -9,7 +9,7 @@ import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPi
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { type FormStyling, hasFormStyling } from "@/lib/form-styling";
+import { type FormStyling, mergeFormStyling } from "@/lib/form-styling";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -771,7 +771,14 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   // colors — that's how a single global form (e.g. the Spatial Tour
   // form 1425) renders with the Inside Dandy / Apple Vision Pro look on
   // every CTA without each form block needing to be re-themed.
-  const formStyling: FormStyling | null = hasFormStyling(globalForm?.styling) ? globalForm!.styling! : null;
+  // Resolve the styling chain: brand-level default → per-form styling
+  // (lp_forms.styling). Per-block overrides (props-level FormStyling)
+  // aren't a concept on BlockForm itself today — adding here would be
+  // a separate UX surface — so we stop at the form layer.
+  const formStyling: FormStyling | null = mergeFormStyling(
+    brand?.formStyling ?? null,
+    globalForm?.styling ?? null,
+  );
 
   // Brand-aware defaults (Dandy-style), with FormStyling taking precedence.
   const submitBg = formStyling?.buttonBg || props.submitButtonColor || brand.accentColor || "var(--brand-accent)";

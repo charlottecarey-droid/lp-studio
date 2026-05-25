@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { toFontFamilyValue } from "./font-catalog";
 import type { BackgroundPresetLabels } from "./bg-styles";
+import type { FormStyling } from "./form-styling";
 
 export type { BackgroundPresetLabels };
 
@@ -177,6 +178,21 @@ export interface BrandConfig {
    *  without leaking Dandy-specific copy or sender addresses. See
    *  `artifacts/api-server/src/lib/salesBrandContext.ts` for the read path. */
   salesConsole?: SalesConsoleConfig;
+  /**
+   * Brand-default visual styling applied to every linked global form
+   * and to the simple/linked form rendered inside the shared
+   * EmailCaptureModal. Per-form `lp_forms.styling` and per-block
+   * overrides win on a per-token basis (see `mergeFormStyling`).
+   * Null/undefined preserves the legacy block-default behaviour so
+   * existing tenants see zero visible change.
+   */
+  formStyling?: FormStyling | null;
+  /**
+   * Brand-default theme for CTA modals (EmailCaptureModal shell).
+   * Per-block `props.modalTheme` overrides it; unset falls back to
+   * "light". Null/undefined preserves legacy behaviour.
+   */
+  modalTheme?: "light" | "dark" | null;
 }
 
 export interface SalesConsoleValuePropPair {
@@ -260,6 +276,10 @@ export const DEFAULT_BRAND: BrandConfig = {
   copyInstructions: "",
   productLines: [],
   segments: [],
+  // Brand-default form / modal styling — null preserves block defaults
+  // for every tenant that hasn't opted in via Brand Settings.
+  formStyling: null,
+  modalTheme: null,
   // No default logo. Tenants set their own via Brand Settings → Logo. When
   // empty, BrandLogo falls back to a brandName text wordmark. The Dandy
   // dental tenants store `/dandy-logo.svg` explicitly in their brand_settings,

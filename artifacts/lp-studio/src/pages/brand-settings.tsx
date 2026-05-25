@@ -38,6 +38,7 @@ import type {
 import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
+import { FormStylingPanel } from "@/components/FormStylingPanel";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -2264,6 +2265,64 @@ export default function BrandSettings() {
                 ]}
               />
             </div>
+          </Card>
+
+          {/* SECTION 2.5 — FORM & MODAL STYLING (brand defaults) */}
+          <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+            <div className="flex items-center gap-2 mb-1">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <h2 className="font-display font-semibold text-lg">Form & Modal Styling</h2>
+            </div>
+            <Separator />
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Sets the default look for every linked global form and every CTA modal across your site. Per-form Style tabs and per-block Modal Theme controls still override these on a per-token basis.
+              </p>
+              <p className="text-xs text-muted-foreground/80">
+                Leaving everything blank preserves the current block-default behaviour — existing pages don't change until you opt in here.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Default modal theme</Label>
+              <div className="flex gap-2 max-w-md">
+                {([
+                  [null, "Off (per-block)"],
+                  ["light", "Light"],
+                  ["dark", "Dark"],
+                ] as const).map(([v, lbl]) => {
+                  const current = config.modalTheme ?? null;
+                  const active = current === v;
+                  return (
+                    <button
+                      key={String(v)}
+                      type="button"
+                      onClick={() => update("modalTheme", v as "light" | "dark" | null)}
+                      className={cn(
+                        "flex-1 py-2 text-xs rounded border transition-colors",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border hover:bg-muted",
+                      )}
+                    >
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Controls the shell color of CTA modals (email-capture / scheduling). Blocks set to "Brand default" in their Style tab inherit this.
+              </p>
+            </div>
+
+            <Separator />
+
+            <FormStylingPanel
+              styling={config.formStyling ?? null}
+              onChange={(s) => update("formStyling", s)}
+              helpText="These tokens become the default for every linked global form and the form rendered inside CTA modals. Per-form and per-block overrides still win — leave a field blank to skip setting a brand default for it."
+              presetLabel="Apply Inside Dandy / AVP preset"
+            />
           </Card>
 
           {/* SECTION 3 — BUTTONS & UI */}

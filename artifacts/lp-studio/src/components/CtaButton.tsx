@@ -196,7 +196,7 @@ export function CtaButton({
         pageId={resolvedPageId}
         variantId={resolvedVariantId}
         source={source}
-        theme={modalTheme}
+        theme={modalTheme ?? resolvedBrand?.modalTheme ?? undefined}
       />
     </>
   );

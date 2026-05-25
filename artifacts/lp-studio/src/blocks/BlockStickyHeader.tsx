@@ -123,7 +123,12 @@ export function BlockStickyHeader({ props: p, brand, onCtaClick, isBuilder }: Pr
           pageId={ctx.pageId ?? undefined}
           variantId={ctx.variantId ?? undefined}
           source="sticky-header"
-          theme={p.modalTheme ?? "light"}
+          // Per-block override → brand-default → EmailCaptureModal's
+          // own "light" fallback. Unlike BlockIdHero we render
+          // EmailCaptureModal directly here, so the brand fallback has
+          // to happen at the callsite — the modal itself doesn't know
+          // about BrandConfig.
+          theme={p.modalTheme ?? resolvedBrand?.modalTheme ?? undefined}
         />
       )}
       {action === "chilipiper" && cpOpen && p.chilipiperUrl && (

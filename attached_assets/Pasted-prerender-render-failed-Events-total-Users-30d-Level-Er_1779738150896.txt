@@ -1,0 +1,311 @@
+prerender_render_failed
+Events (total)
+Users (30d)
+Level: Error
+PUT /api/lp/pages/30676
+30
+20
+New
+
+Resolve
+
+
+Archive
+
+
+
+
+Priority
+High
+Assignee
+
+Unassigned
+
+All Envs
+
+Since First Seen
+Filter events…
+
+
+Events
+30
+
+Users
+20
+transaction
+30%
+POST /api/lp/pages
+url
+27%
+http://127.0.0.1:4319/api/lp/pages
+user
+10%
+39990
+environment
+100%
+development
+View all tags and feature flags
+
+Events
+in this issue
+First
+Latest
+Recommended
+
+Copy as
+ID: 74697941
+12 minutes ago
+|
+JSON
+Jump to:
+Highlights
+Breadcrumbs
+Trace
+Tags
+Context
+39992
+development
+
+Highlights
+
+Edit
+handled
+handled
+--
+level
+level
+error
+transaction
+transaction
+PUT /api/lp/pages/30677
+url
+url
+http://127.0.0.1:4319/api/lp/pages/30677
+Trace: Trace ID
+40bf897086c02380928592a9f56029c2
+
+Message
+prerender_render_failed
+
+Breadcrumbs
+
+
+
+Copy as
+Message - This event
+error
+May 25, 2:30:28.982 PM CDT
+prerender_render_failed
+Console
+warning
+May 25, 2:30:28.981 PM CDT
+[triggerPublishedRender] prerender failed on both attempts {
+  pageId: 30677,
+  attempts: 2,
+  err: _DrizzleQueryError: Failed query: insert into "lp_page_reviews" ("id", "page_id", "token", "reviewer_name", "status", "decision_comment", "created_at", "updated_at") values (default, $1, $2, default, $3, default, default, default) returning "token"
+  params: 30677,0775336a333fc85eb6974d050763d20bf6718ea07b96244c,pending
+      at NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+      ... 2 lines matching cause stack trace ...
+      at async renderAndStore (/home/runner/workspace/artifacts/api-server/src/lib/triggerPublishedRender.ts:210:14) {
+    query: 'insert into "lp_page_reviews" ("id", "page_id", "token", "reviewer_name", "status", "decision_comment", "created_at", "updated_at") values (default, $1, $2, default, $3, default, default, default) returning "token"',
+    params: [
+      30677,
+      '0775336a333fc85eb6974d050763d20bf6718ea07b96244c',
+      'pending'
+    ],
+    cause: error: insert or update on table "lp_page_reviews" violates foreign key constraint "lp_page_reviews_page_id_lp_pages_id_fk"
+        at <anonymous> (/home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)
+        at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+        at async <anonymous> (/home/runner/workspace/node_modules/.pnpm/drizzle-orm@0.45.1_@opentelemetry+api@1.9.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:161:13)
+        at async NodePgPreparedQuery.queryWithCache (/home/runner/workspace/node_modules/.pnpm/drizzl...
+Console
+warning
+May 25, 2:30:27.438 PM CDT
+[Filtered]
+HTTP
+info
+May 25, 2:30:09.777 PM CDT
+https://89ed5b8228ce57e3521c6b0086aae4e1.r2.cloudflarestorage.com/dandy-lp-prerendered/wash.lpstudio.ai/mobile-car-wash-apartments.html [200]
+
+{
+http.method: GET,
+http.query: ?x-id=GetObject
+}
+HTTP
+info
+May 25, 2:30:09.682 PM CDT
+https://89ed5b8228ce57e3521c6b0086aae4e1.r2.cloudflarestorage.com/dandy-lp-prerendered/wash.lpstudio.ai/hyundai-dealer-car-wash-services.html [200]
+
+{
+http.method: GET,
+http.query: ?x-id=GetObject
+}
+
+View 96 more
+
+Trace Preview
+View Full Trace
+0.00ms0.00ms0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s0s
+
+1
+Trace
+—
+40bf897086c02380928592a9f56029c2
+
+Error
+—
+prerender_render_failed PUT /api/lp/pages/30677
+
+HTTP Request
+
+
+PUT
+/api/lp/pages/30677
+127.0.0.1
+Body
+
+{
+"status": "published"
+}
+
+Headers
+Accept
+*/*
+Accept-Encoding
+gzip,deflate,br
+Connection
+keep-alive
+Content-Length
+22
+Content-Type
+application/json
+Show more...
+
+Tags
+
+
+
+
+
+environment
+environment
+development
+level
+level
+error
+os
+os
+[redacted] 24.04
+os.name
+name
+[redacted]
+outcome
+outcome
+render_failed
+reason
+reason
+nav_or_timeout
+runtime
+runtime
+[redacted] v24.13.0
+runtime.name
+name
+[redacted]
+server_name
+server_name
+repl
+subsystem
+subsystem
+lp-prerender
+transaction
+transaction
+PUT /api/lp/pages/30677
+url
+url
+http://127.0.0.1:4319/api/lp/pages/30677
+user
+user
+id:39992
+
+Contexts
+User
+data.tenantId
+21326
+Geography
+North Charleston, United States (US)
+ID
+39992
+Runtime
+Name
+[redacted]
+Version
+v24.13.0
+Operating System
+Kernel Version
+6.17.5
+Name
+[redacted]
+Version
+24.04
+App
+Free Memory
+2.5 GiB
+Memory Usage
+1.1 GiB
+Start Time
+2026-05-25T19:29:01.443Z(a minute before this event)
+Culture
+Locale
+en-US
+Timezone
+UTC
+Device
+Architecture
+x64
+Boot Time
+2026-05-25T16:20:54.055Z(3 hours before this event)
+CPU Description
+INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz
+Free Memory
+2.5 GiB
+Memory Size
+15.6 GiB
+Processor Count
+8
+Processor Frequency (MHz)
+0
+Trace Details
+Span ID
+fe9a980c060b799d
+Status
+unknown
+Trace ID
+40bf897086c02380928592a9f56029c2
+
+Additional Data
+
+
+attemptedHosts	
+
+[
+127.0.0.1
+]
+attempts	
+2
+error	
+Failed query: insert into "lp_page_reviews" ("id", "page_id", "token", "reviewer_name", "status", "decision_comment", "created_at", "updated_at") values (default, $1, $2, default, $3, default, default, default) returning "token"
+params: 30677,0775336a333fc85eb6974d050763d20bf6718ea07b96244c,pending
+firstError	
+[Filtered]
+pageId	
+30677
+slug	
+page-21327-1779737421873-290100
+tenantId	
+21327
+
+SDK
+
+Event Grouping Information

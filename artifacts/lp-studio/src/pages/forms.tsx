@@ -11,8 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch, Copy, AlertTriangle, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
-import { type FormStyling, FORM_STYLING_AVP_PRESET, hasFormStyling } from "@/lib/form-styling";
-import { Sparkles, RotateCcw } from "lucide-react";
+import { type FormStyling } from "@/lib/form-styling";
+import { FormStylingPanel } from "@/components/FormStylingPanel";
+import { useBrandConfig } from "@/components/BrandSwatches";
 import { mappingsToText, textToMappings } from "@/lib/field-map-text";
 import { MarketoForm } from "@/components/MarketoForm";
 import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
@@ -307,129 +308,23 @@ function StepEditor({ step, stepIndex, onChange, onDelete, canDelete, allFields 
 }
 
 /**
- * Styling tab for the Forms editor. Operators get a one-click "Inside
- * Dandy / AVP" preset plus per-token color inputs and font overrides.
- * The clear button drops back to NULL so each rendered form block
- * falls through to its own block-level styling (legacy behavior).
+ * Per-form styling tab. Thin wrapper around the shared FormStylingPanel
+ * that pipes the brand-level `formStyling` defaults in as muted
+ * placeholders so editors can see which tokens they'd inherit if they
+ * leave a field blank.
  */
 function StylingPanel({ styling, onChange }: {
   styling: FormStyling | null;
   onChange: (s: FormStyling | null) => void;
 }) {
-  const s = styling ?? {};
-  const active = hasFormStyling(styling);
-  const patch = (k: keyof FormStyling, v: string | undefined) => {
-    const next: FormStyling = { ...s };
-    if (v && v.trim()) (next as Record<string, string>)[k as string] = v;
-    else delete (next as Record<string, unknown>)[k as string];
-    onChange(hasFormStyling(next) ? next : null);
-  };
-  const applyAvp = () => onChange({ ...FORM_STYLING_AVP_PRESET });
-  const clearAll = () => onChange(null);
-
-  const colorRow = (key: keyof FormStyling, label: string, hint?: string) => {
-    const val = (s[key] as string | undefined) ?? "";
-    const isHex = /^#[0-9a-fA-F]{6}$/.test(val);
-    return (
-      <div key={key} className="grid grid-cols-[1fr_auto_72px] gap-2 items-center">
-        <div>
-          <Label className={LABEL_CLS + " !mb-0.5"}>{label}</Label>
-          {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
-        </div>
-        <Input
-          value={val}
-          onChange={e => patch(key, e.target.value)}
-          placeholder="—"
-          className="text-xs font-mono h-8 w-44"
-        />
-        <input
-          type="color"
-          value={isHex ? val : "#000000"}
-          onChange={e => patch(key, e.target.value)}
-          className="h-8 w-full rounded cursor-pointer border border-border bg-transparent"
-          title="Pick color (only writes hex)"
-        />
-      </div>
-    );
-  };
-
+  const brand = useBrandConfig();
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold">Visual theme</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Overrides the per-block colors on every form block that links to this form. Leave everything blank to fall back to each block's own styling.
-            </p>
-          </div>
-          <div className="flex gap-1.5 shrink-0">
-            <Button size="sm" variant="default" className="gap-1" onClick={applyAvp}>
-              <Sparkles className="w-3.5 h-3.5" /> Inside Dandy / AVP
-            </Button>
-            {active && (
-              <Button size="sm" variant="outline" className="gap-1" onClick={clearAll}>
-                <RotateCcw className="w-3.5 h-3.5" /> Clear
-              </Button>
-            )}
-          </div>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Status: <span className={active ? "text-foreground font-semibold" : ""}>{active ? "Custom styling on" : "Using block defaults"}</span>
-        </p>
-      </div>
-
-      <div className="border rounded-lg p-3 space-y-2.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stage</p>
-        {colorRow("background", "Section background", "Behind the card. CSS color or gradient.")}
-        {colorRow("surface", "Card surface", "Inner panel holding the fields.")}
-        {colorRow("border", "Card border", "1px outline on the card.")}
-      </div>
-
-      <div className="border rounded-lg p-3 space-y-2.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Typography colors</p>
-        {colorRow("headlineColor", "Headline")}
-        {colorRow("subheadlineColor", "Subheadline")}
-        {colorRow("labelColor", "Field labels")}
-      </div>
-
-      <div className="border rounded-lg p-3 space-y-2.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Inputs</p>
-        {colorRow("inputBg", "Input background")}
-        {colorRow("inputBorder", "Input border")}
-        {colorRow("inputText", "Input text")}
-        {colorRow("accent", "Accent", "Focus ring + multi-step progress fill.")}
-      </div>
-
-      <div className="border rounded-lg p-3 space-y-2.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Submit button</p>
-        {colorRow("buttonBg", "Background")}
-        {colorRow("buttonText", "Text")}
-      </div>
-
-      <div className="border rounded-lg p-3 space-y-2.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fonts (optional)</p>
-        <div>
-          <Label className={LABEL_CLS}>Display font (CSS family)</Label>
-          <Input
-            value={s.fontDisplay ?? ""}
-            onChange={e => patch("fontDisplay", e.target.value)}
-            placeholder="e.g. 'Bagoss Standard', Georgia, serif"
-            className="text-xs font-mono"
-          />
-        </div>
-        <div>
-          <Label className={LABEL_CLS}>Body font (CSS family)</Label>
-          <Input
-            value={s.fontBody ?? ""}
-            onChange={e => patch("fontBody", e.target.value)}
-            placeholder="e.g. 'Inter', system-ui, sans-serif"
-            className="text-xs font-mono"
-          />
-        </div>
-        <p className="text-[11px] text-muted-foreground">Leave blank to use the brand fonts on the rendered page.</p>
-      </div>
-    </div>
+    <FormStylingPanel
+      styling={styling}
+      onChange={onChange}
+      placeholderLayer={brand?.formStyling ?? null}
+      helpText="Overrides the per-block colors on every form block that links to this form. Empty fields fall back to your brand-default form styling, then to each block's own styling."
+    />
   );
 }
 

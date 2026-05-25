@@ -5708,6 +5708,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   blockType={block.type}
                   onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
                   modalTheme={(block.props as { modalTheme?: "light" | "dark" } | undefined)?.modalTheme}
+                  brandDefaultModalTheme={brand?.modalTheme ?? null}
                   onModalThemeChange={(v) =>
                     onChange({
                       ...block,

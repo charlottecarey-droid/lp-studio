@@ -69,6 +69,36 @@ export const FORM_STYLING_AVP_PRESET: Required<Omit<FormStyling, "fontDisplay" |
  * code path (which replaces background / surface / colors) instead
  * of the legacy block-level path.
  */
+/**
+ * Merge layered FormStyling objects, with later arguments overriding
+ * earlier ones on a per-token basis. Returns `null` when every layer
+ * is empty so callers can branch on truthiness the same way they do
+ * with a single `FormStyling | null` value.
+ *
+ * Use to resolve the precedence chain
+ *   brand-default → per-form → per-block override
+ * by calling `mergeFormStyling(brand.formStyling, form.styling, blockOverride)`.
+ *
+ * Per-token merge (rather than "first non-null wins") is intentional:
+ * an operator may set a brand-default button color and then override
+ * just the input background on a single form without having to re-enter
+ * every token.
+ */
+export function mergeFormStyling(
+  ...layers: (FormStyling | null | undefined)[]
+): FormStyling | null {
+  const out: FormStyling = {};
+  for (const layer of layers) {
+    if (!layer) continue;
+    for (const [k, v] of Object.entries(layer)) {
+      if (v && typeof v === "string" && v.trim() !== "") {
+        (out as Record<string, string>)[k] = v;
+      }
+    }
+  }
+  return hasFormStyling(out) ? out : null;
+}
+
 export function hasFormStyling(s: FormStyling | null | undefined): s is FormStyling {
   if (!s) return false;
   return Boolean(
