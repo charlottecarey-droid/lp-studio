@@ -1,7 +1,1 @@
-- [lp-studio static serving](lp-studio-static-serving.md) — Replit serves lp-studio as static (`serve = "static"` in artifact.toml); SPA fallback `/* → /index.html` is in Replit's static layer, not our code.
-- [LP prerender hash drift](prerender-hash-drift.md) — published LP HTML in R2 hard-codes Vite hashes; every redeploy breaks pages unless assets are mirrored to R2 immutably + Worker serves them.
-- [R2 bucket layout (lp-studio)](r2-bucket-layout.md) — single bucket holds both prerendered HTML (`<host>/<slug>.html`) and immutable studio assets (`_studio-assets/assets/<basename>`); underscore prefix is reserved for system folders.
-- [LP_ASSETS_GC_DRY_RUN](lp-assets-gc-dry-run.md) — daily R2 asset GC is dry-run by default; deletion is opt-in via env=`0`. Default-deny because a bug here deletes content-addressed assets permanently.
-- [Replit detach pitfalls](replit-detach-pitfalls.md) — known issues when detaching workspaces.
-- [Self-pkill footgun](self-pkill-footgun.md) — never `pkill` from inside a workflow.
-- [LP studio render base URL](lp-studio-render-base-url.md) — `LP_STUDIO_RENDER_BASE_URL` is required in prod for Playwright prerendering; falling back to REPLIT_DEV_DOMAIN silently renders the wrong DB.
+- [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
