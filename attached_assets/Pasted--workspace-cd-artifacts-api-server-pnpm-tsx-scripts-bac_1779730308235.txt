@@ -1,0 +1,100 @@
+~/workspace$ cd artifacts/api-server
+pnpm tsx scripts/backfill-published-html.ts --concurrency=4
+(node:13858) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[backfill] 85 candidate pages (slice 0..end of 85)
+[prerender] reqfail social-proof-lp: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail clear-aligner-profits: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dandy-digital-lab-for-dsos: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dandy-digital-lab-for-dsos: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-digital-lab-for-dsos: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail clear-aligner-profits: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail clear-aligner-profits: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail social-proof-lp: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":9,"tenantId":1,"slug":"summerpromo","outcome":"succeeded","durationMs":7210}
+{"pageId":11,"tenantId":1,"slug":"social-proof-lp","outcome":"succeeded","durationMs":7211}
+{"pageId":18,"tenantId":1,"slug":"dandy-digital-lab-for-dsos","outcome":"succeeded","durationMs":7241}
+{"pageId":17,"tenantId":1,"slug":"clear-aligner-profits","outcome":"succeeded","durationMs":7328}
+[prerender] reqfail digital-dentures-trust-dandy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail implants-free-first-case-lab-credit: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail digital-dentures-trust-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail digital-dentures-trust-dandy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail digital-dentures-trust-dandy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail implants-free-first-case-lab-credit: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://render.lpstudio.ai/api/storage/objects/uploads/68967d1d-42e1-4ab9-989c-25e7cdef39e6 net::ERR_ABORTED
+{"pageId":23,"tenantId":1,"slug":"implants-free-first-case-lab-credit","outcome":"succeeded","durationMs":5535}
+{"pageId":26,"tenantId":1,"slug":"digital-dentures-trust-dandy","outcome":"succeeded","durationMs":6068}
+{"pageId":35,"tenantId":1,"slug":"vision-scanner-100-days-free-smiles","outcome":"succeeded","durationMs":6114}
+[prerender] reqfail dentistry-for-fqhcs: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dentistry-for-fqhcs: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dentistry-for-fqhcs: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail dentistry-for-fqhcs: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":39,"tenantId":1,"slug":"360-insights-dso-leaders","outcome":"succeeded","durationMs":6682}
+[prerender] reqfail 123dentist-dandy-partnership: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail hear-us-out: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail hear-us-out: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+{"pageId":40,"tenantId":1,"slug":"dentistry-for-fqhcs","outcome":"succeeded","durationMs":5826}
+{"pageId":82,"tenantId":1,"slug":"hear-us-out","outcome":"succeeded","durationMs":5772}
+[prerender] reqfail visibility: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail visibility: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail visibility: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail visibility: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":67,"tenantId":1,"slug":"123dentist-dandy-partnership","outcome":"succeeded","durationMs":6479}
+[prerender] reqfail lab: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":99,"tenantId":1,"slug":"airpods-pro","outcome":"succeeded","durationMs":5918}
+[prerender] reqfail lab: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail lab: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail lab: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail visibility: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+{"pageId":110,"tenantId":1,"slug":"visibility","outcome":"succeeded","durationMs":5814}
+[prerender] reqfail independence-dental-services-dandy-partnership: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":111,"tenantId":1,"slug":"lab","outcome":"succeeded","durationMs":6187}
+{"pageId":128,"tenantId":1,"slug":"mint-dentistry-dso-growth-solutions","outcome":"succeeded","durationMs":6036}
+{"pageId":134,"tenantId":1,"slug":"predictable-growth-scalable-lab-solutions-dsos","outcome":"succeeded","durationMs":5920}
+[prerender] reqfail my-dental-microsite: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail independence-dental-services-dandy-partnership: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-microsite: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-microsite: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-microsite: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail independence-dental-services-dandy-partnership: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+[prerender] reqfail my-dental-dso-practices: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy-microsite: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail my-dental-dso-practices: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dso-practices: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy-microsite: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dso-practices: https://render.lpstudio.ai/videos/dandy-broll.mp4 net::ERR_ABORTED
