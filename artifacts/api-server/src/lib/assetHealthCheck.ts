@@ -31,11 +31,22 @@ import { extractAssetPaths, r2AssetExists } from "./assetRefs";
 
 const CONCURRENCY = 8;
 
+export interface BrokenAsset {
+  /** /assets/<file> reference as it appears in the HTML. */
+  path: string;
+  /**
+   * ISO timestamp the very first sweep that observed this path missing.
+   * Preserved across rechecks so operators can see how long a page has been
+   * broken (the 2026-05-25 incident review specifically asked for this).
+   */
+  firstSeenBrokenAt: string;
+}
+
 export interface AssetHealthResult {
   /** Unique /assets/* references found in the HTML. 0 when hadHtml=false. */
   checked: number;
   /** Subset of references that returned 404 from R2. */
-  brokenAssets: string[];
+  brokenAssets: BrokenAsset[];
   /** Host the lookup used. Empty string when no active host for the tenant. */
   host: string;
   /** Whether R2 HTML existed for this page (false → not yet prerendered). */
@@ -106,6 +117,7 @@ async function readR2Html(
 async function checkOnePage(
   cfg: { client: S3Client; bucket: string },
   page: { id: number; tenantId: number; slug: string },
+  priorBroken: Map<string, string>,
 ): Promise<AssetHealthResult> {
   const hosts = await getActiveHostsForTenant(page.tenantId);
   const host = hosts[0] ?? "";
@@ -117,7 +129,6 @@ async function checkOnePage(
     return { checked: 0, brokenAssets: [], host, hadHtml: false };
   }
   const assets = Array.from(new Set(extractAssetPaths(html)));
-  const broken: string[] = [];
   // Per-page HEAD fan-out is also bounded: most pages reference 2-4 assets.
   const presence = await Promise.all(
     assets.map(async (ref) => {
@@ -126,8 +137,33 @@ async function checkOnePage(
       return { ref, exists };
     }),
   );
-  for (const p of presence) if (!p.exists) broken.push(p.ref);
+  const nowIso = new Date().toISOString();
+  const broken: BrokenAsset[] = [];
+  for (const p of presence) {
+    if (p.exists) continue;
+    // Preserve the original first-seen timestamp across rechecks. If a path
+    // newly disappeared (or this is the first ever check), stamp it now.
+    broken.push({ path: p.ref, firstSeenBrokenAt: priorBroken.get(p.ref) ?? nowIso });
+  }
   return { checked: assets.length, brokenAssets: broken, host, hadHtml: true };
+}
+
+function brokenIndexFromRow(value: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!value || typeof value !== "object") return out;
+  const arr = (value as { brokenAssets?: unknown }).brokenAssets;
+  if (!Array.isArray(arr)) return out;
+  for (const item of arr) {
+    if (typeof item === "string") {
+      // Legacy shape — preserve nothing, the next sweep will stamp now.
+      continue;
+    }
+    if (item && typeof item === "object" && typeof (item as BrokenAsset).path === "string") {
+      const b = item as BrokenAsset;
+      if (typeof b.firstSeenBrokenAt === "string") out.set(b.path, b.firstSeenBrokenAt);
+    }
+  }
+  return out;
 }
 
 async function persistResult(pageId: number, result: AssetHealthResult): Promise<void> {
@@ -154,7 +190,12 @@ export function runAssetHealthCheck(): Promise<void> {
     const r2: { client: S3Client; bucket: string } = cfg;
     try {
       const pages = await db
-        .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug })
+        .select({
+          id: lpPagesTable.id,
+          tenantId: lpPagesTable.tenantId,
+          slug: lpPagesTable.slug,
+          assetHealthResult: lpPagesTable.assetHealthResult,
+        })
         .from(lpPagesTable)
         .where(eq(lpPagesTable.status, "published"))
         .orderBy(desc(lpPagesTable.updatedAt));
@@ -172,7 +213,8 @@ export function runAssetHealthCheck(): Promise<void> {
           const i = cursor++;
           const page = pages[i];
           try {
-            const result = await checkOnePage(r2, page);
+            const priorBroken = brokenIndexFromRow(page.assetHealthResult);
+            const result = await checkOnePage(r2, page, priorBroken);
             await persistResult(page.id, result);
             checkedPages++;
             if (!result.hadHtml) {
@@ -186,7 +228,7 @@ export function runAssetHealthCheck(): Promise<void> {
                   pageId: page.id,
                   slug: page.slug,
                   host: result.host,
-                  missing: result.brokenAssets,
+                  missing: result.brokenAssets.map((b) => b.path),
                 });
               }
             }
@@ -251,12 +293,18 @@ export async function recheckOnePage(
   const cfg = getR2();
   if (!cfg) return null;
   const [page] = await db
-    .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug })
+    .select({
+      id: lpPagesTable.id,
+      tenantId: lpPagesTable.tenantId,
+      slug: lpPagesTable.slug,
+      assetHealthResult: lpPagesTable.assetHealthResult,
+    })
     .from(lpPagesTable)
     .where(eq(lpPagesTable.id, pageId))
     .limit(1);
   if (!page) return null;
-  const result = await checkOnePage(cfg, page);
+  const priorBroken = brokenIndexFromRow(page.assetHealthResult);
+  const result = await checkOnePage(cfg, page, priorBroken);
   await persistResult(page.id, result);
   return result;
 }

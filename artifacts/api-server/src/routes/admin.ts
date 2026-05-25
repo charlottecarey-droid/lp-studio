@@ -706,32 +706,107 @@ router.get("/superadmin/domain-help", requireAdminKey, requireSuperadmin, async 
 // glance — the exact view that would have caught the 2026-05-25
 // white-page incident on first load.
 
-// GET /api/admin/superadmin/asset-health — list every published page +
-// its persisted health row. Cheap (single query, ~85 rows in prod) so
-// no pagination yet; revisit if the fleet grows past a few hundred.
-router.get("/superadmin/asset-health", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
+// GET /api/admin/superadmin/asset-health — paginated list of published
+// pages + their persisted health row, plus a fleet-wide summary so the
+// dashboard headline ("X% broken") stays accurate regardless of the
+// current page slice.
+//
+// Query params:
+//   limit   1–500, default 100
+//   offset  >= 0,  default 0
+//   filter  all | broken | healthy | never_checked | no_html (default all)
+//   q       free-text search across tenant_name/tenant_slug/title/slug
+//
+// Response: { rows, total, limit, offset, summary: {broken,healthy,...} }
+router.get("/superadmin/asset-health", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   try {
-    const result = await pool.query(`
-      SELECT
-        p.id, p.tenant_id, p.slug, p.title, p.updated_at,
-        p.asset_health_checked_at, p.asset_health_result,
-        t.name AS tenant_name, t.slug AS tenant_slug
-      FROM lp_pages p
-      JOIN tenants t ON t.id = p.tenant_id
-      WHERE p.status = 'published'
-      ORDER BY
-        -- Broken first (operator's first action is always "what's red?"),
-        -- then never-checked, then most-recently-checked healthy.
-        (CASE
-          WHEN p.asset_health_result IS NOT NULL
-            AND jsonb_array_length(COALESCE(p.asset_health_result->'brokenAssets','[]'::jsonb)) > 0 THEN 0
-          WHEN p.asset_health_checked_at IS NULL THEN 1
-          ELSE 2
-        END),
-        p.asset_health_checked_at DESC NULLS LAST,
-        p.updated_at DESC
-    `);
-    res.json(result.rows);
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const filter = String(req.query.filter ?? "all");
+    const q = String(req.query.q ?? "").trim();
+
+    // status_kind matches the UI's classify(): broken | healthy | no_html
+    // | never_checked. Single CASE so we can both ORDER BY it and filter
+    // on it deterministically across the paginated slice.
+    const statusKindSql = `
+      CASE
+        WHEN p.asset_health_checked_at IS NULL THEN 'never_checked'
+        WHEN p.asset_health_result IS NULL THEN 'never_checked'
+        WHEN (p.asset_health_result->>'hadHtml')::boolean IS NOT TRUE THEN 'no_html'
+        WHEN jsonb_array_length(COALESCE(p.asset_health_result->'brokenAssets','[]'::jsonb)) > 0 THEN 'broken'
+        ELSE 'healthy'
+      END
+    `;
+
+    const where: string[] = ["p.status = 'published'"];
+    const params: unknown[] = [];
+    if (q) {
+      params.push(`%${q.toLowerCase()}%`);
+      const i = params.length;
+      where.push(
+        `(LOWER(p.title) LIKE $${i} OR LOWER(p.slug) LIKE $${i} OR LOWER(t.name) LIKE $${i} OR LOWER(t.slug) LIKE $${i})`,
+      );
+    }
+    if (filter !== "all" && ["broken", "healthy", "never_checked", "no_html"].includes(filter)) {
+      params.push(filter);
+      where.push(`(${statusKindSql}) = $${params.length}`);
+    }
+    const whereSql = where.join(" AND ");
+
+    // Fleet-wide summary (no pagination) — the headline must reflect the
+    // whole fleet, not just the visible page. Filter+search still apply.
+    const summaryRow = await pool.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE (${statusKindSql}) = 'broken')::int        AS broken,
+         COUNT(*) FILTER (WHERE (${statusKindSql}) = 'healthy')::int       AS healthy,
+         COUNT(*) FILTER (WHERE (${statusKindSql}) = 'no_html')::int       AS no_html,
+         COUNT(*) FILTER (WHERE (${statusKindSql}) = 'never_checked')::int AS never_checked
+       FROM lp_pages p
+       JOIN tenants t ON t.id = p.tenant_id
+       WHERE ${whereSql}`,
+      params,
+    );
+
+    const pageRows = await pool.query(
+      `SELECT
+         p.id, p.tenant_id, p.slug, p.title, p.updated_at,
+         p.asset_health_checked_at, p.asset_health_result,
+         t.name AS tenant_name, t.slug AS tenant_slug
+       FROM lp_pages p
+       JOIN tenants t ON t.id = p.tenant_id
+       WHERE ${whereSql}
+       ORDER BY
+         -- Broken first (operator's first action is always "what's red?"),
+         -- then never-checked, then most-recently-checked healthy. Tiebreak
+         -- on p.id for deterministic pagination across identical timestamps.
+         (CASE (${statusKindSql})
+            WHEN 'broken'        THEN 0
+            WHEN 'never_checked' THEN 1
+            WHEN 'no_html'       THEN 2
+            ELSE 3
+          END),
+         p.asset_health_checked_at DESC NULLS LAST,
+         p.updated_at DESC,
+         p.id DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
+    );
+
+    const s = summaryRow.rows[0] ?? { total: 0, broken: 0, healthy: 0, no_html: 0, never_checked: 0 };
+    res.json({
+      rows: pageRows.rows,
+      total: s.total,
+      limit,
+      offset,
+      summary: {
+        broken: s.broken,
+        healthy: s.healthy,
+        noHtml: s.no_html,
+        neverChecked: s.never_checked,
+        total: s.total,
+      },
+    });
   } catch (err) {
     console.error("[superadmin] GET /asset-health error:", err);
     res.status(500).json({ error: "Server error" });

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const PAGE_SIZE = 100;
 
 async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
@@ -31,9 +32,14 @@ async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
   return res.json();
 }
 
+interface BrokenAsset {
+  path: string;
+  firstSeenBrokenAt: string;
+}
+
 interface AssetHealthResult {
   checked: number;
-  brokenAssets: string[];
+  brokenAssets: BrokenAsset[];
   host: string;
   hadHtml: boolean;
 }
@@ -48,6 +54,22 @@ interface PageRow {
   asset_health_result: AssetHealthResult | null;
   tenant_name: string;
   tenant_slug: string;
+}
+
+interface Summary {
+  broken: number;
+  healthy: number;
+  noHtml: number;
+  neverChecked: number;
+  total: number;
+}
+
+interface AssetHealthResponse {
+  rows: PageRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  summary: Summary;
 }
 
 type Filter = "all" | "broken" | "healthy" | "never_checked" | "no_html";
@@ -148,7 +170,7 @@ function PageRowView({
   const [error, setError] = useState<string | null>(null);
   const [lastOutcome, setLastOutcome] = useState<string | null>(null);
 
-  const broken = row.asset_health_result?.brokenAssets ?? [];
+  const broken: BrokenAsset[] = row.asset_health_result?.brokenAssets ?? [];
   const isBroken = broken.length > 0;
 
   const handleRecheck = async () => {
@@ -235,12 +257,28 @@ function PageRowView({
               </div>
               {broken.length > 0 && (
                 <div className="rounded-md border border-red-200 bg-red-50/60 px-3 py-2">
-                  <div className="text-red-800 font-medium mb-1">
+                  <div className="text-red-800 font-medium mb-1.5">
                     {broken.length} broken asset reference{broken.length === 1 ? "" : "s"}:
                   </div>
-                  <ul className="font-mono text-[11px] text-red-900 space-y-0.5">
-                    {broken.map((a) => <li key={a}>{a}</li>)}
-                  </ul>
+                  <table className="w-full text-[11px]">
+                    <thead className="text-red-700/80">
+                      <tr className="text-left">
+                        <th className="font-medium pb-1 pr-3">Asset path</th>
+                        <th className="font-medium pb-1">First seen broken</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono text-red-900">
+                      {broken.map((a) => (
+                        <tr key={a.path}>
+                          <td className="py-0.5 pr-3 break-all">{a.path}</td>
+                          <td className="py-0.5 tabular-nums whitespace-nowrap">
+                            {fmtRelative(a.firstSeenBrokenAt)}
+                            <span className="text-red-700/60 ml-1.5">({new Date(a.firstSeenBrokenAt).toLocaleString()})</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
               {lastOutcome && (
@@ -267,11 +305,12 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 }
 
 export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }) {
-  const [rows, setRows] = useState<PageRow[] | null>(null);
+  const [data, setData] = useState<AssetHealthResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [offset, setOffset] = useState(0);
   const [sweeping, setSweeping] = useState(false);
   const [sweepNotice, setSweepNotice] = useState<string | null>(null);
 
@@ -279,54 +318,48 @@ export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch("/api/admin/superadmin/asset-health", adminKey);
-      setRows(data);
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+        filter,
+      });
+      if (search.trim()) params.set("q", search.trim());
+      const json = (await apiFetch(`/api/admin/superadmin/asset-health?${params}`, adminKey)) as AssetHealthResponse;
+      setData(json);
     } catch (err: any) {
       setError(err?.message ?? "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [adminKey]);
+  }, [adminKey, offset, filter, search]);
+
+  // Reset to page 1 whenever the user changes filter or search; otherwise
+  // load on offset/filter/search change.
+  useEffect(() => {
+    if (offset !== 0) {
+      setOffset(0);
+      return;
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, search]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Headline numbers — computed on every render, fast at fleet size <1k.
-  const summary = useMemo(() => {
-    const list = rows ?? [];
-    let broken = 0, healthy = 0, neverChecked = 0, noHtml = 0;
-    for (const r of list) {
-      const k = classify(r);
-      if (k === "broken") broken++;
-      else if (k === "healthy") healthy++;
-      else if (k === "no_html") noHtml++;
-      else neverChecked++;
-    }
-    return { total: list.length, broken, healthy, neverChecked, noHtml };
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    if (!rows) return [];
-    const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (filter !== "all" && classify(r) !== filter) return false;
-      if (!q) return true;
-      return (
-        r.title.toLowerCase().includes(q) ||
-        r.slug.toLowerCase().includes(q) ||
-        r.tenant_name.toLowerCase().includes(q) ||
-        r.tenant_slug.toLowerCase().includes(q)
-      );
-    });
-  }, [rows, search, filter]);
+  const summary: Summary = data?.summary ?? { broken: 0, healthy: 0, noHtml: 0, neverChecked: 0, total: 0 };
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const pageStart = total === 0 ? 0 : offset + 1;
+  const pageEnd = Math.min(offset + PAGE_SIZE, total);
+  const hasPrev = offset > 0;
+  const hasNext = offset + PAGE_SIZE < total;
 
   const handleSweep = async () => {
     setSweeping(true);
     setSweepNotice(null);
     try {
-      const data = await apiFetch("/api/admin/superadmin/asset-health/recheck-all", adminKey, { method: "POST" });
-      setSweepNotice(data?.message ?? "Sweep started");
-      // Poll once after a short delay so the operator sees rows update
-      // without having to click Refresh manually.
+      const resp = await apiFetch("/api/admin/superadmin/asset-health/recheck-all", adminKey, { method: "POST" });
+      setSweepNotice(resp?.message ?? "Sweep started");
       setTimeout(() => { load(); }, 4000);
       setTimeout(() => { load(); }, 12000);
     } catch (err: any) {
@@ -420,26 +453,57 @@ export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows === null && (
+            {data === null && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                   Loading…
                 </TableCell>
               </TableRow>
             )}
-            {rows && filtered.length === 0 && (
+            {data && rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                  {rows.length === 0 ? "No published pages." : "No pages match the current filter."}
+                  {total === 0 ? "No published pages." : "No pages match the current filter."}
                 </TableCell>
               </TableRow>
             )}
-            {filtered.map((row) => (
+            {rows.map((row) => (
               <PageRowView key={row.id} row={row} adminKey={adminKey} onMutated={load} />
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination — matches the server contract (limit/offset). */}
+      {total > 0 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div>
+            Showing <span className="font-medium text-foreground">{pageStart}</span>–
+            <span className="font-medium text-foreground">{pageEnd}</span> of{" "}
+            <span className="font-medium text-foreground">{total}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+              disabled={!hasPrev || loading}
+            >
+              Previous
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => setOffset(offset + PAGE_SIZE)}
+              disabled={!hasNext || loading}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
