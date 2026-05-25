@@ -309,7 +309,33 @@ export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
             transition={{ delay: 0.3 }}
             style={{ textAlign: "center", marginTop: "3rem" }}
           >
-            <BlockDsoCta ctaText={ctaText} ctaUrl={ctaUrl} ctaMode={ctaMode} ctaVariant={ctaVariant} brand={brand} dark={dark} />
+            <BlockDsoCta
+              ctaText={ctaText}
+              ctaUrl={ctaUrl}
+              ctaMode={ctaMode}
+              ctaVariant={ctaVariant}
+              brand={brand}
+              dark={dark}
+              source="dso-bento-outcomes"
+              modalChilipiperUrl={props.modalChilipiperUrl}
+              modalFormSource={props.modalFormSource}
+              modalFormId={props.modalFormId}
+              modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+              modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+              modalMarketoFormId={props.modalMarketoFormId}
+              modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
+              modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+              modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
+              modalHeadline={props.modalHeadline}
+              modalSubheadline={props.modalSubheadline}
+              modalSubmitText={props.modalSubmitText}
+              modalSuccessMessage={props.modalSuccessMessage}
+              modalDisclaimer={props.modalDisclaimer}
+              modalShowFirstName={props.modalShowFirstName}
+              modalShowLastName={props.modalShowLastName}
+              modalShowPhone={props.modalShowPhone}
+              modalShowCompany={props.modalShowCompany}
+            />
           </motion.div>
         )}
       </div>

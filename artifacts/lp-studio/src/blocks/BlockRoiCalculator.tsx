@@ -6,6 +6,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
 import { safeNavigate } from "@/lib/safe-url";
+import { CtaButton as SharedCtaButton } from "@/components/CtaButton";
 
 interface Props {
   props: RoiCalculatorBlockProps;
@@ -391,16 +392,47 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
 
             {/* CTA button on left panel */}
             {props.ctaEnabled && props.ctaText && (
-              <button
-                type="button"
-                onClick={onCtaClick ? onCtaClick : () => {
-                  if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl);
-                }}
-                className="w-full rounded-full py-3.5 text-sm font-bold uppercase tracking-widest transition-all hover:brightness-105 active:scale-[0.98]"
-                style={{ backgroundColor: accentColor, color: "var(--brand-primary)" }}
-              >
-                {props.ctaText}
-              </button>
+              props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper" ? (
+                <SharedCtaButton
+                  onClick={onCtaClick}
+                  ctaAction={props.ctaAction}
+                  modalChilipiperUrl={props.modalChilipiperUrl}
+                  modalFormSource={props.modalFormSource}
+                  modalFormId={props.modalFormId}
+                  modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+                  modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+                  modalMarketoFormId={props.modalMarketoFormId}
+                  modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
+                  modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+                  modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
+                  modalHeadline={props.modalHeadline}
+                  modalSubheadline={props.modalSubheadline}
+                  modalSubmitText={props.modalSubmitText}
+                  modalSuccessMessage={props.modalSuccessMessage}
+                  modalDisclaimer={props.modalDisclaimer}
+                  modalShowFirstName={props.modalShowFirstName}
+                  modalShowLastName={props.modalShowLastName}
+                  modalShowPhone={props.modalShowPhone}
+                  modalShowCompany={props.modalShowCompany}
+                  className="w-full rounded-full py-3.5 text-sm font-bold uppercase tracking-widest transition-all hover:brightness-105 active:scale-[0.98]"
+                  style={{ backgroundColor: accentColor, color: "var(--brand-primary)" }}
+                  brand={brand}
+                  source="roi-calculator"
+                >
+                  {props.ctaText}
+                </SharedCtaButton>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onCtaClick ? onCtaClick : () => {
+                    if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl);
+                  }}
+                  className="w-full rounded-full py-3.5 text-sm font-bold uppercase tracking-widest transition-all hover:brightness-105 active:scale-[0.98]"
+                  style={{ backgroundColor: accentColor, color: "var(--brand-primary)" }}
+                >
+                  {props.ctaText}
+                </button>
+              )
             )}
           </div>
 

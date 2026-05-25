@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { CtaButton as SharedCtaButton } from "@/components/CtaButton";
+import { useBrandConfig } from "@/components/BrandSwatches";
 
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
@@ -173,7 +175,10 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
     ctaUrl     = "#",
     hubLabel   = "",
     backgroundStyle = "dark",
+    ctaMode,
   } = props;
+  const brand = useBrandConfig();
+  const isModalCta = ctaMode === "modal-form" || ctaMode === "modal-chilipiper";
   const field = (key: keyof DsoNetworkMapBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoNetworkMapBlockProps[typeof key] }) : undefined;
 
@@ -261,33 +266,80 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.32 }}
             >
-              <a
-                href={onCtaClick ? undefined : (ctaUrl || "#")}
-                onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.875rem 2rem",
-                  background: AW,
-                  color: P,
-                  fontFamily: DISPLAY_FONT,
-                  fontSize: "0.9375rem",
-                  fontWeight: 700,
-                  borderRadius: "0.5rem",
-                  textDecoration: "none",
-                  cursor: "pointer",
-                  letterSpacing: "-0.01em",
-                  transition: "opacity 0.2s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-              >
-                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: DISPLAY }}/>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </a>
+              {isModalCta ? (
+                <SharedCtaButton
+                  onClick={onCtaClick}
+                  ctaAction={ctaMode}
+                  modalChilipiperUrl={props.modalChilipiperUrl}
+                  modalFormSource={props.modalFormSource}
+                  modalFormId={props.modalFormId}
+                  modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+                  modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+                  modalMarketoFormId={props.modalMarketoFormId}
+                  modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
+                  modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+                  modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
+                  modalHeadline={props.modalHeadline}
+                  modalSubheadline={props.modalSubheadline}
+                  modalSubmitText={props.modalSubmitText}
+                  modalSuccessMessage={props.modalSuccessMessage}
+                  modalDisclaimer={props.modalDisclaimer}
+                  modalShowFirstName={props.modalShowFirstName}
+                  modalShowLastName={props.modalShowLastName}
+                  modalShowPhone={props.modalShowPhone}
+                  modalShowCompany={props.modalShowCompany}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.875rem 2rem",
+                    background: AW,
+                    color: P,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                    borderRadius: "0.5rem",
+                    cursor: "pointer",
+                    letterSpacing: "-0.01em",
+                    border: "none",
+                  }}
+                  brand={brand ?? undefined}
+                  source="dso-network-map"
+                >
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: DISPLAY }}/>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </SharedCtaButton>
+              ) : (
+                <a
+                  href={onCtaClick ? undefined : (ctaUrl || "#")}
+                  onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.875rem 2rem",
+                    background: AW,
+                    color: P,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                    borderRadius: "0.5rem",
+                    textDecoration: "none",
+                    cursor: "pointer",
+                    letterSpacing: "-0.01em",
+                    transition: "opacity 0.2s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+                >
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} style={{ fontFamily: DISPLAY }}/>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </a>
+              )}
             </motion.div>
           )}
         </div>

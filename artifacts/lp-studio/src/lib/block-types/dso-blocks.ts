@@ -372,7 +372,7 @@ export interface DsoScrollStoryHeroBlockProps extends CtaModalConfig {
   backgroundVideoUrl?: string;
 }
 
-export interface DsoNetworkMapBlockProps {
+export interface DsoNetworkMapBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline?: string;
   body?: string;
@@ -446,7 +446,7 @@ export type DsoBentoTile =
   | { type: "feature"; headline: string; body: string }
   | { type: "quote"; quote: string; author: string };
 
-export interface DsoBentoOutcomesBlockProps {
+export interface DsoBentoOutcomesBlockProps extends CtaModalConfig {
   eyebrow: string;
   headline: string;
   tiles: DsoBentoTile[];

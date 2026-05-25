@@ -8,6 +8,7 @@ import type { CtaButtonBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { motion } from "framer-motion";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { CtaButton as SharedCtaButton } from "@/components/CtaButton";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -32,6 +33,7 @@ const ALIGN_CLASSES: Record<string, string> = {
 export function BlockCtaButton({ props, brand, onFieldChange }: Props) {
   const [cpOpen, setCpOpen] = useState(false);
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
+  const isModalForm = props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper";
 
   const getStyleClasses = () => {
     switch (props.style) {
@@ -92,6 +94,38 @@ export function BlockCtaButton({ props, brand, onFieldChange }: Props) {
               onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, label: v }) : undefined}
             style={{ fontFamily: BODY }}/>
           </motion.button>
+        ) : isModalForm ? (
+          <SharedCtaButton
+            ctaAction={props.ctaAction}
+            modalChilipiperUrl={props.modalChilipiperUrl}
+            modalFormSource={props.modalFormSource}
+            modalFormId={props.modalFormId}
+            modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+            modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+            modalMarketoFormId={props.modalMarketoFormId}
+            modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
+            modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+            modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
+            modalHeadline={props.modalHeadline}
+            modalSubheadline={props.modalSubheadline}
+            modalSubmitText={props.modalSubmitText}
+            modalSuccessMessage={props.modalSuccessMessage}
+            modalDisclaimer={props.modalDisclaimer}
+            modalShowFirstName={props.modalShowFirstName}
+            modalShowLastName={props.modalShowLastName}
+            modalShowPhone={props.modalShowPhone}
+            modalShowCompany={props.modalShowCompany}
+            className={btnClass}
+            style={getInlineStyle()}
+            brand={brand}
+            source="cta-button"
+          >
+            <InlineText
+              value={props.label}
+              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, label: v }) : undefined}
+              style={{ fontFamily: BODY }}
+            />
+          </SharedCtaButton>
         ) : (
           <motion.a
             href={props.url || "#"}

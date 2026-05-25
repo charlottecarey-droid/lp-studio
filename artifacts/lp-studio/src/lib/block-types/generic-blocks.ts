@@ -450,14 +450,14 @@ export interface ParallaxImageHeroBlockProps {
   mediaScale?: number;
 }
 
-export interface RoiCalculatorBlockProps {
+export interface RoiCalculatorBlockProps extends CtaModalConfig {
   headline: string;
   subheadline: string;
   inputFields: RoiInputField[];
   outputFields: RoiOutputField[];
   ctaText: string;
   ctaUrl: string;
-  ctaAction?: "url" | "chilipiper";
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   chilipiperUrl?: string;
   ctaEnabled: boolean;
   backgroundStyle: BackgroundStyle;

@@ -3,19 +3,22 @@ import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { CtaButton as SharedCtaButton } from "@/components/CtaButton";
+import type { CtaModalConfig } from "@/lib/block-types";
 
 const BRAND     = "var(--brand-primary)";
 const LIME      = "hsl(68,60%,52%)";
 const OFF_WHITE = "hsl(42,18%,96%)";
 const SPRING    = { type: "spring" as const, stiffness: 400, damping: 18 };
 
-interface Props {
+interface Props extends Partial<CtaModalConfig> {
   ctaText:     string;
   ctaUrl?:     string;
   ctaMode?:    "link" | "chilipiper" | "modal-form" | "modal-chilipiper";
   ctaVariant?: "primary" | "secondary" | "link";
   brand:       BrandConfig;
   dark?:       boolean;
+  source?:     string;
 }
 
 export function BlockDsoCta({
@@ -25,8 +28,61 @@ export function BlockDsoCta({
   ctaVariant = "primary",
   brand,
   dark       = false,
+  source,
+  ...modal
 }: Props) {
   const url = ctaUrl ?? "#";
+  const isModalCta = ctaMode === "modal-form" || ctaMode === "modal-chilipiper";
+
+  if (isModalCta) {
+    // Style classes parallel the existing variant branches so the modal-aware
+    // SharedCtaButton matches the original visual.
+    let cls = "";
+    let sty: React.CSSProperties = {};
+    if (ctaVariant === "link") {
+      const color = dark ? LIME : BRAND;
+      cls = "inline-flex items-center gap-1.5 text-[15px] font-semibold";
+      sty = { background: "none", border: "none", padding: 0, color };
+    } else if (ctaVariant === "secondary") {
+      const color       = dark ? OFF_WHITE : BRAND;
+      const borderColor = dark ? "rgba(255,255,255,0.35)" : "rgba(0,58,48,0.35)";
+      cls = getSecondaryButtonClasses(brand) + " inline-flex items-center gap-2";
+      sty = { color, borderColor };
+    } else {
+      cls = getButtonClasses(brand, "inline-flex items-center gap-2");
+      sty = { backgroundColor: brand.accentColor, color: brand.primaryColor };
+    }
+    return (
+      <SharedCtaButton
+        ctaAction={ctaMode}
+        modalChilipiperUrl={modal.modalChilipiperUrl}
+        modalFormSource={modal.modalFormSource}
+        modalFormId={modal.modalFormId}
+        modalMarketoBaseUrl={modal.modalMarketoBaseUrl}
+        modalMarketoMunchkinId={modal.modalMarketoMunchkinId}
+        modalMarketoFormId={modal.modalMarketoFormId}
+        modalChiliPiperHandoffUrl={modal.modalChiliPiperHandoffUrl}
+        modalChiliPiperHandoffMode={modal.modalChiliPiperHandoffMode}
+        modalChiliPiperHandoffFieldMap={modal.modalChiliPiperHandoffFieldMap}
+        modalHeadline={modal.modalHeadline}
+        modalSubheadline={modal.modalSubheadline}
+        modalSubmitText={modal.modalSubmitText}
+        modalSuccessMessage={modal.modalSuccessMessage}
+        modalDisclaimer={modal.modalDisclaimer}
+        modalShowFirstName={modal.modalShowFirstName}
+        modalShowLastName={modal.modalShowLastName}
+        modalShowPhone={modal.modalShowPhone}
+        modalShowCompany={modal.modalShowCompany}
+        className={cls}
+        style={sty}
+        brand={brand}
+        source={source}
+      >
+        {ctaText}
+        {ctaVariant === "link" && <ArrowRight style={{ width: 15, height: 15 }} />}
+      </SharedCtaButton>
+    );
+  }
 
   if (ctaVariant === "link") {
     const color = dark ? LIME : BRAND;

@@ -32,14 +32,14 @@ export interface NavHeaderBlockProps extends CtaModalConfig {
   fontFamily?: string;
 }
 
-export interface CtaButtonBlockProps {
+export interface CtaButtonBlockProps extends CtaModalConfig {
   label: string;
   url: string;
   style: "primary" | "secondary" | "outline";
   size: "small" | "medium" | "large";
   alignment: "left" | "center" | "right";
   bgColor: string;
-  ctaAction?: "url" | "chilipiper";
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
   chilipiperUrl?: string;
 }
 
