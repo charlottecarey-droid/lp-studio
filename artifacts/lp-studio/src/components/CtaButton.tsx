@@ -119,11 +119,21 @@ export function CtaButton({
     <motion.button
       type="button"
       onClick={() => {
+        if (isModal) {
+          // Modal IS the action — never fire host onClick (which typically
+          // navigates to the brand-default URL) alongside the modal, or
+          // every retrofitted CTA opens a tab AND the capture modal.
+          setOpen(true);
+          return;
+        }
+        if (isVideo && videoUrl && videoUrl.trim() !== "") {
+          // Same reasoning for the inline video overlay.
+          setVideoOpen(true);
+          return;
+        }
         onClick?.();
-        if (isModal) setOpen(true);
-        if (isVideo && videoUrl && videoUrl.trim() !== "") setVideoOpen(true);
         // URL-mode fallback: if no host onClick wired navigation, navigate here.
-        if (!isModal && !isVideo && !onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
+        if (!onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
           // Same-page anchors and relative paths navigate in the same tab so
           // anchor links scroll instead of opening a (popup-blocked) new tab.
           const trimmed = ctaUrl.trim();
