@@ -170,31 +170,92 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   // concurrent edit superseding us after the render finishes.
   const renderStartUpdatedAt = page.updatedAt;
 
+  // Retry-once on render failure. The May 2026 backfill of ~82 pages
+  // surfaced two intermittent failure modes (task #364 follow-up):
+  //
+  //   1. Hard waitForFunction timeout under memory pressure (one page in
+  //      82 timed out on first try at 30s, succeeded in 15s on retry).
+  //   2. Snapshot race where the SPA re-rendered between the wait
+  //      condition passing and HTML capture, producing a stamped-but-
+  //      empty document (closed in prerenderLpPage by atomic capture +
+  //      mid-evaluate assertion that throws when the race happens).
+  //
+  // Root cause for (1) was never definitively isolated (no single signal
+  // — concurrency, position-in-chunk, and chromium memory all
+  // correlated). Documented as a known transient. Single retry with a
+  // brief settle handles both modes without inviting runaway loops on a
+  // genuine outage: caller still gets render_failed + Sentry alert if
+  // both attempts fail. NEVER retry more than once — runaway prerender
+  // loops are worse than a single missed publish (which the next edit
+  // or `backfill-published-html.ts` self-heals).
   let html: string;
+  let renderAttempts = 0;
+  const renderAttempt = async (): Promise<string> => {
+    renderAttempts += 1;
+    return prerenderLpPage({ pageId: page.id, slug: page.slug });
+  };
   try {
-    html = await prerenderLpPage({ pageId: page.id, slug: page.slug });
-  } catch (err) {
-    outcome.skipped = "render_failed";
-    outcome.error = err instanceof Error ? err.message : String(err);
-    outcome.durationMs = Date.now() - t0;
-    console.warn("[triggerPublishedRender] prerender failed", { pageId: opts.pageId, err });
-    // Render failures are how the May 2026 silent regression manifested
-    // (LP_STUDIO_RENDER_BASE_URL unset on prod → Playwright loaded the
-    // wrong base URL → SPA never rendered the page → blank HTML → R2
-    // never updated). Alert loudly so the next regression of this shape
-    // is caught the first time it happens, not the 100th.
-    Sentry.captureMessage("prerender_render_failed", {
-      level: "error",
-      tags: { subsystem: "lp-prerender", outcome: "render_failed" },
-      extra: {
-        pageId: page.id,
-        tenantId: page.tenantId,
-        slug: page.slug,
-        attemptedHosts: hostsToWrite,
-        error: outcome.error,
-      },
+    html = await renderAttempt();
+  } catch (firstErr) {
+    const firstErrMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+    console.warn("[triggerPublishedRender] prerender attempt 1 failed, retrying once", {
+      pageId: opts.pageId, error: firstErrMsg,
     });
-    return outcome;
+    // Brief settle to let any transient memory/cpu spike subside before
+    // we hand Chromium another browser instance.
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      html = await renderAttempt();
+      // Self-healing success — log it explicitly so we can track the
+      // transient failure rate without it being invisible.
+      console.warn("[triggerPublishedRender] prerender succeeded on retry", {
+        pageId: opts.pageId, firstError: firstErrMsg,
+      });
+      Sentry.captureMessage("prerender_render_recovered_on_retry", {
+        level: "warning",
+        tags: { subsystem: "lp-prerender", outcome: "recovered_on_retry" },
+        extra: {
+          pageId: page.id,
+          tenantId: page.tenantId,
+          slug: page.slug,
+          firstError: firstErrMsg,
+        },
+      });
+    } catch (secondErr) {
+      outcome.skipped = "render_failed";
+      outcome.error = secondErr instanceof Error ? secondErr.message : String(secondErr);
+      outcome.durationMs = Date.now() - t0;
+      console.warn("[triggerPublishedRender] prerender failed on both attempts", {
+        pageId: opts.pageId, attempts: renderAttempts, err: secondErr,
+      });
+      // Render failures are how the May 2026 silent regression manifested
+      // (LP_STUDIO_RENDER_BASE_URL unset on prod → Playwright loaded the
+      // wrong base URL → SPA never rendered the page → blank HTML → R2
+      // never updated). Alert loudly so the next regression of this shape
+      // is caught the first time it happens, not the 100th.
+      // Differentiate failure modes in Sentry tags so triage doesn't have
+      // to grep `extra.error`. `snapshot_race` is the trios5-class case
+      // (atomic-capture assertion threw — SPA re-rendered to shell mid-
+      // evaluate); `nav_or_timeout` covers everything else (navigation
+      // 4xx/5xx, waitForFunction timeout, browser launch failure, etc.).
+      const reason = /snapshot race|lp-page-disappeared/i.test(outcome.error ?? "")
+        ? "snapshot_race"
+        : "nav_or_timeout";
+      Sentry.captureMessage("prerender_render_failed", {
+        level: "error",
+        tags: { subsystem: "lp-prerender", outcome: "render_failed", reason },
+        extra: {
+          pageId: page.id,
+          tenantId: page.tenantId,
+          slug: page.slug,
+          attemptedHosts: hostsToWrite,
+          attempts: renderAttempts,
+          firstError: firstErrMsg,
+          error: outcome.error,
+        },
+      });
+      return outcome;
+    }
   }
 
   // Re-check publication state after render. If it changed, skip both

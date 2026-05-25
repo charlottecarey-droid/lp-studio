@@ -116,7 +116,13 @@ export interface PrerenderOptions {
  * the upstream publish request — render-on-publish is fire-and-forget.
  */
 export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
-  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const timeoutMs = opts.timeoutMs ?? 90_000;
+  // Sub-timeout for the wait-for-content phase specifically. Kept under the
+  // overall timeoutMs so the navigation + settle still have headroom. Was
+  // implicitly Playwright's 30s default before (task #364 follow-up): a
+  // single chromium memory spike or slow page-hydration would blow through
+  // 30s but easily finish under 60s, causing avoidable render_failed.
+  const waitTimeoutMs = Math.max(60_000, Math.floor(timeoutMs * 0.75));
   const baseUrl = (opts.baseUrlOverride || resolveLpStudioBaseUrl()).replace(/\/$/, "");
 
   const token = await ensureReviewToken(opts.pageId);
@@ -138,6 +144,12 @@ export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
       // (analytics beacons, popup auto-open timers, etc.) during a render.
       extraHTTPHeaders: { "x-lp-prerender": "1" },
     });
+    // Defensive: override Playwright's per-API 30s default so any
+    // waitFor* / evaluate / content call without an explicit timeout
+    // inherits our timeoutMs. Earlier we saw `waitForFunction Timeout
+    // 30000ms exceeded` despite passing `{ timeout: timeoutMs }` — the
+    // default still leaked through in at least one Playwright minor.
+    context.setDefaultTimeout(timeoutMs);
     const page = await context.newPage();
 
     // Useful debug surface if a publish render starts failing in prod.
@@ -179,29 +191,41 @@ export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
         if (!lpPage || lpPage.children?.length === 0) return false;
         return !!doc.title && doc.title.length > 0;
       }) as unknown as string,
-      { timeout: timeoutMs },
+      { timeout: waitTimeoutMs },
     );
     // Short settle for post-mount effects (font swap, image decode, lazy
     // children mounting after their parent fades in).
     await page.waitForTimeout(500);
 
-    // Strip the pre-mount loader and tag the snapshot so we can detect
-    // prerendered HTML at runtime (matches the marketing prerender).
-    // Browser-context callback; see note above re: DOM lib not in tsconfig.
+    // ATOMIC capture: do the loader-strip, the prerendered marker, AND the
+    // outerHTML snapshot inside a single evaluate, while also asserting
+    // that [data-lp-page] is STILL present at snapshot time. This closes
+    // the trios5-class race we saw in backfill: wait condition passed,
+    // then between page.evaluate (strip loader) and the subsequent
+    // page.content() the SPA re-rendered to a shell, capturing a doc with
+    // no [data-lp-page] but stamped with data-prerendered="1" (worst of
+    // both worlds — looks legitimate to runtime but is empty).
+    // If the assertion fails, throw so the caller's retry kicks in
+    // instead of writing a known-broken snapshot to R2.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await page.evaluate((): any => {
+    const capture = await page.evaluate((): any => {
       const doc = (globalThis as any).document;
+      const lp = doc.querySelector?.("[data-lp-page]");
+      if (!lp || lp.children?.length === 0) {
+        return { ok: false, reason: "lp-page-disappeared" };
+      }
       doc.documentElement.setAttribute("data-prerendered", "1");
       const loader = doc.getElementById("pre-mount-loader");
       if (loader) loader.remove();
+      return { ok: true, html: doc.documentElement.outerHTML as string };
     });
-
-    const body = await page.content();
+    if (!capture || !capture.ok) {
+      throw new Error(
+        `prerender ${opts.slug} snapshot race: ${capture?.reason ?? "unknown"} — [data-lp-page] missing at capture time despite passing the wait condition`,
+      );
+    }
     await context.close();
-    // Normalise to a single DOCTYPE prefix (page.content() returns one
-    // already, but defensively re-prefix in case future playwright versions
-    // change the format).
-    return `<!DOCTYPE html>\n${body.replace(/^<!DOCTYPE [^>]+>\s*/i, "")}`;
+    return `<!DOCTYPE html>\n${capture.html.replace(/^<!DOCTYPE [^>]+>\s*/i, "")}`;
   } finally {
     await browser.close().catch(() => {});
   }
