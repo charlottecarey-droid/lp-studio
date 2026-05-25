@@ -1,0 +1,455 @@
+2026-05-25T16:57:02Z info: Deployment: d12aec70-a94b-453b-8216-545e2f76476d
+2026-05-25T16:57:02Z info: Build: 7b689e58-5623-437f-b48c-3dc2520bb78d
+2026-05-25T16:57:09Z info: Running Security Scan
+2026-05-25T16:59:57Z info: Security Scan Complete
+2026-05-25T17:00:09Z info: Installing packages
+--> pnpm install
+
+Scope: all 11 workspace projects
+
+
+   ╭─────────────────────────────────────────╮
+   │                                         │
+   │   Update available! 10.26.1 → 11.3.0.   │
+   │   Changelog: https://pnpm.io/v/11.3.0   │
+   │    To update, run: pnpm add -g pnpm     │
+   │                                         │
+   ╰─────────────────────────────────────────╯
+
+
+Lockfile is up to date, resolution step is skipped
+
+Packages: -1
+-
+
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+
+. preinstall: Done
+
+Done in 4.5s using pnpm v10.26.1
+
+2026-05-25T17:00:15Z info: Starting Build
+
+> @workspace/api-server@0.0.0 build /home/runner/workspace/artifacts/api-server
+> node ./build.mjs
+
+
+
+  dist/index.mjs                       5.0mb ⚠️
+  dist/migrate.mjs                     1.4mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.6kb
+  dist/instrument.mjs                 18.6kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   9.9mb
+  dist/migrate.mjs.map                 2.6mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           203.9kb
+  dist/instrument.mjs.map             28.9kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 684ms
+
+
+> @workspace/api-server@0.0.0 migrate /home/runner/workspace/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+
+.env not found. Continuing without it.
+
+{"level":30,"time":1779728417496,"pid":192,"hostname":"repl","msg":"migrate: starting"}
+
+(node:192) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+{"level":30,"time":1779728417698,"pid":192,"hostname":"repl","step":"drizzle migrate (lib/db/migrations)","msg":"migration step start: drizzle migrate (lib/db/migrations)"}
+
+{"level":30,"time":1779728418139,"pid":192,"hostname":"repl","step":"drizzle migrate (lib/db/migrations)","elapsedMs":441,"msg":"migration step done: drizzle migrate (lib/db/migrations)"}
+
+{"level":30,"time":1779728418139,"pid":192,"hostname":"repl","msg":"Migrations applied successfully"}
+{"level":30,"time":1779728418139,"pid":192,"hostname":"repl","step":"dandy webhook secrets seed","msg":"migration step start: dandy webhook secrets seed"}
+
+{"level":30,"time":1779728418139,"pid":192,"hostname":"repl","msg":"Migrations applied successfully"}
+{"level":30,"time":1779728418139,"pid":192,"hostname":"repl","step":"dandy webhook secrets seed","msg":"migration step start: dandy webhook secrets seed"}
+
+{"level":30,"time":1779728418165,"pid":192,"hostname":"repl","step":"dandy webhook secrets seed","elapsedMs":26,"msg":"migration step done: dandy webhook secrets seed"}
+
+{"level":30,"time":1779728418165,"pid":192,"hostname":"repl","step":"tenant industry backfill","msg":"migration step start: tenant industry backfill"}
+
+{"level":30,"time":1779728418186,"pid":192,"hostname":"repl","step":"tenant industry backfill","elapsedMs":21,"msg":"migration step done: tenant industry backfill"}
+
+{"level":30,"time":1779728418186,"pid":192,"hostname":"repl","step":"page review role seed","msg":"migration step start: page review role seed"}
+
+{"level":30,"time":1779728418207,"pid":192,"hostname":"repl","step":"page review role seed","elapsedMs":21,"msg":"migration step done: page review role seed"}
+
+{"level":30,"time":1779728418207,"pid":192,"hostname":"repl","step":"requireReviewBeforePublish backfill","msg":"migration step start: requireReviewBeforePublish backfill"}
+
+{"level":30,"time":1779728418228,"pid":192,"hostname":"repl","step":"requireReviewBeforePublish backfill","elapsedMs":21,"msg":"migration step done: requireReviewBeforePublish backfill"}
+
+{"level":30,"time":1779728418228,"pid":192,"hostname":"repl","step":"block_catalog seed","msg":"migration step start: block_catalog seed"}
+
+{"level":30,"time":1779728418249,"pid":192,"hostname":"repl","step":"block_catalog seed","elapsedMs":21,"msg":"migration step done: block_catalog seed"}
+
+{"level":30,"time":1779728418249,"pid":192,"hostname":"repl","step":"global_templates seed","msg":"migration step start: global_templates seed"}
+
+{"level":30,"time":1779728418270,"pid":192,"hostname":"repl","step":"global_templates seed","elapsedMs":21,"msg":"migration step done: global_templates seed"}
+
+{"level":30,"time":1779728418270,"pid":192,"hostname":"repl","step":"starter_images seed","msg":"migration step start: starter_images seed"}
+
+{"level":30,"time":1779728418291,"pid":192,"hostname":"repl","step":"starter_images seed","elapsedMs":21,"msg":"migration step done: starter_images seed"}
+
+{"level":30,"time":1779728418312,"pid":192,"hostname":"repl","elapsedMs":816,"msg":"migrate: complete"}
+
+
+> @workspace/lp-studio@0.0.0 build /home/runner/workspace/artifacts/lp-studio
+> vite build --config vite.config.ts && node scripts/prerender-marketing.mjs && node scripts/upload-assets-to-r2.mjs
+
+
+vite v7.3.1 building client environment for production...
+
+transforming...
+
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/collapsible.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/sidebar.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/command.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+✓ 4257 modules transformed.
+
+rendering chunks...
+
+[plugin vite:reporter] 
+(!) /home/runner/workspace/node_modules/.pnpm/qrcode@1.5.4/node_modules/qrcode/lib/browser.js?commonjs-es-import is dynamically imported by /home/runner/workspace/lib/one-pager-types/src/generators.ts but also statically imported by /home/runner/workspace/lib/one-pager-types/src/pdf.ts, dynamic import will not move module into another chunk.
+
+
+computing gzip size...
+
+dist/public/index.html                                         11.00 kB │ gzip:   3.84 kB
+dist/public/assets/dandy-scanner-transparent-CAPVkn8n.png      24.54 kB
+dist/public/assets/BagossStandard-Regular-DWIG9i3J.woff2       40.69 kB
+dist/public/assets/BagossStandard-Regular-BN_NrGCH.woff        56.88 kB
+dist/public/assets/scan_quality_1774760745958-Ch-gZ9UP.png     60.81 kB
+dist/public/assets/Untitled_31_1774755563382-BRZ51uHR.png      73.04 kB
+dist/public/assets/isc_1774822623875-DRYU9eml.png              74.19 kB
+dist/public/assets/isl_1774822643019-BLNAHmLH.png              74.30 kB
+dist/public/assets/Untitled_33_1774755563383-BvL94ftV.png      74.72 kB
+
+dist/public/assets/isf_1774822623875-CtdYx5YT.png              75.31 kB
+dist/public/assets/agreement-summary-preview-C0hNZ5c_.png      78.77 kB
+dist/public/assets/provperf_1774760745956-C98slOcO.png         88.52 kB
+dist/public/assets/is2_1774822602095-D7iGJsO6.png             100.81 kB
+dist/public/assets/IMG_0208_1779034101365-BmAYudPG.png        111.70 kB
+dist/public/assets/isg_1774822623876-CC7HXhyV.png             119.64 kB
+dist/public/assets/is6_1774822602097-D8XMG-EB.png             122.33 kB
+dist/public/assets/is4_1774822602096-Blm8OGTP.png             124.52 kB
+dist/public/assets/ise_1774822623875-BU39fgwy.png             126.22 kB
+dist/public/assets/ish_1774822623876-DQnQjWRc.png             126.61 kB
+dist/public/assets/is5_1774822602096-DSjxVjQB.png             127.91 kB
+dist/public/assets/isb_1774822623875-Jr4toKRu.png             128.61 kB
+dist/public/assets/isa_1774822623873-CK4Pg0d0.png             128.77 kB
+dist/public/assets/isi_1774822643018-D9Xmnml9.png             128.86 kB
+dist/public/assets/BagossStandard-Regular-tmjKTbKw.ttf        129.50 kB
+dist/public/assets/is9_1774822602098-BS8tUQXD.png             132.32 kB
+dist/public/assets/isk_1774822643019-AOSI4JCo.png             132.66 kB
+dist/public/assets/is7_1774822602097-DHMpXWHa.png             133.20 kB
+dist/public/assets/isd_1774822623875-D8c1JJBf.png             133.44 kB
+dist/public/assets/is3_1774822602096-C04jlk-e.png             137.13 kB
+dist/public/assets/is1_1774822602091-DNibz-S7.png             138.11 kB
+dist/public/assets/is8_1774822602097-BTC9vHZe.png             138.38 kB
+dist/public/assets/isj_1774822643019-BwRrFTza.png             145.22 kB
+dist/public/assets/dandy-dso-enterprise-data-CesuUymU.webp    246.35 kB
+dist/public/assets/ai-scan-review-news-BU8iwYAE.jpg           273.20 kB
+dist/public/assets/image_1777179519607-9XGNJmcM.png           309.69 kB
+dist/public/assets/ai-scan-review-clinical-CEkYlNGS.png       486.69 kB
+dist/public/assets/pdf.worker.min-B_fnEKel.mjs              1,239.05 kB
+dist/public/assets/form-styling-FwuZQQqw.css                    6.37 kB │ gzip:   1.29 kB
+dist/public/assets/MarketingApp-DElhymhN.css                  246.81 kB │ gzip:  36.72 kB
+dist/public/assets/index-lv359K9Z.css                         324.31 kB │ gzip:  44.65 kB
+dist/public/assets/partner-home-CGnYmjJf.js                     0.15 kB │ gzip:   0.15 kB │ map:     0.33 kB
+dist/public/assets/brief-context-CJy6jr9j.js                    0.15 kB │ gzip:   0.14 kB │ map:     0.57 kB
+dist/public/assets/minus-B1fLbgpA.js                            0.16 kB │ gzip:   0.17 kB │ map:     0.83 kB
+dist/public/assets/chevron-up-CiE5C4XV.js                       0.18 kB │ gzip:   0.18 kB │ map:     0.87 kB
+dist/public/assets/chevron-left-D7xps01y.js                     0.18 kB │ gzip:   0.18 kB │ map:     0.88 kB
+dist/public/assets/plus-9C3u33xg.js                             0.20 kB │ gzip:   0.18 kB │ map:     0.93 kB
+dist/public/assets/cloud-D_h2tVzF.js                            0.21 kB │ gzip:   0.20 kB │ map:     0.88 kB
+dist/public/assets/clock-CJqObedi.js                            0.21 kB │ gzip:   0.20 kB │ map:     0.98 kB
+dist/public/assets/search-C-PmBCgl.js                           0.22 kB │ gzip:   0.20 kB │ map:     0.99 kB
+dist/public/assets/arrow-up-right-DB-78VkI.js                   0.22 kB │ gzip:   0.20 kB │ map:     1.00 kB
+dist/public/assets/trending-up-BFu3ImtQ.js                      0.23 kB │ gzip:   0.20 kB │ map:     0.99 kB
+dist/public/assets/circle-check-Bcexout6.js                     0.23 kB │ gzip:   0.20 kB │ map:     1.02 kB
+dist/public/assets/trending-down-CwXF95IC.js                    0.23 kB │ gzip:   0.21 kB │ map:     1.01 kB
+dist/public/assets/play-Dnbo2Vcs.js                             0.23 kB │ gzip:   0.22 kB │ map:     0.93 kB
+dist/public/assets/user-CHnSkeyK.js                             0.24 kB │ gzip:   0.22 kB │ map:     1.00 kB
+dist/public/assets/smartphone-DJDiI18E.js                       0.25 kB │ gzip:   0.22 kB │ map:     1.07 kB
+dist/public/assets/info-BfEE_y2W.js                             0.
+dist/public/assets/presentation-Cw7e9BEh.js                     0.29 kB │ gzip:   0.23 kB │ map:     1.12 kB
+dist/public/assets/message-square-DYtFNSbx.js                   0.29 kB │ gzip:   0.24 kB │ map:     1.04 kB
+dist/public/assets/link-2-D-14uPlK.js                           0.29 kB │ gzip:   0.24 kB │ map:     1.13 kB
+dist/public/assets/ellipsis-vertical-BCAHKeU8.js                0.29 kB │ gzip:   0.21 kB │ map:     1.22 kB
+dist/public/assets/user-check-DxCW6P5p.js                       0.29 kB │ gzip:   0.24 kB │ map:     1.14 kB
+dist/public/assets/link-Dg9765F7.js                             0.30 kB │ gzip:   0.23 kB │ map:     1.03 kB
+dist/public/assets/circle-alert-B37izs-F.js                     0.30 kB │ gzip:   0.23 kB │ map:     1.24 kB
+dist/public/assets/funnel-Dsy-hTLt.js                           0.30 kB │ gzip:   0.25 kB │ map:     1.01 kB
+dist/public/assets/chart-column-CWVYgMSM.js                     0.30 kB │ gzip:   0.23 kB │ map:     1.20 kB
+dist/public/assets/zap-oQACYhq6.js                              0.31 kB │ gzip:   0.25 kB │ map:     1.00 kB
+dist/public/assets/calendar-BcrGuN_Z.js                         0.31 kB │ gzip:   0.24 kB │ map:     1.23 kB
+
+dist/public/assets/monitor-CnY80jk1.js                          0.31 kB │ gzip:   0.24 kB │ map:     1.25 kB
+
+dist/public/assets/image-0ocQlnuP.js                            0.31 kB │ gzip:   0.26 kB │ map:     1.20 kB
+dist/public/assets/pencil-B9Xtq3US.js                           0.32 kB │ gzip:   0.26 kB │ map:     1.09 kB
+
+dist/public/assets/table-properties-50RKJAGv.js                 0.32 kB │ gzip:   0.25 kB │ map:     1.29 kB
+dist/public/assets/user-search-D6hmFb9u.js                      0.33 kB │ gzip:   0.26 kB │ map:     1.26 kB
+dist/public/assets/inbox-CflDzyrw.js                            0.33 kB │ gzip:   0.27 kB │ map:     1.10 kB
+dist/public/assets/bell-Bgggks-7.js                             0.33 kB │ gzip:   0.27 kB │ map:     1.10 kB
+
+dist/public/assets/send-B3i5jyXO.js                             0.33 kB │ gzip:   0.26 kB │ map:     1.10 kB
+dist/public/assets/lightbulb-DcHilDlU.js                        0.34 kB │ gzip:   0.26 kB │ map:     1.18 kB
+
+dist/public/assets/layout-template-DtDACfbc.js                  0.34 kB │ gzip:   0.23 kB │ map:     1.35 kB
+dist/public/assets/linkedin-Zni1KeMf.js                         0.34 kB │ gzip:   0.27 kB │ map:     1.26 kB
+
+dist/public/assets/list-txM2EcZ7.js                             0.35 kB │ gzip:   0.23 kB │ map:     1.32 kB
+dist/public/assets/user-x-CetK_9O9.js                           0.35 kB │ gzip:   0.27 kB │ map:     1.32 kB
+dist/public/assets/flask-conical-DQuZ4oEd.js                    0.36 kB │ gzip:   0.27 kB │ map:     1.23 kB
+dist/public/assets/clipboard-check-DXrh1BBu.js                  0.36 kB │ gzip:   0.27 kB │ map:     1.31 kB
+dist/public/assets/user-plus-A2ZAjSBZ.js                        0.36 kB │ gzip:   0.27 kB │ map:     1.34 kB
+dist/public/assets/phone-Cant1VY1.js                            0.37 kB │ gzip:   0.27 kB │ map:     1.07 kB
+
+dist/public/assets/tag-DvX1j3YI.js                              0.37 kB │ gzip:   0.28 kB │ map:     1.17 kB
+dist/public/assets/square-pen-fl14GMlx.js                       0.37 kB │ gzip:   0.27 kB │ map:     1.16 kB
+dist/public/assets/refresh-cw-DPOfchie.js                       0.37 kB │ gzip:   0.26 kB │ map:     1.25 kB
+dist/public/assets/save-Cjqj50gY.js                             0.37 kB │ gzip:   0.27 kB │ map:     1.20 kB
+dist/public/assets/trash-2-BdoWDGBr.js                          0.38 kB │ gzip:   0.26 kB │ map:     1.31 kB
+dist/public/assets/use-pagination-F2HiRiZB.js                   0.41 kB │ gzip:   0.32 kB │ map:     1.49 kB
+dist/public/assets/radio-CZw3kSAp.js                            0.42 kB │ gzip:   0.29 kB │ map:     1.37 kB
+dist/public/assets/grip-vertical-CrUK238G.js                    0.42 kB │ gzip:   0.24 kB │ map:     1.59 kB
+
+dist/public/assets/map-pin-D__RZ8eg.js                          0.43 kB │ gzip:   0.32 kB │ map:     1.96 kB
+dist/public/assets/use-recently-viewed-Boixdf9U.js              0.43 kB │ gzip:   0.31 kB │ map:     1.73 kB
+dist/public/assets/sanitize-DcNjuARq.js                         0.44 kB │ gzip:   0.31 kB │ map:     1.53 kB
+
+dist/public/assets/layers-BtBhnpdh.js                           0.47 kB │ gzip:   0.27 kB │ map:     1.37 kB
+dist/public/assets/mouse-pointer-click-D4hcG8hn.js              0.47 kB │ gzip:   0.32 kB │ map:     1.50 kB
+dist/public/assets/thermometer-C3nU9OrV.js                      0.47 kB │ gzip:   0.33 kB │ map:     2.46 kB
+dist/public/assets/eye-off-OoOl2ndL.js                          0.48 kB │ gzip:   0.31 kB │ map:     1.41 kB
+dist/public/assets/sliders-horizontal-g8mM6jP-.js               0.48 kB │ gzip:   0.28 kB │ map:     1.71 kB
+
+dist/public/assets/strictMismatches-C0ge7qJ5.js                 0.50 kB │ gzip:   0.31 kB │ map:     2.35 kB
+dist/public/assets/rocket-DLVEpcly.js                           0.50 kB │ gzip:   0.35 kB │ map:     1.44 kB
+
+dist/public/assets/circle-check-big-Bi90eNMO.js                 0.51 kB │ gzip:   0.33 kB │ map:     2.07 kB
+dist/public/assets/star-DCPqDdd4.js                             0.52 kB │ gzip:   0.33 kB │ map:     1.22 kB
+dist/public/assets/pen-tool-D9tn1dHX.js                         0.52 kB │ gzip:   0.34 kB │ map:     1.49 kB
+
+dist/public/assets/share-2-BPFKigS8.js                          0.54 kB │ gzip:   0.34 kB │ map:     2.32 kB
+dist/public/assets/textarea-DRawcvcT.js                         0.54 kB │ gzip:   0.38 kB │ map:     1.06 kB
+dist/public/assets/sparkles-Cwf738nQ.js                         0.54 kB │ gzip:   0.32 kB │ map:     1.48 kB
+
+dist/public/assets/store-CYWVWUaH.js                            0.54 kB │ gzip:   0.32 kB │ map:     1.38 kB
+dist/public/assets/settings-2-CEWF4PKA.js                       0.56 kB │ gzip:   0.34 kB │ map:     2.31 kB
+
+dist/public/assets/wand-sparkles-gPR3KwYw.js                    0.57 kB │ gzip:   0.33 kB │ map:     1.74 kB
+dist/public/assets/thumbs-up-B9VJjQYW.js                        0.61 kB │ gzip:   0.36 kB │ map:     2.13 kB
+dist/public/assets/brain-CcWpEVAX.js                            0.62 kB │ gzip:   0.35 kB │ map:     1.74 kB
+
+dist/public/assets/table-hNyUq25s.js                            0.65 kB │ gzip:   0.37 kB │ map:     2.47 kB
+dist/public/assets/globe-BxtDNsSd.js                            0.65 kB │ gzip:   0.37 kB │ map:     3.01 kB
+dist/public/assets/variable-BJfGZ1Ks.js                         0.66 kB │ gzip:   0.40 kB │ map:     3.14 kB
+dist/public/assets/linked-form-style-DT_tCO_1.js                0.74 kB │ gzip:   0.39 kB │ map:     4.15 kB
+dist/public/assets/square-CZ1elIVl.js                           0.74 kB │ gzip:   0.46 kB │ map:     3.17 kB
+dist/public/assets/separator-7kWxTSHm.js                        0.75 kB │ gzip:   0.46 kB │ map:     3.33 kB
+dist/public/assets/new-page-C7j4rhFP.js                         0.77 kB │ gzip:   0.53 kB │ map:     1.64 kB
+dist/public/assets/badge-C2S7UbGc.js                            0.82 kB │ gzip:   0.46 kB │ map:     2.09 kB
+dist/public/assets/text-align-justify-bfkDs3rh.js               0.86 kB │ gzip:   0.40 kB │ map:     3.20 kB
+
+dist/public/assets/users-round-BwnzjWUm.js                      0.88 kB │ gzip:   0.48 kB │ map:     3.60 kB
+dist/public/assets/BrandFontLoader-CKiZtD7d.js                  0.91 kB │ gzip:   0.52 kB │ map:     4.23 kB
+dist/public/assets/status-badge-CBKIGwlg.js                     0.95 kB │ gzip:   0.48 kB │ map:     1.92 kB
+dist/public/assets/sales-page-header-0dNkCKfz.js                0.99 kB │ gzip:   0.55 kB │ map:     2.41 kB
+dist/public/assets/shield-check-BlPJROH0.js                     1.02 kB │ gzip:   0.48 kB │ map:     3.50 kB
+dist/public/assets/tags-Cqn0_qDQ.js                             1.04 kB │ gzip:   0.54 kB │ map:     3.26 kB
+
+dist/public/assets/menu-DXg2DDlb.js                             1.06 kB │ gzip:   0.53 kB │ map:     4.64 kB
+dist/public/assets/card-BAdYSeSD.js                             1.06 kB │ gzip:   0.43 kB │ map:     3.22 kB
+
+dist/public/assets/BrandLogo-CAyTbi3H.js                        1.12 kB │ gzip:   0.63 kB │ map:     4.48 kB
+
+dist/public/assets/dtr-CXAJbS5I.js                              1.13 kB │ gzip:   0.60 kB │ map:     4.22 kB
+dist/public/assets/tabs-D093oMJz.js                             1.14 kB │ gzip:   0.50 kB │ map:     2.82 kB
+
+dist/public/assets/signal-types-wjlVvK6K.js                     1.19 kB │ gzip:   0.61 kB │ map:     3.41 kB
+dist/public/assets/popover-DIAzoZ6E.js                          1.22 kB │ gzip:   0.65 kB │ map:     4.04 kB
+dist/public/assets/text-align-start-CTf1qc-T.js                 1.24 kB │ gzip:   0.59 kB │ map:     6.72 kB
+
+dist/public/assets/info-tip-CkaprUiz.js                         1.60 kB │ gzip:   0.71 kB │ map:     3.97 kB
+dist/public/assets/table-De6kPrge.js                            1.64 kB │ gzip:   0.60 kB │ map:     4.71 kB
+
+dist/public/assets/pagination-bar-anj0x_Is.js                   1.80 kB │ gzip:   0.74 kB │ map:     4.32 kB
+dist/public/assets/personalized-link-resolver-D_jNKRfY.js       1.90 kB │ gzip:   0.92 kB │ map:     5.38 kB
+dist/public/assets/mode-toggle-C2joeJ0m.js                      2.00 kB │ gzip:   0.73 kB │ map:     4.60 kB
+
+dist/public/assets/MultiSelectChip-DurTaC9C.js                  2.05 kB │ gzip:   0.99 kB │ map:     5.24 kB
+dist/public/assets/target-ouQju_T2.js                           2.20 kB │ gzip:   0.99 kB │ map:     8.21 kB
+dist/public/assets/dialog-DvY_sFsM.js                           2.22 kB │ gzip:   0.90 kB │ map:     5.84 kB
+dist/public/assets/formatDistanceToNow-CZBuIYaA.js              2.38 kB │ gzip:   0.97 kB │ map:    30.29 kB
+dist/public/assets/use-collaboration-I5mAQAEO.js                2.50 kB │ gzip:   0.94 kB │ map:     9.96 kB
+
+dist/public/assets/switch-BTOnaDJu.js                           2.53 kB │ gzip:   1.28 kB │ map:    10.00 kB
+dist/public/assets/not-found-zJNgpQrv.js                        2.54 kB │ gzip:   1.30 kB │ map:     5.11 kB
+
+dist/public/assets/forms-and-leads-jzXNYJoZ.js                  2.70 kB │ gzip:   1.19 kB │ map:     2.60 kB
+
+dist/public/assets/page-hint-CE6Q8PaE.js                        2.87 kB │ gzip:   1.09 kB │ map:     6.34 kB
+dist/public/assets/AccountCombobox-DhiYwGVn.js                  3.16 kB │ gzip:   1.30 kB │ map:     8.77 kB
+dist/public/assets/select-BQ5YgU9x.js                           3.19 kB │ gzip:   1.21 kB │ map:     8.75 kB
+
+dist/public/assets/thank-you-BRLKOfZz.js                        3.20 kB │ gzip:   1.48 kB │ map:     7.60 kB
+dist/public/assets/SendTestEmailModal-CYeQrA1E.js               3.21 kB │ gzip:   1.55 kB │ map:     9.70 kB
+dist/public/assets/SaveToLibraryDialog-DiBin_hz.js              3.25 kB │ gzip:   1.44 kB │ map:     9.17 kB
+dist/public/assets/index-RRGrBFnn.js                            3.32 kB │ gzip:   1.44 kB │ map:    11.66 kB
+
+dist/public/assets/typography-DHSCfhaH.js                       3.37 kB │ gzip:   1.54 kB │ map:    13.87 kB
+dist/public/assets/sheet-SUaw_TDe.js                            3.72 kB │ gzip:   1.45 kB │ map:    13.88 kB
+
+dist/public/assets/dropdown-menu-D5dgXywt.js                    3.86 kB │ gzip:   1.10 kB │ map:    10.80 kB
+dist/public/assets/checkbox-k9eMXzlL.js                         3.87 kB │ gzip:   1.73 kB │ map:    16.22 kB
+dist/public/assets/ImagePicker-DeMVici7.js                      4.18 kB │ gzip:   1.93 kB │ map:    13.69 kB
+dist/public/assets/share-review-modal-CIP3Eb-0.js               4.19 kB │ gzip:   1.64 kB │ map:    11.88 kB
+
+dist/public/assets/template-preview-BDPWmeUi.js                 4.44 kB │ gzip:   2.10 kB │ map:     3.26 kB
+
+dist/public/assets/alert-dialog-DujbcLld.js                     4.76 kB │ gzip:   1.76 kB │ map:    18.73 kB
+dist/public/assets/create-test-B3u_aEEG.js                      4.77 kB │ gzip:   2.05 kB │ map:    11.98 kB
+dist/public/assets/FollowUpEmailSection-RImUFN_w.js             5.07 kB │ gzip:   2.22 kB │ map:    14.76 kB
+
+dist/public/assets/blocks-settings-3jRpPOhm.js                  5.25 kB │ gzip:   2.33 kB │ map:     2.41 kB
+
+dist/public/assets/generic-catalog-fixture-C1naGWUa.js          5.71 kB │ gzip:   2.64 kB │ map:     6.95 kB
+dist/public/assets/comment-thread-5RRsADYi.js                   5.76 kB │ gzip:   1.97 kB │ map:    15.66 kB
+dist/public/assets/index-BptuWEpw.js                            5.76 kB │ gzip:   2.25 kB │ map:    33.53 kB
+dist/public/assets/form-styling-DypLDYuw.js                     5.85 kB │ gzip:   2.60 kB │ map:    40.03 kB
+dist/public/assets/en-US-DN8v67j0.js                            7.74 kB │ gzip:   2.71 kB │ map:    34.93 kB
+
+dist/public/assets/live-pages-1XoWh8NA.js                       7.83 kB │ gzip:   2.44 kB │ map:    17.19 kB
+
+dist/public/assets/leads-Dl-QGjCG.js                            8.14 kB │ gzip:   2.52 kB │ map:    18.55 kB
+dist/public/assets/slider-DgzNzdmF.js                           8.19 kB │ gzip:   3.35 kB │ map:    36.58 kB
+
+dist/public/assets/ad-map-CKWDMGZR.js                           8.34 kB │ gzip:   2.56 kB │ map:    20.62 kB
+
+dist/public/assets/all-tests-BbckRX0h.js                        8.36 kB │ gzip:   3.04 kB │ map:    19.04 kB
+dist/public/assets/useQuery-AMOShWk1.js                         8.88 kB │ gzip:   3.27 kB │ map:    39.88 kB
+
+dist/public/assets/BlockTestEditor-FR8FHWoQ.js                  9.66 kB │ gzip:   3.88 kB │ map:    15.73 kB
+dist/public/assets/api-D-5LC6we.js                              9.74 kB │ gzip:   3.29 kB │ map:    70.94 kB
+dist/public/assets/reviews-overview-DwT1WiYr.js                 9.79 kB │ gzip:   3.30 kB │ map:    23.56 kB
+dist/public/assets/conversion-scoring-DNdtWCnL.js               9.84 kB │ gzip:   3.08 kB │ map:    23.61 kB
+dist/public/assets/review-shell-lNk7Wt0Y.js                     9.98 kB │ gzip:   3.71 kB │ map:    18.74 kB
+dist/public/assets/DraftEmailModal-bqGb_ZDW.js                 10.55 kB │ gzip:   3.45 kB │ map:    28.46 kB
+dist/public/assets/page-speed-DJ2wpwq4.js                      11.07 kB │ gzip:   3.06 kB │ map:    28.22 kB
+dist/public/assets/sfdc-settings-BggVsnIh.js                   11.45 kB │ gzip:   2.93 kB │ map:    29.57 kB
+dist/public/assets/sales-layout-CSiJiwk9.js                    11.57 kB │ gzip:   3.14 kB │ map:    31.73 kB
+dist/public/assets/format-CEjvQff6.js                          11.96 kB │ gzip:   3.21 kB │ map:    98.96 kB
+dist/public/assets/RolesPage-mbHuaOzA.js                       12.83 kB │ gzip:   4.13 kB │ map:    37.72 kB
+dist/public/assets/sales-marketplace-DLH5pxZw.js               12.90 kB │ gzip:   4.72 kB │ map:    28.50 kB
+dist/public/assets/index-BeoRn2gJ.js                           13.77 kB │ gzip:   5.45 kB │ map:    58.87 kB
+dist/public/assets/sales-signals-C_jiGuNp.js                   14.01 kB │ gzip:   4.75 kB │ map:    37.91 kB
+dist/public/assets/NewMicrositeModal-FtisWRIT.js               14.16 kB │ gzip:   4.27 kB │ map:    45.09 kB
+dist/public/assets/programmatic-pages-Dt-mHTyS.js              14.84 kB │ gzip:   4.65 kB │ map:    46.13 kB
+dist/public/assets/GeneralPage-CTl3jm2p.js                     14.94 kB │ gzip:   4.40 kB │ map:    38.50 kB
+dist/public/assets/TeamPage-CEaafmdp.js                        15.00 kB │ gzip:   4.53 kB │ map:    42.30 kB
+dist/public/assets/block-defaults-DXyAmwc4.js                  16.32 kB │ gzip:   4.23 kB │ map:    33.45 kB
+dist/public/assets/index-ClLq0Fbj.js                           16.36 kB │ gzip:   5.22 kB │ map:    57.52 kB
+dist/public/assets/templates--L9A0y3v.js                       17.35 kB │ gzip:   6.11 kB │ map:    40.12 kB
+dist/public/assets/sales-guide-8QOqFkLN.js                     17.51 kB │ gzip:   6.18 kB │ map:    28.41 kB
+dist/public/assets/sales-draft-email-BPwB5olE.js               18.88 kB │ gzip:   5.81 kB │ map:    55.20 kB
+dist/public/assets/template-marketplace-DrHGJBye.js            19.04 kB │ gzip:   6.65 kB │ map:    54.63 kB
+dist/public/assets/sales-roi-calculator-qyJJRGLZ.js            20.28 kB │ gzip:   7.28 kB │ map:    53.22 kB
+dist/public/assets/integrations-B_8TOIFQ.js                    21.37 kB │ gzip:   5.23 kB │ map:    44.94 kB
+dist/public/assets/analytics-CbQn8Gqt.js                       21.75 kB │ gzip:   5.55 kB │ map:    63.19 kB
+dist/public/assets/dashboard-BkjA1xGG.js                       22.11 kB │ gzip:   6.60 kB │ map:    69.74 kB
+dist/public/assets/purify.es-CovBOfck.js                       22.63 kB │ gzip:   8.67 kB │ map:    93.55 kB
+dist/public/assets/seo-scoring-Su3EblkZ.js                     24.18 kB │ gzip:   7.79 kB │ map:    70.33 kB
+dist/public/assets/MediaLibraryDrawer-CEYxMFP0.js              25.75 kB │ gzip:   6.67 kB │ map:    71.24 kB
+dist/public/assets/EmailWYSIWYGEditor-C8kP-ndL.js              30.99 kB │ gzip:   7.81 kB │ map:   105.84 kB
+dist/public/assets/microsite-templates-CO89HUyX.js             33.66 kB │ gzip:   8.11 kB │ map:    59.91 kB
+dist/public/assets/sales-dashboard-DDKNQp4F.js                 35.88 kB │ gzip:   8.97 kB │ map:    95.98 kB
+dist/public/assets/sales-campaign-detail-BS3ez43Q.js           37.39 kB │ gzip:   9.54 kB │ map:   111.88 kB
+dist/public/assets/sales-outreach-PCVVZtSO.js                  38.36 kB │ gzip:  10.17 kB │ map:   115.00 kB
+dist/public/assets/app-layout-h_-9O4_j.js                      42.61 kB │ gzip:  12.75 kB │ map:   127.43 kB
+dist/public/assets/landing-page-viewer-D4pE8xFl.js             
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 17.63s
+
+[prerender] starting vite preview on http://127.0.0.1:46657
+
+[prerender] using system chromium: /nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium
+
+[prerender] snapshotting /
+
+[prerender]   → dist/public/index.html (239516 bytes)
+[prerender] snapshotting /privacy
+
+[prerender][reqfail] https://o4511366933184512.ingest.us.sentry.io/api/4511367056130048/envelope/?sentry_version=7&sentry_key=6f135cc0e4c8a12fa3070d1aeab33375&sentry_client=sentry.javascript.react%2F8.55.2 net::ERR_ABORTED
+
+[prerender]   → dist/public/privacy/index.html (30995 bytes)
+[prerender] snapshotting /terms
+
+[prerender]   → dist/public/terms/index.html (29136 bytes)
+
+[prerender] done — 3 routes
+
+[prerender] preview exited with 143
+  ➜  Local:   http://127.0.0.1:46657/
+
+
+[lp-studio:upload-assets-to-r2] done. total=485 uploaded=485 skipped=0 failed=0
+
+Removed all cached metadata files
+
+Removed 60784 files
+
+Removed 1074 packages
+
+2026-05-25T17:01:27Z info: Pushing pid1 binary layer...
+2026-05-25T17:01:29Z info: Created pid1 binary layer
+2026-05-25T17:01:30Z info: Pushing Repl layer...
+2026-05-25T17:01:30Z info: Pushing hosting layer...
+2026-05-25T17:01:30Z info: Retrieved cached nix layer
+2026-05-25T17:01:30Z warning: Detected broken symlink! The path "/tmp/pulse-PKdhtXMmr18n" does not exist.
+2026-05-25T17:01:30Z warning: Detected broken symlink! The path "/tmp/pulse-PKdhtXMmr18n" does not exist.
+2026-05-25T17:01:30Z info: Created hosting layer
+2026-05-25T17:03:35Z info: Created Repl layer
+2026-05-25T17:03:35Z info: Pushing Repl (cache) layer...
+2026-05-25T17:03:36Z info: Created Repl (cache) layer
+2026-05-25T17:03:51Z info: Creating Autoscale service
+2026-05-25T17:05:22Z info: upsertCloudRunService completed
+2026-05-25T17:05:23Z info: Waiting for service to be ready
+2026-05-25T17:05:26Z info: Deployment successful
