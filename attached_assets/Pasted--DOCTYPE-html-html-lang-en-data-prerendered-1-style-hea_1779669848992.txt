@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-prerendered="1" style=""><head>
+    <!-- Defensive stub for `window.webkit.messageHandlers`. iOS Safari
+         (and the Facebook / Instagram in-app browsers in particular) does
+         NOT define `window.webkit` outside of a WKWebView bridge, but
+         several third-party tags we load via GTM / Marketo probe it
+         without a guard (e.g. `window.webkit.messageHandlers.foo`),
+         which throws `TypeError: undefined is not an object` and
+         bubbles to Sentry. Defining a harmless empty stub at the top
+         of <head> — before ANY other script runs — lets the probe read
+         `undefined` instead of throwing, eliminating the error class
+         entirely. Safe to set on real WKWebViews too: native bridges
+         set `window.webkit` BEFORE any page script runs, so our `if`
+         guard leaves real bridges untouched. -->
+    <script>
+      if (typeof window.webkit === 'undefined') {
+        window.webkit = { messageHandlers: {} };
+      } else if (!window.webkit.messageHandlers) {
+        window.webkit.messageHandlers = {};
+      }
+    </script>
+    <!-- RB2B Visitor Identification — partners.meetdandy.com only -->
+    <script>if (location.hostname === 'partners.meetdandy.com') { !function(key) {if (window.reb2b) return;window.reb2b = {loaded: true};var s = document.createElement("script");s.async = true;s.src = "https://ddwl4m2hdecbv.cloudfront.net/b/" + key + "/" + key + ".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s, document.getElementsByTagName("script")[0]);}("5NRP9H7ZVYO1"); }</script>
+    <!-- Google Tag Manager — lp.meetdandy.com only. Intentionally NOT loaded
+         on partners.meetdandy.com (the GTM container ships marketing popups
+         we don't want firing for partner traffic). -->
+    <script>if (location.hostname === 'lp.meetdandy.com') { (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NHJFVSJ'); }</script>
+    <!-- End Google Tag Manager -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <!-- Force browsers to revalidate index.html on every navigation so a fresh
+         deploy's hashed /assets/* filenames are picked up immediately, instead
+         of a stale cached HTML pointing at chunk URLs that no longer exist.
+         Hashed asset files themselves stay long-cached (they're content-hashed). -->
+    <meta http-equiv="cache-control" content="no-store">
+    <meta http-equiv="pragma" content="no-cache">
+    <meta http-equiv="expires" content="0">
+    
+    <link rel="icon" type="image/svg+xml" href="/lpstudio-favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&amp;display=swap" rel="stylesheet">
+    <!-- Domain-specific metadata: swap title/OG tags per domain -->
+    <script>
+      (function () {
+        var h = location.hostname;
+        var sel = function (s) { return document.querySelector(s); };
+        var set = function (el, v) { if (el) el.setAttribute('content', v); };
+        if (h === 'ent.meetdandy.com') {
+          document.title = 'Meet Dandy | The Modern Operating System for Dentistry';
+          set(sel('meta[name="description"]'),       'Meet Dandy | The Modern Operating System for Dentistry');
+          set(sel('meta[property="og:title"]'),      'Meet Dandy | The Modern Operating System for Dentistry');
+          set(sel('meta[property="og:description"]'),'Meet Dandy | The Modern Operating System for Dentistry');
+          set(sel('meta[property="og:url"]'),        'https://ent.meetdandy.com');
+          set(sel('meta[property="og:image"]'),      'https://ent.meetdandy.com/dandy-opengraph.png');
+        } else if (h === 'partners.meetdandy.com') {
+          document.title = 'Meet Dandy | The Modern Operating System for Dentistry';
+          set(sel('meta[name="description"]'),       'See what Dandy can do for your dental practice.');
+          set(sel('meta[property="og:title"]'),      'Meet Dandy | The Modern Operating System for Dentistry');
+          set(sel('meta[property="og:description"]'),'See what Dandy can do for your dental practice.');
+          set(sel('meta[property="og:url"]'),        'https://partners.meetdandy.com');
+          set(sel('meta[property="og:image"]'),      'https://www.meetdandy.com/wp-content/uploads/2025/12/ai-scan-review-1.jpg');
+        }
+      })();
+    </script>
+    <!-- Apollo Website Tracker — partners.meetdandy.com only -->
+    <script>if (location.hostname === 'partners.meetdandy.com') { function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"68405d9cf09fef0021474660"})},document.head.appendChild(o)}initApollo(); }</script>
+    <script type="module" crossorigin="" src="/assets/index-Bt-5tQl7.js"></script>
+    <link rel="modulepreload" crossorigin="" href="/assets/vendor-ui-BI93x8qG.js">
+    <link rel="modulepreload" crossorigin="" href="/assets/vendor-charts-Cl_vRYoi.js">
+    <link rel="modulepreload" crossorigin="" href="/assets/vendor-editor-ZclGCwOj.js">
+    <link rel="modulepreload" crossorigin="" href="/assets/vendor-motion-DWU0KW_F.js">
+    <link rel="stylesheet" crossorigin="" href="/assets/index-CfASPeAP.css">
+  <link rel="modulepreload" as="script" crossorigin="" href="/assets/MarketingApp-dBB0_mhz.js"><link rel="stylesheet" crossorigin="" href="/assets/MarketingApp-D9sOtbLl.css">  <title>Max&#039;s Car Wash: Elite Car Care in Beverly Hills</title>
+  <meta name="description" content="Discover luxury car care with Max&#039;s Car Wash. Experience handcrafted detailing for your elite vehicle. Schedule your VIP wash today!" />
+  <link rel="canonical" href="https://wash.lpstudio.ai/elite-car-care-beverly-hills" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wash.lpstudio.ai/elite-car-care-beverly-hills" />
+  <meta property="og:title" content="Max&#039;s Car Wash: Elite Car Care in Beverly Hills" />
+  <meta property="og:description" content="Discover luxury car care with Max&#039;s Car Wash. Experience handcrafted detailing for your elite vehicle. Schedule your VIP wash today!" />
+  <meta property="og:image" content="https://image.thum.io/get/width/1200/crop/630/noanimate/https://wash.lpstudio.ai/elite-car-care-beverly-hills" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Max&#039;s Car Wash: Elite Car Care in Beverly Hills" />
+  <meta name="twitter:description" content="Discover luxury car care with Max&#039;s Car Wash. Experience handcrafted detailing for your elite vehicle. Schedule your VIP wash today!" />
+  <meta name="twitter:image" content="https://image.thum.io/get/width/1200/crop/630/noanimate/https://wash.lpstudio.ai/elite-car-care-beverly-hills" />
+</head>
+  <body>
+    <!-- Google Tag Manager (noscript) — lp.meetdandy.com only, see head. -->
+    <script>if (location.hostname === 'lp.meetdandy.com') { var n=document.createElement('noscript');var f=document.createElement('iframe');f.src='https://www.googletagmanager.com/ns.html?id=GTM-NHJFVSJ';f.height='0';f.width='0';f.style.cssText='display:none;visibility:hidden';n.appendChild(f);document.body.insertBefore(n, document.body.firstChild); }</script>
+    <!-- End Google Tag Manager (noscript) -->
+    <!-- Hide the pre-rendered marketing markup on hosts that mount the SaaS
+         app (app.lpstudio.ai, tenant subdomains, custom tenant domains).
+         Without this, SaaS visitors briefly see the marketing homepage
+         before createRoot() in main.tsx replaces #root with the auth/app
+         shell. The marketing app does its own host check in App.tsx and
+         reveals the document when it mounts, so marketing visitors never
+         see the hidden state.
+
+         Mirrors `isMarketingHost()` in src/App.tsx — keep them in sync. -->
+    <script>
+      (function () {
+        try {
+          var h = (location.hostname || "").toLowerCase();
+          var p = location.pathname.replace(/\/+$/, "") || "/";
+          var qs = new URLSearchParams(location.search);
+          var preview = qs.get("preview");
+          var isMarketingPath = p === "/" || p === "/privacy" || p === "/terms";
+          var isMarketingHost = h === "lpstudio.ai" || h === "www.lpstudio.ai";
+          var isDev = h === "localhost" || h === "127.0.0.1" || h.endsWith(".replit.dev");
+          var marketing = preview === "marketing"
+            || (preview !== "app" && isMarketingHost)
+            || (preview !== "app" && isDev && isMarketingPath);
+          if (!marketing) {
+            document.documentElement.style.visibility = "hidden";
+            // Reveal on next frame after main.tsx executes; main.tsx also
+            // clears this explicitly. Belt-and-suspenders timeout so a
+            // bundle load failure doesn't leave the page permanently
+            // hidden — the SaaS app's ErrorBoundary still needs to render.
+            setTimeout(function () {
+              document.documentElement.style.visibility = "";
+            }, 4000);
+          }
+        } catch (_) {
+          /* ignore — fall through to visible */
+        }
+      })();
+    </script>
+    <!-- Pre-mount loading indicator. Replaced as soon as React mounts into #root,
+         so users see motion immediately on cold loads instead of a white screen
+         while the JS bundle downloads. -->
+    <style>
+      #pre-mount-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        z-index: 0;
+      }
+      #pre-mount-loader > div {
+        width: 32px;
+        height: 32px;
+        border: 2px solid #0A0A0A;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: pre-mount-spin 0.8s linear infinite;
+      }
+      @keyframes pre-mount-spin { to { transform: rotate(360deg); } }
+    </style>
+    <div id="root"><div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: rgb(10, 10, 10); color: rgb(255, 255, 255); font-family: Inter, system-ui, sans-serif; padding: 24px; text-align: center;"><div style="max-width: 480px;"><div style="font-size: 48px; font-weight: 600; letter-spacing: -0.04em; color: rgb(212, 245, 66); margin-bottom: 16px;">404</div><div style="font-size: 22px; font-weight: 600; margin-bottom: 12px;">Site not found</div><div style="font-size: 15px; line-height: 1.5; opacity: 0.7; margin-bottom: 24px;">There's no site at <strong style="opacity: 1;">render.lpstudio.ai</strong>. If you're the owner, check your tenant configuration in the admin.</div><a href="https://lpstudio.ai" style="display: inline-block; padding: 10px 18px; background: rgb(212, 245, 66); color: rgb(10, 10, 10); text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Go to LP Studio</a></div></div></div>
+    <!-- Prevent the prerendered marketing markup from flashing on hosts
+         that mount the SaaS app (app.lpstudio.ai, tenant subdomains,
+         custom tenant domains). On non-marketing hosts, swap #root back
+         to just the pre-mount loader. This script is placed AFTER #root
+         exists in the DOM and BEFORE the deferred module script, so it
+         runs synchronously while #root still holds the prerendered
+         marketing snapshot, and finishes before main.tsx executes —
+         which means React mounts into the loader-only #root and is
+         never clobbered. SaaS users see the loader (not a blank screen)
+         and never glimpse marketing UI.
+
+         Mirrors `isMarketingHost()` in src/App.tsx — keep in sync. -->
+    <script>
+      (function () {
+        try {
+          var h = (location.hostname || "").toLowerCase();
+          var p = location.pathname.replace(/\/+$/, "") || "/";
+          var qs = new URLSearchParams(location.search);
+          var preview = qs.get("preview");
+          var isMarketingPath = p === "/" || p === "/privacy" || p === "/terms";
+          var isMarketingHost = h === "lpstudio.ai" || h === "www.lpstudio.ai";
+          var isDev = h === "localhost" || h === "127.0.0.1" || h.endsWith(".replit.dev");
+          var marketing = preview === "marketing"
+            || (preview !== "app" && isMarketingHost)
+            || (preview !== "app" && isDev && isMarketingPath);
+          if (!marketing) {
+            var root = document.getElementById("root");
+            if (root) {
+              root.innerHTML =
+                '<div id="pre-mount-loader" aria-hidden="true"><div></div></div>';
+            }
+          }
+        } catch (_) {
+          /* ignore — fall through to whatever is in the DOM */
+        }
+      })();
+    </script>
+  
+
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;189ffd60b50e4ee09c7aab91394cbbc3&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0107c2b4f1d97ae',t:'MTc3OTY2OTU4Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><iframe height="1" width="1" style="position: absolute; top: 0px; left: 0px; border: none; visibility: hidden;"></iframe><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a01081c1e8e5c4d1',t:'MTc3OTY2OTgxNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
