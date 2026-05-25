@@ -23,7 +23,14 @@ compatibility_date = "2024-01-01"
 # alone silently falls back to passthrough.
 routes = [
   { pattern = "*.lpstudio.ai/*", zone_name = "lpstudio.ai" },
+  # Tenant 5 (Dandy SMB) — both the app domain (used during phase 2
+  # curl-resolve testing) and the production microsite host.
   { pattern = "meetdandy-lp.com/*", zone_name = "lpstudio.ai" },
+  { pattern = "lp.meetdandy.com/*", zone_name = "lpstudio.ai" },
+  # Tenant 1 (Dandy ENT) — production microsite host.
+  # The app domain (ent.meetdandy.com) intentionally has no worker route;
+  # it stays on the Dandy app origin (currently 34.111.179.208 / GCP).
+  { pattern = "partners.meetdandy.com/*", zone_name = "lpstudio.ai" },
 ]
 
 # R2 bucket containing prerendered landing-page HTML (task #364).
