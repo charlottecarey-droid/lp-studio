@@ -1,2 +1,3 @@
-- [Verify infra before prod alarm](verify-infra-before-prod-alarm.md) — confirm DNS/CDN actually points at the new infra before declaring a prod regression; cut-over state is invisible from code alone.
-- [Prerender hash drift](prerender-hash-drift.md) — published HTML in R2 hard-codes Vite-hashed JS chunk URLs; every lp-studio deploy invalidates every prerendered page until it's re-rendered.
+- [Replit container kills orphan/detached procs](replit-detach-pitfalls.md) — `setsid`+`nohup` double-fork dies; foreground pipe orphan survives. Patterns that work / fail for long Playwright jobs.
+- [Self-pkill foot-gun](self-pkill-footgun.md) — `pkill -f <pattern>` and `pgrep -f` match your own shell argv; use the bracket trick (`/backfill[-]published/`) in awk to avoid SIGKILL'ing yourself.
+- [LP Studio publish render base URL](lp-studio-render-base-url.md) — backfill/prerender must set `LP_STUDIO_RENDER_BASE_URL=https://render.lpstudio.ai` or it captures dev HTML; @workspace/db auto-prefers `NEON_DATABASE_URL` so dev env hits prod DB.
