@@ -1551,6 +1551,12 @@ export interface IdHeroBlockProps extends CtaModalConfig {
    *  brand color like "#001814" on a citron fill for a more restrained,
    *  premium look (vs. the default near-black). */
   primaryCtaTextColor?: string;
+  /** Visual theme applied to the in-page modal opened by either CTA when
+   *  it's configured as "modal-form" / "modal-chilipiper". "dark" matches
+   *  dark cinematic templates (Inside Dandy) so the outer modal shell
+   *  blends with the inner form card. Defaults to "light" so existing
+   *  usages on other templates are unchanged. */
+  modalTheme?: "light" | "dark";
 }
 
 export interface IdMarqueeBlockProps {

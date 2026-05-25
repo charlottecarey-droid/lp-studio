@@ -123,6 +123,7 @@ export function BlockStickyHeader({ props: p, brand, onCtaClick, isBuilder }: Pr
           pageId={ctx.pageId ?? undefined}
           variantId={ctx.variantId ?? undefined}
           source="sticky-header"
+          theme={p.modalTheme ?? "light"}
         />
       )}
       {action === "chilipiper" && cpOpen && p.chilipiperUrl && (

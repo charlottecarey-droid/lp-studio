@@ -96,6 +96,12 @@ export interface StickyHeaderBlockProps extends CtaModalConfig {
   invertLogo?: boolean;
   /** Pixels of scroll before fade-to-solid. */
   scrollThreshold?: number;
+  /** Visual theme applied to the in-page modal opened by this header's
+   *  primary CTA when `primaryCtaAction` is "modal-form" / "modal-chilipiper".
+   *  "dark" matches dark cinematic templates (Inside Dandy) so the outer
+   *  modal shell blends with the inner form card. Defaults to "light" so
+   *  existing usages on other templates are unchanged. */
+  modalTheme?: "light" | "dark";
 }
 
 export interface StickyBarBlockProps {

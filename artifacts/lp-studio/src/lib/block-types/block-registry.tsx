@@ -1033,6 +1033,11 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       theme: "dark",
       position: "fixed",
       scrollThreshold: 40,
+      // This starter is the Inside-Dandy cinematic sticky header (dark
+      // glass + citron CTA), so default its CTA modal to the matching dark
+      // shell. Templates that drop a Sticky Hero Header onto a light page
+      // can override modalTheme back to "light".
+      modalTheme: "dark",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -4161,6 +4166,10 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       cta2Text: "Watch the film",
       cta2Url: "#",
       bgImage: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1920&fit=crop",
+      // The Inside Dandy hero lives on a dark cinematic page, so its CTA
+      // modal opens with the matching dark shell (flush with the inner
+      // form card) instead of the default white frame.
+      modalTheme: "dark",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

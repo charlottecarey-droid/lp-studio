@@ -237,6 +237,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               pageId={pageId}
               variantId={variantId}
               source="id-hero-cta1"
+              modalTheme={props.modalTheme ?? "light"}
             >
               <InlineText as="span" value={props.cta1Text ?? ""} onUpdate={f("cta1Text")} style={{ fontFamily: BODY, color: props.primaryCtaTextColor }}/>
               <span aria-hidden style={{ fontFamily: BODY, color: props.primaryCtaTextColor }}>→</span>
@@ -271,6 +272,7 @@ export function BlockIdHero({ props, onFieldChange, onCtaClick, pageId, variantI
               pageId={pageId}
               variantId={variantId}
               source="id-hero-cta2"
+              modalTheme={props.modalTheme ?? "light"}
             >
               {props.playGlyph && (
                 <span
