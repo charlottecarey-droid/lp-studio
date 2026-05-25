@@ -1,0 +1,33 @@
+Revise task #373 so I don't have to think during execution. The current write-up treats the cutover as one event, but I want partners and lp cleanly separated as two independent cutovers with their own steps, tests, and rollback. Specifically:
+Restructure the task into these sections, in this order:
+
+Context — keep the existing "What & Why" framing (swap the edge, not the origin), but mention upfront that this is a two-stage cutover, partners first, lp second, with a 24-48 hour gap.
+Stage 0: Get Dandy to add DNS records — everything currently in "Message to send Dandy" plus the verification steps (check-custom-hostname.sh, smoke test TLS via --resolve). This stage ends when both hostnames show active/active and smoke tests pass for both. No traffic changes yet.
+Stage 1: Cut over partners.meetdandy.com — its own complete section with:
+
+Pre-flight checklist (specific things to verify before pulling the trigger)
+Coordination steps with Dandy (what to message them, what they change)
+The actual DNS change (exact records, before/after values)
+Active monitoring window (what to watch, for how long, what counts as a problem)
+Pass criteria (24-48 hours clean)
+Rollback steps (specific, numbered, executable when tired at 11pm)
+
+
+Stage 2: Cut over lp.meetdandy.com — same structure as Stage 1, but gated on Stage 1 passing. This is the paid-traffic hostname, so the pre-flight should mention coordinating timing with Dandy's marketing team to avoid campaign launches.
+Post-cutover (both stages complete) — final verification commands, mark task done, link from #364 PR description.
+
+Specific requirements for each Stage 1 / Stage 2 section:
+
+Pre-flight checklist as actual checkboxes I can mark off
+Rollback as a literal numbered list with exact UI clicks or commands ("Open Name.com → meetdandy.com zone → find the partners A record → change to A 34.111.179.208 → save"). Not "see docs/phase3-prerequisites.md" — inline so I'm not reading docs at 2am.
+Monitoring section should specify: which Sentry filter, which CF dashboard, which curl loop, and what counts as "stop and roll back" vs "stop and investigate"
+Pass criteria as a single sentence I can copy-paste back to Dandy when telling them we're ready for Stage 2
+
+One framing fix:
+The existing "Post-cutover validation" section says "within 60 minutes of the A→CNAME flip." Update this so it applies per-stage: the validation runs after Stage 1 and again after Stage 2, with explicit 24-48 hour wait between them.
+One addition:
+Before Stage 1's actual DNS change, add a step: "Ask Dandy to reduce TTL on both A records to 60 seconds, at least 24 hours before the planned cutover window." This is so rollback propagates fast if needed. After Stage 2 completes successfully, add a step: "Ask Dandy to raise TTL back to its previous value." This is operational hygiene that's worth baking in.
+Critical:
+Update docs/phase3-prerequisites.md to match. The DNS rollback snapshot section should be split into per-hostname rollback (you can roll back partners without touching lp, and vice versa). If anything in the doc currently implies a single cutover event, fix it.
+Then show me the revised task in full so I can read through it as the actual executable plan. Don't summarize — I want to read what I'll be executing.
+
