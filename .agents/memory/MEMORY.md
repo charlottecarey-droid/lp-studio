@@ -1,1 +1,2 @@
-- [Verify infra before declaring prod regression](verify-infra-before-prod-alarm.md) — when an external URL returns wrong content, first confirm which infra is actually serving it (DNS, cutover state) before alarming.
+- [Verify infra before prod alarm](verify-infra-before-prod-alarm.md) — confirm DNS/CDN actually points at the new infra before declaring a prod regression; cut-over state is invisible from code alone.
+- [Prerender hash drift](prerender-hash-drift.md) — published HTML in R2 hard-codes Vite-hashed JS chunk URLs; every lp-studio deploy invalidates every prerendered page until it's re-rendered.
