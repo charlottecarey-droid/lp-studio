@@ -4,11 +4,19 @@ Task #364 follow-up. Capture before the user gives the go-ahead on DNS flip.
 
 ## DNS rollback snapshot (captured 2026-05-25)
 
-Both Dandy microsite hostnames currently point at the legacy GCP origin
-(`34.111.179.208`) — confirmed by `server: Google Frontend` / `via: 1.1 google`
-in response headers. They do NOT currently route through the Cloudflare
-worker (`tenant-host-router`), which is why partners.meetdandy.com still
-serves the old shell even though our R2 has fresh prerendered HTML.
+Phase 3 is an **edge swap, not an origin move.** Both Dandy microsite
+hostnames currently CNAME into our Replit deployment hosted on GCP
+(`34.111.179.208`) — confirmed by `server: Google Frontend` / `via: 1.1
+google` in response headers. They do NOT currently route through the
+Cloudflare worker (`tenant-host-router`), which is why
+partners.meetdandy.com still serves the old shell even though our R2 has
+fresh prerendered HTML.
+
+After cutover, traffic flows: **Dandy DNS → Cloudflare edge (worker +
+R2 prerendered HTML) → our Replit/GCP origin as fallback** for anything
+not in R2. The Replit/GCP service stays put — it remains the source of
+truth that renders pages and writes them into R2. Only the edge layer
+in front of it changes.
 
 | Host                       | Type | Value              |
 |----------------------------|------|--------------------|
@@ -21,7 +29,10 @@ serves the old shell even though our R2 has fresh prerendered HTML.
 | dandy.lpstudio.ai (CF)     | A    | 104.21.53.47, 172.67.209.1 |
 
 **Rollback plan**: revert partners + lp.meetdandy.com A records to
-`34.111.179.208` to restore current behavior.
+`34.111.179.208`. This restores the pre-cutover direct-to-Replit/GCP
+path — same origin as today, just skipping the new Cloudflare edge. No
+data-plane handoff needed since the origin never moved; safe to roll
+back at any time without coordination.
 
 ## Prerequisite checklist (BLOCK cutover until all ✅)
 
