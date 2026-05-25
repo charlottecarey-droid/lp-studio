@@ -154,9 +154,14 @@ export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
       );
     }
 
-    // Wait for React to mount real content (not just the pre-mount loader)
-    // and for the SPA's useEffect-driven head meta to land. Same heuristic
-    // as scripts/prerender-marketing.mjs.
+    // Wait for the LandingPageViewer to render real content. We can't just
+    // check that `#root` has non-`pre-mount-loader` children — between the
+    // pre-mount loader being removed and the LP blocks rendering, the SPA
+    // shows an auth-loading spinner that satisfies a naive "has children"
+    // check and would freeze a half-rendered snapshot (task #364 regression).
+    // The viewer wraps the real page in a `[data-lp-page]` div with non-zero
+    // child blocks, so we wait for that to appear with at least one child
+    // (i.e. block content has mounted). Also require a non-empty title.
     await page.waitForFunction(
       // Browser-context callback (typed `any` because the api-server tsconfig
       // doesn't include the DOM lib — Playwright serialises the function and
@@ -169,7 +174,10 @@ export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
         const hasRealChildren = Array.from(root.children as ArrayLike<{ id?: string }>).some(
           (c) => c?.id !== "pre-mount-loader",
         );
-        return hasRealChildren && !!doc.title && doc.title.length > 0;
+        if (!hasRealChildren) return false;
+        const lpPage = doc.querySelector?.("[data-lp-page]");
+        if (!lpPage || lpPage.children?.length === 0) return false;
+        return !!doc.title && doc.title.length > 0;
       }) as unknown as string,
       { timeout: timeoutMs },
     );

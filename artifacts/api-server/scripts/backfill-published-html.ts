@@ -35,6 +35,8 @@ interface Args {
   slug?: string;
   onlyMissing?: boolean;
   concurrency: number;
+  limit?: number;
+  offset?: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -44,6 +46,8 @@ function parseArgs(argv: string[]): Args {
     else if (a.startsWith("--slug=")) out.slug = a.slice("--slug=".length);
     else if (a === "--only-missing") out.onlyMissing = true;
     else if (a.startsWith("--concurrency=")) out.concurrency = Math.max(1, Number(a.slice("--concurrency=".length)));
+    else if (a.startsWith("--limit=")) out.limit = Math.max(1, Number(a.slice("--limit=".length)));
+    else if (a.startsWith("--offset=")) out.offset = Math.max(0, Number(a.slice("--offset=".length)));
   }
   return out;
 }
@@ -116,12 +120,17 @@ async function main() {
   if (args.tenantId !== undefined) whereClauses.push(eq(lpPagesTable.tenantId, args.tenantId));
   if (args.slug !== undefined) whereClauses.push(eq(lpPagesTable.slug, args.slug));
 
-  const pages = await db
+  const allPages = await db
     .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug })
     .from(lpPagesTable)
-    .where(and(...whereClauses));
+    .where(and(...whereClauses))
+    .orderBy(lpPagesTable.id);
 
-  console.log(`[backfill] ${pages.length} candidate pages`);
+  const sliceStart = args.offset ?? 0;
+  const sliceEnd = args.limit !== undefined ? sliceStart + args.limit : undefined;
+  const pages = allPages.slice(sliceStart, sliceEnd);
+
+  console.log(`[backfill] ${pages.length} candidate pages (slice ${sliceStart}..${sliceEnd ?? "end"} of ${allPages.length})`);
   const t0 = Date.now();
   const results: PerPageLog[] = [];
 
