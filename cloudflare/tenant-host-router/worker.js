@@ -274,6 +274,12 @@ export default {
     const proto = url.protocol.replace(":", "");
     const slug = extractSlug(url.pathname);
     const isGetOrHead = request.method === "GET" || request.method === "HEAD";
+    // Hoisted above Tier 1.5 so the stale-asset-shim log can read it
+    // without tripping the const TDZ — referencing `ua` before its
+    // declaration was throwing a ReferenceError on every /assets/* miss
+    // and surfacing as CF 1101 (Worker threw exception) → visitors saw
+    // HTTP 500 instead of the reload shim.
+    const ua = request.headers.get("user-agent") ?? "";
 
     // ── Tier 1: R2 prerender ─────────────────────────────────────────
     if (slug && isGetOrHead) {
@@ -324,7 +330,6 @@ export default {
     }
 
     // ── Tier 2: Bot OG short-circuit ─────────────────────────────────
-    const ua = request.headers.get("user-agent") ?? "";
     if (slug && BOT_UA_PATTERN.test(ua)) {
       try {
         const response = await fetchOgPreview(slug, originalHost, proto, env.WORKER_HOST_SECRET);
