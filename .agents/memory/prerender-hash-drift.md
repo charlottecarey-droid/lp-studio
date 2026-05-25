@@ -12,7 +12,7 @@ tenant page. Visitors saw the SSR shell never hydrate; the entrypoint
 emits new hashes; old hashes vanish from the Replit static origin;
 Replit's SPA rewrite returns `index.html` for the JS request.
 
-**Structural fix (task #374):**
+**Structural fix:**
 1. Build-time hook uploads `dist/public/assets/*` to R2 under
    `_studio-assets/assets/<basename>` as immutable objects.
 2. CF Worker serves `/assets/*` from R2 first, with a sessionStorage-

@@ -189,6 +189,56 @@ async function tryR2Asset(env, pathname) {
   return { hit: true, response: new Response(obj.body, { status: 200, headers }) };
 }
 
+/**
+ * Try to fetch the asset from the live origin. Returns the response only
+ * when origin is *actually* serving the asset — i.e. status 200 and a
+ * sensible content-type. When origin returns Replit's SPA-fallback
+ * `index.html` (text/html), 404, or any other non-asset response, we
+ * return null so the caller serves the reload shim instead.
+ *
+ * Why: during a rolling deploy the new lp-studio build is live on origin
+ * but its assets haven't been uploaded to R2 yet (or the build hook
+ * partially failed). We want those requests to succeed in real time
+ * instead of triggering a one-shot reload on every visitor. This path is
+ * load-bearing for that transition window.
+ */
+async function tryOriginAsset(request, url) {
+  try {
+    const target = new URL(url.pathname + url.search, REPLIT_TARGET);
+    // Forward without our auth/X-Original-Host headers — assets are
+    // static and don't need tenant context, and we don't want a missing
+    // WORKER_HOST_SECRET to break asset fetching.
+    const originResp = await fetch(target.toString(), {
+      method: request.method,
+      headers: { "User-Agent": request.headers.get("user-agent") ?? "lp-router" },
+      redirect: "manual",
+    });
+    if (!originResp.ok) return null;
+    const ct = originResp.headers.get("content-type") ?? "";
+    // The whole point of this check is to detect Replit's SPA rewrite
+    // returning index.html for a missing asset. Anything text/html means
+    // the asset isn't really there.
+    if (ct.toLowerCase().includes("text/html")) return null;
+    // Pass through with cache headers that match R2 hits — these are
+    // still content-addressed hashed assets, just served from origin.
+    const passHeaders = new Headers(originResp.headers);
+    passHeaders.set("Cache-Control", "public, max-age=31536000, immutable");
+    passHeaders.set("X-LP-Source", "origin-fallback");
+    return new Response(originResp.body, { status: originResp.status, headers: passHeaders });
+  } catch (err) {
+    // Network blip → let the shim path run; better a one-shot reload
+    // than a hung request.
+    console.log(
+      JSON.stringify({
+        event: "lp_origin_asset_fetch_failed",
+        path: url.pathname,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    return null;
+  }
+}
+
 function reloadShimResponse(pathname) {
   const ext = extOf(pathname);
   if (!SHIM_ELIGIBLE_EXT.has(ext)) return null;
@@ -231,19 +281,43 @@ export default {
       if (r2) return r2;
     }
 
-    // ── Tier 1.5: R2 SPA assets (task #374) ──────────────────────────
-    // For /assets/* requests, try R2 first. On miss for js/mjs/css,
-    // serve the reload shim instead of letting the request fall through
-    // to Replit (which would return text/html via the SPA rewrite and
-    // break the page). For other extensions (images, fonts, source maps)
-    // fall through to origin — they're not load-blocking and the origin
-    // has them in `dist/public/assets/*` of the current deploy.
+    // ── Tier 1.5: R2 SPA assets ──────────────────────────────────────
+    // For /assets/* requests, try R2 first. On R2 miss:
+    //   - For js/mjs/css: try origin. If origin returns a real asset
+    //     (non-text/html, non-404), pass it through — this rescues the
+    //     transitional window during a rolling deploy where the new
+    //     build's hashes haven't propagated to R2 yet but origin has
+    //     them. Only when origin also can't serve the asset (i.e.
+    //     Replit's SPA rewrite kicked in and returned text/html) do we
+    //     fall back to the reload shim. The shim is the *last resort*
+    //     for stale visitors holding HTML that references a hash that
+    //     exists nowhere — without it, the browser would receive
+    //     text/html for the JS download and the page would never load.
+    //   - For other extensions (images, fonts, source maps): fall
+    //     through to existing routing as before.
     if (isGetOrHead && url.pathname.startsWith("/assets/")) {
       const asset = await tryR2Asset(env, url.pathname);
       if (asset && asset.hit) return asset.response;
-      if (asset && !asset.hit) {
+      if (asset && !asset.hit && SHIM_ELIGIBLE_EXT.has(extOf(url.pathname))) {
+        const originResponse = await tryOriginAsset(request, url);
+        if (originResponse) return originResponse;
         const shim = reloadShimResponse(url.pathname);
-        if (shim) return shim;
+        if (shim) {
+          // Structured log so we can spot shim incidents at the edge
+          // without waiting on the api-server health canary. Surfaces
+          // in `wrangler tail` and Cloudflare Logpush. Fields are
+          // grep-able; keep the prefix stable.
+          console.log(
+            JSON.stringify({
+              event: "lp_stale_asset_shim_served",
+              host: originalHost,
+              path: url.pathname,
+              ext: extOf(url.pathname),
+              ua: ua.slice(0, 120),
+            })
+          );
+          return shim;
+        }
       }
       // Non-shim-eligible extensions (images/fonts/maps): fall through to
       // the existing routing so the live origin can serve them.
