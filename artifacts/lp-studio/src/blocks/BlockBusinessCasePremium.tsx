@@ -266,48 +266,49 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   // The dark column background shows through any gap, which reads as an
   // intentional editorial frame.
   const heroZoom = props.heroImageZoom ?? "fill";
-  // Per-mode <img> styling. fill = object-cover edge-to-edge (current
-  // behavior). fill-natural = full-bleed horizontally at natural aspect
-  // (matches Heartland-style hero — image sized to column width, top
-  // anchored, dark column fills any vertical gap, no inset frame).
-  // fit-wide = cover but inset 6% inside the column for an editorial
-  // frame. fit = object-contain so the full image is visible.
-  const heroImgStyle: React.CSSProperties =
-    heroZoom === "fill-natural"
+  // "fill-natural" is the Heartland-style treatment: the image dictates
+  // the column height instead of being cropped to fit. We render it as
+  // a normal static block (width:100%, height:auto) so the wrapper grows
+  // to the image's natural height — see partners.meetdandy.com.
+  // The other modes still use absolute positioning inside a fixed-height
+  // wrapper so the dark column stays a predictable stage.
+  const isNatural = heroZoom === "fill-natural";
+  const heroImgStyle: React.CSSProperties = isNatural
+    ? {} // static block — sizing handled by the className below
+    : heroZoom === "fit-wide"
       ? {
-          // Width-anchored full bleed: spans the column horizontally at
-          // its natural aspect ratio. Vertical anchor follows heroFocus.
-          width: "100%",
-          height: "auto",
-          left: 0,
-          right: 0,
-          top: heroFocus.startsWith("bottom") ? "auto" : 0,
-          bottom: heroFocus.startsWith("bottom") ? 0 : "auto",
+          objectFit: "cover",
+          objectPosition: heroFocus,
+          width: "88%",
+          height: "88%",
         }
-      : heroZoom === "fit-wide"
+      : heroZoom === "fit"
         ? {
+            objectFit: "contain",
+            objectPosition: heroFocus,
+            width: "100%",
+            height: "100%",
+          }
+        : {
             objectFit: "cover",
             objectPosition: heroFocus,
-            width: "88%",
-            height: "88%",
-          }
-        : heroZoom === "fit"
-          ? {
-              objectFit: "contain",
-              objectPosition: heroFocus,
-              width: "100%",
-              height: "100%",
-            }
-          : {
-              objectFit: "cover",
-              objectPosition: heroFocus,
-              width: "100%",
-              height: "100%",
-            };
+            width: "100%",
+            height: "100%",
+          };
   const heroInsetClass = heroZoom === "fit-wide" ? "inset-[6%]" : "inset-0";
   const renderHeroImageCol = () => (
     <div
-      className="group relative w-full h-full min-h-[360px] lg:min-h-[620px] overflow-hidden"
+      // For natural mode we drop the fixed min-height + h-full so the
+      // image's natural height drives the column. The wrapper stays
+      // `relative` + `overflow-hidden` so the hover-scale and the
+      // absolute overlays (left fade, bottom darken, plate, caption)
+      // still clip to the image bounds. When natural mode has no
+      // image, the fallback gradient is absolute inset-0 and would
+      // collapse to zero — keep the fixed min-height in that case.
+      className={
+        "group relative w-full overflow-hidden " +
+        (isNatural && props.heroImageUrl ? "" : "h-full min-h-[360px] lg:min-h-[620px]")
+      }
       style={heroZoom !== "fill" ? { background: dark } : undefined}
     >
       {props.heroImageUrl ? (
@@ -316,7 +317,9 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
             src={props.heroImageUrl}
             alt=""
             className={
-              `absolute ${heroInsetClass} max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] ` +
+              (isNatural
+                ? "block w-full h-auto max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] "
+                : `absolute ${heroInsetClass} max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] `) +
               (isColor ? "" : "mix-blend-luminosity opacity-80")
             }
             style={heroImgStyle}
