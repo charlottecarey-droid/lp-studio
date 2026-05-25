@@ -10,6 +10,18 @@ Task #364 follow-up. Capture before the user gives the go-ahead on DNS flip.
 
 ## DNS rollback snapshot (captured 2026-05-25)
 
+> **Where the records live**: the `meetdandy.com` zone is hosted on
+> **Google Cloud DNS** (NS records:
+> `ns-cloud-{a1,a2,a3,a4}.googledomains.com`), not Name.com. Rollback
+> happens in the Google Cloud Console for whichever GCP project owns
+> the zone — confirm the right Cloud-DNS contact at Dandy before any
+> cutover (see Task #373 for the exact Console click flow).
+>
+> Current TTL on both `partners` and `lp` A records is **300 seconds**
+> (5 min), so a rollback propagates in under 5 minutes without any
+> pre-cutover TTL reduction. Asking Dandy to drop the TTL to 60s
+> before the cutover is a nice-to-have margin, not load-bearing.
+
 Phase 3 is an **edge swap, not an origin move.** Both Dandy microsite
 hostnames currently resolve to our Replit deployment hosted on GCP
 (`34.111.179.208`) — confirmed by `server: Google Frontend` / `via: 1.1
@@ -42,8 +54,8 @@ needs reverting; leave the other alone.
 
 #### Rollback: `partners.meetdandy.com` (Stage 1)
 
-Revert just the `partners` record in the `meetdandy.com` zone back to
-its pre-Stage-1 value:
+Revert just the `partners` record in the `meetdandy.com` zone (Google
+Cloud DNS) back to its pre-Stage-1 value:
 
 | Host | Type | Revert to |
 |---|---|---|
@@ -51,14 +63,16 @@ its pre-Stage-1 value:
 
 This restores the pre-cutover direct-to-Replit/GCP path for
 `partners.meetdandy.com`. `lp.meetdandy.com` is unaffected. With the
-Stage-1 TTL of 60 seconds, propagation is 1–2 minutes. No data-plane
-handoff needed since the origin never moved; safe to roll back at any
-time without coordination.
+current TTL of 300 seconds (or 60s if reduced before cutover),
+propagation completes in under 5 minutes. No data-plane handoff
+needed since the origin never moved; safe to roll back at any time
+without coordination. Exact Console click flow lives in Task #373's
+"Rollback (Stage 1)" section.
 
 #### Rollback: `lp.meetdandy.com` (Stage 2)
 
-Revert just the `lp` record in the `meetdandy.com` zone back to its
-pre-Stage-2 value:
+Revert just the `lp` record in the `meetdandy.com` zone (Google Cloud
+DNS) back to its pre-Stage-2 value:
 
 | Host | Type | Revert to |
 |---|---|---|
@@ -67,8 +81,10 @@ pre-Stage-2 value:
 This restores the pre-cutover direct-to-Replit/GCP path for
 `lp.meetdandy.com`. `partners.meetdandy.com` is unaffected (and, if
 Stage 1 has already passed, continues serving from the CF edge
-throughout this rollback). With the Stage-2 TTL of 60 seconds,
-propagation is 1–2 minutes.
+throughout this rollback). With the current TTL of 300 seconds (or 60s
+if reduced before cutover), propagation completes in under 5 minutes.
+Exact Console click flow lives in Task #373's "Rollback (Stage 2)"
+section.
 
 ## Prerequisite checklist (BLOCK cutover until all ✅)
 
@@ -119,19 +135,30 @@ These apply to both stages — Stage 1 cannot start until they're all green.
   - **Recommended**: also add a daily digest of `recovered_on_retry`
     so we notice if the transient rate climbs.
 
+- [ ] **Cloud-DNS contact at Dandy identified**
+  - The zone is on Google Cloud DNS. Confirmed which person at Dandy has
+    Console access to the GCP project that owns the `meetdandy.com`
+    zone, and have their GCP project name/ID.
+  - This may not be the same person who handles other DNS asks (e.g.,
+    registrar work if Name.com is still the registrar). Get the right
+    contact upfront to avoid a wrong-person round-trip.
+
 - [ ] **Dandy on standby for Stage 1**
   - User to confirm directly with Dandy (we can't verify from here).
   - Stage 1 cutover window picked for a known-quiet hour for
     `partners.meetdandy.com`.
-  - Dandy has reduced TTL on the `partners` A record to 60 seconds at
-    least 24 hours before the Stage 1 window.
+  - *Optional, not load-bearing*: Dandy reduced TTL on the `partners`
+    A record from 300s to 60s at least 24 hours before the Stage 1
+    window. Skip if it's friction — current 300s TTL still propagates
+    rollback in under 5 minutes.
 
 - [ ] **Dandy on standby for Stage 2** (24–48 hours after Stage 1 passes)
   - Stage 2 window coordinated with Dandy's marketing team — no paid
     campaign launch, email blast, or major partner announcement within
     ±24 hours.
-  - Dandy has reduced TTL on the `lp` A record to 60 seconds at least 24
-    hours before the Stage 2 window.
+  - *Optional, not load-bearing*: Dandy reduced TTL on the `lp` A
+    record from 300s to 60s at least 24 hours before the Stage 2
+    window.
 
 ## Day-of cutover sequence
 
