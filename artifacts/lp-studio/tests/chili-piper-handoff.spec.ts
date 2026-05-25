@@ -570,4 +570,74 @@ test.describe("Marketo → Chili Piper handoff", () => {
     expect(u.searchParams.get("phone")).toBe("555-7777");
     expect(u.searchParams.get("company")).toBe("Acme CTA");
   });
+
+  // Task #390 retrofit: ENT pages used to ship cta-button blocks with
+  // `ctaAction: "chilipiper"` + `chilipiperUrl`, which opened Chili Piper
+  // directly without ever capturing identity. The migration rewrites those
+  // blocks to `ctaAction: "modal-form"` + `modalFormSource: "linked"` +
+  // `modalChiliPiperHandoffUrl`, so the visitor sees EmailCaptureModal
+  // first (capture → Sheets/Marketo) and the CP popup comes after.
+  //
+  // This test proves the renderer half end-to-end: a published cta-button
+  // block in the retrofitted shape opens EmailCaptureModal on click (not a
+  // raw CP iframe). The post-submit CP handoff itself is tracked separately
+  // (see follow-up #391).
+  test("retrofitted cta-button (ctaAction=modal-form, source=linked) opens EmailCaptureModal instead of going straight to Chili Piper", async ({ page, baseURL, request }) => {
+    expect(baseURL, "playwright baseURL must be configured").toBeTruthy();
+
+    // Reuse the same Royal tenant + linked form created in beforeAll: the
+    // form's chili_piper_config is irrelevant here (the handoff URL lives
+    // on the CTA block, not on the form), but a real lp_forms row is
+    // required so EmailCaptureModal's globalForm fetch succeeds.
+    const retroSlug = `cp-retrofit-${Date.now().toString(36)}`;
+    const createRes = await request.post("/api/lp/pages", {
+      headers: {
+        ...(await csrfHeaders(request, tenant.sessionSid)),
+        "Content-Type": "application/json",
+      },
+      data: {
+        title: "CP Retrofit Page",
+        slug: retroSlug,
+        status: "published",
+        blocks: [
+          {
+            id: "cta-1",
+            type: "cta-button",
+            props: {
+              ctaText: "Book a demo",
+              ctaAction: "modal-form",
+              modalFormSource: "linked",
+              modalFormId: formId,
+              modalChiliPiperHandoffUrl: "https://example.chilipiper.com/router/test",
+              modalChiliPiperHandoffMode: "modal",
+              modalHeadline: "Retrofit capture test",
+            },
+          },
+        ],
+      },
+    });
+    expect(
+      createRes.ok(),
+      `retrofit page create failed: ${createRes.status()} ${await createRes.text()}`,
+    ).toBe(true);
+
+    const viewerUrl = `/lp/${retroSlug}`;
+    const response = await page.goto(viewerUrl, { waitUntil: "domcontentloaded" });
+    expect(response, `navigation to ${viewerUrl} returned no response`).not.toBeNull();
+    expect(response!.status(), `unexpected status for ${viewerUrl}`).toBeLessThan(400);
+
+    // Click the migrated CTA.
+    await page.getByRole("button", { name: "Book a demo" }).click();
+
+    // EmailCaptureModal opens — confirmed via the custom headline + email
+    // input. This is the whole point of the retrofit: identity capture
+    // happens before Chili Piper, not after a CP no-op redirect.
+    await expect(page.getByText("Retrofit capture test")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('input[type="email"]').first()).toBeVisible();
+
+    // And critically: no Chili Piper iframe is mounted yet (capture-first,
+    // not handoff-first). Without the retrofit, this CTA would have opened
+    // a CP iframe immediately on click.
+    await expect(page.locator("iframe[src*='chilipiper.com']")).toHaveCount(0);
+  });
 });

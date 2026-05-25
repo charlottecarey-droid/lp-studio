@@ -152,6 +152,21 @@ In the Form Panel → **Settings** tab:
 
 If the router is offline or the meeting UUID is wrong, the form still submits to Marketo / our DB — only the calendar step fails. Check the Chili Piper admin if visitors report a blank scheduler.
 
+### 7a. CTA buttons that go straight to Chili Piper — **deprecated**
+
+Older pages have CTA blocks (`cta-button`, `bottom-cta`, hero CTAs, `roi-calculator`, `dso-network-map`, `dso-bento-outcomes`) configured with `ctaAction: "chilipiper"` (or `ctaMode: "chilipiper"`) and a raw `chilipiperUrl`. Clicking those opened the Chili Piper popup immediately — **no name, no email, no company captured** before the booking step, so leads that bounced off the calendar never made it to Sheets / Marketo / Salesforce.
+
+**Do not use this shape on new pages.** Instead, open a capture form first and pass Chili Piper the prefill data:
+
+- `ctaAction` (or `ctaMode` on the DSO blocks): `"modal-form"`
+- `modalFormSource`: `"linked"` and `modalFormId`: the id of your capture form (typically the Demo Request form), **or** `"marketo"` with the Marketo coordinates
+- `modalChiliPiperHandoffUrl`: the Chili Piper router URL that used to live in `chilipiperUrl`
+- `modalChiliPiperHandoffMode`: `"modal"` (inline iframe) or `"redirect"`
+
+The visitor sees: CTA click → quick capture form → submit → Chili Piper calendar prefilled. Every click is now a named lead even if they never book.
+
+Existing pages were migrated by `.local/scripts/migrate-ent-cp-to-modal.mjs` (tenant-scoped, idempotent — safe to rerun for spot-checks).
+
 ---
 
 ## 8. GTM "Marketo Form Submission" event
