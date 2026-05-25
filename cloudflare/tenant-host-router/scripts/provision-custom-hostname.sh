@@ -108,30 +108,47 @@ if not d.get("success"):
     sys.exit(1)
 r = d["result"]
 host = r["hostname"]
-print(f"  hostname:    {host}")
-print(f"  id:          {r[\"id\"]}")
-print(f"  status:      {r.get(\"status\", \"?\")}")
+rid = r["id"]
+status = r.get("status", "?")
 ssl = r.get("ssl", {})
-print(f"  ssl.status:  {ssl.get(\"status\", \"?\")}")
-print(f"  ssl.method:  {ssl.get(\"method\", \"?\")}")
+ssl_status = ssl.get("status", "?")
+ssl_method = ssl.get("method", "?")
+print("  hostname:    %s" % host)
+print("  id:          %s" % rid)
+print("  status:      %s" % status)
+print("  ssl.status:  %s" % ssl_status)
+print("  ssl.method:  %s" % ssl_method)
+# Surface validation errors so the operator knows what to chase (e.g.
+# CAA records blocking issuance, which require a customer-side DNS fix
+# separate from the TXT validation records).
+errs = []
+for e in (r.get("verification_errors") or []):
+    errs.append("  verif: " + str(e))
+for v in (ssl.get("validation_errors") or []):
+    m = v.get("message") if isinstance(v, dict) else str(v)
+    errs.append("  ssl:   " + str(m))
+if errs:
+    print("  --- ACTIVE VALIDATION ERRORS (must be resolved by customer) ---")
+    for line in errs:
+        print(line)
 print()
 print("  --- TXT records the customer must add to their zone ---")
 ov = r.get("ownership_verification") or {}
-if ov:
-    print(f"  [1] Ownership verification (proves CF can manage this hostname)")
-    print(f"      Type:  {ov.get(\"type\", \"TXT\")}")
-    print(f"      Name:  {ov.get(\"name\", \"?\")}")
-    print(f"      Value: {ov.get(\"value\", \"?\")}")
+if ov and ov.get("name"):
+    print("  [1] Ownership verification (proves CF can manage this hostname)")
+    print("      Type:  %s" % ov.get("type", "TXT"))
+    print("      Name:  %s" % ov.get("name", "?"))
+    print("      Value: %s" % ov.get("value", "?"))
 else:
     print("  [1] Ownership verification: (none — already validated or HTTP method)")
 print()
 val = ssl.get("validation_records") or []
 if val:
     for i, v in enumerate(val, start=2):
-        print(f"  [{i}] SSL DCV (proves we control the hostname for cert issuance)")
-        print(f"      Type:  TXT")
-        print(f"      Name:  {v.get(\"txt_name\", \"?\")}")
-        print(f"      Value: {v.get(\"txt_value\", \"?\")}")
+        print("  [%d] SSL DCV (proves we control the hostname for cert issuance)" % i)
+        print("      Type:  TXT")
+        print("      Name:  %s" % v.get("txt_name", "?"))
+        print("      Value: %s" % v.get("txt_value", "?"))
         print()
 else:
     print("  [2+] SSL DCV records: (none yet — CF may still be generating; re-run status script in 30s)")
