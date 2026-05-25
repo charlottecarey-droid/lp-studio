@@ -1,0 +1,1 @@
+- [Verify infra before declaring prod regression](verify-infra-before-prod-alarm.md) — when an external URL returns wrong content, first confirm which infra is actually serving it (DNS, cutover state) before alarming.
