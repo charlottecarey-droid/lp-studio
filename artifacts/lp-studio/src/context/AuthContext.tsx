@@ -163,6 +163,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const host = window.location.hostname;
     const params = new URLSearchParams({ host });
+    // Prerender override (task #364): when puppeteer loads
+    // `render.lpstudio.ai/preview/<slug>?reviewToken=...` the host has no
+    // tenant binding. Forward the slug + reviewToken so the server can
+    // resolve the tenant from the page record. The reviewToken already
+    // gates draft access; this does not widen the trust surface.
+    try {
+      const search = new URLSearchParams(window.location.search);
+      const rt = search.get("reviewToken");
+      const pathMatch = window.location.pathname.match(/^\/preview\/([^/?#]+)/);
+      const slugFromPath = pathMatch ? decodeURIComponent(pathMatch[1]) : null;
+      if (rt && slugFromPath) {
+        params.set("reviewToken", rt);
+        params.set("slug", slugFromPath);
+      }
+    } catch {
+      // best-effort; falls back to host-only resolution
+    }
     const url = `/api/auth/domain-context?${params}`;
 
     // Retry transient failures so a single flaky fetch doesn't leave the

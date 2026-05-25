@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { OAuth2Client } from "google-auth-library";
-import { pool } from "@workspace/db";
+import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
@@ -884,6 +885,47 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     if (!domain) {
       res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null });
       return;
+    }
+
+    // Prerender override (task #364): when the SPA is rendering a preview
+    // page via puppeteer from a non-tenant host like `render.lpstudio.ai`,
+    // the host has no tenant binding. The page URL carries a `reviewToken`
+    // that already gates access to the draft; we use it (plus the URL slug)
+    // to resolve the tenant directly from the page record. This makes the
+    // prerender host behave as a microsite-only domain for that one page.
+    // The reviewToken already authorizes viewing the page, so this does not
+    // widen access. We bypass the host cache when this override is used.
+    const reviewToken = typeof req.query.reviewToken === "string" ? req.query.reviewToken : null;
+    const pageSlug = typeof req.query.slug === "string" ? req.query.slug.toLowerCase() : null;
+    if (reviewToken && pageSlug) {
+      const rows = await db
+        .select({
+          tenantId: tenantsTable.id,
+          tenantName: tenantsTable.name,
+          tenantSlug: tenantsTable.slug,
+          micrositeDomain: tenantsTable.micrositeDomain,
+        })
+        .from(lpPageReviewsTable)
+        .innerJoin(lpPagesTable, eq(lpPageReviewsTable.pageId, lpPagesTable.id))
+        .innerJoin(tenantsTable, eq(lpPagesTable.tenantId, tenantsTable.id))
+        .where(and(eq(lpPageReviewsTable.token, reviewToken), eq(lpPagesTable.slug, pageSlug)))
+        .limit(1);
+      if (rows.length) {
+        const t = rows[0];
+        const data = {
+          mode: "microsite-only" as const,
+          tenantId: t.tenantId,
+          tenantName: t.tenantName,
+          tenantSlug: t.tenantSlug,
+          micrositeDomain: t.micrositeDomain,
+          redirectToHost: null,
+        };
+        // Don't cache — keyed by token+slug, not by host.
+        res.set("Cache-Control", "no-store");
+        res.json(data);
+        return;
+      }
+      // Fall through to normal host resolution if token/slug didn't match.
     }
 
     // Serve from in-memory cache if still fresh
