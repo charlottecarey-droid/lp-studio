@@ -317,16 +317,25 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       let webhookUrl: string | null = null;
       let marketoConfig: MarketoConfig | null = null;
       let salesforceConfig: SalesforceConfig | null = null;
+      let sheetsConfig: { enabled?: boolean; sheetId?: string; tabName?: string } | null = null;
       let sendFollowUpToSubmitter = false;
       let followUpTemplateId: number | null = null;
 
       if (formId) {
-        const [globalForm] = await db.select().from(lpFormsTable).where(eq(lpFormsTable.id, formId));
+        // Tenant-scoped lookup: a global form's config only applies when it
+        // belongs to the same tenant as the page being submitted. Without
+        // this guard, a request could pair pageA with formB from another
+        // tenant and redirect lead sync (sheets/CRM/webhook) cross-tenant.
+        const [globalForm] = await db.select().from(lpFormsTable).where(and(
+          eq(lpFormsTable.id, formId),
+          eq(lpFormsTable.tenantId, page.tenantId),
+        ));
         if (globalForm) {
           emailRecipients = (globalForm.emailRecipients as string[]) ?? [];
           webhookUrl = globalForm.webhookUrl ?? null;
           marketoConfig = globalForm.marketoConfig as MarketoConfig | null;
           salesforceConfig = globalForm.salesforceConfig as SalesforceConfig | null;
+          sheetsConfig = (globalForm.sheetsConfig as typeof sheetsConfig) ?? null;
           sendFollowUpToSubmitter = !!globalForm.sendFollowUpToSubmitter;
           followUpTemplateId = globalForm.followUpTemplateId ?? null;
         }
@@ -392,7 +401,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         pageSlug: payload.pageSlug,
         variantName: payload.variantName,
         fields: payload.fields,
-      }, pageTenantId).catch(err =>
+      }, pageTenantId, sheetsConfig).catch(err =>
         console.error("Sheets sync error for lead", lead.id, ":", err)
       );
 

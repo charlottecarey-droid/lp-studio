@@ -150,6 +150,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
     "name", "description", "steps", "multiStep", "submitButtonText",
     "successMessage", "redirectUrl", "backgroundStyle",
     "emailRecipients", "webhookUrl", "marketoConfig", "salesforceConfig",
+    "sheetsConfig",
     "chiliPiperConfig", "gtmDataLayerConfig",
     "sendFollowUpToSubmitter", "followUpTemplateId",
     "styling",
@@ -157,6 +158,35 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const key of allowed) {
     if (key in req.body) updates[key] = (req.body as Record<string, unknown>)[key];
+  }
+
+  // Validate sheetsConfig if present: must be null or an object with
+  // optional { enabled:boolean, sheetId:string<=200, tabName:string<=100 }.
+  // Trims strings and rejects extra keys to keep the persisted shape clean
+  // before it's consumed by syncLeadToSheets.
+  if ("sheetsConfig" in updates) {
+    const sc = updates.sheetsConfig;
+    if (sc === null || sc === undefined) {
+      updates.sheetsConfig = null;
+    } else if (typeof sc !== "object" || Array.isArray(sc)) {
+      res.status(400).json({ error: "sheetsConfig must be an object or null" }); return;
+    } else {
+      const raw = sc as Record<string, unknown>;
+      const clean: { enabled?: boolean; sheetId?: string; tabName?: string } = {};
+      if ("enabled" in raw) {
+        if (typeof raw.enabled !== "boolean") { res.status(400).json({ error: "sheetsConfig.enabled must be boolean" }); return; }
+        clean.enabled = raw.enabled;
+      }
+      if ("sheetId" in raw && raw.sheetId != null && raw.sheetId !== "") {
+        if (typeof raw.sheetId !== "string" || raw.sheetId.length > 200) { res.status(400).json({ error: "sheetsConfig.sheetId must be a string ≤200 chars" }); return; }
+        clean.sheetId = raw.sheetId.trim();
+      }
+      if ("tabName" in raw && raw.tabName != null && raw.tabName !== "") {
+        if (typeof raw.tabName !== "string" || raw.tabName.length > 100) { res.status(400).json({ error: "sheetsConfig.tabName must be a string ≤100 chars" }); return; }
+        clean.tabName = raw.tabName.trim();
+      }
+      updates.sheetsConfig = clean;
+    }
   }
 
   const [form] = await db
@@ -192,6 +222,7 @@ router.post("/lp/forms/:id/duplicate", async (req, res): Promise<void> => {
       webhookUrl: src.webhookUrl,
       marketoConfig: src.marketoConfig,
       salesforceConfig: src.salesforceConfig,
+      sheetsConfig: src.sheetsConfig,
       chiliPiperConfig: src.chiliPiperConfig,
       gtmDataLayerConfig: src.gtmDataLayerConfig,
       styling: src.styling,

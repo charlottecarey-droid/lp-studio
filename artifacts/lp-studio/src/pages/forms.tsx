@@ -34,6 +34,7 @@ interface GlobalForm {
   webhookUrl: string | null;
   marketoConfig: MarketoConfig | null;
   salesforceConfig: SalesforceConfig | null;
+  sheetsConfig: SheetsOverrideConfig | null;
   chiliPiperConfig: ChiliPiperConfig | null;
   gtmDataLayerConfig: GtmDataLayerConfig | null;
   sendFollowUpToSubmitter: boolean;
@@ -63,6 +64,16 @@ interface MarketoConfig {
 interface SalesforceConfig {
   enabled?: boolean;
   fieldMappings: Record<string, string>;
+}
+
+// Per-form Google Sheets override. When `enabled` is true and `sheetId`
+// is set, this form's leads append to the override sheet/tab instead of
+// the tenant's default Google Sheets integration target. Credentials
+// always come from the tenant's integration (Settings → Integrations).
+interface SheetsOverrideConfig {
+  enabled?: boolean;
+  sheetId?: string;
+  tabName?: string;
 }
 
 interface ChiliPiperConfig {
@@ -431,6 +442,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           redirectUrl: local.redirectUrl, backgroundStyle: local.backgroundStyle,
           emailRecipients: local.emailRecipients, webhookUrl: local.webhookUrl,
           marketoConfig: local.marketoConfig, salesforceConfig: local.salesforceConfig,
+          sheetsConfig: local.sheetsConfig,
           chiliPiperConfig: local.chiliPiperConfig,
           gtmDataLayerConfig: local.gtmDataLayerConfig,
           sendFollowUpToSubmitter: local.sendFollowUpToSubmitter,
@@ -558,6 +570,58 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               <Label className={LABEL_CLS}>Webhook URL</Label>
               <p className="text-xs text-muted-foreground mb-2">POST the lead payload to this URL on each submission.</p>
               <Input value={local.webhookUrl ?? ""} onChange={e => set("webhookUrl", e.target.value || null)} placeholder="https://hooks.example.com/lead" className="text-sm" />
+            </div>
+
+            {/* Google Sheets override — by default leads land in the tenant's
+                global sheet (Settings → Integrations). Toggle on to redirect
+                THIS form's leads to a different sheet / tab using the same
+                service-account credentials. */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-medium">Google Sheets — Separate Sheet</div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {local.sheetsConfig?.enabled
+                      ? "Leads from this form go to the sheet below (instead of the tenant default)."
+                      : "Leads go to the tenant's default sheet configured in Settings → Integrations."}
+                  </p>
+                </div>
+                <Switch
+                  checked={!!local.sheetsConfig?.enabled}
+                  onCheckedChange={v =>
+                    set("sheetsConfig", v
+                      ? { ...(local.sheetsConfig ?? {}), enabled: true }
+                      : (local.sheetsConfig ? { ...local.sheetsConfig, enabled: false } : null))
+                  }
+                />
+              </div>
+              {local.sheetsConfig?.enabled && (
+                <div className="p-3 space-y-3">
+                  <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+                    Make sure the sheet is shared with the service account email from <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a> (Editor access).
+                  </p>
+                  <div>
+                    <Label className={LABEL_CLS}>Sheet ID</Label>
+                    <Input
+                      className="text-sm font-mono"
+                      placeholder="16SdT0lUbGLMjYkz11yFWBaYgWdEoo5Su1XqFFR4iGGw"
+                      value={local.sheetsConfig?.sheetId ?? ""}
+                      onChange={e => set("sheetsConfig", { ...(local.sheetsConfig ?? { enabled: true }), sheetId: e.target.value })}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">Found in the spreadsheet URL: <code>…/spreadsheets/d/<strong>ID</strong>/edit</code></p>
+                  </div>
+                  <div>
+                    <Label className={LABEL_CLS}>Tab / Sheet name</Label>
+                    <Input
+                      className="text-sm"
+                      placeholder="Spatial Tour Leads"
+                      value={local.sheetsConfig?.tabName ?? ""}
+                      onChange={e => set("sheetsConfig", { ...(local.sheetsConfig ?? { enabled: true }), tabName: e.target.value })}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">The tab is created automatically if it doesn't exist. Defaults to "Leads" if blank.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <FollowUpEmailSection

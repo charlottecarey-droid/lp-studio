@@ -28,6 +28,12 @@ export const lpFormsTable = pgTable("lp_forms", {
   // these values so a single global form can carry the Inside Dandy /
   // Apple Vision Pro look across every CTA that links to it.
   styling: jsonb("styling"),
+  // Per-form Google Sheets override. NULL = the lead is appended to the
+  // tenant's default sheet (the one configured in Settings → Integrations).
+  // When set, the override redirects this form's leads to a different
+  // sheet / tab while reusing the tenant's service account credentials.
+  // Shape: { enabled: boolean, sheetId?: string, tabName?: string }.
+  sheetsConfig: jsonb("sheets_config"),
   sendFollowUpToSubmitter: boolean("send_follow_up_to_submitter").notNull().default(false),
   followUpTemplateId: integer("follow_up_template_id").references(() => salesEmailTemplatesTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -27,6 +27,7 @@
     { "idx": 22, "version": "7", "when": 1700000022000, "tag": "0022_dandy_dca_proof_rephrase",                "breakpoints": false },
     { "idx": 23, "version": "7", "when": 1747600000000, "tag": "0023_block_catalog_init",                      "breakpoints": false },
     { "idx": 24, "version": "7", "when": 1747700000000, "tag": "0024_lp_forms_styling",                        "breakpoints": false },
-    { "idx": 25, "version": "7", "when": 1747800000000, "tag": "0025_lp_pages_asset_health",                   "breakpoints": false }
+    { "idx": 25, "version": "7", "when": 1747800000000, "tag": "0025_lp_pages_asset_health",                   "breakpoints": false },
+    { "idx": 26, "version": "7", "when": 1747900000000, "tag": "0026_lp_forms_sheets_config",                  "breakpoints": false }
   ]
 }

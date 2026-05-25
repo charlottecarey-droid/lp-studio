@@ -337,11 +337,24 @@ export async function syncLeadToSheets(
     fields: Record<string, unknown>;
   },
   tenantId = 1,
+  // Per-form override (from lp_forms.sheets_config). When `enabled` is
+  // explicitly false, this form opts out of sheet sync entirely. When
+  // sheetId / tabName are set, they redirect this form's row to a
+  // different destination while still reusing the tenant's service
+  // account credentials (which always come from lp_integrations).
+  override?: { enabled?: boolean; sheetId?: string; tabName?: string } | null,
 ): Promise<void> {
+  if (override?.enabled === false) return;
   const row = await getIntegration("google_sheets", tenantId);
   if (!row || !row.enabled) return;
-  const cfg = row.config as SheetsConfig;
-  if (!cfg.sheetId || !cfg.serviceAccountEmail || !cfg.privateKey) return;
+  const baseCfg = row.config as SheetsConfig;
+  if (!baseCfg.serviceAccountEmail || !baseCfg.privateKey) return;
+  const cfg: SheetsConfig = {
+    ...baseCfg,
+    sheetId: override?.sheetId?.trim() || baseCfg.sheetId,
+    tabName: override?.tabName?.trim() || baseCfg.tabName,
+  };
+  if (!cfg.sheetId) return;
   const { appendLeadRow } = await import("../../lib/google-sheets");
   await appendLeadRow(cfg, lead);
 }
