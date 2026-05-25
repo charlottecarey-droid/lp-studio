@@ -1,18 +1,36 @@
 ---
-name: Prerender hash drift breaks published pages on lp-studio redeploy
-description: Why every published landing page silently breaks after an lp-studio deploy until its R2 prerender is regenerated.
+name: LP prerender hash drift
+description: Why published landing pages broke after every lp-studio redeploy, and the structural fix shape (task #374).
 ---
 
-Published landing pages are prerendered into static HTML and stored in R2, then served at the tenant subdomain by a Cloudflare Worker. The prerendered HTML hard-codes the Vite asset URLs of the build it was rendered against (e.g. `/assets/index-BgkStuYI.js`, `/assets/index-KF5u_VbW.js`).
+**Symptom:** every lp-studio redeploy silently broke every published
+tenant page. Visitors saw the SSR shell never hydrate; the entrypoint
+`<script src="/assets/index-XXXX.js">` returned `text/html`.
 
-When lp-studio is redeployed, Vite emits a new hashed bundle (e.g. `/assets/index-Dn5XGrKd.js`) and the old hashed chunks stop existing on the origin. The SPA's history-fallback then matches the unknown asset path and returns `index.html` with `content-type: text/html`. The browser tries to execute HTML as an ES module, fails with a silent MIME error, React never mounts, and the visitor is left on the loading-spinner stub from `index.html` forever.
+**Root cause:** prerendered LP HTML lives in R2 forever (keyed by
+`<host>/<slug>.html`). It hard-codes Vite-hashed asset paths. A redeploy
+emits new hashes; old hashes vanish from the Replit static origin;
+Replit's SPA rewrite returns `index.html` for the JS request.
 
-Symptoms a future agent will see:
-- `curl -I https://<tenant>/assets/index-<oldhash>.js` returns 200 with `content-type: text/html` (not `application/javascript`).
-- The prerendered HTML's `<script src=…>` hashes don't match what the current lp-studio origin serves at `/`.
-- Page-config and brand-config APIs all return 200; only the bundle is broken.
-- All cut-over tenants are affected after each deploy, not just one — partners.meetdandy.com is hidden from this because its DNS hasn't cut over yet, so visitors still hit lp-studio's live SPA directly.
+**Structural fix (task #374):**
+1. Build-time hook uploads `dist/public/assets/*` to R2 under
+   `_studio-assets/assets/<basename>` as immutable objects.
+2. CF Worker serves `/assets/*` from R2 first, with a sessionStorage-
+   guarded one-shot reload shim (correct content-type) on miss.
+3. Publish-time presence check refuses to write LP HTML whose referenced
+   `/assets/*` aren't in R2.
+4. Scheduled health-check canary samples published pages and alerts on
+   asset miss.
+5. Scheduled GC deletes only assets that are BOTH unreferenced AND
+   >30d old; dry-run by default.
 
-**Why:** the prerender pipeline writes once and is never invalidated by lp-studio's deploy pipeline. There is no link between "lp-studio bundle hash changed" and "regenerate every published page in R2".
+**Why:** the existing `main.tsx` ChunkLoadError shim only catches
+*dynamic-import* failures. Entrypoint `<script>` failures never reach
+React. The shim must live at the edge (Worker), not in lp-studio.
 
-**How to apply:** if anyone reports "published page is broken / blank / stuck on spinner" after a recent deploy, check the JS asset content-type first. The fix lives in the publish pipeline, not in the viewer code. Possible directions: re-prerender every published `lp_pages` row on lp-studio deploy; have the origin return a deterministic JS shim for unknown hashed assets that triggers a one-shot reload; or have the Worker detect a stale-asset signal from the origin and bypass the R2 cache to serve the live SPA in degraded client-render mode.
+**How to apply:** any change to the LP asset pipeline must preserve all
+five components together — they're a system. Don't remove the
+publish-time presence check without removing the GC retention window,
+etc. The asset-reference regex and R2 key derivation are centralized in
+`artifacts/api-server/src/lib/assetRefs.ts` to prevent drift between
+writers and readers.

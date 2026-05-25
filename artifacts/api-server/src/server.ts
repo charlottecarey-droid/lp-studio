@@ -15,6 +15,8 @@ import { pool } from "@workspace/db";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
+import { runAssetHealthCheck } from "./lib/assetHealthCheck";
+import { runAssetsGc } from "./lib/assetsGc";
 import { Sentry } from "./lib/sentry";
 import { setReady } from "./lib/readiness";
 
@@ -64,6 +66,12 @@ function checkPrerenderConfig(): void {
 }
 
 const SLUG_REDIRECT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
+// Task #374 — LP asset health canary. Samples recent published pages and
+// alerts when their referenced /assets/* are missing from R2. 15min cadence
+// surfaces a regression of the build hook within one cycle.
+const LP_ASSET_HEALTH_INTERVAL_MS = 15 * 60 * 1000;
+// Task #374 — daily R2 asset GC. Dry-run by default (LP_ASSETS_GC_DRY_RUN).
+const LP_ASSETS_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Task #152 — warn admins ~7 days before an old workspace URL stops working.
 // Run on a daily cadence so a row created at any time of day still gets at
 // least one scan inside the warning window before it expires.
@@ -252,6 +260,22 @@ const httpServer = app.listen(port, (err) => {
   setInterval(() => {
     void notifyExpiringSlugRedirects();
   }, SLUG_REDIRECT_NOTIFY_INTERVAL_MS).unref();
+
+  // Task #374 — periodic LP asset health check. Samples recent published
+  // pages from R2 and alerts (Sentry + log) when a referenced /assets/*
+  // is missing — the canary that catches a regression of the lp-studio
+  // build hook before it bites a visitor.
+  void runAssetHealthCheck();
+  setInterval(() => {
+    void runAssetHealthCheck();
+  }, LP_ASSET_HEALTH_INTERVAL_MS).unref();
+
+  // Task #374 — daily R2 asset GC. Dry-run by default
+  // (LP_ASSETS_GC_DRY_RUN unset or set to anything except "0").
+  void runAssetsGc();
+  setInterval(() => {
+    void runAssetsGc();
+  }, LP_ASSETS_GC_INTERVAL_MS).unref();
 
   // Task #190 — emit a periodic Sentry "heartbeat" event in production so
   // the project always has a known signal. The matching Sentry alert

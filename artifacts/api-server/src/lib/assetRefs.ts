@@ -1,0 +1,69 @@
+/**
+ * Shared helpers for extracting and verifying `/assets/*` references in
+ * prerendered landing-page HTML (task #374).
+ *
+ * Both the publish-time presence check (`triggerPublishedRender`) and
+ * the scheduled audit/health/GC jobs need the same answers:
+ *   - "which Vite-hashed asset paths does this HTML reference?"
+ *   - "does R2 currently have that asset?"
+ *
+ * Centralized here so the regex + the R2 key derivation can't drift
+ * between writers and readers (a drift that would silently re-introduce
+ * the hash-mismatch bug we're fixing).
+ */
+import { HeadObjectCommand, NotFound, S3Client } from "@aws-sdk/client-s3";
+
+// Match Vite's default output layout `/assets/<hashed-name>.<ext>`. We
+// intentionally accept any extension; the GC/audit jobs need to see
+// fonts/images too, not just js/css. The capture group is the *basename*,
+// because R2 keys are `_studio-assets/assets/<basename>` (flat by Vite
+// default; we walk subdirectories on the uploader side just in case).
+//
+// Matches both quoted (`src="/assets/x.js"`) and bare (CSS url(...)) refs,
+// in either single or double quotes. Doesn't match cross-origin URLs that
+// happen to contain `/assets/` because we anchor on the leading quote/paren.
+const ASSET_REF_RE = /["'(]\/assets\/([^"'?#)]+)/g;
+
+export function extractAssetPaths(html: string): string[] {
+  const found = new Set<string>();
+  let m: RegExpExecArray | null;
+  // Reset state — RegExp with `g` flag is stateful.
+  ASSET_REF_RE.lastIndex = 0;
+  while ((m = ASSET_REF_RE.exec(html)) !== null) {
+    found.add(m[1]);
+  }
+  return Array.from(found);
+}
+
+export const STUDIO_ASSETS_PREFIX = "_studio-assets/assets/";
+
+export function r2KeyForAsset(basename: string): string {
+  return `${STUDIO_ASSETS_PREFIX}${basename}`;
+}
+
+/**
+ * HEAD an R2 asset object. Returns `true` if present, `false` on 404,
+ * throws on other errors so callers can distinguish "definitely absent"
+ * from "couldn't tell."
+ */
+export async function r2AssetExists(
+  client: S3Client,
+  bucket: string,
+  basename: string,
+): Promise<boolean> {
+  try {
+    await client.send(
+      new HeadObjectCommand({ Bucket: bucket, Key: r2KeyForAsset(basename) }),
+    );
+    return true;
+  } catch (err) {
+    if (err instanceof NotFound) return false;
+    if (err && typeof err === "object" && "name" in err) {
+      const n = (err as { name: string }).name;
+      if (n === "NotFound" || n === "NoSuchKey") return false;
+      const meta = (err as { $metadata?: { httpStatusCode?: number } }).$metadata;
+      if (meta?.httpStatusCode === 404) return false;
+    }
+    throw err;
+  }
+}

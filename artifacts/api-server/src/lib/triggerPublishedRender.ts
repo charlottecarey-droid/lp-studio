@@ -53,6 +53,7 @@ import {
   uploadPublishedHtmlToR2,
   deletePublishedHtmlFromR2,
 } from "./r2Storage";
+import { verifyAssetsForHtml } from "./assetPresenceCheck";
 
 export interface TriggerPublishedRenderOpts {
   pageId: number;
@@ -77,6 +78,7 @@ export interface RenderOutcome {
     | "not_published"
     | "superseded_by_concurrent_edit"
     | "render_failed"
+    | "render_failed_assets_missing"
     | "r2_write_failed";
   /** Captured error message if any step threw. */
   error?: string;
@@ -277,6 +279,45 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     outcome.skipped = "superseded_by_concurrent_edit";
     outcome.durationMs = Date.now() - t0;
     return outcome;
+  }
+
+  // ── Task #374: asset presence check ─────────────────────────────────
+  // The freshly rendered HTML references Vite-hashed `/assets/*` paths
+  // from the *current* lp-studio build. Before we write this HTML to R2
+  // (where it will be served for weeks via the CF Worker's R2 lookup),
+  // confirm every referenced asset is already in R2 under
+  // `_studio-assets/assets/<basename>`. If not, the lp-studio build
+  // hook (`scripts/upload-assets-to-r2.mjs`) didn't run, R2 creds were
+  // missing at build time, or the build container failed mid-upload —
+  // writing this HTML would publish a guaranteed-broken page.
+  //
+  // We fail loud, leave R2 at the prior (working) version, and surface
+  // a structured Sentry alert. Healing: redeploy lp-studio so the build
+  // hook re-runs, then republish the page.
+  if (isR2Configured()) {
+    const presence = await verifyAssetsForHtml(html);
+    if (presence.missing.length > 0) {
+      outcome.skipped = "render_failed_assets_missing";
+      outcome.error = `${presence.missing.length}/${presence.checked} referenced /assets/* are missing in R2; first=${presence.missing[0]}`;
+      outcome.durationMs = Date.now() - t0;
+      console.warn("[triggerPublishedRender][RECONCILE_NEEDED] referenced assets missing in R2 — refusing to write doomed prerender", {
+        pageId: page.id, tenantId: page.tenantId, slug: page.slug,
+        missingCount: presence.missing.length, missingSample: presence.missing.slice(0, 5),
+      });
+      Sentry.captureMessage("prerender_render_failed_assets_missing", {
+        level: "error",
+        tags: { subsystem: "lp-prerender", outcome: "render_failed_assets_missing" },
+        extra: {
+          pageId: page.id,
+          tenantId: page.tenantId,
+          slug: page.slug,
+          missingCount: presence.missing.length,
+          checked: presence.checked,
+          missing: presence.missing.slice(0, 20),
+        },
+      });
+      return outcome;
+    }
   }
 
   const buildHtmlForHost = (host: string): string =>
