@@ -1,0 +1,101 @@
+Confirm the new permission works
+ZONE_ID=c22c5eaabb843e659bbdf5ab9e586001
+curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_hostnames?per_page=5" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("success" if d.get("success") else d.get("errors"))'
+
+# 2. Audit current state — confirm meetdandy-lp.com is in the list as active/active
+cd cloudflare/tenant-host-router
+./scripts/check-custom-hostname.sh
+
+# 3. If meetdandy-lp.com is active/active, provision the two new hostnames
+./scripts/provision-custom-hostname.sh partners.meetdandy.com lp.meetdandy.com
+success
+bash: cd: cloudflare/tenant-host-router: No such file or directory
+HOSTNAME                                 STATUS     SSL        METHOD   ERRORS
+----------------------------------------------------------------------------------------------------
+· lp.meetdandy.com                       pending    pending_validation txt      verif:custom hostname does not CNAME to this zone.
+✓ meetdandy-lp.com                       active     active     txt      
+· partners.meetdandy.com                 pending    pending_validation txt      verif:custom hostname does not CNAME to this zone.; ssl:CAA records block issuan
+Zone: lpstudio.ai (c22c5eaabb843e659bbdf5ab9e586001)
+
+================================================================
+Provisioning Custom Hostname: partners.meetdandy.com
+================================================================
+  → Already exists (id=fa861686-6ed0-409e-b29b-8ebf1ea8bb69). Re-fetching validation records...
+  File "<string>", line 10
+    print(f"  id:          {r[\"id\"]}")
+                                       ^
+SyntaxError: f-string expression part cannot include a backslash
+~/.../cloudflare/tenant-host-router$ cd cloudflare/tenant-host-router
+./scripts/provision-custom-hostname.sh partners.meetdandy.com lp.meetdandy.com
+bash: cd: cloudflare/tenant-host-router: No such file or directory
+Zone: lpstudio.ai (c22c5eaabb843e659bbdf5ab9e586001)
+
+================================================================
+Provisioning Custom Hostname: partners.meetdandy.com
+================================================================
+  → Already exists (id=fa861686-6ed0-409e-b29b-8ebf1ea8bb69). Re-fetching validation records...
+  hostname:    partners.meetdandy.com
+  id:          fa861686-6ed0-409e-b29b-8ebf1ea8bb69
+  status:      pending
+  ssl.status:  pending_validation
+  ssl.method:  txt
+  --- ACTIVE VALIDATION ERRORS (must be resolved by customer) ---
+  verif: custom hostname does not CNAME to this zone.
+  ssl:   CAA records block issuance. Please remove all CAA records or add records for this authority (ssl.com)
+
+  --- TXT records the customer must add to their zone ---
+  [1] Ownership verification (proves CF can manage this hostname)
+      Type:  txt
+      Name:  _cf-custom-hostname.partners.meetdandy.com
+      Value: 853bc89c-0ee6-4e14-b4cf-fdc5cfc3d68a
+
+  [2] SSL DCV (proves we control the hostname for cert issuance)
+      Type:  TXT
+      Name:  _acme-challenge.partners.meetdandy.com
+      Value: dxXPPUmiHkS9NPAs45xbvkngejr_tYWd4ziGp6BBDYw
+
+  [3] SSL DCV (proves we control the hostname for cert issuance)
+      Type:  TXT
+      Name:  _acme-challenge.partners.meetdandy.com
+      Value: dex6YzsQHugXbeb1XwBdfiPPSuzKfULseJhifBs6sgI
+
+
+================================================================
+Provisioning Custom Hostname: lp.meetdandy.com
+================================================================
+  → Already exists (id=918bd37d-7fbd-47c0-aab0-459be9b47697). Re-fetching validation records...
+  hostname:    lp.meetdandy.com
+  id:          918bd37d-7fbd-47c0-aab0-459be9b47697
+  status:      pending
+  ssl.status:  pending_validation
+  ssl.method:  txt
+  --- ACTIVE VALIDATION ERRORS (must be resolved by customer) ---
+  verif: custom hostname does not CNAME to this zone.
+
+  --- TXT records the customer must add to their zone ---
+  [1] Ownership verification (proves CF can manage this hostname)
+      Type:  txt
+      Name:  _cf-custom-hostname.lp.meetdandy.com
+      Value: 62f1ff96-1bfe-4d94-98db-e185d8726587
+
+  [2] SSL DCV (proves we control the hostname for cert issuance)
+      Type:  TXT
+      Name:  _acme-challenge.lp.meetdandy.com
+      Value: XVI0f0qvlDZK2bogqwvoe0M0T0jd98xlcg6QgpRboiY
+
+
+================================================================
+Next steps:
+  1. Send the TXT records above to the customer's DNS admin.
+     (Names are FQDNs — customer's DNS UI may need them shortened
+     to the relative form, e.g. _cf-custom-hostname.partners
+     instead of _cf-custom-hostname.partners.meetdandy.com)
+  2. After they add them, run:
+       ./scripts/check-custom-hostname.sh partners.meetdandy.com lp.meetdandy.com
+     Both 'status' and 'ssl.status' must be 'active' before any
+     CNAME flip — otherwise visitors get TLS handshake failures.
+  3. Add a worker route for each hostname in wrangler.toml, then
+     'npx wrangler deploy'. (Routes can be added before SSL is
+      active — they're harmless until customer DNS points at CF.)
