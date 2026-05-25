@@ -15,14 +15,32 @@ import { HeadObjectCommand, NotFound, S3Client } from "@aws-sdk/client-s3";
 
 // Match Vite's default output layout `/assets/<hashed-name>.<ext>`. We
 // intentionally accept any extension; the GC/audit jobs need to see
-// fonts/images too, not just js/css. The capture group is the *basename*,
-// because R2 keys are `_studio-assets/assets/<basename>` (flat by Vite
-// default; we walk subdirectories on the uploader side just in case).
+// fonts/images too, not just js/css. The capture group is the *basename*
+// (possibly with sub-path), because R2 keys are
+// `_studio-assets/assets/<basename>` (flat by Vite default; we walk
+// subdirectories on the uploader side just in case).
 //
-// Matches both quoted (`src="/assets/x.js"`) and bare (CSS url(...)) refs,
-// in either single or double quotes. Doesn't match cross-origin URLs that
-// happen to contain `/assets/` because we anchor on the leading quote/paren.
-const ASSET_REF_RE = /["'(]\/assets\/([^"'?#)]+)/g;
+// Two safety rails — both are load-bearing and have a dedicated test:
+//
+//   1. Negative lookbehind on URL-path-ish characters: prevents matching
+//      inside cross-origin URLs (`https://cdn.example.com/assets/x.js`)
+//      and protocol-relative URLs (`//cdn.example.com/assets/x.css`).
+//      The char immediately before `/assets/` must be a string boundary,
+//      whitespace, attribute `=`, `(`, comma, etc. — anything that can't
+//      legally appear inside a URL path. The original regex only allowed
+//      `["'(]` here, which silently dropped the second+ candidate in an
+//      `srcset` list (preceded by ", ", not a quote).
+//
+//   2. Restricted basename character class: only filename-safe chars,
+//      which both (a) bounds the match cleanly at the next non-filename
+//      char (quote, space, comma, `?`, `#`) without us having to
+//      enumerate every terminator, and (b) rejects the `/assets/*`
+//      literal that appears in an HTML comment in the real lp-studio
+//      build (would otherwise be a phantom basename that fails the
+//      publish gate).
+//
+// Lookbehind needs Node 10+; we're on Node 22.
+const ASSET_REF_RE = /(?<![A-Za-z0-9_\-./])\/assets\/([A-Za-z0-9._\-/]+)/g;
 
 export function extractAssetPaths(html: string): string[] {
   const found = new Set<string>();
