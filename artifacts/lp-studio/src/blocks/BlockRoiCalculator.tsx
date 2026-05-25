@@ -394,7 +394,6 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
             {props.ctaEnabled && props.ctaText && (
               props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper" ? (
                 <SharedCtaButton
-                  onClick={onCtaClick}
                   ctaAction={props.ctaAction}
                   modalChilipiperUrl={props.modalChilipiperUrl}
                   modalFormSource={props.modalFormSource}

@@ -268,7 +268,6 @@ export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) 
             >
               {isModalCta ? (
                 <SharedCtaButton
-                  onClick={onCtaClick}
                   ctaAction={ctaMode}
                   modalChilipiperUrl={props.modalChilipiperUrl}
                   modalFormSource={props.modalFormSource}
