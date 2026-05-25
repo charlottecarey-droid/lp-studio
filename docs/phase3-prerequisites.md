@@ -2,10 +2,16 @@
 
 Task #364 follow-up. Capture before the user gives the go-ahead on DNS flip.
 
+> **Two-stage cutover.** Partners and lp are cut independently with a
+> 24–48 hour gap between them. Partners goes first (lower traffic);
+> lp goes only after partners has been clean for 24+ hours. Either
+> hostname can be rolled back without touching the other — see the
+> per-hostname rollback snapshots below.
+
 ## DNS rollback snapshot (captured 2026-05-25)
 
 Phase 3 is an **edge swap, not an origin move.** Both Dandy microsite
-hostnames currently CNAME into our Replit deployment hosted on GCP
+hostnames currently resolve to our Replit deployment hosted on GCP
 (`34.111.179.208`) — confirmed by `server: Google Frontend` / `via: 1.1
 google` in response headers. They do NOT currently route through the
 Cloudflare worker (`tenant-host-router`), which is why
@@ -28,13 +34,45 @@ in front of it changes.
 | render.lpstudio.ai (CF)    | A    | 172.67.209.1, 104.21.53.47 |
 | dandy.lpstudio.ai (CF)     | A    | 104.21.53.47, 172.67.209.1 |
 
-**Rollback plan**: revert partners + lp.meetdandy.com A records to
-`34.111.179.208`. This restores the pre-cutover direct-to-Replit/GCP
-path — same origin as today, just skipping the new Cloudflare edge. No
-data-plane handoff needed since the origin never moved; safe to roll
-back at any time without coordination.
+### Per-hostname rollback
+
+**Partners and lp roll back independently.** Touching one's DNS record
+never touches the other's. Use only the section for the hostname that
+needs reverting; leave the other alone.
+
+#### Rollback: `partners.meetdandy.com` (Stage 1)
+
+Revert just the `partners` record in the `meetdandy.com` zone back to
+its pre-Stage-1 value:
+
+| Host | Type | Revert to |
+|---|---|---|
+| `partners` | A | `34.111.179.208` |
+
+This restores the pre-cutover direct-to-Replit/GCP path for
+`partners.meetdandy.com`. `lp.meetdandy.com` is unaffected. With the
+Stage-1 TTL of 60 seconds, propagation is 1–2 minutes. No data-plane
+handoff needed since the origin never moved; safe to roll back at any
+time without coordination.
+
+#### Rollback: `lp.meetdandy.com` (Stage 2)
+
+Revert just the `lp` record in the `meetdandy.com` zone back to its
+pre-Stage-2 value:
+
+| Host | Type | Revert to |
+|---|---|---|
+| `lp` | A | `34.111.179.208` |
+
+This restores the pre-cutover direct-to-Replit/GCP path for
+`lp.meetdandy.com`. `partners.meetdandy.com` is unaffected (and, if
+Stage 1 has already passed, continues serving from the CF edge
+throughout this rollback). With the Stage-2 TTL of 60 seconds,
+propagation is 1–2 minutes.
 
 ## Prerequisite checklist (BLOCK cutover until all ✅)
+
+These apply to both stages — Stage 1 cannot start until they're all green.
 
 - [ ] **api-server redeployed** with the new prerenderLpPage.ts
   - atomic capture inside same evaluate (kills the trios5 snapshot race)
@@ -81,22 +119,37 @@ back at any time without coordination.
   - **Recommended**: also add a daily digest of `recovered_on_retry`
     so we notice if the transient rate climbs.
 
-- [ ] **Dandy on standby**
+- [ ] **Dandy on standby for Stage 1**
   - User to confirm directly with Dandy (we can't verify from here).
-  - Suggest doing the DNS flip during a known-quiet window for partners
-    microsite traffic.
+  - Stage 1 cutover window picked for a known-quiet hour for
+    `partners.meetdandy.com`.
+  - Dandy has reduced TTL on the `partners` A record to 60 seconds at
+    least 24 hours before the Stage 1 window.
+
+- [ ] **Dandy on standby for Stage 2** (24–48 hours after Stage 1 passes)
+  - Stage 2 window coordinated with Dandy's marketing team — no paid
+    campaign launch, email blast, or major partner announcement within
+    ±24 hours.
+  - Dandy has reduced TTL on the `lp` A record to 60 seconds at least 24
+    hours before the Stage 2 window.
 
 ## Day-of cutover sequence
 
-1. Confirm all checkboxes above are ✅.
-2. Verify CF worker still serves stale-host content correctly from R2:
-   `curl -sIL https://dandy.lpstudio.ai/smilist-pilot` → `x-lp-source: r2`.
-3. Tell Dandy "flipping in N minutes."
-4. Flip A records: partners + lp.meetdandy.com → CF (point at the same
-   `104.21.53.47, 172.67.209.1` that other CF-routed hostnames use, OR
-   use a CNAME to a CF-managed alias — coordinate with the operator who
-   has zone access).
-5. Within 60s, verify both hosts return `cf-ray:` headers and `x-lp-source: r2`.
-6. Spot-check at least one page per Dandy tenant on each host.
-7. If anything looks wrong, revert A records to `34.111.179.208`
-   immediately — no waiting period needed, GCP origin is still live.
+Per-hostname execution lives in the project task (Task #373) — including
+pre-flight checklists, exact Name.com clicks, monitoring queries, pass
+criteria, and rollback steps. This doc is the prerequisite gate; the
+task is the runbook.
+
+High-level order:
+
+1. Stage 0: Dandy adds 6 DNS records; we verify with
+   `check-custom-hostname.sh` + a `--resolve` TLS smoke test.
+2. Stage 1: flip `partners.meetdandy.com` only. Monitor 60 min,
+   then watch for 24–48 hours.
+3. Per-stage post-cutover validation (`x-lp-source: r2`, `cf-ray:`,
+   Sentry filter `tags.subsystem:lp-prerender AND tags.outcome:render_failed`)
+   runs immediately after the flip and again at the 24-hour mark.
+4. Stage 2: flip `lp.meetdandy.com` only. Monitor 60 min, then watch
+   for 24–48 hours. Same per-stage validation.
+5. After both stages stable: ask Dandy to raise TTLs back to their
+   previous values.
