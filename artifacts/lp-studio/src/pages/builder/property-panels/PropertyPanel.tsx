@@ -5707,6 +5707,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   settings={block.blockSettings}
                   blockType={block.type}
                   onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
+                  modalTheme={(block.props as { modalTheme?: "light" | "dark" } | undefined)?.modalTheme}
+                  onModalThemeChange={(v) =>
+                    onChange({
+                      ...block,
+                      props: { ...(block.props as object), modalTheme: v },
+                    } as typeof block)
+                  }
                 />
                 {onDelete && (
                   <div className="mt-6 pt-4 border-t border-border">

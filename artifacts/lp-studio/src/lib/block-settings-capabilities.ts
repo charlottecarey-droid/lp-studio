@@ -42,6 +42,19 @@ export interface BlockSettingsCapabilities {
   bgImage: boolean;
   /** Entrance animation style. */
   animation: boolean;
+  /**
+   * "Modal theme" toggle for blocks whose CTA buttons open the shared
+   * site modal. When `true`, the Style panel renders a Light / Dark
+   * picker bound to `props.modalTheme` (string-typed in the block's
+   * own props) so the modal shell matches the surrounding section
+   * without per-block inspector code.
+   *
+   * Opt-in: only enable for blocks whose component reads
+   * `props.modalTheme` and forwards it into the modal renderer. Blocks
+   * that don't read it should leave this `false` to avoid a control
+   * that has no effect.
+   */
+  modalTheme: boolean;
 }
 
 const ALL: BlockSettingsCapabilities = {
@@ -55,6 +68,7 @@ const ALL: BlockSettingsCapabilities = {
   minHeight: true,
   bgImage: true,
   animation: true,
+  modalTheme: false,
 };
 
 const ANCHOR_ONLY: BlockSettingsCapabilities = {
@@ -68,6 +82,7 @@ const ANCHOR_ONLY: BlockSettingsCapabilities = {
   minHeight: false,
   bgImage: false,
   animation: false,
+  modalTheme: false,
 };
 
 const SPACER_CAPS: BlockSettingsCapabilities = {
@@ -87,6 +102,7 @@ const SELF_STYLED: BlockSettingsCapabilities = {
   minHeight: false,
   bgImage: false,
   animation: false,
+  modalTheme: false,
 };
 
 /** Hero-ish blocks: keep colors + bg image (the wrapper layer is below the
@@ -102,12 +118,13 @@ const HERO_LIKE: BlockSettingsCapabilities = {
   minHeight: false,
   bgImage: true,
   animation: false, // hero blocks own their entrance animation
+  modalTheme: false,
 };
 
 const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   // Chrome / page-level singletons -----------------------------------------
   "nav-header": ANCHOR_ONLY,
-  "sticky-header": ANCHOR_ONLY,
+  "sticky-header": { ...ANCHOR_ONLY, modalTheme: true },
   "sticky-bar": ANCHOR_ONLY,
   "popup": ANCHOR_ONLY,
   "footer": ANCHOR_ONLY,
@@ -133,7 +150,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "dso-scroll-story-hero": SELF_STYLED,
 
   // Self-styled "Inside Dandy" cinematic surfaces --------------------------
-  "id-hero": SELF_STYLED,
+  "id-hero": { ...SELF_STYLED, modalTheme: true },
   "id-marquee": SELF_STYLED,
   "id-intro": SELF_STYLED,
   "id-cinema-pillars": SELF_STYLED,

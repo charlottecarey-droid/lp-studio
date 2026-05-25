@@ -15,6 +15,15 @@ interface Props {
    *  control is shown (backwards-compatible with callers that haven't
    *  threaded the type through yet). */
   blockType?: string;
+  /**
+   * Current value of `block.props.modalTheme` for blocks whose
+   * capability map sets `modalTheme: true`. The panel stays agnostic
+   * of block-specific prop shapes — the caller reads this off
+   * `block.props` and writes it back via `onModalThemeChange`. Both
+   * props must be provided to render the toggle.
+   */
+  modalTheme?: "light" | "dark";
+  onModalThemeChange?: (v: "light" | "dark" | undefined) => void;
 }
 
 const SPACING_OPTIONS = [
@@ -109,7 +118,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function BlockSettingsPanel({ settings, onChange, blockType }: Props) {
+export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, onModalThemeChange }: Props) {
   const s = settings ?? {};
   const set = <K extends keyof BlockSettings>(k: K, v: BlockSettings[K]) =>
     onChange({ ...s, [k]: v });
@@ -122,9 +131,46 @@ export function BlockSettingsPanel({ settings, onChange, blockType }: Props) {
   // showing a section heading with no controls underneath it.
   const showColors = caps.bgColor || caps.textColors || caps.cardBgColor;
   const showLayout = caps.spacing || caps.paddingX || caps.minHeight;
+  // The modal-theme toggle requires both the capability flag AND a
+  // caller-provided onChange (otherwise we'd render a dead control).
+  const showModalTheme = caps.modalTheme && typeof onModalThemeChange === "function";
 
   return (
     <div className="space-y-5">
+      {showModalTheme && (
+        <section className="space-y-2">
+          <SectionHeading>Modal Theme</SectionHeading>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Shell color for CTA modal openers on this block
+            </Label>
+            <div className="flex gap-2">
+              {([
+                ["light", "Light"],
+                ["dark", "Dark"],
+              ] as const).map(([v, lbl]) => {
+                const current = modalTheme ?? "light";
+                const active = current === v;
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => onModalThemeChange?.(v)}
+                    className={`flex-1 py-1.5 text-xs rounded border ${active ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Use <span className="font-medium">Dark</span> on cinematic / dark sections so the modal blends in; <span className="font-medium">Light</span> elsewhere.
+            </p>
+          </div>
+          <Separator />
+        </section>
+      )}
+
       {caps.anchorId && (
         <section className="space-y-2">
           <SectionHeading>Navigation</SectionHeading>
