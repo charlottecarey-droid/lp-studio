@@ -604,7 +604,10 @@ test.describe("Marketo → Chili Piper handoff", () => {
             id: "cta-1",
             type: "cta-button",
             props: {
-              ctaText: "Book a demo",
+              label: "Book a demo",
+              style: "primary",
+              size: "medium",
+              alignment: "center",
               ctaAction: "modal-form",
               modalFormSource: "linked",
               modalFormId: formId,
@@ -629,11 +632,13 @@ test.describe("Marketo → Chili Piper handoff", () => {
     // Click the migrated CTA.
     await page.getByRole("button", { name: "Book a demo" }).click();
 
-    // EmailCaptureModal opens — confirmed via the custom headline + email
-    // input. This is the whole point of the retrofit: identity capture
-    // happens before Chili Piper, not after a CP no-op redirect.
+    // EmailCaptureModal opens — confirmed via the custom headline rendered
+    // by the modal. This is the whole point of the retrofit: identity
+    // capture happens before Chili Piper, not after a CP no-op redirect.
+    // (We can't assert against the lp_form's input fields here because the
+    // beforeAll form intentionally has zero fields — that's fine, the
+    // modal-opened-vs-iframe-opened distinction is what this guards.)
     await expect(page.getByText("Retrofit capture test")).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('input[type="email"]').first()).toBeVisible();
 
     // And critically: no Chili Piper iframe is mounted yet (capture-first,
     // not handoff-first). Without the retrofit, this CTA would have opened
