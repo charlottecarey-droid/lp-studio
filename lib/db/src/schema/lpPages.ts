@@ -46,6 +46,12 @@ export const lpPagesTable = pgTable("lp_pages", {
   lastReviewDecisionAt: timestamp("last_review_decision_at", { withTimezone: true }),
   lastReviewNote: text("last_review_note"),
   asanaTaskId: text("asana_task_id"),
+  // Task #379 — per-page asset-health record written by the scheduled
+  // canary in `assetHealthCheck.ts`. NULL = never checked. Shape:
+  //   { checked: number, brokenAssets: string[], host: string, hadHtml: boolean }
+  // "healthy" is derived (hadHtml && checked > 0 && brokenAssets.length === 0).
+  assetHealthCheckedAt: timestamp("asset_health_checked_at", { withTimezone: true }),
+  assetHealthResult: jsonb("asset_health_result"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

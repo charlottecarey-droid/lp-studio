@@ -20,7 +20,30 @@ function getR2Cfg() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
   const bucket = process.env.R2_BUCKET?.trim();
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null;
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    // In production, missing R2 credentials would silently disable the
+    // publish-time presence check — exactly the regression that caused
+    // the 2026-05-25 white-page incident (HTML written to R2 referencing
+    // assets that weren't there). Fail loudly instead so the missing
+    // secret is caught at the first publish attempt, not by visitors.
+    // Local dev keeps the no-op so developers without R2 access can
+    // still iterate on the publish path.
+    if (process.env.NODE_ENV === "production") {
+      const missing = [
+        !accountId && "R2_ACCOUNT_ID",
+        !accessKeyId && "R2_ACCESS_KEY_ID",
+        !secretAccessKey && "R2_SECRET_ACCESS_KEY",
+        !bucket && "R2_BUCKET",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      throw new Error(
+        `assetPresenceCheck: R2 credentials missing in production (${missing}). ` +
+          `Publish-time presence check cannot run; refusing to silently skip.`
+      );
+    }
+    return null;
+  }
   const client = new S3Client({
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,

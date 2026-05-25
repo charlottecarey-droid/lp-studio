@@ -25,6 +25,8 @@
     { "idx": 20, "version": "7", "when": 1700000020000, "tag": "0020_seed_dandy_sales_console",                "breakpoints": false },
     { "idx": 21, "version": "7", "when": 1700000021000, "tag": "0021_lp_forms_gtm_datalayer_config",           "breakpoints": false },
     { "idx": 22, "version": "7", "when": 1700000022000, "tag": "0022_dandy_dca_proof_rephrase",                "breakpoints": false },
-    { "idx": 23, "version": "7", "when": 1747600000000, "tag": "0023_block_catalog_init",                      "breakpoints": false }
+    { "idx": 23, "version": "7", "when": 1747600000000, "tag": "0023_block_catalog_init",                      "breakpoints": false },
+    { "idx": 24, "version": "7", "when": 1747700000000, "tag": "0024_lp_forms_styling",                        "breakpoints": false },
+    { "idx": 25, "version": "7", "when": 1747800000000, "tag": "0025_lp_pages_asset_health",                   "breakpoints": false }
   ]
 }

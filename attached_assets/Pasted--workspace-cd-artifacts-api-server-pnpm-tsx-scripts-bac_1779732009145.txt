@@ -1,0 +1,528 @@
+~/workspace$ cd artifacts/api-server
+pnpm tsx scripts/backfill-published-html.ts --concurrency=4
+(node:13858) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[backfill] 85 candidate pages (slice 0..end of 85)
+[prerender] reqfail social-proof-lp: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail clear-aligner-profits: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dandy-digital-lab-for-dsos: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dandy-digital-lab-for-dsos: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-digital-lab-for-dsos: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail clear-aligner-profits: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail clear-aligner-profits: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail summerpromo: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail social-proof-lp: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":9,"tenantId":1,"slug":"summerpromo","outcome":"succeeded","durationMs":7210}
+{"pageId":11,"tenantId":1,"slug":"social-proof-lp","outcome":"succeeded","durationMs":7211}
+{"pageId":18,"tenantId":1,"slug":"dandy-digital-lab-for-dsos","outcome":"succeeded","durationMs":7241}
+{"pageId":17,"tenantId":1,"slug":"clear-aligner-profits","outcome":"succeeded","durationMs":7328}
+[prerender] reqfail digital-dentures-trust-dandy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail implants-free-first-case-lab-credit: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail digital-dentures-trust-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail digital-dentures-trust-dandy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail digital-dentures-trust-dandy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail 360-insights-dso-leaders: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail implants-free-first-case-lab-credit: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail vision-scanner-100-days-free-smiles: https://render.lpstudio.ai/api/storage/objects/uploads/68967d1d-42e1-4ab9-989c-25e7cdef39e6 net::ERR_ABORTED
+{"pageId":23,"tenantId":1,"slug":"implants-free-first-case-lab-credit","outcome":"succeeded","durationMs":5535}
+{"pageId":26,"tenantId":1,"slug":"digital-dentures-trust-dandy","outcome":"succeeded","durationMs":6068}
+{"pageId":35,"tenantId":1,"slug":"vision-scanner-100-days-free-smiles","outcome":"succeeded","durationMs":6114}
+[prerender] reqfail dentistry-for-fqhcs: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dentistry-for-fqhcs: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dentistry-for-fqhcs: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail dentistry-for-fqhcs: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":39,"tenantId":1,"slug":"360-insights-dso-leaders","outcome":"succeeded","durationMs":6682}
+[prerender] reqfail 123dentist-dandy-partnership: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail hear-us-out: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail hear-us-out: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail airpods-pro: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+{"pageId":40,"tenantId":1,"slug":"dentistry-for-fqhcs","outcome":"succeeded","durationMs":5826}
+{"pageId":82,"tenantId":1,"slug":"hear-us-out","outcome":"succeeded","durationMs":5772}
+[prerender] reqfail visibility: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail visibility: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail visibility: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail visibility: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":67,"tenantId":1,"slug":"123dentist-dandy-partnership","outcome":"succeeded","durationMs":6479}
+[prerender] reqfail lab: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":99,"tenantId":1,"slug":"airpods-pro","outcome":"succeeded","durationMs":5918}
+[prerender] reqfail lab: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail lab: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail lab: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail mint-dentistry-dso-growth-solutions: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail predictable-growth-scalable-lab-solutions-dsos: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail visibility: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+{"pageId":110,"tenantId":1,"slug":"visibility","outcome":"succeeded","durationMs":5814}
+[prerender] reqfail independence-dental-services-dandy-partnership: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":111,"tenantId":1,"slug":"lab","outcome":"succeeded","durationMs":6187}
+{"pageId":128,"tenantId":1,"slug":"mint-dentistry-dso-growth-solutions","outcome":"succeeded","durationMs":6036}
+{"pageId":134,"tenantId":1,"slug":"predictable-growth-scalable-lab-solutions-dsos","outcome":"succeeded","durationMs":5920}
+[prerender] reqfail my-dental-microsite: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail independence-dental-services-dandy-partnership: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-microsite: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-microsite: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-microsite: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail independence-dental-services-dandy-partnership: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+[prerender] reqfail my-dental-dso-practices: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy-microsite: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail my-dental-dso-practices: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dso-practices: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy-microsite: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dso-practices: https://render.lpstudio.ai/videos/dandy-broll.mp4 net::ERR_ABORTED
+{"pageId":135,"tenantId":1,"slug":"independence-dental-services-dandy-partnership","outcome":"succeeded","durationMs":5492}
+[prerender] reqfail my-dental-dandy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":153,"tenantId":1,"slug":"my-dental-microsite","outcome":"succeeded","durationMs":5776}
+{"pageId":154,"tenantId":1,"slug":"my-dental-dso-practices","outcome":"succeeded","durationMs":5628}
+{"pageId":155,"tenantId":1,"slug":"my-dental-dandy-microsite","outcome":"succeeded","durationMs":5730}
+[prerender] reqfail genesis-dental-group: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail genesis-dental-group-dso: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail genesis-dental-group: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail genesis-dental-group: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail genesis-dental-group: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail envisage: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail genesis-dental-group-dso: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail genesis-dental-group-dso: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail my-dental-dandy: https://render.lpstudio.ai/api/storage/objects/uploads/b3df7836-f635-45e1-ac5f-c2bd2c9b6f81 net::ERR_ABORTED
+[prerender] reqfail envisage: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail envisage: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail envisage: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":156,"tenantId":1,"slug":"my-dental-dandy","outcome":"succeeded","durationMs":6333}
+[prerender] reqfail faster-dentures-for-fqhcs: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":161,"tenantId":1,"slug":"genesis-dental-group-dso","outcome":"succeeded","durationMs":5838}
+[prerender] reqfail faster-dentures-for-fqhcs: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail faster-dentures-for-fqhcs: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail faster-dentures-for-fqhcs: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":160,"tenantId":1,"slug":"genesis-dental-group","outcome":"succeeded","durationMs":6393}
+{"pageId":165,"tenantId":1,"slug":"envisage","outcome":"succeeded","durationMs":6159}
+[prerender] reqfail 123dentist-dandy-partnership-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail visibility-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail 123dentist-dandy-partnership-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail ice-cream: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail visibility-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail visibility-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail visibility-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail ice-cream: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail ice-cream: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+[prerender] reqfail visibility-copy: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+{"pageId":166,"tenantId":1,"slug":"faster-dentures-for-fqhcs","outcome":"succeeded","durationMs":6189}
+{"pageId":167,"tenantId":1,"slug":"123dentist-dandy-partnership-copy","outcome":"succeeded","durationMs":6109}
+{"pageId":179,"tenantId":1,"slug":"ice-cream","outcome":"succeeded","durationMs":5764}
+[prerender] reqfail pds-regionals: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail pds-regionals: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail pds-regionals: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail pds-regionals: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":168,"tenantId":1,"slug":"visibility-copy","outcome":"succeeded","durationMs":6636}
+[prerender] reqfail sizzle: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail marquee-dental-practices: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail marquee-dental-practices: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail marquee-dental-practices: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail marquee-dental-practices: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail sizzle: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail sizzle: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail sizzle: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail willamette-dental-group-dso: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail willamette-dental-group-dso: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail willamette-dental-group-dso: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail willamette-dental-group-dso: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail sizzle: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+[prerender] reqfail willamette-dental-group-dso: https://render.lpstudio.ai/api/storage/objects/uploads/f6f413fd-9db8-4772-b888-b6d45e58bbb9 net::ERR_ABORTED
+[prerender] reqfail willamette-dental-group-dso: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+{"pageId":180,"tenantId":1,"slug":"pds-regionals","outcome":"succeeded","durationMs":6155}
+[prerender] reqfail dca-practices: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":191,"tenantId":1,"slug":"marquee-dental-practices","outcome":"succeeded","durationMs":6396}
+{"pageId":192,"tenantId":1,"slug":"sizzle","outcome":"succeeded","durationMs":6393}
+[prerender] reqfail pds: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail pds-practices: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail pds-practices: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail pds-practices: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail pds: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail pds: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail pds: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dca-practices: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":193,"tenantId":1,"slug":"willamette-dental-group-dso","outcome":"succeeded","durationMs":7220}
+[prerender] reqfail onepager-mb2: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail onepager-mb2: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-mb2: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-mb2: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":197,"tenantId":1,"slug":"dca-practices","outcome":"succeeded","durationMs":6036}
+[prerender] reqfail onepager-smiley-dental: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":199,"tenantId":1,"slug":"pds","outcome":"succeeded","durationMs":6531}
+[prerender] reqfail onepager-smiley-dental: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":201,"tenantId":1,"slug":"pds-practices","outcome":"succeeded","durationMs":6465}
+[prerender] reqfail onepager-smiley-dental: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+[prerender] reqfail onepager-progressive-dental: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail onepager-dental360: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":204,"tenantId":1,"slug":"onepager-mb2","outcome":"succeeded","durationMs":5828}
+[prerender] reqfail onepager-progressive-dental: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-progressive-dental: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-progressive-dental: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-goldcoast: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail onepager-goldcoast: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-goldcoast: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-dental360: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-progressive-dental: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+[prerender] reqfail onepager-dental360: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+{"pageId":205,"tenantId":1,"slug":"onepager-smiley-dental","outcome":"succeeded","durationMs":5451}
+[prerender] reqfail onepager-bdg: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail onepager-bdg: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-bdg: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-bdg: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":207,"tenantId":1,"slug":"onepager-progressive-dental","outcome":"succeeded","durationMs":5619}
+{"pageId":208,"tenantId":1,"slug":"onepager-dental360","outcome":"succeeded","durationMs":5586}
+[prerender] reqfail onepager-bdg: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+[prerender] reqfail onepager-smiletime: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail inside-dandy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail onepager-smiletime: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-smiletime: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-smiletime: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":210,"tenantId":1,"slug":"onepager-goldcoast","outcome":"succeeded","durationMs":6119}
+[prerender] reqfail inside-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail inside-dandy: https://fonts.gstatic.com/s/ebgaramond/v32/SlGUmQSNjdsmc35JDF1K5GR1SDk.woff2 net::ERR_FAILED
+[prerender] reqfail inside-dandy: https://fonts.gstatic.com/s/ebgaramond/v32/SlGFmQSNjdsmc35JDF1K5GRwUjcdlttVFm-rI7e8QL99U6g.woff2 net::ERR_FAILED
+[prerender] reqfail dentstock: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dentstock: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dentstock: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dentstock: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-smiletime: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+{"pageId":211,"tenantId":1,"slug":"onepager-bdg","outcome":"succeeded","durationMs":5779}
+[prerender] reqfail crown-calculator: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail crown-calculator: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail crown-calculator: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail crown-calculator: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":224,"tenantId":1,"slug":"inside-dandy","outcome":"succeeded","durationMs":5629}
+{"pageId":212,"tenantId":1,"slug":"onepager-smiletime","outcome":"succeeded","durationMs":5725}
+[prerender] reqfail crown-calculator: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail crown-calculator: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1pL7SUc.woff2 net::ERR_FAILED
+[prerender] reqfail smilist-pilot: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dentstockdental: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail smilist-pilot: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail smilist-pilot: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dentstockdental: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dentstockdental: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":242,"tenantId":1,"slug":"dentstock","outcome":"succeeded","durationMs":5667}
+[prerender] reqfail dentstockdental: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail remake-true-cost-dandy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail remake-true-cost-dandy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail remake-true-cost-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail remake-true-cost-dandy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":252,"tenantId":1,"slug":"crown-calculator","outcome":"succeeded","durationMs":5802}
+[prerender] reqfail remake-true-cost-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail trios5: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":256,"tenantId":1,"slug":"smilist-pilot","outcome":"succeeded","durationMs":5797}
+[prerender] reqfail trios5: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":269,"tenantId":1,"slug":"dentstockdental","outcome":"succeeded","durationMs":6022}
+[prerender] reqfail impact-calculator: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail ontario-location-living-room-giveaway: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail impact-calculator: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail impact-calculator: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail impact-calculator: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail ontario-location-living-room-giveaway: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail ontario-location-living-room-giveaway: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail ontario-location-living-room-giveaway: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":270,"tenantId":1,"slug":"remake-true-cost-dandy","outcome":"succeeded","durationMs":6547}
+[prerender] reqfail car-wash-fundraiser-sunday: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail ontario-location-living-room-giveaway: https://rd.lpstudio.ai/api/storage/objects/uploads/038a9d86-465b-4387-9c63-4b1e25fcd41b net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
+{"pageId":272,"tenantId":5,"slug":"trios5","outcome":"succeeded","durationMs":5644}
+[prerender] reqfail car-wash-fundraiser-sunday: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail car-wash-fundraiser-sunday: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail car-wash-fundraiser-sunday: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail car-wash-fundraiser-sunday: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail car-wash-fundraiser-sunday: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail car-wash-fundraiser-sunday: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail luxury-couches: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail luxury-couches: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail luxury-couches: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail luxury-couches: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":274,"tenantId":1,"slug":"impact-calculator","outcome":"succeeded","durationMs":5874}
+{"pageId":284,"tenantId":7,"slug":"ontario-location-living-room-giveaway","outcome":"succeeded","durationMs":5619}
+[prerender] reqfail luxury-couches: https://rd.lpstudio.ai/api/storage/objects/uploads/038a9d86-465b-4387-9c63-4b1e25fcd41b net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
+[prerender] reqfail spatial-lab-tour: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail spatial-lab-tour: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail spatial-lab-tour: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail events-rsvp-template: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail events-rsvp-template: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail events-rsvp-template: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail events-rsvp-template: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":288,"tenantId":10,"slug":"car-wash-fundraiser-sunday","outcome":"succeeded","durationMs":5789}
+[prerender] reqfail margin-line: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":295,"tenantId":7,"slug":"luxury-couches","outcome":"succeeded","durationMs":5615}
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail margin-line: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-mb2-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail onepager-mb2-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-mb2-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail onepager-mb2-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":1898,"tenantId":1,"slug":"spatial-lab-tour","outcome":"succeeded","durationMs":5905}
+[prerender] reqfail fancy-car-washes-nashville: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":4898,"tenantId":5,"slug":"events-rsvp-template","outcome":"succeeded","durationMs":6629}
+[prerender] reqfail fancy-car-washes-nashville: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail fancy-car-washes-nashville: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail fancy-car-washes-nashville: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail fancy-car-washes-nashville: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+{"pageId":6237,"tenantId":5,"slug":"margin-line","outcome":"succeeded","durationMs":5924}
+[prerender] reqfail fancy-car-washes-nashville: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail fancy-car-washes-nashville: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail trios5-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail hyundai-dealer-car-wash-services: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail trios5-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail trios5-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail trios5-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":7558,"tenantId":1,"slug":"onepager-mb2-copy","outcome":"succeeded","durationMs":7142}
+{"pageId":16267,"tenantId":10,"slug":"fancy-car-washes-nashville","outcome":"succeeded","durationMs":5569}
+[prerender] reqfail shop-frambam-austin-boutique: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":18814,"tenantId":10,"slug":"hyundai-dealer-car-wash-services","outcome":"succeeded","durationMs":5959}
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrJJfecg.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail shop-frambam-austin-boutique: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrJJfecg.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail frambam-sale-event: https://example.com/images/photo2.jpg net::ERR_BLOCKED_BY_ORB
+[prerender] reqfail frambam-sale-event: https://example.com/images/photo4.jpg net::ERR_BLOCKED_BY_ORB
+[prerender] reqfail frambam-sale-event: https://example.com/images/photo1.jpg net::ERR_BLOCKED_BY_ORB
+[prerender] reqfail frambam-sale-event: https://example.com/images/photo3.jpg net::ERR_BLOCKED_BY_ORB
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":20550,"tenantId":5,"slug":"trios5-copy","outcome":"succeeded","durationMs":6014}
+[prerender] reqfail dandypage: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail bmw-x3-2026-hybrid-sale: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail dandypage: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dandypage: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandypage: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail dandypage: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+{"pageId":22075,"tenantId":14055,"slug":"shop-frambam-austin-boutique","outcome":"succeeded","durationMs":5733}
+[prerender] reqfail dandypage: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail dandypage: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+{"pageId":22076,"tenantId":14055,"slug":"frambam-sale-event","outcome":"succeeded","durationMs":5719}
+[prerender] reqfail ford-dso-corporate: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail ford-dso-corporate: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail ford-dso-corporate: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail ford-dso-corporate: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail test: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":22564,"tenantId":10,"slug":"bmw-x3-2026-hybrid-sale","outcome":"succeeded","durationMs":5728}
+[prerender] reqfail ford-dso-corporate: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail ford-dso-corporate: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail ford-dso-corporate: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail test: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":22602,"tenantId":10,"slug":"dandypage","outcome":"succeeded","durationMs":6241}
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail elite-car-care-beverly-hills: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":22640,"tenantId":10,"slug":"ford-dso-corporate","outcome":"succeeded","durationMs":5815}
+{"pageId":23171,"tenantId":1,"slug":"test","outcome":"succeeded","durationMs":5351}
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrJJfecg.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgA.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-content-series-podcast-copy: https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgA.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":23249,"tenantId":10,"slug":"elite-car-care-beverly-hills","outcome":"succeeded","durationMs":5925}
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrJJfecg.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2 net::ERR_FAILED
+[prerender] reqfail global-flagship-productized-agency-copy: https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7Z1xlFQ.woff2 net::ERR_FAILED
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":23748,"tenantId":14055,"slug":"global-flagship-content-series-podcast-copy","outcome":"succeeded","durationMs":5892}
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail enterprise-car-wash-solutions-honda-dealers: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail 4th-of-july-car-wash-sale: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail 4th-of-july-car-wash-sale: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail 4th-of-july-car-wash-sale: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail 4th-of-july-car-wash-sale: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":23750,"tenantId":14055,"slug":"global-flagship-productized-agency-copy","outcome":"succeeded","durationMs":5913}
+[prerender] reqfail 4th-of-july-car-wash-sale: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+{"pageId":25388,"tenantId":1,"slug":"dandy-ai-lp","outcome":"succeeded","durationMs":6003}
+[prerender] reqfail 4th-of-july-car-wash-sale: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail 4th-of-july-car-wash-sale: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail why-pds-doctors-keep-finding-dandy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":25716,"tenantId":10,"slug":"enterprise-car-wash-solutions-honda-dealers","outcome":"succeeded","durationMs":5941}
+[prerender] reqfail why-pds-doctors-keep-finding-dandy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail construction-software-solutions: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail emergencydentalcareusa: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail emergencydentalcareusa: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail emergencydentalcareusa: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail emergencydentalcareusa: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":25977,"tenantId":10,"slug":"4th-of-july-car-wash-sale","outcome":"succeeded","durationMs":6617}
+[prerender] reqfail emergencydentalcareusa: https://render.lpstudio.ai/api/storage/objects/uploads/838b380e-aea7-419b-a4df-2a8ae4f53c9e net::ERR_ABORTED
+[prerender] reqfail bc3: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail bc3: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail bc3: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail bc3: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+{"pageId":26052,"tenantId":10,"slug":"construction-software-solutions","outcome":"succeeded","durationMs":5886}
+{"pageId":26832,"tenantId":1,"slug":"why-pds-doctors-keep-finding-dandy","outcome":"succeeded","durationMs":5668}
+[prerender] reqfail joes-premium-coffee: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":27243,"tenantId":1,"slug":"emergencydentalcareusa","outcome":"succeeded","durationMs":5763}
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/cinzel/v26/8vIJ7ww63mVu7gt79mT7.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail investor-opportunity-joes-coffee: https://fonts.gstatic.com/s/cinzel/v26/8vIJ7ww63mVu7gt79mT7.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/cinzel/v26/8vIJ7ww63mVu7gt79mT7.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2 net::ERR_FAILED
+[prerender] reqfail joes-premium-coffee: https://fonts.gstatic.com/s/cinzel/v26/8vIJ7ww63mVu7gt79mT7.woff2 net::ERR_FAILED
+[prerender] reqfail dca-case-study: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail dca-case-study: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail dca-case-study: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dca-case-study: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+{"pageId":28116,"tenantId":1,"slug":"bc3","outcome":"succeeded","durationMs":5898}
+[prerender] reqfail dandy-ai-lp-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+{"pageId":28404,"tenantId":19313,"slug":"investor-opportunity-joes-coffee","outcome":"succeeded","durationMs":5221}
+{"pageId":28329,"tenantId":19313,"slug":"joes-premium-coffee","outcome":"succeeded","durationMs":5474}
+[prerender] reqfail dandy-ai-lp-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail phase1: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail phase1: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail phase1: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":28405,"tenantId":1,"slug":"dca-case-study","outcome":"succeeded","durationMs":5911}
+[prerender] reqfail mobile-car-wash-apartments: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail mobile-car-wash-apartments: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail mobile-car-wash-apartments: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail mobile-car-wash-apartments: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail mobile-car-wash-apartments: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail mobile-car-wash-apartments: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail mobile-car-wash-apartments: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+{"pageId":28406,"tenantId":1,"slug":"dandy-ai-lp-copy","outcome":"succeeded","durationMs":5939}
+{"pageId":29753,"tenantId":20574,"slug":"phase1","outcome":"succeeded","durationMs":5421}
+[prerender] reqfail crunch-a-thon: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail crunch-a-thon: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail crunch-a-thon: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+{"pageId":28963,"tenantId":1,"slug":"dandy-ai-lp-copy-premium","outcome":"succeeded","durationMs":6271}
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447 net::ERR_FAILED
+[prerender] reqfail crunch-a-thon: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHQ.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+[prerender] reqfail dandy-ai-lp-copy-premium-copy: https://fonts.gstatic.com/s/fraunces/v38/6NUu8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib14c7qv8.woff2 net::ERR_FAILED
+{"pageId":29754,"tenantId":10,"slug":"mobile-car-wash-apartments","outcome":"succeeded","durationMs":5932}
+{"pageId":29755,"tenantId":20575,"slug":"crunch-a-thon","outcome":"succeeded","durationMs":5124}
+{"pageId":29905,"tenantId":10,"slug":"dandy-ai-lp-copy-premium-copy","outcome":"succeeded","durationMs":6448}
+[backfill] summary {
+  "total": 85,
+  "succeeded": 85,
+  "skipped_already_in_r2": 0,
+  "skipped_not_published": 0,
+  "superseded_by_concurrent_edit": 0,
+  "r2_write_failed": 0,
+  "os_write_failed_benign": 0,
+  "render_failed": 0,
+  "totalDurationMs": 130717
+}
+~/.../artifacts/api-server$ curl -s "https://car.lpstudio.ai/elite-car-care-beverly-hills" \
+  | grep -oE '/assets/[A-Za-z0-9._-]+\.js' | sort -u | head -3 \
+  | while read p; do printf "%s -> " "$p"; curl -sI "https://car.lpstudio.ai$p" | head -1; done
+/assets/api-D-5LC6we.js -> HTTP/2 200 
+/assets/arrow-up-right-DB-78VkI.js -> HTTP/2 200 
+/assets/badge-C2S7UbGc.js -> HTTP/2 200 

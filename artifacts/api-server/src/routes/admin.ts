@@ -699,6 +699,103 @@ router.get("/superadmin/domain-help", requireAdminKey, requireSuperadmin, async 
   });
 });
 
+// ─── Asset-health dashboard (task #379) ──────────────────────────────────────
+// Per-page asset-health rows persisted by the scheduled canary in
+// `lib/assetHealthCheck.ts`. Powers the SuperAdmin AssetHealth tab so
+// operators see "X% of published pages reference missing assets" at a
+// glance — the exact view that would have caught the 2026-05-25
+// white-page incident on first load.
+
+// GET /api/admin/superadmin/asset-health — list every published page +
+// its persisted health row. Cheap (single query, ~85 rows in prod) so
+// no pagination yet; revisit if the fleet grows past a few hundred.
+router.get("/superadmin/asset-health", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        p.id, p.tenant_id, p.slug, p.title, p.updated_at,
+        p.asset_health_checked_at, p.asset_health_result,
+        t.name AS tenant_name, t.slug AS tenant_slug
+      FROM lp_pages p
+      JOIN tenants t ON t.id = p.tenant_id
+      WHERE p.status = 'published'
+      ORDER BY
+        -- Broken first (operator's first action is always "what's red?"),
+        -- then never-checked, then most-recently-checked healthy.
+        (CASE
+          WHEN p.asset_health_result IS NOT NULL
+            AND jsonb_array_length(COALESCE(p.asset_health_result->'brokenAssets','[]'::jsonb)) > 0 THEN 0
+          WHEN p.asset_health_checked_at IS NULL THEN 1
+          ELSE 2
+        END),
+        p.asset_health_checked_at DESC NULLS LAST,
+        p.updated_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[superadmin] GET /asset-health error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/asset-health/recheck-all — kicks off the
+// scheduled canary out-of-band so the operator doesn't have to wait
+// for the 15-minute tick. Fire-and-forget; the response returns
+// immediately and the row updates land as each page finishes.
+router.post("/superadmin/asset-health/recheck-all", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const { runAssetHealthCheck } = await import("../lib/assetHealthCheck");
+    void runAssetHealthCheck();
+    res.json({ ok: true, message: "Asset-health sweep started" });
+  } catch (err) {
+    console.error("[superadmin] POST /asset-health/recheck-all error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/asset-health/:pageId/recheck — re-run the
+// probe for a single page and return its fresh persisted row.
+router.post("/superadmin/asset-health/:pageId/recheck", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+  const pageId = Number(req.params.pageId);
+  if (!pageId || isNaN(pageId)) { res.status(400).json({ error: "Invalid page id" }); return; }
+  try {
+    const { recheckOnePage } = await import("../lib/assetHealthCheck");
+    const result = await recheckOnePage(pageId);
+    if (result === null) {
+      res.status(503).json({ error: "Asset-health probe unavailable (R2 not configured or page not found)" });
+      return;
+    }
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error("[superadmin] POST /asset-health/:pageId/recheck error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/asset-health/:pageId/republish — re-run
+// prerender + R2 HTML write for one page. The publish-time presence
+// check (task #374 T050) means if any referenced asset is missing
+// from R2, the render aborts with `render_failed_assets_missing` and
+// we surface that to the operator.
+router.post("/superadmin/asset-health/:pageId/republish", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+  const pageId = Number(req.params.pageId);
+  if (!pageId || isNaN(pageId)) { res.status(400).json({ error: "Invalid page id" }); return; }
+  try {
+    const { renderAndStoreNow } = await import("../lib/triggerPublishedRender");
+    const outcome = await renderAndStoreNow({ pageId, requestHost: null });
+    // Best-effort: refresh the row's asset-health record now that the
+    // HTML has just been rewritten. Non-fatal if the recheck fails.
+    try {
+      const { recheckOnePage } = await import("../lib/assetHealthCheck");
+      await recheckOnePage(pageId);
+    } catch { /* ignore */ }
+    res.json({ ok: true, outcome });
+  } catch (err) {
+    console.error("[superadmin] POST /asset-health/:pageId/republish error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // POST /api/admin/superadmin/tenants/:id/copy-brand
 router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
   const targetId = Number(req.params.id);

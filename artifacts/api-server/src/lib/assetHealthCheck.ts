@@ -1,37 +1,73 @@
 /**
- * Periodic asset health check (task #374, T060).
+ * Periodic asset health check (tasks #374 T060 + #379).
  *
- * Samples a small number of recently-published landing pages from R2,
- * extracts one referenced `/assets/*` JS path from each, and confirms
- * the asset is present in R2 under `_studio-assets/assets/<basename>`.
- * Alerts via Sentry + structured log when an asset is missing — the
+ * Walks every published landing page, fetches its R2-stored HTML,
+ * extracts every referenced `/assets/*` path, and HEADs each one
+ * against R2 under `_studio-assets/assets/<basename>`. Persists the
+ * outcome to `lp_pages.asset_health_result` + `asset_health_checked_at`
+ * so the SuperAdmin asset-health dashboard (task #379) can render the
+ * fleet-wide "X% broken" headline without re-running the probe.
+ *
+ * Alerts via Sentry + structured log when anything is missing — the
  * canary that catches a regression of the lp-studio build hook (script
  * not run on deploy, R2 creds missing in build env, asset upload bug)
  * before it bites a real visitor.
  *
- * Cheap: O(SAMPLE_SIZE) R2 GETs + HEADs per run. Default cadence is 15
- * minutes so a regression surfaces within one cycle.
+ * Cheap: every tick scans ~85 pages (current prod fleet) at concurrency
+ * 8 → ~5s wall time. Default cadence is 15 minutes.
  *
  * NOT for fixing problems — only detecting them. The fix is to redeploy
  * lp-studio (build hook reuploads assets) or to run
- * `scripts/backfill-published-html.ts` to refresh stale prerendered HTML.
+ * `scripts/backfill-published-html.ts` to refresh stale prerendered HTML
+ * (or hit the per-page "Republish" button on the dashboard).
  */
 import * as Sentry from "@sentry/node";
 import { S3Client, GetObjectCommand, NoSuchKey, NotFound } from "@aws-sdk/client-s3";
 import { db, lpPagesTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getActiveHostsForTenant } from "./tenantHosts";
 import { extractAssetPaths, r2AssetExists } from "./assetRefs";
 
-const SAMPLE_SIZE = 10;
+const CONCURRENCY = 8;
+
+export interface AssetHealthResult {
+  /** Unique /assets/* references found in the HTML. 0 when hadHtml=false. */
+  checked: number;
+  /** Subset of references that returned 404 from R2. */
+  brokenAssets: string[];
+  /** Host the lookup used. Empty string when no active host for the tenant. */
+  host: string;
+  /** Whether R2 HTML existed for this page (false → not yet prerendered). */
+  hadHtml: boolean;
+}
 
 function getR2() {
   const accountId = process.env.R2_ACCOUNT_ID?.trim();
   const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
   const bucket = process.env.R2_BUCKET?.trim();
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null;
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    // Same hardening as assetPresenceCheck.ts (post-2026-05-25 white-page
+    // incident RCA): silently no-opping in production means the canary
+    // never alerts when the dashboard most needs it. Local dev still
+    // no-ops so developers without R2 access can run the server.
+    if (process.env.NODE_ENV === "production") {
+      const missing = [
+        !accountId && "R2_ACCOUNT_ID",
+        !accessKeyId && "R2_ACCESS_KEY_ID",
+        !secretAccessKey && "R2_SECRET_ACCESS_KEY",
+        !bucket && "R2_BUCKET",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      throw new Error(
+        `assetHealthCheck: R2 credentials missing in production (${missing}). ` +
+          `Scheduled asset-health probe cannot run; refusing to silently skip.`,
+      );
+    }
+    return null;
+  }
   const client = new S3Client({
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -67,6 +103,43 @@ async function readR2Html(
   }
 }
 
+async function checkOnePage(
+  cfg: { client: S3Client; bucket: string },
+  page: { id: number; tenantId: number; slug: string },
+): Promise<AssetHealthResult> {
+  const hosts = await getActiveHostsForTenant(page.tenantId);
+  const host = hosts[0] ?? "";
+  if (!host) {
+    return { checked: 0, brokenAssets: [], host: "", hadHtml: false };
+  }
+  const html = await readR2Html(cfg.client, cfg.bucket, host, page.slug);
+  if (!html) {
+    return { checked: 0, brokenAssets: [], host, hadHtml: false };
+  }
+  const assets = Array.from(new Set(extractAssetPaths(html)));
+  const broken: string[] = [];
+  // Per-page HEAD fan-out is also bounded: most pages reference 2-4 assets.
+  const presence = await Promise.all(
+    assets.map(async (ref) => {
+      const basename = ref.split("/").pop()!;
+      const exists = await r2AssetExists(cfg.client, cfg.bucket, basename);
+      return { ref, exists };
+    }),
+  );
+  for (const p of presence) if (!p.exists) broken.push(p.ref);
+  return { checked: assets.length, brokenAssets: broken, host, hadHtml: true };
+}
+
+async function persistResult(pageId: number, result: AssetHealthResult): Promise<void> {
+  await db
+    .update(lpPagesTable)
+    .set({
+      assetHealthCheckedAt: new Date(),
+      assetHealthResult: result,
+    })
+    .where(eq(lpPagesTable.id, pageId));
+}
+
 // Single-flight guard so a slow probe doesn't overlap the next tick.
 let inflight: Promise<void> | null = null;
 
@@ -75,64 +148,84 @@ export function runAssetHealthCheck(): Promise<void> {
   inflight = (async () => {
     const cfg = getR2();
     if (!cfg) {
-      // No R2 in dev → nothing to check; log once-per-tick at debug.
       logger.debug("assetHealthCheck: R2 not configured, skipping");
       return;
     }
+    const r2: { client: S3Client; bucket: string } = cfg;
     try {
-      // Sample the SAMPLE_SIZE most-recently-updated published pages.
-      // Most-recent is the right bias: a recently-published page is the
-      // one most likely to exercise the *current* asset pipeline, and
-      // an asset miss on a fresh page is the most actionable signal.
       const pages = await db
         .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug })
         .from(lpPagesTable)
         .where(eq(lpPagesTable.status, "published"))
-        .orderBy(desc(lpPagesTable.updatedAt))
-        .limit(SAMPLE_SIZE);
+        .orderBy(desc(lpPagesTable.updatedAt));
 
-      let checked = 0;
-      let healthy = 0;
-      const broken: { pageId: number; slug: string; host: string; missing: string }[] = [];
+      let checkedPages = 0;
+      let healthyPages = 0;
+      let brokenPages = 0;
+      let noHtmlPages = 0;
+      const brokenSample: { pageId: number; slug: string; host: string; missing: string[] }[] = [];
 
-      for (const page of pages) {
-        const hosts = await getActiveHostsForTenant(page.tenantId);
-        if (hosts.length === 0) continue;
-        const host = hosts[0];
-        const html = await readR2Html(cfg.client, cfg.bucket, host, page.slug);
-        if (!html) continue; // page not yet in R2 — not this job's problem
-        const assets = extractAssetPaths(html);
-        // Look for a JS asset specifically — the entrypoint script is
-        // the load-bearing reference. CSS missing is also bad but JS
-        // missing is fatal first.
-        const jsRef = assets.find((a) => a.endsWith(".js") || a.endsWith(".mjs"));
-        if (!jsRef) continue;
-        checked++;
-        const basename = jsRef.split("/").pop()!;
-        const exists = await r2AssetExists(cfg.client, cfg.bucket, basename);
-        if (exists) {
-          healthy++;
-        } else {
-          broken.push({ pageId: page.id, slug: page.slug, host, missing: jsRef });
+      // Fixed-size worker pool over the page list.
+      let cursor = 0;
+      async function worker() {
+        while (cursor < pages.length) {
+          const i = cursor++;
+          const page = pages[i];
+          try {
+            const result = await checkOnePage(r2, page);
+            await persistResult(page.id, result);
+            checkedPages++;
+            if (!result.hadHtml) {
+              noHtmlPages++;
+            } else if (result.brokenAssets.length === 0) {
+              healthyPages++;
+            } else {
+              brokenPages++;
+              if (brokenSample.length < 10) {
+                brokenSample.push({
+                  pageId: page.id,
+                  slug: page.slug,
+                  host: result.host,
+                  missing: result.brokenAssets,
+                });
+              }
+            }
+          } catch (err) {
+            // Per-page failure shouldn't kill the whole sweep — log and
+            // continue. The row simply isn't updated this tick.
+            logger.warn(
+              { err, pageId: page.id, slug: page.slug },
+              "assetHealthCheck: per-page probe failed",
+            );
+          }
         }
       }
+      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
-      if (broken.length > 0) {
+      if (brokenPages > 0) {
         logger.error(
-          { checked, healthy, brokenCount: broken.length, broken: broken.slice(0, 5) },
+          {
+            totalPages: pages.length,
+            checkedPages,
+            healthyPages,
+            brokenPages,
+            noHtmlPages,
+            brokenSample,
+          },
           "assetHealthCheck: published pages reference missing assets — lp-studio deploy may have skipped the R2 asset upload step",
         );
         Sentry.captureMessage("lp_asset_health_broken", {
           level: "error",
           tags: { subsystem: "lp-prerender", outcome: "asset_missing" },
-          extra: { checked, healthy, brokenCount: broken.length, broken: broken.slice(0, 10) },
+          extra: { totalPages: pages.length, checkedPages, healthyPages, brokenPages, brokenSample },
         });
       } else {
-        logger.info({ checked, healthy }, "assetHealthCheck: ok");
+        logger.info(
+          { totalPages: pages.length, checkedPages, healthyPages, noHtmlPages },
+          "assetHealthCheck: ok",
+        );
       }
     } catch (err) {
-      // A failure of the health check itself is non-fatal; log + Sentry
-      // so we know the canary itself is silent.
       logger.error({ err }, "assetHealthCheck: probe failed");
       Sentry.captureMessage("lp_asset_health_probe_failed", {
         level: "warning",
@@ -145,3 +238,29 @@ export function runAssetHealthCheck(): Promise<void> {
   });
   return inflight;
 }
+
+/**
+ * Run a single-page probe on demand and persist the result. Used by the
+ * SuperAdmin "Re-check" button so an operator can refresh one row
+ * without waiting for the 15-minute tick. Returns the persisted result
+ * (or null when R2 isn't configured, e.g. local dev).
+ */
+export async function recheckOnePage(
+  pageId: number,
+): Promise<AssetHealthResult | null> {
+  const cfg = getR2();
+  if (!cfg) return null;
+  const [page] = await db
+    .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, slug: lpPagesTable.slug })
+    .from(lpPagesTable)
+    .where(eq(lpPagesTable.id, pageId))
+    .limit(1);
+  if (!page) return null;
+  const result = await checkOnePage(cfg, page);
+  await persistResult(page.id, result);
+  return result;
+}
+
+// Silence unused-import warning while keeping `sql` available for future
+// raw-SQL needs in this module (drizzle re-exports it from the package).
+void sql;

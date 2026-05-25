@@ -37,7 +37,28 @@ function getR2() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
   const bucket = process.env.R2_BUCKET?.trim();
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null;
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    // Same hardening as assetPresenceCheck.ts (post-2026-05-25 white-page
+    // incident RCA): in production, a missing R2 credential silently
+    // disabling the daily GC is a regression we want to catch loudly at
+    // boot, not by quietly accumulating dead objects forever. Local dev
+    // still no-ops so devs without R2 access can run the server.
+    if (process.env.NODE_ENV === "production") {
+      const missing = [
+        !accountId && "R2_ACCOUNT_ID",
+        !accessKeyId && "R2_ACCESS_KEY_ID",
+        !secretAccessKey && "R2_SECRET_ACCESS_KEY",
+        !bucket && "R2_BUCKET",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      throw new Error(
+        `assetsGc: R2 credentials missing in production (${missing}). ` +
+          `Daily asset GC cannot run; refusing to silently skip.`,
+      );
+    }
+    return null;
+  }
   const client = new S3Client({
     region: "auto",
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
