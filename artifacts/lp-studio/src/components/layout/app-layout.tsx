@@ -12,6 +12,7 @@ import {
   Users,
   Shield,
   Settings,
+  Globe,
   LogOut,
   ChevronDown,
   ChevronRight,
@@ -377,6 +378,16 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                       <Link href="/settings/general" className="font-medium">
                         <Settings className="w-4 h-4" />
                         <span>General</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {(hasPerm("settings") || user?.isAdmin) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/domain"}>
+                      <Link href="/settings/domain" className="font-medium">
+                        <Globe className="w-4 h-4" />
+                        <span>Domain</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

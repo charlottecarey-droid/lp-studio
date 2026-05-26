@@ -149,6 +149,7 @@ const ProgrammaticPages = lazy(() => import("@/pages/programmatic-pages"));
 const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
 const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 const GeneralPage = lazy(() => import("@/pages/settings/GeneralPage"));
+const DomainPage = lazy(() => import("@/pages/settings/DomainPage"));
 
 // Superadmin (no auth gate)
 const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
@@ -279,6 +280,7 @@ function AppRouter() {
 
         {/* Settings Routes */}
         <Route path="/settings/general">{() => <PermRoute perm="settings" fallback="/"><GeneralPage /></PermRoute>}</Route>
+        <Route path="/settings/domain">{() => <PermRoute perm="settings" fallback="/"><DomainPage /></PermRoute>}</Route>
         <Route path="/settings/team">{() => <PermRoute perm="team" fallback="/"><TeamPage /></PermRoute>}</Route>
         <Route path="/settings/roles">{() => <PermRoute perm="roles" fallback="/"><RolesPage /></PermRoute>}</Route>
 

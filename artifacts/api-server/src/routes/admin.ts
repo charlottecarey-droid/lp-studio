@@ -14,6 +14,13 @@ import {
   validateSlug,
   isSlugRedirectReserved,
 } from "../lib/tenantHosts";
+import {
+  CloudflareError,
+  provisionCustomDomain,
+  deprovisionCustomDomain,
+  getCustomHostname,
+} from "../lib/cloudflare";
+import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import dns from "dns/promises";
 import https from "https";
 import net from "net";
@@ -1800,6 +1807,267 @@ router.post("/invite-test", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("[admin] POST /invite-test error:", err);
     res.status(500).json({ error: "Failed to send test email" });
+  }
+});
+
+// ─── Task #412 — Custom-domain self-serve ──────────────────────────────────
+//
+// Tenant admins on Growth+ can attach their own microsite domain
+// (e.g. `pages.acme.com`) without filing a Dandy support ticket.
+// Architectural constraint inherited from Task #364: a microsite host
+// only works end-to-end if BOTH a Cloudflare Custom Hostname AND a
+// Worker Route on `lpstudio.ai` are provisioned. Either-alone silently
+// fails (TLS handshake or wrong-backend routing). The Cloudflare client
+// in `lib/cloudflare.ts` enforces the both-or-neither contract via
+// rollback on partial failure.
+//
+// Routes (all gated by `requireAuth` at admin.ts:1045):
+//   GET    /api/admin/custom-domain        — current state + CF status
+//   POST   /api/admin/custom-domain        — attach { hostname }
+//   POST   /api/admin/custom-domain/verify — refresh CF status
+//   DELETE /api/admin/custom-domain        — detach
+//
+// `requirePlanFeature("customDomain")` returns 402 for tenants below
+// Growth (superadmin bypasses, matching existing behaviour).
+
+function cloudflareErrorToHttp(err: unknown): { status: number; body: { error: string; cloudflareErrors?: unknown } } {
+  if (err instanceof CloudflareError) {
+    // CF "hostname already associated with another account" → 409 so the UI
+    // can show a "claim conflict" message rather than a generic 500.
+    const isConflict = err.errors.some((e) => e.code === 1406 || e.code === 1409 || e.message.toLowerCase().includes("already"));
+    return {
+      status: isConflict ? 409 : 502,
+      body: { error: err.message, cloudflareErrors: err.errors },
+    };
+  }
+  return { status: 500, body: { error: err instanceof Error ? err.message : "Unknown error" } };
+}
+
+interface CustomDomainState {
+  hostname: string | null;
+  cloudflareHostnameId: string | null;
+  status: string | null;
+  sslStatus: string | null;
+  validationRecords: Array<{ name?: string; value?: string; type?: string }> | null;
+  ownershipVerification: { name?: string; value?: string; type?: string } | null;
+  cnameTarget: string;
+  error: string | null;
+}
+
+const CNAME_TARGET = "lpstudio.ai";
+
+async function loadCustomDomainState(tenantId: number): Promise<CustomDomainState> {
+  const trow = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null }>(
+    `SELECT microsite_domain, cloudflare_hostname_id FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  const row = trow.rows[0];
+  const state: CustomDomainState = {
+    hostname: row?.microsite_domain ?? null,
+    cloudflareHostnameId: row?.cloudflare_hostname_id ?? null,
+    status: null,
+    sslStatus: null,
+    validationRecords: null,
+    ownershipVerification: null,
+    cnameTarget: CNAME_TARGET,
+    error: null,
+  };
+  if (state.cloudflareHostnameId) {
+    try {
+      const ch = await getCustomHostname(state.cloudflareHostnameId);
+      state.status = ch.status;
+      state.sslStatus = ch.ssl?.status ?? null;
+      state.validationRecords = (ch.ssl?.validation_records ?? []).map((v) => ({
+        name: v.txt_name,
+        value: v.txt_value,
+        type: v.txt_name ? "TXT" : v.http_url ? "HTTP" : undefined,
+      }));
+      if (ch.ownership_verification?.name) {
+        state.ownershipVerification = {
+          name: ch.ownership_verification.name,
+          value: ch.ownership_verification.value,
+          type: ch.ownership_verification.type ?? "TXT",
+        };
+      }
+    } catch (err) {
+      state.error = err instanceof Error ? err.message : "Failed to fetch Cloudflare status";
+    }
+  }
+  return state;
+}
+
+router.get("/custom-domain", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+  try {
+    const state = await loadCustomDomainState(req.authUser!.tenantId!);
+    res.json(state);
+  } catch (err) {
+    console.error("[admin] GET /custom-domain error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Only workspace admins can change the custom domain" });
+    return;
+  }
+  const tenantId = req.authUser!.tenantId!;
+  const { hostname } = req.body ?? {};
+  const v = validateDomain(hostname ?? "");
+  if (!v.ok) { res.status(400).json({ error: v.error }); return; }
+  if (!v.normalized) { res.status(400).json({ error: "Hostname is required" }); return; }
+  const normalized = v.normalized;
+
+  try {
+    // Reject if it conflicts with another tenant (either app domain or
+    // microsite domain). Scoped via excludeTenantId so re-saving the
+    // same hostname against our own tenant doesn't false-positive.
+    const conflict = await findDomainConflict(normalized, tenantId);
+    if (conflict) {
+      res.status(409).json({
+        error: `Domain ${normalized} is already used by another workspace`,
+      });
+      return;
+    }
+
+    // If this tenant already has a different microsite domain attached,
+    // require an explicit detach first — otherwise we'd leak the prior
+    // Cloudflare resources. Same-hostname re-attach is a no-op success.
+    const existing = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null }>(
+      `SELECT microsite_domain, cloudflare_hostname_id FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    const prior = existing.rows[0];
+    if (prior?.microsite_domain && prior.microsite_domain.toLowerCase() !== normalized) {
+      res.status(409).json({
+        error: `Detach the current domain (${prior.microsite_domain}) before attaching a new one`,
+      });
+      return;
+    }
+    if (prior?.microsite_domain?.toLowerCase() === normalized && prior.cloudflare_hostname_id) {
+      // Already attached — return current state idempotently.
+      res.json(await loadCustomDomainState(tenantId));
+      return;
+    }
+
+    // Provision BOTH Cloudflare resources. provisionCustomDomain handles
+    // the rollback of the Custom Hostname if the Worker Route step fails,
+    // so we never leak a half-configured state.
+    const ch = await provisionCustomDomain(normalized);
+
+    // Compensating deprovision if the DB write fails after Cloudflare
+    // succeeds. Without this, a DB blip would leave both CF resources
+    // live with no app-side record — visitors would get TLS but
+    // api-server wouldn't know which tenant the host belongs to, and
+    // the tenant has no way to detach via the UI (the DELETE handler
+    // bails out early when microsite_domain is null).
+    try {
+      await pool.query(
+        `UPDATE tenants SET microsite_domain = $1, cloudflare_hostname_id = $2, updated_at = now() WHERE id = $3`,
+        [normalized, ch.id, tenantId],
+      );
+    } catch (dbErr) {
+      try {
+        await deprovisionCustomDomain(normalized, ch.id);
+      } catch (rollbackErr) {
+        console.error(
+          "[admin] POST /custom-domain DB-write rollback failed (Cloudflare resources may leak):",
+          rollbackErr,
+          "original DB error:",
+          dbErr,
+        );
+      }
+      throw dbErr;
+    }
+    invalidateTenantHostCache();
+
+    console.info(
+      "[admin][audit] tenant.customDomain.attached",
+      JSON.stringify({
+        tenantId,
+        hostname: normalized,
+        cloudflareHostnameId: ch.id,
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        at: new Date().toISOString(),
+      }),
+    );
+
+    res.json(await loadCustomDomainState(tenantId));
+  } catch (err) {
+    console.error("[admin] POST /custom-domain error:", err);
+    const { status, body } = cloudflareErrorToHttp(err);
+    res.status(status).json(body);
+  }
+});
+
+router.post("/custom-domain/verify", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+  try {
+    // Re-fetch from Cloudflare (loadCustomDomainState already does this
+    // when cloudflareHostnameId is set). No DB writes — verification is
+    // a read-side refresh the UI uses to poll for TLS-active status.
+    res.json(await loadCustomDomainState(req.authUser!.tenantId!));
+  } catch (err) {
+    console.error("[admin] POST /custom-domain/verify error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/custom-domain", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Only workspace admins can change the custom domain" });
+    return;
+  }
+  const tenantId = req.authUser!.tenantId!;
+  try {
+    const row = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null }>(
+      `SELECT microsite_domain, cloudflare_hostname_id FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    const prior = row.rows[0];
+    if (!prior?.microsite_domain) {
+      res.json(await loadCustomDomainState(tenantId));
+      return;
+    }
+
+    // Clear Cloudflare side first. If CF deletion partially fails we
+    // still clear the DB columns — leaving a stale microsite_domain
+    // pointing at a half-removed CF resource is worse than a CF leak
+    // (tenant resolution would break for the host) and the operator
+    // can clean up the leak from the Cloudflare dashboard.
+    let cfError: string | null = null;
+    try {
+      await deprovisionCustomDomain(prior.microsite_domain, prior.cloudflare_hostname_id);
+    } catch (err) {
+      cfError = err instanceof Error ? err.message : "Cloudflare cleanup failed";
+      console.error("[admin] DELETE /custom-domain Cloudflare cleanup failed:", err);
+    }
+
+    await pool.query(
+      `UPDATE tenants SET microsite_domain = NULL, cloudflare_hostname_id = NULL, updated_at = now() WHERE id = $1`,
+      [tenantId],
+    );
+    invalidateTenantHostCache();
+
+    console.info(
+      "[admin][audit] tenant.customDomain.detached",
+      JSON.stringify({
+        tenantId,
+        hostname: prior.microsite_domain,
+        cloudflareHostnameId: prior.cloudflare_hostname_id,
+        cloudflareError: cfError,
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        at: new Date().toISOString(),
+      }),
+    );
+
+    const state = await loadCustomDomainState(tenantId);
+    if (cfError) state.error = `Domain detached, but Cloudflare cleanup reported: ${cfError}`;
+    res.json(state);
+  } catch (err) {
+    console.error("[admin] DELETE /custom-domain error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

@@ -15,6 +15,12 @@ export const tenantsTable = pgTable("tenants", {
   slug: text("slug").notNull().unique(),
   domain: text("domain"),
   micrositeDomain: text("microsite_domain"),
+  // Task #412 — Cloudflare Custom Hostname id returned by
+  // POST /zones/{zone}/custom_hostnames. Stored so the tenant-admin
+  // "remove domain" flow can DELETE the matching Cloudflare resource
+  // by id (avoiding a lookup-by-hostname round trip) and so the
+  // SaaS UI can poll its TLS/verification status.
+  cloudflareHostnameId: text("cloudflare_hostname_id"),
   plan: text("plan").notNull().default("trial"),
   status: text("status").notNull().default("active"),
   settings: jsonb("settings").default({}),
