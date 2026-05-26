@@ -49,15 +49,29 @@ router.post("/lp/image/generate", requireAuth, async (req, res): Promise<void> =
   // canonical PLAN_FEATURES matrix. A starter / growth tenant cannot
   // enable it at all, so we 402 with the standard plan_upgrade_required
   // payload so the global upgrade-prompt UX kicks in.
-  const { plan, features } = await getTenantPlanFeatures(tenantId);
-  if (!features.aiImageGen) {
-    res.status(402).json({
-      error: "plan_upgrade_required",
-      feature: "aiImageGen",
-      plan,
-      message: "AI image generation is an Enterprise feature. Upgrade your plan to enable it.",
-    });
-    return;
+  //
+  // Superadmin operators bypass (consistent with the other Phase-2
+  // count gates) so Dandy staff can demo / debug AI on any tenant
+  // regardless of tier. Fails CLOSED on DB lookup error: a 503
+  // `plan_check_unavailable` is strictly better than billing-bypass
+  // by accident.
+  if (req.authUser?.appUserRole !== "superadmin") {
+    try {
+      const { plan, features } = await getTenantPlanFeatures(tenantId);
+      if (!features.aiImageGen) {
+        res.status(402).json({
+          error: "plan_upgrade_required",
+          feature: "aiImageGen",
+          plan,
+          message: "AI image generation is an Enterprise feature. Upgrade your plan to enable it.",
+        });
+        return;
+      }
+    } catch (err) {
+      console.error("[lp/image/generate] plan lookup failed", { tenantId, err });
+      res.status(503).json({ error: "plan_check_unavailable" });
+      return;
+    }
   }
 
   // Per-tenant operator toggle (task #234). Available on Enterprise but
