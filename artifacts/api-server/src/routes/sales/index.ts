@@ -20,13 +20,30 @@ import onePagerTemplatesRouter from "./one-pager-templates";
 import webOnePagerRouter from "./web-one-pager";
 import resendWebhookRouter from "./resend-webhook";
 import brandContextRouter from "./brand-context";
+import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 
 const router = Router();
+
+// /sales/templates/* is shared with the Marketing tool: the "Follow-up
+// email to submitter" panel on landing-page Forms (FollowUpEmailSection
+// in lp-studio) reads/writes templates through this router and stores
+// the chosen templateId on the form. Marketing-only (starter) tenants
+// must keep CRUD access here even though the rest of the Sales Console
+// is gated. MUST be mounted BEFORE the requirePlanFeature line below so
+// Express matches /sales/templates/* before the gate runs.
+router.use(templatesRouter);
+
+// Everything below this line is gated to plans that include the
+// Sales Console. Mount order matters: gate middleware applies only to
+// routes registered AFTER it. The middleware is a no-op when
+// req.authUser is unset (public visitor endpoints) and bypasses for
+// superadmin; see middleware/requirePlanFeature.ts for the full
+// behaviour.
+router.use(requirePlanFeature("salesConsole"));
 
 router.use(accountsRouter);
 router.use(contactsRouter);
 router.use(signalsRouter);
-router.use(templatesRouter);
 router.use(campaignsRouter);
 router.use(hotlinksRouter);
 router.use(campaignPagesRouter);

@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
 import { Plus, ExternalLink } from "lucide-react";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import { useAuth } from "@/context/AuthContext";
+import { resolveFeatures } from "@/lib/plan-features";
 
 const API_BASE = "/api";
 // Built-in Dandy banner. Used only when the tenant has not set its own
@@ -38,6 +40,12 @@ export function FollowUpEmailSection({
   enabled, templateId, onEnabledChange, onTemplateIdChange,
 }: FollowUpEmailSectionProps) {
   const { brand } = useBrandConfig();
+  const { user } = useAuth();
+  // Starter (marketing-only) tenants can still create/pick templates
+  // here — the /api/sales/templates surface is shared with Marketing —
+  // but the Sales → Outreach editor is behind the plan gate, so we
+  // suppress the "manage in Sales → Outreach" link for them.
+  const salesConsoleAvailable = resolveFeatures(user).salesConsole;
   const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
   const [templates, setTemplates] = useState<SalesTemplate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,10 +136,17 @@ export function FollowUpEmailSection({
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5">
-              Merge variables like <code className="bg-muted px-1 rounded">{`{{first_name}}`}</code> are filled from the submitted form fields (label is normalised to lowercase with underscores). Templates are managed in{" "}
-              <a href="/sales/outreach" target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-0.5">
-                Sales → Outreach <ExternalLink className="w-2.5 h-2.5" />
-              </a>.
+              Merge variables like <code className="bg-muted px-1 rounded">{`{{first_name}}`}</code> are filled from the submitted form fields (label is normalised to lowercase with underscores).
+              {salesConsoleAvailable ? (
+                <>
+                  {" "}Templates are managed in{" "}
+                  <a href="/sales/outreach" target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-0.5">
+                    Sales → Outreach <ExternalLink className="w-2.5 h-2.5" />
+                  </a>.
+                </>
+              ) : (
+                <> Use the <strong>+ New</strong> button to create one inline.</>
+              )}
             </p>
             {enabled && templateId == null && (
               <p className="text-[11px] text-amber-700 mt-1">Pick a template — without one, no follow-up will be sent.</p>

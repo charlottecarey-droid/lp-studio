@@ -12,7 +12,6 @@ import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import webhooksRouter from "./webhooks";
 import cspReportRouter from "./cspReport";
 import { requireAuth } from "../middleware/requireAuth";
-import { requirePlanFeature } from "../middleware/requirePlanFeature";
 
 const router: IRouter = Router();
 
@@ -67,13 +66,16 @@ router.use(authRouter);
 router.use(lpRouter);
 router.use(storageRouter);
 router.use("/dso", dsoRouter);
-// Sales Console is a paid tier feature. `requirePlanFeature` returns
-// 402 for tenants on a plan whose `salesConsole` flag is false (today:
-// "starter"). It is a no-op when `req.authUser` is unset, so the public
-// /sales/* routes exempted from requireAuth via LP_PUBLIC above (email
-// link tracking, unsubscribe, Resend webhook) keep working for
-// anonymous visitors regardless of tenant plan.
-router.use("/sales", requirePlanFeature("salesConsole"), salesRouter);
+// Sales Console is a paid tier feature, but a couple of sub-surfaces
+// (templates today, possibly more later) are shared with Marketing and
+// must stay open on every plan. The plan gate therefore lives INSIDE
+// sales/index.ts, mounted after the always-open sub-routers and before
+// everything that is genuinely Sales-Console-only. The gate is a no-op
+// when req.authUser is unset, so public /sales/* paths exempted from
+// requireAuth via LP_PUBLIC above (email link tracking, unsubscribe,
+// Resend webhook) keep working for anonymous visitors regardless of
+// tenant plan.
+router.use("/sales", salesRouter);
 router.use(videoRouter);
 // blockCatalogRouter must be mounted BEFORE the "/admin" adminRouter mount.
 // adminRouter contains a wildcard `router.use(requireAuth)` at admin.ts:707
