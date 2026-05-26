@@ -411,7 +411,7 @@ export async function appendGuestApplicationToSheet(
 
   const appendResp = await connectors.proxy(
     "google-sheet",
-    `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${APPLICATIONS_TAB}!A1`)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`${APPLICATIONS_TAB}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

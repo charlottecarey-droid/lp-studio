@@ -66,7 +66,7 @@ export async function appendLeadRow(config: SheetsConfig, lead: LeadRow): Promis
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range,
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: [headers] },
     });
   }
@@ -82,7 +82,7 @@ export async function appendLeadRow(config: SheetsConfig, lead: LeadRow): Promis
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range,
-    valueInputOption: "USER_ENTERED",
+    valueInputOption: "RAW",
     requestBody: { values: [row] },
   });
 }

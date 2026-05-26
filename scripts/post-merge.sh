@@ -11,8 +11,22 @@ pnpm install --frozen-lockfile
 # CONCURRENT indexes must be separate psql invocations (can't run inside a transaction block).
 
 psql "$NEON_DATABASE_URL" -c "
-  CREATE INDEX IF NOT EXISTS lp_pages_tenant_slug_idx ON lp_pages (tenant_id, slug);
   CREATE INDEX IF NOT EXISTS lp_page_visits_page_id_idx ON lp_page_visits (page_id);
+"
+
+# lp_pages_tenant_slug_idx requires the tenant_id column which may not yet exist
+# in all environments (it is added by a separate schema migration). Skip gracefully
+# when the column is absent so the post-merge script stays idempotent everywhere.
+psql "$NEON_DATABASE_URL" -c "
+DO \$\$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'lp_pages' AND column_name = 'tenant_id'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS lp_pages_tenant_slug_idx ON lp_pages (tenant_id, slug)';
+  END IF;
+END \$\$;
 "
 
 # CONCURRENT index creation — one psql call per index (cannot run in a transaction block)
@@ -26,7 +40,15 @@ psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_ses
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_events_test_id ON lp_events (test_id);"
 
 # lp_heatmap_events: indexed on page_id (queried by page_id in heatmap analytics)
-psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_heatmap_events_page_id ON lp_heatmap_events (page_id);"
+# Table may not exist in all environments — skip gracefully if absent.
+psql "$NEON_DATABASE_URL" -c "
+DO \$\$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'lp_heatmap_events') THEN
+    EXECUTE 'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_heatmap_events_page_id ON lp_heatmap_events (page_id)';
+  END IF;
+END \$\$;
+"
 
 # lp_page_presence: indexed on page_id (queried by page_id for live presence tracking)
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_page_presence_page_id ON lp_page_presence (page_id);"

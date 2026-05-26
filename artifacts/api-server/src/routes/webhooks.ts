@@ -21,6 +21,7 @@
  */
 
 import { Router } from "express";
+import { z } from "zod";
 import { db } from "@workspace/db";
 import {
   salesSignalsTable,
@@ -31,6 +32,73 @@ import {
 import { and, eq, ilike, or } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
 import { logger } from "../lib/logger";
+
+// ─── Payload schemas ──────────────────────────────────────────
+// Each schema validates that the inbound body has the expected outer shape for
+// its provider before any data is extracted or written to the database.
+// Using .passthrough() so unknown provider-added fields don't cause rejections,
+// while still enforcing that known fields carry the correct primitive types.
+
+const OptStr = z.string().optional();
+
+const Rb2bPropertiesSchema = z.object({
+  linkedInUrl: OptStr, linkedin_url: OptStr,
+  firstName: OptStr,   first_name: OptStr,
+  lastName: OptStr,    last_name: OptStr,
+  title: OptStr,
+  companyName: OptStr, company_name: OptStr,
+  companyDomain: OptStr, company_domain: OptStr,
+  email: OptStr,
+  pageUrl: OptStr,     page_url: OptStr,
+}).passthrough();
+
+const Rb2bBodySchema = z.union([
+  z.object({ type: OptStr, properties: Rb2bPropertiesSchema }).passthrough(),
+  Rb2bPropertiesSchema,
+]);
+
+const ApolloBodySchema = z.object({
+  event_type: OptStr,
+  organization: z.object({
+    name: OptStr, domain: OptStr, id: OptStr, apollo_id: OptStr,
+  }).passthrough().optional(),
+  org: z.object({ name: OptStr, domain: OptStr }).passthrough().optional(),
+  visitor: z.object({
+    ip: OptStr, page_url: OptStr, pageUrl: OptStr, user_agent: OptStr,
+  }).passthrough().optional(),
+  person: z.object({
+    first_name: OptStr, last_name: OptStr,
+    firstName: OptStr,  lastName: OptStr,
+    title: OptStr, email: OptStr,
+    linkedin_url: OptStr, linkedinUrl: OptStr,
+  }).passthrough().optional(),
+  page_url: OptStr,
+}).passthrough();
+
+const LetterdropLeadSchema = z.object({
+  name: OptStr, email: OptStr,
+  job_title: OptStr, title: OptStr,
+  company_name: OptStr, company: OptStr, organization: OptStr,
+  domain: OptStr, company_domain: OptStr,
+  linkedin_url: OptStr, linkedinUrl: OptStr, linkedin: OptStr,
+  pageUrl: OptStr, page_url: OptStr, url: OptStr,
+  last_activity_type: OptStr, activity_type: OptStr,
+  last_activity: OptStr, engaged_with: OptStr,
+  last_engaged_linkedin_post_url: OptStr, post_url: OptStr,
+  last_engaged_date: OptStr,
+  event: OptStr, source: OptStr,
+}).passthrough();
+
+const LetterdropBodySchema = z.union([
+  z.array(LetterdropLeadSchema),
+  z.object({
+    leads: z.array(LetterdropLeadSchema).optional(),
+    lead: LetterdropLeadSchema.optional(),
+    visitor: LetterdropLeadSchema.optional(),
+    person: LetterdropLeadSchema.optional(),
+    event: OptStr,
+  }).passthrough(),
+]);
 
 const router = Router();
 
@@ -221,7 +289,15 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
       logger.debug({ source: "rb2b", body: req.body }, "rb2b raw body");
     }
 
-    const props = req.body?.properties ?? req.body ?? {};
+    const parsed = Rb2bBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      logger.warn({ source: "rb2b", issues: parsed.error.issues }, "rb2b webhook rejected — invalid payload shape");
+      res.status(400).json({ error: "Invalid payload" });
+      return;
+    }
+
+    const rawBody = parsed.data as Record<string, unknown>;
+    const props = ("properties" in rawBody && rawBody.properties != null ? rawBody.properties : rawBody) as Record<string, string | undefined>;
 
     const linkedinUrl: string | null   = props.linkedInUrl || props.linkedin_url || null;
     const email: string | null         = props.email || null;
@@ -336,7 +412,14 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
       logger.debug({ source: "apollo", body: req.body }, "apollo raw body");
     }
 
-    const body = req.body ?? {};
+    const apolloParsed = ApolloBodySchema.safeParse(req.body);
+    if (!apolloParsed.success) {
+      logger.warn({ source: "apollo", issues: apolloParsed.error.issues }, "apollo webhook rejected — invalid payload shape");
+      res.status(400).json({ error: "Invalid payload" });
+      return;
+    }
+
+    const body = apolloParsed.data as Record<string, any>;
 
     const org    = body.organization ?? body.org ?? {};
     const visitor = body.visitor ?? {};
@@ -438,8 +521,15 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
       logger.debug({ source: "letterdrop", body: req.body }, "letterdrop raw body");
     }
 
+    const letterdropParsed = LetterdropBodySchema.safeParse(req.body);
+    if (!letterdropParsed.success) {
+      logger.warn({ source: "letterdrop", issues: letterdropParsed.error.issues }, "letterdrop webhook rejected — invalid payload shape");
+      res.status(400).json({ error: "Invalid payload" });
+      return;
+    }
+
     // Letterdrop sends either a single lead object or an array of leads
-    const raw = req.body ?? {};
+    const raw = letterdropParsed.data as Record<string, any>;
     const leads: Record<string, string | undefined>[] = Array.isArray(raw)
       ? raw
       : Array.isArray(raw.leads)
