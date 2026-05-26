@@ -39,12 +39,46 @@ import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { FormStylingPanel } from "@/components/FormStylingPanel";
+import type { FormStyling } from "@/lib/form-styling";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useBrandConfig } from "@/context/BrandConfigContext";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+/**
+ * Build a brand-aware "Dark" form-styling preset. Mirrors the original
+ * Inside-Dandy / AVP look (deep stage, glassy surface, accent button)
+ * but swaps in the tenant's own primary/accent so other brands seeing
+ * this preset get their colors baked in instead of Dandy's.
+ */
+function buildDarkFormPreset(primary?: string, accent?: string): FormStyling {
+  const stage = primary && /^#[0-9a-fA-F]{6}$/.test(primary) ? primary : "#001814";
+  const accentColor = accent && /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#C7E738";
+  const accentRgb = hexToRgbTriplet(accentColor);
+  return {
+    background: stage,
+    surface: "rgba(255,255,255,0.03)",
+    border: `rgba(${accentRgb},0.18)`,
+    headlineColor: "#ffffff",
+    subheadlineColor: "rgba(255,255,255,0.65)",
+    labelColor: "rgba(255,255,255,0.55)",
+    inputBg: "rgba(255,255,255,0.02)",
+    inputBorder: "rgba(255,255,255,0.12)",
+    inputText: "#ffffff",
+    buttonBg: accentColor,
+    buttonText: stage,
+    accent: accentColor,
+  };
+}
+
+function hexToRgbTriplet(hex: string): string {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return "199,231,56";
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
 
 interface BrandPreset {
   id: number;
@@ -2321,7 +2355,9 @@ export default function BrandSettings() {
               styling={config.formStyling ?? null}
               onChange={(s) => update("formStyling", s)}
               helpText="These tokens become the default for every linked global form and the form rendered inside CTA modals. Per-form and per-block overrides still win — leave a field blank to skip setting a brand default for it."
-              presetLabel="Apply Inside Dandy / AVP preset"
+              presetLabel="Apply Dark preset"
+              presetValues={buildDarkFormPreset(config.primaryColor, config.accentColor)}
+              showPreview
             />
           </Card>
 
