@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { requireAuth } from "../../middleware/requireAuth";
 import { pool } from "@workspace/db";
 import multer from "multer";
 import path from "path";
@@ -39,6 +40,44 @@ async function query(text: string, params?: any[]) {
 }
 
 const router = Router();
+
+// ─── Public tracking endpoints ────────────────────────────────────────────────
+// These are hit by email recipients following links in outbound emails — they
+// must remain unauthenticated. Register them BEFORE the requireAuth gate below.
+const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+
+router.get("/track-email-open", async (req: Request, res: Response) => {
+  const id = req.query.id as string;
+  if (id) {
+    try {
+      await query(
+        `UPDATE "dso_email_campaign_sends" SET opened_at = NOW() WHERE id = $1 AND opened_at IS NULL`,
+        [id]
+      );
+    } catch {}
+  }
+  res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
+  res.send(PIXEL);
+});
+
+router.get("/track-email-click", async (req: Request, res: Response): Promise<void> => {
+  const { campaign_id, contact_id, url: destination } = req.query as Record<string, string>;
+  if (!destination) { res.status(400).send("Missing url"); return; }
+
+  if (campaign_id && contact_id) {
+    try {
+      await query(
+        `UPDATE "dso_email_campaign_sends" SET clicked_at = NOW() WHERE campaign_id = $1 AND contact_id = $2 AND clicked_at IS NULL`,
+        [campaign_id, contact_id]
+      );
+    } catch {}
+  }
+  res.redirect(302, destination);
+});
+
+// ─── Auth gate ────────────────────────────────────────────────────────────────
+// All routes registered after this point require a valid LP Studio session.
+router.use(requireAuth);
 
 // ─── Table name mapping (source name → dso_ prefixed) ───────────────────────
 const ALLOWED_TABLES: Record<string, string> = {
@@ -254,15 +293,21 @@ router.post("/db/:table", async (req: Request, res: Response) => {
 const STORAGE_DIR = path.join(process.cwd(), ".dso-storage");
 fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
-const upload = multer({ dest: path.join(STORAGE_DIR, "tmp") });
+const upload = multer({ dest: path.join(STORAGE_DIR, "tmp"), limits: { fileSize: 10 * 1024 * 1024 } });
+
+function confinedPath(...segments: string[]): string | null {
+  const resolved = path.resolve(path.join(...segments));
+  return resolved.startsWith(STORAGE_DIR + path.sep) || resolved === STORAGE_DIR ? resolved : null;
+}
 
 router.post("/storage/upload", upload.single("file"), (req: Request, res: Response) => {
   try {
     const bucket = (req.body.bucket as string) || "default";
     const filePath = (req.body.path as string) || (req.file?.originalname ?? "file");
-    const dir = path.join(STORAGE_DIR, bucket, path.dirname(filePath));
+    const dest = confinedPath(STORAGE_DIR, bucket, filePath);
+    if (!dest) { res.status(400).json({ error: "Invalid path" }); return; }
+    const dir = path.dirname(dest);
     fs.mkdirSync(dir, { recursive: true });
-    const dest = path.join(STORAGE_DIR, bucket, filePath);
     if (req.file) fs.renameSync(req.file.path, dest);
     res.json({ path: filePath, bucket });
   } catch (err: any) {
@@ -274,7 +319,8 @@ router.post("/storage/upload", upload.single("file"), (req: Request, res: Respon
 router.get("/storage/list", (req: Request, res: Response): void => {
   const bucket = (req.query.bucket as string) || "default";
   const prefix = (req.query.prefix as string) || "";
-  const dir = path.join(STORAGE_DIR, bucket, prefix);
+  const dir = confinedPath(STORAGE_DIR, bucket, prefix);
+  if (!dir) { res.status(400).json({ error: "Invalid path" }); return; }
   if (!fs.existsSync(dir)) { res.json({ files: [] }); return; }
   const files = fs.readdirSync(dir).map(name => ({ name, id: name }));
   res.json({ files });
@@ -284,20 +330,21 @@ router.get("/storage/file", (req: Request, res: Response): void => {
   const bucket = (req.query.bucket as string) || "default";
   const filePath = (req.query.path as string) || "";
   if (!filePath) { res.status(400).json({ error: "Missing path" }); return; }
-  const safeFilePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, "");
-  const fullPath = path.join(STORAGE_DIR, bucket, safeFilePath);
-  if (!fullPath.startsWith(STORAGE_DIR)) { res.status(400).json({ error: "Invalid path" }); return; }
+  const fullPath = confinedPath(STORAGE_DIR, bucket, filePath);
+  if (!fullPath) { res.status(400).json({ error: "Invalid path" }); return; }
   if (!fs.existsSync(fullPath)) { res.status(404).json({ error: "Not found" }); return; }
   res.sendFile(fullPath);
 });
 
 router.post("/storage/delete", (req: Request, res: Response) => {
   const { bucket, paths } = req.body as { bucket: string; paths: string[] };
+  let deleted = 0;
   for (const p of paths || []) {
-    const fullPath = path.join(STORAGE_DIR, bucket, p);
-    if (fs.existsSync(fullPath)) fs.rmSync(fullPath, { force: true });
+    const fullPath = confinedPath(STORAGE_DIR, bucket, p);
+    if (!fullPath) continue;
+    if (fs.existsSync(fullPath)) { fs.rmSync(fullPath, { force: true }); deleted++; }
   }
-  res.json({ deleted: paths?.length ?? 0 });
+  res.json({ deleted });
 });
 
 // ─── Functions proxy ──────────────────────────────────────────────────────────
@@ -315,38 +362,6 @@ router.post("/functions/:name", async (req: Request, res: Response) => {
   if (name === "accounts-list") return handleAccountsList(req, res, body);
 
   return res.status(404).json({ error: `Unknown function: ${name}` });
-});
-
-// ─── Tracking endpoints ───────────────────────────────────────────────────────
-const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
-
-router.get("/track-email-open", async (req: Request, res: Response) => {
-  const id = req.query.id as string;
-  if (id) {
-    try {
-      await query(
-        `UPDATE "dso_email_campaign_sends" SET opened_at = NOW() WHERE id = $1 AND opened_at IS NULL`,
-        [id]
-      );
-    } catch {}
-  }
-  res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
-  res.send(PIXEL);
-});
-
-router.get("/track-email-click", async (req: Request, res: Response): Promise<void> => {
-  const { campaign_id, contact_id, url: destination } = req.query as Record<string, string>;
-  if (!destination) { res.status(400).send("Missing url"); return; }
-
-  if (campaign_id && contact_id) {
-    try {
-      await query(
-        `UPDATE "dso_email_campaign_sends" SET clicked_at = NOW() WHERE campaign_id = $1 AND contact_id = $2 AND clicked_at IS NULL`,
-        [campaign_id, contact_id]
-      );
-    } catch {}
-  }
-  res.redirect(302, destination);
 });
 
 // ─── Handler: verify-admin-password ──────────────────────────────────────────
