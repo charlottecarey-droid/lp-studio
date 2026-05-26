@@ -178,7 +178,27 @@ async function snapshotRoute(page, baseUrl, route) {
     if (loader) loader.remove();
   });
   const html = await page.content();
-  return `<!DOCTYPE html>\n${html.replace(/^<!DOCTYPE [^>]+>\s*/i, "")}`;
+  // Tag the MarketingApp CSS chunk's <link> so the runtime host-detect
+  // script in index.html can strip it on non-marketing hosts. Without
+  // this, tenant subdomains (max.lpstudio.ai, partners.meetdandy.com,
+  // …) all serve this same prerendered index.html, and the marketing
+  // CSS — which has globally-scoped rules (body bg, h1-h6 font, * margin
+  // reset) plus a second @theme inline block that overrides Tailwind v4
+  // color tokens like --color-border — would leak into the SaaS admin
+  // chrome and the landing-page viewer.
+  const tagged = html.replace(
+    /<link([^>]*\srel="stylesheet"[^>]*\shref="[^"]*\/MarketingApp-[^"]*\.css"[^>]*)>/g,
+    (m, attrs) => `<link${attrs} data-marketing-only="1">`,
+  );
+  // Fail loud if tagging didn't match anything — guards against a future
+  // Vite/Rollup chunk-naming change silently breaking the runtime strip
+  // on tenant subdomains and re-introducing the cross-tenant CSS bleed.
+  if (!tagged.includes('data-marketing-only="1"')) {
+    throw new Error(
+      `[prerender] expected to tag a MarketingApp CSS <link> in the ${route.path} snapshot but found none — has the marketing CSS chunk been renamed? Update the regex in snapshotRoute().`,
+    );
+  }
+  return `<!DOCTYPE html>\n${tagged.replace(/^<!DOCTYPE [^>]+>\s*/i, "")}`;
 }
 
 async function writeFileEnsuringDir(filePath, contents) {

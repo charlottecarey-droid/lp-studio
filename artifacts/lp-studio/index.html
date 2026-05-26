@@ -169,6 +169,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
               root.innerHTML =
                 '<div id="pre-mount-loader" aria-hidden="true"><div></div></div>';
             }
+            // Strip the prerendered MarketingApp CSS chunk (tagged by
+            // scripts/prerender-marketing.mjs with data-marketing-only).
+            // Marketing.css has globally-scoped rules — body cream bg,
+            // DM Sans h1-h6, * margin reset — plus a second @theme
+            // inline block that overrides Tailwind v4 color tokens. If
+            // we leave the <link> in place on tenant subdomains, those
+            // rules leak into the SaaS admin chrome and the landing-page
+            // viewer (cream behind blocks, wrong heading font, dark
+            // borders). Removing the <link> element also detaches its
+            // CSSStyleSheet from document.styleSheets, so any styles the
+            // browser already applied from it are reverted before paint.
+            var marketingLinks = document.querySelectorAll(
+              'link[data-marketing-only="1"]',
+            );
+            for (var i = 0; i < marketingLinks.length; i++) {
+              marketingLinks[i].parentNode.removeChild(marketingLinks[i]);
+            }
           }
         } catch (_) {
           /* ignore — fall through to whatever is in the DOM */
