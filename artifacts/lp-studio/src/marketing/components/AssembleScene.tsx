@@ -391,7 +391,7 @@ function MockPage({
             >
               {renderL1(headlineL1)}
               {typing === "l1" && <Caret />}
-              {(headlineL2.length > 0 || typing === "l2") && <br />}
+              {(headlineL2.length > 0 || typing === "l2") && " "}
               {headlineL2}
               {typing === "l2" && <Caret />}
             </h2>
