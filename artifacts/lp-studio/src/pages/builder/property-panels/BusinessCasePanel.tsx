@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import type {
@@ -140,7 +141,8 @@ function moveItem<T>(arr: T[], i: number, dir: -1 | 1): T[] {
 
 export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant }: Props<P>) {
   const [open, setOpen] = useState({
-    palette: true,
+    sections: true,
+    palette: false,
     brand: false,
     hero: true,
     situation: false,
@@ -300,8 +302,44 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
   const moveStep = (i: number, dir: -1 | 1) =>
     set("planSteps" as keyof P, moveItem(props.planSteps, i, dir) as P[keyof P]);
 
+  const SECTION_TOGGLES: Array<{ key: keyof P & string; label: string }> = [
+    { key: "showSituation" as keyof P & string, label: "The Situation" },
+    { key: "showSignal" as keyof P & string, label: "The Signal" },
+    { key: "showCost" as keyof P & string, label: "Cost of Inaction" },
+    { key: "showShift" as keyof P & string, label: "Paradigm Shift" },
+    { key: "showMath" as keyof P & string, label: "The Math" },
+    { key: "showProof" as keyof P & string, label: "The Proof" },
+    { key: "showPlan" as keyof P & string, label: "The Plan" },
+    { key: "showFinalCta" as keyof P & string, label: "Final CTA" },
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Sections — show/hide */}
+      <div className="space-y-2">
+        <SectionHeader label="Sections" open={open.sections} onToggle={() => toggle("sections")} />
+        {open.sections && (
+          <div className="space-y-1 pt-1">
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Toggle which sections appear on the page. The hero is always shown.
+            </p>
+            {SECTION_TOGGLES.map(({ key, label }) => {
+              const value = (props as unknown as Record<string, unknown>)[key];
+              const checked = value !== false;
+              return (
+                <div key={key} className="flex items-center justify-between py-1">
+                  <Label className="text-xs cursor-pointer">{label}</Label>
+                  <Switch
+                    checked={checked}
+                    onCheckedChange={(v) => set(key as keyof P, v as P[keyof P])}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Palette */}
       <div className="space-y-2">
         <SectionHeader label="Palette" open={open.palette} onToggle={() => toggle("palette")} />

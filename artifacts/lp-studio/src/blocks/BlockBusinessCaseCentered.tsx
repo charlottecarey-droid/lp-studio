@@ -98,6 +98,8 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       </section>
 
       {/* 2. The Situation */}
+      {props.showSituation !== false && (
+      <>
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
@@ -134,8 +136,11 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
       </section>
 
       <hr className="border-t border-black/10 max-w-7xl mx-auto" />
+      </>
+      )}
 
       {/* 3. The Signal — dark slab */}
+      {props.showSignal !== false && (
       <section
         className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
         style={{ background: dark, color: bg }}
@@ -191,8 +196,10 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           })}
         </div>
       </section>
+      )}
 
       {/* 4. The Cost of Inaction */}
+      {props.showCost !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl mb-6" style={{ color: headline, fontFamily: DISPLAY }}>
@@ -227,8 +234,10 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 5. The Paradigm Shift — comparison table */}
+      {props.showShift !== false && (
       <section className="py-24 bg-white border-y border-gray-200">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -276,8 +285,10 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 6. The Math */}
+      {props.showMath !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="max-w-3xl mb-12">
           <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
@@ -331,9 +342,11 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 7. The Proof */}
       {/* Footer band: tint the page bg with ink so it darkens with brand. */}
+      {props.showProof !== false && (
       <section
         className="py-24 px-6 relative"
         style={{ background: bg, boxShadow: `inset 0 0 0 100vmax ${ink}14` }}
@@ -383,8 +396,10 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 8. The Plan */}
+      {props.showPlan !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="mb-16">
           <h2 className="text-4xl mb-4" style={{ color: headline, fontFamily: DISPLAY }}>
@@ -411,8 +426,10 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 9. Final CTA */}
+      {props.showFinalCta !== false && (
       <section className="text-center py-32 px-6" style={{ background: dark }}>
         <div className="max-w-3xl mx-auto flex flex-col items-center">
           <h2
@@ -442,6 +459,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 }

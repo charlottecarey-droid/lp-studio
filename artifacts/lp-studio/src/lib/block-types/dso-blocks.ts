@@ -1538,6 +1538,18 @@ interface BusinessCaseCommonProps {
   finalCtaSecondaryText: string;
   finalCtaSecondaryUrl: string;
 
+  // Section visibility — all default to true. Hero is always shown so the
+  // page has a top. Setting any of these to false hides the corresponding
+  // section in all three Business Case variants.
+  showSituation?: boolean;
+  showSignal?: boolean;
+  showCost?: boolean;
+  showShift?: boolean;
+  showMath?: boolean;
+  showProof?: boolean;
+  showPlan?: boolean;
+  showFinalCta?: boolean;
+
   // Palette
   bgColor?: string;
   inkColor?: string;

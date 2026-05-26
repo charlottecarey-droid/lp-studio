@@ -475,6 +475,8 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
       )}
 
       {/* 2. Situation / Demand */}
+      {props.showSituation !== false && (
+      <>
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <Reveal isBuilder={isBuilder} className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
@@ -564,8 +566,11 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
       </section>
 
       <hr className="border-t border-black/10 max-w-7xl mx-auto" />
+      </>
+      )}
 
       {/* 3. Signal */}
+      {props.showSignal !== false && (
       <section
         className="py-24 px-6 lg:px-16 max-w-7xl mx-auto my-24"
         style={{ background: dark, color: bg }}
@@ -691,8 +696,10 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           })}
         </div>
       </section>
+      )}
 
       {/* 4. Cost / Operational layer */}
+      {props.showCost !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           {props.costEyebrow && (
@@ -745,8 +752,10 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 5. Shift — premium comparison table */}
+      {props.showShift !== false && (
       <section className="py-24 bg-white border-y border-gray-200">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -842,8 +851,10 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 6. Math */}
+      {props.showMath !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="max-w-3xl mb-12">
           {props.mathEyebrow && (
@@ -951,10 +962,12 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 7. Proof */}
       {/* Math-section footer band — slightly darker than the page bg.
           Mix ink (≈12%) into bg via overlay so it tints with brand. */}
+      {props.showProof !== false && (
       <section
         className="py-24 px-6 relative"
         style={{ background: bg, boxShadow: `inset 0 0 0 100vmax ${ink}14` }}
@@ -1082,8 +1095,10 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 8. Plan */}
+      {props.showPlan !== false && (
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="mb-16">
           {props.planEyebrow && (
@@ -1135,8 +1150,10 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 9. Final CTA */}
+      {props.showFinalCta !== false && (
       <section className="text-center py-32 px-6" style={{ background: dark }}>
         <div className="max-w-3xl mx-auto flex flex-col items-center">
           {props.finalCtaEyebrow && (
@@ -1187,6 +1204,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

@@ -111,6 +111,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
       </section>
 
       {/* 2. The Situation */}
+      {props.showSituation !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
           {props.situationEyebrow && (
@@ -140,8 +141,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 3. The Signal */}
+      {props.showSignal !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16 flex-wrap">
           {props.signalEyebrow && (
@@ -205,8 +208,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           })}
         </div>
       </section>
+      )}
 
       {/* 4. The Cost of Inaction */}
+      {props.showCost !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
           {props.costEyebrow && (
@@ -237,8 +242,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 5. The Paradigm Shift — split bullets */}
+      {props.showShift !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32" style={{ background: dark }}>
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-4 mb-20">
@@ -285,8 +292,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 6. The Math */}
+      {props.showMath !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center justify-between mb-16 flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -363,8 +372,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 7. The Proof */}
+      {props.showProof !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto border-b border-black/10">
         <div className="flex items-center gap-4 mb-16">
           {props.proofEyebrow && (
@@ -418,8 +429,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 8. The Plan */}
+      {props.showPlan !== false && (
       <section className="px-12 lg:px-20 py-24 lg:py-32 max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-20">
           {props.planEyebrow && (
@@ -454,8 +467,10 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           ))}
         </div>
       </section>
+      )}
 
       {/* 9. Final CTA */}
+      {props.showFinalCta !== false && (
       <section className="py-24 lg:py-32 px-12 lg:px-20 text-center" style={{ background: dark }}>
         <div className="max-w-3xl mx-auto flex flex-col items-center">
           <div className="w-16 h-1 mb-12" style={{ background: accent }} />
@@ -485,6 +500,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 }
