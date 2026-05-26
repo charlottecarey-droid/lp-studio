@@ -34,7 +34,9 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME : BRAND;
-  const headlineC = dark ? "#fff" : BRAND;
+  const headlineC = dark
+    ? "var(--brand-heading-on-dark, #fff)"
+    : `var(--brand-heading-on-light, ${BRAND})`;
   const subC      = dark ? "rgba(255,255,255,0.60)" : "#6b7280";
   const cardBg    = dark ? "rgba(255,255,255,0.05)" : "#fff";
   const cardBor   = dark ? "1px solid rgba(255,255,255,0.09)" : "1px solid #e5e7eb";

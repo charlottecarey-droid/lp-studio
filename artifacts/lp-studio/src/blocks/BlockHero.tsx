@@ -115,7 +115,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           as="h1"
           value={props.headline}
           onUpdate={field("headline")}
-          className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[var(--brand-primary)]")}
+          className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]")}
           style={{ fontFamily: DISPLAY }}
         />
       </motion.div>

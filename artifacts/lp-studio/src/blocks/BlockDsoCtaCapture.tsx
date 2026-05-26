@@ -77,7 +77,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
   } = props;
 
   const dark          = isDarkBg(backgroundStyle);
-  const pfg           = dark ? "hsl(48,100%,96%)"       : "var(--brand-primary)";
+  const pfg           = dark ? "var(--brand-heading-on-dark, hsl(48,100%,96%))" : "var(--brand-heading-on-light, var(--brand-primary))";
   const muted         = dark ? "hsla(48,100%,96%,0.50)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";
   const bgHex         = BG_HEX[backgroundStyle] ?? "var(--brand-primary)";
   const borderDefault = dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.18)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.20)";

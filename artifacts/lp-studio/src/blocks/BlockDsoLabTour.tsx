@@ -64,7 +64,9 @@ export function BlockDsoLabTour({ props, onCtaClick, onFieldChange }: Props) {
   };
 
   const eyebrowColor = dark ? AW : P;
-  const headlineColor = dark ? "#fff" : FG;
+  const headlineColor = dark
+    ? "var(--brand-heading-on-dark, #fff)"
+    : `var(--brand-heading-on-light, ${FG})`;
   const bodyColor = dark ? "rgba(255,255,255,0.60)" : MU;
   const quoteTextColor = dark ? "rgba(255,255,255,0.70)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.702)`;
   const quoteAttrColor = dark ? AW : P;

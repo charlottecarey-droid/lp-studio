@@ -827,7 +827,8 @@ const HEADLINE_SIZE_OPTIONS = [
 
 const FIELD_LABELS: Record<string, string> = {
   primaryColor: "Primary Color", accentColor: "Accent Color", navBgColor: "Nav Background",
-  textColor: "Text Color", ctaBackground: "CTA Background", ctaText: "CTA Text",
+  textColor: "Text Color", headingOnLightColor: "Heading on Light", headingOnDarkColor: "Heading on Dark",
+  ctaBackground: "CTA Background", ctaText: "CTA Text",
   pageBackground: "Page Background", cardBackground: "Card Background",
   navText: "Nav Text", borderColor: "Border Color",
   secondary1: "Secondary 1", secondary2: "Secondary 2", secondary3: "Secondary 3",
@@ -1507,7 +1508,12 @@ export default function BrandSettings() {
   const update = <K extends keyof BrandConfig>(key: K, value: BrandConfig[K]) =>
     setConfig((prev) => ({ ...prev, [key]: value }));
 
-  const OPTIONAL_COLOR_FIELDS = new Set(["secondary1", "secondary2", "secondary3", "secondary4", "secondary5"]);
+  const OPTIONAL_COLOR_FIELDS = new Set([
+    "secondary1", "secondary2", "secondary3", "secondary4", "secondary5",
+    // Heading tokens are optional: when blank, resolveHeadingColor() derives
+    // a contrast-aware default from primaryColor + pageBackground.
+    "headingOnLightColor", "headingOnDarkColor",
+  ]);
 
   const updateColor = useCallback((key: keyof BrandConfig, value: string) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
@@ -2131,6 +2137,8 @@ export default function BrandSettings() {
                 <ColorField label="Card Background" value={config.cardBackground} onChange={(v) => updateColor("cardBackground", v)} error={hexErrors.cardBackground} />
                 <ColorField label="Border Color (dividers, strokes)" value={config.borderColor} onChange={(v) => updateColor("borderColor", v)} error={hexErrors.borderColor} />
                 <ColorField label="Primary Color (hero, footer bg)" value={config.primaryColor} onChange={(v) => updateColor("primaryColor", v)} error={hexErrors.primaryColor} />
+                <ColorField label="Heading on Light (headings over white/cream sections)" value={config.headingOnLightColor ?? ""} onChange={(v) => updateColor("headingOnLightColor", v)} error={config.headingOnLightColor ? hexErrors.headingOnLightColor : false} />
+                <ColorField label="Heading on Dark (headings over dark/gradient sections)" value={config.headingOnDarkColor ?? ""} onChange={(v) => updateColor("headingOnDarkColor", v)} error={config.headingOnDarkColor ? hexErrors.headingOnDarkColor : false} />
               </div>
               <div className="flex flex-col gap-4">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Interactive</h3>

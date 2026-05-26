@@ -104,8 +104,8 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   // Per-surface headline tokens — fall back to ink/bg so existing pages
   // render unchanged. `headline` paints display-font headings on the light
   // page surface; `headlineOnDark` paints them on the dark sections.
-  const headline = props.headlineColor ?? ink;
-  const headlineOnDark = props.headlineOnDarkColor ?? bg;
+  const headline = props.headlineColor ?? brand?.headingOnLightColor ?? ink;
+  const headlineOnDark = props.headlineOnDarkColor ?? brand?.headingOnDarkColor ?? bg;
 
   // Logo + brand-name labels. `brand.brandName` flows from brand settings so
   // a tenant labelled "Heartland" gets "With Heartland" / "Before Heartland"

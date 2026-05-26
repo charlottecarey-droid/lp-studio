@@ -38,7 +38,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
     <section className={cn("w-full bg-white px-6", sectionPy)}>
       <div className="max-w-7xl mx-auto">
         {props.headline && (
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-primary)] mb-12 lg:mb-16 max-w-3xl mx-auto leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-heading-on-light)] mb-12 lg:mb-16 max-w-3xl mx-auto leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
         )}
         <div className={cn("grid gap-8", {
           2: "grid-cols-1 sm:grid-cols-2",
@@ -63,7 +63,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                 <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
                   <Icon className="w-7 h-7 text-[var(--brand-primary)]" />
                 </div>
-                <InlineText as="h3" value={benefit.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-3", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
+                <InlineText as="h3" value={benefit.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)] mb-3", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
                 <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[#4A6358]")} style={{ fontFamily: BODY }} multiline />
               </motion.div>
             );

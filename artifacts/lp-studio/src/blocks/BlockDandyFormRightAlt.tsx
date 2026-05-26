@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Check, Loader2, Calendar } from "lucide-react";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, headingColorVarForBg } from "@/lib/brand-config";
 import type {
   DandyFormRightAltBlockProps,
   ChiliPiperHandoffConfig,
@@ -221,7 +221,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
           <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
       )}
-      <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
+      <h2 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY, color: headingColorVarForBg(bg) }}>
         <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
       </h2>
       {props.subheadline && (
@@ -374,7 +374,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
   const formCard = (
     <div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100">
       {props.formHeadline && (
-        <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-1" style={{ fontFamily: DISPLAY }}>
+        <h3 className="text-2xl font-bold text-[var(--brand-heading-on-light)] mb-1" style={{ fontFamily: DISPLAY }}>
           <InlineText value={props.formHeadline} onUpdate={field("formHeadline")} style={{ fontFamily: DISPLAY }}/>
         </h3>
       )}

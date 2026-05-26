@@ -181,7 +181,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
             fontSize: "clamp(2.25rem,5vw,3.75rem)",
             lineHeight: 1.05,
             fontWeight: 600,
-            color: dark ? PFG : P,
+            color: dark ? `var(--brand-heading-on-dark, ${PFG})` : `var(--brand-heading-on-light, ${P})`,
             letterSpacing: "-0.025em",
           }}
         >

@@ -87,7 +87,9 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
   const lineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
   const eyebrowColor  = dark ? AW : P;
-  const headlineColor = dark ? "#fff" : FG;
+  const headlineColor = dark
+    ? "var(--brand-heading-on-dark, #fff)"
+    : `var(--brand-heading-on-light, ${FG})`;
   const subColor      = dark ? "rgba(255,255,255,0.60)" : MU;
   const titleColor    = dark ? "#fff" : FG;
   const subtitleColor = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.8)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.702)`;

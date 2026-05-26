@@ -100,7 +100,9 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME  : BRAND;
-  const headlineC = dark ? "#fff" : BRAND;
+  const headlineC = dark
+    ? "var(--brand-heading-on-dark, #fff)"
+    : `var(--brand-heading-on-light, ${BRAND})`;
   const bodyC     = dark ? "rgba(255,255,255,0.65)" : "#4b5563";
 
   const displayFeatures = features.length > 0 ? features : DEFAULT_FEATURES;

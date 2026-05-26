@@ -46,7 +46,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-12 lg:mb-16">
           {props.headline && (
-            <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-primary)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
+            <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-heading-on-light)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
               <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
             </h2>
           )}
@@ -78,7 +78,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true, onFie
                 />
               </div>
               <div className="p-6 flex-1 flex flex-col">
-                <h3 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-2", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
+                <h3 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)] mb-2", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
                   <InlineText
                     as="span"
                     value={item.title}

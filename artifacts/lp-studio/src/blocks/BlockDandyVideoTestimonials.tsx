@@ -54,7 +54,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-heading-on-light)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
               </h2>
             )}

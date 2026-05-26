@@ -69,7 +69,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
     : undefined;
 
   const dark = isDarkBg(backgroundStyle);
-  const fg   = dark ? "#fff"                    : P;
+  const fg   = dark ? "var(--brand-heading-on-dark, #fff)" : `var(--brand-heading-on-light, ${P})`;
   const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)";
   const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.80)";
   const statMu = dark ? "rgba(255,255,255,0.40)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.45)";

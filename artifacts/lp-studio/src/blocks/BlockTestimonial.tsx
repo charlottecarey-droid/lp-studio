@@ -24,8 +24,8 @@ export function BlockTestimonial({ props, brand, onFieldChange }: Props) {
     <section className={cn("w-full bg-[#F0F7F4] px-6 relative overflow-hidden", sectionPy)}>
       <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center text-center">
         <Quote className="w-16 h-16 text-[var(--brand-accent)] mb-8 opacity-50" />
-        <blockquote className={cn("text-2xl md:text-4xl font-display text-[var(--brand-primary)] leading-snug mb-10", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
-          "<InlineText value={props.quote} onUpdate={field("quote")} className={cn("text-2xl md:text-4xl font-display text-[var(--brand-primary)] leading-snug", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} multiline style={{ fontFamily: DISPLAY }} />"
+        <blockquote className={cn("text-2xl md:text-4xl font-display text-[var(--brand-heading-on-light)] leading-snug mb-10", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
+          "<InlineText value={props.quote} onUpdate={field("quote")} className={cn("text-2xl md:text-4xl font-display text-[var(--brand-heading-on-light)] leading-snug", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} multiline style={{ fontFamily: DISPLAY }} />"
         </blockquote>
         <div className="flex flex-col items-center">
           <InlineText as="strong" value={props.author} onUpdate={field("author")} className={cn(getBodySizeClass(brand), "text-[var(--brand-primary)]")} style={{ fontFamily: BODY }} />

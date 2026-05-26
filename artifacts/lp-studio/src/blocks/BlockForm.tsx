@@ -953,7 +953,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
             </svg>
           </div>
           <h3
-            className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
+            className={`text-2xl font-bold mb-2 ${isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]"}`}
             style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: displayFont }}
           >
             {activeSuccessMessage || "Thank you!"}
@@ -977,7 +977,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           <div className="text-center mb-8">
             {props.headline && (
               <h2
-                className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}
+                className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]"}`}
                 style={{ ...(textOverride ? { color: textOverride } : undefined), fontFamily: displayFont }}
               >
                 {props.headline}
@@ -1127,7 +1127,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   Step {clampedStep + 1} of {totalSteps}
                 </span>
                 {step.title && (
-                  <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`} style={{ fontFamily: BODY }}>
+                  <span className={`text-sm font-semibold ${isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]"}`} style={{ fontFamily: BODY }}>
                     {step.title}
                   </span>
                 )}

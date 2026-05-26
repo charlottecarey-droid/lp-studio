@@ -40,7 +40,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
         {(props.headline || props.subheadline) && (
           <div className={cn("max-w-3xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
-              <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
+              <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "text-[var(--brand-heading-on-light)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
               </h2>
             )}

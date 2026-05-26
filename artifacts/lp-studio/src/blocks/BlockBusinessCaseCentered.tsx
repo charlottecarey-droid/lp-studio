@@ -27,8 +27,8 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
   // Per-surface headline tokens — fall back to ink/bg so existing pages
   // render unchanged. `headline` paints display-font headings on the light
   // page surface; `headlineOnDark` paints them on the dark sections.
-  const headline = props.headlineColor ?? ink;
-  const headlineOnDark = props.headlineOnDarkColor ?? bg;
+  const headline = props.headlineColor ?? brand?.headingOnLightColor ?? ink;
+  const headlineOnDark = props.headlineOnDarkColor ?? brand?.headingOnDarkColor ?? bg;
 
   const brandName = brand?.brandName?.trim() || "Dandy";
   const logoAlt = props.logoAlt || brandName;

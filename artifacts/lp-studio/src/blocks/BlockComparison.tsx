@@ -47,13 +47,13 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
     <section className={cn("w-full bg-slate-50 px-6", sectionPy)}>
       <div className="max-w-7xl mx-auto">
         {props.headline && (
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-primary)] mb-12 lg:mb-16", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-heading-on-light)] mb-12 lg:mb-16", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
         )}
         <div className="grid md:grid-cols-2 gap-8 items-stretch mb-16">
           <div className="rounded-3xl p-8 md:p-12 opacity-80 flex flex-col" style={{ backgroundColor: oldCardBg }}>
             <div className="mb-8">
               <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block" style={{ fontFamily: BODY }}>OLD WAY</span>
-              <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)]", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
+              <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)]", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
             </div>
             <ul className="space-y-6 flex-1">
               {props.oldWayBullets.map((bullet, i) => (

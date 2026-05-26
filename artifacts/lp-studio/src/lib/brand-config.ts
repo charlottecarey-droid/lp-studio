@@ -108,6 +108,22 @@ export interface BrandConfig {
     linkedin: string;
   };
   textColor: string;
+  /**
+   * Heading color used on LIGHT block backgrounds (page bg, white, cream,
+   * card surfaces). When unset, falls back to `primaryColor` if it has
+   * adequate contrast on `pageBackground`, else `#0f172a`.
+   * Blocks read this via the `--brand-heading-on-light` CSS variable or
+   * via {@link resolveHeadingColor}.
+   */
+  headingOnLightColor?: string;
+  /**
+   * Heading color used on DARK block backgrounds (dark/black/gradient
+   * sections, dark cards). When unset, falls back to `cardBackground` if
+   * it's a light tint, else `#FFFFFF`.
+   * Blocks read this via the `--brand-heading-on-dark` CSS variable or
+   * via {@link resolveHeadingColor}.
+   */
+  headingOnDarkColor?: string;
   ctaBackground: string;
   ctaText: string;
   pageBackground: string;
@@ -235,6 +251,9 @@ export const DEFAULT_BRAND: BrandConfig = {
     linkedin: "",
   },
   textColor: "#1a1a1a",
+  // Heading tokens left undefined so `resolveHeadingColor` can derive a
+  // primary-aware default per tenant (falls back to slate-900 / white when
+  // the tenant's primaryColor lacks contrast on pageBackground).
   ctaBackground: "#0f172a",
   ctaText: "#ffffff",
   pageBackground: "#ffffff",
@@ -319,6 +338,68 @@ export function contrastTextColor(hex: string): "#000000" | "#ffffff" {
   return L > 0.55 ? "#000000" : "#ffffff";
 }
 
+export function relativeLuminance(hex: string): number {
+  if (!isValidHex(hex)) return 0;
+  const ch = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const r = ch(parseInt(hex.slice(1, 3), 16));
+  const g = ch(parseInt(hex.slice(3, 5), 16));
+  const b = ch(parseInt(hex.slice(5, 7), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Pick the brand heading CSS variable that contrasts with the given block
+ * background hex. Use for blocks that expose a dynamic `bgColor` prop (the
+ * tenant can flip a section dark/light), where a hard-coded
+ * `--brand-heading-on-light` class would be illegible on a dark choice.
+ *
+ * Returns a `var(...)` expression suitable for `style={{ color: ... }}`.
+ */
+export function headingColorVarForBg(bg: string | undefined | null): string {
+  const hex = bg && isValidHex(bg) ? bg : "#ffffff";
+  return relativeLuminance(hex) < 0.4
+    ? "var(--brand-heading-on-dark)"
+    : "var(--brand-heading-on-light)";
+}
+
+function contrastRatio(hexA: string, hexB: string): number {
+  const a = relativeLuminance(hexA);
+  const b = relativeLuminance(hexB);
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * Resolve the heading color a block should use for the given background
+ * darkness. Honors explicit `headingOnLightColor` / `headingOnDarkColor`
+ * brand tokens; otherwise derives a sensible default from the brand
+ * palette with a WCAG contrast guard. Mirrors the runtime fallback used
+ * for the `--brand-heading-on-light` / `--brand-heading-on-dark` CSS
+ * variables emitted by {@link getBrandStyleVars}.
+ *
+ * Use this from blocks whose heading color is set via JS/inline style
+ * (rather than a Tailwind arbitrary-value class) where it is awkward to
+ * reach the CSS variable.
+ */
+export function resolveHeadingColor(brand: BrandConfig, isDark: boolean): string {
+  if (isDark) {
+    const explicit = brand.headingOnDarkColor;
+    if (explicit && isValidHex(explicit)) return explicit;
+    return "#ffffff";
+  }
+  const explicit = brand.headingOnLightColor;
+  if (explicit && isValidHex(explicit)) return explicit;
+  // Default: primaryColor when it has enough contrast on the page bg, else
+  // a near-black ink. Threshold 4.5 matches WCAG AA for normal text.
+  const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const pageBg = isValidHex(brand.pageBackground) ? brand.pageBackground : "#ffffff";
+  if (contrastRatio(primary, pageBg) >= 4.5) return primary;
+  return "#0f172a";
+}
+
 /**
  * Build the inline style object that emits all brand CSS variables on a wrapper
  * element. Apply at the top of the page-viewer and the builder canvas.
@@ -345,6 +426,11 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
     "--brand-border": brand.borderColor || "#e2e8f0",
     "--brand-cta-bg": brand.ctaBackground || accent,
     "--brand-cta-text": brand.ctaText || onAccent,
+    // Heading tokens. Blocks should reference these for headings instead of
+    // hard-coding `var(--brand-primary)` (which is a generic palette anchor,
+    // not a guaranteed-legible text color).
+    "--brand-heading-on-light": resolveHeadingColor(brand, false),
+    "--brand-heading-on-dark": resolveHeadingColor(brand, true),
     // Numeric heading weight so blocks that drive headings via inline
     // `style={{ fontWeight: ... }}` (instead of Tailwind classes) can still
     // inherit the tenant's chosen brand heading weight. Mirrors

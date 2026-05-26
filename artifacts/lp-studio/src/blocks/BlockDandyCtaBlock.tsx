@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, headingColorVarForBg } from "@/lib/brand-config";
 import type { DandyCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -79,7 +79,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </p>
         )}
-        <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY }}>
+        <h2 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY, color: headingColorVarForBg(bg) }}>
           <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
         </h2>
         {props.subheadline && (

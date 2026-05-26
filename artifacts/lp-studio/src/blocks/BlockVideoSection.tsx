@@ -382,7 +382,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
           "font-display mb-4 leading-tight",
           getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
-          isDark ? "text-white" : "text-[var(--brand-primary)]"
+          isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]"
         )} style={{ fontFamily: DISPLAY }}>
           <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
         </h2>
@@ -501,7 +501,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
                   "font-display mb-4",
                   getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
-                  isDark ? "text-white" : "text-[var(--brand-primary)]"
+                  isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]"
                 )} style={{ fontFamily: DISPLAY }}>
                   <InlineText value={props.headline ?? ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
                 </h2>
