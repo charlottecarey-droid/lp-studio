@@ -47,7 +47,7 @@ const faqs: Faq[] = [
   },
   {
     q: "Is there a free trial?",
-    a: "Growth comes with a 14-day free trial, no card required. Starter has a forever-free tier capped at 5 active pages. Enterprise demos are scheduled live with our team.",
+    a: "Growth comes with a 14-day free trial, no card required. Starter starts at $39/mo (annual) for up to 5 active pages, 2 forms, and 3 user seats. Enterprise demos are scheduled live with our team.",
     cat: "Pricing",
   },
 ];

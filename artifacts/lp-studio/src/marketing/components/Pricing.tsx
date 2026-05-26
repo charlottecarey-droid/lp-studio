@@ -19,6 +19,11 @@ interface Tier {
   badge?: string;
 }
 
+// Pricing tiers — kept in lockstep with the canonical PLAN_FEATURES matrix
+// in artifacts/api-server/src/lib/planFeatures.ts. If you change a number
+// here, also change it there (and the mirror in
+// artifacts/lp-studio/src/lib/plan-features.ts) so the marketing promise
+// matches what the 402 plan-gates actually enforce.
 const tiers: Tier[] = [
   {
     name: "Starter",
@@ -28,11 +33,21 @@ const tiers: Tier[] = [
     groups: [
       {
         label: "Build",
-        items: ["5 active landing pages", "Visual builder", "AI copy · 50 generations/mo"],
+        items: [
+          "5 active landing pages",
+          "2 forms",
+          "Up to 3 user seats",
+          "Visual builder",
+          "AI copy · 50 generations/mo",
+        ],
       },
       {
         label: "Test & measure",
         items: ["Basic A/B testing (2 variants)", "Heatmaps · 1,000 sessions/mo"],
+      },
+      {
+        label: "Branding",
+        items: ['"Powered by LP Studio" badge on published pages'],
       },
       {
         label: "Support",
@@ -46,15 +61,34 @@ const tiers: Tier[] = [
     name: "Growth",
     monthly: 149,
     annual: 119,
-    desc: "For revenue teams who need unlimited pages, unlimited testing, and AI copy at scale.",
+    desc: "For revenue teams who need unlimited pages, the Sales Console, and a domain of their own.",
     groups: [
       {
+        label: "Everything in Starter, plus",
+        items: [
+          "Unlimited landing pages",
+          "Unlimited forms",
+          "Up to 10 user seats",
+          "Your own custom domain",
+          "Sales Console — track and route leads",
+          "No LP Studio badge on published pages",
+        ],
+      },
+      {
         label: "Build",
-        items: ["Unlimited landing pages", "Visual builder + custom blocks", "AI copy · unlimited", "Brand system & locked tokens"],
+        items: [
+          "Visual builder + custom blocks",
+          "AI copy · unlimited",
+          "Brand system & locked tokens",
+        ],
       },
       {
         label: "Test & measure",
-        items: ["Unlimited A/B & multivariate tests", "Smart Traffic routing", "Heatmaps · 10,000 sessions/mo"],
+        items: [
+          "Unlimited A/B & multivariate tests",
+          "Smart Traffic routing",
+          "Heatmaps · 10,000 sessions/mo",
+        ],
       },
       {
         label: "Support",
@@ -74,11 +108,20 @@ const tiers: Tier[] = [
     groups: [
       {
         label: "Everything in Growth, plus",
-        items: ["Custom domain(s)", "SSO / SAML", "99.9% uptime SLA"],
+        items: [
+          "Unlimited user seats",
+          "AI image generation",
+          "SSO / SAML",
+          "99.9% uptime SLA",
+        ],
       },
       {
         label: "Programs",
-        items: ["Dedicated account manager", "Quarterly business reviews", "Custom integrations"],
+        items: [
+          "Dedicated account manager",
+          "Quarterly business reviews",
+          "Custom integrations",
+        ],
       },
       {
         label: "Security & compliance",
