@@ -159,7 +159,7 @@ export interface DsoHeartlandHeroBlockProps {
  * inline white email-capture pill (lime submit). Right half holds a product
  * image that intentionally bleeds off the bottom-right corner.
  */
-export interface DandyProductHeroBlockProps {
+export interface DandyProductHeroBlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
@@ -228,42 +228,20 @@ export interface DandyProductHeroBlockProps {
    *  - "modal-form": open a modal with a customizable form (email pre-filled)
    *  - "modal-chilipiper": open a modal with a Chili Piper iframe (email pre-filled) */
   submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
-  /** Chili Piper booking URL used when submitMode === "modal-chilipiper". */
-  modalChilipiperUrl?: string;
-  /** Modal form headline. */
-  modalHeadline?: string;
-  /** Modal form subheadline. */
-  modalSubheadline?: string;
-  /** Modal form submit button label. */
-  modalSubmitText?: string;
-  /** Success message shown after the modal form is submitted. */
-  modalSuccessMessage?: string;
-  /** Fine-print disclaimer under the modal submit button. */
-  modalDisclaimer?: string;
-  /** Show first-name field in modal form. Default: true. */
-  modalShowFirstName?: boolean;
-  /** Show last-name field in modal form. Default: true. */
-  modalShowLastName?: boolean;
-  /** Show phone field in modal form. Default: true. */
-  modalShowPhone?: boolean;
-  /** Show company field in modal form. Default: false. */
-  modalShowCompany?: boolean;
-  /** Which form to render inside the modal when submitMode === "modal-form".
-   *  - "simple" (default): hand-rolled fields driven by modalShow*
-   *  - "linked": render a global form from the Forms library by id
-   *  - "marketo": embed a Marketo form */
-  modalFormSource?: "simple" | "linked" | "marketo";
-  /** Linked global form id (when modalFormSource === "linked"). */
-  modalFormId?: number;
-  /** Marketo instance URL (when modalFormSource === "marketo"). */
-  modalMarketoBaseUrl?: string;
-  modalMarketoMunchkinId?: string;
-  modalMarketoFormId?: number;
-  /** Optional Chili Piper hand-off applied after Marketo modal submit. */
-  modalChiliPiperHandoffUrl?: string;
-  modalChiliPiperHandoffMode?: "modal" | "redirect";
-  /** Optional Marketo→Chili Piper field map (parity with Global Forms). */
-  modalChiliPiperHandoffFieldMap?: Record<string, string>;
+  /**
+   * What happens when the CTA is clicked.
+   *  - "inline-form" (default): renders the existing inline email pill; pill submission
+   *    routes via `submitMode` (navigate / modal-form / modal-chilipiper) for back-compat.
+   *  - "url"             → standalone CTA button that navigates to `ctaUrl`.
+   *  - "chilipiper"      → standalone CTA button opens the Chili Piper iframe popup with `chilipiperUrl`.
+   *  - "modal-form"      → standalone CTA button opens EmailCaptureModal in form mode.
+   *  - "modal-chilipiper"→ standalone CTA button opens EmailCaptureModal in chilipiper mode.
+   */
+  ctaAction?: "inline-form" | "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  /** Destination URL when ctaAction === "url". */
+  ctaUrl?: string;
+  /** Chili Piper iframe URL used when ctaAction === "chilipiper". */
+  chilipiperUrl?: string;
 }
 
 export interface DsoSuccessStoriesBlockProps {

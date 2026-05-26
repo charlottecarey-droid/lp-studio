@@ -2874,47 +2874,122 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
 
             <div className="space-y-3 border-t pt-3">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Capture</Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA</Label>
               <div className="space-y-1.5">
-                <Label className="text-xs">Email field placeholder</Label>
-                <Input value={p.emailPlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, emailPlaceholder: e.target.value } })} placeholder="Email address" className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Submit button label</Label>
-                <Input value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} placeholder="Get Started" className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Submit URL (email is appended as ?email=…)</Label>
-                <Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="https://…" className="h-8 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">CTA mode</Label>
-                <Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}>
+                <Label className="text-xs">CTA Action</Label>
+                <Select
+                  value={p.ctaAction ?? "inline-form"}
+                  onValueChange={v => onChange({ ...block, props: { ...p, ctaAction: v as "inline-form" | "url" | "chilipiper" | "modal-form" | "modal-chilipiper" } })}
+                >
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="link" className="text-xs">Link / Redirect</SelectItem>
-                    <SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem>
+                    <SelectItem value="inline-form" className="text-xs">Inline email form (default)</SelectItem>
+                    <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+                    <SelectItem value="chilipiper" className="text-xs">Open Chili Piper (iframe)</SelectItem>
+                    <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                    <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-dashed">
-                <Label className="text-xs">On submit</Label>
-                <Select value={p.submitMode ?? "navigate"} onValueChange={v => onChange({ ...block, props: { ...p, submitMode: v as "navigate" | "modal-form" | "modal-chilipiper" } })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="navigate" className="text-xs">Redirect to URL</SelectItem>
-                    <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-                    <SelectItem value="modal-chilipiper" className="text-xs">Open modal with Chili Piper</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">Email is pre-populated in the modal.</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button label</Label>
+                <Input value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} placeholder="Get Started" className="h-8 text-xs" />
               </div>
+
+              {(p.ctaAction ?? "inline-form") === "inline-form" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email field placeholder</Label>
+                    <Input value={p.emailPlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, emailPlaceholder: e.target.value } })} placeholder="Email address" className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Submit URL (email is appended as ?email=…)</Label>
+                    <Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="https://…" className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">CTA mode</Label>
+                    <Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="link" className="text-xs">Link / Redirect</SelectItem>
+                        <SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-dashed">
+                    <Label className="text-xs">On submit</Label>
+                    <Select value={p.submitMode ?? "navigate"} onValueChange={v => onChange({ ...block, props: { ...p, submitMode: v as "navigate" | "modal-form" | "modal-chilipiper" } })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="navigate" className="text-xs">Redirect to URL</SelectItem>
+                        <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                        <SelectItem value="modal-chilipiper" className="text-xs">Open modal with Chili Piper</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">Email is pre-populated in the modal.</p>
+                  </div>
+                </>
+              )}
+
+              {p.ctaAction === "url" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">CTA URL</Label>
+                  <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://…" className="h-8 text-xs" />
+                </div>
+              )}
+
+              {p.ctaAction === "chilipiper" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Chili Piper URL</Label>
+                  <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs font-mono" />
+                </div>
+              )}
+
+              {(p.ctaAction === "modal-form" || p.ctaAction === "modal-chilipiper") && (
+                <CtaButtonModalConfigSection
+                  ctaAction={p.ctaAction}
+                  value={p}
+                  onChange={next => onChange({ ...block, props: { ...p, ...next } })}
+                />
+              )}
 
               {p.submitMode === "modal-chilipiper" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Chili Piper booking URL</Label>
                   <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs" />
+                </div>
+              )}
+
+              {p.submitMode === "modal-form" && p.modalFormSource === "marketo" && (
+                <div className="space-y-2 rounded-md border border-dashed bg-muted/30 p-3">
+                  <Label className="text-xs font-semibold uppercase tracking-wider">Chili Piper hand-off (after Marketo submit)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Chili Piper URL</Label>
+                    <Input
+                      value={p.modalChiliPiperHandoffUrl ?? ""}
+                      onChange={e => onChange({ ...block, props: { ...p, modalChiliPiperHandoffUrl: e.target.value || undefined } })}
+                      placeholder="https://meetdandy.chilipiper.com/router/your-router"
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Mode</Label>
+                    <Select
+                      value={p.modalChiliPiperHandoffMode ?? "modal"}
+                      onValueChange={v => onChange({ ...block, props: { ...p, modalChiliPiperHandoffMode: v as "modal" | "redirect" } })}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="modal" className="text-xs">Modal (in-page iframe)</SelectItem>
+                        <SelectItem value="redirect" className="text-xs">Redirect (open in new tab)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    After submit, the visitor is handed off to this Chili Piper router with their identity fields prefilled. Leave blank to skip the hand-off.
+                  </p>
                 </div>
               )}
 

@@ -660,7 +660,7 @@ export interface DandyHeroV7S3TrustItem {
   label: string;
 }
 
-export interface DandyHeroV7S3BlockProps {
+export interface DandyHeroV7S3BlockProps extends CtaModalConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
@@ -673,6 +673,17 @@ export interface DandyHeroV7S3BlockProps {
   bgColor?: string;
   bgImageOpacity?: number;
   trustItems?: DandyHeroV7S3TrustItem[];
+  /**
+   * What happens when the CTA is clicked.
+   *  - "inline-form" (default): renders the existing inline email pill + Chili Piper after submit
+   *  - "url"             → navigates to ctaUrl
+   *  - "chilipiper"      → opens Chili Piper iframe popup with chilipiperUrl
+   *  - "modal-form"      → opens EmailCaptureModal in form mode (uses modal* config)
+   *  - "modal-chilipiper"→ opens EmailCaptureModal in chilipiper mode (uses modalChilipiperUrl)
+   */
+  ctaAction?: "inline-form" | "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  /** Destination URL when ctaAction === "url". */
+  ctaUrl?: string;
 }
 
 export interface DandyFormRightAltBlockProps {

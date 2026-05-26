@@ -5,6 +5,7 @@ import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { useBrandConfig } from "@/components/BrandSwatches";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
+import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
 const BODY = BRAND_BODY_FONT;
@@ -31,6 +32,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const [modalOpen, setModalOpen] = useState(false);
   const [hover, setHover] = useState(false);
   const submitMode = p.submitMode ?? "navigate";
+  const ctaAction = p.ctaAction ?? "inline-form";
 
   const bg = p.backgroundColor || DANDY_GREEN;
   const accent = p.accentColor || DANDY_LIME;
@@ -114,6 +116,51 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
       <h1 style={{ ...(headlineStyle), fontFamily: DISPLAY }}><InlineText as="span" value={p.headline || ""} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/></h1>
       {p.subheadline && <p style={{ ...(subStyle), fontFamily: BODY }}><InlineText as="span" value={p.subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/></p>}
 
+      {ctaAction !== "inline-form" ? (
+        <CtaButton
+          ctaAction={ctaAction}
+          ctaUrl={p.ctaUrl}
+          chilipiperUrl={p.chilipiperUrl}
+          modalChilipiperUrl={p.modalChilipiperUrl}
+          modalFormSource={p.modalFormSource}
+          modalFormId={p.modalFormId}
+          modalMarketoBaseUrl={p.modalMarketoBaseUrl}
+          modalMarketoMunchkinId={p.modalMarketoMunchkinId}
+          modalMarketoFormId={p.modalMarketoFormId}
+          modalChiliPiperHandoffUrl={p.modalChiliPiperHandoffUrl}
+          modalChiliPiperHandoffMode={p.modalChiliPiperHandoffMode}
+          modalChiliPiperHandoffFieldMap={p.modalChiliPiperHandoffFieldMap}
+          modalHeadline={p.modalHeadline}
+          modalSubheadline={p.modalSubheadline}
+          modalSubmitText={p.modalSubmitText}
+          modalSuccessMessage={p.modalSuccessMessage}
+          modalDisclaimer={p.modalDisclaimer}
+          modalShowFirstName={p.modalShowFirstName}
+          modalShowLastName={p.modalShowLastName}
+          modalShowPhone={p.modalShowPhone}
+          modalShowCompany={p.modalShowCompany}
+          brand={brand}
+          pageId={pageId}
+          variantId={variantId}
+          source="dandy-product-hero"
+          style={{
+            backgroundColor: buttonColor,
+            color: buttonTextColor,
+            border: "none",
+            borderRadius: inputRadius,
+            padding: "0.875rem 1.75rem",
+            fontFamily: SANS_FONT,
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+            cursor: "pointer",
+          }}
+        >
+          <InlineText as="span" value={p.primaryCtaText || "Get Started"} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
+        </CtaButton>
+      ) : (
       <form
         onSubmit={handleSubmit}
         style={{
@@ -170,8 +217,9 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
           <InlineText as="span" value={p.primaryCtaText || "Get Started"} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
         </button>
       </form>
+      )}
 
-      {p.disclaimer && (
+      {p.disclaimer && ctaAction === "inline-form" && (
         <p
           style={{
             marginTop: "1rem",

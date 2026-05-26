@@ -3,9 +3,11 @@ import { Label } from "@/components/ui/label";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
   props: DandyHeroV7S3BlockProps;
@@ -64,24 +66,68 @@ export function DandyHeroV7S3Panel({ props: p, onChange }: Props) {
       </div>
 
       <div className="border-t pt-3 space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Form</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA</p>
         <div className="space-y-1.5">
-          <Label className="text-xs">Input Placeholder</Label>
-          <Input value={p.inputPlaceholder ?? ""} onChange={e => set("inputPlaceholder", e.target.value || undefined)} className="h-8 text-xs" placeholder="Enter your work email" />
+          <Label className="text-xs">CTA Action</Label>
+          <Select
+            value={p.ctaAction ?? "inline-form"}
+            onValueChange={v => set("ctaAction", v as DandyHeroV7S3BlockProps["ctaAction"])}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="inline-form" className="text-xs">Inline email form (default)</SelectItem>
+              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
+              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper (iframe)</SelectItem>
+              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+              <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs">Button Text</Label>
           <Input value={p.ctaText ?? ""} onChange={e => set("ctaText", e.target.value || undefined)} className="h-8 text-xs" placeholder="Get Started" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Disclaimer</Label>
-          <Input value={p.formDisclaimer ?? ""} onChange={e => set("formDisclaimer", e.target.value || undefined)} className="h-8 text-xs" placeholder="No credit card required." />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Chili Piper URL (optional)</Label>
-          <Input value={(p as any).chilipiperUrl ?? ""} onChange={e => onChange({ ...p, chilipiperUrl: e.target.value || undefined } as any)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
-          <p className="text-[11px] text-muted-foreground">If set, opens the scheduling modal after form submit.</p>
-        </div>
+
+        {(p.ctaAction ?? "inline-form") === "inline-form" && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Input Placeholder</Label>
+              <Input value={p.inputPlaceholder ?? ""} onChange={e => set("inputPlaceholder", e.target.value || undefined)} className="h-8 text-xs" placeholder="Enter your work email" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Disclaimer</Label>
+              <Input value={p.formDisclaimer ?? ""} onChange={e => set("formDisclaimer", e.target.value || undefined)} className="h-8 text-xs" placeholder="No credit card required." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Chili Piper URL (after inline submit)</Label>
+              <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+              <p className="text-[11px] text-muted-foreground">If set, opens the scheduling modal after form submit.</p>
+            </div>
+          </>
+        )}
+
+        {p.ctaAction === "url" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">CTA URL</Label>
+            <Input value={p.ctaUrl ?? ""} onChange={e => set("ctaUrl", e.target.value || undefined)} className="h-8 text-xs" placeholder="#" />
+          </div>
+        )}
+
+        {p.ctaAction === "chilipiper" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Chili Piper URL</Label>
+            <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+          </div>
+        )}
+
+        {(p.ctaAction === "modal-form" || p.ctaAction === "modal-chilipiper") && (
+          <CtaButtonModalConfigSection
+            ctaAction={p.ctaAction}
+            value={p}
+            onChange={next => onChange({ ...p, ...next })}
+          />
+        )}
       </div>
 
       <div className="border-t pt-3">

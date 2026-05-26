@@ -266,9 +266,18 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
             </div>
           )}
 
-          <div className="space-y-2 pt-1">
-            <Input value={cfg.modalHeadline ?? ""} onChange={(e) => set({ modalHeadline: e.target.value })} placeholder="Modal headline" className="h-8 text-xs" />
-            <Input value={cfg.modalSubheadline ?? ""} onChange={(e) => set({ modalSubheadline: e.target.value })} placeholder="Modal subheadline" className="h-8 text-xs" />
+        </>
+      )}
+
+      {/* Modal copy fields apply to both modal-form and modal-chilipiper —
+          the EmailCaptureModal renders the headline/subheadline above the
+          form or scheduler iframe in either mode. */}
+      <div className="space-y-2 pt-1 border-t border-dashed mt-2">
+        <Label className="text-[11px] font-medium block">Modal copy</Label>
+        <Input value={cfg.modalHeadline ?? ""} onChange={(e) => set({ modalHeadline: e.target.value })} placeholder="Modal headline" className="h-8 text-xs" />
+        <Input value={cfg.modalSubheadline ?? ""} onChange={(e) => set({ modalSubheadline: e.target.value })} placeholder="Modal subheadline" className="h-8 text-xs" />
+        {ctaAction === "modal-form" && (
+          <>
             <div className="grid grid-cols-2 gap-2">
               <Input value={cfg.modalSubmitText ?? ""} onChange={(e) => set({ modalSubmitText: e.target.value })} placeholder="Submit text" className="h-8 text-xs" />
               <Input value={cfg.modalSuccessMessage ?? ""} onChange={(e) => set({ modalSuccessMessage: e.target.value })} placeholder="Success message" className="h-8 text-xs" />
@@ -280,9 +289,9 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
               rows={2}
               className="text-xs resize-none"
             />
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

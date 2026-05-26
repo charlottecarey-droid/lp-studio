@@ -1399,7 +1399,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dandy-product-hero" as const,
     label: "Dandy Product Hero (Crown & Bridge style)",
-    category: "DSO" as BlockCategory,
+    category: "Hero" as BlockCategory,
     defaultProps: (): DandyProductHeroBlockProps => ({
       eyebrow: "Crown & Bridge",
       headline: "Crown & Bridge\nDelivered in 5 Days",

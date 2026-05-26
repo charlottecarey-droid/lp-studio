@@ -6,6 +6,7 @@ import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { CtaButton } from "@/components/CtaButton";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -30,11 +31,13 @@ function buildCpUrl(base: string, email: string): string {
   }
 }
 
-export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: Props) {
+export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const [email, setEmail] = useState("");
   const [formState, setFormState] = useState<FormState>("idle");
   const [cpOpen, setCpOpen] = useState(false);
   const [cpUrl, setCpUrl] = useState("");
+
+  const ctaAction = props.ctaAction ?? "inline-form";
 
   const bg = props.bgColor ?? "var(--brand-primary)";
   const bgImage = props.backgroundImageUrl;
@@ -106,7 +109,38 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           </p>
         )}
 
-        {formState === "success" ? (
+        {ctaAction !== "inline-form" ? (
+          <CtaButton
+            ctaAction={ctaAction}
+            ctaUrl={props.ctaUrl}
+            chilipiperUrl={props.chilipiperUrl}
+            modalChilipiperUrl={props.modalChilipiperUrl}
+            modalFormSource={props.modalFormSource}
+            modalFormId={props.modalFormId}
+            modalMarketoBaseUrl={props.modalMarketoBaseUrl}
+            modalMarketoMunchkinId={props.modalMarketoMunchkinId}
+            modalMarketoFormId={props.modalMarketoFormId}
+            modalChiliPiperHandoffUrl={props.modalChiliPiperHandoffUrl}
+            modalChiliPiperHandoffMode={props.modalChiliPiperHandoffMode}
+            modalChiliPiperHandoffFieldMap={props.modalChiliPiperHandoffFieldMap}
+            modalHeadline={props.modalHeadline}
+            modalSubheadline={props.modalSubheadline}
+            modalSubmitText={props.modalSubmitText}
+            modalSuccessMessage={props.modalSuccessMessage}
+            modalDisclaimer={props.modalDisclaimer}
+            modalShowFirstName={props.modalShowFirstName}
+            modalShowLastName={props.modalShowLastName}
+            modalShowPhone={props.modalShowPhone}
+            modalShowCompany={props.modalShowCompany}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            source="dandy-hero-v7-s3"
+            className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2"
+          >
+            <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
+          </CtaButton>
+        ) : formState === "success" ? (
           <div className="flex flex-col items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-6 max-w-md w-full">
             <CheckCircle2 className="w-8 h-8 text-[var(--brand-accent)]" />
             <p className="text-white font-bold text-lg" style={{ fontFamily: BODY }}>You're on the list!</p>
@@ -145,7 +179,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           </form>
         )}
 
-        {props.formDisclaimer && formState !== "success" && (
+        {props.formDisclaimer && ctaAction === "inline-form" && formState !== "success" && (
           <p className="mt-4 text-sm text-white/60" style={{ fontFamily: BODY }}>
             <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} style={{ fontFamily: BODY }}/>
           </p>
