@@ -19,6 +19,7 @@ import {
   provisionCustomDomain,
   deprovisionCustomDomain,
   getCustomHostname,
+  getZoneName,
 } from "../lib/cloudflare";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { invalidateDomainContextForTenant } from "./auth";
@@ -1957,7 +1958,7 @@ router.post("/invite-test", async (req, res): Promise<void> => {
 // rollback on partial failure.
 //
 // Routes (all gated by `requireAuth` at admin.ts:1045):
-//   GET    /api/admin/custom-domain        — current state + CF status
+//   GET    /api/admin/custom-domain/status — current state + CF status
 //   POST   /api/admin/custom-domain        — attach { hostname }
 //   POST   /api/admin/custom-domain/verify — refresh CF status
 //   DELETE /api/admin/custom-domain        — detach
@@ -1989,14 +1990,24 @@ interface CustomDomainState {
   error: string | null;
 }
 
-const CNAME_TARGET = "lpstudio.ai";
-
 async function loadCustomDomainState(tenantId: number): Promise<CustomDomainState> {
   const trow = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null }>(
     `SELECT microsite_domain, cloudflare_hostname_id FROM tenants WHERE id = $1`,
     [tenantId],
   );
   const row = trow.rows[0];
+  // Resolve the CNAME target from Cloudflare zone data so customer DNS
+  // instructions follow the configured CLOUDFLARE_ZONE_ID across
+  // environments instead of relying on a hardcoded constant. If the
+  // zone lookup fails (transient CF error), surface a safe placeholder
+  // and let the UI re-fetch — better than misdirecting customer DNS.
+  let cnameTarget = "";
+  let zoneError: string | null = null;
+  try {
+    cnameTarget = await getZoneName();
+  } catch (err) {
+    zoneError = err instanceof Error ? err.message : "Failed to resolve Cloudflare zone";
+  }
   const state: CustomDomainState = {
     hostname: row?.microsite_domain ?? null,
     cloudflareHostnameId: row?.cloudflare_hostname_id ?? null,
@@ -2004,8 +2015,8 @@ async function loadCustomDomainState(tenantId: number): Promise<CustomDomainStat
     sslStatus: null,
     validationRecords: null,
     ownershipVerification: null,
-    cnameTarget: CNAME_TARGET,
-    error: null,
+    cnameTarget,
+    error: zoneError,
   };
   if (state.cloudflareHostnameId) {
     try {
@@ -2031,12 +2042,12 @@ async function loadCustomDomainState(tenantId: number): Promise<CustomDomainStat
   return state;
 }
 
-router.get("/custom-domain", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+router.get("/custom-domain/status", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
   try {
     const state = await loadCustomDomainState(req.authUser!.tenantId!);
     res.json(state);
   } catch (err) {
-    console.error("[admin] GET /custom-domain error:", err);
+    console.error("[admin] GET /custom-domain/status error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

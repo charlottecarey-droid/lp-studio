@@ -6,8 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Globe, AlertCircle, CheckCircle2, RefreshCw, Trash2, Lock } from "lucide-react";
+import { Loader2, Globe, AlertCircle, CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
 
 interface CustomDomainState {
   hostname: string | null;
@@ -40,7 +41,6 @@ function DomainContent() {
   const [state, setState] = useState<CustomDomainState | null>(null);
   const [loading, setLoading] = useState(true);
   const [planLocked, setPlanLocked] = useState(false);
-  const [planMessage, setPlanMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -50,11 +50,13 @@ function DomainContent() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/custom-domain", { credentials: "include" });
+      const res = await fetch("/api/admin/custom-domain/status", { credentials: "include" });
       if (res.status === 402) {
-        const json = await res.json().catch(() => ({}));
+        // Drain the body so the connection can be reused; the upgrade
+        // copy comes from the shared UpgradePrompt component, not the
+        // server message — that's how every other gated surface works.
+        await res.json().catch(() => ({}));
         setPlanLocked(true);
-        setPlanMessage(json?.message ?? "Custom domains require the Growth plan or higher.");
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -179,19 +181,7 @@ function DomainContent() {
           </div>
         </Card>
       ) : planLocked ? (
-        <Card className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Lock className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-2">
-              <h2 className="text-sm font-semibold">Upgrade required</h2>
-              <p className="text-xs text-muted-foreground max-w-prose">
-                {planMessage ?? "Custom domains are available on the Growth plan and above."}
-              </p>
-            </div>
-          </div>
-        </Card>
+        <UpgradePrompt feature="customDomain" withLayout={false} />
       ) : (
         <>
           <Card className="p-5">

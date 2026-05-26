@@ -96,6 +96,36 @@ async function cfFetch<T>(
   return json.result;
 }
 
+interface Zone {
+  id: string;
+  name: string;
+}
+
+// Cache the zone lookup forever within a process — the zone name on a
+// given CLOUDFLARE_ZONE_ID never changes for the lifetime of the
+// deployment. A failed lookup is NOT cached so a transient CF outage
+// during boot doesn't poison the cache.
+let cachedZoneName: string | null = null;
+
+/**
+ * Return the apex hostname of the configured Cloudflare zone (e.g.
+ * `lpstudio.ai`). This is the value tenants must CNAME their vanity
+ * host to for Cloudflare for SaaS to terminate TLS. Sourced from the
+ * zone API rather than hardcoded so a future zone change (or a
+ * different zone per environment) doesn't silently misconfigure
+ * customer DNS instructions.
+ */
+export async function getZoneName(): Promise<string> {
+  if (cachedZoneName) return cachedZoneName;
+  const { zoneId } = getConfig();
+  const zone = await cfFetch<Zone>(`/zones/${zoneId}`);
+  if (!zone?.name) {
+    throw new CloudflareError("Cloudflare zone lookup returned no name", 502);
+  }
+  cachedZoneName = zone.name;
+  return cachedZoneName;
+}
+
 export type CustomHostnameStatus =
   | "active"
   | "pending"
