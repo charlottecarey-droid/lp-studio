@@ -33,6 +33,9 @@ import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import { useAuth } from "@/context/AuthContext";
+import { normalizePlan, type Plan } from "@/lib/plan-features";
+
+const PLAN_TIERS: readonly Plan[] = ["starter", "growth", "enterprise"];
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -111,11 +114,26 @@ function statusBadge(status: string) {
 }
 
 function planBadge(plan: string) {
+  // Show the canonical tier (starter / growth / enterprise) — the raw DB
+  // value can be a legacy string ("trial", "pro", "business"); colour
+  // and label come from the normalized tier so the column stays readable
+  // through the packaging rename.
+  const tier = normalizePlan(plan);
   const cls =
-    plan === "pro"      ? "bg-purple-100 text-purple-800" :
-    plan === "business" ? "bg-blue-100 text-blue-800" :
-                          "bg-gray-100 text-gray-600";
-  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>{plan}</span>;
+    tier === "enterprise" ? "bg-purple-100 text-purple-800" :
+    tier === "growth"     ? "bg-blue-100 text-blue-800" :
+                            "bg-gray-100 text-gray-600";
+  const rawDiffers = (plan ?? "").toLowerCase() !== tier;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>{tier}</span>
+      {rawDiffers && (
+        <span className="text-[10px] font-mono text-muted-foreground" title="Raw tenants.plan value">
+          {plan || "—"}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function fmtDate(s: string | null) {
@@ -699,19 +717,35 @@ function TenantRow({
                     {s}
                   </Button>
                 ))}
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-4">Plan:</span>
-                {["trial", "pro", "business"].map((p) => (
-                  <Button
-                    key={p}
-                    size="sm"
-                    variant={tenant.plan === p ? "default" : "outline"}
-                    className="h-6 text-xs"
-                    disabled={updating || tenant.plan === p}
-                    onClick={() => patch("plan", p)}
-                  >
-                    {p}
-                  </Button>
-                ))}
+              </div>
+
+              {/* Plan tier — Packaging step 1 canonical tiers. The DB
+                  column is free-form text, so we show the normalized tier
+                  and the raw value side-by-side; the dropdown always
+                  writes a canonical string. */}
+              <div className="flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plan:</span>
+                <Select
+                  value={normalizePlan(tenant.plan)}
+                  onValueChange={(v) => patch("plan", v)}
+                  disabled={updating}
+                >
+                  <SelectTrigger className="h-7 w-36 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLAN_TIERS.map((p) => (
+                      <SelectItem key={p} value={p} className="text-xs capitalize">
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">
+                  canonical: <span className="font-mono">{normalizePlan(tenant.plan)}</span>
+                  <span className="mx-2">·</span>
+                  raw <code className="font-mono">tenants.plan</code>: <span className="font-mono">{tenant.plan || "—"}</span>
+                </span>
               </div>
 
               {/* Domain settings */}

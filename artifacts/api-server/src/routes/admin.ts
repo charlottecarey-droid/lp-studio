@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
 import { TOP_TIER_PLANS } from "../lib/tenantSettings";
+import { PLANS, normalizePlan, type Plan } from "../lib/planFeatures";
 import {
   validateDomain,
   findDomainConflict,
@@ -487,7 +488,27 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
     let normalizedMicrosite: string | null | undefined;
 
     if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
-    if (plan   !== undefined) { updates.push(`plan = $${idx++}`);   values.push(plan); }
+    // Plan changes go through canonical-tier validation so ops can't
+    // accidentally write a legacy / typo'd value via the SuperAdmin UI.
+    // Audit trail (who, when, from→to) is emitted after the UPDATE
+    // succeeds — same lightweight structured-console-log pattern as the
+    // tenant-slug-redirect.released event further down.
+    let priorPlan: string | null = null;
+    let nextPlan: Plan | null = null;
+    if (plan !== undefined) {
+      if (typeof plan !== "string" || !PLANS.includes(plan as Plan)) {
+        res.status(400).json({ error: `plan must be one of: ${PLANS.join(", ")}` });
+        return;
+      }
+      nextPlan = plan as Plan;
+      const priorRow = await pool.query<{ plan: string | null }>(
+        `SELECT plan FROM tenants WHERE id = $1`,
+        [tenantId],
+      );
+      if (!priorRow.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+      priorPlan = priorRow.rows[0].plan;
+      updates.push(`plan = $${idx++}`); values.push(nextPlan);
+    }
 
     // Task #234 — AI-image-gen-outside-builder toggle. Lives in
     // tenants.settings JSONB so we don't need a schema change. The
@@ -553,6 +574,20 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
     if (!result.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     if (domain !== undefined || micrositeDomain !== undefined || status !== undefined) {
       invalidateTenantHostCache();
+    }
+    if (nextPlan !== null) {
+      console.info(
+        "[admin][audit] tenant.plan.changed",
+        JSON.stringify({
+          tenantId,
+          fromRaw: priorPlan,
+          fromCanonical: normalizePlan(priorPlan),
+          to: nextPlan,
+          actorUserId: req.authUser?.userId ?? null,
+          actorEmail: req.authUser?.email ?? null,
+          at: new Date().toISOString(),
+        }),
+      );
     }
     res.json(result.rows[0]);
   } catch (err: any) {
