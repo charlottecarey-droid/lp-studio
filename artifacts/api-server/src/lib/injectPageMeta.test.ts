@@ -13,6 +13,32 @@ const meta = {
   tenantName: "Example Co",
 };
 
+describe("injectPageMeta — powered-by badge per tier", () => {
+  // The plan→showPoweredByBadge mapping itself lives in
+  // triggerPublishedRender.ts (`plan === "starter"`); here we just lock
+  // in that injectPageMeta honours the flag both ways, so a tenant on
+  // Growth/Enterprise never accidentally gets the starter badge and a
+  // starter tenant never accidentally has it stripped.
+  it("starter tier: appends the Powered by LP Studio badge before </body>", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, showPoweredByBadge: true });
+    expect(out).toContain("Powered by");
+    expect(out).toContain("<strong style=\"font-weight:700\">LP Studio</strong>");
+    expect(out).toContain('href="https://lpstudio.ai"');
+    expect(out.indexOf("Powered by")).toBeLessThan(out.indexOf("</body>"));
+  });
+
+  it("growth / enterprise tier (flag false): omits the badge entirely", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, showPoweredByBadge: false });
+    expect(out).not.toContain("Powered by");
+    expect(out).not.toContain("lpstudio.ai");
+  });
+
+  it("flag absent (legacy callers): omits the badge — fails closed for paid tenants", () => {
+    const out = injectPageMeta(baseHtml, meta);
+    expect(out).not.toContain("Powered by");
+  });
+});
+
 describe("injectPageMeta", () => {
   it("replaces existing <title>", () => {
     const out = injectPageMeta(baseHtml, meta);
