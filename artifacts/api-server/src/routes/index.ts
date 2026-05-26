@@ -17,7 +17,10 @@ const router: IRouter = Router();
 
 // Public LP paths — called from unauthenticated landing pages / review links.
 // Each entry is matched against (method, path). Use "*" for any method.
-const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
+// Exported so the requirePlanFeature integration test can verify that the
+// public /sales/* paths (email link tracking, unsubscribe, Resend webhook)
+// stay in the allowlist as the surface evolves.
+export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/track/ },
   { method: "*",    pattern: /^\/lp\/page\// },           // GET /lp/page/:slug (variant config for public viewer)
   { method: "GET",  pattern: /^\/lp\/preview\// },        // GET /lp/preview/:slug — does its own auth-or-token check; must skip blanket auth so unauth requests 404 instead of 401 (no enumeration)

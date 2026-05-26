@@ -72,6 +72,22 @@ export interface CreateRoyalTenantOptions {
    * why we register the tenant against `localhost` by default.
    */
   domain?: string;
+  /**
+   * Raw value written to `tenants.plan`. Defaults to "trial" (which the
+   * server's `normalizePlan` maps to canonical "growth") so existing
+   * specs keep the same behaviour. Pass "starter" to exercise the
+   * plan-tier gate; "enterprise" / "growth" to opt back into Sales
+   * Console explicitly.
+   */
+  plan?: string;
+  /**
+   * Value written to `app_users.role` AND the session payload's
+   * `appUserRole`. Defaults to "admin" (a normal tenant admin). Pass
+   * "superadmin" to test the Dandy-operator bypass paths in
+   * `requirePlanFeature`, AppShell's /sales redirect, and the mode
+   * toggle's plan check.
+   */
+  appUserRole?: string;
 }
 
 export async function createRoyalTenant(
@@ -82,6 +98,8 @@ export async function createRoyalTenant(
   const slug = `royal-test-${suffix}`;
   const email = `royal-test-${suffix}@example.com`;
   const domain = opts.domain ?? "localhost";
+  const plan = opts.plan ?? "trial";
+  const appUserRole = opts.appUserRole ?? "admin";
   const sessionSid = randomBytes(24).toString("base64url");
 
   const client = await pool.connect();
@@ -94,9 +112,9 @@ export async function createRoyalTenant(
     // session into the new-tenant brand-setup wizard (see AuthGate.tsx).
     const tenantRes = await client.query<{ id: number }>(
       `INSERT INTO tenants (name, slug, domain, plan, status, settings, onboarding_completed_at)
-       VALUES ($1, $2, $3, 'trial', 'active', '{"industry":"generic"}'::jsonb, now())
+       VALUES ($1, $2, $3, $4, 'active', '{"industry":"generic"}'::jsonb, now())
        RETURNING id`,
-      [`Royal Test Tenant ${suffix}`, slug, domain],
+      [`Royal Test Tenant ${suffix}`, slug, domain, plan],
     );
     const tenantId = tenantRes.rows[0].id;
 
@@ -113,9 +131,9 @@ export async function createRoyalTenant(
 
     const userRes = await client.query<{ id: number }>(
       `INSERT INTO app_users (tenant_id, email, name, role, status)
-       VALUES ($1, $2, $3, 'admin', 'active')
+       VALUES ($1, $2, $3, $4, 'active')
        RETURNING id`,
-      [tenantId, email, `Royal Test User ${suffix}`],
+      [tenantId, email, `Royal Test User ${suffix}`, appUserRole],
     );
     const userId = userRes.rows[0].id;
 
@@ -147,6 +165,10 @@ export async function createRoyalTenant(
       // requireAuth uses to exempt this session from the per-host tenant
       // enforcement check. It is NOT the global superadmin flag.
       isAdmin: true,
+      // Global app_users.role surfaced to middleware that needs to
+      // bypass per-tenant gates for Dandy operators (e.g.
+      // requirePlanFeature, AppShell's /sales redirect, mode toggle).
+      appUserRole,
       micrositeDomain: null,
     };
     const expire = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day

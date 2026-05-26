@@ -1,1 +1,2 @@
 - [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
+- [LP Studio dev marketing host](lp-studio-dev-marketing-host.md) — in dev, '/' renders the marketing site; E2E tests needing the SaaS shell must use '/?preview=app'.
