@@ -266,49 +266,53 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
   // The dark column background shows through any gap, which reads as an
   // intentional editorial frame.
   const heroZoom = props.heroImageZoom ?? "fill";
-  // "fill-natural" is the Heartland-style treatment: the image dictates
-  // the column height instead of being cropped to fit. We render it as
-  // a normal static block (width:100%, height:auto) so the wrapper grows
-  // to the image's natural height — see partners.meetdandy.com.
-  // The other modes still use absolute positioning inside a fixed-height
-  // wrapper so the dark column stays a predictable stage.
-  const isNatural = heroZoom === "fill-natural";
-  const heroImgStyle: React.CSSProperties = isNatural
-    ? {} // static block — sizing handled by the className below
-    : heroZoom === "fit-wide"
+  // "fill-natural" is the Heartland-style treatment: the image keeps its
+  // natural aspect ratio while spanning the column width. We render the
+  // image absolute-positioned (width:100%, height:auto) inside the same
+  // fixed-height stage as the other modes so the dark column stays a
+  // predictable backdrop and the image anchors top or bottom based on
+  // heroFocus. (Earlier attempt to drop position:absolute + min-height
+  // for natural mode caused the image to vanish on some pages — see
+  // partners.meetdandy.com/bc3.)
+  const naturalAnchor: Pick<React.CSSProperties, "top" | "bottom" | "transform"> =
+    heroFocus.startsWith("bottom")
+      ? { top: "auto", bottom: 0 }
+      : heroFocus.startsWith("top")
+        ? { top: 0, bottom: "auto" }
+        : { top: "50%", bottom: "auto", transform: "translateY(-50%)" };
+  const heroImgStyle: React.CSSProperties =
+    heroZoom === "fill-natural"
       ? {
-          objectFit: "cover",
-          objectPosition: heroFocus,
-          width: "88%",
-          height: "88%",
+          width: "100%",
+          height: "auto",
+          left: 0,
+          right: 0,
+          ...naturalAnchor,
         }
-      : heroZoom === "fit"
+      : heroZoom === "fit-wide"
         ? {
-            objectFit: "contain",
-            objectPosition: heroFocus,
-            width: "100%",
-            height: "100%",
-          }
-        : {
             objectFit: "cover",
             objectPosition: heroFocus,
-            width: "100%",
-            height: "100%",
-          };
+            width: "88%",
+            height: "88%",
+          }
+        : heroZoom === "fit"
+          ? {
+              objectFit: "contain",
+              objectPosition: heroFocus,
+              width: "100%",
+              height: "100%",
+            }
+          : {
+              objectFit: "cover",
+              objectPosition: heroFocus,
+              width: "100%",
+              height: "100%",
+            };
   const heroInsetClass = heroZoom === "fit-wide" ? "inset-[6%]" : "inset-0";
   const renderHeroImageCol = () => (
     <div
-      // For natural mode we drop the fixed min-height + h-full so the
-      // image's natural height drives the column. The wrapper stays
-      // `relative` + `overflow-hidden` so the hover-scale and the
-      // absolute overlays (left fade, bottom darken, plate, caption)
-      // still clip to the image bounds. When natural mode has no
-      // image, the fallback gradient is absolute inset-0 and would
-      // collapse to zero — keep the fixed min-height in that case.
-      className={
-        "group relative w-full overflow-hidden " +
-        (isNatural && props.heroImageUrl ? "" : "h-full min-h-[360px] lg:min-h-[620px]")
-      }
+      className="group relative w-full h-full min-h-[360px] lg:min-h-[620px] overflow-hidden"
       style={heroZoom !== "fill" ? { background: dark } : undefined}
     >
       {props.heroImageUrl ? (
@@ -317,9 +321,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
             src={props.heroImageUrl}
             alt=""
             className={
-              (isNatural
-                ? "block w-full h-auto max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] "
-                : `absolute ${heroInsetClass} max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] `) +
+              `absolute ${heroInsetClass} max-w-none transition-transform duration-[1400ms] ease-out group-hover:scale-[1.04] ` +
               (isColor ? "" : "mix-blend-luminosity opacity-80")
             }
             style={heroImgStyle}
@@ -506,8 +508,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                 <img
                   src={props.situationImageUrl}
                   alt=""
-                  className="w-full h-64 object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
-                  style={{ objectPosition: heroFocus }}
+                  className="block w-full h-auto max-w-none transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
                   loading="lazy"
                 />
               </div>
