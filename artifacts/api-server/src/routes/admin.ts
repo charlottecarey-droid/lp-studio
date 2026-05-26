@@ -2043,6 +2043,13 @@ async function loadCustomDomainState(tenantId: number): Promise<CustomDomainStat
 }
 
 router.get("/custom-domain/status", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+  // Custom domain settings are an admin-only surface — match the role
+  // posture of POST/DELETE so a non-admin teammate can't see the
+  // current vanity host, CF status, or DNS validation tokens.
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Only workspace admins can view the custom domain settings" });
+    return;
+  }
   try {
     const state = await loadCustomDomainState(req.authUser!.tenantId!);
     res.json(state);
@@ -2126,6 +2133,10 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
       throw dbErr;
     }
     invalidateTenantHostCache();
+    // Drop the cached /domain-context entry so the SPA picks up the
+    // new microsite_domain on its next refresh instead of waiting out
+    // the cache TTL.
+    invalidateDomainContextForTenant(tenantId);
 
     console.info(
       "[admin][audit] tenant.customDomain.attached",
@@ -2148,6 +2159,11 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
 });
 
 router.post("/custom-domain/verify", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+  // Same read-surface posture as GET /status — admin-only.
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Only workspace admins can view the custom domain settings" });
+    return;
+  }
   try {
     // Re-fetch from Cloudflare (loadCustomDomainState already does this
     // when cloudflareHostnameId is set). No DB writes — verification is
@@ -2194,6 +2210,9 @@ router.delete("/custom-domain", requirePlanFeature("customDomain"), async (req, 
       [tenantId],
     );
     invalidateTenantHostCache();
+    // Same as attach — clear cached domain-context so the SPA stops
+    // serving the now-removed hostname before the TTL window closes.
+    invalidateDomainContextForTenant(tenantId);
 
     console.info(
       "[admin][audit] tenant.customDomain.detached",
