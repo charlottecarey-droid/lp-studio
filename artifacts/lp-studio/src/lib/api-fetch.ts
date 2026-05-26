@@ -17,6 +17,8 @@
  * the header to them is harmless.
  */
 
+import { emitUpgradeRequired } from "./plan-upgrade";
+
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const CSRF_HEADER = "X-CSRF-Token";
 const CSRF_ENDPOINT = "/api/auth/csrf";
@@ -76,6 +78,33 @@ function isSameOriginApi(url: string): boolean {
   }
 }
 
+/**
+ * Inspect a 402 to see if it's the server's `plan_upgrade_required`
+ * shape from requirePlanFeature. If so, fire the global upgrade event
+ * so the listener in App.tsx can show a toast. We clone the response
+ * before reading it so the caller still gets a fresh body to consume.
+ *
+ * Silent on any other 402 or unexpected body — we only react to the
+ * documented contract.
+ */
+async function maybeEmitPlanUpgrade(res: Response): Promise<void> {
+  if (res.status !== 402) return;
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) return;
+  try {
+    const body = await res.clone().json();
+    if (body?.error === "plan_upgrade_required" && body?.feature) {
+      emitUpgradeRequired({
+        feature: String(body.feature),
+        plan: String(body.plan ?? "starter"),
+        message: typeof body.message === "string" ? body.message : undefined,
+      });
+    }
+  } catch {
+    // Non-JSON or malformed body — ignore.
+  }
+}
+
 async function isCsrfFailure(res: Response): Promise<boolean> {
   if (res.status !== 403) return false;
   const ct = res.headers.get("content-type") ?? "";
@@ -99,7 +128,9 @@ export function installCsrfFetchInterceptor(): void {
     const method = methodOf(input, init);
     const url = urlOf(input);
     if (SAFE_METHODS.has(method) || !isSameOriginApi(url) || url.includes(CSRF_ENDPOINT)) {
-      return originalFetch(input, init);
+      const res = await originalFetch(input, init);
+      if (isSameOriginApi(url)) await maybeEmitPlanUpgrade(res);
+      return res;
     }
 
     const token = (await fetchToken()) ?? "";
@@ -117,9 +148,12 @@ export function installCsrfFetchInterceptor(): void {
       const fresh = await fetchToken(true);
       if (fresh && fresh !== token) {
         headers.set(CSRF_HEADER, fresh);
-        return originalFetch(input, { ...(init ?? {}), headers, credentials });
+        const retried = await originalFetch(input, { ...(init ?? {}), headers, credentials });
+        await maybeEmitPlanUpgrade(retried);
+        return retried;
       }
     }
+    await maybeEmitPlanUpgrade(res);
     return res;
   }) as WrappedFetch;
 

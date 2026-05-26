@@ -10,6 +10,10 @@ import { BrandConfigProvider } from "@/context/BrandConfigContext";
 import { AuthGate } from "@/components/AuthGate";
 import { RoleGuard } from "@/components/RoleGuard";
 import { DevToolsPanel } from "@/components/DevToolsPanel";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
+import { UPGRADE_EVENT, copyForFeature, type UpgradeEventDetail } from "@/lib/plan-upgrade";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Route-level error boundary ────────────────────────────────────────────────
 // Wraps each rendered route so a single page crash doesn't white-screen the
@@ -463,7 +467,14 @@ function AppShell() {
     const isSuperadmin = user.appUserRole === "superadmin";
     const planFeatures = resolvePlanFeatures(user);
     if (!planFeatures.salesConsole && !isSuperadmin) {
-      return <Redirect to="/" />;
+      return (
+        <AuthGate>
+          <ModeProvider permissions={effectivePermissions} isAdmin={effectiveIsAdmin}>
+            <UpgradePrompt feature="salesConsole" />
+          </ModeProvider>
+          <Toaster />
+        </AuthGate>
+      );
     }
   }
 
@@ -515,9 +526,35 @@ function AppShell() {
         </RoleGuard>
       </ModeProvider>
       <DevToolsPanel />
+      <PlanUpgradeToastListener />
       <Toaster />
     </AuthGate>
   );
+}
+
+/**
+ * Bridges the global `plan-upgrade-required` window event (emitted by
+ * the fetch interceptor when any /api/* call returns a 402
+ * `plan_upgrade_required`) into a toast. Mounted once inside the
+ * authed shell so every gated feature gets the same explainer instead
+ * of a generic "Request failed" error from the calling page.
+ */
+function PlanUpgradeToastListener() {
+  const { toast } = useToast();
+  useEffect(() => {
+    function onUpgrade(e: Event) {
+      const detail = (e as CustomEvent<UpgradeEventDetail>).detail;
+      if (!detail) return;
+      const copy = copyForFeature(detail.feature);
+      toast({
+        title: copy.title,
+        description: copy.subtitle,
+      });
+    }
+    window.addEventListener(UPGRADE_EVENT, onUpgrade);
+    return () => window.removeEventListener(UPGRADE_EVENT, onUpgrade);
+  }, [toast]);
+  return null;
 }
 
 /**

@@ -1,8 +1,9 @@
 import { useAppMode, type AppMode } from "@/lib/mode-context";
 import { useLocation } from "wouter";
-import { Megaphone, Target } from "lucide-react";
+import { Megaphone, Target, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { resolveFeatures } from "@/lib/plan-features";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function ModeToggle() {
   const { setMode, lockedMode } = useAppMode();
@@ -40,7 +41,13 @@ export function ModeToggle() {
   }
 
   if (lockedMode === "marketing" || planLocksToMarketing) {
-    return (
+    // When the lock is plan-driven (not just a role/permission lock),
+    // hint at WHY by appending a small lock icon and surfacing a
+    // tooltip that names the Sales Console as a Growth feature. Bare
+    // lockedMode="marketing" (permissions only) keeps the original
+    // unannotated pill so we don't promise an upgrade to users whose
+    // tenant already pays for Sales but whose role just lacks access.
+    const pill = (
       <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 w-full">
         <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-foreground/15" />
         <ModeButton
@@ -48,8 +55,18 @@ export function ModeToggle() {
           onClick={() => {}}
           icon={<Megaphone className="w-3 h-3" />}
           label="Marketing"
+          trailing={planLocksToMarketing ? <Lock className="w-3 h-3 opacity-60" data-testid="sales-locked-icon" /> : undefined}
         />
       </div>
+    );
+    if (!planLocksToMarketing) return pill;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{pill}</TooltipTrigger>
+        <TooltipContent side="right" className="text-xs max-w-[220px]">
+          Sales Console is a Growth feature. Upgrade to unlock account-based pages, outreach, and signals.
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
@@ -89,11 +106,12 @@ export function ModeToggle() {
   );
 }
 
-function ModeButton({ active, onClick, icon, label }: {
+function ModeButton({ active, onClick, icon, label, trailing }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  trailing?: React.ReactNode;
 }) {
   return (
     <button
@@ -106,6 +124,7 @@ function ModeButton({ active, onClick, icon, label }: {
     >
       {icon}
       {label}
+      {trailing}
     </button>
   );
 }
