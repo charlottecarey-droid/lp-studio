@@ -484,9 +484,11 @@ function AppShell() {
 
   if (location.startsWith("/superadmin")) {
     return (
-      <Suspense fallback={<LoadingFallback />}>
-        <SuperAdminPage />
-      </Suspense>
+      <AuthGate>
+        <Suspense fallback={<LoadingFallback />}>
+          <SuperAdminPage />
+        </Suspense>
+      </AuthGate>
     );
   }
 

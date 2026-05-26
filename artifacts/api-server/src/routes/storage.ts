@@ -7,7 +7,7 @@ import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
 import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
 import { asc, desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
-import { requireAdminKey } from "../middleware/requireAdminKey";
+import { requireSuperadmin } from "../middleware/requireSuperadmin";
 
 /**
  * Read-only requester resolver for the storage serve route. Looks up the
@@ -381,10 +381,10 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
 
 /**
  * Reclassify all images that don't yet have a purpose tag.
- * Admin-only (x-admin-key) — this is a global maintenance op that touches
+ * Superadmin only — this is a global maintenance op that touches
  * every tenant's images, not a per-tenant user feature.
  */
-router.post("/lp/media/reclassify", requireAdminKey, async (req: Request, res: Response) => {
+router.post("/lp/media/reclassify", requireSuperadmin, async (req: Request, res: Response) => {
   try {
     // force=true re-examines ALL images, including those already tagged.
     // Use this to fix images that were misclassified before the OG-detection prompt was tightened.
@@ -484,8 +484,8 @@ router.post("/lp/upload", (req: Request, res: Response) => {
 });
 
 /**
- * Admin-only image upload. Authenticated by x-admin-key (same scheme as the
- * superadmin routes), so it does NOT require a tenant session.
+ * Admin-only image upload. Requires superadmin session (requireSuperadmin),
+ * so it does NOT require a tenant session.
  *
  * Default behaviour: uploads land in the shared "starter" library
  *   (tenant_id = NULL, is_shared = true) — visible to every tenant.
@@ -499,7 +499,7 @@ router.post("/lp/upload", (req: Request, res: Response) => {
  *   tags?:      comma-separated tag list (e.g. "workspace,team,office")
  *   tenantId?:  numeric tenant id to scope the upload to. Omit for shared.
  */
-router.post("/lp/media/shared/upload", requireAdminKey, (req: Request, res: Response) => {
+router.post("/lp/media/shared/upload", requireSuperadmin, (req: Request, res: Response) => {
   imageUpload.single("file")(req, res, async (err) => {
     if (err) {
       const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"

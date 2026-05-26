@@ -4,15 +4,12 @@ import { SESSION_COOKIE, type AuthUser } from "./requireAuth";
 
 /**
  * Express middleware that gates a route on the authenticated session user
- * having `app_users.role = 'superadmin'`. Use this on every SuperAdmin
- * platform route (in addition to `requireAdminKey`) so that knowing the
- * shared admin password is no longer sufficient — the acting user must
- * also be a global Dandy operator.
+ * having `app_users.role = 'superadmin'`. This is the sole gating mechanism
+ * for all SuperAdmin platform routes — identity-based, not shared-secret.
  *
- * Reads the session inline (does not depend on `requireAuth` having run,
- * since SuperAdmin routes are admin-key gated and don't sit behind the
- * authenticated `router.use(requireAuth)`). Backfills `appUserRole` from
- * `app_users.role` for sessions issued before that field existed.
+ * Reads the session inline (does not depend on `requireAuth` having run).
+ * Backfills `appUserRole` from `app_users.role` for sessions issued before
+ * that field existed.
  */
 export async function requireSuperadmin(
   req: Request,

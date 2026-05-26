@@ -45,11 +45,11 @@ const INDUSTRY_LABEL: Record<Industry, string> = {
   generic: "Generic B2B SaaS",
 };
 
-async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
+async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
+    credentials: "include",
     headers: {
-      "x-admin-key": adminKey,
       "content-type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -78,12 +78,11 @@ interface EditState {
 }
 
 function TemplateEditor({
-  open, onClose, initial, adminKey, onSaved,
+  open, onClose, initial, onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   initial: EditState | null;
-  adminKey: string;
   onSaved: () => void;
 }) {
   const [form, setForm] = useState<EditState | null>(initial);
@@ -99,7 +98,7 @@ function TemplateEditor({
     setSaving(true);
     setError(null);
     try {
-      await apiFetch(`/api/admin/lp/templates/${form.id}`, adminKey, {
+      await apiFetch(`/api/admin/lp/templates/${form.id}`, {
         method: "PUT",
         body: JSON.stringify({
           template_label: form.template_label,
@@ -198,7 +197,7 @@ function TemplateEditor({
   );
 }
 
-export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) {
+export default function SuperAdminTemplates() {
   const [rows, setRows] = useState<TemplateRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -211,14 +210,14 @@ export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) 
     setLoading(true);
     setLoadError(null);
     try {
-      const data: TemplateRow[] = await apiFetch("/api/admin/lp/templates", adminKey);
+      const data: TemplateRow[] = await apiFetch("/api/admin/lp/templates");
       setRows(data);
     } catch (err: any) {
       setLoadError(err?.message ?? "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [adminKey]);
+  }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -422,7 +421,6 @@ export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) 
         open={!!editingInitial}
         onClose={() => setEditingInitial(null)}
         initial={editingInitial}
-        adminKey={adminKey}
         onSaved={refresh}
       />
     </div>

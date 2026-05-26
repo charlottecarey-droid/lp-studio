@@ -1,5 +1,4 @@
 import { Router } from "express";
-import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
@@ -165,30 +164,10 @@ export async function backfillContentManagerRole(): Promise<void> {
 }
 
 // POST /api/admin/tenants — provision a new tenant
-// Protected by ADMIN_PASSWORD (not session auth — called before any user exists)
-router.post("/tenants", async (req, res): Promise<void> => {
-  const { adminPassword, name, slug, domain, micrositeDomain, adminEmail, plan, copyBrandFromTenantId } = req.body ?? {};
+// Protected by active superadmin session (identity-bound, not shared secret).
+router.post("/tenants", requireSuperadmin, async (req, res): Promise<void> => {
+  const { name, slug, domain, micrositeDomain, adminEmail, plan, copyBrandFromTenantId } = req.body ?? {};
 
-  if (!process.env.ADMIN_PASSWORD) {
-    res.status(503).json({ error: "Admin provisioning not configured" });
-    return;
-  }
-
-  // Use constant-time comparison to prevent timing attacks
-  const { timingSafeEqual } = crypto;
-  const adminPasswordBuf = Buffer.from((adminPassword ? String(adminPassword) : "").padEnd(64, '\0'));
-  const envPasswordBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
-  let passwordMatches = false;
-  try {
-    passwordMatches = timingSafeEqual(adminPasswordBuf, envPasswordBuf);
-  } catch {
-    passwordMatches = false;
-  }
-
-  if (!passwordMatches) {
-    res.status(401).json({ error: "Invalid admin password" });
-    return;
-  }
   if (!name || !slug || !adminEmail) {
     res.status(400).json({ error: "name, slug, and adminEmail are required" });
     return;
@@ -301,35 +280,10 @@ router.post("/tenants", async (req, res): Promise<void> => {
 });
 
 // ─── Superadmin Routes ────────────────────────────────────────────────────────
-// Protected by ADMIN_PASSWORD header only — no session required.
-
-function requireAdminKey(req: any, res: any, next: any): void {
-  const key = req.headers["x-admin-key"];
-  if (!process.env.ADMIN_PASSWORD) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  // Use constant-time comparison to prevent timing attacks
-  const { timingSafeEqual } = crypto;
-  const keyBuf = Buffer.from((key ? String(key) : "").padEnd(64, '\0'));
-  const envBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
-  let passwordMatches = false;
-  try {
-    passwordMatches = timingSafeEqual(keyBuf, envBuf);
-  } catch {
-    passwordMatches = false;
-  }
-
-  if (!passwordMatches) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
+// Protected by active superadmin session via requireSuperadmin.
 
 // GET /api/admin/superadmin/tenants
-router.get("/superadmin/tenants", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.get("/superadmin/tenants", requireSuperadmin, async (req, res): Promise<void> => {
   try {
     const result = await pool.query(`
       SELECT
@@ -356,7 +310,7 @@ router.get("/superadmin/tenants", requireAdminKey, requireSuperadmin, async (req
 });
 
 // GET /api/admin/superadmin/tenants/:id/members
-router.get("/superadmin/tenants/:id/members", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.get("/superadmin/tenants/:id/members", requireSuperadmin, async (req, res): Promise<void> => {
   try {
     const result = await pool.query(`
       SELECT
@@ -377,7 +331,7 @@ router.get("/superadmin/tenants/:id/members", requireAdminKey, requireSuperadmin
 });
 
 // GET /api/admin/superadmin/tenants/:id/roles — list roles available in a tenant.
-router.get("/superadmin/tenants/:id/roles", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.get("/superadmin/tenants/:id/roles", requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   try {
@@ -394,7 +348,7 @@ router.get("/superadmin/tenants/:id/roles", requireAdminKey, requireSuperadmin, 
 
 // POST /api/admin/superadmin/tenants/:id/members — invite/add a member to any tenant.
 // Body: { email: string, roleId: number, sendInvite?: boolean (default true) }
-router.post("/superadmin/tenants/:id/members", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.post("/superadmin/tenants/:id/members", requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   const { email: rawEmail, roleId: rawRoleId, sendInvite } = req.body ?? {};
@@ -466,7 +420,7 @@ router.post("/superadmin/tenants/:id/members", requireAdminKey, requireSuperadmi
 });
 
 // DELETE /api/admin/superadmin/tenants/:tenantId/members/:memberId — remove a member.
-router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.tenantId);
   const memberId = Number(req.params.memberId);
   if (!tenantId || !memberId) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -484,7 +438,7 @@ router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey
 });
 
 // PATCH /api/admin/superadmin/tenants/:id
-router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.patch("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   const { status, plan, domain, micrositeDomain, aiImageGenOutsideBuilderEnabled } = req.body ?? {};
@@ -523,10 +477,8 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
     // tenant-admin `PATCH /api/admin/tenant-settings` route deliberately
     // does NOT accept this key — only this superadmin route can flip it.
     //
-    // Gating: the route already runs `requireAdminKey` (the shared
-    // ADMIN_PASSWORD header that only Dandy operators have). That's the
-    // single source of truth for "who can use the SuperAdmin platform" —
-    // anyone who can reach this page can flip this toggle.
+    // Gating: the route runs `requireSuperadmin` (session must belong to
+    // an app_users row with role = 'superadmin').
     if (aiImageGenOutsideBuilderEnabled !== undefined) {
       if (typeof aiImageGenOutsideBuilderEnabled !== "boolean") {
         res.status(400).json({ error: "aiImageGenOutsideBuilderEnabled must be a boolean" });
@@ -638,7 +590,7 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
 // POST /api/admin/superadmin/tenants/:id/verify-domain — perform a real-world
 // DNS + HTTPS probe to confirm the configured domain points at this deployment
 // and resolves to the expected tenant. Body: { kind: "app" | "microsite" }.
-router.post("/superadmin/tenants/:id/verify-domain", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.post("/superadmin/tenants/:id/verify-domain", requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   const { kind } = req.body ?? {};
   if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
@@ -762,7 +714,7 @@ router.post("/superadmin/tenants/:id/verify-domain", requireAdminKey, requireSup
 
 // GET /api/admin/superadmin/domain-help — returns the deployment-level info
 // editors need to give customers (target CNAME, wildcard hosts, built-in URLs).
-router.get("/superadmin/domain-help", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
+router.get("/superadmin/domain-help", requireSuperadmin, async (_req, res): Promise<void> => {
   res.json({
     targetCname: process.env.DEPLOYMENT_TARGET_CNAME ?? null,
     wildcardBaseHosts: WILDCARD_BASE_HOSTS,
@@ -788,7 +740,7 @@ router.get("/superadmin/domain-help", requireAdminKey, requireSuperadmin, async 
 //   q       free-text search across tenant_name/tenant_slug/title/slug
 //
 // Response: { rows, total, limit, offset, summary: {broken,healthy,...} }
-router.get("/superadmin/asset-health", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.get("/superadmin/asset-health", requireSuperadmin, async (req, res): Promise<void> => {
   try {
     const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
     const offset = Math.max(0, Number(req.query.offset) || 0);
@@ -887,7 +839,7 @@ router.get("/superadmin/asset-health", requireAdminKey, requireSuperadmin, async
 // scheduled canary out-of-band so the operator doesn't have to wait
 // for the 15-minute tick. Fire-and-forget; the response returns
 // immediately and the row updates land as each page finishes.
-router.post("/superadmin/asset-health/recheck-all", requireAdminKey, requireSuperadmin, async (_req, res): Promise<void> => {
+router.post("/superadmin/asset-health/recheck-all", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const { runAssetHealthCheck } = await import("../lib/assetHealthCheck");
     void runAssetHealthCheck();
@@ -900,7 +852,7 @@ router.post("/superadmin/asset-health/recheck-all", requireAdminKey, requireSupe
 
 // POST /api/admin/superadmin/asset-health/:pageId/recheck — re-run the
 // probe for a single page and return its fresh persisted row.
-router.post("/superadmin/asset-health/:pageId/recheck", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.post("/superadmin/asset-health/:pageId/recheck", requireSuperadmin, async (req, res): Promise<void> => {
   const pageId = Number(req.params.pageId);
   if (!pageId || isNaN(pageId)) { res.status(400).json({ error: "Invalid page id" }); return; }
   try {
@@ -922,7 +874,7 @@ router.post("/superadmin/asset-health/:pageId/recheck", requireAdminKey, require
 // check (task #374 T050) means if any referenced asset is missing
 // from R2, the render aborts with `render_failed_assets_missing` and
 // we surface that to the operator.
-router.post("/superadmin/asset-health/:pageId/republish", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.post("/superadmin/asset-health/:pageId/republish", requireSuperadmin, async (req, res): Promise<void> => {
   const pageId = Number(req.params.pageId);
   if (!pageId || isNaN(pageId)) { res.status(400).json({ error: "Invalid page id" }); return; }
   try {
@@ -942,7 +894,7 @@ router.post("/superadmin/asset-health/:pageId/republish", requireAdminKey, requi
 });
 
 // POST /api/admin/superadmin/tenants/:id/copy-brand
-router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.post("/superadmin/tenants/:id/copy-brand", requireSuperadmin, async (req, res): Promise<void> => {
   const targetId = Number(req.params.id);
   const { sourceTenantId } = req.body ?? {};
   if (!targetId || isNaN(targetId) || !sourceTenantId) {
@@ -981,7 +933,7 @@ router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, requireSupera
 });
 
 // DELETE /api/admin/superadmin/tenants/:id
-router.delete("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, async (req, res): Promise<void> => {
+router.delete("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!tenantId || isNaN(tenantId)) {
     res.status(400).json({ error: "Invalid tenant ID" });

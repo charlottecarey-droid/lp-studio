@@ -6,7 +6,7 @@ import lpstudioLogo from "@assets/IMG_0208_1779034101365.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ExternalLink, LogOut, ChevronDown, Building2 } from "lucide-react";
+import { ExternalLink, LogOut, Building2 } from "lucide-react";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
@@ -23,60 +23,6 @@ function GoogleIcon() {
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
-  );
-}
-
-function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/password", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (res.ok) {
-        onSuccess();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Sign in failed");
-      }
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <Input
-        type="email"
-        placeholder="you@company.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        autoFocus
-      />
-      <Input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" disabled={loading || !email || !password}>
-        {loading ? "Signing in…" : "Sign in"}
-      </Button>
-    </form>
   );
 }
 
@@ -117,8 +63,7 @@ function BrandBackdrop({ children }: { children: ReactNode }) {
 }
 
 function SignInPanel() {
-  const { refresh, domainContext } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
+  const { domainContext } = useAuth();
   const [tenantBrand, setTenantBrand] = useState<{ logoUrl?: string | null; brandName?: string | null } | null>(null);
 
   const isLocked = domainContext?.mode === "tenant-locked";
@@ -167,56 +112,26 @@ function SignInPanel() {
         </div>
 
         <div className="space-y-3">
-          {!showPassword ? (
-            <>
-              <Button
-                variant="outline"
-                className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
-                onClick={() => {
-                  // Preserve the current path + query string (e.g. the
-                  // marketing-homepage prompt handoff `/pages?new=ai&prompt=…`)
-                  // across the Google OAuth round-trip. Server-side
-                  // `sanitizeNextPath` rejects anything that isn't a
-                  // same-origin relative path, so this can't be turned into
-                  // an open redirect.
-                  const next = window.location.pathname + window.location.search;
-                  const url = next && next !== "/"
-                    ? `/api/auth/google?next=${encodeURIComponent(next)}`
-                    : "/api/auth/google";
-                  window.location.href = url;
-                }}
-              >
-                <GoogleIcon />
-                Continue with Google
-              </Button>
-
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">or</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowPassword(true)}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Sign in with password
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            </>
-          ) : (
-            <>
-              <PasswordForm onSuccess={refresh} />
-              <button
-                type="button"
-                onClick={() => setShowPassword(false)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                ← Back to Google sign-in
-              </button>
-            </>
-          )}
+          <Button
+            variant="outline"
+            className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
+            onClick={() => {
+              // Preserve the current path + query string (e.g. the
+              // marketing-homepage prompt handoff `/pages?new=ai&prompt=…`)
+              // across the Google OAuth round-trip. Server-side
+              // `sanitizeNextPath` rejects anything that isn't a
+              // same-origin relative path, so this can't be turned into
+              // an open redirect.
+              const next = window.location.pathname + window.location.search;
+              const url = next && next !== "/"
+                ? `/api/auth/google?next=${encodeURIComponent(next)}`
+                : "/api/auth/google";
+              window.location.href = url;
+            }}
+          >
+            <GoogleIcon />
+            Continue with Google
+          </Button>
 
           {isDandyTenant && (
             <a

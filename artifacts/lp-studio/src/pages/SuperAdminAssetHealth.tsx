@@ -15,12 +15,11 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const PAGE_SIZE = 100;
 
-async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
+async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     credentials: "include",
     headers: {
-      "x-admin-key": adminKey,
       "content-type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -158,10 +157,9 @@ function StatusBadge({ row }: { row: PageRow }) {
 }
 
 function PageRowView({
-  row, adminKey, onMutated,
+  row, onMutated,
 }: {
   row: PageRow;
-  adminKey: string;
   onMutated: () => void;
 }) {
   const [open, setOpen] = useState(classify(row) === "broken");
@@ -177,7 +175,7 @@ function PageRowView({
     setRechecking(true);
     setError(null);
     try {
-      await apiFetch(`/api/admin/superadmin/asset-health/${row.id}/recheck`, adminKey, { method: "POST" });
+      await apiFetch(`/api/admin/superadmin/asset-health/${row.id}/recheck`, { method: "POST" });
       onMutated();
     } catch (err: any) {
       let msg = err?.message ?? "Recheck failed";
@@ -194,7 +192,7 @@ function PageRowView({
     setError(null);
     setLastOutcome(null);
     try {
-      const data = await apiFetch(`/api/admin/superadmin/asset-health/${row.id}/republish`, adminKey, { method: "POST" });
+      const data = await apiFetch(`/api/admin/superadmin/asset-health/${row.id}/republish`, { method: "POST" });
       const outcome = data?.outcome?.skipped ?? (data?.outcome?.r2Ok ? "success" : "unknown");
       setLastOutcome(outcome);
       onMutated();
@@ -304,7 +302,7 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
   );
 }
 
-export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }) {
+export default function SuperAdminAssetHealth() {
   const [data, setData] = useState<AssetHealthResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,14 +322,14 @@ export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }
         filter,
       });
       if (search.trim()) params.set("q", search.trim());
-      const json = (await apiFetch(`/api/admin/superadmin/asset-health?${params}`, adminKey)) as AssetHealthResponse;
+      const json = (await apiFetch(`/api/admin/superadmin/asset-health?${params}`)) as AssetHealthResponse;
       setData(json);
     } catch (err: any) {
       setError(err?.message ?? "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [adminKey, offset, filter, search]);
+  }, [offset, filter, search]);
 
   // Reset to page 1 whenever the user changes filter or search; otherwise
   // load on offset/filter/search change.
@@ -358,7 +356,7 @@ export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }
     setSweeping(true);
     setSweepNotice(null);
     try {
-      const resp = await apiFetch("/api/admin/superadmin/asset-health/recheck-all", adminKey, { method: "POST" });
+      const resp = await apiFetch("/api/admin/superadmin/asset-health/recheck-all", { method: "POST" });
       setSweepNotice(resp?.message ?? "Sweep started");
       setTimeout(() => { load(); }, 4000);
       setTimeout(() => { load(); }, 12000);
@@ -468,7 +466,7 @@ export default function SuperAdminAssetHealth({ adminKey }: { adminKey: string }
               </TableRow>
             )}
             {rows.map((row) => (
-              <PageRowView key={row.id} row={row} adminKey={adminKey} onMutated={load} />
+              <PageRowView key={row.id} row={row} onMutated={load} />
             ))}
           </TableBody>
         </Table>

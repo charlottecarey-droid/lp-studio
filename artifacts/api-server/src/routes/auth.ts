@@ -64,6 +64,17 @@ const oauthInitLimiter = rateLimit({
   message: { error: "Too many login attempts. Please try again in a minute." },
 });
 
+// Strict rate limit for password-based auth: 5 attempts per 15 minutes per IP.
+// Tighter than the OAuth limiter because password endpoints accept a shared
+// secret and must not be brute-forceable.
+const passwordAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many sign-in attempts. Please try again later." },
+});
+
 export const SESSION_COOKIE = "lp_sid";
 // 7-day TTL. All three res.cookie() calls below pass maxAge: SESSION_TTL_MS so
 // the cookie persists across browser restarts (not just for the browser session).
@@ -755,7 +766,7 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
 });
 
 // POST /api/auth/password — email + admin-password fallback login
-router.post("/auth/password", async (req, res): Promise<void> => {
+router.post("/auth/password", passwordAuthLimiter, async (req, res): Promise<void> => {
   const { email, password } = req.body ?? {};
   const adminPassword = process.env.ADMIN_PASSWORD;
 
@@ -790,18 +801,26 @@ router.post("/auth/password", async (req, res): Promise<void> => {
   }
 
   try {
-    // Find or create the user by email
-    const upsertResult = await pool.query(
-      `INSERT INTO app_users (email, name, status)
-       VALUES ($1, $1, 'active')
-       ON CONFLICT (email) DO UPDATE SET
-         status = 'active',
-         last_login_at = now(),
-         updated_at = now()
-       RETURNING id, email, name, avatar_url, role, tenant_id`,
+    // Only allow login for pre-existing users with the superadmin role.
+    // This prevents arbitrary email → admin-session creation via the shared
+    // password, which was the primary platform-takeover path.
+    const userResult = await pool.query(
+      `SELECT id, email, name, avatar_url, role, tenant_id,
+              last_login_at, updated_at
+       FROM app_users WHERE email = $1 AND role = 'superadmin'`,
       [email]
     );
-    const user = upsertResult.rows[0];
+    if (!userResult.rows.length) {
+      res.status(403).json({ error: "No superadmin account found for that email" });
+      return;
+    }
+    const user = userResult.rows[0];
+
+    // Stamp last login
+    await pool.query(
+      `UPDATE app_users SET last_login_at = now(), updated_at = now() WHERE id = $1`,
+      [user.id]
+    );
 
     // Look up existing membership
     const memberResult = await pool.query(
@@ -813,42 +832,21 @@ router.post("/auth/password", async (req, res): Promise<void> => {
       [user.id]
     );
 
+    if (!memberResult.rows.length) {
+      res.status(403).json({ error: "No tenant membership found for this account" });
+      return;
+    }
+
     let tenantId: number;
     let role: string;
     let permissions: Record<string, boolean>;
     let isAdmin: boolean;
 
-    if (memberResult.rows.length > 0) {
-      const m = memberResult.rows[0];
-      tenantId = m.tenant_id;
-      role = m.role_name;
-      permissions = (m.permissions as Record<string, boolean>) ?? {};
-      isAdmin = m.is_admin ?? false;
-    } else {
-      // Bootstrap: grant admin on tenant 1
-      const adminRoleResult = await pool.query(
-        `SELECT id, name, permissions FROM tenant_roles
-         WHERE tenant_id = 1 AND is_admin = true LIMIT 1`
-      );
-      const adminRole = adminRoleResult.rows[0];
-
-      await pool.query(
-        `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
-         VALUES (1, $1, $2, $3, now())
-         ON CONFLICT DO NOTHING`,
-        [user.id, adminRole.id, email]
-      );
-
-      await pool.query(
-        `UPDATE app_users SET tenant_id = 1 WHERE id = $1`,
-        [user.id]
-      );
-
-      tenantId = 1;
-      role = adminRole.name;
-      permissions = (adminRole.permissions as Record<string, boolean>) ?? {};
-      isAdmin = true;
-    }
+    const m = memberResult.rows[0];
+    tenantId = m.tenant_id;
+    role = m.role_name;
+    permissions = (m.permissions as Record<string, boolean>) ?? {};
+    isAdmin = m.is_admin ?? false;
 
     // Look up tenant's microsite domain
     let micrositeDomain: string | null = null;
@@ -1200,18 +1198,6 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     console.error("[auth] signup error:", err);
     res.status(500).json({ error: "Server error" });
   }
-});
-
-// POST /api/auth/verify-password — kept for backward compat with backup app
-router.post("/auth/verify-password", (req, res): void => {
-  const { password } = req.body ?? {};
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) { res.status(503).json({ error: "Auth not configured" }); return; }
-  if (typeof password !== "string" || password !== adminPassword) {
-    res.status(401).json({ error: "Incorrect password" });
-    return;
-  }
-  res.json({ ok: true });
 });
 
 export default router;

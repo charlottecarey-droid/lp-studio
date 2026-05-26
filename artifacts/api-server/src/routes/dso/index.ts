@@ -352,7 +352,6 @@ router.post("/functions/:name", async (req: Request, res: Response) => {
   const name = req.params.name;
   const body = req.body;
 
-  if (name === "verify-admin-password") return handleVerifyPassword(req, res, body);
   if (name === "generate-email") return handleGenerateEmail(req, res, body);
   if (name === "account-briefing") return handleAccountBriefing(req, res, body);
   if (name === "import-contacts") return handleImportContacts(req, res, body);
@@ -363,17 +362,6 @@ router.post("/functions/:name", async (req: Request, res: Response) => {
 
   return res.status(404).json({ error: `Unknown function: ${name}` });
 });
-
-// ─── Handler: verify-admin-password ──────────────────────────────────────────
-async function handleVerifyPassword(req: Request, res: Response, body: any) {
-  const { password } = body;
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    return res.status(500).json({ error: "ADMIN_PASSWORD not configured — set it in environment secrets" });
-  }
-  const valid = password === adminPassword;
-  return res.json({ valid });
-}
 
 // ─── Handler: generate-email ──────────────────────────────────────────────────
 async function handleGenerateEmail(req: Request, res: Response, body: any) {

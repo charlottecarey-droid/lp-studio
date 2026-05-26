@@ -39,17 +39,11 @@ const PLAN_TIERS: readonly Plan[] = ["starter", "growth", "enterprise"];
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
+async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
-    // Task #234 — send the session cookie alongside the admin key. The new
-    // `aiImageGenOutsideBuilderEnabled` PATCH branch additionally requires
-    // the acting user's session role to be "superadmin"; without
-    // credentials: "include", the cookie wouldn't flow on cross-origin
-    // dev/preview deployments and the toggle would always 403.
     credentials: "include",
     headers: {
-      "x-admin-key": adminKey,
       "content-type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -152,13 +146,11 @@ interface ProvisionResult {
 function NewWorkspaceModal({
   open,
   onClose,
-  adminKey,
   tenants,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
-  adminKey: string;
   tenants: Tenant[];
   onCreated: () => void;
 }) {
@@ -199,9 +191,9 @@ function NewWorkspaceModal({
     try {
       const data = await fetch(`${BASE}/api/admin/tenants`, {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          adminPassword: adminKey,
           name: name.trim(),
           slug: slug.trim(),
           domain: domain.trim() || undefined,
@@ -423,13 +415,11 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 
 function TenantRow({
   tenant,
-  adminKey,
   onUpdate,
   tenants,
   domainHelp,
 }: {
   tenant: Tenant;
-  adminKey: string;
   onUpdate: () => void;
   tenants: Tenant[];
   domainHelp: DomainHelp | null;
@@ -470,8 +460,8 @@ function TenantRow({
     setLoadingMembers(true);
     try {
       const [membersData, rolesData] = await Promise.all([
-        apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, adminKey),
-        apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/roles`, adminKey),
+        apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`),
+        apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/roles`),
       ]);
       setMembers(membersData);
       setTenantRoles(rolesData);
@@ -487,14 +477,14 @@ function TenantRow({
     }
     // addRoleId intentionally excluded — we only seed it once per panel-open
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenant.id, adminKey]);
+  }, [tenant.id]);
 
   const handleAddMember = async () => {
     setAdding(true);
     setAddError(null);
     setAddSuccess(null);
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, {
         method: "POST",
         body: JSON.stringify({
           email: addEmail.trim(),
@@ -518,7 +508,7 @@ function TenantRow({
   const handleRemoveMember = async (memberId: number, email: string) => {
     if (!window.confirm(`Remove ${email} from ${tenant.name}?`)) return;
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members/${memberId}`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members/${memberId}`, {
         method: "DELETE",
       });
       await loadMembers();
@@ -537,7 +527,7 @@ function TenantRow({
   const patch = async (field: "status" | "plan", value: string) => {
     setUpdating(true);
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, {
         method: "PATCH",
         body: JSON.stringify({ [field]: value }),
       });
@@ -558,7 +548,7 @@ function TenantRow({
     setSavingAiFlag(true);
     setAiFlagError(null);
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, {
         method: "PATCH",
         body: JSON.stringify({ aiImageGenOutsideBuilderEnabled: next }),
       });
@@ -584,7 +574,7 @@ function TenantRow({
     setDeleting(true);
     setDeleteError(null);
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, {
         method: "DELETE",
       });
       onUpdate();
@@ -600,7 +590,7 @@ function TenantRow({
     setBrandCopyError(null);
     setBrandCopied(false);
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/copy-brand`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/copy-brand`, {
         method: "POST",
         body: JSON.stringify({ sourceTenantId: Number(brandCopyFrom) }),
       });
@@ -618,7 +608,7 @@ function TenantRow({
     setDomainsError(null);
     setDomainsSaved(false);
     try {
-      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           domain: domainEdit.trim(),
@@ -649,7 +639,6 @@ function TenantRow({
     try {
       const result = await apiFetch(
         `/api/admin/superadmin/tenants/${tenant.id}/verify-domain`,
-        adminKey,
         { method: "POST", body: JSON.stringify({ kind }) },
       );
       const verify: VerifyResult = { ...result, checkedAt: Date.now() };
@@ -1070,21 +1059,11 @@ function TenantRow({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
-  // Gate the entire SuperAdmin platform on app_users.role = 'superadmin'.
-  // The shared admin password is no longer sufficient — the acting browser
-  // session must also belong to a Dandy operator with the superadmin role.
-  // The backend enforces this on every /api/admin/superadmin/* route via
-  // requireSuperadmin (defence in depth); this is the UX gate.
   const { user, loading: authLoading } = useAuth();
   const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
 
-  const storedKey = sessionStorage.getItem("sa_key") ?? "";
-  const [adminKey, setAdminKey] = useState(storedKey);
-  const [input, setInput] = useState("");
-  const [authError, setAuthError] = useState("");
   const [tenants, setTenants] = useState<Tenant[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [authed, setAuthed] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
   const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health">(() => {
@@ -1104,50 +1083,32 @@ export default function SuperAdminPage() {
     }
   }, [tab]);
 
-  const fetchTenants = useCallback(async (key: string) => {
+  const fetchTenants = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch("/api/admin/superadmin/tenants", key);
+      const data = await apiFetch("/api/admin/superadmin/tenants");
       setTenants(data);
-      setAuthed(true);
-      setAuthError("");
-      sessionStorage.setItem("sa_key", key);
-      setAdminKey(key);
-    } catch (err: any) {
-      const msg = String(err?.message ?? "");
-      if (msg.includes("401") || msg.toLowerCase().includes("unauthorized")) {
-        setAuthError("Incorrect admin password.");
-        sessionStorage.removeItem("sa_key");
-        setAdminKey("");
-        setAuthed(false);
-      }
+    } catch {
+      /* ignore — session auth errors surface as 401 UI via isSuperadmin check */
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (storedKey) fetchTenants(storedKey);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isSuperadmin) fetchTenants();
+  }, [isSuperadmin, fetchTenants]);
 
   useEffect(() => {
-    if (!authed || !adminKey) return;
-    apiFetch("/api/admin/superadmin/domain-help", adminKey)
+    if (!isSuperadmin) return;
+    apiFetch("/api/admin/superadmin/domain-help")
       .then(setDomainHelp)
       .catch(() => { /* non-fatal */ });
-  }, [authed, adminKey]);
+  }, [isSuperadmin]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchTenants(input);
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("sa_key");
-    setAdminKey("");
-    setAuthed(false);
-    setTenants(null);
-    setInput("");
+  const handleLogout = async () => {
+    await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
+    window.location.href = `${BASE}/`;
   };
 
   if (authLoading) {
@@ -1191,32 +1152,6 @@ export default function SuperAdminPage() {
     );
   }
 
-  if (!authed) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-full max-w-xs space-y-5 text-center">
-          <div>
-            <h1 className="text-xl font-semibold">Superadmin</h1>
-            <p className="text-sm text-muted-foreground mt-1">Enter your admin password to continue.</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-3">
-            <Input
-              type="password"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              autoFocus
-              required
-            />
-            {authError && <p className="text-sm text-destructive">{authError}</p>}
-            <Button className="w-full" type="submit" disabled={loading || !input}>
-              {loading ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
@@ -1236,7 +1171,7 @@ export default function SuperAdminPage() {
                   <Plus className="w-3.5 h-3.5" />
                   New Workspace
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => fetchTenants(adminKey)} disabled={loading}>
+                <Button size="sm" variant="outline" onClick={() => fetchTenants()} disabled={loading}>
                   <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
@@ -1286,11 +1221,11 @@ export default function SuperAdminPage() {
         </div>
 
         {tab === "catalog" ? (
-          <SuperAdminBlockCatalog adminKey={adminKey} />
+          <SuperAdminBlockCatalog />
         ) : tab === "templates" ? (
-          <SuperAdminTemplates adminKey={adminKey} />
+          <SuperAdminTemplates />
         ) : tab === "asset-health" ? (
-          <SuperAdminAssetHealth adminKey={adminKey} />
+          <SuperAdminAssetHealth />
         ) : (
         <div className="border rounded-lg overflow-hidden">
           <Table>
@@ -1321,7 +1256,7 @@ export default function SuperAdminPage() {
                 </TableRow>
               )}
               {tenants?.map((t) => (
-                <TenantRow key={t.id} tenant={t} adminKey={adminKey} tenants={tenants} domainHelp={domainHelp} onUpdate={() => fetchTenants(adminKey)} />
+                <TenantRow key={t.id} tenant={t} tenants={tenants} domainHelp={domainHelp} onUpdate={() => fetchTenants()} />
               ))}
             </TableBody>
           </Table>
@@ -1332,9 +1267,8 @@ export default function SuperAdminPage() {
       <NewWorkspaceModal
         open={showNewModal}
         onClose={() => setShowNewModal(false)}
-        adminKey={adminKey}
         tenants={tenants ?? []}
-        onCreated={() => fetchTenants(adminKey)}
+        onCreated={() => fetchTenants()}
       />
     </div>
   );

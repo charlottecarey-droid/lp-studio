@@ -11,6 +11,7 @@ pnpm install --frozen-lockfile
 # CONCURRENT indexes must be separate psql invocations (can't run inside a transaction block).
 
 psql "$NEON_DATABASE_URL" -c "
+  CREATE INDEX IF NOT EXISTS lp_pages_account_slug_idx ON lp_pages (account_id, slug);
   CREATE INDEX IF NOT EXISTS lp_page_visits_page_id_idx ON lp_page_visits (page_id);
 "
 

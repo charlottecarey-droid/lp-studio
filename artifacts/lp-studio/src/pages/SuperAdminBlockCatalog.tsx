@@ -33,11 +33,11 @@ interface CatalogRow {
   updated_by?: string | null;
 }
 
-async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
+async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
+    credentials: "include",
     headers: {
-      "x-admin-key": adminKey,
       "content-type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -91,14 +91,12 @@ function formatDate(s: string) {
 function CatalogRowEditor({
   open,
   onClose,
-  adminKey,
   initial,
   onSaved,
   isNew,
 }: {
   open: boolean;
   onClose: () => void;
-  adminKey: string;
   initial: RowFormState;
   onSaved: () => void;
   isNew: boolean;
@@ -145,7 +143,7 @@ function CatalogRowEditor({
     setSaving(true);
     setError(null);
     try {
-      await apiFetch("/api/admin/block-catalog", adminKey, {
+      await apiFetch("/api/admin/block-catalog", {
         method: "PUT",
         body: JSON.stringify({
           block_type: form.block_type.trim(),
@@ -345,13 +343,11 @@ function CatalogRowEditor({
 function DuplicateDialog({
   open,
   onClose,
-  adminKey,
   row,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
-  adminKey: string;
   row: CatalogRow | null;
   onSaved: () => void;
 }) {
@@ -368,7 +364,7 @@ function DuplicateDialog({
     setSaving(true);
     setError(null);
     try {
-      await apiFetch("/api/admin/block-catalog/duplicate", adminKey, {
+      await apiFetch("/api/admin/block-catalog/duplicate", {
         method: "POST",
         body: JSON.stringify({
           block_type: row.block_type,
@@ -426,13 +422,11 @@ function DuplicateDialog({
 function DeleteConfirm({
   open,
   onClose,
-  adminKey,
   row,
   onDeleted,
 }: {
   open: boolean;
   onClose: () => void;
-  adminKey: string;
   row: CatalogRow | null;
   onDeleted: () => void;
 }) {
@@ -451,7 +445,6 @@ function DeleteConfirm({
     try {
       await apiFetch(
         `/api/admin/block-catalog/${encodeURIComponent(row.block_type)}/${encodeURIComponent(row.industry)}`,
-        adminKey,
         { method: "DELETE" },
       );
       onDeleted();
@@ -511,7 +504,7 @@ function DeleteConfirm({
 }
 
 // ── Main panel ─────────────────────────────────────────────────────────────
-export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string }) {
+export default function SuperAdminBlockCatalog() {
   const [rows, setRows] = useState<CatalogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -533,14 +526,14 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
     setLoading(true);
     setLoadError(null);
     try {
-      const data: CatalogRow[] = await apiFetch("/api/admin/block-catalog", adminKey);
+      const data: CatalogRow[] = await apiFetch("/api/admin/block-catalog");
       setRows(data);
     } catch (err: any) {
       setLoadError(err?.message ?? "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [adminKey]);
+  }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -590,7 +583,7 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
     setTogglingKey(key);
     setActionError(null);
     try {
-      await apiFetch("/api/admin/block-catalog", adminKey, {
+      await apiFetch("/api/admin/block-catalog", {
         method: "PUT",
         body: JSON.stringify({
           block_type: row.block_type,
@@ -768,7 +761,6 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
       <CatalogRowEditor
         open={editorOpen}
         onClose={() => setEditorOpen(false)}
-        adminKey={adminKey}
         initial={editorInitial}
         isNew={editorIsNew}
         onSaved={refresh}
@@ -776,14 +768,12 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
       <DuplicateDialog
         open={!!duplicateRow}
         onClose={() => setDuplicateRow(null)}
-        adminKey={adminKey}
         row={duplicateRow}
         onSaved={refresh}
       />
       <DeleteConfirm
         open={!!deleteRow}
         onClose={() => setDeleteRow(null)}
-        adminKey={adminKey}
         row={deleteRow}
         onDeleted={refresh}
       />
