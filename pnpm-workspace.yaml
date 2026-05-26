@@ -48,7 +48,6 @@ overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@protobufjs/utf8': '>=1.1.1'
   '@tootallnate/once': '>=3.0.1'
-  brace-expansion: '>=4.0.1'
   fast-uri: '>=3.1.2'
   fast-xml-builder: '>=1.2.0'
   fast-xml-parser: '>=5.8.0'
