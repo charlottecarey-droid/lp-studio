@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Globe, AlertCircle, CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
+import { MicrositeLinksCard } from "./MicrositeLinksCard";
 
 interface CustomDomainState {
   hostname: string | null;
@@ -359,6 +360,8 @@ function DomainContent() {
           )}
         </>
       )}
+
+      <MicrositeLinksCard />
     </div>
   );
 }
