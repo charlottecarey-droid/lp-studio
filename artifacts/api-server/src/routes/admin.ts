@@ -527,19 +527,18 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
       values.push(JSON.stringify({ aiImageGenOutsideBuilderEnabled }));
     }
 
-    // Task #407 — custom-domain attach gate. Today this route is
-    // superadmin-only (operators routinely flip domains on behalf of any
-    // tenant regardless of plan), so the !superadmin branch is
-    // intentionally dead — it's documented here so a future
-    // self-serve tenant-admin endpoint that wires up the same domain
-    // mutation can `if (!superadmin) await assertCustomDomainAllowed(…)`
-    // before applying. nextPlan (when the same PATCH also upgrades
-    // plan) is what we want to check — attaching a domain at the moment
-    // of upgrade is a single user action.
+    // Task #407 — custom-domain attach gate. Applies to EVERY caller of
+    // this PATCH, including superadmin operators. Rationale: a custom
+    // domain on a starter tenant is the most visible packaging leak we
+    // have (the visitor sees the bare tenant domain instead of the
+    // Powered-by-branded wildcard subdomain), so operators must
+    // upgrade the plan before — or in the same PATCH as — the domain
+    // attach. `nextPlan` covers the single-PATCH upgrade case:
+    // sending `{ plan: "growth", domain: "..." }` together works.
     const attachingDomain =
       (domain !== undefined && (domain ?? "").trim().length > 0) ||
       (micrositeDomain !== undefined && (micrositeDomain ?? "").trim().length > 0);
-    if (attachingDomain && req.authUser?.appUserRole !== "superadmin") {
+    if (attachingDomain) {
       const effectivePlan: Plan =
         nextPlan ?? normalizePlan(
           (await pool.query<{ plan: string | null }>(`SELECT plan FROM tenants WHERE id = $1`, [tenantId])).rows[0]?.plan,
@@ -549,7 +548,7 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
           error: "plan_upgrade_required",
           feature: "customDomain",
           plan: effectivePlan,
-          message: "Custom domains require the Growth plan or higher.",
+          message: "Custom domains require the Growth plan or higher. Upgrade the tenant's plan first (or include `plan` in the same PATCH).",
         });
         return;
       }

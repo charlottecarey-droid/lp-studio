@@ -19,6 +19,7 @@
 import { Router } from "express";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAiImageGenOutsideBuilderEnabled } from "../../lib/tenantSettings";
+import { getTenantPlanFeatures } from "../../lib/planFeatures";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 
 const router = Router();
@@ -43,11 +44,27 @@ router.post("/lp/image/generate", requireAuth, async (req, res): Promise<void> =
   const tenantId = getTenantId(req, res);
   if (tenantId == null) return; // getTenantId already wrote a 4xx response
 
-  // Hard gate: this feature is OFF unless a Dandy operator has flipped the
-  // per-tenant superadmin toggle. Returning 403 (not 402) since this is a
-  // permission gate, not a plan/billing gate — the frontend ImagePicker
-  // hides the "Generate" / "Tweak" controls in lockstep, so this should
-  // only fire on a direct API call.
+  // Task #407 — plan-tier gate (must come BEFORE the per-tenant toggle
+  // check). AI image generation is an Enterprise-only feature in the
+  // canonical PLAN_FEATURES matrix. A starter / growth tenant cannot
+  // enable it at all, so we 402 with the standard plan_upgrade_required
+  // payload so the global upgrade-prompt UX kicks in.
+  const { plan, features } = await getTenantPlanFeatures(tenantId);
+  if (!features.aiImageGen) {
+    res.status(402).json({
+      error: "plan_upgrade_required",
+      feature: "aiImageGen",
+      plan,
+      message: "AI image generation is an Enterprise feature. Upgrade your plan to enable it.",
+    });
+    return;
+  }
+
+  // Per-tenant operator toggle (task #234). Available on Enterprise but
+  // OFF by default — a Dandy operator must flip the superadmin-only flag
+  // before any tenant gets the buttons. Stays as 403 (permission gate,
+  // not a billing gate); the frontend ImagePicker hides controls in
+  // lockstep, so this only fires on a direct API call.
   const enabled = await getAiImageGenOutsideBuilderEnabled(tenantId);
   if (!enabled) {
     res.status(403).json({ error: "AI image generation is not enabled for this workspace" });
