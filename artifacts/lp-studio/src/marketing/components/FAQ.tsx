@@ -12,7 +12,7 @@ interface Faq {
 const faqs: Faq[] = [
   {
     q: "How fast can my team actually launch a page?",
-    a: "Most teams ship their first real page within an hour of getting access. Pick a template, let AI fill the copy, swap in your brand assets, publish. No code, no design ticket, no waiting on marketing.",
+    a: "Most teams ship their first real page within an hour of getting access. Start from 60+ on-brand templates — including 25 industry-specific layouts for dental, healthcare, fitness, real estate, and professional services — let AI fill the copy, swap in your brand assets, and publish. No code, no design ticket, no waiting on marketing.",
     cat: "Product",
   },
   {
@@ -32,7 +32,7 @@ const faqs: Faq[] = [
   },
   {
     q: "What about analytics and tracking?",
-    a: "Built in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4, Segment, and your CRM — so the data flows where your revenue team already looks.",
+    a: "Built in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4 and your CRM (Salesforce, Marketo), plus webhooks for anything else — so the data flows where your revenue team already looks.",
     cat: "Tech",
   },
   {
@@ -42,7 +42,7 @@ const faqs: Faq[] = [
   },
   {
     q: "Can I cancel any time?",
-    a: "Yes. Month-to-month plans cancel from the billing settings page — no calls, no contract clauses. Annual plans pause at renewal. You keep view-only access to your pages for 90 days after cancellation.",
+    a: "Yes. Month-to-month plans cancel from the billing settings page — no calls, no contract clauses. Annual plans pause at renewal. You can export your pages as HTML before you leave.",
     cat: "Pricing",
   },
   {

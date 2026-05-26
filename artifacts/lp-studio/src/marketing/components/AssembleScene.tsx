@@ -483,32 +483,22 @@ function MockPage({
               </button>
             </div>
 
-            {/* Trust line */}
+            {/* Beta status line — honest framing for an invite-only product.
+             *  Previously claimed "1,200+ teams shipped pages this quarter";
+             *  removed in the marketing accuracy pass — see home.tsx note. */}
             <div className="mt-6 flex items-center gap-2.5">
-              <div className="flex items-center">
-                {[
-                  "linear-gradient(135deg,#F4A172 0%,#E37051 100%)",
-                  "linear-gradient(135deg,#6C68F0 0%,#4B47E5 100%)",
-                  "linear-gradient(135deg,#7BBE8B 0%,#3F8F5C 100%)",
-                  "linear-gradient(135deg,#F5B83E 0%,#D69220 100%)",
-                ].map((bg, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 999,
-                      background: bg,
-                      border: `2px solid ${INK_2}`,
-                      marginLeft: i === 0 ? 0 : -6,
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                    }}
-                  />
-                ))}
-              </div>
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 999,
+                  background: LIME,
+                  boxShadow: `0 0 8px ${LIME}`,
+                }}
+              />
               <div className="text-[12px]" style={{ color: MUTED, lineHeight: 1.35 }}>
-                <strong style={{ color: TEXT, fontWeight: 600 }}>1,200+ teams</strong> shipped
-                pages with LP Studio this quarter
+                <strong style={{ color: TEXT, fontWeight: 600 }}>Private beta</strong> ·
+                onboarding revenue teams by invite — request access below.
               </div>
             </div>
           </div>
@@ -751,10 +741,13 @@ function MockPage({
           className="grid grid-cols-3 gap-6 mt-8 mb-8 pb-8"
           style={{ borderBottom: `1px solid ${HAIRLINE}`, opacity: ramp(0.08) }}
         >
+          {/* Mock in-product dashboard metrics — values represent a sample
+           *  customer's workspace view, not platform-wide claims. Kept small
+           *  and dashboard-shaped (not headline marketing stats). */}
           {[
             { value: "47s", label: "Median page generation" },
-            { value: "+38%", label: "Lift over hand-built variants" },
-            { value: "1.2M", label: "Pages shipped this year" },
+            { value: "+12%", label: "Top variant lift" },
+            { value: "18", label: "Live landing pages" },
           ].map((s, i) => (
             <div key={s.label} className="relative">
               {i > 0 && (

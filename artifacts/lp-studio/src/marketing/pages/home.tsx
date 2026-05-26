@@ -1,16 +1,23 @@
 import Navbar from "../components/Navbar";
 import AssembleScene from "../components/AssembleScene";
-import StatsBand from "../components/StatsBand";
 import UseCases from "../components/UseCases";
 import DeepFeatures from "../components/DeepFeatures";
 import Integrations from "../components/Integrations";
 import Pricing from "../components/Pricing";
-import Testimonials from "../components/Testimonials";
 import FAQ from "../components/FAQ";
 import Waitlist from "../components/Waitlist";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
 
+// Marketing accuracy pass (May 2026):
+// StatsBand and Testimonials were removed — LP Studio is in private beta and
+// the previous metrics ("1.2M pages launched", "4.8× lift", "1,200+ teams")
+// and testimonials (Rachel Tran / Marcus Jordan / Priya Shah) were fabricated.
+// Do not re-add fabricated social proof; if/when real numbers and customer
+// quotes exist, build new components with verifiable sources.
+// (Note: this is "no fake stats", not "no shipped product" — the template
+//  library, Salesforce sync, Sales Console, A/B testing, etc. are all real
+//  and shipped; surface them honestly in DeepFeatures and Integrations.)
 export default function Home() {
   usePageMeta({
     title: "LP Studio — Build landing pages your revenue team will actually use",
@@ -24,12 +31,10 @@ export default function Home() {
       <Navbar />
       <main>
         <AssembleScene />
-        <StatsBand />
         <UseCases />
         <DeepFeatures />
         <Integrations />
         <Pricing />
-        <Testimonials />
         <FAQ />
         <Waitlist />
       </main>

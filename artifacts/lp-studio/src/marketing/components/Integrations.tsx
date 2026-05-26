@@ -1,10 +1,13 @@
 import type { CSSProperties, ComponentType } from "react";
 import { useInView } from "../hooks/useInView";
 
-// Tiny brand-style SVG marks. Not licensed wordmarks — abstract glyphs in
-// each brand's accent color so the strip reads as real integrations rather
-// than a list of uppercase strings. Three categories laid out in their own
-// rows: CRM / Marketing / Data + Sales tools.
+// Marketing accuracy pass (May 2026): only integrations with real, shipped
+// code paths are listed here. Previously this file showed 12 logos (HubSpot,
+// 6sense, Clearbit, Iterable, Outreach, Segment, Snowflake, Mixpanel, Slack,
+// plus "30+ integrations" and "REST + GraphQL") — none of those had backend
+// implementations. Source of truth: artifacts/api-server/src/lib/* and
+// artifacts/api-server/src/routes/*. Do not re-add a logo here unless there
+// is a shipped integration to back it.
 
 interface Integration {
   name: string;
@@ -12,37 +15,35 @@ interface Integration {
   mark: ComponentType<{ color: string }>;
 }
 
-const CRM_TOOLS: Integration[] = [
-  { name: "Salesforce", color: "#00A1E0", mark: SalesforceMark },
-  { name: "HubSpot",    color: "#FF7A59", mark: HubspotMark },
-  { name: "6sense",     color: "#1A1A1A", mark: SixsenseMark },
-  { name: "Clearbit",   color: "#3B82F6", mark: ClearbitMark },
+// Salesforce is featured separately above the grid (bidirectional sync with
+// field mapping is a different class of integration than the others), so it
+// is intentionally omitted from the tile list.
+const LEAD_HANDOFF: Integration[] = [
+  { name: "Marketo",      color: "#5C4C9F", mark: MarketoMark },
+  { name: "Google Sheets",color: "#0F9D58", mark: SheetsMark },
+  { name: "Webhooks",     color: "#1A1815", mark: WebhookMark },
 ];
 
-const MARKETING_TOOLS: Integration[] = [
-  { name: "Marketo",     color: "#5C4C9F", mark: MarketoMark },
-  { name: "Iterable",    color: "#FFB200", mark: IterableMark },
+const SCHEDULING_OPS: Integration[] = [
   { name: "Chili Piper", color: "#E26B4F", mark: ChiliPiperMark },
-  { name: "Outreach",    color: "#5952FF", mark: OutreachMark },
+  { name: "Asana",       color: "#F06A6A", mark: AsanaMark },
+  { name: "Resend",      color: "#1A1815", mark: ResendMark },
 ];
 
-const DATA_TOOLS: Integration[] = [
-  { name: "Segment",   color: "#52BD95", mark: SegmentMark },
-  { name: "Snowflake", color: "#29B5E8", mark: SnowflakeMark },
-  { name: "Mixpanel",  color: "#7856FF", mark: MixpanelMark },
-  { name: "Slack",     color: "#611F69", mark: SlackMark },
+const SIGNALS_ANALYTICS: Integration[] = [
+  { name: "Apollo",            color: "#5952FF", mark: ApolloMark },
+  { name: "Google Analytics 4",color: "#F5B83E", mark: Ga4Mark },
 ];
 
 const groups: { label: string; subtitle: string; items: Integration[] }[] = [
-  { label: "CRM & ABM",       subtitle: "Read accounts, contacts, intent",    items: CRM_TOOLS },
-  { label: "Marketing & sales", subtitle: "Hand off leads, fire events",       items: MARKETING_TOOLS },
-  { label: "Data & ops",      subtitle: "Stream events, sync the warehouse", items: DATA_TOOLS },
+  { label: "Lead handoff",       subtitle: "Push form fills to MAP, sheets, or any webhook",  items: LEAD_HANDOFF },
+  { label: "Scheduling & ops",   subtitle: "Book meetings, route reviews, send follow-ups",   items: SCHEDULING_OPS },
+  { label: "Signals & analytics", subtitle: "Know who's on the page, push events to GA4",     items: SIGNALS_ANALYTICS },
 ];
 
 // ── Marks ────────────────────────────────────────────────────────────────
 
 function SalesforceMark({ color }: { color: string }) {
-  // Stylized cloud
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
       <path
@@ -52,40 +53,7 @@ function SalesforceMark({ color }: { color: string }) {
     </svg>
   );
 }
-function HubspotMark({ color }: { color: string }) {
-  // Hub + spoke
-  return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="11" r="4" fill="none" stroke={color} strokeWidth="2.2" />
-      <circle cx="16" cy="25" r="3" fill={color} />
-      <path d="M16 15v6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M8 9l4 2.5M24 9l-4 2.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <circle cx="7" cy="8" r="2" fill={color} />
-      <circle cx="25" cy="8" r="2" fill={color} />
-    </svg>
-  );
-}
-function SixsenseMark({ color }: { color: string }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M22 6 L10 6 A6 6 0 0 0 4 12 L4 20 A6 6 0 0 0 10 26 L22 26 A6 6 0 0 0 28 20 L28 12 A6 6 0 0 0 22 6 Z" fill={color}/>
-      <text x="16" y="20" textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="800" fontFamily="DM Sans, sans-serif">6</text>
-    </svg>
-  );
-}
-function ClearbitMark({ color }: { color: string }) {
-  // Bold pixel-cluster glyph
-  return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="4"  y="4"  width="10" height="10" rx="2" fill={color} />
-      <rect x="18" y="4"  width="10" height="10" rx="2" fill={color} fillOpacity="0.55" />
-      <rect x="4"  y="18" width="10" height="10" rx="2" fill={color} fillOpacity="0.55" />
-      <rect x="18" y="18" width="10" height="10" rx="2" fill={color} />
-    </svg>
-  );
-}
 function MarketoMark({ color }: { color: string }) {
-  // M of curves
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
       <path d="M6 26 L6 6 L12 14 L18 6 L18 26" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -93,16 +61,27 @@ function MarketoMark({ color }: { color: string }) {
     </svg>
   );
 }
-function IterableMark({ color }: { color: string }) {
+function SheetsMark({ color }: { color: string }) {
+  // Spreadsheet glyph: rounded rect with two row/column dividers.
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M16 4 L26 16 L16 28 L6 16 Z" fill={color}/>
-      <circle cx="16" cy="16" r="3.5" fill="#FFFFFF" />
+      <rect x="5" y="4" width="22" height="24" rx="3" fill="none" stroke={color} strokeWidth="2.4"/>
+      <path d="M5 12 H27 M5 20 H27 M16 4 V28" stroke={color} strokeWidth="2"/>
+    </svg>
+  );
+}
+function WebhookMark({ color }: { color: string }) {
+  // Three-node webhook glyph.
+  return (
+    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="8"  cy="22" r="3.4" fill={color}/>
+      <circle cx="24" cy="22" r="3.4" fill={color}/>
+      <circle cx="16" cy="7"  r="3.4" fill={color}/>
+      <path d="M10.5 20 L14 11 M18 11 L21.5 20 M11 22 H21" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
     </svg>
   );
 }
 function ChiliPiperMark({ color }: { color: string }) {
-  // Calendar with chili
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
       <rect x="4" y="7" width="24" height="20" rx="3" fill="none" stroke={color} strokeWidth="2.4"/>
@@ -111,55 +90,42 @@ function ChiliPiperMark({ color }: { color: string }) {
     </svg>
   );
 }
-function OutreachMark({ color }: { color: string }) {
+function AsanaMark({ color }: { color: string }) {
+  // Three-circle Asana-style cluster.
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M4 22 L16 4 L28 22 Z" fill={color}/>
-      <path d="M11 22 L16 14 L21 22 Z" fill="#FFFFFF" />
+      <circle cx="16" cy="9"  r="4.5" fill={color}/>
+      <circle cx="9"  cy="21" r="4.5" fill={color}/>
+      <circle cx="23" cy="21" r="4.5" fill={color}/>
     </svg>
   );
 }
-function SegmentMark({ color }: { color: string }) {
-  // Two arcs
+function ResendMark({ color }: { color: string }) {
+  // Envelope with motion line.
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M4 12 Q 16 4, 28 12" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
-      <path d="M4 22 Q 16 30, 28 22" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
-      <circle cx="6" cy="22" r="2.4" fill={color} />
-      <circle cx="26" cy="12" r="2.4" fill={color} />
+      <rect x="4" y="8" width="24" height="16" rx="2.5" fill="none" stroke={color} strokeWidth="2.4"/>
+      <path d="M4 10 L16 19 L28 10" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
-function SnowflakeMark({ color }: { color: string }) {
-  // Six-spoke star
+function ApolloMark({ color }: { color: string }) {
+  // Radar / circle-with-blip — IP reveal.
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <g stroke={color} strokeWidth="2.4" strokeLinecap="round">
-        <path d="M16 4 v24" />
-        <path d="M5.6 10 L26.4 22" />
-        <path d="M5.6 22 L26.4 10" />
-      </g>
-      <circle cx="16" cy="16" r="3" fill={color} />
+      <circle cx="16" cy="16" r="11" fill="none" stroke={color} strokeWidth="2.2"/>
+      <circle cx="16" cy="16" r="6"  fill="none" stroke={color} strokeWidth="2" opacity="0.5"/>
+      <circle cx="22" cy="11" r="2.6" fill={color}/>
     </svg>
   );
 }
-function MixpanelMark({ color }: { color: string }) {
+function Ga4Mark({ color }: { color: string }) {
+  // Two ascending bars + dot.
   return (
     <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="9" cy="16" r="3" fill={color}/>
-      <circle cx="17" cy="16" r="5" fill={color} fillOpacity="0.6"/>
-      <circle cx="25" cy="16" r="3" fill={color}/>
-    </svg>
-  );
-}
-function SlackMark({ color }: { color: string }) {
-  // Four rounded rect cluster
-  return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="4" y="13" width="11" height="3.4" rx="1.7" fill={color}/>
-      <rect x="17" y="13" width="11" height="3.4" rx="1.7" fill={color}/>
-      <rect x="13" y="4"  width="3.4" height="11" rx="1.7" fill={color}/>
-      <rect x="13" y="17" width="3.4" height="11" rx="1.7" fill={color}/>
+      <rect x="5"  y="16" width="6" height="12" rx="2" fill={color} fillOpacity="0.55"/>
+      <rect x="14" y="8"  width="6" height="20" rx="2" fill={color}/>
+      <circle cx="26" cy="6" r="3" fill={color}/>
     </svg>
   );
 }
@@ -202,10 +168,10 @@ export default function Integrations() {
           <div className="max-w-2xl">
             <div className="marker marker-rule mb-6">Plays nice with your stack</div>
             <h2 className="font-display text-display-md" style={{ color: "var(--ink)" }}>
-              Drops into the tools you already use.
+              Lead handoff to the tools your revenue team already runs.
             </h2>
             <p className="mt-5 text-[16px] leading-[1.6]" style={{ color: "var(--ink-soft)" }}>
-              CRM, MAP, analytics, scheduling — read from where your data lives, write back to where your team works.
+              Form fills land in your CRM. Meetings get booked. Reviews route to the right person. Events flow to analytics. Webhooks cover the rest.
             </p>
           </div>
           <div
@@ -229,8 +195,81 @@ export default function Integrations() {
               className="text-[11px] uppercase"
               style={{ color: "var(--ink-soft)", letterSpacing: "0.18em", fontWeight: 600 }}
             >
-              Open API · Zapier · Webhooks
+              REST API · Webhooks
             </span>
+          </div>
+        </div>
+
+        {/* Featured: Salesforce — first-class, bidirectional sync with field mapping,
+         *  Lead + Opportunity sync, and named-account routing. It's the deepest
+         *  integration we ship, so it earns its own panel. */}
+        <div
+          className="mb-6 p-5 md:p-6 rounded-2xl grid grid-cols-12 gap-4 md:gap-6 items-center"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in srgb, #00A1E0 7%, var(--paper)) 0%, var(--paper) 65%)",
+            border: "1px solid color-mix(in srgb, #00A1E0 25%, var(--hairline))",
+            boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset",
+          }}
+        >
+          <div className="col-span-12 md:col-span-4 flex items-center gap-3">
+            <div
+              className="shrink-0 inline-flex items-center justify-center"
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 12,
+                background: "color-mix(in srgb, #00A1E0 10%, transparent)",
+                border: "1px solid color-mix(in srgb, #00A1E0 30%, transparent)",
+              }}
+            >
+              <SalesforceMark color="#00A1E0" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span
+                  className="font-mono uppercase"
+                  style={{ color: "#0085BB", fontSize: 10, letterSpacing: "0.2em", fontWeight: 700 }}
+                >
+                  Featured · CRM
+                </span>
+              </div>
+              <div
+                className="font-display"
+                style={{ color: "var(--ink)", fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", lineHeight: 1.1 }}
+              >
+                Salesforce, deeply.
+              </div>
+            </div>
+          </div>
+          <div className="col-span-12 md:col-span-5">
+            <p className="text-[14px] leading-[1.55]" style={{ color: "var(--ink-soft)" }}>
+              Two-way sync with custom field mapping. Form fills create Leads or Opportunities, routed by account ownership. Sales Console pulls campaign and opportunity context back into LP Studio so reps build pages around live pipeline.
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3">
+            <ul className="text-[12.5px] space-y-1.5" style={{ color: "var(--ink)" }}>
+              {[
+                "Bidirectional Lead + Opp sync",
+                "Per-tenant field mapping UI",
+                "Named-account routing",
+              ].map((b) => (
+                <li key={b} className="flex items-start gap-2">
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: 999,
+                      background: "#00A1E0",
+                      marginTop: 7,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
@@ -270,45 +309,50 @@ export default function Integrations() {
           ))}
         </div>
 
-        {/* Bottom strip: counts + reassurance */}
+        {/* Bottom strip: honest framing — no fabricated "30+" claim. */}
         <div
-          className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 p-5 md:p-6 rounded-2xl"
+          className="mt-12 p-5 md:p-6 rounded-2xl flex flex-wrap items-center gap-4 md:gap-6"
           style={{
             background: "var(--paper)",
             border: "1px solid var(--hairline)",
             boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset",
           }}
         >
-          {[
-            { value: "30+", label: "Native integrations" },
-            { value: "REST + GraphQL", label: "Open API · webhooks · SDK" },
-            { value: "<5 min", label: "Median setup, any tool" },
-          ].map((m, i) => (
-            <div
-              key={m.label}
-              className="flex items-baseline gap-3"
-              style={{ borderLeft: i === 0 ? "none" : "1px solid var(--hairline)", paddingLeft: i === 0 ? 0 : 20 }}
-            >
-              <span
-                className="font-display"
-                style={{
-                  color: "var(--ink)",
-                  fontSize: 22,
-                  fontWeight: 600,
-                  letterSpacing: "-0.022em",
-                  lineHeight: 1,
-                }}
-              >
-                {m.value}
-              </span>
-              <span
-                className="text-[12.5px]"
-                style={{ color: "var(--ink-soft)" }}
-              >
-                {m.label}
-              </span>
-            </div>
-          ))}
+          <span
+            className="font-display"
+            style={{
+              color: "var(--ink)",
+              fontSize: 18,
+              fontWeight: 600,
+              letterSpacing: "-0.018em",
+              lineHeight: 1.2,
+            }}
+          >
+            Don't see your tool?
+          </span>
+          <span
+            className="text-[13.5px]"
+            style={{ color: "var(--ink-soft)", flex: "1 1 320px", lineHeight: 1.5 }}
+          >
+            Every form supports custom webhooks — most teams wire a new tool in under five minutes. New native integrations ship by request from beta customers.
+          </span>
+          <a
+            href="#waitlist"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-colors"
+            style={{
+              background: "var(--ink)",
+              color: "var(--cream)",
+              fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
+              letterSpacing: "-0.005em",
+              boxShadow: "0 4px 10px -4px rgba(26,24,21,0.3)",
+            }}
+          >
+            Request an integration
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14"/>
+              <path d="M13 5l7 7-7 7"/>
+            </svg>
+          </a>
         </div>
       </div>
     </section>
@@ -371,7 +415,7 @@ function IntegrationTile({ name, color, mark }: Integration) {
           {name}
         </div>
         <div className="text-[10.5px] uppercase mt-0.5" style={{ color: "var(--ink-mute)", letterSpacing: "0.14em", fontWeight: 600 }}>
-          Connected
+          Shipped
         </div>
       </div>
       <span

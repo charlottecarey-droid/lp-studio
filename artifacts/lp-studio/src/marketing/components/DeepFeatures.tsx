@@ -244,14 +244,14 @@ function ABTestVisual() {
 const features: Feature[] = [
   {
     marker: "01",
-    eyebrow: "Voice-tuned AI",
+    eyebrow: "Brand-voice AI · 60+ templates",
     title: "Copy that sounds like you wrote it.",
     body:
-      "Trained on your voice, your wins, and your category. Generate variants in seconds and refine in place. Every prompt remembers your tone, your offer, and what has converted before.",
+      "Start from 60+ on-brand templates — including 25 industry layouts for dental, healthcare, fitness, real estate, and professional services. Set your tone, pillars, and audience once in your brand profile; every prompt uses that voice. Refine in place or regenerate variants until one lands.",
     bullets: [
-      "Voice tuning from your existing pages",
-      "Variant generation one click deep",
-      "Account, persona, and stage-aware prompts",
+      "60+ templates, 25 industry-specific",
+      "Tone, pillars, and audience configured once",
+      "Account-aware prompts for ABM and sales pages",
     ],
     visual: <AICopyVisual />,
     side: "right",

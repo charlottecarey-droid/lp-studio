@@ -450,10 +450,10 @@ const cases: UseCase[] = [
     name: "Customer Success",
     headline: "QBRs and renewals, repeatable.",
     body:
-      "Executive-ready pages for QBRs, expansions, and renewals. Their data, their goals, their next milestones. Send a link, not a deck.",
+      "Executive-ready pages for QBRs, expansions, and renewals. Build the page once, personalize per account. Send a link, not a deck — and see exactly who opened it.",
     bullets: [
-      "Pre-built QBR and renewal templates",
-      "Auto-pull from your CRM",
+      "Reusable templates per account motion",
+      "Per-account personalization, on-brand",
       "Branded, shareable, trackable",
     ],
     accent: "var(--gold)",
