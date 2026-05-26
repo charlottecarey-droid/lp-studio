@@ -99,13 +99,12 @@ function visitorWeight(s: HeatSignal): number {
   return 2;
 }
 
-const SEVEN_DAYS_MS  = 7  * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 type HeatTier = "hot" | "warm" | "cool" | "cold";
 
 function computeHeatTier(acctSignals: HeatSignal[], refTime: number): HeatTier {
-  const cutoff = refTime - SEVEN_DAYS_MS;
+  const cutoff = refTime - FOURTEEN_DAYS_MS;
   const recentSigs = acctSignals.filter(s => new Date(s.createdAt).getTime() > cutoff);
   if (recentSigs.length === 0) return "cold";
   let score = 0;
@@ -293,7 +292,7 @@ function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: Fu
           <InfoTip content="Combined score based on email opens, page visits, and link clicks across all contacts at this account." color="emerald">
             <h2 className="text-sm font-semibold text-foreground cursor-help">Engagement</h2>
           </InfoTip>
-          <span className="text-xs text-muted-foreground/60">last 7 days · click to filter</span>
+          <span className="text-xs text-muted-foreground/60">last 2 weeks · click to filter</span>
         </div>
         {activeFilter && (
           <button
@@ -335,7 +334,7 @@ function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: Fu
                   <div className="flex items-center gap-1 mt-0.5">
                     {hasData && (
                       delta === 0 ? (
-                        <span className="text-[10px] text-muted-foreground">vs last week</span>
+                        <span className="text-[10px] text-muted-foreground">vs prior 2 weeks</span>
                       ) : (
                         <>
                           {delta > 0
@@ -576,7 +575,8 @@ function AccountListView() {
   // ── Heat scoring ─────────────────────────────────────────────────────────
   const { accountHeatMap, funnelCounts, funnelTrend } = useMemo(() => {
     const now = Date.now();
-    const prevRef = now - SEVEN_DAYS_MS; // 7d ago = "last week" reference point
+    const prevRef = now - FOURTEEN_DAYS_MS; // 14d ago = "prior 2 weeks" reference point
+    const TWENTY_EIGHT_DAYS_MS = 2 * FOURTEEN_DAYS_MS;
 
     const sigsByAccount = new Map<number, HeatSignal[]>();
     const prevSigsByAccount = new Map<number, HeatSignal[]>();
@@ -584,13 +584,13 @@ function AccountListView() {
     for (const s of signals) {
       if (!s.accountId) continue;
       const ts = new Date(s.createdAt).getTime();
-      if (ts > now - SEVEN_DAYS_MS) {
-        // current period: last 7 days
+      if (ts > now - FOURTEEN_DAYS_MS) {
+        // current period: last 14 days
         const arr = sigsByAccount.get(s.accountId) ?? [];
         arr.push(s);
         sigsByAccount.set(s.accountId, arr);
-      } else if (ts > now - FOURTEEN_DAYS_MS) {
-        // previous period: 7-14 days ago
+      } else if (ts > now - TWENTY_EIGHT_DAYS_MS) {
+        // previous period: 14-28 days ago
         const arr = prevSigsByAccount.get(s.accountId) ?? [];
         arr.push(s);
         prevSigsByAccount.set(s.accountId, arr);

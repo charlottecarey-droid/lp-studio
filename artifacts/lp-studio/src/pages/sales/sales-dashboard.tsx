@@ -153,7 +153,6 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
   page_view:          1,
 };
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 function visitorWeight(s: Signal): number {
@@ -175,14 +174,14 @@ function computeScore(signals: Signal[], now: number) {
   let score = 0;
   for (const s of signals) {
     const w = s.type === "visitor_identified" ? visitorWeight(s) : (SIGNAL_WEIGHTS[s.type] ?? 0);
-    const isRecent = now - new Date(s.createdAt).getTime() < SEVEN_DAYS_MS;
+    const isRecent = now - new Date(s.createdAt).getTime() < FOURTEEN_DAYS_MS;
     score += w * (isRecent ? 1.5 : 1);
   }
   return score;
 }
 
-function heatLabel(score: number, signalCount7d: number) {
-  if (signalCount7d === 0) return null;
+function heatLabel(score: number, signalCount14d: number) {
+  if (signalCount14d === 0) return null;
   if (score >= 15) return "hot";
   if (score >= 8)  return "warm";
   if (score >= 3)  return "cool";
@@ -372,7 +371,7 @@ export default function SalesDashboard() {
 
     type EnrichedAccount = Account & {
       score: number;
-      signalCount7d: number;
+      signalCount14d: number;
       heat: "hot" | "warm" | "cool" | null;
       lastSignal: Signal | null;
       hasMicrosite: boolean;
@@ -382,16 +381,16 @@ export default function SalesDashboard() {
     const enriched: EnrichedAccount[] = accounts.map(acct => {
       const acctSignals = sigsByAccount.get(acct.id) ?? [];
       const score = computeScore(acctSignals, now);
-      const sevenDaysAgo = now - SEVEN_DAYS_MS;
-      const signalCount7d = acctSignals.filter(s => new Date(s.createdAt).getTime() > sevenDaysAgo).length;
-      const heat = heatLabel(score, signalCount7d);
+      const fourteenDaysAgo = now - FOURTEEN_DAYS_MS;
+      const signalCount14d = acctSignals.filter(s => new Date(s.createdAt).getTime() > fourteenDaysAgo).length;
+      const heat = heatLabel(score, signalCount14d);
       const sorted = [...acctSignals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const lastSignal = sorted[0] ?? null;
       const hasMicrosite = (micrositeCounts.get(acct.id) ?? 0) > 0;
       const daysSinceLastSignal = lastSignal
         ? Math.floor((now - new Date(lastSignal.createdAt).getTime()) / (24 * 60 * 60 * 1000))
         : null;
-      return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
+      return { ...acct, score, signalCount14d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
     // Apply all filters
@@ -403,9 +402,9 @@ export default function SalesDashboard() {
       return matchesOwner && matchesTier && matchesStage && matchesSegment;
     });
 
-    // Hot accounts: have any signals, sorted by 7-day score desc
+    // Hot accounts: have any signals in last 2 weeks, sorted by score desc
     const hot = ownerFiltered
-      .filter(a => a.signalCount7d > 0)
+      .filter(a => a.signalCount14d > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
@@ -497,7 +496,7 @@ export default function SalesDashboard() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: "Accounts", value: accounts.length === 0 ? 0 : filteredAccountCount, color: "text-foreground" },
-            { label: "Hot this week", value: hotCount, color: "text-orange-600 dark:text-orange-400" },
+            { label: "Hot (last 2 weeks)", value: hotCount, color: "text-orange-600 dark:text-orange-400" },
             { label: "Signals today", value: signalsToday, color: "text-foreground" },
           ].map(stat => (
             <div key={stat.label} className="bg-card border border-border/50 rounded-xl px-5 py-4">
@@ -870,11 +869,11 @@ export default function SalesDashboard() {
                     <div className="flex items-center gap-1">
                       <h2 className="text-sm font-semibold text-foreground">Hot accounts</h2>
                       <InfoTip
-                        content="Accounts ranked by engagement recency and frequency. The heat badge shows how active they've been in the last 7 days."
+                        content="Accounts ranked by engagement recency and frequency. The heat badge shows how active they've been in the last 2 weeks."
                         color="amber"
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground/60">most engaged this week</span>
+                    <span className="text-xs text-muted-foreground/60">most engaged in last 2 weeks</span>
                   </div>
                   <Link href="/sales/accounts">
                     <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
@@ -930,7 +929,7 @@ export default function SalesDashboard() {
                           <div className="flex-1 min-w-0 overflow-hidden">
                             <p className="text-[13px] font-medium text-foreground truncate">{acct.name}</p>
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5 overflow-hidden">
-                              <span className="shrink-0 tabular-nums">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
+                              <span className="shrink-0 tabular-nums">{acct.signalCount14d} signal{acct.signalCount14d !== 1 ? "s" : ""} in last 2 weeks</span>
                               {acct.lastSignal && (
                                 <>
                                   <span className="shrink-0 text-border">·</span>
