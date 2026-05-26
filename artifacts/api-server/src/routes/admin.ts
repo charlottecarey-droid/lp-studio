@@ -2116,7 +2116,18 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
     // bails out early when microsite_domain is null).
     try {
       await pool.query(
-        `UPDATE tenants SET microsite_domain = $1, cloudflare_hostname_id = $2, updated_at = now() WHERE id = $3`,
+        // Task #415 — stamp attached_at and clear the notification
+        // dedupe timestamps so detach + re-attach re-arms both the
+        // "active" and "stuck" emails for this fresh cycle.
+        `UPDATE tenants
+            SET microsite_domain = $1,
+                cloudflare_hostname_id = $2,
+                custom_domain_attached_at = now(),
+                custom_domain_last_seen_status = NULL,
+                custom_domain_notified_active_at = NULL,
+                custom_domain_notified_stuck_at = NULL,
+                updated_at = now()
+          WHERE id = $3`,
         [normalized, ch.id, tenantId],
       );
     } catch (dbErr) {
@@ -2206,7 +2217,17 @@ router.delete("/custom-domain", requirePlanFeature("customDomain"), async (req, 
     }
 
     await pool.query(
-      `UPDATE tenants SET microsite_domain = NULL, cloudflare_hostname_id = NULL, updated_at = now() WHERE id = $1`,
+      // Task #415 — also clear the poller's state columns so a future
+      // re-attach starts from a clean slate.
+      `UPDATE tenants
+          SET microsite_domain = NULL,
+              cloudflare_hostname_id = NULL,
+              custom_domain_attached_at = NULL,
+              custom_domain_last_seen_status = NULL,
+              custom_domain_notified_active_at = NULL,
+              custom_domain_notified_stuck_at = NULL,
+              updated_at = now()
+        WHERE id = $1`,
       [tenantId],
     );
     invalidateTenantHostCache();

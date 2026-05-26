@@ -655,3 +655,224 @@ export async function syncToSalesforce(config: SalesforceConfig, lead: LeadPaylo
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+
+// ─── Custom domain status notifications (task #415) ──────────────────────────
+
+export interface CustomDomainActivePayload {
+  recipientEmail: string;
+  tenantName: string;
+  hostname: string;          // e.g. pages.acme.com
+  publishedUrl: string;      // https://pages.acme.com
+}
+
+export interface CustomDomainStuckPayload {
+  recipientEmail: string;
+  tenantName: string;
+  hostname: string;          // e.g. pages.acme.com
+  cnameTarget: string;       // e.g. lpstudio.ai
+  settingsUrl: string;       // link back to Settings → Domain
+  hoursPending: number;      // for the email body
+}
+
+/**
+ * Returns true if Resend accepted the email. Callers use this to decide
+ * whether to stamp `notified_active_at` — failures stay un-stamped so
+ * the next poll retries.
+ */
+export async function sendCustomDomainActiveEmail(payload: CustomDomainActivePayload): Promise<boolean> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn("RESEND_API_KEY not set — skipping custom domain active email");
+    return false;
+  }
+  const { recipientEmail, tenantName, hostname, publishedUrl } = payload;
+  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const headline = `${escapeHtml(hostname)} is live`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
+          <tr>
+            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
+              <div style="margin-bottom:20px">
+                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
+                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
+                </span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 40px">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+                Your custom domain <strong>${escapeHtml(hostname)}</strong> is now serving traffic for <strong>${escapeHtml(tenantName)}</strong>. SSL is active and pages published on the new host load over HTTPS.
+              </p>
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(publishedUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      Open ${escapeHtml(hostname)} →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
+                You can detach the domain anytime from Settings → Domain.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [recipientEmail],
+        subject: `${hostname} is live`,
+        html,
+      }),
+    });
+    logger.info({ recipientEmail, tenantName, hostname }, "Custom domain active email sent");
+    return true;
+  } catch (err) {
+    logger.error({ err, recipientEmail, hostname }, "Failed to send custom domain active email");
+    return false;
+  }
+}
+
+/**
+ * Returns true if Resend accepted the email. See sendCustomDomainActiveEmail
+ * for the dedupe/idempotency contract.
+ */
+export async function sendCustomDomainStuckEmail(payload: CustomDomainStuckPayload): Promise<boolean> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn("RESEND_API_KEY not set — skipping custom domain stuck email");
+    return false;
+  }
+  const { recipientEmail, tenantName, hostname, cnameTarget, settingsUrl, hoursPending } = payload;
+  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const headline = `${escapeHtml(hostname)} still needs DNS setup`;
+  const hoursLabel = hoursPending === 1 ? "1 hour" : `${hoursPending} hours`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
+          <tr>
+            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
+              <div style="margin-bottom:20px">
+                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
+                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
+                </span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 40px">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+                You attached <strong>${escapeHtml(hostname)}</strong> to <strong>${escapeHtml(tenantName)}</strong> about ${hoursLabel} ago, but Cloudflare still hasn't seen a valid DNS record for it. Until that's fixed, visitors to the URL won't reach your pages.
+              </p>
+              <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">
+                The most common cause is a missing or incorrect CNAME at your DNS provider. Add this record:
+              </p>
+              <div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin:0 0 24px">
+                <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px">
+                  <tr style="background:#f9fafb;color:#6b7280">
+                    <td style="padding:8px 12px;width:64px">Type</td>
+                    <td style="padding:8px 12px">Name</td>
+                    <td style="padding:8px 12px">Target</td>
+                  </tr>
+                  <tr style="border-top:1px solid #e5e7eb;color:#111827">
+                    <td style="padding:8px 12px">CNAME</td>
+                    <td style="padding:8px 12px;word-break:break-all">${escapeHtml(hostname)}</td>
+                    <td style="padding:8px 12px;word-break:break-all">${escapeHtml(cnameTarget)}</td>
+                  </tr>
+                </table>
+              </div>
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(settingsUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      Open domain settings →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
+                Once the CNAME propagates, SSL activates automatically and we'll send a follow-up to confirm.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [recipientEmail],
+        subject: `Action needed: ${hostname} still isn't pointing to LP Studio`,
+        html,
+      }),
+    });
+    logger.info({ recipientEmail, tenantName, hostname, hoursPending }, "Custom domain stuck email sent");
+    return true;
+  } catch (err) {
+    logger.error({ err, recipientEmail, hostname }, "Failed to send custom domain stuck email");
+    return false;
+  }
+}

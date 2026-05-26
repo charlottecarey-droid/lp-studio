@@ -15,6 +15,7 @@ import { pool } from "@workspace/db";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
+import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
 import { runAssetsGc } from "./lib/assetsGc";
 import { Sentry } from "./lib/sentry";
@@ -283,6 +284,12 @@ const httpServer = app.listen(port, (err) => {
   // heartbeats stop arriving, catching DSN/network/quota outages that
   // would otherwise be invisible. No-op in non-production.
   startSentryHeartbeat();
+
+  // Task #415 — periodic custom-domain status poller. Watches every
+  // tenant with an attached custom microsite domain and emails tenant
+  // admins when (a) TLS goes active or (b) the domain has been pending
+  // for 24h+ (likely DNS misconfig). Production-only (see poller).
+  startCustomDomainPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.
