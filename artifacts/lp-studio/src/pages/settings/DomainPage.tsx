@@ -170,7 +170,7 @@ function DomainContent() {
         <h1 className="text-2xl font-semibold tracking-tight">Custom domain</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Serve your landing pages from your own subdomain (e.g.{" "}
-          <span className="font-mono">pages.acme.com</span>) instead of the default Dandy host.
+          <span className="font-mono">pages.acme.com</span>) instead of the default LP Studio host.
         </p>
       </div>
 
@@ -308,7 +308,7 @@ function DomainContent() {
                 <h2 className="text-sm font-semibold">DNS setup</h2>
                 <p className="text-xs text-muted-foreground max-w-prose">
                   Add this CNAME record at your DNS provider so traffic for{" "}
-                  <span className="font-mono">{state.hostname}</span> reaches Dandy. SSL
+                  <span className="font-mono">{state.hostname}</span> reaches LP Studio. SSL
                   activates automatically once the record propagates (usually within minutes).
                 </p>
                 <div className="border border-border/60 rounded-md overflow-hidden">
