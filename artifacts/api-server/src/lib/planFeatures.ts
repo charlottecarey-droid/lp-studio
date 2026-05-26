@@ -8,9 +8,9 @@ import { pool } from "@workspace/db";
  * client via /api/auth/me.
  *
  * Tier ladder (low → high):
- *   starter  — marketing only, no Sales Console
- *   growth   — marketing + Sales Console
- *   enterprise — everything (SSO/governance/higher quotas land here later)
+ *   starter  — marketing only, no Sales Console, capped counts, "Powered by" badge
+ *   growth   — marketing + Sales Console + custom domain, generous caps
+ *   enterprise — everything: + AI image generation, no count caps
  */
 export type Plan = "starter" | "growth" | "enterprise";
 
@@ -44,27 +44,61 @@ export function normalizePlan(raw: string | null | undefined): Plan {
 }
 
 /**
+ * Per-tier numeric caps. `null` means unlimited.
+ *
+ *   pages     — non-template landing pages a tenant can have
+ *   forms     — lp_forms rows a tenant can have
+ *   userSeats — accepted tenant_members (counted incl. pending invites)
+ *
+ * Gates fail closed (402 `plan_upgrade_required`) when the tenant is at
+ * or above the cap. Existing tenants run on legacy plans ("trial" →
+ * growth) so they hit the unlimited bucket; only fresh starter signups
+ * see the caps today.
+ */
+export interface PlanLimits {
+  pages: number | null;
+  forms: number | null;
+  userSeats: number | null;
+}
+
+/**
  * Feature flags per canonical plan. Single source of truth — both the
  * `requirePlanFeature` middleware and the client-side `plan-features.ts`
  * mirror read from the same shape. Add a new feature by extending
  * `PlanFeatures`, filling in all three tiers below, and mirroring it on
  * the client.
  *
- * `salesConsole` gates the entire /api/sales/* surface AND the Sales
- * mode toggle in the SaaS UI. `aiImageGen` is a marker for the future
- * unbundling of the AI-image add-on; the existing TOP_TIER_PLANS check
- * in lib/tenantSettings.ts is unchanged for now to avoid disturbing the
- * live image-generation gating.
+ *   salesConsole — entire /api/sales/* surface + Sales mode toggle
+ *   aiImageGen   — custom-block & out-of-builder AI image generation
+ *   customDomain — attaching `domain` / `microsite_domain` to a tenant
+ *   limits       — numeric caps (see PlanLimits)
  */
 export interface PlanFeatures {
   salesConsole: boolean;
   aiImageGen: boolean;
+  customDomain: boolean;
+  limits: PlanLimits;
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  starter:    { salesConsole: false, aiImageGen: false },
-  growth:     { salesConsole: true,  aiImageGen: false },
-  enterprise: { salesConsole: true,  aiImageGen: true  },
+  starter: {
+    salesConsole: false,
+    aiImageGen: false,
+    customDomain: false,
+    limits: { pages: 5, forms: 2, userSeats: 3 },
+  },
+  growth: {
+    salesConsole: true,
+    aiImageGen: false,
+    customDomain: true,
+    limits: { pages: null, forms: null, userSeats: 10 },
+  },
+  enterprise: {
+    salesConsole: true,
+    aiImageGen: true,
+    customDomain: true,
+    limits: { pages: null, forms: null, userSeats: null },
+  },
 };
 
 export function featuresForPlan(plan: Plan): PlanFeatures {

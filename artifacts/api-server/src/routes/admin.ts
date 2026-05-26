@@ -4,8 +4,7 @@ import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
-import { TOP_TIER_PLANS } from "../lib/tenantSettings";
-import { PLANS, normalizePlan, type Plan } from "../lib/planFeatures";
+import { PLANS, PLAN_FEATURES, featuresForPlan, normalizePlan, getTenantPlanFeatures, type Plan } from "../lib/planFeatures";
 import {
   validateDomain,
   findDomainConflict,
@@ -526,6 +525,34 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, requireSuperadmin, asyn
       }
       updates.push(`settings = COALESCE(settings, '{}'::jsonb) || $${idx++}::jsonb`);
       values.push(JSON.stringify({ aiImageGenOutsideBuilderEnabled }));
+    }
+
+    // Task #407 — custom-domain attach gate. Today this route is
+    // superadmin-only (operators routinely flip domains on behalf of any
+    // tenant regardless of plan), so the !superadmin branch is
+    // intentionally dead — it's documented here so a future
+    // self-serve tenant-admin endpoint that wires up the same domain
+    // mutation can `if (!superadmin) await assertCustomDomainAllowed(…)`
+    // before applying. nextPlan (when the same PATCH also upgrades
+    // plan) is what we want to check — attaching a domain at the moment
+    // of upgrade is a single user action.
+    const attachingDomain =
+      (domain !== undefined && (domain ?? "").trim().length > 0) ||
+      (micrositeDomain !== undefined && (micrositeDomain ?? "").trim().length > 0);
+    if (attachingDomain && req.authUser?.appUserRole !== "superadmin") {
+      const effectivePlan: Plan =
+        nextPlan ?? normalizePlan(
+          (await pool.query<{ plan: string | null }>(`SELECT plan FROM tenants WHERE id = $1`, [tenantId])).rows[0]?.plan,
+        );
+      if (!PLAN_FEATURES[effectivePlan].customDomain) {
+        res.status(402).json({
+          error: "plan_upgrade_required",
+          feature: "customDomain",
+          plan: effectivePlan,
+          message: "Custom domains require the Growth plan or higher.",
+        });
+        return;
+      }
     }
 
     if (domain !== undefined) {
@@ -1053,6 +1080,38 @@ router.post("/members", async (req, res): Promise<void> => {
     return;
   }
   const email = rawEmail.trim().toLowerCase();
+  // Task #407 — plan-tier user-seat gate. Counts every member row on the
+  // tenant (accepted + pending invites both consume a seat). Superadmin
+  // bypass via requirePlanFeature parity — operators routinely add a
+  // teammate to any workspace regardless of plan.
+  if (req.authUser?.appUserRole !== "superadmin") {
+    try {
+      const { plan, features } = await getTenantPlanFeatures(req.authUser!.tenantId);
+      const cap = features.limits.userSeats;
+      if (cap !== null) {
+        const countRow = await pool.query<{ n: string }>(
+          `SELECT COUNT(*)::text AS n FROM tenant_members WHERE tenant_id = $1`,
+          [req.authUser!.tenantId],
+        );
+        const current = Number(countRow.rows[0]?.n ?? 0);
+        if (current >= cap) {
+          res.status(402).json({
+            error: "plan_upgrade_required",
+            feature: "userSeats",
+            plan,
+            limit: cap,
+            current,
+            message: `Your ${plan} plan is limited to ${cap} user seats. Upgrade to invite more.`,
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("[admin] POST /members plan-limit check failed:", err);
+      res.status(503).json({ error: "plan_check_unavailable" });
+      return;
+    }
+  }
   try {
     const [userResult, tenantResult, roleResult] = await Promise.all([
       pool.query(`SELECT id FROM app_users WHERE LOWER(email) = $1`, [email]),
@@ -1275,7 +1334,7 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     const settings = r.rows[0].settings ?? {};
-    const aiImageGenAvailable = TOP_TIER_PLANS.has(r.rows[0].plan ?? "trial");
+    const aiImageGenAvailable = featuresForPlan(normalizePlan(r.rows[0].plan)).aiImageGen;
     const payload: TenantSettingsPayload = {
       // Default TRUE so any tenant the boot backfill hasn't touched preserves
       // the #108 review behaviour. Only an explicit `false` opts a tenant out.
@@ -1318,10 +1377,12 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
         [tenantId],
       );
       if (!planRow.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
-      if (!TOP_TIER_PLANS.has(planRow.rows[0].plan ?? "trial")) {
+      if (!featuresForPlan(normalizePlan(planRow.rows[0].plan)).aiImageGen) {
         res.status(402).json({
-          error: "AI image generation is a top-tier feature. Upgrade your plan to enable it.",
-          code: "plan_upgrade_required",
+          error: "plan_upgrade_required",
+          feature: "aiImageGen",
+          plan: normalizePlan(planRow.rows[0].plan),
+          message: "AI image generation is an Enterprise feature. Upgrade your plan to enable it.",
         });
         return;
       }
@@ -1343,7 +1404,7 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     const settings = r.rows[0].settings ?? {};
-    const aiImageGenAvailable = TOP_TIER_PLANS.has(r.rows[0].plan ?? "trial");
+    const aiImageGenAvailable = featuresForPlan(normalizePlan(r.rows[0].plan)).aiImageGen;
     res.json({
       requireReviewBeforePublish: settings.requireReviewBeforePublish !== false,
       aiImageGenAvailable,

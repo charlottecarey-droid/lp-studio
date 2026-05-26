@@ -6,6 +6,7 @@ import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
+import { getTenantPlanFeatures } from "../../lib/planFeatures";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
@@ -435,6 +436,40 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   } else if (requestedStatus !== "draft" && requestedStatus !== "pending_review") {
     // Unknown status values fall back to draft.
     effectiveStatus = "draft";
+  }
+
+  // Task #407 — plan-tier page-count gate. Superadmins bypass (consistent
+  // with requirePlanFeature) so support staff can spin up demo pages on
+  // any tenant. Template pages don't count toward the cap; they're a
+  // marketing surface, not the tenant's own marketing output.
+  if (req.authUser?.appUserRole !== "superadmin") {
+    try {
+      const { plan, features } = await getTenantPlanFeatures(tenantId);
+      const cap = features.limits.pages;
+      if (cap !== null) {
+        const countRow = await pool.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count FROM lp_pages
+            WHERE tenant_id = $1 AND is_template = false`,
+          [tenantId],
+        );
+        const current = Number(countRow.rows[0]?.count ?? 0);
+        if (current >= cap) {
+          res.status(402).json({
+            error: "plan_upgrade_required",
+            feature: "pages",
+            plan,
+            limit: cap,
+            current,
+            message: `Your ${plan} plan is limited to ${cap} pages. Upgrade to add more.`,
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("[lp/pages] plan-limit check failed:", err);
+      res.status(503).json({ error: "plan_check_unavailable" });
+      return;
+    }
   }
 
   try {

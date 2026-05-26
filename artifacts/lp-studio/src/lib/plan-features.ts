@@ -14,15 +14,38 @@
  */
 export type Plan = "starter" | "growth" | "enterprise";
 
+export interface PlanLimits {
+  pages: number | null;
+  forms: number | null;
+  userSeats: number | null;
+}
+
 export interface PlanFeatures {
   salesConsole: boolean;
   aiImageGen: boolean;
+  customDomain: boolean;
+  limits: PlanLimits;
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  starter:    { salesConsole: false, aiImageGen: false },
-  growth:     { salesConsole: true,  aiImageGen: false },
-  enterprise: { salesConsole: true,  aiImageGen: true  },
+  starter: {
+    salesConsole: false,
+    aiImageGen: false,
+    customDomain: false,
+    limits: { pages: 5, forms: 2, userSeats: 3 },
+  },
+  growth: {
+    salesConsole: true,
+    aiImageGen: false,
+    customDomain: true,
+    limits: { pages: null, forms: null, userSeats: 10 },
+  },
+  enterprise: {
+    salesConsole: true,
+    aiImageGen: true,
+    customDomain: true,
+    limits: { pages: null, forms: null, userSeats: null },
+  },
 };
 
 export function normalizePlan(raw: string | null | undefined): Plan {

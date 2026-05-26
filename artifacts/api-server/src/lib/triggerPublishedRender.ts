@@ -54,6 +54,7 @@ import {
   deletePublishedHtmlFromR2,
 } from "./r2Storage";
 import { verifyAssetsForHtml } from "./assetPresenceCheck";
+import { getTenantPlanFeatures } from "./planFeatures";
 
 export interface TriggerPublishedRenderOpts {
   pageId: number;
@@ -320,6 +321,21 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     }
   }
 
+  // Task #407 — starter-tier "Powered by LP Studio" badge. Look up the
+  // tenant's plan once per render and pass the boolean down. Fail OPEN
+  // on lookup error: a published page rendering without the badge is
+  // strictly better than a published page failing to render at all,
+  // and the gate is a soft packaging signal, not a security boundary.
+  let showPoweredByBadge = false;
+  try {
+    const { plan } = await getTenantPlanFeatures(page.tenantId);
+    showPoweredByBadge = plan === "starter";
+  } catch (err) {
+    console.warn("[triggerPublishedRender] plan lookup for badge failed; rendering without badge", {
+      pageId: page.id, tenantId: page.tenantId, err,
+    });
+  }
+
   const buildHtmlForHost = (host: string): string =>
     injectPageMeta(html, {
       title: page.title,
@@ -329,6 +345,7 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
       slug: page.slug,
       canonicalHost: host,
       tenantName,
+      showPoweredByBadge,
     });
 
   // ── R2 write (awaited, visitor-facing, looped per host) ──────────────

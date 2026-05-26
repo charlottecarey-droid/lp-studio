@@ -1,4 +1,5 @@
 import { pool } from "@workspace/db";
+import { featuresForPlan, normalizePlan } from "./planFeatures";
 
 /**
  * Tenant-wide page-review-workflow toggle (task #113).
@@ -34,21 +35,20 @@ export async function tenantRequiresReview(
 /**
  * Tenant-wide AI image generation toggle (task #219 follow-up).
  *
- * AI image generation in the custom-block flow is a paid, top-tier-only
- * feature. Two gates apply:
+ * AI image generation in the custom-block flow is a paid feature. Two
+ * gates apply:
  *
- *   1. The tenant's `plan` must be one of TOP_TIER_PLANS — otherwise the
- *      feature is "unavailable" and cannot be turned on at all.
+ *   1. The tenant's plan must include `aiImageGen` in the canonical
+ *      PLAN_FEATURES matrix (currently: enterprise tier only) — otherwise
+ *      the feature is "unavailable" and cannot be turned on at all.
  *   2. The tenant must have explicitly flipped `settings.aiImageGenEnabled`
- *      to true. Defaults to false even on top-tier plans, so we never
+ *      to true. Defaults to false even on eligible plans, so we never
  *      silently spend image-API credits.
  *
  * `available` lets the UI surface an upgrade prompt; `enabled` is the gate
  * the backend image-generation routes use to decide whether to honour a
  * request.
  */
-export const TOP_TIER_PLANS: ReadonlySet<string> = new Set(["pro", "enterprise"]);
-
 export interface AiImageGenStatus {
   /** True when the tenant's plan permits the feature (regardless of toggle). */
   available: boolean;
@@ -69,7 +69,7 @@ export async function getAiImageGenStatus(
   const row = r.rows[0];
   if (!row) return { available: false, enabled: false, plan: "" };
   const plan = row.plan ?? "trial";
-  const available = TOP_TIER_PLANS.has(plan);
+  const available = featuresForPlan(normalizePlan(plan)).aiImageGen;
   const enabled = available && row.settings?.aiImageGenEnabled === true;
   return { available, enabled, plan };
 }

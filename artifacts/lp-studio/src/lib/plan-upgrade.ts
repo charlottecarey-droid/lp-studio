@@ -23,7 +23,17 @@
  */
 import type { PlanFeatures } from "./plan-features";
 
-export type GatedFeature = keyof PlanFeatures;
+/**
+ * Server-emitted `feature` string in the 402 payload. Mirrors the
+ * top-level boolean flags on PlanFeatures plus the limits we enforce
+ * with a count gate — the API uses bare names like `pages` / `forms` /
+ * `userSeats` rather than `limits.pages` so the wire format stays flat.
+ */
+export type GatedFeature =
+  | keyof PlanFeatures
+  | "pages"
+  | "forms"
+  | "userSeats";
 
 export interface UpgradePromptCopy {
   /** Headline shown above the bullets. */
@@ -49,6 +59,30 @@ const ENTERPRISE_AI_BULLETS = [
   "Everything in Growth, including the Sales Console",
 ];
 
+const GROWTH_CUSTOM_DOMAIN_BULLETS = [
+  "Publish on your own domain (lp.yourbrand.com)",
+  "Removes the \"Powered by LP Studio\" badge from public pages",
+  "Unlimited landing pages and forms",
+  "Up to 10 teammates with role-based access",
+];
+
+const GROWTH_LIMITS_PAGES_BULLETS = [
+  "Unlimited landing pages",
+  "Custom domain (lp.yourbrand.com)",
+  "Removes the \"Powered by LP Studio\" badge",
+  "Everything in Starter",
+];
+
+const GROWTH_LIMITS_FORMS_BULLETS = [
+  "Unlimited forms and submissions",
+  "Everything in Growth: custom domain, larger team, unlimited pages",
+];
+
+const GROWTH_LIMITS_SEATS_BULLETS = [
+  "Up to 10 teammates with role-based access",
+  "Everything in Growth, including the Sales Console",
+];
+
 const FALLBACK_BULLETS = [
   "Unlock the full Landing Page Studio toolkit",
   "Talk to us about the right tier for your team",
@@ -69,6 +103,37 @@ export function copyForFeature(feature: GatedFeature | string): UpgradePromptCop
         subtitle: "Upgrade to Enterprise to generate and refine on-brand imagery without leaving the builder.",
         unlockTier: "enterprise",
         bullets: ENTERPRISE_AI_BULLETS,
+      };
+    case "customDomain":
+      return {
+        title: "Custom domains are a Growth feature",
+        subtitle: "Upgrade to Growth to publish on your own domain.",
+        unlockTier: "growth",
+        bullets: GROWTH_CUSTOM_DOMAIN_BULLETS,
+      };
+    case "pages":
+    case "limits.pages":
+      return {
+        title: "You've reached your page limit",
+        subtitle: "Upgrade to Growth for unlimited landing pages.",
+        unlockTier: "growth",
+        bullets: GROWTH_LIMITS_PAGES_BULLETS,
+      };
+    case "forms":
+    case "limits.forms":
+      return {
+        title: "You've reached your form limit",
+        subtitle: "Upgrade to Growth for unlimited forms.",
+        unlockTier: "growth",
+        bullets: GROWTH_LIMITS_FORMS_BULLETS,
+      };
+    case "userSeats":
+    case "limits.userSeats":
+      return {
+        title: "You've reached your user seat limit",
+        subtitle: "Upgrade to Growth to invite more teammates.",
+        unlockTier: "growth",
+        bullets: GROWTH_LIMITS_SEATS_BULLETS,
       };
     default:
       return {

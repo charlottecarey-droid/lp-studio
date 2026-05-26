@@ -1,10 +1,11 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpFormsTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
+import { getTenantPlanFeatures } from "../../lib/planFeatures";
 
 const router = Router();
 
@@ -24,6 +25,34 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
   if (!name?.trim()) {
     res.status(400).json({ error: "name is required" });
     return;
+  }
+  // Task #407 — plan-tier form-count gate. Superadmin bypass.
+  if (req.authUser?.appUserRole !== "superadmin") {
+    try {
+      const { plan, features } = await getTenantPlanFeatures(tenantId);
+      const cap = features.limits.forms;
+      if (cap !== null) {
+        const countRow = await db.execute(
+          sql`SELECT COUNT(*)::int AS n FROM lp_forms WHERE tenant_id = ${tenantId}`,
+        );
+        const current = Number((countRow.rows[0] as { n: number } | undefined)?.n ?? 0);
+        if (current >= cap) {
+          res.status(402).json({
+            error: "plan_upgrade_required",
+            feature: "forms",
+            plan,
+            limit: cap,
+            current,
+            message: `Your ${plan} plan is limited to ${cap} forms. Upgrade to add more.`,
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("[lp/forms] plan-limit check failed:", err);
+      res.status(503).json({ error: "plan_check_unavailable" });
+      return;
+    }
   }
   const [form] = await db
     .insert(lpFormsTable)

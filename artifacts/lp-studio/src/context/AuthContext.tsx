@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import * as Sentry from "@sentry/react";
+import type { PlanFeatures } from "../lib/plan-features";
 
 export interface AuthUser {
   userId: number;
@@ -37,7 +38,7 @@ export interface AuthUser {
   // (via lib/plan-features.ts) when these are absent — sessions issued
   // before this field existed won't have them set.
   planTier?: "starter" | "growth" | "enterprise" | null;
-  planFeatures?: { salesConsole: boolean; aiImageGen: boolean } | null;
+  planFeatures?: PlanFeatures | null;
   aiImageGenAvailable?: boolean;
   aiImageGenEnabled?: boolean;
   // Task #234 — independent flag that gates the "Generate / Tweak" buttons

@@ -7,7 +7,6 @@ import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
-import { TOP_TIER_PLANS } from "../lib/tenantSettings";
 import { normalizePlan, PLAN_FEATURES } from "../lib/planFeatures";
 
 /**
@@ -511,7 +510,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
         tenantHost = getCanonicalTenantHost({ slug: tenantSlug, domain: tenantDomain });
         tenantLoginUrl = tenantHost ? `https://${tenantHost}` : null;
         tenantPlan = row.plan ?? null;
-        aiImageGenAvailable = TOP_TIER_PLANS.has(tenantPlan ?? "trial");
+        aiImageGenAvailable = PLAN_FEATURES[normalizePlan(tenantPlan)].aiImageGen;
         aiImageGenEnabled = aiImageGenAvailable && settings.aiImageGenEnabled === true;
         aiImageGenOutsideBuilderEnabled = settings.aiImageGenOutsideBuilderEnabled === true;
       }

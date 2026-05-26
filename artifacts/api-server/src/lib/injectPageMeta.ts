@@ -35,6 +35,36 @@ interface PageMetaInput {
   canonicalHost: string;
   /** Tenant display name — used as the ultimate title fallback. */
   tenantName: string;
+  /**
+   * Task #407 — when true, append a "Powered by LP Studio" badge before
+   * `</body>`. Used to brand the public output of starter-tier tenants
+   * (a soft packaging gate: upgrade to remove). Fails open — when this
+   * field is absent or false, no badge is rendered. The injection
+   * happens after meta rewriting so it never collides with managed
+   * head tags.
+   */
+  showPoweredByBadge?: boolean;
+}
+
+/**
+ * Inline-styled badge HTML. Inline styles intentionally — published
+ * pages live in R2 and the visitor's CSS pipeline is whatever the SPA
+ * shipped at build time, so a separate stylesheet would either need to
+ * be loaded async (badge flickers in late) or inlined into <head> per
+ * page (added complexity for one badge). A self-contained fragment is
+ * the simplest correct option.
+ *
+ * `position:fixed` + bottom-right placement keeps the badge visible
+ * without forcing layout shift on the host page. Small footprint, low
+ * z-index headroom so a tenant's own fixed overlays still win.
+ */
+const POWERED_BY_BADGE_HTML = `<a href="https://lpstudio.ai" target="_blank" rel="noopener noreferrer" style="position:fixed;right:12px;bottom:12px;z-index:2147483000;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(17,24,39,0.85);color:#fff;font:500 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;border-radius:999px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.15);backdrop-filter:saturate(140%) blur(6px)">Powered by <strong style="font-weight:700">LP Studio</strong></a>`;
+
+function appendPoweredByBadge(html: string): string {
+  if (/<\/body>/i.test(html)) {
+    return html.replace(/<\/body>/i, `${POWERED_BY_BADGE_HTML}\n</body>`);
+  }
+  return html + POWERED_BY_BADGE_HTML;
 }
 
 function escapeAttr(str: string): string {
@@ -188,8 +218,12 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
     );
   }
 
+  if (meta.showPoweredByBadge) {
+    out = appendPoweredByBadge(out);
+  }
+
   return out;
 }
 
 // Exposed for unit tests / debugging.
-export const __test = { buildTags, upsertHeadTag, escapeAttr };
+export const __test = { buildTags, upsertHeadTag, escapeAttr, appendPoweredByBadge };
