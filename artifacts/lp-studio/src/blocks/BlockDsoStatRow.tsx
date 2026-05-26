@@ -14,9 +14,10 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
+const NUMBERS = BRAND_NUMBERS_STACK;
 
 /**
  * Count-up respects reduced-motion. On phones the stats are laid out as a
@@ -62,7 +63,7 @@ function CountUp({ target, suffix = "", prefix = "" }: { target: number; suffix?
     return () => obs.disconnect();
   }, [target, animate]);
 
-  return <span ref={ref} style={{ fontFamily: DISPLAY }}>{prefix}{count}{suffix}</span>;
+  return <span ref={ref} style={{ fontFamily: NUMBERS }}>{prefix}{count}{suffix}</span>;
 }
 
 function parseStatValue(value: string): { prefix: string; num: number; suffix: string } | null {
@@ -163,7 +164,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
                     value={item.value}
                     onUpdate={(v) => updateItem(i, { value: v })}
                     style={{
-                      fontFamily: DISPLAY,
+                      fontFamily: NUMBERS,
                       fontSize: "clamp(2.25rem,4vw,3rem)",
                       fontWeight: 700,
                       color: valC,
@@ -175,7 +176,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
                 ) : (
                   <div
                     style={{
-                      fontFamily: DISPLAY,
+                      fontFamily: NUMBERS,
                       fontSize: "clamp(2.25rem,4vw,3rem)",
                       fontWeight: 700,
                       color: valC,

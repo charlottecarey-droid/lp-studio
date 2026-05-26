@@ -4,10 +4,11 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { useCountUp } from "@/hooks/use-count-up";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
+const NUMBERS = BRAND_NUMBERS_FONT;
 
 interface Props {
   props: StatCalloutBlockProps;
@@ -27,10 +28,10 @@ function AnimatedStat({ value, enabled, className, style }: { value: string; ena
   const parsed = parseNumeric(value);
   const [count, countRef] = useCountUp(parsed?.num ?? 0, 1600, enabled && !!parsed);
 
-  if (!parsed || !enabled) return <span className={className} style={{ ...(style), fontFamily: BODY }}>{value}</span>;
+  if (!parsed || !enabled) return <span className={className} style={{ ...(style), fontFamily: NUMBERS }}>{value}</span>;
 
   const display = `${parsed.prefix}${count.toLocaleString()}${parsed.suffix}`;
-  return <span ref={countRef} className={className} style={{ ...(style), fontFamily: BODY }}>{display}</span>;
+  return <span ref={countRef} className={className} style={{ ...(style), fontFamily: NUMBERS }}>{display}</span>;
 }
 
 export function BlockStatCallout({ props, brand, onFieldChange, animationsEnabled = true }: Props) {
@@ -44,15 +45,15 @@ export function BlockStatCallout({ props, brand, onFieldChange, animationsEnable
   return (
     <section className={cn("w-full bg-[var(--brand-primary)] px-6 text-center", sectionPy)}>
       <div className="max-w-4xl mx-auto flex flex-col items-center">
-        <div className={cn("text-8xl md:text-[10rem] font-display leading-none mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ color: LIME, fontFamily: DISPLAY }}>
+        <div className={cn("text-8xl md:text-[10rem] font-display leading-none mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ color: LIME, fontFamily: NUMBERS }}>
           {onFieldChange ? (
-            <InlineText value={props.stat} onUpdate={field("stat")} className={cn("font-display", getHeadingWeightClass(brand))} style={{ color: LIME, fontFamily: DISPLAY }} />
+            <InlineText value={props.stat} onUpdate={field("stat")} className={cn("font-display", getHeadingWeightClass(brand))} style={{ color: LIME, fontFamily: NUMBERS }} />
           ) : (
             <AnimatedStat
               value={props.stat}
               enabled={countUpActive}
               className={cn("font-display", getHeadingWeightClass(brand))}
-              style={{ color: LIME, fontFamily: DISPLAY }}
+              style={{ color: LIME, fontFamily: NUMBERS }}
             />
           )}
         </div>

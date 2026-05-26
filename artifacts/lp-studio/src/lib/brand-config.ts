@@ -151,6 +151,12 @@ export interface BrandConfig {
   displayFontUrl?: string;
   /** Optional override URL for the body font's stylesheet. */
   bodyFontUrl?: string;
+  /** Font family used for big numeric values in stat-style blocks
+   *  (TrustBar, StatCallout, DSO stat blocks). Falls back to `displayFont`
+   *  when unset — tenants who never set it see no change. */
+  numbersFont?: string;
+  /** Optional override URL for the numbers font's stylesheet. */
+  numbersFontUrl?: string;
   h1Size: HeadlineSize;
   h2Size: HeadlineSize;
   h3Size: HeadlineSize;
@@ -449,8 +455,10 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
   // when the brand has no font set (preserves Dandy typography).
   const displayValue = toFontFamilyValue(brand.displayFont, "display");
   const bodyValue = toFontFamilyValue(brand.bodyFont, "sans");
+  const numbersValue = toFontFamilyValue(brand.numbersFont, "display");
   if (displayValue) vars["--brand-font-display"] = displayValue;
   if (bodyValue) vars["--brand-font-body"] = bodyValue;
+  if (numbersValue) vars["--brand-font-numbers"] = numbersValue;
   return vars as CSSProperties;
 }
 

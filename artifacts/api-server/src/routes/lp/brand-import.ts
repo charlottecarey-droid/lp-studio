@@ -24,7 +24,7 @@ const COLOR_FIELDS = [
 ];
 
 const TYPOGRAPHY_FIELDS = [
-  "displayFont", "bodyFont", "h1Size", "h2Size", "h3Size",
+  "displayFont", "bodyFont", "numbersFont", "h1Size", "h2Size", "h3Size",
   "headingWeight", "headingLetterSpacing", "bodyTextSize", "eyebrowStyle",
 ];
 
@@ -86,6 +86,7 @@ export function buildPromptForSection(section: ImportSection): string {
     secondary5: 'hex "#RRGGBB" — optional palette color 5',
     displayFont: "string — font family for headings (e.g. Inter, Playfair Display)",
     bodyFont: "string — font family for body text",
+    numbersFont: "string — optional font family for big stat numbers (TrustBar, StatCallout). Leave unset to inherit displayFont.",
     h1Size: 'one of "sm","md","lg","xl","2xl"',
     h2Size: 'one of "sm","md","lg","xl","2xl"',
     h3Size: 'one of "sm","md","lg","xl","2xl"',
@@ -161,7 +162,7 @@ const ALLOWED_ENUMS: Record<string, Set<string>> = {
 const hexRe = /^#[0-9a-fA-F]{6}$/;
 
 const COLOR_FIELD_SET = new Set(COLOR_FIELDS);
-const STRING_FIELDS = new Set(["displayFont", "bodyFont", "brandName", "toneOfVoice", "targetAudience", "copyrightName", "defaultCtaText", "navCtaText"]);
+const STRING_FIELDS = new Set(["displayFont", "bodyFont", "numbersFont", "brandName", "toneOfVoice", "targetAudience", "copyrightName", "defaultCtaText", "navCtaText"]);
 const STRING_ARRAY_FIELDS = new Set(["taglines", "toneKeywords", "avoidPhrases", "copyExamples"]);
 
 export function sanitizeField(field: string, value: unknown): { valid: boolean; sanitized: unknown } {

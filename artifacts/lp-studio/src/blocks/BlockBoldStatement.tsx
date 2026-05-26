@@ -4,6 +4,7 @@ import type { BoldStatementBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { WordReveal } from "./WordReveal";
+import { BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 interface Props {
   props: BoldStatementBlockProps;
@@ -99,6 +100,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange, pa
           style={{
             fontSize: "clamp(3.5rem, 11vw, 10rem)",
             letterSpacing: "-0.04em",
+            fontFamily: BRAND_DISPLAY_FONT,
           }}
         >
           {renderStatement(props.statement ?? "", accent, text, scrollReveal, dimColor)}

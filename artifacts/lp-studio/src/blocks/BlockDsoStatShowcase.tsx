@@ -6,10 +6,10 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
-import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
+import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
-const DISPLAY_FONT = BRAND_DISPLAY_STACK;
-const DISPLAY = DISPLAY_FONT;
+const NUMBERS_FONT = BRAND_NUMBERS_STACK;
+const DISPLAY = BRAND_DISPLAY_STACK;
 
 // Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
 // vars (set by getBrandStyleVars). Hardcoded fallbacks preserve the original
@@ -100,7 +100,7 @@ function StatCard({
           value={stat.value}
           onUpdate={onUpdateValue}
           style={{
-            fontFamily: DISPLAY_FONT,
+            fontFamily: NUMBERS_FONT,
             fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
             fontWeight: 700,
             color: fg,
@@ -112,7 +112,7 @@ function StatCard({
       ) : (
         <p
           style={{
-            fontFamily: DISPLAY_FONT,
+            fontFamily: NUMBERS_FONT,
             fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
             fontWeight: 700,
             color: fg,
@@ -235,7 +235,7 @@ export function BlockDsoStatShowcase({ props, onFieldChange }: Props) {
             animate={headerInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.75, delay: 0.06 }}
             style={{
-              fontFamily: DISPLAY_FONT,
+              fontFamily: DISPLAY,
               fontSize: "clamp(2rem,4vw,3rem)",
               lineHeight: 1.1,
               fontWeight: 600,

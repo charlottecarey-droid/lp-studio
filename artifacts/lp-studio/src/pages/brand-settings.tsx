@@ -833,7 +833,7 @@ const FIELD_LABELS: Record<string, string> = {
   navText: "Nav Text", borderColor: "Border Color",
   secondary1: "Secondary 1", secondary2: "Secondary 2", secondary3: "Secondary 3",
   secondary4: "Secondary 4", secondary5: "Secondary 5",
-  displayFont: "Display Font", bodyFont: "Body Font",
+  displayFont: "Display Font", bodyFont: "Body Font", numbersFont: "Numbers Font",
   h1Size: "H1 Size", h2Size: "H2 Size", h3Size: "H3 Size",
   headingWeight: "Heading Weight", headingLetterSpacing: "Heading Spacing",
   bodyTextSize: "Body Text Size", eyebrowStyle: "Eyebrow Style",
@@ -2247,6 +2247,14 @@ export default function BrandSettings() {
                 onFamilyChange={(v) => update("bodyFont", v)}
                 onUrlChange={(v) => update("bodyFontUrl", v)}
                 hint="Font family for body text"
+              />
+              <FontPicker
+                label="Numbers Font"
+                family={config.numbersFont ?? ""}
+                url={config.numbersFontUrl}
+                onFamilyChange={(v) => update("numbersFont", v)}
+                onUrlChange={(v) => update("numbersFontUrl", v)}
+                hint="Big stat values (TrustBar, StatCallout, DSO stats). Falls back to Display Font."
               />
               <SelectField
                 label="Eyebrow Style"

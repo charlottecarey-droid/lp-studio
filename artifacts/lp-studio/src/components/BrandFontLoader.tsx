@@ -26,9 +26,11 @@ export function BrandFontLoader({ brand }: { brand: BrandConfig }) {
 
     const customDisplay = brand.displayFontUrl?.trim();
     const customBody = brand.bodyFontUrl?.trim();
+    const customNumbers = brand.numbersFontUrl?.trim();
 
     if (customDisplay) urls.add(customDisplay);
     if (customBody) urls.add(customBody);
+    if (customNumbers) urls.add(customNumbers);
 
     // Catalog-driven URL covers any selected family that isn't self-hosted
     // and doesn't already have a custom URL.
@@ -38,6 +40,9 @@ export function BrandFontLoader({ brand }: { brand: BrandConfig }) {
     }
     if (!customBody && brand.bodyFont && !isSelfHostedFont(brand.bodyFont)) {
       catalogFamilies.push(brand.bodyFont);
+    }
+    if (!customNumbers && brand.numbersFont && !isSelfHostedFont(brand.numbersFont)) {
+      catalogFamilies.push(brand.numbersFont);
     }
     const catalogUrl = buildGoogleFontsUrl(catalogFamilies);
     if (catalogUrl) urls.add(catalogUrl);
@@ -62,7 +67,7 @@ export function BrandFontLoader({ brand }: { brand: BrandConfig }) {
     }
     // Note: we intentionally don't clean up on unmount — keeping the fonts
     // around avoids a flash if the user navigates back to a branded page.
-  }, [brand.displayFont, brand.bodyFont, brand.displayFontUrl, brand.bodyFontUrl]);
+  }, [brand.displayFont, brand.bodyFont, brand.numbersFont, brand.displayFontUrl, brand.bodyFontUrl, brand.numbersFontUrl]);
 
   return null;
 }

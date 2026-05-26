@@ -4,8 +4,8 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import { useCountUp } from "@/hooks/use-count-up";
 import { InlineText } from "@/components/InlineText";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-const DISPLAY = BRAND_DISPLAY_FONT;
+import { BRAND_BODY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
+const NUMBERS = BRAND_NUMBERS_FONT;
 
 const BODY = BRAND_BODY_FONT;
 
@@ -27,13 +27,13 @@ function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
   const parsed = parseNumeric(value);
   const [count, countRef] = useCountUp(parsed?.num ?? 0, 1400, enabled && !!parsed);
 
-  if (!parsed) return <span style={{ fontFamily: BODY }}>{value}</span>;
+  if (!parsed) return <span style={{ fontFamily: NUMBERS }}>{value}</span>;
 
   const display = enabled
     ? `${parsed.prefix}${count.toLocaleString()}${parsed.suffix}`
     : value;
 
-  return <span ref={countRef} style={{ fontFamily: BODY }}>{display}</span>;
+  return <span ref={countRef} style={{ fontFamily: NUMBERS }}>{display}</span>;
 }
 
 export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
@@ -62,13 +62,13 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
           >
             <span
               className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-              style={{ color: statColor, fontFamily: BRAND_DISPLAY_FONT }}
+              style={{ color: statColor, fontFamily: NUMBERS }}
             >
               {onFieldChange ? (
                 <InlineText
                   value={item.value}
                   onUpdate={(v) => updateItem(i, { value: v })}
-                style={{ fontFamily: DISPLAY }}/>
+                style={{ fontFamily: NUMBERS }}/>
               ) : (
                 <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
               )}
