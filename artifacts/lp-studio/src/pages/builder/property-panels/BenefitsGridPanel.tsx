@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
@@ -25,6 +25,13 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
   };
   const addItem = () => onChange({ ...props, items: [...props.items, { icon: "Zap", title: "New Benefit", description: "Description" }] });
   const removeItem = (i: number) => onChange({ ...props, items: props.items.filter((_, idx) => idx !== i) });
+  const moveItem = (from: number, to: number) => {
+    if (to < 0 || to >= props.items.length) return;
+    const items = [...props.items];
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    onChange({ ...props, items });
+  };
 
   return (
     <div className="space-y-4">
@@ -105,9 +112,31 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
           <div key={i} className="border rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-muted-foreground">Benefit {i + 1}</span>
-              <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
-                <Trash2 className="w-3 h-3" />
-              </Button>
+              <div className="flex items-center gap-0.5">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="w-6 h-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  onClick={() => moveItem(i, i - 1)}
+                  disabled={i === 0}
+                  aria-label="Move benefit up"
+                >
+                  <ChevronUp className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="w-6 h-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  onClick={() => moveItem(i, i + 1)}
+                  disabled={i === props.items.length - 1}
+                  aria-label="Move benefit down"
+                >
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+                <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
             <Select value={item.icon} onValueChange={v => updateItem(i, "icon", v)}>
               <SelectTrigger className="text-xs h-7"><SelectValue /></SelectTrigger>
