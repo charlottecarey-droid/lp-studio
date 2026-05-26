@@ -27,6 +27,16 @@
  *      Worker fixing this at the edge means the origin's misbehavior
  *      never reaches the visitor.
  *
+ *   1.75. Tenant shell: for SPA HTML routes on tenant hosts (vanity link
+ *      clicks, root redirects, R2-miss / typo slugs), serve a pristine
+ *      Vite-built `tenant-shell.html` from R2 (key
+ *      `_studio-assets/tenant-shell.html`) instead of falling through to
+ *      Replit's static SPA rewrite — which would return the prerendered
+ *      marketing `index.html` and produce a brief flash of the marketing
+ *      homepage before React mounts the SaaS / landing-page viewer.
+ *      Written by `artifacts/lp-studio/scripts/upload-assets-to-r2.mjs`
+ *      on every deploy.
+ *
  *   2. Host routing (pre-existing): for everything that R2 didn't serve,
  *      forward to the canonical Replit deployment URL with the visitor's
  *      real hostname carried in X-Original-Host. Replit's deployment edge
@@ -255,6 +265,60 @@ function reloadShimResponse(pathname) {
   });
 }
 
+// ── Task: tenant-shell fallback (eliminate marketing flash) ──────────────
+//
+// For SPA HTML routes on tenant hosts (vanity link clicks, root redirects,
+// R2-miss / typo slugs), Replit's static SPA rewrite previously served the
+// prerendered marketing `index.html`. Visitors saw a brief flash of the
+// marketing homepage before the inline boot scripts cleared #root and
+// React mounted the SaaS / landing-page viewer.
+//
+// This handler intercepts those requests at the worker and returns a
+// pristine SPA shell (Vite's built index.html, no marketing DOM, no
+// MarketingApp CSS) uploaded to R2 by the lp-studio build. The shell is
+// short-TTL because it embeds the current build's hashed asset URLs —
+// every deploy rewrites it. On R2 miss we fall through to the existing
+// Replit-edge rewrite so the worst case is the current (pre-fix)
+// behavior, not a hard failure.
+const TENANT_SHELL_KEY = "_studio-assets/tenant-shell.html";
+
+// Path segments under which the shell must NOT be served. These are
+// either real API endpoints, real static files, or routes already handled
+// by other tiers. Everything else on a tenant host is an SPA route that
+// should boot the React app via the shell.
+function pathNeedsOriginInsteadOfShell(pathname) {
+  if (pathname.startsWith("/api/")) return true;
+  if (pathname === "/api") return true;
+  if (pathname.startsWith("/assets/")) return true;
+  // /.well-known/* is extensionless but reserved for things like ACME TLS
+  // challenges, OIDC discovery, apple-app-site-association — must reach
+  // origin, not the SPA shell.
+  if (pathname.startsWith("/.well-known/")) return true;
+  // Anything with a file extension in the last segment — favicon.ico,
+  // robots.txt, sitemap.xml, manifest.json, /lpstudio-favicon.svg, public
+  // images. Real SPA routes are extensionless.
+  const lastSegment = pathname.slice(pathname.lastIndexOf("/") + 1);
+  if (lastSegment.includes(".")) return true;
+  return false;
+}
+
+async function tryTenantShell(env) {
+  if (!env.PRERENDERED_LP) return null;
+  const obj = await env.PRERENDERED_LP.get(TENANT_SHELL_KEY);
+  if (!obj) return null;
+  const headers = new Headers({
+    "Content-Type": "text/html; charset=utf-8",
+    // Same revalidate-every-request policy index.html uses. The shell
+    // embeds hashed asset URLs that change every deploy; a long-cached
+    // shell would point at deleted hashes.
+    "Cache-Control": "public, max-age=60, must-revalidate",
+    "X-LP-Source": "r2-tenant-shell",
+  });
+  if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+  if (obj.uploaded) headers.set("Last-Modified", obj.uploaded.toUTCString());
+  return new Response(obj.body, { status: 200, headers });
+}
+
 async function fetchOgPreview(slug, originalHost, proto, secret) {
   const previewUrl = `${REPLIT_TARGET}/api/lp/og-preview/${encodeURIComponent(slug)}`;
   const headers = {
@@ -352,6 +416,30 @@ export default {
     // ── Tier 3: Passthrough for registered Replit custom domains ─────
     if (PASSTHROUGH_HOSTS.has(originalHost)) {
       return fetch(request);
+    }
+
+    // ── Tier 3.5: Tenant-shell for SPA HTML routes ───────────────────
+    // Eliminates the marketing-flash visitors used to see on vanity link
+    // clicks, root redirects, and R2-miss slugs. See header comment on
+    // tryTenantShell() for the full rationale. Guarded to GET/HEAD HTML
+    // routes only — /api, /assets, and anything with a file extension
+    // continue to flow through to the Replit edge as before. On R2 miss
+    // we fall through to Tier 4 so the worst case matches pre-fix
+    // behavior (marketing prerender flash) rather than a hard failure.
+    if (isGetOrHead && !pathNeedsOriginInsteadOfShell(url.pathname)) {
+      const accept = (request.headers.get("accept") ?? "").toLowerCase();
+      // Browsers send `Accept: text/html,...` on navigations. Empty
+      // accept (curl, some link checkers) is treated as HTML too — the
+      // alternative is they hit origin and get the marketing flash.
+      const wantsHtml = accept === "" || accept.includes("text/html") || accept.includes("*/*");
+      if (wantsHtml) {
+        try {
+          const shell = await tryTenantShell(env);
+          if (shell) return shell;
+        } catch (err) {
+          console.error("tenant-shell fetch failed:", err);
+        }
+      }
     }
 
     // ── Tier 4: Rewrite to Replit edge with X-Original-Host ──────────

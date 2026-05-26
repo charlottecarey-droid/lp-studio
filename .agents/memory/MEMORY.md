@@ -1,2 +1,3 @@
 - [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
 - [LP Studio dev marketing host](lp-studio-dev-marketing-host.md) — in dev, '/' renders the marketing site; E2E tests needing the SaaS shell must use '/?preview=app'.
+- [Tenant shell vs marketing-flash band-aids](tenant-shell-vs-marketing-flash.md) — fixing tenant-host flash requires serving a different shell from the CF worker; inline "hide #root" scripts in index.html are NOT a real fix.

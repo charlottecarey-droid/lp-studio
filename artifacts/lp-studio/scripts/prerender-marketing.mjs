@@ -208,13 +208,31 @@ async function writeFileEnsuringDir(filePath, contents) {
 
 async function main() {
   // Sanity check: dist must exist (vite build already ran).
+  const sourceIndexPath = path.join(DIST, "index.html");
   try {
-    await fs.access(path.join(DIST, "index.html"));
+    await fs.access(sourceIndexPath);
   } catch {
     throw new Error(
       `[prerender] dist/public/index.html missing — run \`vite build\` first.`,
     );
   }
+
+  // Capture Vite's built index.html BEFORE the marketing snapshot writes
+  // over it. This pristine shell — source template + Vite-injected hashed
+  // <script>/<link> tags + pre-mount loader, no marketing DOM, no
+  // MarketingApp CSS — is what the CF worker serves to tenant hosts on
+  // SPA HTML routes (vanity links, root redirects, R2-miss 404s) so
+  // visitors see the loader spinner instead of a marketing flash before
+  // React mounts and routes them.
+  //
+  // Uploaded to R2 by scripts/upload-assets-to-r2.mjs and consumed by
+  // cloudflare/tenant-host-router/worker.js (tier 3.5).
+  const tenantShellPath = path.join(DIST, "tenant-shell.html");
+  const viteShell = await fs.readFile(sourceIndexPath, "utf8");
+  await fs.writeFile(tenantShellPath, viteShell, "utf8");
+  process.stdout.write(
+    `[prerender] wrote tenant shell → ${path.relative(ROOT, tenantShellPath)} (${viteShell.length} bytes)\n`,
+  );
 
   // Reuse the chromium that ships with @playwright/test (already a devDep
    // for our e2e suite) so we don't pull a separate `playwright` package.

@@ -206,6 +206,44 @@ async function main() {
     // the deploy — the next build will retry the skipped files.
     console.warn(`[lp-studio:upload-assets-to-r2] ${failed} uploads failed (non-fatal):`, errors.slice(0, 5));
   }
+
+  // Upload the tenant shell (`dist/public/tenant-shell.html`, produced by
+  // scripts/prerender-marketing.mjs) to R2 under
+  // `_studio-assets/tenant-shell.html`. The CF tenant-host-router worker
+  // serves this on SPA HTML routes for tenant hosts so visitors see the
+  // pre-mount loader instead of a marketing flash before React boots.
+  //
+  // Unlike the hashed assets above, the shell is OVERWRITTEN every deploy
+  // (it embeds the current build's hashed asset URLs) and is NOT
+  // immutable. Order matters: assets first (so the new hashes exist in
+  // R2), then the shell that references them.
+  const TENANT_SHELL_PATH = resolve(__dirname, "..", "dist", "public", "tenant-shell.html");
+  const TENANT_SHELL_KEY = "_studio-assets/tenant-shell.html";
+  if (existsSync(TENANT_SHELL_PATH)) {
+    try {
+      const body = await readFile(TENANT_SHELL_PATH);
+      await cfg.client.send(
+        new PutObjectCommand({
+          Bucket: cfg.bucket,
+          Key: TENANT_SHELL_KEY,
+          Body: body,
+          ContentType: "text/html; charset=utf-8",
+          // Short TTL — a stale shell would reference deleted asset
+          // hashes. The worker also adds a `must-revalidate` Cache-Control
+          // when serving, but the upstream cache hint matters for CF's
+          // own edge cache.
+          CacheControl: "public, max-age=60, must-revalidate",
+          Metadata: { "uploaded-at": new Date().toISOString() },
+        }),
+      );
+      console.log(`[lp-studio:upload-assets-to-r2] uploaded tenant shell → ${TENANT_SHELL_KEY} (${body.length} bytes)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[lp-studio:upload-assets-to-r2] tenant shell upload failed (non-fatal): ${msg}`);
+    }
+  } else {
+    console.warn(`[lp-studio:upload-assets-to-r2] no tenant shell at ${TENANT_SHELL_PATH} — skipping (prerender step likely did not run).`);
+  }
 }
 
 main().catch((err) => {
