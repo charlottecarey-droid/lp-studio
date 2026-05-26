@@ -20,9 +20,12 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //  and shipped; surface them honestly in DeepFeatures and Integrations.)
 export default function Home() {
   usePageMeta({
-    title: "Fast, branded landing pages for revenue teams.",
-    description:
-      "LP Studio is the AI-native landing page builder for revenue teams. Compose pages from on-brand blocks, A/B test, and ship faster than your designer can open Figma.",
+    // Title + description temporarily commented out until the Dandy cutover is
+    // complete — sales flagged that social previews surface LP Studio copy on
+    // links that still need to look like Dandy. Restore both strings post-cutover.
+    // title: "Fast, branded landing pages for revenue teams.",
+    // description:
+    //   "LP Studio is the AI-native landing page builder for revenue teams. Compose pages from on-brand blocks, A/B test, and ship faster than your designer can open Figma.",
     canonical: "https://lpstudio.ai/",
     ogImage: "https://lpstudio.ai/lpstudio-og.png",
   });
