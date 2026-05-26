@@ -93,6 +93,19 @@ function domainCtxSet(domain: string, entry: DomainCtxEntry) {
   domainCtxCache.set(domain, entry);
 }
 
+/**
+ * Drop every cached domain-context entry that resolved to the given tenant.
+ * Called by /api/admin/tenant-settings after a PATCH so a change to
+ * `rootRedirectUrl` / `vanityLinks` is reflected on the next microsite load
+ * instead of waiting up to 5 minutes for the entry to expire.
+ */
+export function invalidateDomainContextForTenant(tenantId: number): void {
+  for (const [key, val] of domainCtxCache) {
+    const t = (val.data as { tenantId?: number | null }).tenantId;
+    if (t === tenantId) domainCtxCache.delete(key);
+  }
+}
+
 function getRedirectUri(requestHost?: string): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
   if (requestHost) {
@@ -958,6 +971,36 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     const redirectToHost = match?.viaSlugRedirect && canonicalHost && canonicalHost !== domain
       ? canonicalHost
       : null;
+    // Microsite root-redirect + vanity-link map are publicly-safe extras
+    // stored in tenants.settings JSONB. Fetched here (one extra SELECT on
+    // cache miss only) so the microsite shell can render PartnerHome and
+    // resolve short vanity URLs without a second client roundtrip.
+    let rootRedirectUrl: string | null = null;
+    let vanityLinks: Array<{ slug: string; targetUrl: string }> = [];
+    if (match) {
+      try {
+        const settingsRow = await db
+          .select({ settings: tenantsTable.settings })
+          .from(tenantsTable)
+          .where(eq(tenantsTable.id, match.tenantId))
+          .limit(1);
+        const s = (settingsRow[0]?.settings ?? {}) as Record<string, unknown>;
+        if (typeof s.rootRedirectUrl === "string" && s.rootRedirectUrl.trim()) {
+          rootRedirectUrl = s.rootRedirectUrl.trim();
+        }
+        if (Array.isArray(s.vanityLinks)) {
+          vanityLinks = (s.vanityLinks as unknown[])
+            .filter((x): x is { slug: string; targetUrl: string } =>
+              !!x && typeof x === "object"
+              && typeof (x as { slug?: unknown }).slug === "string"
+              && typeof (x as { targetUrl?: unknown }).targetUrl === "string"
+            )
+            .map(x => ({ slug: x.slug.toLowerCase(), targetUrl: x.targetUrl }));
+        }
+      } catch {
+        // Best-effort — fall back to no extras if the read fails.
+      }
+    }
     const data = match
       ? {
           mode: match.mode,
@@ -966,13 +1009,21 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
           tenantSlug: match.tenantSlug,
           micrositeDomain: match.micrositeDomain,
           redirectToHost,
+          rootRedirectUrl,
+          vanityLinks,
         }
       : extractWildcardSlug(domain) !== null
-        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null }
-        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null };
+        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, vanityLinks: [] }
+        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, vanityLinks: [] };
 
     domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
-    res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+    // `private` + short max-age: response now carries per-tenant settings
+    // (rootRedirectUrl / vanityLinks) that a tenant admin can edit from
+    // /brand. The 5-minute in-memory cache above absorbs DB load; this
+    // header keeps shared caches out of the way and bounds browser
+    // staleness to 60s so settings PATCHes show up quickly without a
+    // hard reload.
+    res.set("Cache-Control", "private, max-age=60, must-revalidate");
     res.json(data);
   } catch (err) {
     console.error("[auth] /domain-context error:", err);

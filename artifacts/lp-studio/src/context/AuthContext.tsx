@@ -57,6 +57,11 @@ export interface AuthUser {
   shouldRedirectToTenantHost?: boolean;
 }
 
+export interface VanityLink {
+  slug: string;
+  targetUrl: string;
+}
+
 export interface DomainContext {
   mode: "open" | "tenant-locked" | "microsite-only" | "not-found";
   tenantId: number | null;
@@ -69,6 +74,18 @@ export interface DomainContext {
    * land on the workspace's current URL.
    */
   redirectToHost?: string | null;
+  /**
+   * Per-tenant microsite root redirect — where PartnerHome (rendered at
+   * `/` on the microsite host) sends visitors. Falls back to a hardcoded
+   * Dandy URL when null so legacy tenants keep their old behaviour.
+   */
+  rootRedirectUrl?: string | null;
+  /**
+   * Per-tenant short URL aliases. The microsite `/:slug` route checks
+   * this list before falling through to LandingPageViewer so vanity
+   * links take precedence over landing-page slugs.
+   */
+  vanityLinks?: VanityLink[];
 }
 
 interface AuthContextValue {

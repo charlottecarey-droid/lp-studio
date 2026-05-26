@@ -1,10 +1,11 @@
 import { lazy, Suspense, Component, type ReactNode } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, useRoute, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { isSafeUrl } from "@/lib/safe-url";
 import { resolveFeatures as resolvePlanFeatures } from "@/lib/plan-features";
 import { BrandConfigProvider } from "@/context/BrandConfigContext";
 import { AuthGate } from "@/components/AuthGate";
@@ -352,6 +353,35 @@ function AppRouter() {
 }
 
 // Sits inside WouterRouter + AuthProvider so it can read both location and domain context.
+/**
+ * Microsite `/:slug` dispatcher. Checks the tenant's vanity-link map
+ * (loaded as part of /api/auth/domain-context) before falling through
+ * to the LandingPageViewer. Matched vanity slugs redirect the whole
+ * window via location.replace so the original URL doesn't sit in the
+ * back-button history — visitors who hit `/back` land at the page that
+ * sent them to the vanity URL, not on the microsite root.
+ */
+function VanityOrLandingPage() {
+  const { domainContext } = useAuth();
+  const [, params] = useRoute("/:slug");
+  const slug = (params?.slug ?? "").toLowerCase();
+  const vanity = domainContext?.vanityLinks?.find(v => v.slug.toLowerCase() === slug);
+  // Defense-in-depth: even though admin PATCH rejects unsafe targets, we
+  // re-check with the client safe-url allowlist before navigating — any
+  // value that slips into JSONB via another writer/migration falls through
+  // to LandingPageViewer instead of becoming a public open-redirect sink.
+  const safeTarget = vanity && isSafeUrl(vanity.targetUrl) ? vanity.targetUrl : null;
+
+  useEffect(() => {
+    if (safeTarget && typeof window !== "undefined") {
+      window.location.replace(safeTarget);
+    }
+  }, [safeTarget]);
+
+  if (safeTarget) return <LoadingFallback />;
+  return <LandingPageViewer />;
+}
+
 // On microsite-only domains (e.g. partners.meetdandy.com), renders only public LP routes.
 // Routes /superadmin and prospect-facing paths outside the AuthGate; everything else requires auth.
 function AppShell() {
@@ -436,8 +466,12 @@ function AppShell() {
             <Route path="/preview/:slug" component={LandingPageViewer} />
             {/* Token-based review link */}
             <Route path="/review/:token" component={ReviewShell} />
-            {/* Short slug routes: partners.meetdandy.com/{slug} */}
-            <Route path="/:slug" component={LandingPageViewer} />
+            {/* Short slug routes: partners.meetdandy.com/{slug}.
+                Vanity links (configured in Brand Settings → Sales Console
+                → Microsite Links) are checked first; on a match the
+                browser is redirected to the configured targetUrl. Otherwise
+                the slug falls through to LandingPageViewer. */}
+            <Route path="/:slug" component={VanityOrLandingPage} />
             {/* Keep /lp/:slug for backward compatibility */}
             <Route path="/lp/:slug" component={LandingPageViewer} />
             <Route component={NotFound} />

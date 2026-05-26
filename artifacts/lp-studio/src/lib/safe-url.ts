@@ -7,8 +7,16 @@ export function isSafeUrl(url: string | undefined | null): boolean {
   const trimmed = url.trim().toLowerCase();
   // Allow relative URLs
   if (trimmed.startsWith("/") || trimmed.startsWith("#")) return true;
-  // Allow http, https, mailto
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("mailto:")) return true;
+  // Allow http, https, mailto, tel, and urn (tenants opt into urn for
+  // vanity links pointing at named-resource handlers — see admin
+  // vanity-link validator in routes/admin.ts).
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("mailto:") ||
+    trimmed.startsWith("tel:") ||
+    trimmed.startsWith("urn:")
+  ) return true;
   // Block everything else (javascript:, data:, vbscript:, etc.)
   // Also allow protocol-relative URLs
   if (trimmed.startsWith("//")) return true;

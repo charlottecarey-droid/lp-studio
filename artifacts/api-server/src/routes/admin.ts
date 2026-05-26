@@ -21,6 +21,7 @@ import {
   getCustomHostname,
 } from "../lib/cloudflare";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
+import { invalidateDomainContextForTenant } from "./auth";
 import dns from "dns/promises";
 import https from "https";
 import net from "net";
@@ -1313,6 +1314,13 @@ router.delete("/roles/:id", async (req, res): Promise<void> => {
 // Both endpoints are session-auth + tenant-scoped — they only ever touch
 // req.authUser.tenantId.
 
+interface VanityLink {
+  /** Short path the visitor types after the microsite host. Lowercase, hyphens. */
+  slug: string;
+  /** Where to send the browser. http(s), mailto, tel, or urn schemes only. */
+  targetUrl: string;
+}
+
 interface TenantSettingsPayload {
   /** Page-review workflow toggle. true = preserve task #108 behaviour. */
   requireReviewBeforePublish: boolean;
@@ -1328,6 +1336,93 @@ interface TenantSettingsPayload {
    * surfaces an upgrade hint instead.
    */
   aiImageGenAvailable: boolean;
+  /**
+   * Microsite root redirect — where the public-facing microsite host
+   * (e.g. partners.<tenant>.com or <slug>.lpstudio.ai) sends visitors who
+   * land on `/`. When null/empty the PartnerHome holding page falls back
+   * to the legacy hardcoded destination.
+   */
+  rootRedirectUrl: string | null;
+  /** Short URL aliases served by the public microsite shell. */
+  vanityLinks: VanityLink[];
+}
+
+// Reserved microsite paths the vanity router must not shadow. Keep in sync
+// with the <Switch> in artifacts/lp-studio/src/App.tsx (microsite-only mode).
+const RESERVED_VANITY_SLUGS = new Set<string>([
+  "p", "preview", "review", "lp", "thank-you",
+]);
+
+const VANITY_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,49}$/;
+
+/**
+ * Validate a vanity-link target URL.
+ * Accepts http(s), mailto, tel, and urn (the user explicitly asked for URN
+ * support). Anything else — including javascript:, data:, file: — is rejected
+ * because these strings are used as `window.location.replace()` targets on
+ * the public microsite host where any visitor can hit them.
+ */
+function isValidVanityTarget(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("urn:")) {
+    // urn:<nid>:<nss> — nid is 1–31 alphanumerics/hyphens; nss is non-empty.
+    return /^urn:[a-z0-9][a-z0-9-]{0,30}:.+$/i.test(trimmed);
+  }
+  if (lower.startsWith("mailto:") || lower.startsWith("tel:")) {
+    return trimmed.length > (lower.startsWith("mailto:") ? 7 : 4);
+  }
+  try {
+    const u = new URL(trimmed);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function normalizeVanityLinks(input: unknown): { ok: true; value: VanityLink[] } | { ok: false; error: string } {
+  if (!Array.isArray(input)) return { ok: false, error: "vanityLinks must be an array" };
+  if (input.length > 200) return { ok: false, error: "Too many vanity links (max 200)" };
+  const out: VanityLink[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") return { ok: false, error: "Each vanity link must be an object" };
+    const r = raw as { slug?: unknown; targetUrl?: unknown };
+    if (typeof r.slug !== "string") return { ok: false, error: "Vanity link missing slug" };
+    if (typeof r.targetUrl !== "string") return { ok: false, error: "Vanity link missing targetUrl" };
+    const slug = r.slug.trim().toLowerCase();
+    const targetUrl = r.targetUrl.trim();
+    if (!VANITY_SLUG_RE.test(slug)) {
+      return { ok: false, error: `Invalid slug "${r.slug}". Use lowercase letters, numbers, hyphens (1–50 chars, can't start with a hyphen).` };
+    }
+    if (RESERVED_VANITY_SLUGS.has(slug)) {
+      return { ok: false, error: `"${slug}" is reserved and can't be used as a vanity slug.` };
+    }
+    if (seen.has(slug)) return { ok: false, error: `Duplicate vanity slug "${slug}".` };
+    if (!isValidVanityTarget(targetUrl)) {
+      return { ok: false, error: `Invalid target URL for "${slug}". Use http(s), mailto:, tel:, or urn:.` };
+    }
+    seen.add(slug);
+    out.push({ slug, targetUrl });
+  }
+  return { ok: true, value: out };
+}
+
+function normalizeRootRedirectUrl(input: unknown): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (input === null || input === undefined) return { ok: true, value: null };
+  if (typeof input !== "string") return { ok: false, error: "rootRedirectUrl must be a string" };
+  const trimmed = input.trim();
+  if (!trimmed) return { ok: true, value: null };
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      return { ok: false, error: "rootRedirectUrl must be an http(s) URL" };
+    }
+    return { ok: true, value: trimmed };
+  } catch {
+    return { ok: false, error: "rootRedirectUrl must be a valid URL (e.g. https://www.example.com)" };
+  }
 }
 
 router.get("/tenant-settings", async (req, res): Promise<void> => {
@@ -1341,6 +1436,14 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     const settings = r.rows[0].settings ?? {};
     const aiImageGenAvailable = featuresForPlan(normalizePlan(r.rows[0].plan)).aiImageGen;
+    const vanityRaw = Array.isArray(settings.vanityLinks) ? settings.vanityLinks : [];
+    const vanityLinks: VanityLink[] = (vanityRaw as unknown[])
+      .filter((x): x is { slug: string; targetUrl: string } =>
+        !!x && typeof x === "object"
+        && typeof (x as { slug?: unknown }).slug === "string"
+        && typeof (x as { targetUrl?: unknown }).targetUrl === "string"
+      )
+      .map(x => ({ slug: x.slug, targetUrl: x.targetUrl }));
     const payload: TenantSettingsPayload = {
       // Default TRUE so any tenant the boot backfill hasn't touched preserves
       // the #108 review behaviour. Only an explicit `false` opts a tenant out.
@@ -1349,6 +1452,10 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
       // Effective enabled state — gated on plan so a stale settings.* flag
       // from a downgrade can't keep the feature alive.
       aiImageGenEnabled: aiImageGenAvailable && settings.aiImageGenEnabled === true,
+      rootRedirectUrl: typeof settings.rootRedirectUrl === "string" && settings.rootRedirectUrl.trim()
+        ? (settings.rootRedirectUrl as string).trim()
+        : null,
+      vanityLinks,
     };
     res.json(payload);
   } catch (err) {
@@ -1395,6 +1502,16 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
     }
     merge.aiImageGenEnabled = body.aiImageGenEnabled;
   }
+  if ("rootRedirectUrl" in (body ?? {})) {
+    const v = normalizeRootRedirectUrl((body as { rootRedirectUrl?: unknown }).rootRedirectUrl);
+    if (!v.ok) { res.status(400).json({ error: v.error }); return; }
+    merge.rootRedirectUrl = v.value;
+  }
+  if ("vanityLinks" in (body ?? {})) {
+    const v = normalizeVanityLinks((body as { vanityLinks?: unknown }).vanityLinks);
+    if (!v.ok) { res.status(400).json({ error: v.error }); return; }
+    merge.vanityLinks = v.value;
+  }
   if (Object.keys(merge).length === 0) {
     res.status(400).json({ error: "No recognised settings to update" });
     return;
@@ -1409,12 +1526,30 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
       [JSON.stringify(merge), tenantId],
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    // Drop cached domain-context entries so the new microsite redirect /
+    // vanity-link map is served on the next public page load instead of
+    // waiting for the 5-minute TTL to expire.
+    if ("rootRedirectUrl" in merge || "vanityLinks" in merge) {
+      invalidateDomainContextForTenant(tenantId);
+    }
     const settings = r.rows[0].settings ?? {};
     const aiImageGenAvailable = featuresForPlan(normalizePlan(r.rows[0].plan)).aiImageGen;
+    const vanityRaw = Array.isArray(settings.vanityLinks) ? settings.vanityLinks : [];
+    const vanityLinks: VanityLink[] = (vanityRaw as unknown[])
+      .filter((x): x is { slug: string; targetUrl: string } =>
+        !!x && typeof x === "object"
+        && typeof (x as { slug?: unknown }).slug === "string"
+        && typeof (x as { targetUrl?: unknown }).targetUrl === "string"
+      )
+      .map(x => ({ slug: x.slug, targetUrl: x.targetUrl }));
     res.json({
       requireReviewBeforePublish: settings.requireReviewBeforePublish !== false,
       aiImageGenAvailable,
       aiImageGenEnabled: aiImageGenAvailable && settings.aiImageGenEnabled === true,
+      rootRedirectUrl: typeof settings.rootRedirectUrl === "string" && settings.rootRedirectUrl.trim()
+        ? (settings.rootRedirectUrl as string).trim()
+        : null,
+      vanityLinks,
     } satisfies TenantSettingsPayload);
   } catch (err) {
     console.error("[admin] PATCH /tenant-settings error:", err);
