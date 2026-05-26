@@ -8,6 +8,7 @@ import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BAS
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
 import { TOP_TIER_PLANS } from "../lib/tenantSettings";
+import { normalizePlan, PLAN_FEATURES } from "../lib/planFeatures";
 
 /**
  * Pick the user-facing wildcard base host for building tenant login URLs
@@ -561,6 +562,16 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       if (ur.rows.length > 0) appUserRole = ur.rows[0].role ?? null;
     }
 
+    // Canonical plan + feature matrix. The raw `tenantPlan` string above
+    // is the legacy DB column value ("trial" / "business" / etc.) and is
+    // still surfaced for existing AI-image-gen and other checks that
+    // read it directly. `planTier` is the new canonical tier
+    // ("starter" / "growth" / "enterprise") and `planFeatures` is the
+    // server-computed feature map the UI uses to hide the Sales toggle
+    // and short-circuit /sales/* routes before the request fires.
+    const planTier = normalizePlan(tenantPlan);
+    const planFeatures = PLAN_FEATURES[planTier];
+
     res.json({
       ...sess,
       onboardingCompleted,
@@ -573,6 +584,8 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       tenantLoginUrl,
       shouldRedirectToTenantHost,
       tenantPlan,
+      planTier,
+      planFeatures,
       aiImageGenAvailable,
       aiImageGenEnabled,
       aiImageGenOutsideBuilderEnabled,

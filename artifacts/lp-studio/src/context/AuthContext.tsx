@@ -28,6 +28,16 @@ export interface AuthUser {
   // the dialog hides the AI-image controls and the backend rejects with
   // 402 so URL-based image swaps still work without consuming credits.
   tenantPlan?: string | null;
+  // Canonical plan tier + server-computed feature map (set by /auth/me).
+  // `planTier` collapses the legacy `tenantPlan` strings ("trial",
+  // "business", "pro", "enterprise") into the three canonical tiers the
+  // packaging is built around. `planFeatures` is the matrix the UI uses
+  // to hide the Sales mode toggle and short-circuit /sales/* routes
+  // before they hit the API. Fall back to recomputing from `tenantPlan`
+  // (via lib/plan-features.ts) when these are absent — sessions issued
+  // before this field existed won't have them set.
+  planTier?: "starter" | "growth" | "enterprise" | null;
+  planFeatures?: { salesConsole: boolean; aiImageGen: boolean } | null;
   aiImageGenAvailable?: boolean;
   aiImageGenEnabled?: boolean;
   // Task #234 — independent flag that gates the "Generate / Tweak" buttons

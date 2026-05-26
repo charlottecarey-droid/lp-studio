@@ -1,15 +1,36 @@
 import { useAppMode, type AppMode } from "@/lib/mode-context";
 import { useLocation } from "wouter";
 import { Megaphone, Target } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { resolveFeatures } from "@/lib/plan-features";
 
 export function ModeToggle() {
   const { setMode, lockedMode } = useAppMode();
   const [location, navigate] = useLocation();
+  const { user } = useAuth();
 
   const isSales = location === "/sales" || location.startsWith("/sales/");
 
+  // Plan-based Sales Console gate. Prefer the server-computed
+  // `planFeatures` from /auth/me; fall back to recomputing from
+  // `tenantPlan` for sessions issued before that field existed. When
+  // Sales Console is not included in the tenant's plan, the toggle
+  // collapses to a Marketing-only pill — same rendering as the
+  // permission-locked "marketing" branch below.
+  //
+  // Superadmin bypass: Dandy operators (`app_users.role === "superadmin"`)
+  // see the toggle on every tenant regardless of plan, mirroring the
+  // server-side bypass in `requirePlanFeature` and the route-level
+  // bypass in `AppShell`. Without this, a superadmin switched into a
+  // starter tenant could land on /sales/* by URL but couldn't use the
+  // nav toggle to get there.
+  const planFeatures = resolveFeatures(user);
+  const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
+  const planLocksToMarketing = !planFeatures.salesConsole && !isSuperadmin;
+
   function handleSwitch(newMode: AppMode) {
     if (lockedMode) return;
+    if (planLocksToMarketing && newMode === "sales") return;
     setMode(newMode);
     if (newMode === "sales") {
       navigate("/sales");
@@ -18,7 +39,7 @@ export function ModeToggle() {
     }
   }
 
-  if (lockedMode === "marketing") {
+  if (lockedMode === "marketing" || planLocksToMarketing) {
     return (
       <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 w-full">
         <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-foreground/15" />

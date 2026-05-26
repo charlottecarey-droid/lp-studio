@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { resolveFeatures as resolvePlanFeatures } from "@/lib/plan-features";
 import { BrandConfigProvider } from "@/context/BrandConfigContext";
 import { AuthGate } from "@/components/AuthGate";
 import { RoleGuard } from "@/components/RoleGuard";
@@ -447,6 +448,23 @@ function AppShell() {
         <SuperAdminPage />
       </Suspense>
     );
+  }
+
+  // Plan-tier gate for the Sales Console subtree. Mirrors the
+  // server-side `requirePlanFeature("salesConsole")` on /api/sales/*:
+  // for tenants whose plan does not include Sales Console we bounce
+  // to the workspace root instead of rendering a tree that would
+  // immediately 402 on every API call. Server middleware is the real
+  // security boundary; this is purely UX. Superadmins bypass the
+  // server check, so we mirror that here too — otherwise a Dandy
+  // operator who's switched into a starter tenant via /superadmin
+  // can't reach the Sales pages to debug or demo.
+  if (user && location.startsWith("/sales")) {
+    const isSuperadmin = user.appUserRole === "superadmin";
+    const planFeatures = resolvePlanFeatures(user);
+    if (!planFeatures.salesConsole && !isSuperadmin) {
+      return <Redirect to="/" />;
+    }
   }
 
   // Public prospect-facing routes — no sign-in prompt, ever
