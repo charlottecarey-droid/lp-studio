@@ -15,6 +15,28 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
  * Hashed assets under `/assets/*` keep their long-lived immutable cache (Vite
  * default), so this only affects the small HTML shell, not bundle re-downloads.
  */
+/**
+ * Strip HTML comments from index.html at build time. The comments in
+ * index.html document *why* certain inline scripts exist (RB2B / Apollo
+ * only on partners.meetdandy.com, GTM only on lp.meetdandy.com, the
+ * iOS-webkit defensive stub, cache headers, etc.) and are valuable for
+ * maintenance — but they ship verbatim to the public HTML, which is
+ * visible in View Source. This plugin removes them only from the built
+ * output. Conditional comments (`<!--[if ...]>`) are preserved.
+ */
+function stripHtmlCommentsPlugin(): PluginOption {
+  return {
+    name: "lp-studio:strip-html-comments",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html) {
+        return html.replace(/<!--(?!\[if)[\s\S]*?-->\s*/g, "");
+      },
+    },
+  };
+}
+
 function noCacheHtmlPlugin(): PluginOption {
   const setHeaders = (url: string | undefined, setHeader: (k: string, v: string) => void) => {
     // Only the HTML shell — never touch /assets/* (hashed, immutable).
@@ -60,6 +82,7 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     noCacheHtmlPlugin(),
+    stripHtmlCommentsPlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
