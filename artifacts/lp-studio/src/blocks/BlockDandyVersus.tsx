@@ -34,7 +34,9 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, [side]: arr });
   };
 
-  const bg = props.bgColor || "var(--brand-primary)";
+  const bg = props.bgColor || "var(--brand-primary, #003A30)";
+  const rightBg = props.rightBg || "var(--brand-primary, #003A30)";
+  const eyebrowColor = props.eyebrowColor || "var(--brand-accent, #C7E738)";
 
   return (
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
@@ -42,7 +44,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
         {(props.eyebrow || props.headline) && (
           <div className="text-center mb-14">
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4" style={{ fontFamily: BODY }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ fontFamily: BODY, color: eyebrowColor }}>
                 <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
               </p>
             )}
@@ -57,8 +59,8 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
         {/* Card grid — relative so the VS badge can be centered */}
         <div className="relative grid md:grid-cols-2">
           {/* VS badge */}
-          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-[var(--brand-accent)] items-center justify-center shadow-lg">
-            <span className="text-[var(--brand-primary)] text-xs font-black tracking-wide" style={{ fontFamily: BODY }}>VS</span>
+          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: "var(--brand-accent, #C7E738)" }}>
+            <span className="text-xs font-black tracking-wide" style={{ fontFamily: BODY, color: "var(--brand-primary, #003A30)" }}>VS</span>
           </div>
 
           {/* Left card — cream */}
@@ -66,7 +68,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4" style={{ fontFamily: BODY }}>
               <InlineText value={props.leftLabel} onUpdate={field("leftLabel")} style={{ fontFamily: BODY }}/>
             </span>
-            <h3 className="text-3xl font-bold text-[var(--brand-primary)] mb-3" style={{ fontFamily: DISPLAY }}>
+            <h3 className="text-3xl font-bold mb-3" style={{ fontFamily: DISPLAY, color: "var(--brand-primary, #003A30)" }}>
               <InlineText value={props.leftTitle} onUpdate={field("leftTitle")} style={{ fontFamily: DISPLAY }}/>
             </h3>
             <p className="text-slate-500 text-base leading-relaxed mb-6" style={{ fontFamily: BODY }}>
@@ -83,7 +85,8 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
             {props.leftCtaText && (
               <button
                 onClick={() => safeNavigate(props.leftCtaUrl)}
-                className="mt-8 self-start text-[var(--brand-primary)] text-xs font-bold uppercase tracking-wider border border-[rgb(var(--brand-primary-rgb)/0.3)] rounded-full px-6 py-3 hover:border-[var(--brand-primary)] transition-colors"
+                className="mt-8 self-start text-xs font-bold uppercase tracking-wider border rounded-full px-6 py-3 transition-colors"
+                style={{ color: "var(--brand-primary, #003A30)", borderColor: "rgb(var(--brand-primary-rgb, 0 58 48) / 0.3)" }}
               >
                 <InlineText value={props.leftCtaText} onUpdate={field("leftCtaText")} style={{ fontFamily: BODY }}/>
               </button>
@@ -91,8 +94,8 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
           </div>
 
           {/* Right card — dark green */}
-          <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--brand-primary) 75%, #fff) 0%, var(--brand-primary) 70%)" }}>
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-4" style={{ fontFamily: BODY }}>
+          <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ background: `radial-gradient(ellipse at center, color-mix(in srgb, ${rightBg} 75%, #fff) 0%, ${rightBg} 70%)` }}>
+            <span className="text-xs font-bold uppercase tracking-widest mb-4" style={{ fontFamily: BODY, color: eyebrowColor }}>
               <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} style={{ fontFamily: BODY }}/>
             </span>
             <h3 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: DISPLAY }}>
@@ -104,7 +107,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
             <ul className="flex-1 divide-y divide-white/10">
               {(props.rightBullets ?? []).map((b, i) => (
                 <li key={i} className="flex items-center gap-3 text-base text-white/90 py-3.5" style={{ fontFamily: BODY }}>
-                  <Check className="w-4 h-4 text-[var(--brand-accent)] shrink-0" strokeWidth={2.5} />
+                  <Check className="w-4 h-4 shrink-0" strokeWidth={2.5} style={{ color: "var(--brand-accent, #C7E738)" }} />
                   <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet("rightBullets", i, v) : undefined} style={{ fontFamily: BODY }}/>
                 </li>
               ))}

@@ -482,6 +482,12 @@ export interface DandyVersusBlockProps {
   rightCtaText: string;
   rightCtaUrl: string;
   bgColor?: string;
+  /** Optional override for the right (Dandy) card background/gradient base.
+   *  Falls back to `var(--brand-primary)` when unset. */
+  rightBg?: string;
+  /** Optional override for the eyebrow color (top + right-card labels).
+   *  Falls back to `var(--brand-accent)` when unset. */
+  eyebrowColor?: string;
 }
 
 export interface DandyColumnsV2Item {

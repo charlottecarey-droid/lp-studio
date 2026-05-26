@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { BLOCK_REGISTRY, getBlockDef, type PageBlock, type BlockType, type BlockCategory, type BlockSettings } from "@/lib/block-types";
 import { PropertyPanel } from "@/pages/builder/property-panels/PropertyPanel";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
-import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, RotateCcw, Save, Settings2, BookmarkPlus } from "lucide-react";
@@ -219,7 +219,7 @@ export default function BlockDefaultsPage() {
               <div className="flex-1 overflow-y-auto bg-muted/30">
                 <div className="p-4">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 ml-1">Live Preview</p>
-                  <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-border">
+                  <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-border" style={getBrandStyleVars(brand)} data-lp-page>
                     <BlockRenderer block={currentBlock} brand={brand} />
                   </div>
                 </div>
@@ -451,7 +451,7 @@ export function BlockDefaultsContent() {
             <div className="flex-1 overflow-y-auto bg-muted/30">
               <div className="p-4">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 ml-1">Live Preview</p>
-                <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-border">
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-border" style={getBrandStyleVars(brand)} data-lp-page>
                   <BlockRenderer block={currentBlock} brand={brand} />
                 </div>
               </div>

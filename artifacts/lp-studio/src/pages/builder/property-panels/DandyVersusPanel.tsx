@@ -44,10 +44,28 @@ export function DandyVersusPanel({ props: p, onChange }: Props) {
       <div className="space-y-1.5">
         <Label className="text-xs">Background Color</Label>
         <div className="flex gap-2 items-center">
-          <input type="color" value={p.bgColor ?? "var(--brand-primary)"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <input type="color" value={p.bgColor ?? "#003A30"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
           <BrandSwatches className="ml-1" current={p.bgColor} onPick={hex => set("bgColor", hex)} />
-          <Input value={p.bgColor ?? "var(--brand-primary)"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
+          <Input value={p.bgColor ?? ""} onChange={e => set("bgColor", e.target.value || undefined)} placeholder="var(--brand-primary)" className="h-8 text-xs font-mono flex-1" />
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Right Card Background (Dandy side)</Label>
+        <div className="flex gap-2 items-center">
+          <input type="color" value={p.rightBg ?? "#003A30"} onChange={e => set("rightBg", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <BrandSwatches className="ml-1" current={p.rightBg} onPick={hex => set("rightBg", hex)} />
+          <Input value={p.rightBg ?? ""} onChange={e => set("rightBg", e.target.value || undefined)} placeholder="var(--brand-primary)" className="h-8 text-xs font-mono flex-1" />
+        </div>
+        <p className="text-[11px] text-muted-foreground">Gradient base color for the Dandy (right) card. Leave blank to inherit brand primary.</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Eyebrow Color</Label>
+        <div className="flex gap-2 items-center">
+          <input type="color" value={p.eyebrowColor ?? "#C7E738"} onChange={e => set("eyebrowColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <BrandSwatches className="ml-1" current={p.eyebrowColor} onPick={hex => set("eyebrowColor", hex)} />
+          <Input value={p.eyebrowColor ?? ""} onChange={e => set("eyebrowColor", e.target.value || undefined)} placeholder="var(--brand-accent)" className="h-8 text-xs font-mono flex-1" />
+        </div>
+        <p className="text-[11px] text-muted-foreground">Top eyebrow + right-card label. Leave blank to inherit brand accent.</p>
       </div>
 
       <div className="border-t pt-3 space-y-3">
