@@ -1,0 +1,14 @@
+Plan approved with conditions. Going through the 5 questions:
+
+NDJSON streaming: yes. UI streaming work needs to be in the same PR, not deferred — the per-dimension progress UX is the whole point.
+No in-process Playwright in v1: yes. One ask: in the final test report, for each of the 5 test URLs, explicitly call out which dimensions (if any) would have benefited from real Playwright. That's how I'll decide whether v2 needs it.
+Postgres cache: yes. Migration in the same PR.
+Additive-only schema: yes. To be explicit: no renames, no restructures, no field deletions on existing BrandConfig keys. New fields only.
+Test pass at the end: yes, with one addition. For each of the 5 URLs, write a 4-bullet "designer's ground truth" first (primary color, heading font, button shape category, 1-line voice) and compare side-by-side. Subjective eval doesn't ship.
+
+Four corrections / clarifications before you start:
+a. Button vision call: don't ask the vision model to estimate pixel values like radius in px. Limit the vision step to categorizing (pill / rounded / square / gradient-pill / outline / ghost) and confirming the CSS-parsed values look right. Trust the CSS parse for measurements; trust vision for category and grounding.
+b. Font catalog: where do the ~150 families come from? Hand-curated is too brittle. Seed from the Google Fonts API (free, official names + weights + URLs), plus a small handwritten map of common non-Google families (Söhne, Larsseit, Sohne, GT America, etc.) → closest Google fallback. Tell me which families are in the handwritten map before locking it.
+c. Photography → AI image gen wiring: is the new photographyProfile actually being consumed by AI image generation in this PR, or is that a follow-up? I want it to be a follow-up if it slows you down, but I need to know explicitly — the launch demo will show the profile populating and I want it to be doing real work, not decorative.
+d. 12s budget: measure firecrawl latency against stripe.com end-to-end before locking the budget. Firecrawl alone can be 5-8s; if six parallel extractors gated on firecrawl blow 12s on first try, I'd rather know now than discover it after everything's wired.
+Once you've answered (a)–(d), proceed. Ping me at the design review with the test results table.

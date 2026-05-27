@@ -18,7 +18,7 @@ import {
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
   Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload, Globe,
-  CircleDashed, CheckCircle2,
+  CircleDashed, CheckCircle2, Check,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -96,6 +96,17 @@ interface ImportResult {
   sourceUrl?: string;
   pagesScraped?: string[];
   hasScreenshot?: boolean;
+  /** Set by the streaming URL importer — ranked logo candidates so the
+   *  review UI can show a picker. */
+  logoAlternates?: { url: string; source: string; format: string; score: number }[];
+}
+
+type ImportDimensionName = "logos" | "colors" | "typography" | "buttons" | "photography" | "voice";
+type ImportDimensionStatus = "pending" | "loading" | "ok" | "partial" | "failed";
+interface ImportDimensionState {
+  status: ImportDimensionStatus;
+  preview: string;
+  errors: string[];
 }
 
 type ImportMode = "text" | "url";
@@ -1420,6 +1431,16 @@ export default function BrandSettings() {
   const [importChecked, setImportChecked] = useState<Record<string, boolean>>({});
   const [importApplied, setImportApplied] = useState(false);
   const [importSource, setImportSource] = useState<BrandImportSource | null>(null);
+  // Streaming URL importer — per-dimension progress + selected logo override.
+  const [importDimensions, setImportDimensions] = useState<Record<ImportDimensionName, ImportDimensionState>>({
+    logos: { status: "pending", preview: "", errors: [] },
+    colors: { status: "pending", preview: "", errors: [] },
+    typography: { status: "pending", preview: "", errors: [] },
+    buttons: { status: "pending", preview: "", errors: [] },
+    photography: { status: "pending", preview: "", errors: [] },
+    voice: { status: "pending", preview: "", errors: [] },
+  });
+  const [importSelectedLogo, setImportSelectedLogo] = useState<string | null>(null);
 
   const [hexErrors, setHexErrors] = useState<Record<string, boolean>>({});
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -1665,17 +1686,109 @@ export default function BrandSettings() {
     setImporting(true);
     setImportResult(null);
     setImportApplied(false);
+    setImportSelectedLogo(null);
+    setImportDimensions({
+      logos: { status: "loading", preview: "", errors: [] },
+      colors: { status: "loading", preview: "", errors: [] },
+      typography: { status: "loading", preview: "", errors: [] },
+      buttons: { status: "loading", preview: "", errors: [] },
+      photography: { status: "loading", preview: "", errors: [] },
+      voice: { status: "loading", preview: "", errors: [] },
+    });
+
     try {
-      const res = await fetch(`${BASE}/api/lp/brand-import/from-url`, {
+      const res = await fetch(`${BASE}/api/lp/brand-import/from-url-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Import failed");
       }
-      const result: ImportResult = await res.json();
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      interface DonePayload {
+        proposed: Record<string, unknown>;
+        confidence: Record<string, "high" | "medium" | "low">;
+        sourceUrl?: string;
+        pagesScraped?: string[];
+        hasScreenshot?: boolean;
+        results?: Record<string, { status: ImportDimensionStatus; data: unknown; errors: string[] }>;
+      }
+      let donePayload: DonePayload | null = null;
+
+      const summarize = (dim: ImportDimensionName, data: unknown): string => {
+        if (!data || typeof data !== "object") return "";
+        const d = data as Record<string, unknown>;
+        if (dim === "logos") {
+          const alts = Array.isArray(d.alternates) ? d.alternates.length : 0;
+          return d.defaultLogoUrl ? `1 picked, ${Math.max(0, alts - 1)} alternates` : "no logo";
+        }
+        if (dim === "colors") return `${d.primary ?? ""} • ${d.accent ?? ""}`;
+        if (dim === "typography") {
+          const heading = (d.heading as { family?: string } | null)?.family ?? "—";
+          const body = (d.body as { family?: string } | null)?.family ?? "—";
+          return `${heading} / ${body}`;
+        }
+        if (dim === "buttons") {
+          const pb = d.primaryButton as { category?: string; radiusPx?: number } | null;
+          return pb ? `${pb.category ?? "?"} • ${pb.radiusPx ?? "?"}px` : "no button rules";
+        }
+        if (dim === "photography") {
+          const p = (d.profile as { medium?: string; subject?: string }) ?? {};
+          return `${p.medium ?? "?"} • ${p.subject ?? "?"}`;
+        }
+        if (dim === "voice") {
+          const p = (d.profile as { tone?: string[]; formality?: number }) ?? {};
+          return `${(p.tone ?? []).join(", ") || "?"} • formality ${p.formality ?? "?"}`;
+        }
+        return "";
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let event: { event: string; [k: string]: unknown };
+          try { event = JSON.parse(line); } catch { continue; }
+          if (event.event === "dimension") {
+            const dim = event.dimension as ImportDimensionName;
+            const result = event.result as { status: ImportDimensionStatus; data: unknown; errors?: string[] };
+            setImportDimensions((prev) => ({
+              ...prev,
+              [dim]: {
+                status: result.status,
+                preview: summarize(dim, result.data),
+                errors: result.errors ?? [],
+              },
+            }));
+          } else if (event.event === "done") {
+            donePayload = event.payload as DonePayload;
+          } else if (event.event === "error") {
+            throw new Error(String(event.error));
+          }
+        }
+      }
+
+      if (!donePayload) throw new Error("Stream ended without a final payload");
+      const result: ImportResult = {
+        proposed: donePayload.proposed,
+        confidence: donePayload.confidence,
+        unparsed: [],
+        sourceUrl: donePayload.sourceUrl,
+        pagesScraped: donePayload.pagesScraped,
+        hasScreenshot: donePayload.hasScreenshot,
+        logoAlternates: Array.isArray(donePayload.proposed.logoAlternates)
+          ? donePayload.proposed.logoAlternates as ImportResult["logoAlternates"]
+          : undefined,
+      };
       setImportResult(result);
       const checked: Record<string, boolean> = {};
       for (const [field, conf] of Object.entries(result.confidence)) {
@@ -1701,6 +1814,11 @@ export default function BrandSettings() {
         const conf = importResult.confidence[field] ?? "medium";
         confidenceCounts[conf] = (confidenceCounts[conf] ?? 0) + 1;
       }
+    }
+    // If the user picked an alternate logo from the streaming importer, that
+    // overrides whatever logoUrl came in `proposed`.
+    if (importSelectedLogo && importChecked["logoUrl"]) {
+      updates["logoUrl"] = importSelectedLogo;
     }
     setConfig((prev) => {
       const next = { ...prev, ...updates } as BrandConfig;
@@ -1732,6 +1850,15 @@ export default function BrandSettings() {
     setImportUrl("");
     setImportMode("text");
     setImportTab("colors");
+    setImportSelectedLogo(null);
+    setImportDimensions({
+      logos: { status: "pending", preview: "", errors: [] },
+      colors: { status: "pending", preview: "", errors: [] },
+      typography: { status: "pending", preview: "", errors: [] },
+      buttons: { status: "pending", preview: "", errors: [] },
+      photography: { status: "pending", preview: "", errors: [] },
+      voice: { status: "pending", preview: "", errors: [] },
+    });
   };
 
   if (loading) {
@@ -3027,6 +3154,30 @@ export default function BrandSettings() {
 
           {importResult && !importApplied ? (
             <div className="flex flex-col gap-4 py-2">
+              {importResult.logoAlternates && importResult.logoAlternates.length > 1 && (
+                <div className="rounded-xl border border-border bg-card p-3">
+                  <div className="text-sm font-medium mb-2">Pick a logo</div>
+                  <div className="flex flex-wrap gap-2">
+                    {importResult.logoAlternates.slice(0, 8).map((alt) => {
+                      const selected = (importSelectedLogo ?? (importResult.proposed["logoUrl"] as string | undefined)) === alt.url;
+                      return (
+                        <button
+                          key={alt.url}
+                          type="button"
+                          onClick={() => setImportSelectedLogo(alt.url)}
+                          className={cn(
+                            "flex items-center justify-center w-20 h-14 rounded-lg border-2 bg-muted/20 overflow-hidden transition-colors",
+                            selected ? "border-primary" : "border-border hover:border-muted-foreground/40",
+                          )}
+                          title={`${alt.source} • ${alt.format}`}
+                        >
+                          <img src={alt.url} alt={alt.source} className="max-w-full max-h-full object-contain" loading="lazy" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {Object.keys(importResult.proposed).length === 0 ? (
                 <div className="p-4 rounded-xl bg-muted/30 border border-border text-sm text-muted-foreground text-center">
                   No changes could be confidently extracted from the provided text.
@@ -3114,9 +3265,28 @@ export default function BrandSettings() {
                 </p>
               </div>
               {importing && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Scraping site and analyzing brand…
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="px-3 py-2 text-xs font-semibold text-muted-foreground bg-muted/30 border-b border-border">
+                    Extracting brand…
+                  </div>
+                  <ul className="divide-y divide-border">
+                    {(["logos", "colors", "typography", "buttons", "photography", "voice"] as ImportDimensionName[]).map((dim) => {
+                      const d = importDimensions[dim];
+                      const icon =
+                        d.status === "loading" ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                        : d.status === "ok" ? <Check className="w-3.5 h-3.5 text-green-600" />
+                        : d.status === "partial" ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        : d.status === "failed" ? <X className="w-3.5 h-3.5 text-destructive" />
+                        : <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/40" />;
+                      return (
+                        <li key={dim} className="flex items-center gap-3 px-3 py-2 text-sm">
+                          <div className="flex-shrink-0">{icon}</div>
+                          <div className="font-medium capitalize w-24">{dim}</div>
+                          <div className="text-xs text-muted-foreground flex-1 truncate">{d.preview || (d.status === "failed" ? (d.errors[0] ?? "failed") : "")}</div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
               <div className="flex justify-end">

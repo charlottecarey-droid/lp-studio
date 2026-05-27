@@ -11,7 +11,10 @@ export function getOpenAIClient(): OpenAI {
   if (!baseURL || !apiKey) {
     throw new Error("AI integration not configured. Please set up Replit AI Integrations.");
   }
-  return new OpenAI({ baseURL, apiKey });
+  // maxRetries: 1 honors the proxy's Retry-After once on 429s (the proxy is
+  // strict about parallel bursts) but doesn't multiply our per-extractor
+  // budget by 3 like the default would. Timeout caps each call.
+  return new OpenAI({ baseURL, apiKey, maxRetries: 1, timeout: 18_000 });
 }
 
 export type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "segments" | "all";
@@ -247,6 +250,45 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
       if (filtered.length > 0) return { valid: true, sanitized: filtered.slice(0, 20) };
     }
     return { valid: false, sanitized: null };
+  }
+  // ── Streaming-importer additive fields ────────────────────────────
+  // These come from our own orchestrator (well-typed) so we mainly enforce
+  // shape + size caps rather than per-field whitelists.
+  if (field === "logoAlternates") {
+    if (!Array.isArray(value)) return { valid: false, sanitized: null };
+    const out = value
+      .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as { url?: unknown }).url === "string")
+      .slice(0, 12)
+      .map((v) => ({
+        url: String(v.url).slice(0, 2000),
+        source: typeof v.source === "string" ? v.source : "favicon",
+        format: typeof v.format === "string" ? v.format : "unknown",
+        estimatedArea: typeof v.estimatedArea === "number" ? v.estimatedArea : null,
+        transparent: typeof v.transparent === "boolean" ? v.transparent : null,
+        score: typeof v.score === "number" ? v.score : 0,
+      }));
+    return { valid: out.length > 0, sanitized: out };
+  }
+  if (field === "photographyProfile" || field === "voiceProfile" || field === "buttonStyleRaw" || field === "surfaceStyle") {
+    if (typeof value !== "object" || value === null) return { valid: false, sanitized: null };
+    // Cap serialized size at 32KB to prevent runaway JSON
+    try {
+      const json = JSON.stringify(value);
+      if (json.length > 32_000) return { valid: false, sanitized: null };
+      return { valid: true, sanitized: JSON.parse(json) };
+    } catch {
+      return { valid: false, sanitized: null };
+    }
+  }
+  if (field === "displayFontUrl" || field === "bodyFontUrl" || field === "numbersFontUrl") {
+    if (typeof value !== "string") return { valid: false, sanitized: null };
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.length > 2000) return { valid: false, sanitized: null };
+    try {
+      const u = new URL(trimmed);
+      if (u.protocol !== "https:" && u.protocol !== "http:") return { valid: false, sanitized: null };
+      return { valid: true, sanitized: u.toString() };
+    } catch { return { valid: false, sanitized: null }; }
   }
   if (field === "logoUrl") {
     if (typeof value !== "string") return { valid: false, sanitized: null };

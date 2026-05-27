@@ -155,3 +155,9 @@ id = "06e9oI_xzw227E2aCk1GH"
 uri = "file://attached_assets/spatial-lab-tour-trailer.mp4"
 type = "video"
 title = "Spatial Lab Tour — Trailer v8 (smoother fades)"
+
+[[outputs]]
+id = "TSyaia5zsoAY6NBifnzXk"
+uri = "file://.local/brand-import-test-report.md"
+type = "text"
+title = "Brand Importer — 5-URL Test Report"

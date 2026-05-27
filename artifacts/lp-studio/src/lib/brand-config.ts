@@ -215,6 +215,94 @@ export interface BrandConfig {
    * "light". Null/undefined preserves legacy behaviour.
    */
   modalTheme?: "light" | "dark" | null;
+  /** ── URL brand-importer (streaming orchestrator) additive fields ────
+   *  All optional, all written by the from-url-stream importer's review
+   *  flow. Existing tenants without an import never see these. */
+  /** Ranked logo candidates beyond the picked `logoUrl`. Drives the logo
+   *  alternates picker on the Brand Settings review page. */
+  logoAlternates?: ImportedLogoCandidate[];
+  /** Structured profile of the brand's homepage imagery: medium, palette
+   *  temperature, lightness, subject, mood + a one-sentence summary. Used
+   *  as a brief for the (future) AI image generator. */
+  photographyProfile?: ImportedPhotographyProfile;
+  /** Voice profile extracted from the importer (tone, formality, sentence
+   *  length, vocab register, signature/forbidden phrases, summary). The
+   *  existing `toneOfVoice` / `toneKeywords` / `avoidPhrases` fields are
+   *  also written for backward compat. */
+  voiceProfile?: ImportedVoiceProfile;
+  /** Raw CSS-parsed primary-button style from the importer (radius px,
+   *  padding, font-weight, background, shadow, raw declarations + vision
+   *  agreement). Drives the "we observed" preview in Brand Settings. */
+  buttonStyleRaw?: ImportedButtonStyle;
+  /** Raw CSS-parsed card/surface style (radius, shadow, border). */
+  surfaceStyle?: ImportedSurfaceStyle;
+  /** Fonts the importer believes are loaded on the source site, so the
+   *  rendering side can stylesheet-inject them without re-running font
+   *  detection. */
+  loadedFonts?: ImportedLoadedFont[];
+}
+
+export interface ImportedLogoCandidate {
+  url: string;
+  source: "header" | "footer" | "favicon" | "apple-touch-icon" | "og" | "svg-alt";
+  format: "svg" | "png" | "jpg" | "ico" | "webp" | "unknown";
+  estimatedArea: number | null;
+  transparent: boolean | null;
+  score: number;
+}
+
+export interface ImportedPhotographyProfile {
+  profile: {
+    medium: "photographic" | "illustrated" | "mixed" | "abstract" | "unknown";
+    paletteTemperature: "warm" | "cool" | "neutral" | "unknown";
+    lightness: "light" | "dark" | "mid" | "unknown";
+    subject: "people" | "product" | "environment" | "abstract" | "mixed" | "unknown";
+    mood: string;
+    summary: string;
+  };
+  referenceImageUrls: string[];
+}
+
+export interface ImportedVoiceProfile {
+  profile: {
+    tone: string[];
+    formality: 1 | 2 | 3 | 4 | 5;
+    sentenceLengthAvg: "short" | "medium" | "long";
+    vocabularyRegister: "everyday" | "industry" | "specialist";
+    signaturePhrases: string[];
+    forbiddenPhrases: string[];
+    summary: string;
+  };
+  selfCheckScore: number | null;
+  selfCheckSourceSentence: string | null;
+  selfCheckRewrite: string | null;
+}
+
+export interface ImportedButtonStyle {
+  category: "pill" | "rounded" | "square" | "gradient-pill" | "outline" | "ghost";
+  radiusPx: number | null;
+  paddingX: string | null;
+  paddingY: string | null;
+  fontWeight: number | null;
+  textTransform: string | null;
+  background: { type: "solid" | "gradient" | "transparent"; value: string } | null;
+  boxShadow: string | null;
+  raw: Record<string, string>;
+  visionAgreed: boolean;
+  visionNotes: string;
+}
+
+export interface ImportedSurfaceStyle {
+  radiusPx: number | null;
+  boxShadow: string | null;
+  border: string | null;
+  raw: Record<string, string>;
+}
+
+export interface ImportedLoadedFont {
+  family: string;
+  url: string;
+  role: "heading" | "body" | "mono";
 }
 
 export interface SalesConsoleValuePropPair {
