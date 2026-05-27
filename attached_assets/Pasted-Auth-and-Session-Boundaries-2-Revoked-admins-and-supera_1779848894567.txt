@@ -1,0 +1,118 @@
+Auth and Session Boundaries (2)
+
+Revoked admins and superadmins keep stale privileges until session expiry
+High
+Users who are removed from a workspace or stripped of admin rights can keep using their old session for up to seven days. That means a former tenant admin or former superadmin can continue managing tenants and changing data even after an operator thinks access has been revoked.
+
+
+View issue
+
+Dismiss issue
+
+Cross-domain auth handoff codes can be redeemed on any tenant domain
+Medium
+An authenticated tenant admin can take a valid session-handoff code for their own account and redeem it on a different tenant's domain. This breaks the application's host-based trust boundary and lets the attacker operate under another tenant's trusted hostname, enabling phishing and domain confusion.
+
+
+View issue
+
+Dismiss issue
+DSO Backend Exposure (3)
+
+Any authenticated user can trigger destructive DSO functions and outbound email actions
+High
+Any logged-in user can invoke powerful DSO backend functions that were meant for a restricted DSO workflow, including wiping contact data and sending emails through the platform's configured providers. An unrelated tenant user could abuse these endpoints to damage DSO operations, consume paid integrations, or send unauthorized mail from a trusted brand.
+
+
+View issue
+
+Dismiss issue
+
+Any authenticated user can fully read and modify the DSO database
+High
+Any logged-in account can use the DSO API to read, change, or delete sensitive DSO records, even if that user belongs to an unrelated tenant and should have no access to DSO data. This exposes contact lists, email campaign data, microsite records, and other business data to unauthorized users.
+
+
+View issue
+
+Dismiss issue
+
+Public DSO click tracker is an open redirect on the primary domain
+Low
+The public DSO email click tracker will redirect visitors to any URL supplied by the requester. Attackers can use a trusted application URL to bounce victims to phishing pages or other malicious destinations, which undermines user trust in the platform's domain.
+
+
+View issue
+
+Dismiss issue
+Public LP Data Exposure (2)
+
+Public brand endpoint leaks full tenant brand configuration by slug
+Medium
+The public brand-settings endpoint can reveal a tenant's full saved brand configuration to unauthenticated callers. Anyone who knows or guesses a page slug can retrieve internal brand strategy data and sales-console settings that were not meant to be public page content.
+
+
+View issue
+
+Dismiss issue
+
+Public A/B test endpoint exposes draft and cross-tenant variant content
+High
+The public landing-page JSON endpoint can return unpublished A/B test content to anyone on the internet. If an attacker knows or guesses a test slug, they can fetch linked variant pages and block content without logging in, even when the test or linked pages are still in draft.
+
+
+View issue
+
+Dismiss issue
+Public Resource Exhaustion (2)
+
+Public upload endpoints write large objects before checking authentication
+High
+Anyone on the internet can force the server to accept and store large uploads before the request is rejected for lacking a tenant session. This lets an attacker burn object-storage space, bandwidth, and memory with repeated anonymous uploads, which can increase costs or degrade service.
+
+
+View issue
+
+Dismiss issue
+
+Unauthenticated video renderer allows expensive server-side job execution
+High
+Anyone on the internet can trigger a heavyweight video-rendering job on the production server without logging in. An attacker can repeatedly invoke this endpoint to consume CPU, memory, disk, Playwright browser slots, and ffmpeg time until the application becomes slow or unavailable.
+
+
+View issue
+
+Dismiss issue
+Sales Tracking and Integrations (3)
+
+Public sales click-tracking endpoints are open redirects
+Medium
+Attackers can turn the application's public click-tracking links into redirects to any website they choose. This allows phishing links to use a trusted application domain, making malicious destinations look more legitimate to recipients and security filters.
+
+
+View issue
+
+Dismiss issue
+
+Public sales tracking endpoints allow forged opens and clicks
+High
+Anyone on the internet can fake email opens and clicks for the Sales Console by calling the public tracking URLs with guessed IDs. This lets an attacker corrupt campaign analytics and create false engagement signals that sales teams may act on.
+
+
+View issue
+
+Dismiss issue
+
+Salesforce OAuth callback trusts attacker-controlled tenant IDs
+High
+A logged-in user can connect their own Salesforce account to a different tenant by tampering with the OAuth state value. This can reroute another tenant's Salesforce syncs and write-backs into an attacker-controlled org or break that tenant's CRM integration entirely.
+
+
+View issue
+
+Dismiss issue
+Updated security threat model
+
+View
+
+Save
