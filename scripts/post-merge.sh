@@ -42,14 +42,13 @@ psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_eve
 
 # lp_heatmap_events: indexed on page_id (queried by page_id in heatmap analytics)
 # Table may not exist in all environments — skip gracefully if absent.
-psql "$NEON_DATABASE_URL" -c "
-DO \$\$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'lp_heatmap_events') THEN
-    EXECUTE 'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_heatmap_events_page_id ON lp_heatmap_events (page_id)';
-  END IF;
-END \$\$;
-"
+# Note: CREATE INDEX CONCURRENTLY cannot run inside a DO block / transaction
+# (Postgres wraps DO bodies in an implicit txn and rejects the concurrent
+# build). So the table-existence check is done at the shell level instead,
+# and the index is created via a separate top-level psql command.
+if [ "$(psql "$NEON_DATABASE_URL" -tAc "SELECT 1 FROM information_schema.tables WHERE table_name = 'lp_heatmap_events'")" = "1" ]; then
+  psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_heatmap_events_page_id ON lp_heatmap_events (page_id);"
+fi
 
 # lp_page_presence: indexed on page_id (queried by page_id for live presence tracking)
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_page_presence_page_id ON lp_page_presence (page_id);"
