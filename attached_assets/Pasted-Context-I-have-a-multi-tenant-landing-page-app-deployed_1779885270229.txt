@@ -1,0 +1,26 @@
+Context: I have a multi-tenant landing page app deployed on Replit/GCP with a Cloudflare edge layer (R2-prerendered HTML, worker-based routing, Custom Hostnames provisioned via Cloudflare API). New tenants self-serve onboard: they enter a hostname in my UI, my app provisions a Cloudflare Custom Hostname via API, and they add one CNAME pointing at <hostname>.cdn.cloudflare.net. Cert issuance is automatic via CNAME-based DCV. Works great for greenfield hostnames with no existing traffic.
+I'm currently migrating a tenant (Dandy) with two live-traffic hostnames: partners.meetdandy.com (lower traffic, organic) and lp.meetdandy.com (paid traffic). Both currently resolve to my origin's A record (34.111.179.208). The runbook I wrote uses a full pre-validation flow: 6 DNS records added up front (1 CAA issue "ssl.com", 2 _cf-custom-hostname TXTs, 3 _acme-challenge TXTs), wait for cert issuance, then stage the CNAME flips (partners first, lp 24–48h later) with monitoring and rollback steps for each.
+I'm questioning whether this is overkill. Please assess the alternative of treating Dandy like a new tenant — one CNAME, no prereq records, accept whatever short TLS gap happens during cert issuance. Specifically:
+
+What actually happens during the gap? When the CNAME is flipped and Cloudflare doesn't have a cert yet, what do visitors see? How long is the typical issuance window for CNAME-based DCV on a Custom Hostname that's already provisioned via the API? Are we talking seconds, minutes, or longer? What variance should I expect (worst case)?
+Browser SSL error cache. My understanding is that SSL errors get aggressively cached by browsers (HSTS, error pages, etc.) and the actual recovery window for end users can be longer than the cert-issuance window itself. How real is this? What's the typical user-side recovery time after the cert goes live? Does HSTS make this catastrophically worse if the hostname has ever sent HSTS headers?
+Are the 6 records actually preventing other failure modes, or are they purely a "no TLS gap" optimization? Specifically:
+
+Does pre-validation give Cloudflare a more stable/robust cert issuance path vs. on-demand?
+Does having the CAA record in place prevent any class of cert renewal failures down the road, or is it only needed for initial issuance?
+If pre-validation fails (e.g., wrong record value), do I find out before any traffic is affected? Vs. on-demand where I'd find out during the outage?
+Are there any operational reliability benefits long-term (renewals, cert rotation, edge propagation) from having pre-validated, or is it purely an initial-issuance concern?
+
+
+Hybrid option: what if I treat partners as a new tenant (one CNAME, accept the gap during a quiet window) but use full pre-validation for lp (paid traffic)? Does the asymmetric approach introduce any risk I'm not seeing? Is the cognitive overhead of two different paths worth the reduced IT coordination?
+Honest recommendation: given:
+
+partners traffic is lower and organic (some gap tolerable)
+lp is paid traffic (gap = real money + attribution mess)
+I want fewer IT touches if possible
+I want this to be repeatable for the next live-traffic tenant
+
+What would you actually do? If you'd stick with the 6-record dance, what's the strongest argument for it that isn't just "no downtime"? I want to understand if I'm being over-cautious or appropriately cautious.
+Reusability: if I do go with the simpler approach for Dandy, what would I tell the next live-traffic tenant? Is "accept a short gap" a defensible default I can bake into my onboarding flow, or is it the kind of thing that only works for tenants who explicitly accept the risk?
+
+Don't write code. I want a clear-eyed assessment of trade-offs and a recommendation. If you need more info to answer (e.g., actual traffic numbers, whether HSTS is set on these hostnames), ask.
