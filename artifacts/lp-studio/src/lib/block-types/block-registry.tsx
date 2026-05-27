@@ -3847,6 +3847,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heroSecondaryCta: "Watch the trailer",
       heroImageUrl: "/event-assets/carousel-lab-machine.png",
       heroVideoUrl: "/videos/dandy-broll.mp4",
+      heroTrailerUrl: "/videos/spatial-lab-tour-trailer.mp4",
       heroVisionChipText: "Apple Vision Pro · 6–8 min",
       heroScrollLabel: "The tour begins",
 
