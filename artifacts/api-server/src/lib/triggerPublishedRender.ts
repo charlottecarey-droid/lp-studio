@@ -45,7 +45,7 @@ import * as Sentry from "@sentry/node";
 import { db, lpPagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { findTenantByHost, getActiveHostsForTenant } from "./tenantHosts";
-import { prerenderLpPage } from "./prerenderLpPage";
+import { prerenderLpPage, PrerenderPageMissingError } from "./prerenderLpPage";
 import { injectPageMeta } from "./injectPageMeta";
 import { uploadPublishedHtml, deletePublishedHtml } from "./publishedHtmlStorage";
 import {
@@ -76,6 +76,7 @@ export interface RenderOutcome {
   /** Reason the render didn't complete, if applicable. */
   skipped?:
     | "page_not_found"
+    | "page_missing"
     | "not_published"
     | "superseded_by_concurrent_edit"
     | "render_failed"
@@ -195,14 +196,61 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   let renderAttempts = 0;
   const renderAttempt = async (): Promise<string> => {
     renderAttempts += 1;
-    return prerenderLpPage({ pageId: page.id, slug: page.slug });
+    return prerenderLpPage({ pageId: page.id, tenantId: page.tenantId, slug: page.slug });
+  };
+  // Helper to classify a render error into Sentry-grade buckets. Task #389
+  // splits these out so the `prerender_render_failed` alert no longer
+  // lumps DB errors and missing-page races under `nav_or_timeout`. Order
+  // matters: page_missing wins (typed sentinel) before the string regexes.
+  type FailureReason = "page_missing" | "db_error" | "snapshot_race" | "nav_or_timeout";
+  const classifyRenderError = (err: unknown): FailureReason => {
+    if (err instanceof PrerenderPageMissingError) return "page_missing";
+    const code = (err && typeof err === "object" && "code" in err)
+      ? String((err as { code?: unknown }).code ?? "")
+      : "";
+    // Postgres SQLSTATE codes are 5-char alphanumerics; class-23 is
+    // integrity_constraint_violation, class-22 is data_exception, class-08
+    // is connection_exception. Any of these signal "DB error", not "the
+    // headless browser couldn't navigate".
+    if (/^(23|22|08|40|42|53|57)/.test(code)) return "db_error";
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/snapshot race|lp-page-disappeared/i.test(msg)) return "snapshot_race";
+    return "nav_or_timeout";
   };
   try {
     html = await renderAttempt();
   } catch (firstErr) {
+    const firstReason = classifyRenderError(firstErr);
     const firstErrMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+
+    // Task #389: don't retry on outcomes that physically can't recover.
+    // page_missing means the lp_pages row is gone — a second attempt
+    // will fetch the same NULL and waste a Chromium boot. Skip cleanly,
+    // log structured, and report a distinct Sentry outcome (warning
+    // level — this is expected when a publish is immediately followed
+    // by a delete, not an operator-actionable error).
+    if (firstReason === "page_missing") {
+      outcome.skipped = "page_missing";
+      outcome.error = firstErrMsg;
+      outcome.durationMs = Date.now() - t0;
+      console.warn("[triggerPublishedRender] page_missing — skipping render", {
+        pageId: page.id, tenantId: page.tenantId, slug: page.slug, err: firstErrMsg,
+      });
+      Sentry.captureMessage("prerender_render_skipped_page_missing", {
+        level: "warning",
+        tags: { subsystem: "lp-prerender", outcome: "page_missing" },
+        extra: {
+          pageId: page.id,
+          tenantId: page.tenantId,
+          slug: page.slug,
+          error: firstErrMsg,
+        },
+      });
+      return outcome;
+    }
+
     console.warn("[triggerPublishedRender] prerender attempt 1 failed, retrying once", {
-      pageId: opts.pageId, error: firstErrMsg,
+      pageId: opts.pageId, reason: firstReason, error: firstErrMsg,
     });
     // Brief settle to let any transient memory/cpu spike subside before
     // we hand Chromium another browser instance.
@@ -216,7 +264,7 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
       });
       Sentry.captureMessage("prerender_render_recovered_on_retry", {
         level: "warning",
-        tags: { subsystem: "lp-prerender", outcome: "recovered_on_retry" },
+        tags: { subsystem: "lp-prerender", outcome: "recovered_on_retry", reason: firstReason },
         extra: {
           pageId: page.id,
           tenantId: page.tenantId,
@@ -225,34 +273,65 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
         },
       });
     } catch (secondErr) {
+      const secondReason = classifyRenderError(secondErr);
+      // If the retry surfaces page_missing (e.g. row deleted during the
+      // 1.5s settle), treat it as a skip rather than a render_failed.
+      if (secondReason === "page_missing") {
+        outcome.skipped = "page_missing";
+        outcome.error = secondErr instanceof Error ? secondErr.message : String(secondErr);
+        outcome.durationMs = Date.now() - t0;
+        console.warn("[triggerPublishedRender] page_missing on retry — skipping", {
+          pageId: page.id, tenantId: page.tenantId, slug: page.slug,
+          err: outcome.error, firstError: firstErrMsg,
+        });
+        Sentry.captureMessage("prerender_render_skipped_page_missing", {
+          level: "warning",
+          tags: { subsystem: "lp-prerender", outcome: "page_missing" },
+          extra: {
+            pageId: page.id,
+            tenantId: page.tenantId,
+            slug: page.slug,
+            firstError: firstErrMsg,
+            error: outcome.error,
+          },
+        });
+        return outcome;
+      }
+
       outcome.skipped = "render_failed";
       outcome.error = secondErr instanceof Error ? secondErr.message : String(secondErr);
       outcome.durationMs = Date.now() - t0;
       console.warn("[triggerPublishedRender] prerender failed on both attempts", {
-        pageId: opts.pageId, attempts: renderAttempts, err: secondErr,
+        pageId: opts.pageId, attempts: renderAttempts, reason: secondReason, err: secondErr,
       });
       // Render failures are how the May 2026 silent regression manifested
       // (LP_STUDIO_RENDER_BASE_URL unset on prod → Playwright loaded the
       // wrong base URL → SPA never rendered the page → blank HTML → R2
       // never updated). Alert loudly so the next regression of this shape
       // is caught the first time it happens, not the 100th.
-      // Differentiate failure modes in Sentry tags so triage doesn't have
-      // to grep `extra.error`. `snapshot_race` is the trios5-class case
-      // (atomic-capture assertion threw — SPA re-rendered to shell mid-
-      // evaluate); `nav_or_timeout` covers everything else (navigation
-      // 4xx/5xx, waitForFunction timeout, browser launch failure, etc.).
-      const reason = /snapshot race|lp-page-disappeared/i.test(outcome.error ?? "")
-        ? "snapshot_race"
-        : "nav_or_timeout";
-      Sentry.captureMessage("prerender_render_failed", {
+      // Task #389: surface the underlying error class in the Sentry
+      // message + tag so triage doesn't have to grep `extra.error` to
+      // tell a DB error from a Playwright timeout. `snapshot_race` is
+      // the trios5-class case (atomic-capture assertion threw — SPA
+      // re-rendered to shell mid-evaluate); `db_error` covers any
+      // Postgres SQLSTATE class we recognise; `nav_or_timeout` is the
+      // last-resort bucket for actual browser-side failures.
+      const messageByReason: Record<FailureReason, string> = {
+        page_missing: "prerender_render_failed_page_missing", // unreachable here (handled above)
+        db_error: "prerender_render_failed_db_error",
+        snapshot_race: "prerender_render_failed_snapshot_race",
+        nav_or_timeout: "prerender_render_failed_nav_or_timeout",
+      };
+      Sentry.captureMessage(messageByReason[secondReason], {
         level: "error",
-        tags: { subsystem: "lp-prerender", outcome: "render_failed", reason },
+        tags: { subsystem: "lp-prerender", outcome: "render_failed", reason: secondReason },
         extra: {
           pageId: page.id,
           tenantId: page.tenantId,
           slug: page.slug,
           attemptedHosts: hostsToWrite,
           attempts: renderAttempts,
+          firstReason,
           firstError: firstErrMsg,
           error: outcome.error,
         },

@@ -30,8 +30,34 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { db, lpPageReviewsTable } from "@workspace/db";
+import { db, lpPageReviewsTable, lpPagesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+
+/**
+ * Thrown when the lp_pages row backing a prerender job no longer exists
+ * (deleted between trigger and worker run, or the trigger was queued for
+ * the wrong tenant). Callers should treat this as a non-retriable skip
+ * — neither the page row nor any FK-bound child row can be recovered by
+ * retrying. Task #389.
+ */
+export class PrerenderPageMissingError extends Error {
+  readonly code = "page_missing" as const;
+  readonly pageId: number;
+  readonly tenantId: number | null;
+  constructor(pageId: number, tenantId: number | null, detail: string) {
+    super(`prerender page_missing pageId=${pageId}${tenantId !== null ? ` tenantId=${tenantId}` : ""}: ${detail}`);
+    this.name = "PrerenderPageMissingError";
+    this.pageId = pageId;
+    this.tenantId = tenantId;
+  }
+}
+
+// Postgres FK-violation code, raised when an insert into lp_page_reviews
+// references an lp_pages row that no longer exists.
+const PG_FK_VIOLATION = "23503";
+function isFkViolation(err: unknown): boolean {
+  return !!(err && typeof err === "object" && "code" in err && (err as { code?: unknown }).code === PG_FK_VIOLATION);
+}
 
 let cachedChromium: string | null | undefined;
 
@@ -79,8 +105,41 @@ function resolveLpStudioBaseUrl(): string {
  * Mint (or reuse) a review token for a page so the preview endpoint
  * authenticates the snapshot request without a logged-in session. Reusing
  * the most recent pending token avoids piling up rows on every re-publish.
+ *
+ * Task #389: the prerender worker runs asynchronously after the publish
+ * handler returns, which leaves a window where the page can be deleted
+ * (or never existed under this tenant — e.g. a queued job for the wrong
+ * tenant) before this insert fires. Without a guard, drizzle surfaces a
+ * raw `lp_page_reviews_page_id_lp_pages_id_fk` violation that the outer
+ * caller miscategorises as `nav_or_timeout`. We re-fetch the page row
+ * (tenant-scoped when known) and throw a typed `PrerenderPageMissingError`
+ * so the caller can record a structured skip instead of retrying a
+ * doomed insert.
  */
-async function ensureReviewToken(pageId: number): Promise<string> {
+async function ensureReviewToken(pageId: number, tenantId: number | null): Promise<string> {
+  // Tenant-scoped existence check. If a tenantId is supplied (always the
+  // case when called from triggerPublishedRender) we require the row to
+  // belong to that tenant — this is the second half of the task #389
+  // tenant-misrouting safety net.
+  const pageRow = await db
+    .select({ id: lpPagesTable.id })
+    .from(lpPagesTable)
+    .where(
+      tenantId !== null
+        ? and(eq(lpPagesTable.id, pageId), eq(lpPagesTable.tenantId, tenantId))
+        : eq(lpPagesTable.id, pageId),
+    )
+    .limit(1);
+  if (pageRow.length === 0) {
+    throw new PrerenderPageMissingError(
+      pageId,
+      tenantId,
+      tenantId !== null
+        ? "lp_pages row missing for this tenant at review-token time"
+        : "lp_pages row missing at review-token time",
+    );
+  }
+
   const [existing] = await db
     .select({ token: lpPageReviewsTable.token })
     .from(lpPageReviewsTable)
@@ -89,16 +148,37 @@ async function ensureReviewToken(pageId: number): Promise<string> {
     .limit(1);
   if (existing?.token) return existing.token;
   const fresh = randomBytes(24).toString("hex");
-  const [inserted] = await db
-    .insert(lpPageReviewsTable)
-    .values({ pageId, token: fresh, status: "pending" })
-    .returning({ token: lpPageReviewsTable.token });
-  return inserted?.token ?? fresh;
+  try {
+    const [inserted] = await db
+      .insert(lpPageReviewsTable)
+      .values({ pageId, token: fresh, status: "pending" })
+      .returning({ token: lpPageReviewsTable.token });
+    return inserted?.token ?? fresh;
+  } catch (err) {
+    // Race: the page existed at the SELECT above but was deleted before
+    // the INSERT committed. Convert to the typed skip so the outer
+    // caller doesn't fire `prerender_render_failed` with a generic
+    // nav_or_timeout reason.
+    if (isFkViolation(err)) {
+      throw new PrerenderPageMissingError(
+        pageId,
+        tenantId,
+        "lp_page_reviews FK violation — lp_pages row deleted between check and insert",
+      );
+    }
+    throw err;
+  }
 }
 
 export interface PrerenderOptions {
   /** lp_pages.id — used to mint the review token. */
   pageId: number;
+  /**
+   * Tenant id the job was queued for. When supplied, the review-token
+   * insert verifies the lp_pages row belongs to this tenant — guards
+   * against tenant-misrouted jobs (task #389).
+   */
+  tenantId?: number | null;
   /** lp_pages.slug — used to build the preview URL. */
   slug: string;
   /** Override the snapshot base URL; defaults to the resolved lp-studio host. */
@@ -125,7 +205,7 @@ export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
   const waitTimeoutMs = Math.max(60_000, Math.floor(timeoutMs * 0.75));
   const baseUrl = (opts.baseUrlOverride || resolveLpStudioBaseUrl()).replace(/\/$/, "");
 
-  const token = await ensureReviewToken(opts.pageId);
+  const token = await ensureReviewToken(opts.pageId, opts.tenantId ?? null);
   const url = `${baseUrl}/preview/${encodeURIComponent(opts.slug)}?reviewToken=${encodeURIComponent(token)}&prerender=1`;
 
   // Dynamic import so the playwright cost isn't paid by the api-server at
