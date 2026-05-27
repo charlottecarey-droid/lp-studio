@@ -1,0 +1,94 @@
+Task: Upgrade the URL brand import to extract more than just logo + colors
+Context
+LP Studio has a "Import brand from URL" feature where a user pastes a website URL and the system extracts a brand kit (colors, fonts, logos, photography style, voice) to seed every new landing page. Today this feature only does logo and primary colors well — the other dimensions are either weak, blank, or not surfaced. This feature is the single highest-leverage onboarding moment in the product and a core part of our upcoming Product Hunt launch demo. I need it to genuinely deliver on "paste a URL → on-brand starter kit" across six dimensions, not two.
+Before you write any code, please:
+
+Find the code path that handles URL brand import today. Show me the entry point (route or function), the scraper/extractor module, and where the extracted data is persisted onto the tenant's brand kit.
+Summarize in 3–5 bullets what each dimension currently extracts and what's missing or weak.
+Propose an upgraded architecture (one orchestrator that fans out per-dimension extractors, each independently testable and individually failable). Wait for my OK before implementing.
+
+Once I approve the plan, implement the upgrade with the following per-dimension targets.
+
+Per-dimension targets
+1. Logos
+Today: probably grabs the first <img> near the header or a single favicon.
+Target: extract all candidate logos — header lockup, footer lockup, favicon, apple-touch-icon, OG image, any SVG matched by alt/src containing "logo". Return them as a ranked list. Surface a small picker in the UI when there are multiple candidates so the user confirms. Default to the largest header SVG/PNG with a transparent background. Store both the chosen logo and the alternates so the user can swap later.
+2. Colors
+Today: extracts hex codes from CSS, probably without distinguishing brand vs. incidental.
+Target: produce a structured palette with primary, secondary, accent, background, surface, text, text-muted slots. Heuristics, in order of confidence:
+
+Parse CSS custom properties first (--brand, --primary, --color-primary, --accent, etc.). These are almost always correct when present.
+Sample pixel colors from rendered key elements: primary CTA button background, h1 color, hero section background, link color in body copy. Use a headless render (Playwright/Puppeteer) for this — static HTML parsing will miss CSS-in-JS frameworks.
+Cluster remaining frequent non-neutral colors as candidates.
+Filter out near-greys for the primary/accent slots, but keep them for text/surface/background.
+Return swatches with a confidence score and let the user override.
+
+3. Typography
+Today: probably not extracted, or only the first font-family value.
+Target: identify heading and body fonts separately, plus monospace if present.
+
+Inspect computed font-family on h1, h2, h3, p, body, code. The first non-fallback in each chain is the candidate.
+Detect <link> tags to Google Fonts (fonts.googleapis.com) and Adobe Fonts (use.typekit.net) — these tell you the canonical name and weights loaded.
+If a font is custom-hosted (@font-face with a private URL), capture the family name and flag it as "custom — manual upload needed."
+Match candidates against our internal font catalog. If a Google Font, auto-add it to the brand kit. If unknown but on Google Fonts under the same name, fetch it. If neither, fall back to the closest visual match (e.g., a custom geometric sans → Inter) and flag.
+
+4. Button & UI styles (new dimension — likely doesn't exist today)
+Target: extract the visual identity of CTAs and surface containers, not just colors.
+
+Render the page, find primary CTA buttons (heuristics: <button>, <a> with class containing btn/button/cta, or any clickable inside a hero section with prominent styling).
+Capture: border-radius, padding, font-weight, box-shadow, background (solid vs. gradient — if gradient, capture stops), hover state if reachable, text transform.
+Categorize the result as one of: pill, rounded, square, gradient-pill, outline, ghost — and store the raw values too so we can recreate the look exactly in our block library.
+Do the same for card/surface containers: corner radius, shadow elevation, border presence/color.
+
+5. Photography & imagery style (probably weak today)
+Target: classify the visual style of the site's imagery so generated AI imagery and block-library defaults can match.
+
+Collect 5–10 representative images: hero, first 2–3 section images, OG image, About-page imagery if present.
+Pass to a vision model (use whatever LLM provider we already integrate with that has vision — Claude Sonnet or GPT-4o are fine). Prompt it to return a structured profile: medium (photographic / illustrated / mixed / abstract), palette_temperature (warm / cool / neutral), lightness (light / dark / mid), subject (people / product / environment / abstract), mood (clinical / playful / aspirational / utilitarian / luxe), and a one-sentence summary.
+Store the profile and the source image URLs as a reference board.
+This profile becomes the conditioning input for our AI image generation feature (Enterprise tier).
+
+6. Brand voice
+Today: either missing or extracted from one page.
+Target: produce a usable voice profile that conditions all AI copy generation site-wide.
+
+Scrape: homepage hero headline + subhead, first 2 body paragraphs, primary CTA text, About page (if present), one product/feature page (if present). Avoid blog/news posts — they often have a different voice from the brand.
+Send the corpus to our LLM with a structured prompt asking for: tone (pick 2–3 from: authoritative, warm, playful, technical, clinical, urgent, reassuring, irreverent), formality (1–5 scale), sentence_length_avg (short / medium / long), vocabulary_register (everyday / industry / specialist), signature_phrases (3–5 recurring phrases or tics), forbidden_phrases (corporate-speak the brand avoids, inferred — e.g., if every page says "tools" never "platform," note that), and a 2–3 sentence voice description.
+Store this as the tenant's brand_voice_set (we already have this concept — wire it through).
+Run a self-check: have the LLM rewrite one sentence from the source corpus in the extracted voice profile and confirm it reads like the source. If it doesn't, retry with a longer corpus before persisting.
+
+
+Architecture requirements
+
+One orchestrator (importBrandFromURL(url)) that fans out the six extractors in parallel. Each extractor returns { status: 'ok' | 'partial' | 'failed', data, confidence, errors[] }. Total wall-clock budget: 12 seconds for the full import. Show a per-dimension progress UI as results stream in — don't block on the slowest one.
+Each dimension must fail independently. If voice extraction fails, the user still gets logo + colors + fonts. Surface failures in the UI as "couldn't auto-detect — set manually."
+Use Playwright or Puppeteer for the render-based extractors (colors, buttons, photography). Static HTML parsing is fine for <link> tags, <meta>, and OG cards.
+Cache results per URL for 24 hours so retries during onboarding don't re-scrape.
+Respect robots.txt and add a reasonable User-Agent ("LPStudio-BrandImport/1.0").
+Backward compat: the existing manual brand kit editor must keep working. The import should populate fields the user can then edit, not replace the manual flow.
+
+
+Test URLs and expected behavior
+After implementation, run the importer against these URLs and show me the structured output side-by-side:
+
+stripe.com — should nail typography (Sohne / Inter), purple primary, soft pill buttons, voice (clear, technical, warm), photography (abstract gradients + product UI).
+linear.app — dark theme, custom geometric sans, pill buttons with subtle gradient, voice (concise, technical, opinionated).
+notion.so — Inter, soft rounded buttons, voice (friendly, conversational, second-person), playful illustrated imagery.
+anthropic.com — Söhne/serif mix, warm beige palette, clinical-warm voice, photography mostly abstract/typographic.
+A randomly chosen Webflow template site — should still produce a usable kit even when there are no <link> font hints, demonstrating the fallback paths work.
+
+If any of these produce a kit that's obviously worse than what a designer would produce in 30 seconds of looking at the site, the dimension is not done.
+
+Quality bar (when to ship)
+
+All six dimensions return something on every one of the five test URLs.
+Logo: correct logo selected as default on 5/5.
+Colors: primary brand color matches the actual primary brand color on 5/5 (not a close-but-wrong neighbor).
+Fonts: heading + body fonts correctly identified by name on at least 4/5.
+Button style: extracted radius and shape category match the source on 5/5.
+Photography: profile reads as a fair description of the site's imagery (subjective; my eyeball is the test).
+Voice: when the LLM rewrites a sample sentence in the extracted profile, the result is recognizably in the source brand's voice.
+Total wall-clock < 12s on a fast connection.
+Failure modes degrade gracefully — no spinner that hangs forever, no kit that looks half-broken.
+
+Don't ship until all of the above pass. If any dimension is fundamentally blocked (e.g., the vision model isn't wired up), tell me — don't fake it with a placeholder.
