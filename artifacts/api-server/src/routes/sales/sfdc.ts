@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { eq, desc, and } from "drizzle-orm";
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable } from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
@@ -6,6 +7,48 @@ import { logger } from "../../lib/logger";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
+
+// HMAC-signed OAuth `state`. Without this, the `state` was a plain
+// base64-encoded JSON `{ tenantId }` and the callback trusted whatever
+// tenantId the caller put in it — letting a logged-in user link their own
+// Salesforce org to a different tenant by tampering with the state value.
+// The signing key is the same WORKER_HOST_SECRET used by the Cloudflare
+// tenant-host worker; it always exists in this environment. We fall back to
+// a per-process key only as a last resort so dev without secrets still runs
+// — but a dev secret never matches a prod-signed state, so signatures don't
+// survive a restart, which is fine for short-lived OAuth flows.
+const SFDC_STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+let __sfdcStateDevSecret: string | null = null;
+function sfdcStateKey(): string {
+  const k = process.env.WORKER_HOST_SECRET;
+  if (k && k.length > 0) return k;
+  if (!__sfdcStateDevSecret) __sfdcStateDevSecret = crypto.randomBytes(32).toString("hex");
+  return __sfdcStateDevSecret;
+}
+function signSfdcState(tenantId: number): string {
+  const payload = { tenantId, ts: Date.now() };
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", sfdcStateKey()).update(body).digest("base64url");
+  return `${body}.${sig}`;
+}
+function verifySfdcState(state: string): { tenantId: number } | null {
+  const dot = state.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const body = state.slice(0, dot);
+  const sig = state.slice(dot + 1);
+  const expected = crypto.createHmac("sha256", sfdcStateKey()).update(body).digest("base64url");
+  // Constant-time compare; lengths must match for timingSafeEqual.
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  let payload: { tenantId?: unknown; ts?: unknown };
+  try { payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { return null; }
+  const tenantId = typeof payload.tenantId === "number" ? payload.tenantId : null;
+  const ts = typeof payload.ts === "number" ? payload.ts : null;
+  if (tenantId == null || ts == null) return null;
+  if (Date.now() - ts > SFDC_STATE_TTL_MS) return null;
+  return { tenantId };
+}
 
 /**
  * GET /sfdc/auth-url
@@ -15,7 +58,7 @@ router.get("/sfdc/auth-url", requireAuth, (req, res): void => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const redirectUri = `${process.env.API_BASE_URL || "http://localhost:3000"}/api/sales/sfdc/callback`;
-    const state = Buffer.from(JSON.stringify({ tenantId })).toString("base64url");
+    const state = signSfdcState(tenantId);
     const url = sfdcService.getAuthorizationUrl(redirectUri, state);
     res.json({ url });
   } catch (err) {
@@ -42,14 +85,20 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  // Decode tenantId from state param
-  let tenantId: number | null = null;
-  if (state && typeof state === "string") {
-    try {
-      const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
-      if (typeof decoded.tenantId === "number") tenantId = decoded.tenantId;
-    } catch { /* ignore malformed state */ }
+  // Verify signed state. A missing/forged/expired signature aborts the flow
+  // — without this guard an attacker could intercept the OAuth redirect and
+  // swap the embedded tenantId to re-target the resulting SFDC connection.
+  if (!state || typeof state !== "string") {
+    res.status(400).json({ error: "Missing state" });
+    return;
   }
+  const verified = verifySfdcState(state);
+  if (!verified) {
+    logger.warn({ stateLen: state.length }, "SFDC OAuth: invalid/expired state");
+    res.status(400).json({ error: "Invalid or expired state" });
+    return;
+  }
+  const tenantId: number = verified.tenantId;
 
   try {
     const redirectUri = `${process.env.API_BASE_URL || "http://localhost:3000"}/api/sales/sfdc/callback`;
@@ -59,11 +108,9 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
     const orgId = tokenData.id?.split("/").slice(-2, -1)[0] || "unknown";
 
     // Upsert connection: if this tenant already has a connection for this org, update it
-    const existing = tenantId
-      ? await db.select().from(sfdcConnectionsTable)
-          .where(and(eq(sfdcConnectionsTable.tenantId, tenantId), eq(sfdcConnectionsTable.orgId, orgId)))
-          .limit(1)
-      : [];
+    const existing = await db.select().from(sfdcConnectionsTable)
+      .where(and(eq(sfdcConnectionsTable.tenantId, tenantId), eq(sfdcConnectionsTable.orgId, orgId)))
+      .limit(1);
 
     let connection;
     if (existing.length > 0) {

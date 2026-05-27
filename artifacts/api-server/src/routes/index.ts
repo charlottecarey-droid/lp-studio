@@ -2,7 +2,17 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import lpRouter from "./lp";
 import storageRouter from "./storage";
-import dsoRouter from "./dso";
+// dsoRouter intentionally NOT imported/mounted. The /api/dso/* surface is a
+// generic CRUD/storage/functions proxy built for the cancelled standalone
+// Dandy DSO migration (task #27) and has no per-tenant scoping — the dso_*
+// tables don't carry a tenant_id column. The lp-studio frontend has zero
+// callers. Leaving it mounted = any authenticated user from any tenant
+// could read, write, or delete every other tenant's DSO data, trigger
+// outbound email through configured providers, and bounce visitors through
+// an open-redirect tracker on the primary domain. The file at
+// `routes/dso/index.ts` is kept on disk (unreferenced) so the code can be
+// resurrected per-tenant if/when DSO is rebuilt. Do not re-mount without
+// adding tenant_id columns + scoped queries first.
 import salesRouter from "./sales";
 import videoRouter from "./video";
 import authRouter from "./auth";
@@ -69,7 +79,6 @@ router.use(cspReportRouter);
 router.use(authRouter);
 router.use(lpRouter);
 router.use(storageRouter);
-router.use("/dso", dsoRouter);
 // Sales Console is a paid tier feature, but a couple of sub-surfaces
 // (templates today, possibly more later) are shared with Marketing and
 // must stay open on every plan. The plan gate therefore lives INSIDE

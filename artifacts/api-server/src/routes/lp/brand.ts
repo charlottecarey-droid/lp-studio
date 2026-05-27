@@ -1,4 +1,4 @@
-import { getTenantId } from "../../middleware/requireAuth";
+import { getTenantId, optionalAuth } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -41,7 +41,17 @@ async function resolveBrandTenantId(
     const match = await findTenantByHost(host);
     if (match?.tenantId != null) return match.tenantId;
   }
+  // SLUG FALLBACK — auth-only. Previously this path was reachable
+  // unauthenticated, which let anyone enumerate page slugs (they are
+  // guessable: business names, public URLs, exports) to fetch any tenant's
+  // full brand config JSONB. The legitimate users of this path are
+  // /preview/:slug viewers on app.lpstudio.ai (review-token shares,
+  // cross-tenant previews) — all of which arrive with a session cookie. An
+  // anonymous caller falls through to DEFAULT_CONFIG instead of leaking the
+  // tenant's brand strategy + sales-console settings.
   if (slug) {
+    const isAuthenticated = (req as { authUser?: { userId?: number } }).authUser?.userId != null;
+    if (!isAuthenticated) return null;
     const rows = await db
       .select({ tenantId: lpPagesTable.tenantId })
       .from(lpPagesTable)
@@ -52,7 +62,15 @@ async function resolveBrandTenantId(
   return null;
 }
 
-router.get("/lp/brand", async (req, res): Promise<void> => {
+// optionalAuth: this route is in LP_PUBLIC (anonymous viewers on published
+// landing pages must be able to fetch brand colors/logos), so requireAuth
+// is intentionally NOT applied. But the slug-fallback path inside
+// resolveBrandTenantId needs to know whether the caller is authenticated
+// to decide whether to honor a `?slug=` lookup (which otherwise lets
+// anyone enumerate any tenant's brand JSONB). optionalAuth hydrates
+// req.authUser when a valid session cookie exists and is a no-op
+// otherwise, so anonymous requests keep working unchanged.
+router.get("/lp/brand", optionalAuth, async (req, res): Promise<void> => {
   const slugParam = typeof req.query.slug === "string" ? req.query.slug : null;
   const tenantId = await resolveBrandTenantId(req, slugParam);
   if (tenantId == null) {

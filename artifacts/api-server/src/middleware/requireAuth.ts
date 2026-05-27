@@ -32,6 +32,36 @@ declare global {
   }
 }
 
+/**
+ * Like `requireAuth` but never rejects the request. If a valid session cookie
+ * is present, `req.authUser` is populated; otherwise the request proceeds
+ * anonymously. Use on routes that are publicly reachable (in LP_PUBLIC) but
+ * whose response shape depends on whether the caller is logged in — e.g.
+ * `/lp/brand?slug=…` must distinguish anonymous strangers (who must not be
+ * able to enumerate other tenants' brand JSONB by guessing slugs) from
+ * authenticated preview/review-link viewers (who legitimately resolve a
+ * tenant by slug). Without this hydration step, `req.authUser` is never set
+ * on routes that skip `requireAuth`, so any authUser-based check in the
+ * handler is a no-op for everyone.
+ */
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) { next(); return; }
+  try {
+    const result = await pool.query(
+      `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid]
+    );
+    if (result.rows.length) {
+      try {
+        const user = JSON.parse(result.rows[0].sess) as AuthUser;
+        if (user && typeof user.userId === "number") req.authUser = user;
+      } catch { /* malformed session — proceed anonymously */ }
+    }
+  } catch { /* DB hiccup — proceed anonymously rather than 500 a public route */ }
+  next();
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const sid = req.cookies?.[SESSION_COOKIE];
   if (!sid) {

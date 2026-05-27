@@ -12,6 +12,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { execSync, spawnSync } from "child_process";
 import { logger } from "../lib/logger.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 function findChromiumPath(): string | undefined {
   try {
@@ -92,7 +93,12 @@ function transcodeToMp4(webmPath: string, mp4Path: string): void {
   }
 }
 
-router.get("/video/render", async (req, res) => {
+// Auth-gated: this handler spins up a headless Chromium + ffmpeg job that
+// runs for ~50s and consumes CPU/memory/disk + a Playwright browser slot.
+// Leaving it open lets any internet caller DoS the API server by spamming
+// renders. Token-based callers wanting to script this should hit it with a
+// real session cookie.
+router.get("/video/render", requireAuth, async (req, res) => {
   const videoKey = req.query.video as string;
   const config = VIDEO_CONFIGS[videoKey];
 

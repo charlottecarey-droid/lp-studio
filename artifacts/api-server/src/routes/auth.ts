@@ -389,12 +389,17 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     })();
     const originHostname = originHost.split(":")[0].toLowerCase();
     if (callbackHost && originHostname && originHostname !== callbackHost) {
-      // Cross-domain: generate a short-lived exchange code (valid for 5 minutes, single-use)
+      // Cross-domain: generate a short-lived exchange code (valid for 5 minutes, single-use).
+      // The code is bound to `originHostname` (the tenant host that initiated
+      // the OAuth flow); /auth/accept will refuse to redeem it on any other
+      // host. This stops a stolen/phished code from being used to mint a
+      // session cookie on an attacker-controlled domain that also points at
+      // this API.
       const exchangeCode = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute expiry
       await pool.query(
-        `INSERT INTO auth_exchange_codes (code, sid, expires_at) VALUES ($1, $2, $3)`,
-        [exchangeCode, sid, expiresAt]
+        `INSERT INTO auth_exchange_codes (code, sid, expires_at, target_host) VALUES ($1, $2, $3, $4)`,
+        [exchangeCode, sid, expiresAt, originHostname]
       );
       const proto = "https";
       const nextSuffix = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
@@ -429,12 +434,27 @@ router.get("/auth/accept", async (req, res): Promise<void> => {
     // Look up the exchange code and retrieve the associated session
     // Exchange codes are single-use and expire after 5 minutes
     const codeResult = await pool.query(
-      `SELECT sid FROM auth_exchange_codes WHERE code = $1 AND expires_at > now() LIMIT 1`,
+      `SELECT sid, target_host FROM auth_exchange_codes WHERE code = $1 AND expires_at > now() LIMIT 1`,
       [code]
     );
     if (codeResult.rows.length === 0) {
       res.redirect("/?error=invalid_code");
       return;
+    }
+
+    // Enforce host binding. A code minted for tenant host A must not be
+    // redeemable on host B — otherwise a phished code could be used to set
+    // a session cookie on an attacker's domain that also points at this
+    // API. `target_host` is nullable for in-flight codes minted before the
+    // 0031 migration; those still redeem (5 min grace) but new codes are
+    // always bound.
+    const targetHost = codeResult.rows[0].target_host as string | null;
+    if (targetHost) {
+      const reqHost = (getRequestHost(req) ?? "").split(":")[0].toLowerCase();
+      if (reqHost !== targetHost.toLowerCase()) {
+        res.redirect("/?error=invalid_code");
+        return;
+      }
     }
 
     const sid = codeResult.rows[0].sid;
@@ -741,9 +761,16 @@ router.post("/auth/handoff-code", async (req, res): Promise<void> => {
     }
     const code = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute single-use
+    // target_host binds the code to the canonical tenant host we're handing
+    // off to. /auth/accept refuses to redeem on any other host. Without this
+    // binding, a phished or intercepted code could be redeemed on an
+    // attacker-controlled host that also resolves to this API, minting a
+    // session cookie under a hostile origin. The host_normalize() call in
+    // /auth/accept strips port + lowercases, so we store the bare hostname.
+    const targetHost = host.split(":")[0].toLowerCase();
     await pool.query(
-      `INSERT INTO auth_exchange_codes (code, sid, expires_at) VALUES ($1, $2, $3)`,
-      [code, sid, expiresAt]
+      `INSERT INTO auth_exchange_codes (code, sid, expires_at, target_host) VALUES ($1, $2, $3, $4)`,
+      [code, sid, expiresAt, targetHost]
     );
     const nextSuffix = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
     res.json({ code, host, url: `https://${host}/api/auth/accept?code=${encodeURIComponent(code)}${nextSuffix}` });
