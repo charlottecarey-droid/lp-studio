@@ -37,6 +37,7 @@ import type {
 import type { FormStep, FormField } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { getDtrParams } from "@/lib/dtr";
 
 class ContentSeriesErrorBoundary extends Component<
   { children: ReactNode },
@@ -2986,23 +2987,66 @@ interface Props {
   sessionId?: string;
 }
 
-function resolveHeroFromEpisodes(p: ContentSeriesBlockProps): ContentSeriesBlockProps {
+/** URL-safe slugifier for episode targeting. */
+function slugifyEpisode(s: string): string {
+  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Stable slug for an episode. Always returned in canonical (slugified) form so
+ * editor-entered slugs with spaces/punctuation still match campaign URLs that
+ * use the hyphenated form.
+ */
+export function episodeSlug(ep: ContentSeriesEpisode): string {
+  const raw = ep.slug && ep.slug.trim() ? ep.slug : ep.title;
+  return slugifyEpisode(raw);
+}
+
+/**
+ * Resolve a URL-targeted episode from query params.
+ * Accepts `?episode=<slug>` (preferred) or `?utm_content=<slug>` (for ad platforms
+ * that only expose UTM params). Match is case-insensitive on the slug.
+ * Returns null if no param is set or no visible episode matches.
+ */
+function findTargetedEpisode(
+  episodes: ContentSeriesEpisode[],
+  params: Record<string, string>,
+): ContentSeriesEpisode | null {
+  // Canonicalize the incoming target the same way we canonicalize episode slugs
+  // so "Margin Talk 1" in the URL still matches an explicit slug of "margin-talk-1".
+  const target = slugifyEpisode(params.episode || params.utm_content || "");
+  if (!target) return null;
+  const visible = episodes.filter(ep => !ep.hidden);
+  return visible.find(ep => episodeSlug(ep) === target) ?? null;
+}
+
+/** Map an episode onto the hero* props, preserving block-level fallbacks. */
+function applyEpisodeToHero(p: ContentSeriesBlockProps, ep: ContentSeriesEpisode): ContentSeriesBlockProps {
+  return {
+    ...p,
+    heroEpisodeTitle: ep.title,
+    heroEpisodeDescription: ep.description,
+    heroGuestName: ep.guestName ?? p.heroGuestName,
+    heroGuestTitle: [ep.guestTitle, ep.guestCompany].filter(Boolean).join(", ") || p.heroGuestTitle,
+    heroImageUrl: ep.thumbnailUrl ?? p.heroImageUrl,
+    heroCtaUrl: ep.ctaUrl ?? p.heroCtaUrl,
+    heroCtaText: ep.ctaText ?? p.heroCtaText,
+  };
+}
+
+function resolveHeroFromEpisodes(
+  p: ContentSeriesBlockProps,
+  urlTarget?: ContentSeriesEpisode | null,
+): ContentSeriesBlockProps {
+  // URL targeting wins — explicit visitor intent from ads/email overrides everything,
+  // including "manual" mode, so campaigns always land on the intended episode.
+  if (urlTarget) return applyEpisodeToHero(p, urlTarget);
+
   const mode = p.heroSourceMode ?? "auto";
   if (mode === "manual") return p;
 
   const pinned = (p.episodes ?? []).find(ep => ep.pinHero && !ep.hidden);
-  if (pinned) {
-    return {
-      ...p,
-      heroEpisodeTitle: pinned.title,
-      heroEpisodeDescription: pinned.description,
-      heroGuestName: pinned.guestName ?? p.heroGuestName,
-      heroGuestTitle: [pinned.guestTitle, pinned.guestCompany].filter(Boolean).join(", ") || p.heroGuestTitle,
-      heroImageUrl: pinned.thumbnailUrl ?? p.heroImageUrl,
-      heroCtaUrl: pinned.ctaUrl ?? p.heroCtaUrl,
-      heroCtaText: pinned.ctaText ?? p.heroCtaText,
-    };
-  }
+  if (pinned) return applyEpisodeToHero(p, pinned);
 
   const visible = (p.episodes ?? []).filter(ep => !ep.hidden);
   if (!visible.length) return p;
@@ -3013,16 +3057,7 @@ function resolveHeroFromEpisodes(p: ContentSeriesBlockProps): ContentSeriesBlock
     return db - da;
   })[0];
 
-  return {
-    ...p,
-    heroEpisodeTitle: newest.title,
-    heroEpisodeDescription: newest.description,
-    heroGuestName: newest.guestName ?? p.heroGuestName,
-    heroGuestTitle: [newest.guestTitle, newest.guestCompany].filter(Boolean).join(", ") || p.heroGuestTitle,
-    heroImageUrl: newest.thumbnailUrl ?? p.heroImageUrl,
-    heroCtaUrl: newest.ctaUrl ?? p.heroCtaUrl,
-    heroCtaText: newest.ctaText ?? p.heroCtaText,
-  };
+  return applyEpisodeToHero(p, newest);
 }
 
 export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
@@ -3039,7 +3074,27 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
     return { ...p, episodes: p.episodes ?? [], hosts: p.hosts ?? [], ctas: p.ctas ?? [], formSteps: p.formSteps ?? [] };
   }, [p]);
 
-  const effective = useMemo(() => resolveHeroFromEpisodes(safeProps), [safeProps]);
+  // URL-targeted episode. Initialize synchronously when `window` exists so the
+  // very first paint already shows the targeted episode (no flicker for ad
+  // landings). Falls back to null during SSR/prerender, then the effect picks
+  // it up on hydration. Also listens for back/forward navigation.
+  const [urlTargetEpisode, setUrlTargetEpisode] = useState<ContentSeriesEpisode | null>(() => {
+    if (typeof window === "undefined") return null;
+    return findTargetedEpisode(safeProps.episodes ?? [], getDtrParams());
+  });
+  useEffect(() => {
+    const recompute = () => setUrlTargetEpisode(
+      findTargetedEpisode(safeProps.episodes ?? [], getDtrParams()),
+    );
+    recompute();
+    window.addEventListener("popstate", recompute);
+    return () => window.removeEventListener("popstate", recompute);
+  }, [safeProps.episodes]);
+
+  const effective = useMemo(
+    () => resolveHeroFromEpisodes(safeProps, urlTargetEpisode),
+    [safeProps, urlTargetEpisode],
+  );
 
   const [formModalState, setFormModalState] = useState<{ open: boolean; kind: "guest" | "subscribe"; initial: Record<string, string> }>({ open: false, kind: "guest", initial: {} });
   const openGuestForm = useCallback((initial: Record<string, string> = {}) => {

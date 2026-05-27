@@ -1324,6 +1324,13 @@ export interface ContentSeriesTheme {
 export type EpisodeStatus = "upcoming" | "live" | "on-demand";
 
 export interface ContentSeriesEpisode {
+  /**
+   * Stable URL-safe identifier used to target this episode from an ad/email.
+   * When set, visitors landing on `?episode=<slug>` or `?utm_content=<slug>`
+   * see this episode pinned in the hero, overriding pinHero/newest logic.
+   * If omitted, a slug is auto-derived from `title`.
+   */
+  slug?: string;
   title: string;
   guestName?: string;
   guestTitle?: string;

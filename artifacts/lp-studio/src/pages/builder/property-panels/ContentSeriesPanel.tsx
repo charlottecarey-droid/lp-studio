@@ -10,6 +10,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { FontSelect } from "@/components/FontSelect";
 import { suggestCopy } from "@/lib/copy-api";
+import { episodeSlug } from "@/blocks/BlockContentSeries";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type {
   ContentSeriesBlockProps,
@@ -614,6 +615,17 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
                   <div className="space-y-2 pt-1">
                     <ImagePicker value={ep.thumbnailUrl ?? ""} onChange={v => updateEpisode(i, { thumbnailUrl: v || undefined })} />
                     <Input value={ep.title} onChange={e => updateEpisode(i, { title: e.target.value })} className="h-7 text-xs" placeholder="Episode title" />
+                    <div className="space-y-1">
+                      <Input
+                        value={ep.slug ?? ""}
+                        onChange={e => updateEpisode(i, { slug: e.target.value || undefined })}
+                        className="h-7 text-xs font-mono"
+                        placeholder={`URL slug (auto: ${episodeSlug({ ...ep, slug: undefined })})`}
+                      />
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        Ad URL: <span className="font-mono">?episode={episodeSlug(ep)}</span> — also matches <span className="font-mono">utm_content</span>.
+                      </p>
+                    </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <Input value={ep.guestName ?? ""} onChange={e => updateEpisode(i, { guestName: e.target.value })} className="h-7 text-xs" placeholder="Guest name" />
                       <Input value={ep.guestTitle ?? ""} onChange={e => updateEpisode(i, { guestTitle: e.target.value })} className="h-7 text-xs" placeholder="Guest title" />
