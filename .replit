@@ -56,7 +56,7 @@ RESEND_FROM_EMAIL = "LP Studio <notifications@ent.meetdandy.com>"
 GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
-CSRF_SECRET = "268344ad13f6913d51164263fbdc8c7e7aa70fd2f2a6ef7d461d768fe328623de88cc190b767b1f3f49ed23c941f97e4"
+CSRF_SECRET = "e0fd3c5a5fd571d52ad08b234f4e004050623ad1bc8329f9a1a881c269b0d2f4bda019f192ab2e37069b2ddfd803d113"
 
 [[ports]]
 localPort = 8080
