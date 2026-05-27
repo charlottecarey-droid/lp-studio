@@ -198,26 +198,53 @@ export async function extractVoice(
     return { status: "failed", data: null, confidence: "low", errors: ["LLM voice extraction failed"] };
   }
 
-  // Self-check: pick a source sentence that's at least 8 words. We run the
-  // rewrite + score pass once (two LLM calls). The retry-with-expanded-corpus
-  // loop is intentionally disabled — under the 20s per-extractor budget,
-  // 4 sequential LLM calls regularly times out via the proxy. If self-check
-  // scores low we surface that as `partial` rather than try to fix it.
+  // Self-check is best-effort under a tight subbudget. The 20s per-extractor
+  // cap can't accommodate profile + rewrite + score sequentially against a
+  // warm proxy 100% of the time, so we race the two-call self-check against
+  // an 8s timer and degrade gracefully when it doesn't finish. Profile alone
+  // is enough to return `ok` — the self-check is a confidence signal, not a
+  // gating check.
   const sourceSentence = corpus.find((e) => e.text.split(/\s+/).length >= 8)?.text ?? corpus[0].text;
-  const check = await selfCheck(openai, profile, sourceSentence);
+  const SELF_CHECK_BUDGET_MS = 8_000;
+  let check: { score: number | null; rewrite: string } = { score: null, rewrite: sourceSentence };
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  try {
+    const timeoutPromise = new Promise<{ score: number | null; rewrite: string }>((resolve) => {
+      timeoutHandle = setTimeout(() => resolve({ score: null, rewrite: sourceSentence }), SELF_CHECK_BUDGET_MS);
+    });
+    check = await Promise.race([
+      selfCheck(openai, profile, sourceSentence).then((c) => ({ score: c.score as number | null, rewrite: c.rewrite })),
+      timeoutPromise,
+    ]);
+  } catch {
+    /* keep null/sourceSentence default */
+  } finally {
+    // Cancel the pending timer when the self-check wins the race so we don't
+    // hold a live timer for up to 8s after the function returns.
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 
-  const passed = check.score >= 0.6;
-  if (!passed) errors.push(`self-check score ${check.score.toFixed(2)} below 0.6 threshold`);
+  if (check.score === null) {
+    errors.push("self-check skipped (budget exceeded or call failed)");
+  } else if (check.score < 0.6) {
+    errors.push(`self-check score ${check.score.toFixed(2)} below 0.6 threshold`);
+  }
+
+  // Profile present ⇒ ok. Self-check failure only downgrades confidence.
+  const confidence: "high" | "medium" | "low" =
+    check.score !== null && check.score >= 0.6 ? "high"
+    : check.score !== null ? "low"
+    : "medium";
 
   return {
-    status: passed ? "ok" : "partial",
+    status: "ok",
     data: {
       profile,
       selfCheckScore: check.score,
       selfCheckSourceSentence: sourceSentence,
       selfCheckRewrite: check.rewrite,
     },
-    confidence: passed ? "high" : "low",
+    confidence,
     errors,
   };
 }

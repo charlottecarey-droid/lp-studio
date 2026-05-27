@@ -78,7 +78,30 @@ function scoreButtonSelector(selector: string): number {
   if (/,/.test(s)) score -= 5; // grouped selectors are usually broader
   // Penalize utility classes that obviously aren't buttons
   if (/icon|chip|tag|badge|nav-link/.test(s)) score -= 20;
+  // Hard-exclude non-primary UI affordances that often have button-like
+  // class names (mobile menu toggles, close buttons, etc). On stripe.com /
+  // notion.com / anthropic.com the deterministic picker was landing on a
+  // 40x40 hamburger toggle instead of the real primary CTA.
+  if (/\btoggle\b|\bclose\b|\bmenu-?(?:open|close|toggle|button)\b|\bhamburger\b|\bnav-?toggle\b|\bmobile-?menu\b|\bdismiss\b|\bopen-menu\b/.test(s)) score -= 200;
   return score;
+}
+
+// Drop rules that explicitly declare an equal-width-and-height numeric box.
+// These are almost always icon buttons / toggles / close buttons, not CTAs.
+// We only enforce this on rules with explicit px/rem dimensions; aspect-
+// ratio: 1 is also a strong signal.
+function isSquareIconButtonRule(decls: Record<string, string>): boolean {
+  const w = decls["width"]?.trim();
+  const h = decls["height"]?.trim();
+  if (decls["aspect-ratio"]?.trim() === "1" || decls["aspect-ratio"]?.trim() === "1 / 1") return true;
+  if (!w || !h) return false;
+  const norm = (v: string): string | null => {
+    const m = v.match(/^(-?\d+(?:\.\d+)?)\s*(px|rem|em)?$/);
+    return m ? `${m[1]}${m[2] ?? "px"}` : null;
+  };
+  const nw = norm(w);
+  const nh = norm(h);
+  return nw !== null && nw === nh;
 }
 
 function scoreSurfaceSelector(selector: string): number {
@@ -171,7 +194,9 @@ export async function extractButtons(
   for (const css of cssSources) {
     for (const r of parseRules(css)) {
       const btnScore = scoreButtonSelector(r.selector);
-      if (btnScore > 0 && (r.declarations["border-radius"] || r.declarations["padding"] || r.declarations["background"] || r.declarations["background-color"])) {
+      if (btnScore > 0
+        && (r.declarations["border-radius"] || r.declarations["padding"] || r.declarations["background"] || r.declarations["background-color"])
+        && !isSquareIconButtonRule(r.declarations)) {
         buttonHits.push({ ...r, score: btnScore });
       }
       const surfaceScore = scoreSurfaceSelector(r.selector);

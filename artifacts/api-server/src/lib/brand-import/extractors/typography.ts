@@ -83,6 +83,25 @@ function isIconFontFamily(family: string): boolean {
   return ICON_FONT_RE.test(family);
 }
 
+// Family names that indicate a monospace / code font. These should NOT be
+// assigned to the heading or body role even if they're the only candidate
+// with a heavy weight — they belong in the `mono` slot. Webflow.com loads
+// `Inconsolata` for its inline code snippets and the heading-weight
+// heuristic ends up picking it as the H1 face; this filter prevents that.
+// Family names that indicate a monospace / code font. Strategy:
+//   • generic `mono` / `monospace` is gated on a separator-or-boundary on
+//     BOTH sides so it doesn't fire on "Monorail"-style brand names;
+//   • known multi-word combos use optional separators (`fira[-_ ]?code`)
+//     so "Fira Code" and "FiraCode" both match;
+//   • known one-word brand names of code fonts are listed literally.
+// The literal-camelCase entries (e.g. `sourcecodepro`) catch the
+// no-separator form that the separator-gated rules miss.
+const MONO_FONT_RE = /(?:(?:^|[\s_\-])mono(?:space)?(?:$|[\s_\-])|inconsolata|jetbrains[-_ ]?mono|fira[-_ ]?(?:code|mono)|source[-_ ]?code|ibm[-_ ]?plex[-_ ]?mono|roboto[-_ ]?mono|space[-_ ]?mono|courier|consolas|menlo|monaco|cascadia|anonymous[-_ ]?pro|ubuntu[-_ ]?mono|liberation[-_ ]?mono|dejavu[-_ ]?sans[-_ ]?mono|pt[-_ ]?mono|nova[-_ ]?mono|noto[-_ ]?(?:sans[-_ ]?)?mono|geist[-_ ]?mono|wfvisualsans[-_ ]?mono|sourcecodepro|jetbrainsmono|ibmplexmono|robotomono|firacode|firamono|spacemono|geistmono|ptmono|notomono|notosansmono|cascadiacode|cascadiamono|monolisa|operatormono|berkeleymono|commitmono|courierprime|inputmono)/i;
+
+function isMonoFontFamily(family: string): boolean {
+  return MONO_FONT_RE.test(family);
+}
+
 function parseFontFaceBlocks(css: string): FontEvidence[] {
   const out: FontEvidence[] = [];
   const blockRe = /@font-face\s*\{([^}]+)\}/g;
@@ -143,12 +162,18 @@ function assignRoles(
 
   let heading = findByHint(hints.heading);
   let body = findByHint(hints.body);
-  let mono = findByHint(hints.mono) ?? [...byName.values()].find((c) => /mono|code|fira code|jetbrains/i.test(c.family)) ?? null;
+  // Pull mono out via the strict family-name list, falling back to any
+  // candidate matching the same pattern. If the hint resolves to something
+  // that IS a mono font, accept it for mono only — never as heading/body.
+  let mono = findByHint(hints.mono) ?? [...byName.values()].find((c) => isMonoFontFamily(c.family)) ?? null;
+  // If we accidentally picked a mono-family for heading/body, throw it back.
+  if (heading && isMonoFontFamily(heading.family)) { mono = mono ?? heading; heading = null; }
+  if (body && isMonoFontFamily(body.family)) { mono = mono ?? body; body = null; }
 
   // Heuristic fallback when no hints land:
   // - heading = candidate with heaviest weight loaded (>=600), else first non-mono
   // - body = candidate with regular weight loaded (300-500), preferring different family from heading
-  const nonMono = candidates.filter((c) => !/mono|code/i.test(c.family));
+  const nonMono = candidates.filter((c) => !isMonoFontFamily(c.family));
   if (!heading) {
     heading = nonMono.find((c) => c.weights.some((w) => w >= 600))
       ?? nonMono[0]
@@ -159,6 +184,13 @@ function assignRoles(
       ?? nonMono.find((c) => c.family !== heading?.family)
       ?? heading; // single-font sites: body = heading
   }
+  // Degenerate case: the only loaded font(s) are mono-family. Better to
+  // surface them as heading/body (with the visual penalty of mono text)
+  // than to return both as null and downgrade the whole dimension to
+  // "failed". This happens on code-heavy / dev-tool sites that only
+  // include their syntax-highlighting font in the bundled stylesheet.
+  if (!heading && candidates.length) heading = candidates[0];
+  if (!body) body = heading;
   return { heading: heading ?? null, body: body ?? null, mono: mono ?? null };
 }
 
