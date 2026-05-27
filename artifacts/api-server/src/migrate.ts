@@ -12,6 +12,7 @@
 // idempotent DDL/seed batch, the same per-step logging. Failure exits non-zero
 // so deploy hooks abort the release.
 import path from "node:path";
+import pg from "pg";
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { migrate as drizzleMigrate } from "drizzle-orm/node-postgres/migrator";
@@ -29,7 +30,7 @@ const MIGRATIONS_FOLDER = path.resolve(__dirname, "../../../lib/db/migrations");
 // any process running this codebase uses the same key so concurrent boots
 // (parallel agent runs, leftover api-server from a prior workflow) wait
 // instead of fighting over ACCESS EXCLUSIVE locks during the DDL batch.
-const MIGRATION_ADVISORY_LOCK_KEY = "7421894200310042319";
+export const MIGRATION_ADVISORY_LOCK_KEY = "7421894200310042319";
 
 // Task #348 — advisory-lock contention thresholds. The historical
 // `pg_advisory_lock(...)` call blocked silently for the entire migration
@@ -40,8 +41,11 @@ const MIGRATION_ADVISORY_LOCK_KEY = "7421894200310042319";
 // the lock (in development) or fail with a clear remediation message
 // (in production) so the e2e webServer surfaces a real error instead of
 // timing out with no signal.
-const STALE_LOCK_WARN_MS = 15_000;
-const STALE_LOCK_STEAL_MS = 30_000;
+// Task #442 — both thresholds are env-overridable so the regression test
+// can drive the steal path in under a second. Production values are
+// unchanged unless the env vars are explicitly set.
+const STALE_LOCK_WARN_MS = Number(process.env.MIGRATE_STALE_LOCK_WARN_MS ?? 15_000);
+const STALE_LOCK_STEAL_MS = Number(process.env.MIGRATE_STALE_LOCK_STEAL_MS ?? 30_000);
 
 // When pg_advisory_lock is called with a single bigint, Postgres stores
 // the value split across (classid, objid): classid = high 32 bits,
@@ -49,16 +53,15 @@ const STALE_LOCK_STEAL_MS = 30_000;
 // to ONLY the migration lock and never touch (or terminate the holders
 // of) unrelated advisory locks held by other parts of the system.
 const MIGRATION_LOCK_KEY_BIGINT = BigInt(MIGRATION_ADVISORY_LOCK_KEY);
-const MIGRATION_LOCK_CLASSID = Number(MIGRATION_LOCK_KEY_BIGINT >> 32n) >>> 0;
-const MIGRATION_LOCK_OBJID = Number(MIGRATION_LOCK_KEY_BIGINT & 0xffffffffn) >>> 0;
+export const MIGRATION_LOCK_CLASSID = Number(MIGRATION_LOCK_KEY_BIGINT >> 32n) >>> 0;
+export const MIGRATION_LOCK_OBJID = Number(MIGRATION_LOCK_KEY_BIGINT & 0xffffffffn) >>> 0;
 
 // Minimal shape — @types/pg isn't reachable from this package, so we
 // can't import PoolClient directly. Only the two methods we actually use
-// are declared here; the runtime object returned by `pool.connect()` is
-// a full pg PoolClient and supports a lot more.
+// are declared here; the runtime object is a full pg Client and
+// supports a lot more.
 interface LockClient {
   query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
-  release(): void;
 }
 
 type AdvisoryLockHolder = {
@@ -69,7 +72,30 @@ type AdvisoryLockHolder = {
   state: string | null;
   query: string | null;
   backend_start: Date | null;
+  state_change: Date | null;
 };
+
+// Task #442 — heuristics for the production-safe steal path. The holder is
+// only eligible for termination in production when its session is clearly
+// NOT actively running a migration: it's idle (state != 'active'), its
+// last-seen statement doesn't look like DDL or one of our seed/marker
+// statements, and the backend has been idle for at least this threshold.
+// This keeps the dev-mode aggressive steal unchanged while letting a leaked
+// lock on an idle app pool connection self-heal on the next deploy.
+const PROD_STEAL_MIN_IDLE_MS = Number(process.env.MIGRATE_PROD_STEAL_MIN_IDLE_MS ?? 30_000);
+const MIGRATION_QUERY_HINTS = [
+  /\b(create|alter|drop)\s+(table|index|schema|extension|type|function|policy|view|sequence|materialized)\b/i,
+  /\b__drizzle_migrations\b/i,
+  /\b_schema_migration_markers\b/i,
+  /\bpg_advisory_lock\b/i,
+  /\bpg_try_advisory_lock\b/i,
+  /\bpg_advisory_unlock\b/i,
+];
+
+export function looksLikeMigrationQuery(q: string | null): boolean {
+  if (!q) return false;
+  return MIGRATION_QUERY_HINTS.some((re) => re.test(q));
+}
 
 // Returns ONLY rows for the specific migration advisory lock (classid+objid
 // match). This filter is critical: the steal path calls pg_terminate_backend
@@ -81,7 +107,7 @@ async function inspectAdvisoryLockHolders(lockClient: LockClient): Promise<Advis
   try {
     const { rows } = await lockClient.query<AdvisoryLockHolder>(
       `SELECT l.pid, l.classid, l.objid, l.granted,
-              a.state, a.query, a.backend_start
+              a.state, a.query, a.backend_start, a.state_change
          FROM pg_locks l
          LEFT JOIN pg_stat_activity a ON a.pid = l.pid
         WHERE l.locktype = 'advisory'
@@ -96,7 +122,34 @@ async function inspectAdvisoryLockHolders(lockClient: LockClient): Promise<Advis
   }
 }
 
-async function acquireMigrationLock(lockClient: LockClient): Promise<void> {
+// Task #442 — production-safe steal eligibility. The historical incident:
+// the migration acquired the advisory lock on a connection borrowed from
+// the shared app pool, the unlock errored, and the connection (still
+// holding the lock) was returned to the pool and reused for normal app
+// SELECTs. The next deploy's migrate couldn't acquire the lock; because
+// NODE_ENV=production the steal path was disabled, so the build aborted.
+//
+// A holder is safe to terminate in production ONLY when we're confident
+// it isn't actively running a migration. We require: state != 'active'
+// (idle / idle in transaction), the last-seen query doesn't look like
+// migration DDL or one of our seed markers, and the backend has been
+// idle for at least PROD_STEAL_MIN_IDLE_MS. That matches exactly the
+// leak-into-app-pool pattern we need to recover from, without ever
+// killing a peer that's mid-migrate.
+export function isHolderProdStealEligible(h: AdvisoryLockHolder, now: number): boolean {
+  if (!h.granted) return false;
+  // Fail closed when pg_stat_activity telemetry is missing — if we can't
+  // confirm the holder is idle on a non-migration query, we MUST NOT
+  // terminate it in production.
+  if (!h.state) return false;
+  if (h.state === "active") return false;
+  if (!h.state_change) return false;
+  if (looksLikeMigrationQuery(h.query)) return false;
+  const sinceChange = now - new Date(h.state_change).getTime();
+  return sinceChange >= PROD_STEAL_MIN_IDLE_MS;
+}
+
+export async function acquireMigrationLock(lockClient: LockClient): Promise<void> {
   const started = Date.now();
   let warned = false;
   let stealAttempted = false;
@@ -126,15 +179,25 @@ async function acquireMigrationLock(lockClient: LockClient): Promise<void> {
     }
     if (waitedMs >= STALE_LOCK_STEAL_MS) {
       const holders = await inspectAdvisoryLockHolders(lockClient);
-      const holderPids = holders.filter(h => h.granted).map(h => h.pid);
+      const grantedHolders = holders.filter((h) => h.granted);
+      const holderPids = grantedHolders.map((h) => h.pid);
       const isProduction = process.env.NODE_ENV === "production";
-      if (!isProduction && !stealAttempted && holderPids.length > 0) {
+      // Task #442 — in production, only steal from holders that are clearly
+      // not running a migration (idle app pool connections that leaked the
+      // lock). In development, the previous behavior is preserved: steal
+      // from every granted holder once.
+      const stealablePids = isProduction
+        ? grantedHolders.filter((h) => isHolderProdStealEligible(h, Date.now())).map((h) => h.pid)
+        : holderPids;
+      if (!stealAttempted && stealablePids.length > 0) {
         stealAttempted = true;
         logger.warn(
-          { holderPids, waitedMs },
-          "Stealing stale migration advisory lock — terminating holder backend(s) (NODE_ENV != production)",
+          { holderPids, stealablePids, waitedMs, isProduction },
+          isProduction
+            ? "Stealing leaked migration advisory lock — terminating idle holder backend(s) (NODE_ENV=production, non-migration query)"
+            : "Stealing stale migration advisory lock — terminating holder backend(s) (NODE_ENV != production)",
         );
-        for (const pid of holderPids) {
+        for (const pid of stealablePids) {
           await lockClient
             .query(`SELECT pg_terminate_backend($1::int)`, [pid])
             .catch((err) => logger.warn({ err, pid }, "pg_terminate_backend failed (will retry acquire)"));
@@ -144,8 +207,8 @@ async function acquireMigrationLock(lockClient: LockClient): Promise<void> {
       } else {
         const pidList = holderPids.length > 0 ? holderPids.join(", ") : "unknown";
         const remediation = holderPids.length > 0
-          ? `Run \`SELECT pg_terminate_backend(${holderPids[0]})\` against the dev database to release it, then restart this workflow.`
-          : `Check for a stuck api-server process holding the migration lock and restart this workflow.`;
+          ? `Run \`SELECT pg_terminate_backend(${holderPids[0]})\` against the database to release it, then re-trigger this build.`
+          : `Check for a stuck api-server process holding the migration lock and re-trigger this build.`;
         throw new Error(
           `Migration advisory lock held by PID(s) ${pidList} for ${Math.round(waitedMs / 1000)}s — refusing to wait further. ${remediation}`,
         );
@@ -155,21 +218,59 @@ async function acquireMigrationLock(lockClient: LockClient): Promise<void> {
   }
 }
 
-async function runMigrationsLocked(): Promise<void> {
-  // Hold the advisory lock on a dedicated connection for the full DDL run.
-  // pg_advisory_lock is session-scoped, so the lock auto-releases if the
-  // process crashes — preventing permanently-stuck startups.
-  const lockClient = (await pool.connect()) as unknown as LockClient;
+export async function runMigrationsLocked(): Promise<void> {
+  // Task #442 — hold the advisory lock on a DEDICATED pg.Client (NOT a
+  // connection borrowed from the shared app pool). Previously this used
+  // `pool.connect()`; when the post-migration unlock errored, the still-
+  // locked connection got returned to the pool and reused for normal app
+  // SELECTs, wedging the next deploy's migrate (visible in prod build logs
+  // as a `SELECT ... FROM lp_proof_points` PID holding the advisory lock).
+  //
+  // Using a dedicated Client guarantees `client.end()` destroys the
+  // underlying TCP socket — Postgres releases all session-scoped advisory
+  // locks when the backend exits, so a leak into the app pool is now
+  // structurally impossible even if pg_advisory_unlock errors.
+  //
+  // pg_advisory_lock is session-scoped, so the lock also auto-releases if
+  // the process crashes — preventing permanently-stuck startups.
+  const connectionString = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL must be set for migrations");
+  }
+  const lockClient = new pg.Client({ connectionString });
+  await lockClient.connect();
   try {
-    await acquireMigrationLock(lockClient);
+    await acquireMigrationLock(lockClient as unknown as LockClient);
     try {
       await runMigrationsBody();
     } finally {
-      await lockClient.query(`SELECT pg_advisory_unlock($1::bigint)`, [MIGRATION_ADVISORY_LOCK_KEY])
-        .catch(() => undefined);
+      try {
+        await (lockClient as unknown as LockClient).query(
+          `SELECT pg_advisory_unlock($1::bigint)`,
+          [MIGRATION_ADVISORY_LOCK_KEY],
+        );
+      } catch (err) {
+        // Task #442 — surface unlock failures loudly. The previous
+        // `.catch(() => undefined)` swallowed exactly the failure mode
+        // that caused the prod incident: unlock errored, connection went
+        // back to the pool still holding the lock, next deploy hung.
+        // We still don't rethrow so the underlying migration result
+        // (success or the real migration error) is preserved; the
+        // dedicated-Client `end()` below guarantees the lock cannot leak
+        // regardless.
+        logger.error(
+          { err, lockKey: MIGRATION_ADVISORY_LOCK_KEY },
+          "pg_advisory_unlock failed after migration — connection will be destroyed so lock cannot leak",
+        );
+      }
     }
   } finally {
-    lockClient.release();
+    // Destroy the connection — Postgres releases session-scoped advisory
+    // locks on backend exit, so even if unlock above failed the lock is
+    // gone the moment this resolves.
+    await lockClient.end().catch((err) => {
+      logger.error({ err }, "lockClient.end() failed — advisory lock will release on TCP timeout");
+    });
   }
 }
 
@@ -597,7 +698,16 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  logger.error({ err }, "migrate: failed");
-  process.exit(1);
-});
+// Only auto-run when invoked as the CLI entrypoint (e.g. `node dist/migrate.mjs`).
+// Importing this module from tests must NOT trigger the full migration batch
+// or close the shared pool. Task #442 — the regression test imports
+// `acquireMigrationLock` and friends from here directly.
+const invokedAsCli =
+  typeof process.argv[1] === "string" &&
+  /(?:^|[\\/])migrate\.(?:mjs|js|ts|cjs)$/.test(process.argv[1]);
+if (invokedAsCli) {
+  main().catch((err) => {
+    logger.error({ err }, "migrate: failed");
+    process.exit(1);
+  });
+}
