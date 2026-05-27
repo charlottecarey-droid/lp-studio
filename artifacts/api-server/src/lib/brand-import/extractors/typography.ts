@@ -3,6 +3,7 @@ import type OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import type { Evidence, DimensionResult, TypographyData, TypographyFont } from "../types";
 import { matchFont } from "../font-catalog";
+import { withOpenAIConcurrency } from "../openai-semaphore";
 
 interface FontEvidence {
   family: string;
@@ -72,6 +73,16 @@ async function parseTypekitUrl(url: string): Promise<FontEvidence[]> {
   }
 }
 
+// Family names that indicate an icon/emoji/symbol font, not a text font.
+// Anthropic and webflow.com both load `webflow-icons` as a `@font-face`
+// with many weights, which beat the actual body font in the assignRoles
+// heuristic. Exclude these from typography candidates entirely.
+const ICON_FONT_RE = /icon|emoji|symbol|glyphicons?|fontawesome|font[-_ ]?awesome|webflow-icons|material[-_ ]?icons|tabler[-_ ]?icons|feather[-_ ]?icons|lucide/i;
+
+function isIconFontFamily(family: string): boolean {
+  return ICON_FONT_RE.test(family);
+}
+
 function parseFontFaceBlocks(css: string): FontEvidence[] {
   const out: FontEvidence[] = [];
   const blockRe = /@font-face\s*\{([^}]+)\}/g;
@@ -81,6 +92,7 @@ function parseFontFaceBlocks(css: string): FontEvidence[] {
     const famMatch = body.match(/font-family\s*:\s*["']?([^"';]+)["']?/);
     if (!famMatch) continue;
     const family = famMatch[1].trim();
+    if (isIconFontFamily(family)) continue;
     const wMatch = body.match(/font-weight\s*:\s*([\d ]+)/);
     const weights = wMatch
       ? wMatch[1].split(/\s+/).map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n))
@@ -175,7 +187,7 @@ export async function extractTypography(
     // Google Fonts links
     $('link[href*="fonts.googleapis.com" i]').each((_, el) => {
       const href = $(el).attr("href");
-      if (href) candidates.push(...parseGoogleFontsUrl(href));
+      if (href) candidates.push(...parseGoogleFontsUrl(href).filter((c) => !isIconFontFamily(c.family)));
     });
     // Typekit (fetch + parse) — gather URLs, fetch in parallel below
     const typekitUrls: string[] = [];
@@ -210,12 +222,12 @@ export async function extractTypography(
     ];
     let raw = "{}";
     try {
-      const c = await openai.chat.completions.create({
+      const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
         model: "gpt-4o-mini",
         max_completion_tokens: 200,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: userParts }],
-      });
+      }));
       raw = c.choices[0]?.message?.content ?? "{}";
     } catch (e) {
       errors.push(`LLM fallback failed: ${String(e)}`);

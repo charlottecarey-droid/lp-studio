@@ -3,6 +3,7 @@ import type { ChatCompletionContentPart } from "openai/resources/chat/completion
 import type {
   Evidence, DimensionResult, ButtonsData, ButtonStyleData, ButtonCategory, SurfaceStyleData,
 } from "../types";
+import { withOpenAIConcurrency } from "../openai-semaphore";
 
 // Walk every rule body in every stylesheet (inline + linked) and keep the ones
 // whose selector mentions btn/button/cta. Then we score candidates and pick
@@ -213,12 +214,12 @@ CSS-parsed summary: ${parsedSummary}`,
         },
         { type: "image_url", image_url: { url: evidence.screenshotDataUrl ?? evidence.screenshotUrl ?? "" } },
       ];
-      const c = await openai.chat.completions.create({
+      const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
         model: "gpt-4o-mini",
         max_completion_tokens: 200,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: userParts }],
-      });
+      }));
       const raw = c.choices[0]?.message?.content ?? "{}";
       const v = JSON.parse(raw) as { category?: ButtonCategory; looks_correct?: boolean; notes?: string };
       if (primaryButton) {

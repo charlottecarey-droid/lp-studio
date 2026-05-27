@@ -1,6 +1,7 @@
 import type * as cheerio from "cheerio";
 import type OpenAI from "openai";
 import type { Evidence, DimensionResult, VoiceData, VoiceProfile } from "../types";
+import { withOpenAIConcurrency } from "../openai-semaphore";
 
 type CheerioNode = ReturnType<cheerio.CheerioAPI>[number];
 
@@ -59,7 +60,7 @@ function corpusToWordCount(corpus: CorpusEntry[]): number {
 }
 
 async function llmCall(openai: OpenAI, system: string, user: string, maxTokens: number): Promise<string> {
-  const c = await openai.chat.completions.create({
+  const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
     model: "gpt-4o-mini",
     max_completion_tokens: maxTokens,
     response_format: { type: "json_object" },
@@ -67,7 +68,7 @@ async function llmCall(openai: OpenAI, system: string, user: string, maxTokens: 
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-  });
+  }));
   return c.choices[0]?.message?.content?.trim() ?? "{}";
 }
 

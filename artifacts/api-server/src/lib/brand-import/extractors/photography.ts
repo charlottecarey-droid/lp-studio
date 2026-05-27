@@ -1,6 +1,25 @@
 import type OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import type { Evidence, DimensionResult, PhotographyData, PhotographyProfile } from "../types";
+import { withOpenAIConcurrency } from "../openai-semaphore";
+
+// OpenAI vision only accepts JPEG/PNG/WEBP/GIF. SVG (which appears as
+// "og-image.svg" on webflow.com, among others) is rejected with HTTP 400
+// "unsupported image". We additionally drop ICO since it's almost always
+// a favicon, not a photographic asset.
+function isVisionUnsupportedImage(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.toLowerCase();
+    if (/\.(svg|svgz|ico|tiff?|bmp|avif|heic|heif)$/.test(path)) return true;
+    // Some CDNs serve SVG via a "format=svg" query param even with a generic path
+    const fmt = u.searchParams.get("format") ?? u.searchParams.get("fm") ?? "";
+    if (/^(svg|tiff?|bmp|avif|heic|heif)$/i.test(fmt)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 function pickImages(evidence: Evidence): string[] {
   const $ = evidence.$home;
@@ -15,7 +34,7 @@ function pickImages(evidence: Evidence): string[] {
   const push = (u: string | null): void => {
     if (!u) return;
     if (seen.has(u)) return;
-    if (/\.(svg|ico)(\?|$)/i.test(u)) return;
+    if (isVisionUnsupportedImage(u)) return;
     if (/sprite|icon|favicon|logo/i.test(u)) return;
     seen.add(u);
     out.push(u);
@@ -78,12 +97,12 @@ Return strict JSON only.`,
 
   let raw = "{}";
   try {
-    const c = await openai.chat.completions.create({
+    const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
       model: "gpt-4o-mini",
       max_completion_tokens: 500,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: userParts }],
-    });
+    }));
     raw = c.choices[0]?.message?.content ?? "{}";
   } catch (e) {
     errors.push(`vision call failed: ${String(e)}`);

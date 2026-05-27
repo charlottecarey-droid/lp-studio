@@ -1,4 +1,5 @@
 import type OpenAI from "openai";
+import { withOpenAIConcurrency } from "../openai-semaphore";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import type { Evidence, DimensionResult, ColorsData, ColorSlot, Confidence } from "../types";
 
@@ -85,7 +86,7 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
 
   let raw = "{}";
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await withOpenAIConcurrency(() => openai.chat.completions.create({
       model: "gpt-4o-mini",
       max_completion_tokens: 1200,
       response_format: { type: "json_object" },
@@ -93,7 +94,7 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
         { role: "system", content: systemPrompt },
         { role: "user", content: userParts },
       ],
-    });
+    }));
     raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
   } catch (e) {
     errors.push(`LLM call failed: ${String(e)}`);
@@ -129,6 +130,16 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   }
 
   const ctaBg = safe(slots.ctaBackground, primary);
+  // Bias rule: when the LLM/CSS-var-derived primary is near-grey but the
+  // CTA slot is saturated (e.g. Notion's near-black primary vs the orange
+  // CTA; Stripe's pink-from-hero primary vs the violet CTA), prefer the
+  // CTA color for `primary`. The CTA is almost always the brand's
+  // intended action color, which is what `primary` is consumed as in
+  // downstream LP templates.
+  if (isNearGrey(primary) && !isNearGrey(ctaBg) && ctaBg.toUpperCase() !== primary.toUpperCase()) {
+    errors.push(`primary (${primary}) was achromatic; promoting saturated ctaBackground (${ctaBg}) to primary`);
+    primary = ctaBg;
+  }
   const ctaText = safe(slots.ctaText, luminance(hexToRgb(ctaBg) ?? [0, 0, 0]) > 0.5 ? "#0F172A" : "#FFFFFF");
   const pageBg = safe(slots.pageBackground, lightest);
   const cardBg = safe(slots.cardBackground, pageBg);
