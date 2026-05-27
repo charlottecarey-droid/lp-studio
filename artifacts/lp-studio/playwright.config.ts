@@ -27,7 +27,12 @@ export default defineConfig({
   testMatch: ["**/*.spec.ts"],
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // One retry. With workers: 1 and ~85 tests in a single Chromium worker,
+  // the last describe blocks occasionally hit "browserContext.newPage:
+  // Target page, context or browser has been closed" — Chromium accumulating
+  // state across contexts, not a code defect. A single retry self-heals these
+  // env flakes without masking real failures (a real bug fails twice).
+  retries: 1,
   reporter: process.env.CI ? "line" : [["list"]],
   timeout: 90_000,
   expect: { timeout: 10_000 },

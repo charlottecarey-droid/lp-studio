@@ -87,11 +87,18 @@ test.describe("Plan-tier gate (starter)", () => {
     await expect(marketing).toBeVisible();
     await expect(page.getByRole("button", { name: /^Sales$/ })).toHaveCount(0);
 
-    // 2. Direct nav to /sales must bounce to /. AppShell's mirror of
-    //    `requirePlanFeature` does this redirect before the route tree
-    //    mounts, so the URL ends back at the workspace root.
+    // 2. Direct nav to /sales must render the friendly UpgradePrompt
+    //    instead of the Sales tree. Task #398 replaced the old silent
+    //    redirect with an explainer card so starter users see *why*
+    //    Sales is locked and how to unlock it — the URL stays on /sales
+    //    but the page body is the upgrade prompt, not the Sales console.
+    //    The server-side `requirePlanFeature("salesConsole")` middleware
+    //    is still the real security boundary (any /api/sales/* call from
+    //    this view 402s); this assertion just pins the client UX.
     await page.goto("/sales", { waitUntil: "networkidle" });
-    await expect(page).toHaveURL(/\/(\?|$)/);
+    await expect(
+      page.getByRole("heading", { name: /Sales Console is a Growth feature/i }),
+    ).toBeVisible();
   });
 });
 
