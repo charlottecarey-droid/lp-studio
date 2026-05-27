@@ -71,6 +71,24 @@ interface Tenant {
   // returns false when missing from settings JSONB, so this is always a
   // boolean. Tenant admins never see this — only this page can flip it.
   ai_image_gen_outside_builder_enabled: boolean;
+  // Task #425 — Stripe linkage. Present when this tenant has gone through
+  // self-serve Checkout. Used to render a drift warning above the plan
+  // dropdown so operators know their manual edit will be overwritten by
+  // the next customer.subscription.updated webhook.
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  // Subscription lifecycle status. Drift warning + plan-edit
+  // confirmation should ONLY fire for live subscriptions
+  // (`active`, `trialing`, `past_due`) — a tenant whose subscription
+  // was already canceled long ago retains the historical
+  // `stripe_subscription_id` but is no longer being billed by Stripe,
+  // so a manual plan edit is safe and the warning is just noise.
+  stripe_subscription_status?: string | null;
+}
+
+const STRIPE_LIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
+function hasLiveStripeSubscription(t: { stripe_subscription_id?: string | null; stripe_subscription_status?: string | null }): boolean {
+  return !!t.stripe_subscription_id && STRIPE_LIVE_STATUSES.has(t.stripe_subscription_status ?? "");
 }
 
 interface VerifyResult {
@@ -525,6 +543,20 @@ function TenantRow({
   };
 
   const patch = async (field: "status" | "plan", value: string) => {
+    // Task #425 — when a tenant has an active Stripe subscription, a
+    // manual plan edit here will be overwritten by the next
+    // customer.subscription.updated webhook. Force a confirmation so
+    // operators don't accidentally drift the canonical tier on a paying
+    // tenant.
+    if (field === "plan" && hasLiveStripeSubscription(tenant)) {
+      const ok = window.confirm(
+        `This tenant has an active Stripe subscription (${tenant.stripe_subscription_id}).\n\n` +
+          `Changing the plan here will be reverted the next time Stripe sends a ` +
+          `subscription event. To change the tier permanently, cancel or change the ` +
+          `price in Stripe first.\n\nContinue with manual override?`,
+      );
+      if (!ok) return;
+    }
     setUpdating(true);
     try {
       await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, {
@@ -707,6 +739,29 @@ function TenantRow({
                   </Button>
                 ))}
               </div>
+
+              {/* Task #425 — Stripe drift warning. When a tenant has an
+                  active Stripe subscription, manual plan edits here are
+                  liable to be overwritten by the next
+                  customer.subscription.updated webhook. Surface the IDs so
+                  the operator can decide whether to cancel/change the
+                  subscription in Stripe first. */}
+              {hasLiveStripeSubscription(tenant) && (
+                <div
+                  className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                  onClick={(e) => e.stopPropagation()}
+                  data-testid={`stripe-drift-warning-${tenant.id}`}
+                >
+                  <p className="font-medium">⚠ This tenant has an active Stripe subscription.</p>
+                  <p className="mt-0.5">
+                    Manual plan changes will be reverted the next time Stripe sends a subscription event.
+                    To change the tier, cancel or change the price in Stripe first.
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] text-amber-800">
+                    customer: {tenant.stripe_customer_id ?? "—"} · subscription: {tenant.stripe_subscription_id}
+                  </p>
+                </div>
+              )}
 
               {/* Plan tier — Packaging step 1 canonical tiers. The DB
                   column is free-form text, so we show the normalized tier

@@ -288,6 +288,10 @@ router.get("/superadmin/tenants", requireSuperadmin, async (req, res): Promise<v
     const result = await pool.query(`
       SELECT
         t.id, t.name, t.slug, t.domain, t.microsite_domain, t.plan, t.status, t.created_at,
+        -- Task #425 — surface Stripe linkage so SuperAdmin can show a drift
+        -- warning when an operator manually edits the plan of a tenant that
+        -- has an active subscription (the next webhook event would overwrite it).
+        t.stripe_customer_id, t.stripe_subscription_id, t.stripe_subscription_status,
         -- Task #234 — surface the superadmin-only AI-image-gen-outside-builder flag
         -- so the SuperAdmin UI can render the per-tenant toggle without a second
         -- round-trip. JSONB extraction returns NULL when the key is missing,

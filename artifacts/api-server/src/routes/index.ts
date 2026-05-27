@@ -11,6 +11,7 @@ import blockCatalogRouter from "./blockCatalog";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import webhooksRouter from "./webhooks";
 import cspReportRouter from "./cspReport";
+import billingRouter from "./billing";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -92,5 +93,11 @@ router.use(blockCatalogRouter);
 router.use(tenantBlockLibraryRouter);
 router.use("/admin", adminRouter);
 router.use("/webhooks", webhooksRouter);
+// Task #425 — self-serve billing. The /billing/* prefix is NOT covered by
+// the LP/sales auth guard above; billingRouter applies `requireAuth` to
+// its own handlers internally so `req.authUser` is always populated.
+// Webhook receiver is NOT here — it's mounted on `app` directly in
+// app.ts, before express.json(), so signature verification works.
+router.use(billingRouter);
 
 export default router;

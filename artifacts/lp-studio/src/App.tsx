@@ -151,6 +151,7 @@ const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
 const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 const GeneralPage = lazy(() => import("@/pages/settings/GeneralPage"));
 const DomainPage = lazy(() => import("@/pages/settings/DomainPage"));
+const BillingPage = lazy(() => import("@/pages/settings/BillingPage"));
 
 // Superadmin (no auth gate)
 const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
@@ -282,6 +283,13 @@ function AppRouter() {
         {/* Settings Routes */}
         <Route path="/settings/general">{() => <PermRoute perm="settings" fallback="/"><GeneralPage /></PermRoute>}</Route>
         <Route path="/settings/domain">{() => <PermRoute perm="settings" fallback="/"><DomainPage /></PermRoute>}</Route>
+        {/* Task #425 — self-serve billing settings. Open to ANY
+            authenticated workspace member in read-only mode so teammates
+            can see what plan they're on and the renewal date. The
+            BillingPage gates the Upgrade and "Manage billing" actions on
+            workspace-admin (`isAdmin`) at render time, and the API
+            re-checks on the server. */}
+        <Route path="/settings/billing"><BillingPage /></Route>
         <Route path="/settings/team">{() => <PermRoute perm="team" fallback="/"><TeamPage /></PermRoute>}</Route>
         <Route path="/settings/roles">{() => <PermRoute perm="roles" fallback="/"><RolesPage /></PermRoute>}</Route>
 

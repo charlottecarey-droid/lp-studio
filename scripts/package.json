@@ -6,10 +6,12 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "smoke-tenant-hosts": "tsx ./src/smoke-tenant-hosts.ts",
+    "seed-stripe-products": "tsx ./src/seed-stripe-products.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@workspace/db": "workspace:*"
+    "@workspace/db": "workspace:*",
+    "stripe": "^22.1.1"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -11,6 +11,7 @@ import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost, invalidat
 import { csrfProtection, csrfErrorHandler, generateCsrfToken } from "./lib/csrf";
 import { ObjectStorageService } from "./lib/objectStorage";
 import { isReady } from "./lib/readiness";
+import { stripeWebhookHandler } from "./routes/stripeWebhook";
 
 const app: Express = express();
 
@@ -188,6 +189,17 @@ app.use(
 );
 
 app.use(cookieParser());
+
+// Task #425 — Stripe webhook receiver. Registered BEFORE express.json() so
+// `req.body` arrives as a raw Buffer for signature verification. Moving
+// this below express.json() silently breaks Stripe webhooks (the handler
+// itself logs a loud warning for that exact regression).
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler,
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 

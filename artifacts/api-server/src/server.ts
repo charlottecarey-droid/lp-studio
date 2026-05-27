@@ -20,6 +20,93 @@ import { runAssetHealthCheck } from "./lib/assetHealthCheck";
 import { runAssetsGc } from "./lib/assetsGc";
 import { Sentry } from "./lib/sentry";
 import { setReady } from "./lib/readiness";
+import { getStripeSync, hasExplicitStripeEnv, runStripeSyncSchemaMigrations, WEBHOOK_EVENTS } from "./lib/stripeClient";
+
+/**
+ * Task #425 — Stripe gating diagnostic. Stripe credentials are resolved
+ * lazily at the request level (see `lib/stripeClient.ts`), so there's no
+ * synchronous init to run here. We just log the resolved configuration
+ * source on boot so an operator can tell, at a glance, whether this
+ * instance will accept Checkout / Portal / webhook calls.
+ *
+ * `STRIPE_ENABLED` is the kill-switch: when unset we skip even the
+ * informational log so a stripeless dev boot stays quiet, and the
+ * runtime routes (which 503 cleanly when no key is available) continue
+ * to serve the rest of the API.
+ */
+function logStripeStartupStatus(): void {
+  if (!process.env.STRIPE_ENABLED) {
+    logger.info("[stripe] disabled (STRIPE_ENABLED unset) — billing routes will respond 503");
+    return;
+  }
+  if (hasExplicitStripeEnv()) {
+    logger.info("[stripe] enabled via STRIPE_SECRET_KEY env var (portable mode)");
+  } else {
+    logger.info("[stripe] enabled via Replit connector broker (workspace integration)");
+  }
+}
+
+/**
+ * Task #425 — initialize the stripe-replit-sync engine: run its DDL
+ * migrations to create/upgrade the local `stripe.*` schema, ensure a
+ * managed webhook endpoint exists in Stripe (so subscription events
+ * actually arrive without manual dashboard setup), then kick off a
+ * best-effort backfill so a fresh deploy doesn't start with an empty
+ * mirror.
+ *
+ * Non-blocking and entirely best-effort: any failure here logs at error
+ * level but does NOT crash the server or prevent ready. Billing routes
+ * gracefully 503 if Stripe is unreachable; the rest of the API keeps
+ * serving. We re-attempt on the next restart.
+ *
+ * Gated behind `STRIPE_ENABLED` so stripeless dev/test boots stay quiet
+ * AND don't accidentally create a managed webhook against a live
+ * account from a developer machine.
+ */
+async function initStripe(): Promise<void> {
+  if (!process.env.STRIPE_ENABLED) return;
+  try {
+    await runStripeSyncSchemaMigrations();
+    logger.info("[stripe] sync schema migrations applied");
+  } catch (err) {
+    logger.error({ err }, "[stripe] sync schema migrations failed (continuing without local mirror)");
+    return;
+  }
+  try {
+    const sync = await getStripeSync();
+    // Wire (or reuse) a managed webhook so subscription events arrive
+    // even on a fresh deploy. The webhook URL must be a publicly
+    // reachable HTTPS endpoint; in production we infer it from
+    // PUBLIC_API_BASE_URL or REPLIT_DEV_DOMAIN. If we can't build a
+    // valid URL we skip — the operator can run the seed script
+    // manually.
+    const base =
+      process.env.PUBLIC_API_BASE_URL ??
+      (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
+    if (base) {
+      const url = `${base.replace(/\/$/, "")}/api/stripe/webhook`;
+      try {
+        const wh = await sync.findOrCreateManagedWebhook(url, {
+          enabled_events: [...WEBHOOK_EVENTS] as unknown as Parameters<typeof sync.findOrCreateManagedWebhook>[1] extends infer P ? P extends { enabled_events?: infer E } ? E : never : never,
+        });
+        logger.info({ webhookId: wh.id, url }, "[stripe] managed webhook ensured");
+      } catch (err) {
+        logger.error({ err, url }, "[stripe] findOrCreateManagedWebhook failed (continuing)");
+      }
+    } else {
+      logger.warn("[stripe] no PUBLIC_API_BASE_URL / REPLIT_DEV_DOMAIN — skipping managed webhook bootstrap");
+    }
+    // Fire-and-forget backfill so the local mirror catches up on
+    // history. This can take a while on accounts with lots of data;
+    // we deliberately don't await so server boot isn't blocked.
+    void sync
+      .syncBackfill()
+      .then((counts) => logger.info({ counts }, "[stripe] initial syncBackfill complete"))
+      .catch((err) => logger.error({ err }, "[stripe] syncBackfill failed (non-fatal)"));
+  } catch (err) {
+    logger.error({ err }, "[stripe] initStripe wiring failed (continuing without sync engine)");
+  }
+}
 
 /**
  * Startup check for the LP-Studio prerender pipeline (task #364 follow-up).
@@ -246,6 +333,14 @@ const httpServer = app.listen(port, (err) => {
   // Verify the LP-Studio prerender pipeline has its required prod env
   // configured. No-op outside production.
   checkPrerenderConfig();
+
+  // Task #425 — log Stripe billing configuration source. No-op when
+  // STRIPE_ENABLED is unset so stripeless dev boots stay quiet.
+  logStripeStartupStatus();
+
+  // Task #425 — bootstrap stripe-replit-sync (DDL, managed webhook,
+  // backfill). Best-effort and gated by STRIPE_ENABLED.
+  void initStripe();
 
   // Periodic cleanup of expired workspace URL redirects (task #136).
   // Runs once at boot and then on a fixed interval. Failures are logged

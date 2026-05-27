@@ -22,6 +22,14 @@ export const tenantsTable = pgTable("tenants", {
   // SaaS UI can poll its TLS/verification status.
   cloudflareHostnameId: text("cloudflare_hostname_id"),
   plan: text("plan").notNull().default("trial"),
+  // Task #425 — Stripe billing. `plan` remains the source of truth the rest
+  // of the app reads (PLAN_FEATURES is keyed by it). Stripe is only ever
+  // authoritative for *tier* selection; entitlements stay code-driven. These
+  // two columns let the webhook resolve `tenants → customer → subscription`
+  // by id, and let the SuperAdmin UI flag drift when an operator changes the
+  // plan manually on a Stripe-managed tenant.
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
   status: text("status").notNull().default("active"),
   settings: jsonb("settings").default({}),
   // Legacy column kept for compatibility — currently unused (all rows are {}).
