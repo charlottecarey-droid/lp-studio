@@ -56,7 +56,9 @@ RESEND_FROM_EMAIL = "LP Studio <notifications@ent.meetdandy.com>"
 GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
-CSRF_SECRET = "e0fd3c5a5fd571d52ad08b234f4e004050623ad1bc8329f9a1a881c269b0d2f4bda019f192ab2e37069b2ddfd803d113"
+# CSRF_SECRET intentionally NOT committed. Set this in Replit Secrets (Tools → Secrets).
+# api-server fails to boot if missing (see artifacts/api-server/src/lib/csrf.ts).
+# Previously committed values were rotated May 2026 — assume any value in git history is leaked.
 
 [[ports]]
 localPort = 8080

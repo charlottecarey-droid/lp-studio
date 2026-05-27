@@ -1,3 +1,4 @@
+- [Dev env source](dev-env-source.md) — dev workflows read env from `.replit` `[userenv]` + gitignored `.env`; Replit Secrets are agent/deploy-only, NOT injected into workflow shells.
 - [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
 - [LP Studio dev marketing host](lp-studio-dev-marketing-host.md) — in dev, '/' renders the marketing site; E2E tests needing the SaaS shell must use '/?preview=app'.
 - [LP_PUBLIC auth hydration](lp-public-auth-hydration.md) — auth-conditional logic on LP_PUBLIC routes needs `optionalAuth` middleware or `req.authUser` is always undefined.
