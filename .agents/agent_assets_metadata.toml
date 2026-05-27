@@ -149,3 +149,9 @@ id = "-e_HPSgvDxXEMneIvO8vA"
 uri = "file://attached_assets/screenshots/lp-premium-pre-deploy.png"
 type = "image"
 title = "dandy-ai-lp-copy-premium (live now, before code deploy)"
+
+[[outputs]]
+id = "06e9oI_xzw227E2aCk1GH"
+uri = "file://attached_assets/spatial-lab-tour-trailer.mp4"
+type = "video"
+title = "Spatial Lab Tour — Trailer (27.5s, no sound)"
