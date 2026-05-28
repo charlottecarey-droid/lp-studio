@@ -99,14 +99,57 @@ function buildGoogleCssUrl(family: string, weights: number[]): string {
   return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, "+")}${wParam}&display=swap`;
 }
 
+// Trailing weight/style tokens we strip before catalog lookup. Importers
+// (and humans pasting from Figma) frequently store names like
+// "Poppins Regular" or "Inter Medium" — the CSS-loaded @font-face only
+// declares "Poppins" / "Inter", so the suffixed form silently falls back
+// to Times. Kept conservative: only standard weight/style words. The
+// `Display` token deliberately stays (it's part of legit family names
+// like Playfair Display, DM Serif Display).
+const WEIGHT_STYLE_SUFFIX_RE =
+  /\s+(thin|hairline|extralight|ultralight|light|regular|normal|book|medium|semibold|demibold|bold|extrabold|ultrabold|heavy|black|italic|oblique|condensed|narrow|compressed|extended|expanded|roman|std|lt|rg|md|bd)$/i;
+
+function stripWeightStyle(norm: string): string {
+  let s = norm;
+  // Strip repeatedly — handles "DM Sans Bold Italic" → "DM Sans".
+  while (true) {
+    const next = s.replace(WEIGHT_STYLE_SUFFIX_RE, "").trim();
+    if (next === s || !next) break;
+    s = next;
+  }
+  return s;
+}
+
+/** Bounded Levenshtein for typo correction (≤1). */
+function leven(a: string, b: string): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  const prev = new Array(b.length + 1).fill(0).map((_, i) => i);
+  const curr = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let k = 0; k <= b.length; k++) prev[k] = curr[k];
+  }
+  return prev[b.length]!;
+}
+
 export function matchFont(rawFamily: string, observedWeights: number[] = []): FontMatch {
   const norm = normalizeFamily(rawFamily);
-  const stripped = norm.replace(/\s+(std|lt|regular|medium|bold|black|display|text|book)$/i, "").trim();
+  const stripped = stripWeightStyle(norm);
 
-  // 1. Direct Google match
+  // 1. Direct Google match (exact, then weight-stripped)
   const fonts = loadGoogleFonts();
-  const direct = fonts.find((f) => normalizeFamily(f.family) === norm)
+  let direct = fonts.find((f) => normalizeFamily(f.family) === norm)
     ?? fonts.find((f) => normalizeFamily(f.family) === stripped);
+  // 1b. Single-character typo correction against Google catalog, but only
+  // for names long enough that the distance is meaningful (>=5 chars).
+  if (!direct && stripped.length >= 5) {
+    direct = fonts.find((f) => leven(normalizeFamily(f.family), stripped) <= 1);
+  }
   if (direct) {
     return {
       inputFamily: rawFamily,

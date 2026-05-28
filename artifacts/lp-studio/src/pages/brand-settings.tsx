@@ -37,7 +37,7 @@ import type {
   ImportedButtonStyle, ImportedSurfaceStyle,
   ImportedVoiceProfile, ImportedPhotographyProfile,
 } from "@/lib/brand-config";
-import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
+import { FONT_CATALOG, isSelfHostedFont, toFontFamilyValue } from "@/lib/font-catalog";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { FormStylingPanel } from "@/components/FormStylingPanel";
@@ -2433,7 +2433,7 @@ export default function BrandSettings() {
                   getHeadingWeightClass(config),
                   getHeadingLetterSpacingClass(config)
                 )}
-                style={{ color: config.textColor, fontFamily: config.displayFont || undefined }}
+                style={{ color: config.textColor, fontFamily: toFontFamilyValue(config.displayFont, "display") }}
               >
                 H1 — Your Main Headline
               </div>
@@ -2444,7 +2444,7 @@ export default function BrandSettings() {
                   getHeadingWeightClass(config),
                   getHeadingLetterSpacingClass(config)
                 )}
-                style={{ color: config.textColor, fontFamily: config.displayFont || undefined }}
+                style={{ color: config.textColor, fontFamily: toFontFamilyValue(config.displayFont, "display") }}
               >
                 H2 — Section Heading
               </div>
@@ -2455,13 +2455,13 @@ export default function BrandSettings() {
                   getHeadingWeightClass(config),
                   getHeadingLetterSpacingClass(config)
                 )}
-                style={{ color: config.textColor, fontFamily: config.displayFont || undefined }}
+                style={{ color: config.textColor, fontFamily: toFontFamilyValue(config.displayFont, "display") }}
               >
                 H3 — Sub-section Title
               </div>
               <p
                 className={cn(getBodySizeClass(config), "text-muted-foreground leading-relaxed")}
-                style={{ fontFamily: config.bodyFont || undefined }}
+                style={{ fontFamily: toFontFamilyValue(config.bodyFont, "sans") }}
               >
                 Body text — This is how your paragraph copy will look across all blocks. Clear, readable, and well-spaced.
               </p>
