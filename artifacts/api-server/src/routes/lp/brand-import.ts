@@ -275,6 +275,33 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
       }));
     return { valid: out.length > 0, sanitized: out };
   }
+  if (field === "salesConsole") {
+    // Sales-console seed from the importer. Validate the shape we know
+    // (valuePropPairs + three string prompts) and drop anything else
+    // so the FE merge can't pick up rogue keys. Length caps mirror the
+    // content extractor's slicing.
+    if (typeof value !== "object" || value === null) return { valid: false, sanitized: null };
+    const o = value as Record<string, unknown>;
+    const pairsIn = Array.isArray(o.valuePropPairs) ? o.valuePropPairs : [];
+    const pairs = pairsIn
+      .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null)
+      .map((p) => {
+        const theme = typeof p.theme === "string" ? p.theme.trim().slice(0, 80) : "";
+        const pain = typeof p.pain === "string" ? p.pain.trim().slice(0, 200) : "";
+        const proof = typeof p.proof === "string" ? p.proof.trim().slice(0, 240) : "";
+        const rolesArr = Array.isArray(p.roles)
+          ? p.roles.filter((r): r is string => typeof r === "string" && r.trim().length > 0).map((r) => r.trim().slice(0, 80)).slice(0, 6)
+          : [];
+        return { roles: rolesArr, theme, pain, proof };
+      })
+      .filter((p) => p.theme || p.pain || p.proof)
+      .slice(0, 8);
+    const brief = typeof o.briefBlurb === "string" ? o.briefBlurb.trim().slice(0, 800) : "";
+    const naming = typeof o.customerNameRules === "string" ? o.customerNameRules.trim().slice(0, 400) : "";
+    const intro = typeof o.salesIntroLine === "string" ? o.salesIntroLine.trim().slice(0, 280) : "";
+    if (pairs.length === 0 && !brief && !naming && !intro) return { valid: false, sanitized: null };
+    return { valid: true, sanitized: { valuePropPairs: pairs, briefBlurb: brief, customerNameRules: naming, salesIntroLine: intro } };
+  }
   if (field === "photographyProfile" || field === "voiceProfile" || field === "buttonStyleRaw" || field === "surfaceStyle") {
     if (typeof value !== "object" || value === null) return { valid: false, sanitized: null };
     // Cap serialized size at 32KB to prevent runaway JSON
@@ -312,6 +339,17 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
       if (trimmed.length > SVG_DATA_MAX) return { valid: false, sanitized: null };
       const payload = trimmed.slice(SVG_DATA_PREFIX.length);
       if (!/^[A-Za-z0-9+/=]+$/.test(payload)) return { valid: false, sanitized: null };
+      return { valid: true, sanitized: trimmed };
+    }
+    // The brand-import asset mirror rewrites the chosen logo to a
+    // tenant-scoped `/api/storage/objects/uploads/...` path. Accept
+    // that shape (relative, no scheme) alongside fully-qualified
+    // http(s) URLs — the existing upload route already produces this
+    // exact prefix (see routes/lp/brand-upload.ts), so it's a known-safe
+    // origin, not arbitrary user input.
+    if (trimmed.startsWith("/api/storage/")) {
+      if (trimmed.length > 2000) return { valid: false, sanitized: null };
+      if (!/^\/api\/storage\/[A-Za-z0-9._\-/]+$/.test(trimmed)) return { valid: false, sanitized: null };
       return { valid: true, sanitized: trimmed };
     }
     if (trimmed.length > 2000) return { valid: false, sanitized: null };

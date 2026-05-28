@@ -20,6 +20,27 @@ export interface DimensionResult<T> {
   errors: string[];
 }
 
+export interface SalesConsoleValuePropPair {
+  roles: string[];
+  theme: string;
+  pain: string;
+  proof: string;
+}
+
+/**
+ * Sales-console block returned by the content extractor. Powers the
+ * Sales Console section of brand-settings — value-prop pairs the
+ * outreach AI rotates per recipient role, plus three short AI-prompt
+ * strings (brief blurb, naming rules, intro line) that get injected
+ * into every cold-outreach generation.
+ */
+export interface SalesConsoleSeed {
+  valuePropPairs: SalesConsoleValuePropPair[];
+  briefBlurb: string;
+  customerNameRules: string;
+  salesIntroLine: string;
+}
+
 export interface ScrapedPage {
   url: string;
   markdown: string;

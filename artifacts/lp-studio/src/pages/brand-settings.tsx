@@ -900,6 +900,7 @@ const FIELD_LABELS: Record<string, string> = {
   toneOfVoice: "Tone of Voice", toneKeywords: "Tone Keywords",
   avoidPhrases: "Avoid Phrases", targetAudience: "Target Audience",
   copyExamples: "Copy Examples",
+  salesConsole: "Sales Console (value props + AI prompts)",
 };
 
 interface SalesBrandSetupSummary {
@@ -2004,6 +2005,38 @@ export default function BrandSettings() {
       }
       if (updates["productLines"] && Array.isArray(updates["productLines"])) {
         next.productLines = [...(prev.productLines ?? []), ...(updates["productLines"] as typeof prev.productLines)];
+      }
+      // Sales console seed: merge into the existing salesConsole block
+      // rather than replacing it. The spread above would drop every
+      // unrelated salesConsole field the user has already configured
+      // (sending domain, sender details, email footer, exemplar
+      // toggles, etc.) just because the importer surfaced four new
+      // ones. The valuePropPairs array appends so the user's
+      // hand-tuned pairs survive — same rationale as segments above.
+      if (updates["salesConsole"] && typeof updates["salesConsole"] === "object") {
+        const incoming = updates["salesConsole"] as Partial<SalesConsoleConfig>;
+        const existing = (prev.salesConsole ?? {}) as SalesConsoleConfig;
+        // Drop empty-string prompt fields before merging so a partial
+        // importer payload (e.g. valuePropPairs only, no naming rules
+        // detected on the source) doesn't blank out a briefBlurb /
+        // customerNameRules / salesIntroLine the user has already
+        // hand-written. The sanitizer normalizes absent prompts to ""
+        // and we'd rather under-apply than overwrite.
+        const incomingClean: Partial<SalesConsoleConfig> = {};
+        for (const [k, v] of Object.entries(incoming)) {
+          if (k === "valuePropPairs") continue;
+          if (typeof v === "string" && v.trim().length === 0) continue;
+          (incomingClean as Record<string, unknown>)[k] = v;
+        }
+        const mergedPairs = [
+          ...(Array.isArray(existing.valuePropPairs) ? existing.valuePropPairs : []),
+          ...(Array.isArray(incoming.valuePropPairs) ? incoming.valuePropPairs : []),
+        ];
+        next.salesConsole = {
+          ...existing,
+          ...incomingClean,
+          ...(mergedPairs.length > 0 ? { valuePropPairs: mergedPairs } : {}),
+        };
       }
       return next;
     });

@@ -1,0 +1,304 @@
+import dns from "dns/promises";
+import net from "net";
+import { db, lpMediaTable } from "@workspace/db";
+import { ObjectStorageService } from "../objectStorage";
+import { USER_AGENT } from "./types";
+
+const objectStorage = new ObjectStorageService();
+
+// Per-asset caps. Brand logos are tiny (SVG/PNG, almost always under
+// 200KB) and hero photos rarely exceed 2MB in their CDN-optimized form;
+// 5MB is comfortable headroom that still rejects pathological assets
+// (4k JPEGs, raw PSDs, animated GIFs from blog footers).
+const MAX_BYTES = 5 * 1024 * 1024;
+const FETCH_TIMEOUT_MS = 4_000;
+
+// Max photo assets to mirror. The photography extractor returns up to 8
+// reference URLs; we cap at 6 here to leave budget headroom inside the
+// orchestrator's post-extractor mirror step (each fetch+upload runs
+// 200ms-1500ms, so 6 fits in ~5s in the worst case and ~1s typical).
+const MAX_PHOTOS = 6;
+
+interface MirrorInputs {
+  tenantId: number;
+  brandName: string;
+  logoUrl?: string | null;
+  photoUrls?: string[];
+}
+
+export interface MirrorOutput {
+  /** Rewritten logo URL pointing at the freshly-uploaded /api/storage
+   *  asset, or `undefined` if the upload failed (caller should keep the
+   *  external URL in that case). */
+  logoUrl?: string;
+  /** Rewritten photo URLs, in the same order as the input (failures are
+   *  dropped, not replaced with their external original — the goal is a
+   *  clean library, not a 1:1 mapping). */
+  photoUrls: string[];
+  /** Number of assets attempted vs uploaded — surfaced in logs for
+   *  debugging slow / hostile CDNs. */
+  attempted: number;
+  uploaded: number;
+}
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+function extToMime(url: string): string | null {
+  const path = url.toLowerCase().split("?")[0];
+  if (path.endsWith(".svg") || path.endsWith(".svgz")) return "image/svg+xml";
+  if (path.endsWith(".png")) return "image/png";
+  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+  if (path.endsWith(".webp")) return "image/webp";
+  if (path.endsWith(".gif")) return "image/gif";
+  if (path.endsWith(".avif")) return "image/avif";
+  return null;
+}
+
+interface FetchedAsset {
+  buffer: Buffer;
+  mimeType: string;
+  sourceUrl: string;
+}
+
+// SSRF guard mirroring the one in brand-import-from-url-stream.ts:
+// scraped sites are untrusted, so each asset URL (and every redirect
+// hop) must point at a public IP before we issue the GET. Without this
+// a hostile page could supply `https://attacker.example/redirect ->
+// http://169.254.169.254/...` and exfiltrate cloud-metadata responses
+// into the tenant's media library as "image/*" blobs.
+function isPrivateOrReservedIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    if (parts.length !== 4 || parts.some((p) => isNaN(p))) return true;
+    const [a, b] = parts;
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a >= 224) return true;
+    return false;
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    if (lower === "::" || lower === "::1") return true;
+    if (lower.startsWith("fe80:") || lower.startsWith("fe80::")) return true;
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
+    if (lower.startsWith("ff")) return true;
+    if (lower.startsWith("::ffff:")) {
+      const v4 = lower.slice(7);
+      if (net.isIPv4(v4)) return isPrivateOrReservedIp(v4);
+    }
+    return false;
+  }
+  return true;
+}
+
+async function isSafePublicHost(hostname: string): Promise<boolean> {
+  if (!hostname) return false;
+  if (hostname === "localhost") return false;
+  try {
+    const records = await dns.lookup(hostname, { all: true });
+    if (!records.length) return false;
+    return records.every((r) => !isPrivateOrReservedIp(r.address));
+  } catch {
+    return false;
+  }
+}
+
+const MAX_REDIRECTS = 3;
+
+/**
+ * Decode the Playwright logo worker's `data:image/svg+xml;base64,…`
+ * URLs so we can upload the bytes the same way as a fetched asset.
+ * Other data URL flavors (raster `data:image/png;base64,…`) are also
+ * accepted for completeness; non-image data URLs are rejected.
+ */
+function decodeDataUrl(url: string): FetchedAsset | null {
+  const m = url.match(/^data:([^;,]+)(;base64)?,(.+)$/);
+  if (!m) return null;
+  const mime = m[1].toLowerCase();
+  if (!mime.startsWith("image/")) return null;
+  const isBase64 = !!m[2];
+  const payload = m[3];
+  try {
+    const buffer = isBase64 ? Buffer.from(payload, "base64") : Buffer.from(decodeURIComponent(payload), "utf8");
+    if (!buffer.length || buffer.length > MAX_BYTES) return null;
+    return { buffer, mimeType: mime, sourceUrl: url };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch a remote image with a tight timeout, size cap, and content-type
+ * guardrail. Returns null on any failure — callers treat per-asset
+ * failures as silent skips, not orchestrator-level errors, so a single
+ * 403 from a hotlink-protected CDN doesn't poison the rest of the run.
+ *
+ * Redirects are followed manually so we can re-validate each hop's host
+ * against the SSRF allow-list (the WHATWG fetch's `redirect: "follow"`
+ * blindly chases Location headers, which would defeat a public-host
+ * check on the original URL).
+ */
+async function fetchAsset(url: string): Promise<FetchedAsset | null> {
+  if (url.startsWith("data:")) return decodeDataUrl(url);
+
+  let current = url;
+  let originalUrl = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    let parsed: URL;
+    try {
+      parsed = new URL(current);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (!(await isSafePublicHost(parsed.hostname))) return null;
+
+    let res: Response;
+    try {
+      res = await fetch(current, {
+        headers: { "User-Agent": USER_AGENT, "Accept": "image/*,*/*;q=0.8" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+    } catch {
+      return null;
+    }
+
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) return null;
+      // Resolve relative redirects against the previous hop's URL.
+      try {
+        current = new URL(loc, current).toString();
+      } catch {
+        return null;
+      }
+      continue;
+    }
+
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    const mimeType = (ct && ct.startsWith("image/")) ? ct : extToMime(current);
+    if (!mimeType) return null;
+    const len = res.headers.get("content-length");
+    if (len && Number(len) > MAX_BYTES) return null;
+    try {
+      const buffer = Buffer.from(await res.arrayBuffer());
+      if (!buffer.length || buffer.length > MAX_BYTES) return null;
+      return { buffer, mimeType, sourceUrl: originalUrl };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+interface UploadOpts {
+  tenantId: number;
+  tags: string[];
+  title: string;
+}
+
+async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<string | null> {
+  try {
+    // Pass tenantId so the stored object carries a tenant-owner ACL —
+    // the /api/storage serve route refuses cross-tenant reads for any
+    // object with that policy, matching how the rest of lp_media assets
+    // are protected.
+    const servePath = await objectStorage.uploadObjectEntity(asset.buffer, asset.mimeType, { tenantId: opts.tenantId });
+    const serveUrl = `/api/storage${servePath}`;
+    await db.insert(lpMediaTable).values({
+      tenantId: opts.tenantId,
+      title: opts.title,
+      url: serveUrl,
+      mediaType: "image",
+      mimeType: asset.mimeType,
+      sizeBytes: asset.buffer.length,
+      tags: opts.tags,
+    });
+    return serveUrl;
+  } catch {
+    return null;
+  }
+}
+
+function titleFromUrl(url: string, fallback: string): string {
+  try {
+    if (url.startsWith("data:")) return fallback;
+    const path = new URL(url).pathname;
+    const base = path.split("/").filter(Boolean).pop() ?? "";
+    const trimmed = base.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+    return trimmed || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Download the importer's chosen logo + photography reference images
+ * and re-host them as tenant-scoped `lp_media` rows. Returns rewritten
+ * `/api/storage/...` URLs so the orchestrator can swap them into the
+ * proposed BrandConfig before the FE applies anything. Best-effort:
+ * per-asset failures are silent skips, never orchestrator errors —
+ * worst case the caller keeps the external URL it already had.
+ *
+ * Why this exists: external links from scraped sites (especially CDN
+ * hero photos and inline-SVG-converted logos) break frequently due to
+ * hotlink protection, signed-URL expiry, and bot blocking. Mirroring
+ * to the tenant's own media library makes them durable and lets the
+ * Media Library picker surface them alongside everything else the
+ * tenant has uploaded.
+ */
+export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOutput> {
+  const brandSlug = slugify(inputs.brandName || "brand-import") || "brand-import";
+  const baseTags = ["brand-import", brandSlug];
+  const out: MirrorOutput = { photoUrls: [], attempted: 0, uploaded: 0 };
+
+  // Logo first — sequential so its failure surfaces in logs before we
+  // start the photo fan-out. Logos are small (often <50KB) so the
+  // sequential cost is negligible.
+  if (inputs.logoUrl) {
+    out.attempted++;
+    const asset = await fetchAsset(inputs.logoUrl);
+    if (asset) {
+      const url = await uploadAndRecord(asset, {
+        tenantId: inputs.tenantId,
+        tags: [...baseTags, "logo"],
+        title: `${inputs.brandName || "Brand"} logo`,
+      });
+      if (url) {
+        out.logoUrl = url;
+        out.uploaded++;
+      }
+    }
+  }
+
+  // Photos in parallel — independent network calls, no shared state.
+  const photos = (inputs.photoUrls ?? []).slice(0, MAX_PHOTOS);
+  out.attempted += photos.length;
+  const results = await Promise.all(photos.map(async (sourceUrl, i) => {
+    const asset = await fetchAsset(sourceUrl);
+    if (!asset) return null;
+    return uploadAndRecord(asset, {
+      tenantId: inputs.tenantId,
+      tags: [...baseTags, "photography"],
+      title: titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
+    });
+  }));
+  for (const url of results) {
+    if (url) {
+      out.photoUrls.push(url);
+      out.uploaded++;
+    }
+  }
+  return out;
+}

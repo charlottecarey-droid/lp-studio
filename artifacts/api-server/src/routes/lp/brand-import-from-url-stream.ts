@@ -132,7 +132,7 @@ router.post(
     };
 
     try {
-      for await (const event of runOrchestrator(parsed.toString(), apiKey, { forceRefresh })) {
+      for await (const event of runOrchestrator(parsed.toString(), apiKey, { forceRefresh, tenantId })) {
         if (clientGone) break;
         write(event);
       }

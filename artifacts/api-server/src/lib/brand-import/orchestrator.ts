@@ -9,6 +9,7 @@ import { extractVoice } from "./extractors/voice";
 import { extractContent } from "./extractors/content";
 import { extractStructure } from "./extractors/structure";
 import { getCached, putCached } from "./cache";
+import { mirrorBrandAssets } from "./assets-uploader";
 import type {
   Confidence,
   DimensionName,
@@ -69,6 +70,12 @@ function launchWithBudget<T>(
 
 interface Options {
   forceRefresh?: boolean;
+  /** When set, the orchestrator mirrors the chosen logo + photography
+   *  reference images into this tenant's lp_media library and rewrites
+   *  the proposed URLs to the resulting /api/storage paths. Without it
+   *  the importer surfaces external URLs as before — useful for
+   *  pasted-text imports that have no tenant context. */
+  tenantId?: number;
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -207,6 +214,11 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     if (c.messagingPillars.length) put("messagingPillars", c.messagingPillars, conf);
     if (c.targetAudience) put("targetAudience", c.targetAudience, conf);
     if (c.copyExamples.length) put("copyExamples", c.copyExamples, conf);
+    // Sales-console seed travels as a single nested object — the FE
+    // applies it via a dedicated merge path (rather than spread) so
+    // existing salesConsole fields the user has already tweaked aren't
+    // clobbered. See `handleApplyImport` in brand-settings.tsx.
+    if (c.salesConsole) put("salesConsole", c.salesConsole, conf);
   }
 
   if (results.structure.status !== "failed" && results.structure.data) {
@@ -269,7 +281,21 @@ export async function* runOrchestrator(
         const r = cached.results[d] ?? failedResult<unknown>("not available in cached payload");
         yield { event: "dimension", dimension: d, result: r };
       }
-      yield { event: "done", payload: { ...cached, cached: true } };
+      // Clone before mirroring so the cached row stays anchored to the
+      // original external URLs — otherwise a second tenant hitting the
+      // cache would inherit the first tenant's `/api/storage/...` paths
+      // (which they can't read) when we eventually write back. The
+      // clone covers `proposed` and `photographyProfile` only since
+      // those are what mirror mutates.
+      const finalCached: OrchestratorPayload = {
+        ...cached,
+        cached: true,
+        proposed: JSON.parse(JSON.stringify(cached.proposed)) as Record<string, unknown>,
+      };
+      if (opts.tenantId !== undefined) {
+        await applyAssetMirror(finalCached, opts.tenantId);
+      }
+      yield { event: "done", payload: finalCached };
       return;
     }
   }
@@ -394,8 +420,45 @@ export async function* runOrchestrator(
     cached: false,
   };
 
-  // Best-effort cache write (failures non-fatal, already swallowed in cache.ts)
+  // Best-effort cache write (failures non-fatal, already swallowed in
+  // cache.ts). Important: we cache BEFORE mirroring so the row stores
+  // external URLs — mirror runs per-tenant on cache reads too, giving
+  // each tenant their own lp_media copies rather than pointing every
+  // tenant at the first one's storage paths.
   void putCached(evidence.homeUrl, payload);
 
+  if (opts.tenantId !== undefined) {
+    await applyAssetMirror(payload, opts.tenantId);
+  }
+
   yield { event: "done", payload };
+}
+
+/**
+ * Post-extraction step that re-hosts the chosen logo + photography
+ * reference images in the tenant's lp_media library and rewrites the
+ * matching entries in `payload.proposed`. Best-effort: any failure is
+ * swallowed so the importer succeeds with the original external URLs.
+ * Why mutate `proposed` directly rather than returning a new object:
+ * the FE consumes `proposed`, and we want the rewritten URLs to flow
+ * through the existing apply-fields path without a schema change.
+ */
+async function applyAssetMirror(payload: OrchestratorPayload, tenantId: number): Promise<void> {
+  const proposed = payload.proposed;
+  const brandName = typeof proposed["brandName"] === "string" ? proposed["brandName"] as string : "";
+  const logoUrl = typeof proposed["logoUrl"] === "string" ? proposed["logoUrl"] as string : undefined;
+  const photoProfile = proposed["photographyProfile"] as { referenceImageUrls?: unknown } | undefined;
+  const photoUrls = Array.isArray(photoProfile?.referenceImageUrls)
+    ? (photoProfile!.referenceImageUrls as unknown[]).filter((u): u is string => typeof u === "string")
+    : [];
+  if (!logoUrl && photoUrls.length === 0) return;
+  try {
+    const result = await mirrorBrandAssets({ tenantId, brandName, logoUrl, photoUrls });
+    if (result.logoUrl) proposed["logoUrl"] = result.logoUrl;
+    if (result.photoUrls.length > 0 && photoProfile) {
+      proposed["photographyProfile"] = { ...photoProfile, referenceImageUrls: result.photoUrls };
+    }
+  } catch {
+    // mirror is best-effort — keep external URLs on failure
+  }
 }

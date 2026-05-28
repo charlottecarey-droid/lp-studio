@@ -1,5 +1,5 @@
 import type OpenAI from "openai";
-import type { Evidence, DimensionResult } from "../types";
+import type { Evidence, DimensionResult, SalesConsoleSeed, SalesConsoleValuePropPair } from "../types";
 import { withOpenAIConcurrency } from "../openai-semaphore";
 
 /**
@@ -60,6 +60,11 @@ export interface ContentData {
   messagingPillars: { label: string; description: string }[];
   targetAudience: string;
   copyExamples: string[];
+  /** Sales-console seed — value-prop pairs + three AI prompt strings
+   *  (brief blurb, customer-naming rules, sales intro line). Drives the
+   *  Sales Console section of brand-settings; left undefined when the
+   *  source page lacks enough signal to seed it confidently. */
+  salesConsole?: SalesConsoleSeed;
 }
 
 /**
@@ -104,20 +109,36 @@ Return shape:
     { "label": "string (2-5 words)", "description": "string (one sentence)" }
   ]   // 3-4 high-level value themes ("Trusted by clinicians", "Built for scale", etc.). If the homepage has a "Why us" / feature grid, extract from there.
   "targetAudience": "string (1-2 sentences describing WHO this is for — roles, company size, industry)",
-  "copyExamples": string[3-5]   // VERBATIM sentences from the evidence that best demonstrate the brand's voice (pick punchy hero/feature lines, not generic CTAs)
+  "copyExamples": string[3-5],   // VERBATIM sentences from the evidence that best demonstrate the brand's voice (pick punchy hero/feature lines, not generic CTAs)
+  "salesConsole": {
+    "valuePropPairs": [
+      {
+        "roles": string[1-3],   // job titles this pair speaks to (e.g. ["VP Sales","RevOps Lead"]). Derive from the page's named audiences / personas. If the page only addresses one generic audience, use ["Decision Maker"].
+        "theme": "string (2-5 words — short name for this benefit angle)",
+        "pain": "string (≤120 chars — the prospect pain this addresses, in the prospect's language)",
+        "proof": "string (≤140 chars — the specific capability / metric / customer outcome that proves we solve it)"
+      }
+    ],   // 3-5 distinct pairs, each tied to a different messaging pillar or audience role. Use only claims explicitly supported by the corpus.
+    "briefBlurb": "string (≤400 chars — one paragraph describing the company / product the way you'd brief a sales rep before their first call: what we sell, who we sell to, the single sharpest reason to buy)",
+    "customerNameRules": "string (≤200 chars — naming conventions observed in the brand's own copy: e.g. 'Use full product name on first reference, abbreviation thereafter' or 'Refer to users as Members, never Customers'. If no conventions are evident, return an empty string.)",
+    "salesIntroLine": "string (≤180 chars — a single sentence a sales rep could open a cold outreach with, in the brand's voice, leading with the prospect's pain not our product)"
+  },
   "confidence": {
     "brandName": "high" | "medium" | "low",
     "companyDescription": "high" | "medium" | "low",
     "taglines": "high" | "medium" | "low",
     "messagingPillars": "high" | "medium" | "low",
     "targetAudience": "high" | "medium" | "low",
-    "copyExamples": "high" | "medium" | "low"
+    "copyExamples": "high" | "medium" | "low",
+    "salesConsole": "high" | "medium" | "low"
   }
 }
 
 Rules:
 - If the evidence does not support a field, omit it (or set it to an empty array/string). Do NOT invent.
 - copyExamples MUST be verbatim quotes from the corpus.
+- salesConsole.valuePropPairs MUST be grounded in the evidence — each "proof" must reference a real capability / metric / customer mentioned on the page, never a generic claim.
+- salesConsole.customerNameRules empty string is fine if no naming convention is evident.
 - targetAudience low confidence is fine if only inferred from pricing tiers or one mention.
 - Return ONLY valid JSON.`;
 
@@ -140,7 +161,10 @@ Rules:
     return { status: "failed", data: null, confidence: "low", errors };
   }
 
-  let parsed: Partial<ContentData> & { confidence?: Record<string, string> } = {};
+  let parsed: Partial<ContentData> & {
+    confidence?: Record<string, string>;
+    salesConsole?: Partial<SalesConsoleSeed> & { valuePropPairs?: unknown };
+  } = {};
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -186,6 +210,42 @@ Rules:
     || trimStr(meta.ogSiteName, 200)
     || trimStr(meta.metaTitle, 200).split(/[|–—-]/)[0].trim();
 
+  // Sales-console block parsing. We accept the LLM's structure but
+  // defensively trim every string and drop pairs that lack any of the
+  // three meaningful fields (theme/pain/proof). Roles default to a
+  // single "Decision Maker" entry when the LLM left them blank, so the
+  // pair is still usable in the Sales Console UI without manual
+  // backfilling.
+  const valuePropPair = (v: unknown): SalesConsoleValuePropPair | null => {
+    if (typeof v !== "object" || v === null) return null;
+    const o = v as Record<string, unknown>;
+    const theme = typeof o.theme === "string" ? o.theme.trim().slice(0, 60) : "";
+    const pain = typeof o.pain === "string" ? o.pain.trim().slice(0, 140) : "";
+    const proof = typeof o.proof === "string" ? o.proof.trim().slice(0, 180) : "";
+    if (!theme && !pain && !proof) return null;
+    const rolesArr = Array.isArray(o.roles)
+      ? o.roles.filter((r): r is string => typeof r === "string" && r.trim().length > 0).map((r) => r.trim().slice(0, 60)).slice(0, 4)
+      : [];
+    return {
+      roles: rolesArr.length ? rolesArr : ["Decision Maker"],
+      theme,
+      pain,
+      proof,
+    };
+  };
+  const parseSalesConsole = (raw: unknown): SalesConsoleSeed | undefined => {
+    if (typeof raw !== "object" || raw === null) return undefined;
+    const o = raw as Record<string, unknown>;
+    const pairs = Array.isArray(o.valuePropPairs)
+      ? (o.valuePropPairs.map(valuePropPair).filter((p): p is SalesConsoleValuePropPair => p !== null).slice(0, 6))
+      : [];
+    const brief = typeof o.briefBlurb === "string" ? o.briefBlurb.trim().slice(0, 500) : "";
+    const naming = typeof o.customerNameRules === "string" ? o.customerNameRules.trim().slice(0, 240) : "";
+    const intro = typeof o.salesIntroLine === "string" ? o.salesIntroLine.trim().slice(0, 220) : "";
+    if (!pairs.length && !brief && !naming && !intro) return undefined;
+    return { valuePropPairs: pairs, briefBlurb: brief, customerNameRules: naming, salesIntroLine: intro };
+  };
+
   const data: ContentData = {
     brandName,
     companyDescription: trimStr(parsed.companyDescription, 500)
@@ -194,6 +254,7 @@ Rules:
     messagingPillars: pillars(parsed.messagingPillars),
     targetAudience: trimStr(parsed.targetAudience, 500),
     copyExamples: arrStr(parsed.copyExamples, 5, 280),
+    salesConsole: parseSalesConsole(parsed.salesConsole),
   };
 
   const populated =
