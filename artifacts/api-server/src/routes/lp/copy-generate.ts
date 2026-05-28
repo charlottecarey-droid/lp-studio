@@ -1,10 +1,20 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
+import { lpMediaTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
+import { withOpenAIConcurrency } from "../../lib/brand-import/openai-semaphore";
+import {
+  fetchBrand,
+  buildBrandSystemPrompt,
+  buildBriefContextPrompt,
+  noteMissingVoiceProfile,
+  hasBriefSignal,
+  logCopyCall,
+  type BriefContext,
+} from "../../lib/ai-prompts/brand-and-brief";
 
 const router = Router();
 
@@ -17,135 +27,11 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-interface ProductLine {
-  name: string;
-  description: string;
-  valueProps: string[];
-  claims: string[];
-  keywords: string[];
-}
-
-interface BrandConfig {
-  brandName?: string;
-  toneOfVoice?: string;
-  messagingPillars?: { label: string; description: string }[];
-  copyExamples?: string[];
-  toneKeywords?: string[];
-  avoidPhrases?: string[];
-  targetAudience?: string;
-  copyInstructions?: string;
-  productLines?: ProductLine[];
-}
-
-function buildBrandSystemPrompt(brand: BrandConfig): string {
-  const parts: string[] = [];
-  if (brand.brandName) parts.push(`You are writing copy for ${brand.brandName}.`);
-  if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}.`);
-  if (brand.messagingPillars?.length) {
-    const themes = brand.messagingPillars.map((p) => `${p.label}: ${p.description}`).join("; ");
-    parts.push(`Always reflect one of these themes: ${themes}.`);
-  }
-  if (brand.copyExamples?.length) {
-    parts.push(`Style reference headlines: ${brand.copyExamples.join(" | ")}.`);
-  }
-  if (brand.toneKeywords?.length) {
-    parts.push(`Style keywords: ${brand.toneKeywords.join(", ")}.`);
-  }
-  if (brand.avoidPhrases?.length) {
-    parts.push(`Never use: ${brand.avoidPhrases.join(", ")}.`);
-  }
-  if (brand.targetAudience) {
-    parts.push(`Audience: ${brand.targetAudience}.`);
-  }
-  if (brand.copyInstructions?.trim()) {
-    parts.push(brand.copyInstructions.trim());
-  }
-  parts.push("CAPITALIZATION: Always use sentence casing. Capitalize only the first word of each sentence and proper nouns / official product names (e.g. AI Scan Review, Smile Simulation, Dandy). NEVER title-case headlines or subheadlines. BAD: \"More Cases, Less Drama\" — GOOD: \"More cases, less drama\".");
-  if (brand.productLines?.length) {
-    const productInfo = brand.productLines
-      .filter((p) => p.name)
-      .map((p) => {
-        const bits = [`- ${p.name}`];
-        if (p.description) bits.push(`  Description: ${p.description}`);
-        if (p.valueProps?.length) bits.push(`  Value props: ${p.valueProps.join(", ")}`);
-        if (p.claims?.length) bits.push(`  Claims: ${p.claims.join(", ")}`);
-        if (p.keywords?.length) bits.push(`  Keywords: ${p.keywords.join(", ")}`);
-        return bits.join("\n");
-      }).join("\n");
-    parts.push(`Product lines:\n${productInfo}\nUse relevant product details when generating copy.`);
-  }
-  return parts.join("\n");
-}
-
-async function fetchBrand(tenantId: number): Promise<BrandConfig> {
-  try {
-    const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
-    if (rows.length === 0) return {};
-    return (rows[0].config as BrandConfig) ?? {};
-  } catch {
-    return {};
-  }
-}
-
 // Accept any camelCase/alphanumeric field name — no hardcoded allowlist.
 // This lets every block type expose its own field names for AI copy without
 // requiring a code change here every time a new field is introduced.
 function isSafeFieldName(f: unknown): f is string {
   return typeof f === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(f);
-}
-
-interface SegmentContext {
-  id?: string;
-  name?: string;
-  description?: string;
-  messagingAngle?: string;
-  uniqueContext?: string;
-  valueProps?: string[];
-  personas?: { role: string; painPoints: string[] }[];
-  challenges?: { title: string; desc: string }[];
-}
-
-interface BriefContext {
-  company?: string;
-  objective?: string;
-  valueProps?: string[];
-  toneGuidance?: string;
-  suggestedHeadline?: string;
-  segmentContext?: SegmentContext;
-}
-
-function buildBriefContextPrompt(brief: BriefContext): string {
-  const parts: string[] = [];
-  if (brief.company) parts.push(`This copy is for: ${brief.company}`);
-  if (brief.objective) parts.push(`Campaign objective: ${brief.objective}`);
-  if (brief.suggestedHeadline) parts.push(`Suggested headline direction: "${brief.suggestedHeadline}"`);
-  if (brief.valueProps?.length) parts.push(`Key value props to emphasize:\n${brief.valueProps.map(v => `- ${v}`).join("\n")}`);
-  if (brief.toneGuidance) parts.push(`Tone guidance: ${brief.toneGuidance}`);
-
-  const seg = brief.segmentContext;
-  if (seg?.name) {
-    const segParts: string[] = [`Audience segment: ${seg.name}`];
-    if (seg.description) segParts.push(`Description: ${seg.description}`);
-    if (seg.messagingAngle) segParts.push(`Messaging angle: ${seg.messagingAngle}`);
-    if (seg.uniqueContext) segParts.push(`Unique context: ${seg.uniqueContext}`);
-    if (seg.valueProps?.length) segParts.push(`Segment value props:\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
-    if (seg.personas?.length) {
-      const ps = seg.personas.map((p) => `${p.role} (pain points: ${p.painPoints.join(", ")})`).join("; ");
-      segParts.push(`Key personas: ${ps}`);
-    }
-    if (seg.challenges?.length) {
-      const cs = seg.challenges.map((c) => `${c.title}: ${c.desc}`).join("; ");
-      segParts.push(`Challenges to address: ${cs}`);
-    }
-    parts.push(segParts.join("\n"));
-  }
-
-  if (parts.length === 0) return "";
-  return [
-    "ACTIVE CAMPAIGN BRIEF — Use this as voice, audience, and tone guidance.",
-    parts.join("\n"),
-    "IMPORTANT: This brief is supporting context, not topic direction. If the field being rewritten already has copy, your job is to rewrite THAT copy in the brief's voice — keep the original topic, intent, and concrete specifics intact. Do not replace specific content with generic segment messaging.",
-  ].join("\n");
 }
 
 // ── Media library helpers (shared with generate-page) ───────────────────
@@ -241,8 +127,11 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
   }
 
   const brand = await fetchBrand(tenantId);
+  noteMissingVoiceProfile({ tenantId, endpoint: "copy-generate", brand });
+
   const brandPrompt = buildBrandSystemPrompt(brand);
   const briefPrompt = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
+  const briefPresent = hasBriefSignal(body.briefContext);
 
   const dsoContext = buildSegmentCopyContext(blockType, body.blockCategory);
 
@@ -269,11 +158,11 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       briefPrompt,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
-      `ANCHORING RULE: If a field already has copy, your output MUST be a true rewrite of THAT copy — same topic, same intent, same concrete specifics (numbers, product names, named groups). Change wording, rhythm, and structure only. Do not invent a different message. Do not collapse to generic segment copy. Treat the other fields' current copy as a contract for what this block is about.`,
+      `PRIMARY DRIVERS: the BRAND VOICE PROFILE and ACTIVE CAMPAIGN BRIEF above drive the output. The block's current copy is a REFERENCE for what slot/role each field fills — its topic and concrete specifics (numbers, product names, named groups) must stay intact, but you can freely rewrite wording, rhythm, and structure. If the existing copy is generic placeholder text from the block catalog, lean harder on brand + brief and produce on-brand copy in the same slot.`,
       `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
       `Keep each value under 200 characters unless it is a body/description field (max 400 chars).`,
       `Do not include any explanation, markdown, or extra text — only the JSON object.`,
-    ].filter(Boolean).join("\n");
+    ].filter(Boolean).join("\n\n");
 
     const allCurrentLines = Object.entries(currentValues)
       .filter(([, v]) => typeof v === "string" && v.trim())
@@ -282,22 +171,24 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
 
     const userPrompt = contextParts.length > 0
       ? [
-          allCurrentLines ? `Full current block copy (for topic + intent grounding):\n${allCurrentLines}` : "",
-          `Rewrite the following fields. Keep each rewrite on the same topic and intent as its current value above — only change wording.`,
+          allCurrentLines ? `Current block copy (REFERENCE — preserve topic + concrete specifics, rewrite wording in the brand voice):\n${allCurrentLines}` : "",
+          `Rewrite the following fields. Keep each rewrite on the same topic as its current value above — only change wording, rhythm, and structure to match the brand voice and active brief.`,
           `Fields to rewrite: ${validFields.join(", ")}`,
         ].filter(Boolean).join("\n\n")
       : `Generate on-brand copy for a "${blockType}" block with fields: ${validFields.join(", ")}.`;
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.8,
-        max_completion_tokens: 1024,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
+      const completion = await withOpenAIConcurrency(() =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.8,
+          max_completion_tokens: 1024,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      );
 
       const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
       let parsed: Record<string, unknown> = {};
@@ -305,6 +196,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
         const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
         parsed = JSON.parse(cleaned);
       } catch {
+        logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh", success: false, errorMessage: "invalid_json" });
         res.status(500).json({ error: "AI returned invalid JSON", raw });
         return;
       }
@@ -319,8 +211,20 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
         }
       }
 
+      logCopyCall({
+        endpoint: "copy-generate",
+        tenantId,
+        briefPresent,
+        blockType,
+        sparkleMode: "refresh",
+        promptTokens: completion.usage?.prompt_tokens,
+        completionTokens: completion.usage?.completion_tokens,
+        success: true,
+      });
+
       res.json({ updated });
     } catch (err) {
+      logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh", success: false, errorMessage: String(err) });
       res.status(500).json({ error: String(err) });
     }
     return;
@@ -350,15 +254,17 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
     const userPrompt = `Generate ${requestedTypes.length} bento outcome tiles for the dso-bento-outcomes block. Types in order: ${requestedTypes.join(", ")}. Make every stat specific and credible.`;
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.75,
-        max_completion_tokens: 1500,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
+      const completion = await withOpenAIConcurrency(() =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.75,
+          max_completion_tokens: 1500,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      );
 
       const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
       let parsed: { tiles?: unknown[] } = {};
@@ -366,6 +272,7 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
         const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
         parsed = JSON.parse(cleaned);
       } catch {
+        logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh-tiles", success: false, errorMessage: "invalid_json" });
         res.status(500).json({ error: "AI returned invalid JSON", raw });
         return;
       }
@@ -381,8 +288,20 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
         return tile;
       });
 
+      logCopyCall({
+        endpoint: "copy-generate",
+        tenantId,
+        briefPresent,
+        blockType,
+        sparkleMode: "refresh-tiles",
+        promptTokens: completion.usage?.prompt_tokens,
+        completionTokens: completion.usage?.completion_tokens,
+        success: true,
+      });
+
       res.json({ tiles });
     } catch (err) {
+      logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh-tiles", success: false, errorMessage: String(err) });
       res.status(500).json({ error: String(err) });
     }
     return;
@@ -416,23 +335,23 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
     briefPrompt,
     `You are writing a "${field}" field for a landing page "${blockType}" block.`,
     hasCurrent
-      ? `ANCHORING RULE: The field already has copy. Your alternatives MUST be true rewrites of that copy — same topic, same intent, same concrete specifics (numbers, product names, named groups, audience). Change wording, rhythm, and structure only. Do not invent a different message. Do not collapse to generic segment copy. Treat the other fields on this block as a contract for what this block is about.`
+      ? `PRIMARY DRIVERS: the BRAND VOICE PROFILE and ACTIVE CAMPAIGN BRIEF above drive the output. The current field value is a REFERENCE for the slot's topic and concrete specifics (numbers, product names, named groups, audience) — preserve those — but freely rewrite wording, rhythm, and structure to match the brand voice and brief. The other fields on this block tell you what the block is about; stay on that topic.`
       : "",
     `Generate exactly ${safeCount} distinct alternatives. Each must be a non-empty string under 300 characters.`,
     `Return ONLY a valid JSON array of strings — no markdown, no explanation, no wrapper object.`,
     `Example format: ["Option 1", "Option 2", "Option 3"]`,
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean).join("\n\n");
 
   const userLines: string[] = [];
   if (hasCurrent) {
-    userLines.push(`Current "${field}": "${currentValue}"`);
+    userLines.push(`Current "${field}" (REFERENCE — preserve topic + specifics, rewrite voice): "${currentValue}"`);
   }
   if (siblingContext) {
     userLines.push(`Other fields on this block (this is what the block is about — stay on this topic):\n${siblingContext}`);
   }
   userLines.push(
     hasCurrent
-      ? `\nRewrite the "${field}" above ${safeCount} different ways. Same topic, same intent, same specifics — just freshly worded in the brand's voice.`
+      ? `\nRewrite the "${field}" above ${safeCount} different ways. Same topic, same specifics — fresh wording in the brand voice driven by the active brief.`
       : `\nGenerate ${safeCount} fresh, on-brand alternatives for the "${field}" field.`,
   );
 
@@ -459,21 +378,26 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
 
   const MAX_ATTEMPTS = 2;
   let suggestions: string[] = [];
+  let lastUsage: OpenAI.Completions.CompletionUsage | undefined;
 
   try {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.8,
-        max_completion_tokens: 1024,
-        messages: callMessages,
-      });
+      const completion = await withOpenAIConcurrency(() =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.8,
+          max_completion_tokens: 1024,
+          messages: callMessages,
+        }),
+      );
+      lastUsage = completion.usage;
 
       const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
       const parsed = parseSuggestions(raw);
 
       if (parsed === null) {
         if (attempt === MAX_ATTEMPTS) {
+          logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "sparkle", success: false, errorMessage: "invalid_json_after_retry" });
           res.status(500).json({ error: "AI returned invalid JSON after retry" });
           return;
         }
@@ -486,6 +410,7 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
       }
 
       if (attempt === MAX_ATTEMPTS) {
+        logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "sparkle", success: false, errorMessage: `wrong_count_${parsed.length}_of_${safeCount}` });
         res.status(500).json({
           error: `Expected ${safeCount} suggestions but got ${parsed.length} valid items after ${MAX_ATTEMPTS} attempts`,
         });
@@ -493,8 +418,20 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
       }
     }
 
+    logCopyCall({
+      endpoint: "copy-generate",
+      tenantId,
+      briefPresent,
+      blockType,
+      sparkleMode: "sparkle",
+      promptTokens: lastUsage?.prompt_tokens,
+      completionTokens: lastUsage?.completion_tokens,
+      success: true,
+    });
+
     res.json({ suggestions });
   } catch (err) {
+    logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "sparkle", success: false, errorMessage: String(err) });
     res.status(500).json({ error: String(err) });
   }
 });

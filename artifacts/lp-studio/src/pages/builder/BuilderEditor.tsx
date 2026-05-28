@@ -3234,10 +3234,15 @@ function AutoMetaButton({
   const handleAutoFill = async () => {
     setLoading(true);
     try {
+      // Thread the active brief so the meta description anchors on the
+      // brief's valueProps/audience, not just brand-level keywords.
+      const { getBriefContext } = await import("@/lib/brief-context");
+      const briefContext = getBriefContext() ?? undefined;
+
       const res = await fetch("/api/lp/seo-meta-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks, title, currentSlug, audienceType, segmentContext }),
+        body: JSON.stringify({ blocks, title, currentSlug, audienceType, segmentContext, briefContext }),
       });
       if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json() as { metaTitle: string; metaDescription: string; suggestedSlug: string };

@@ -237,6 +237,12 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
     setIsGenerating(true);
     setImageGenStatus(null);
     try {
+      // Thread the active brief from the page editor (set by BuilderEditor
+      // when a brief is applied to the current page). Drives on-brand copy
+      // for custom-block generation alongside the brand voice profile.
+      const { getBriefContext } = await import("@/lib/brief-context");
+      const briefContext = getBriefContext() ?? undefined;
+
       const body = {
         prompt,
         referenceUrl: referenceUrl.trim() || undefined,
@@ -245,6 +251,7 @@ export function GenerateBlockDialog({ open, onOpenChange, onAccept, onAcceptBatc
         generateImages,
         refineInstruction: opts.refine,
         prior: opts.prior ?? undefined,
+        briefContext,
       };
       const res = await fetch(`${API}/lp/custom-blocks/generate`, {
         method: "POST",

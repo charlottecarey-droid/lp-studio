@@ -1,10 +1,17 @@
 import { Router } from "express";
 import OpenAI from "openai";
-import { db } from "@workspace/db";
-import { lpBrandSettingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
+import { withOpenAIConcurrency } from "../../lib/brand-import/openai-semaphore";
+import {
+  fetchBrand,
+  buildBrandSystemPrompt,
+  buildBriefContextPrompt,
+  noteMissingVoiceProfile,
+  hasBriefSignal,
+  logCopyCall,
+  type BriefContext,
+} from "../../lib/ai-prompts/brand-and-brief";
 
 const router = Router();
 
@@ -17,34 +24,18 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-interface BrandContext {
-  brandName: string;
-  productKeywords: string[];
-}
-
-async function fetchBrandContext(tenantId: number): Promise<BrandContext> {
-  try {
-    const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
-    if (rows.length === 0) return { brandName: "", productKeywords: [] };
-    const config = rows[0].config as Record<string, unknown> | null;
-    const brandName = (config?.brandName as string) ?? "";
-    const productLines = (config?.productLines as { keywords?: string[] }[]) ?? [];
-    const productKeywords = productLines.flatMap((p) => p.keywords ?? []);
-    return { brandName, productKeywords };
-  } catch {
-    return { brandName: "", productKeywords: [] };
-  }
-}
-
 type AudienceType = "dso-corporate" | "dso-practice" | "independent";
 
-function buildAudiencePrompt(audienceType?: AudienceType | null, segmentContext?: Record<string, unknown> | null): string {
+function buildAudiencePrompt(
+  audienceType?: AudienceType | null,
+  segmentContext?: Record<string, unknown> | null,
+): string {
   const parts: string[] = [];
 
   if (segmentContext?.name) {
-    parts.push(`Target audience: ${segmentContext.name}`);
-    if (segmentContext.description) parts.push(`Audience description: ${segmentContext.description}`);
-    if (segmentContext.messagingAngle) parts.push(`Key message angle: ${segmentContext.messagingAngle}`);
+    parts.push(`Target audience: ${String(segmentContext.name)}`);
+    if (segmentContext.description) parts.push(`Audience description: ${String(segmentContext.description)}`);
+    if (segmentContext.messagingAngle) parts.push(`Key message angle: ${String(segmentContext.messagingAngle)}`);
   } else if (audienceType) {
     const audienceLabels: Record<AudienceType, string> = {
       "dso-corporate": "DSO corporate leadership — VP of Operations, CFO, Chief Dental Officer. Focus on network-wide ROI, operational efficiency, and scalability.",
@@ -60,12 +51,16 @@ function buildAudiencePrompt(audienceType?: AudienceType | null, segmentContext?
 router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
 
-  const { blocks, title, currentSlug, audienceType, segmentContext } = req.body as {
+  const { blocks, title, currentSlug, audienceType, segmentContext, briefContext } = req.body as {
     blocks?: unknown[];
     title?: string;
     currentSlug?: string;
     audienceType?: AudienceType | null;
     segmentContext?: Record<string, unknown> | null;
+    /** Active campaign brief from the page editor — drives the meta
+     *  description's value-prop framing when present. Page-first endpoint
+     *  but brief is high-signal when set. */
+    briefContext?: BriefContext;
   };
 
   if (!Array.isArray(blocks) || blocks.length === 0) {
@@ -81,52 +76,78 @@ router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async
     return;
   }
 
-  const { brandName, productKeywords } = await fetchBrandContext(tenantId);
+  // Brand: secondary signal (brand name, voice tone, forbidden phrases).
+  // For SEO, page content + brief drive the output; brand keeps voice
+  // consistent across pages but doesn't dictate the topic.
+  const brand = await fetchBrand(tenantId);
+  noteMissingVoiceProfile({ tenantId, endpoint: "seo-meta-generate", brand });
+  const brandSystem = buildBrandSystemPrompt(brand);
+
+  const briefSystem = briefContext ? buildBriefContextPrompt(briefContext) : "";
+  const briefPresent = hasBriefSignal(briefContext);
 
   const audiencePrompt = buildAudiencePrompt(audienceType, segmentContext);
 
-  // Extract key text from blocks
+  // Extract key text from blocks — page content is the PRIMARY anchor.
   const texts: string[] = [];
   for (const block of blocks as Record<string, unknown>[]) {
-    const props = block.props as Record<string, unknown>;
+    const props = block.props as Record<string, unknown> | undefined;
+    if (!props) continue;
     for (const key of ["headline", "subheadline", "body", "ctaText"]) {
       if (typeof props[key] === "string" && (props[key] as string).trim()) {
         texts.push(props[key] as string);
       }
     }
   }
-  const pageContent = texts.slice(0, 10).join("\n");
+  const pageContent = texts.slice(0, 12).join("\n");
 
-  const systemPrompt = [
-    `Generate SEO-optimized metadata for a landing page.`,
+  // Pull product keywords from brand for the slug/keyword hint only.
+  const productKeywords = (brand.productLines ?? [])
+    .flatMap((p) => p.keywords ?? [])
+    .filter((k): k is string => typeof k === "string" && k.trim().length > 0)
+    .slice(0, 20);
+
+  // Page-first system prompt: this page's content and brief are the source
+  // of truth; brand is the voice wrapper.
+  const seoRules = [
+    `You generate SEO-optimized metadata for a specific landing page.`,
+    ``,
+    `PRIMARY SOURCE: the page content (headlines, subheadlines, CTAs below) and the ACTIVE CAMPAIGN BRIEF (if present) define what THIS page is about. Do not generalize to the broader brand — this metadata is per-page.`,
+    `SECONDARY: the brand voice profile above keeps tone consistent across pages but does not dictate the topic.`,
     ``,
     `RULES:`,
-    `- metaTitle: 30-60 characters, include the primary keyword, be compelling for clicks`,
-    `- metaDescription: 120-155 characters, summarize the page value prop, include a soft CTA`,
-    `- suggestedSlug: a short, keyword-rich URL slug (lowercase, hyphens only, 2-5 words, no stop words like "the" "and" "for"). If the current slug is already good, return it unchanged.`,
+    `- metaTitle: 30-60 characters. Must reflect THIS page's primary message (from the page content / brief). Include the brand name naturally if it fits, but page-specific keywords win over brand keywords.`,
+    `- metaDescription: 120-155 characters. Summarize this page's specific value prop (NOT the brand's general pitch). If a brief is provided, anchor the description on the brief's valueProps and audience. Include a soft CTA.`,
+    `- suggestedSlug: a short, keyword-rich URL slug derived from THIS page's topic (lowercase, hyphens only, 2-5 words, no stop words like "the" "and" "for"). If the current slug already matches the page topic, return it unchanged.`,
     `- Return ONLY valid JSON: {"metaTitle": "...", "metaDescription": "...", "suggestedSlug": "..."}`,
-    `- No markdown, no explanation, just the JSON object`,
-    brandName ? `- Brand name: ${brandName} — include it naturally in the meta title` : "",
-    productKeywords.length ? `- Target keywords to work in naturally: ${productKeywords.join(", ")}` : "",
-    audiencePrompt ? `- AUDIENCE CONTEXT: ${audiencePrompt}\n  Tailor the meta title and description to resonate specifically with this audience.` : "",
+    `- No markdown, no explanation, just the JSON object.`,
+    brand.brandName ? `- Brand name (use naturally if it fits — not required): ${brand.brandName}` : "",
+    productKeywords.length ? `- Brand keywords to consider when relevant to this page: ${productKeywords.join(", ")}` : "",
+    audiencePrompt ? `- AUDIENCE: ${audiencePrompt}` : "",
   ].filter(Boolean).join("\n");
+
+  const systemContent = [brandSystem, briefSystem, seoRules].filter(Boolean).join("\n\n");
 
   const userPrompt = [
     `Page title: ${title || "Untitled"}`,
     currentSlug ? `Current slug: ${currentSlug}` : "",
-    `\nPage content:\n${pageContent}`,
+    ``,
+    `PAGE CONTENT (this is what the page actually says — primary source for metadata):`,
+    pageContent,
   ].filter(Boolean).join("\n");
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.6,
-      max_completion_tokens: 256,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
+    const completion = await withOpenAIConcurrency(() =>
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.6,
+        max_completion_tokens: 256,
+        messages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    );
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
     let parsed: { metaTitle?: string; metaDescription?: string; suggestedSlug?: string };
@@ -134,6 +155,7 @@ router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async
       const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
       parsed = JSON.parse(cleaned);
     } catch {
+      logCopyCall({ endpoint: "seo-meta-generate", tenantId, briefPresent, success: false, errorMessage: "invalid_json" });
       res.status(500).json({ error: "AI returned invalid JSON" });
       return;
     }
@@ -142,12 +164,22 @@ router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async
     let slug = typeof parsed.suggestedSlug === "string" ? parsed.suggestedSlug : "";
     slug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+    logCopyCall({
+      endpoint: "seo-meta-generate",
+      tenantId,
+      briefPresent,
+      promptTokens: completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      success: true,
+    });
+
     res.json({
       metaTitle: typeof parsed.metaTitle === "string" ? parsed.metaTitle.slice(0, 70) : "",
       metaDescription: typeof parsed.metaDescription === "string" ? parsed.metaDescription.slice(0, 170) : "",
       suggestedSlug: slug || currentSlug || "",
     });
   } catch (err) {
+    logCopyCall({ endpoint: "seo-meta-generate", tenantId, briefPresent, success: false, errorMessage: String(err) });
     res.status(500).json({ error: String(err) });
   }
 });

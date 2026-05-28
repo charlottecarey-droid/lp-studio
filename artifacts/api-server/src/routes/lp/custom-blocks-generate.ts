@@ -22,6 +22,16 @@ import { getAiImageGenStatus } from "../../lib/tenantSettings";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import { maybeMultiPageScrapeRef } from "./firecrawl";
 import { aiHeavyLimiter, aiHeavyHourlyLimiter, aiLightLimiter } from "../../lib/ai-rate-limit";
+import { withOpenAIConcurrency } from "../../lib/brand-import/openai-semaphore";
+import {
+  fetchBrand,
+  buildBrandSystemPrompt,
+  buildBriefContextPrompt,
+  noteMissingVoiceProfile,
+  hasBriefSignal,
+  logCopyCall,
+  type BriefContext,
+} from "../../lib/ai-prompts/brand-and-brief";
 import {
   SCHEMA_FIELD_TYPES,
   splitIssues,
@@ -681,6 +691,10 @@ interface GenerateBody {
   generateImages?: boolean;
   refineInstruction?: string;
   prior?: SchemaBlockPayload | null;
+  /** Active campaign brief from the page editor (audience, valueProps,
+   *  toneGuidance, suggestedHeadline, segmentContext). Threaded through
+   *  from `getBriefContext()` in the dialog. Optional. */
+  briefContext?: BriefContext;
 }
 
 interface ValidateBody {
@@ -940,7 +954,18 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
     return;
   }
 
+  // Brand colors/fonts/strict-facts pool stay gated on the dialog toggle.
   const brand: BrandHints | null = body.useBrandVars ? await loadBrandHints(tenantId) : null;
+
+  // Voice + brief are ALWAYS injected — they're the difference between
+  // "generic catalog block" and "feels like our brand". The dialog toggle
+  // controls colors/fonts/approved-facts, not voice.
+  const fullBrand = await fetchBrand(tenantId);
+  noteMissingVoiceProfile({ tenantId, endpoint: "custom-blocks-generate", brand: fullBrand });
+  const brandSystem = buildBrandSystemPrompt(fullBrand);
+  const briefSystem = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
+  const briefPresent = hasBriefSignal(body.briefContext);
+
   const { scraped, screenshotUrl: scrapedScreenshotUrl, failureReason: scrapeFailureReason } =
     await maybeMultiPageScrapeRef(body.referenceUrl, tenantId);
 
@@ -974,23 +999,37 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
     userParts.push({ type: "image_url", image_url: { url: visionImage } });
   }
 
+  const systemContent = [brandSystem, briefSystem, buildSystemPrompt()].filter(Boolean).join("\n\n");
+
   let raw = "{}";
+  let usage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
   try {
     // May 2026 audit follow-up: 4096 was tight for a full schema + template
     // + sample block. Raise budget and lift temperature out of the "safe
     // median" zone where the model defaults to bare-bones output.
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.85,
-      max_completion_tokens: 8192,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: buildSystemPrompt() },
-        { role: "user", content: userParts },
-      ],
-    });
+    const completion = await withOpenAIConcurrency(() =>
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        temperature: 0.85,
+        max_completion_tokens: 8192,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: userParts },
+        ],
+      }),
+    );
     raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+    usage = completion.usage;
   } catch (err) {
+    logCopyCall({
+      endpoint: "custom-blocks-generate",
+      tenantId,
+      briefPresent,
+      sparkleMode: body.prior ? "refine" : "generate",
+      success: false,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
     res.status(502).json({ error: `AI generation failed: ${err instanceof Error ? err.message : String(err)}` });
     return;
   }
@@ -998,6 +1037,16 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
   let parsedJson: Record<string, unknown> = {};
   try { parsedJson = JSON.parse(cleaned); } catch {
+    logCopyCall({
+      endpoint: "custom-blocks-generate",
+      tenantId,
+      briefPresent,
+      sparkleMode: body.prior ? "refine" : "generate",
+      promptTokens: usage?.prompt_tokens,
+      completionTokens: usage?.completion_tokens,
+      success: false,
+      errorMessage: "invalid_json",
+    });
     res.status(502).json({ error: "AI returned invalid JSON", raw: cleaned.slice(0, 1000) });
     return;
   }
@@ -1027,6 +1076,17 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
     }
     imageGen = await fillImageFields(payload, brand, tenantId);
   }
+
+  logCopyCall({
+    endpoint: "custom-blocks-generate",
+    tenantId,
+    briefPresent,
+    sparkleMode: body.prior ? "refine" : "generate",
+    promptTokens: usage?.prompt_tokens,
+    completionTokens: usage?.completion_tokens,
+    success: errors.length === 0,
+    errorMessage: errors.length > 0 ? `validation_errors_${errors.length}` : undefined,
+  });
 
   res.json({
     block: payload,
