@@ -1,13 +1,11 @@
 import { useInView } from "../hooks/useInView";
 
-const TRUSTED_BY = [
-  { name: "Northwind",  mark: "circle"   },
-  { name: "Acme",       mark: "triangle" },
-  { name: "Globex",     mark: "square"   },
-  { name: "Initech",    mark: "wave"     },
-  { name: "Umbrella",   mark: "hex"      },
-  { name: "Vandelay",   mark: "diamond"  },
-];
+// Fake "Northwind/Acme/Globex/Initech/Umbrella/Vandelay" logos removed (May 2026)
+// — every name in that strip was a famous fictional company (Office Space,
+// Resident Evil, Seinfeld). Anyone who notices loses trust in everything else
+// on the page. Real customer logos go here once permission lands; until then,
+// the closing CTA stands on the Dandy-proof-point trust line in the hero.
+const TRUSTED_BY: { name: string; mark: string }[] = [];
 
 function Mark({ kind }: { kind: string }) {
   const color = "rgba(244,239,227,0.55)";
@@ -169,7 +167,7 @@ export default function Waitlist() {
             margin: "0 auto",
           }}
         >
-          Your next landing page is{" "}
+          Stop waiting on the marketing queue.{" "}
           <span
             className="font-display"
             style={{
@@ -192,7 +190,7 @@ export default function Waitlist() {
               color: "transparent",
             }}
           >
-            half-built.
+            Ship the page.
           </span>
         </h2>
 
@@ -200,7 +198,7 @@ export default function Waitlist() {
           className="mt-7 text-[17px] leading-[1.55] max-w-xl mx-auto"
           style={{ color: "var(--dark-mute)" }}
         >
-          Sign in with Google, create your workspace in 30 seconds, and ship something today.
+          Sign in with Google. Set up your workspace in 30 seconds. Ship a real, on-brand page before your next standup.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">

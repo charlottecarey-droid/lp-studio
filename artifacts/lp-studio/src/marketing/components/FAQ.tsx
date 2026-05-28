@@ -36,8 +36,8 @@ const faqs: Faq[] = [
     cat: "Tech",
   },
   {
-    q: "How is this different from Webflow or Unbounce?",
-    a: "Webflow is a designer's tool — powerful but slow when you need 50 ABM pages. Unbounce is built around templates but lacks brand-system enforcement and AI copy. LP Studio is built for revenue teams that need to ship a lot of personalized, on-brand pages, fast.",
+    q: "How is this different from Mutiny, Webflow, or Unbounce?",
+    a: "Mutiny's demo is impressive — but their free and $50 tiers are 5-credit and 50-credit demos that won't ship a real page. Real Mutiny starts at $30K/yr. Webflow is a designer's tool — beautiful, but slow when you need 50 ABM pages and there's no Sales Console. Unbounce is generic landing pages, marketing-team owned. LP Studio is the AI revenue workspace that lives between them: the demo magic Mutiny gives you, the on-brand pages Webflow makes you wait for designers to build, and the Sales Console none of them have — at mid-market prices a Director of Demand Gen can sign off on.",
     cat: "Product",
   },
   {
@@ -46,8 +46,8 @@ const faqs: Faq[] = [
     cat: "Pricing",
   },
   {
-    q: "Is there a free trial?",
-    a: "Growth comes with a 14-day free trial, no card required. Starter starts at $39/mo (annual) for up to 5 active pages, 2 forms, and 3 user seats. Enterprise demos are scheduled live with our team.",
+    q: "Is there a free tier? Free trial?",
+    a: "Both. Free is forever — 1 page, 1 form, 1 seat, with a 'Built with LP Studio' badge. Starter ($49/mo annual) drops the badge, gives you a custom domain, and unlocks 10 pages. Every paid tier comes with a 14-day Growth trial — try the Sales Console, microsites, AI outreach, and Salesforce sync before you commit. No card required to start.",
     cat: "Pricing",
   },
 ];
@@ -96,9 +96,9 @@ export default function FAQ() {
         }}
       >
         <div className="mb-10">
-          <div className="marker marker-rule mb-6">Common questions</div>
+          <div className="marker marker-rule mb-6">What people ask</div>
           <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
-            Short answers, before you sign up.
+            Short answers. No marketing fluff.
           </h2>
         </div>
 

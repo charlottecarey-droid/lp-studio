@@ -497,8 +497,8 @@ function MockPage({
                 }}
               />
               <div className="text-[12px]" style={{ color: MUTED, lineHeight: 1.35 }}>
-                <strong style={{ color: TEXT, fontWeight: 600 }}>Private beta</strong> ·
-                onboarding revenue teams by invite — request access below.
+                <strong style={{ color: TEXT, fontWeight: 600 }}>Skip the marketing queue.</strong> ·
+                Every page on-brand, every time — AEs included.
               </div>
             </div>
           </div>
@@ -664,30 +664,36 @@ function MockPage({
         className="px-12 pt-9 pb-10"
         style={{ opacity: easeOut(visualsIn) }}
       >
-        {/* logo strip with stylized marks */}
+        {/* Customer-logos block — renders as an empty placeholder strip until
+            real customer logos are available + permission lands. The header
+            previously read "Trusted by revenue teams at · +1,194 more" but
+            both lines were fabricated social proof and the now-empty grid
+            below made it stranded. Replaced with a neutral block label so
+            the mockup reads as "here's what a logos block looks like —
+            drop your customers in" rather than a false trust claim. */}
         <div className="flex items-center justify-between mb-4">
           <div
             className="text-[10px] uppercase"
             style={{ letterSpacing: "0.22em", color: FAINT, fontWeight: 600 }}
           >
-            Trusted by revenue teams at
+            Customer logos block
           </div>
           <div className="text-[10px] uppercase" style={{ color: FAINT, letterSpacing: "0.18em" }}>
-            +1,194 more
+            Add yours
           </div>
         </div>
         <div
           className="grid grid-cols-6 gap-6 pb-8"
           style={{ borderBottom: `1px solid ${HAIRLINE}`, opacity: ramp(0) }}
         >
-          {[
-            { name: "Northwind", mark: "circle" },
-            { name: "Acme", mark: "triangle" },
-            { name: "Globex", mark: "square" },
-            { name: "Initech", mark: "wave" },
-            { name: "Umbrella", mark: "hex" },
-            { name: "Vandelay", mark: "diamond" },
-          ].map((b) => (
+          {/* Fake "Northwind/Acme/Globex/Initech/Umbrella/Vandelay" logos
+              removed (May 2026) — every name was a famous fictional company
+              (Office Space, Resident Evil, Seinfeld). When real customer logos
+              are available + permission lands, repopulate this array with
+              objects of shape { name: string; mark: string }. Until then,
+              this strip renders empty and the Dandy trust line in the hero
+              carries the social proof. */}
+          {([] as { name: string; mark: string }[]).map((b) => (
             <div key={b.name} className="flex items-center gap-2">
               {b.mark === "circle" && (
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -961,7 +967,7 @@ function MockPage({
                 boxShadow: "0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)",
               }}
             >
-              MK
+              D
             </div>
             <div className="flex-1 min-w-0">
               <div
@@ -973,16 +979,17 @@ function MockPage({
                   fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                 }}
               >
-                "We shipped 14 segment-specific pages last month — same quality, no design backlog.
-                The AI gets our voice eerily right after the first regen."
+                "Built a pilot landing page in 10–15 minutes to onboard 16 new
+                locations. This thing is so useful — mass outreach, post-MSA,
+                cold outreach, LinkedIn posts."
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-[12px]" style={{ color: TEXT, fontWeight: 600 }}>
-                  Marcy Kuo
+                  Account Executive
                 </span>
                 <span style={{ color: FAINT }}>·</span>
                 <span className="text-[12px]" style={{ color: MUTED }}>
-                  Director of Demand Gen, Northwind
+                  Dandy
                 </span>
                 <span className="ml-auto inline-flex items-center gap-0.5">
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -1333,7 +1340,7 @@ export default function AssembleScene() {
               className="text-[11px] uppercase"
               style={{ letterSpacing: "0.18em", color: MUTED, fontWeight: 500 }}
             >
-              AI landing-page builder · Private beta
+              The revenue workspace · Now in private beta
             </span>
           </div>
 
@@ -1362,8 +1369,12 @@ export default function AssembleScene() {
               maxWidth: 620,
             }}
           >
-            Type a prompt, paste a URL, or drop a screenshot. Get a complete
-            on-brand landing page — copy, layout, imagery — in under a minute.
+            Since the beginning of time, shipping a page has taken a brief, a
+            wireframe, five revisions, copy edits, three approval rounds, and a
+            dev ticket — and ended in generic copy anyway. Marketing takes
+            forever. Sales ships with ChatGPT. Not anymore. Type a prompt,
+            paste a URL, drop a screenshot — get a real, on-brand page in
+            under a minute.
           </p>
 
           {/* Prompt generator card */}
@@ -1548,7 +1559,7 @@ export default function AssembleScene() {
               }}
             />
             <span>
-              Trusted by marketing teams at 10,000+ practices and 3 of the top 5 DSOs
+              Built inside Dandy. Shipped by AEs every day across 10,000+ practices and 3 of the top 5 DSOs.
             </span>
             <span
               style={{

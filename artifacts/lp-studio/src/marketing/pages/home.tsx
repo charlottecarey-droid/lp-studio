@@ -20,15 +20,14 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //  and shipped; surface them honestly in DeepFeatures and Integrations.)
 export default function Home() {
   usePageMeta({
-    // Title + description + ogImage temporarily commented out until the Dandy
-    // cutover is complete — sales flagged that social previews surface LP Studio
-    // copy/branding on links that still need to look like Dandy. Restore all
-    // three post-cutover.
-    // title: "Fast, branded landing pages for revenue teams.",
-    // description:
-    //   "LP Studio is the AI-native landing page builder for revenue teams. Compose pages from on-brand blocks, A/B test, and ship faster than your designer can open Figma.",
+    // Restored May 2026 — Dandy cutover is done; social previews now safely
+    // surface LP Studio branding. If you find a stale link surfacing Dandy
+    // content, fix it upstream rather than re-blanking these.
+    title: "LP Studio — Skip the 14-step process. Ship the page.",
+    description:
+      "Marketing takes forever. Sales ships with ChatGPT. LP Studio is the AI revenue workspace where pages, microsites, and outreach get built on-brand in minutes — not weeks.",
     canonical: "https://lpstudio.ai/",
-    // ogImage: "https://lpstudio.ai/lpstudio-og.png",
+    ogImage: "https://lpstudio.ai/lpstudio-og.png",
   });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>

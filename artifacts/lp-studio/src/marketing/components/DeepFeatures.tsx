@@ -352,11 +352,11 @@ export default function DeepFeatures() {
               lineHeight: 1.02,
             }}
           >
-            Every part of the page,{" "}
-            <span style={{ color: INDIGO, fontStyle: "italic" }}>solved</span>.
+            Brand-locked AI that doesn't sound{" "}
+            <span style={{ color: INDIGO, fontStyle: "italic" }}>like AI</span>.
           </h2>
           <p className="mt-6 text-[17px] leading-[1.55]" style={{ color: "var(--ink-soft)", maxWidth: 580 }}>
-            From copy to conversion. Three things LP Studio does that the cobbled-together stack can't.
+            Three things the cobbled-together stack of ChatGPT, Webflow, and a Figma file can't actually do.
           </p>
         </div>
 

@@ -478,13 +478,13 @@ export default function UseCases() {
         <div className="max-w-2xl mb-16 md:mb-20">
           <div className="marker marker-rule mb-6">For the whole revenue org</div>
           <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
-            One builder. Every motion the revenue team runs.
+            Sales and marketing, shipping from the same canvas.
           </h2>
           <p
             className="mt-6 text-[17px] leading-[1.55]"
             style={{ color: "var(--ink-soft)", maxWidth: 580 }}
           >
-            Sales personalizes. Demand gen tests. Product launches. Success renews. The same primitives carry across every play.
+            Sales personalizes per account. Demand gen tests every variant. Product launches new pages. Success runs QBRs. Same brand. Same blocks. Same canvas. No design ticket required.
           </p>
         </div>
 

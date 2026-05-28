@@ -8,10 +8,8 @@ interface Tier {
   monthly: number | "Custom";
   annual: number | "Custom";
   desc: string;
-  /**
-   * Sections grouped by capability area so the feature list reads as a
-   * proper comparison rather than one long bulleted column.
-   */
+  /** One-line "ideal for" — helps prospects self-qualify in 3 seconds. */
+  idealFor: string;
   groups: { label: string; items: string[] }[];
   cta: string;
   ctaHref: string;
@@ -19,75 +17,65 @@ interface Tier {
   badge?: string;
 }
 
-// Pricing tiers — kept in lockstep with the canonical PLAN_FEATURES matrix
-// in artifacts/api-server/src/lib/planFeatures.ts. If you change a number
-// here, also change it there (and the mirror in
-// artifacts/lp-studio/src/lib/plan-features.ts) so the marketing promise
-// matches what the 402 plan-gates actually enforce.
-const tiers: Tier[] = [
+// Card tiers — kept in lockstep with the canonical PLAN_FEATURES matrix in
+// artifacts/api-server/src/lib/planFeatures.ts. If you change a cap here,
+// also change it there (and in artifacts/lp-studio/src/lib/plan-features.ts)
+// so marketing promises match what the 402 plan-gates actually enforce.
+//
+// Free and Enterprise live OUTSIDE this array: Free is a callout above the
+// cards (it converts worse as a visible card — buyers anchor on it and never
+// upgrade), and Enterprise is a horizontal strip below the cards (different
+// sales motion, deserves visual separation from self-serve tiers).
+const cardTiers: Tier[] = [
   {
     name: "Starter",
-    monthly: 49,
-    annual: 39,
-    desc: "For individuals and small teams getting their first pages live.",
+    monthly: 59,
+    annual: 49,
+    desc: "Ship more than one page. Custom domain. No badge.",
+    idealFor: "Founders, agencies & small teams",
     groups: [
       {
         label: "Build",
         items: [
-          "5 active landing pages",
-          "2 forms",
-          "Up to 3 user seats",
-          "Visual builder",
-          "AI copy · 50 generations/mo",
+          "10 active landing pages",
+          "5 forms",
+          "Up to 3 seats",
+          "Visual builder + 124-block library",
+          "AI copy · 200 generations/mo",
+          "Your own custom domain",
+          "No LP Studio badge",
         ],
       },
       {
         label: "Test & measure",
-        items: ["Basic A/B testing (2 variants)", "Heatmaps · 1,000 sessions/mo"],
-      },
-      {
-        label: "Branding",
-        items: ['"Powered by LP Studio" badge on published pages'],
+        items: ["Unlimited A/B variants", "Heatmaps · 5,000 sessions/mo"],
       },
       {
         label: "Support",
         items: ["Email support"],
       },
     ],
-    cta: "Start free",
+    cta: "Start free trial",
     ctaHref: "https://app.lpstudio.ai",
   },
   {
     name: "Growth",
-    monthly: 149,
-    annual: 119,
-    desc: "For revenue teams who need unlimited pages, the Sales Console, and a domain of their own.",
+    monthly: 249,
+    annual: 199,
+    desc: "Sales and marketing shipping from the same canvas. The Sales Console unlocks here.",
+    idealFor: "Mid-market revenue teams",
     groups: [
       {
-        label: "Everything in Starter, plus",
+        label: "Everything in Starter, plus the Sales Console",
         items: [
-          "Unlimited landing pages",
-          "Unlimited forms",
-          "Up to 10 user seats",
-          "Your own custom domain",
-          "Sales Console — track and route leads",
-          "No LP Studio badge on published pages",
-        ],
-      },
-      {
-        label: "Build",
-        items: [
-          "Visual builder + custom blocks",
-          "AI copy · unlimited",
+          "Unlimited pages, forms & A/B tests",
+          "Up to 10 seats",
+          "Sales Console — per-account microsites, AI outreach drafts, personalized links",
+          "Salesforce + Marketo bidirectional sync",
+          "Apollo signals · Chili Piper · Asana · GA4 · Webhooks",
+          "Smart Traffic routing + heatmaps · 25,000 sessions/mo",
           "Brand system & locked tokens",
-        ],
-      },
-      {
-        label: "Test & measure",
-        items: [
-          "Unlimited A/B & multivariate tests",
-          "Smart Traffic routing",
-          "Heatmaps · 10,000 sessions/mo",
+          "Token-based external review (no seat cost for legal/clients)",
         ],
       },
       {
@@ -95,43 +83,156 @@ const tiers: Tier[] = [
         items: ["Priority support · live chat", "Onboarding workshop"],
       },
     ],
-    cta: "Get started",
+    cta: "Try Growth free for 14 days",
     ctaHref: "https://app.lpstudio.ai",
     highlight: true,
     badge: "Most popular",
   },
   {
-    name: "Enterprise",
-    monthly: "Custom",
-    annual: "Custom",
-    desc: "For high-volume teams that need custom contracts, SLAs, and dedicated support.",
+    name: "Scale",
+    monthly: 649,
+    annual: 499,
+    desc: "Multi-brand, multi-team. The whole revenue org on one canvas.",
+    idealFor: "Multi-brand operations & agencies",
     groups: [
       {
         label: "Everything in Growth, plus",
         items: [
-          "Unlimited user seats",
-          "AI image generation",
-          "SSO / SAML",
-          "99.9% uptime SLA",
+          "Multi-workspace · multi-brand",
+          "Up to 25 seats",
+          "Custom blocks + advanced template library",
+          "Programmatic pages + smart sections",
+          "Salesforce custom field mapping",
+          "Heatmaps · 100,000 sessions/mo",
         ],
       },
       {
-        label: "Programs",
-        items: [
-          "Dedicated account manager",
-          "Quarterly business reviews",
-          "Custom integrations",
-        ],
-      },
-      {
-        label: "Security & compliance",
-        items: ["SOC 2 Type II report", "DPA & MSA", "Custom data residency"],
+        label: "Support",
+        items: ["Slack channel with founders", "Quarterly review"],
       },
     ],
-    cta: "Contact sales",
-    ctaHref: "mailto:admin@lpstudio.ai",
+    cta: "Talk to us",
+    ctaHref: "mailto:admin@lpstudio.ai?subject=LP%20Studio%20Scale%20tier",
   },
 ];
+
+// Feature comparison map — every paid tier (and Free) shown as columns. Each
+// row is a single capability. Values can be strings, true (✓), or false (—).
+// Order matters: most important capabilities first within each group.
+interface FeatureRow {
+  feature: string;
+  /** Order: Free, Starter, Growth, Scale */
+  values: (string | boolean)[];
+  /** Optional tooltip / explainer */
+  note?: string;
+}
+
+interface FeatureGroup {
+  label: string;
+  rows: FeatureRow[];
+}
+
+const FEATURE_MAP: FeatureGroup[] = [
+  {
+    label: "Build",
+    rows: [
+      { feature: "Active landing pages", values: ["1", "10", "Unlimited", "Unlimited"] },
+      { feature: "Forms", values: ["1", "5", "Unlimited", "Unlimited"] },
+      { feature: "User seats", values: ["1", "3", "10", "25"] },
+      { feature: "AI copy generations / month", values: ["30", "200", "Unlimited", "Unlimited"] },
+      { feature: "124-block library", values: [true, true, true, true] },
+      { feature: "Brand system & locked tokens", values: [false, true, true, true] },
+      { feature: "Custom blocks", values: [false, false, true, true] },
+      { feature: "AI image generation", values: [false, false, false, false], note: "Enterprise tier" },
+    ],
+  },
+  {
+    label: "Sales Console — per-account ABM workflow",
+    rows: [
+      { feature: "Accounts, Contacts, Signals, Campaigns", values: [false, false, true, true] },
+      { feature: "Per-account microsites (1-click)", values: [false, false, true, true] },
+      { feature: "Personalized links per contact (/p/:token)", values: [false, false, true, true] },
+      { feature: "Per-contact open tracking", values: [false, false, true, true] },
+      { feature: "AI outreach email drafts (link auto-inserted)", values: [false, false, true, true] },
+      { feature: "ROI calculator", values: [false, false, true, true] },
+      { feature: "One-pager suite (PDF + web)", values: [false, false, true, true] },
+    ],
+  },
+  {
+    label: "Integrations",
+    rows: [
+      { feature: "Salesforce bidirectional sync", values: [false, false, true, "+ custom field mapping"] },
+      { feature: "Marketo bidirectional", values: [false, false, true, true] },
+      { feature: "Apollo signals + enrichment", values: [false, false, true, true] },
+      { feature: "Chili Piper handoff", values: [false, false, true, true] },
+      { feature: "Asana review routing", values: [false, false, true, true] },
+      { feature: "Resend (email + DNS)", values: [false, false, true, true] },
+      { feature: "Google Analytics 4 events", values: [true, true, true, true] },
+      { feature: "Webhooks", values: [true, true, true, true] },
+    ],
+  },
+  {
+    label: "Test & measure",
+    rows: [
+      { feature: "A/B testing", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
+      { feature: "Multivariate testing", values: [false, false, true, true] },
+      { feature: "Smart Traffic routing (Thompson sampling)", values: [false, false, true, true] },
+      { feature: "Heatmaps & scroll depth", values: ["1,000 sessions/mo", "5,000 sessions/mo", "25,000 sessions/mo", "100,000 sessions/mo"] },
+      { feature: "Conversion scoring", values: [false, false, true, true] },
+      { feature: "Page speed audit", values: [true, true, true, true] },
+      { feature: "Programmatic pages + smart sections", values: [false, false, false, true] },
+    ],
+  },
+  {
+    label: "Distribution",
+    rows: [
+      { feature: "Custom domain (auto SSL)", values: [false, true, true, true] },
+      { feature: 'No "Built with LP Studio" badge', values: [false, true, true, true] },
+      { feature: "Tenant subdomain (your-brand.lpstudio.ai)", values: [true, true, true, true] },
+      { feature: "Vanity short links", values: [false, false, true, true] },
+      { feature: "Partner microsites", values: [false, false, true, true] },
+      { feature: "Multi-workspace / multi-brand", values: [false, false, false, true] },
+      { feature: "Scheduled publish + expiry", values: [false, true, true, true] },
+    ],
+  },
+  {
+    label: "Collaboration & review",
+    rows: [
+      { feature: "Inline comments + @mentions", values: [true, true, true, true] },
+      { feature: "Review workflow (approve / changes-requested)", values: [false, false, true, true] },
+      { feature: "Token-based external review (no seat cost)", values: [false, false, true, true] },
+      { feature: "Live presence", values: [true, true, true, true] },
+      { feature: "Version history + restore", values: [true, true, true, true] },
+    ],
+  },
+  {
+    label: "Support",
+    rows: [
+      { feature: "Support channel", values: ["Community", "Email", "Live chat", "Slack channel with founders"] },
+      { feature: "Onboarding", values: ["Self-serve", "Self-serve", "Workshop", "Workshop + quarterly review"] },
+    ],
+  },
+];
+
+// Enterprise additions — listed as a strip below the cards rather than as a
+// 5th comparison column. Enterprise is a sales-led tier with a different
+// motion; visually separating it from the self-serve grid avoids the
+// "everything-on-one-page" sprawl.
+const ENTERPRISE_FEATURES = [
+  "Everything in Scale",
+  "Unlimited seats & workspaces",
+  "AI image generation",
+  "SSO / SAML",
+  "99.9% uptime SLA",
+  "SOC 2 Type II report",
+  "DPA & MSA",
+  "Custom data residency",
+  "Dedicated account manager",
+  "Quarterly business reviews",
+  "Custom integrations",
+];
+
+const TIER_COLUMNS = ["Free", "Starter", "Growth", "Scale"] as const;
 
 function formatPrice(t: Tier, billing: Billing): string {
   const v = billing === "monthly" ? t.monthly : t.annual;
@@ -142,6 +243,8 @@ function formatPrice(t: Tier, billing: Billing): string {
 export default function Pricing() {
   const { ref, inView } = useInView();
   const [billing, setBilling] = useState<Billing>("annual");
+  const [compareOpen, setCompareOpen] = useState(false);
+
   return (
     <section
       id="pricing"
@@ -173,17 +276,18 @@ export default function Pricing() {
           transition: "opacity 0.7s ease, transform 0.7s ease",
         }}
       >
-        <div className="flex items-end justify-between flex-wrap gap-6 mb-12">
+        <div className="flex items-end justify-between flex-wrap gap-6 mb-10">
           <div className="max-w-2xl">
             <div className="marker marker-rule mb-6">Pricing</div>
             <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
-              Start free. Scale when you start winning.
+              Pricing for teams who actually ship.
             </h2>
             <p
               className="mt-6 text-[17px] leading-[1.55]"
               style={{ color: "var(--ink-soft)" }}
             >
-              No contracts. No surprises. Cancel any time.
+              No credit-metered demos. No 6-month procurement cycle. Real
+              pricing for real usage — and a free tier that ships real pages.
             </p>
           </div>
 
@@ -233,15 +337,144 @@ export default function Pricing() {
           </div>
         </div>
 
+        {/* Free-tier callout — small, above the cards. Anchors visitors to the
+            free option without giving it a full-card real estate that would
+            depress conversion to paid. */}
+        <div
+          className="mb-6 flex items-center justify-between flex-wrap gap-3 px-5 py-3 rounded-xl"
+          style={{
+            background: "var(--paper)",
+            border: "1px dashed var(--hairline-strong)",
+          }}
+        >
+          <div className="flex items-center gap-3 text-[13.5px]" style={{ color: "var(--ink-soft)" }}>
+            <span
+              className="inline-flex items-center gap-1.5 text-[10.5px] uppercase px-2 py-0.5 rounded-full"
+              style={{
+                background: "var(--sage-soft)",
+                color: "var(--sage)",
+                letterSpacing: "0.16em",
+                fontWeight: 700,
+                border: "1px solid color-mix(in srgb, var(--sage) 25%, transparent)",
+              }}
+            >
+              Free forever
+            </span>
+            <span>
+              <strong style={{ color: "var(--ink)" }}>Just kicking the tires?</strong> Free gets you 1 page, 1 form, 30 AI generations/mo and a "Built with LP Studio" badge — no card required.
+            </span>
+          </div>
+          <a
+            href="https://app.lpstudio.ai"
+            className="inline-flex items-center gap-1.5 text-[12.5px] transition-colors"
+            style={{
+              color: "var(--indigo)",
+              fontWeight: 600,
+              fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
+            }}
+          >
+            Start free
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="M13 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+
+        {/* 3-card grid: Starter / Growth (highlighted) / Scale */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {tiers.map((tier) => (
+          {cardTiers.map((tier) => (
             <PricingTier key={tier.name} tier={tier} billing={billing} />
           ))}
         </div>
 
-        {/* Footnote / compare link */}
+        {/* Enterprise CTA strip — visually separated from self-serve cards
+            because the sales motion is different (procurement-driven). */}
         <div
-          className="mt-10 flex items-center justify-between flex-wrap gap-4 px-5 py-4 rounded-xl"
+          className="mt-4 p-6 md:p-7 rounded-2xl flex flex-wrap items-start gap-6"
+          style={{
+            background: "linear-gradient(135deg, color-mix(in srgb, var(--indigo) 8%, var(--ink)) 0%, var(--ink) 65%)",
+            color: "var(--cream)",
+            border: "1px solid color-mix(in srgb, var(--indigo) 40%, var(--ink))",
+            boxShadow:
+              "0 1px 0 rgba(255,255,255,0.06) inset, 0 30px 80px -30px rgba(75,71,229,0.4), 0 8px 22px -12px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div style={{ flex: "1 1 280px" }}>
+            <div
+              className="font-mono uppercase mb-2"
+              style={{ color: "rgba(244,239,227,0.55)", fontSize: 11, letterSpacing: "0.22em", fontWeight: 700 }}
+            >
+              Enterprise
+            </div>
+            <div
+              className="font-display mb-2"
+              style={{ color: "var(--cream)", fontSize: 26, fontWeight: 500, letterSpacing: "-0.022em", lineHeight: 1.15 }}
+            >
+              For procurement-driven deals.
+            </div>
+            <p style={{ color: "rgba(244,239,227,0.65)", fontSize: 14, lineHeight: 1.55, maxWidth: 480 }}>
+              SOC 2 Type II, SSO/SAML, MSA, custom DPA, dedicated CSM, AI image generation, custom integrations, and unlimited everything else. Custom pricing tied to seats and usage.
+            </p>
+          </div>
+          <div style={{ flex: "1 1 320px" }}>
+            <div
+              className="font-mono uppercase mb-3"
+              style={{ color: "rgba(244,239,227,0.45)", fontSize: 10, letterSpacing: "0.2em", fontWeight: 700 }}
+            >
+              What you also get
+            </div>
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              {ENTERPRISE_FEATURES.slice(1).map((f) => (
+                <li
+                  key={f}
+                  className="flex items-start gap-2 text-[12.5px]"
+                  style={{ color: "rgba(244,239,227,0.85)" }}
+                >
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--coral)"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ marginTop: 4, flexShrink: 0 }}
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12.5L10 17.5L20 7.5" />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div style={{ flexShrink: 0, alignSelf: "center" }}>
+            <a
+              href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20Enterprise"
+              className="inline-flex items-center gap-1.5 px-5 py-3 rounded-lg text-[13.5px] transition-all"
+              style={{
+                background: "var(--cream)",
+                color: "var(--ink)",
+                fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
+                fontWeight: 600,
+                letterSpacing: "-0.005em",
+                boxShadow: "0 6px 18px -4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.5)",
+              }}
+            >
+              Contact sales
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="M13 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        {/* Trial / billing footnote */}
+        <div
+          className="mt-6 flex items-center justify-between flex-wrap gap-4 px-5 py-4 rounded-xl"
           style={{
             background: "var(--paper)",
             border: "1px solid var(--hairline)",
@@ -250,23 +483,222 @@ export default function Pricing() {
         >
           <div className="flex items-center gap-2 text-[13px]" style={{ color: "var(--ink-soft)" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12.5L10 17.5L20 7.5"/>
+              <path d="M5 12.5L10 17.5L20 7.5" />
             </svg>
-            <span><strong style={{ color: "var(--ink)" }}>14-day free trial</strong> on Growth — no card required.</span>
+            <span>
+              <strong style={{ color: "var(--ink)" }}>Every paid tier</strong> comes with a 14-day Growth trial. No card to start.
+            </span>
             <span style={{ color: "var(--ink-faint)" }}>·</span>
-            <span>Annual prepay or month-to-month, your call.</span>
+            <span>Annual prepay saves 20%. Month-to-month if you'd rather.</span>
           </div>
-          <a
-            href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20feature%20comparison"
-            className="text-[13px] font-medium transition-colors inline-flex items-center gap-1"
-            style={{ color: "var(--indigo)" }}
+          <button
+            type="button"
+            onClick={() => setCompareOpen((v) => !v)}
+            className="text-[13px] transition-colors inline-flex items-center gap-1"
+            style={{ color: "var(--indigo)", fontWeight: 600 }}
           >
-            Compare all features →
-          </a>
+            {compareOpen ? "Hide feature map" : "Compare every feature"}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              style={{ transform: compareOpen ? "rotate(180deg)" : "none", transition: "transform 200ms" }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Feature map — full comparison table, collapsible to keep the
+            pricing section scannable for visitors who just want the cards. */}
+        <div
+          aria-hidden={!compareOpen}
+          style={{
+            maxHeight: compareOpen ? 8000 : 0,
+            opacity: compareOpen ? 1 : 0,
+            overflow: "hidden",
+            transition: "max-height 600ms ease, opacity 300ms ease",
+          }}
+        >
+          <FeatureMap />
         </div>
       </div>
     </section>
   );
+}
+
+function FeatureMap() {
+  return (
+    <div
+      className="mt-8 rounded-2xl overflow-hidden"
+      style={{
+        background: "var(--paper)",
+        border: "1px solid var(--hairline-strong)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset",
+      }}
+    >
+      {/* Sticky header row with tier names + price reminders */}
+      <div
+        className="grid items-end px-5 py-4"
+        style={{
+          gridTemplateColumns: "minmax(220px, 2fr) repeat(4, minmax(90px, 1fr))",
+          gap: 12,
+          background: "var(--cream)",
+          borderBottom: "1px solid var(--hairline-strong)",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+        }}
+      >
+        <div
+          className="font-mono uppercase"
+          style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.18em", fontWeight: 700 }}
+        >
+          Feature
+        </div>
+        {TIER_COLUMNS.map((name) => (
+          <div key={name} className="text-center">
+            <div
+              className="font-mono uppercase"
+              style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.18em", fontWeight: 700 }}
+            >
+              {name}
+            </div>
+            <div
+              className="font-display mt-1"
+              style={{ color: "var(--ink)", fontSize: 14, fontWeight: 600, letterSpacing: "-0.012em" }}
+            >
+              {tierPriceLabel(name)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Group + row body */}
+      <div className="overflow-x-auto">
+        {FEATURE_MAP.map((group) => (
+          <div key={group.label}>
+            <div
+              className="px-5 py-3"
+              style={{
+                background: "color-mix(in srgb, var(--indigo) 4%, var(--paper))",
+                borderTop: "1px solid var(--hairline)",
+                borderBottom: "1px solid var(--hairline)",
+              }}
+            >
+              <div
+                className="font-display"
+                style={{ color: "var(--ink)", fontSize: 14, fontWeight: 600, letterSpacing: "-0.012em" }}
+              >
+                {group.label}
+              </div>
+            </div>
+            {group.rows.map((row, idx) => (
+              <div
+                key={row.feature}
+                className="grid items-center px-5 py-3"
+                style={{
+                  gridTemplateColumns: "minmax(220px, 2fr) repeat(4, minmax(90px, 1fr))",
+                  gap: 12,
+                  borderTop: idx === 0 ? "none" : "1px solid var(--hairline)",
+                }}
+              >
+                <div className="text-[13.5px]" style={{ color: "var(--ink-2)" }}>
+                  {row.feature}
+                  {row.note && (
+                    <span
+                      className="ml-2 text-[11px]"
+                      style={{ color: "var(--ink-mute)", fontStyle: "italic" }}
+                    >
+                      {row.note}
+                    </span>
+                  )}
+                </div>
+                {row.values.map((v, i) => (
+                  <div
+                    key={`${row.feature}-${i}`}
+                    className="text-center text-[13px]"
+                    style={{
+                      color:
+                        v === false
+                          ? "var(--ink-faint)"
+                          : v === true
+                          ? "var(--indigo)"
+                          : "var(--ink)",
+                      fontVariantNumeric: "tabular-nums",
+                      fontWeight: v === true ? 600 : 500,
+                    }}
+                  >
+                    {v === true ? (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-label="Included"
+                        style={{ display: "inline-block" }}
+                      >
+                        <path d="M5 12.5L10 17.5L20 7.5" />
+                      </svg>
+                    ) : v === false ? (
+                      <span aria-label="Not included">—</span>
+                    ) : (
+                      <span>{v}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* Enterprise row at the bottom — a single full-width callout, not
+            a fifth column, to preserve the table's "self-serve tiers only"
+            visual cleanliness. */}
+        <div
+          className="px-5 py-4 flex items-center justify-between flex-wrap gap-3"
+          style={{
+            background: "color-mix(in srgb, var(--indigo) 6%, var(--paper))",
+            borderTop: "1px solid var(--hairline-strong)",
+          }}
+        >
+          <div className="text-[13px]" style={{ color: "var(--ink-soft)" }}>
+            <strong style={{ color: "var(--ink)" }}>Need SSO, SOC 2, MSA, or unlimited seats?</strong>{" "}
+            Enterprise covers everything above plus AI image generation, dedicated CSM, custom integrations, and a 99.9% uptime SLA.
+          </div>
+          <a
+            href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20Enterprise"
+            className="inline-flex items-center gap-1.5 text-[12.5px] transition-colors"
+            style={{ color: "var(--indigo)", fontWeight: 600 }}
+          >
+            Talk to sales
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="M13 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function tierPriceLabel(name: string): string {
+  if (name === "Free") return "$0";
+  if (name === "Starter") return "$49/mo";
+  if (name === "Growth") return "$199/mo";
+  if (name === "Scale") return "$499/mo";
+  return "";
 }
 
 function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
@@ -286,7 +718,6 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
         transition: "transform 200ms ease",
       }}
     >
-      {/* Aurora behind highlighted tier */}
       {highlight && (
         <div
           aria-hidden
@@ -325,9 +756,7 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
       )}
 
       <div className="relative">
-        <div
-          className="flex items-center justify-between mb-4"
-        >
+        <div className="flex items-center justify-between mb-2">
           <span
             className="font-mono uppercase"
             style={{
@@ -339,6 +768,13 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
           >
             {tier.name}
           </span>
+        </div>
+
+        <div
+          className="text-[11.5px] mb-4"
+          style={{ color: highlight ? "rgba(244,239,227,0.55)" : "var(--ink-mute)", letterSpacing: "0.02em" }}
+        >
+          {tier.idealFor}
         </div>
 
         <div className="flex items-baseline gap-2 mb-1">
@@ -385,9 +821,7 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
           href={tier.ctaHref}
           className="block w-full text-center py-2.5 mb-7 text-[13.5px] inline-flex items-center justify-center gap-1.5 transition-all"
           style={{
-            background: highlight
-              ? "var(--cream)"
-              : "var(--ink)",
+            background: highlight ? "var(--cream)" : "var(--ink)",
             color: highlight ? "var(--ink)" : "var(--cream)",
             borderRadius: 8,
             fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
@@ -408,8 +842,8 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
         >
           {tier.cta}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M5 12h14"/>
-            <path d="M13 5l7 7-7 7"/>
+            <path d="M5 12h14" />
+            <path d="M13 5l7 7-7 7" />
           </svg>
         </a>
 
@@ -446,7 +880,7 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
                       style={{ marginTop: 4, flexShrink: 0 }}
                       aria-hidden="true"
                     >
-                      <path d="M5 12.5L10 17.5L20 7.5"/>
+                      <path d="M5 12.5L10 17.5L20 7.5" />
                     </svg>
                     {f}
                   </li>
