@@ -11,6 +11,7 @@ import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
 import { maybeMultiPageScrapeRef, maybeScrapeRef, type MaybeScrapeResult } from "./firecrawl";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
+import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 
 const router = Router();
 
@@ -1551,6 +1552,7 @@ function logAiGeneration(row: {
   templateId: number | null;
   composerDurationMs: number | null;
   outputBlockTypes: string[];
+  bannedPhraseHits?: BannedPhraseHit[];
   usedScreenshot: boolean;
   errorMessage: string | null;
 }): void {
@@ -1567,6 +1569,7 @@ function logAiGeneration(row: {
     templateId: row.templateId,
     composerDurationMs: row.composerDurationMs,
     outputBlockTypes: row.outputBlockTypes,
+    bannedPhraseHits: row.bannedPhraseHits ?? [],
     usedScreenshot: row.usedScreenshot,
     errorMessage: row.errorMessage,
   }).catch((err) => {
@@ -1986,11 +1989,28 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
         stripAiInlineColors(mergedBlocks);
       }
 
+      // Workstream B — banned-phrase post-validator (template path).
+      const bannedPhraseHits = findBannedPhrases(mergedBlocks, brand.avoidPhrases ?? []);
+      if (bannedPhraseHits.length > 0) {
+        logger.warn(
+          {
+            event: "ai_banned_phrase_hits",
+            tenantId,
+            promptPath: "TEMPLATE",
+            slug,
+            count: bannedPhraseHits.length,
+            phrases: [...new Set(bannedPhraseHits.map((h) => h.phrase))],
+          },
+          "[generate-page] banned-phrase post-validator found hits in output",
+        );
+      }
+
       res.json({
         title: parsed.title,
         slug,
         blocks: mergedBlocks,
         strictMismatches,
+        bannedPhraseHits,
         referenceUrl: scrapeResult.scraped?.url ?? null,
         referenceUrls: scrapedUrls,
         usedReference: !!scrapeResult.scraped,
@@ -2012,6 +2032,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
         templateId: typeof templateId === "number" ? templateId : null,
         composerDurationMs: Date.now() - _genStartTime,
         outputBlockTypes: mergedBlocks.map((b) => (b as { type?: string }).type ?? ""),
+        bannedPhraseHits,
         usedScreenshot: !!visionImage,
         errorMessage: null,
       });
@@ -2580,11 +2601,30 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
       stripAiInlineColors(parsed.blocks);
     }
 
+    // Workstream B — banned-phrase post-validator. Non-destructive: flag
+    // clichés + brand-forbidden phrases that leaked past the prompt so the
+    // editor (and Workstream C's critique pass) can target the worst blocks.
+    const bannedPhraseHits = findBannedPhrases(parsed.blocks, brand.avoidPhrases ?? []);
+    if (bannedPhraseHits.length > 0) {
+      logger.warn(
+        {
+          event: "ai_banned_phrase_hits",
+          tenantId,
+          promptPath,
+          slug: parsed.slug,
+          count: bannedPhraseHits.length,
+          phrases: [...new Set(bannedPhraseHits.map((h) => h.phrase))],
+        },
+        "[generate-page] banned-phrase post-validator found hits in output",
+      );
+    }
+
     res.json({
       title: parsed.title,
       slug: parsed.slug,
       blocks: parsed.blocks,
       strictMismatches,
+      bannedPhraseHits,
       referenceUrl: scrapeResult.scraped?.url ?? null,
       referenceUrls: scrapedUrls,
       usedReference: !!scrapeResult.scraped,
@@ -2613,6 +2653,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
       templateId: null,
       composerDurationMs: Date.now() - _genStartTime,
       outputBlockTypes: parsed.blocks.map((b) => (b as { type?: string }).type ?? ""),
+      bannedPhraseHits,
       usedScreenshot: !!visionImage,
       errorMessage: null,
     });

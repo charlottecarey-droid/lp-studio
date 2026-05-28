@@ -32,6 +32,7 @@ export const aiGenerationLogTable = pgTable("ai_generation_log", {
   composerDurationMs: integer("composer_duration_ms"),
   critiqueRan: boolean("critique_ran").notNull().default(false),
   critiqueRewroteBlockIds: jsonb("critique_rewrote_block_ids").notNull().default([]),
+  bannedPhraseHits: jsonb("banned_phrase_hits").notNull().default([]),       // BannedPhraseHit[] — clichés/brand-forbidden phrases the post-validator found in the output (Workstream B)
   outputBlockTypes: jsonb("output_block_types").notNull().default([]), // string[] — block.type for each block returned
   usedScreenshot: boolean("used_screenshot").notNull().default(false),
   errorMessage: text("error_message"),
