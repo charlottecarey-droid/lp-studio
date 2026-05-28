@@ -41,6 +41,12 @@ const VOICE_FIELDS = [
   "brandName", "taglines", "messagingPillars", "toneOfVoice",
   "toneKeywords", "avoidPhrases", "targetAudience", "copyExamples",
   "copyrightName", "defaultCtaText", "navCtaText",
+  // Streaming URL importer surfaces these two from the content +
+  // derived-from-voice flatten step. They must be allow-listed here so
+  // the non-streaming `/lp/brand-import` (pasted-text) and legacy
+  // `/from-url` paths preserve them rather than silently stripping at
+  // sanitize time.
+  "companyDescription", "copyInstructions",
 ];
 
 const PRODUCT_FIELDS = [
@@ -165,7 +171,7 @@ const ALLOWED_ENUMS: Record<string, Set<string>> = {
 const hexRe = /^#[0-9a-fA-F]{6}$/;
 
 const COLOR_FIELD_SET = new Set(COLOR_FIELDS);
-const STRING_FIELDS = new Set(["displayFont", "bodyFont", "numbersFont", "brandName", "toneOfVoice", "targetAudience", "copyrightName", "defaultCtaText", "navCtaText"]);
+const STRING_FIELDS = new Set(["displayFont", "bodyFont", "numbersFont", "brandName", "toneOfVoice", "targetAudience", "copyrightName", "defaultCtaText", "navCtaText", "companyDescription", "copyInstructions"]);
 const STRING_ARRAY_FIELDS = new Set(["taglines", "toneKeywords", "avoidPhrases", "copyExamples"]);
 
 export function sanitizeField(field: string, value: unknown): { valid: boolean; sanitized: unknown } {

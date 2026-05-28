@@ -6,6 +6,8 @@ import { extractTypography } from "./extractors/typography";
 import { extractButtons } from "./extractors/buttons";
 import { extractPhotography } from "./extractors/photography";
 import { extractVoice } from "./extractors/voice";
+import { extractContent } from "./extractors/content";
+import { extractStructure } from "./extractors/structure";
 import { getCached, putCached } from "./cache";
 import type {
   Confidence,
@@ -176,6 +178,71 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     put("toneOfVoice", v.profile.summary, conf);
     if (v.profile.tone.length) put("toneKeywords", v.profile.tone, conf);
     if (v.profile.forbiddenPhrases.length) put("avoidPhrases", v.profile.forbiddenPhrases, conf);
+    // Derive a deterministic copyInstructions string from the structured
+    // signals the voice extractor produces (formality + sentence length +
+    // vocab register + signature phrases). These signals are extracted
+    // but otherwise stranded — surfacing them as a one-paragraph
+    // instructions block lets AI copy endpoints pick them up via the
+    // existing brand-and-brief builder without a schema change.
+    const p = v.profile;
+    const formalityLabel = p.formality <= 2 ? "casual, conversational" : p.formality >= 4 ? "polished, formal" : "professional but approachable";
+    const sentenceLabel = p.sentenceLengthAvg === "short" ? "short, punchy sentences" : p.sentenceLengthAvg === "long" ? "fuller, multi-clause sentences" : "medium-length sentences";
+    const registerLabel = p.vocabularyRegister === "everyday" ? "everyday vocabulary — avoid jargon" : p.vocabularyRegister === "specialist" ? "specialist / technical vocabulary appropriate to the audience" : "industry-standard vocabulary";
+    const sigBlock = p.signaturePhrases.length
+      ? ` Lean on signature phrases observed on the source site: ${p.signaturePhrases.slice(0, 3).map((s) => `"${s}"`).join(", ")}.`
+      : "";
+    const forbiddenBlock = p.forbiddenPhrases.length
+      ? ` Avoid: ${p.forbiddenPhrases.slice(0, 3).map((s) => `"${s}"`).join(", ")}.`
+      : "";
+    const instructions = `Write in a ${formalityLabel} voice. Prefer ${sentenceLabel}. Use ${registerLabel}.${sigBlock}${forbiddenBlock}`.trim();
+    put("copyInstructions", instructions, conf);
+  }
+
+  if (results.content.status !== "failed" && results.content.data) {
+    const c = results.content.data;
+    const conf = results.content.confidence;
+    if (c.brandName) put("brandName", c.brandName, conf);
+    if (c.companyDescription) put("companyDescription", c.companyDescription, conf);
+    if (c.taglines.length) put("taglines", c.taglines, conf);
+    if (c.messagingPillars.length) put("messagingPillars", c.messagingPillars, conf);
+    if (c.targetAudience) put("targetAudience", c.targetAudience, conf);
+    if (c.copyExamples.length) put("copyExamples", c.copyExamples, conf);
+  }
+
+  if (results.structure.status !== "failed" && results.structure.data) {
+    const s = results.structure.data;
+    const conf = results.structure.confidence;
+    // Map structure shells into the legacy ProductLine/AudienceSegment
+    // shapes the brand-settings UI + sanitizer already accept. claims
+    // stays empty (aiStrictFactsMode contract), and segments leave
+    // personas / challenges / stats / comparisonRows empty so designers
+    // / PMs fill those in themselves — the importer's job is to seed
+    // names + descriptions, not invent operational specifics.
+    if (s.productLines.length) {
+      put("productLines", s.productLines.map((p) => ({
+        name: p.name,
+        description: p.description,
+        valueProps: p.valueProps,
+        claims: [],
+        keywords: p.keywords,
+      })), conf);
+    }
+    if (s.segments.length) {
+      put("segments", s.segments.map((seg) => ({
+        // id intentionally omitted — the FE sanitizer assigns a fresh
+        // `seg-<ts>-<rand>` id at apply time.
+        name: seg.name,
+        description: seg.description,
+        messagingAngle: seg.messagingAngle,
+        uniqueContext: "",
+        valueProps: seg.valueProps,
+        segmentProducts: [],
+        personas: [],
+        challenges: [],
+        stats: [],
+        comparisonRows: [],
+      })), conf);
+    }
   }
 
   return { proposed, confidence };
@@ -192,8 +259,16 @@ export async function* runOrchestrator(
     const cached = await getCached(url, CACHE_MAX_AGE_HOURS);
     if (cached) {
       yield { event: "start", sourceUrl: cached.sourceUrl, pagesScraped: cached.pagesScraped, hasScreenshot: cached.hasScreenshot, sampledPalette: cached.sampledPalette, robots: cached.robots };
-      const dims: DimensionName[] = ["logos", "colors", "typography", "buttons", "photography", "voice"];
-      for (const d of dims) yield { event: "dimension", dimension: d, result: cached.results[d] };
+      const dims: DimensionName[] = ["logos", "colors", "typography", "buttons", "photography", "content", "structure", "voice"];
+      for (const d of dims) {
+        // Cache rows written before content/structure were added won't
+        // have those dimensions. Default to a synthetic failed result
+        // so the FE stream consumer (which assumes `result.status` is
+        // always present) keeps working until the row falls out of the
+        // 24h TTL.
+        const r = cached.results[d] ?? failedResult<unknown>("not available in cached payload");
+        yield { event: "dimension", dimension: d, result: r };
+      }
       yield { event: "done", payload: { ...cached, cached: true } };
       return;
     }
@@ -236,7 +311,12 @@ export async function* runOrchestrator(
     { name: "typography", promise: launchWithBudget(2, "typography", () => extractTypography(evidence, openai)) },
     { name: "buttons", promise: launchWithBudget(3, "buttons", () => extractButtons(evidence, openai)) },
     { name: "photography", promise: launchWithBudget(4, "photography", () => extractPhotography(evidence, openai)) },
-    { name: "voice", promise: launchWithBudget(5, "voice", () => extractVoice(evidence, openai)) },
+    { name: "content", promise: launchWithBudget(5, "content", () => extractContent(evidence, openai)) },
+    { name: "structure", promise: launchWithBudget(6, "structure", () => extractStructure(evidence, openai)) },
+    // Voice stays last because it makes the most sequential LLM calls
+    // (profile + optional rewrite + score) and benefits most from
+    // landing after the earlier burst has released proxy slots.
+    { name: "voice", promise: launchWithBudget(7, "voice", () => extractVoice(evidence, openai)) },
   ];
 
   const remaining = new Map<DimensionName, Promise<DimensionResult<unknown>>>();
@@ -251,6 +331,8 @@ export async function* runOrchestrator(
     buttons: failedResult("not yet run"),
     photography: failedResult("not yet run"),
     voice: failedResult("not yet run"),
+    content: failedResult("not yet run"),
+    structure: failedResult("not yet run"),
   };
 
   // Wrap each remaining promise so we know which dimension settled.

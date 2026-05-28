@@ -145,7 +145,7 @@ interface ImportResult {
   logoAlternates?: { url: string; source: string; format: string; score: number }[];
 }
 
-type ImportDimensionName = "logos" | "colors" | "typography" | "buttons" | "photography" | "voice";
+type ImportDimensionName = "logos" | "colors" | "typography" | "buttons" | "photography" | "voice" | "content" | "structure";
 type ImportDimensionStatus = "pending" | "loading" | "ok" | "partial" | "failed";
 interface ImportDimensionState {
   status: ImportDimensionStatus;
@@ -1483,6 +1483,8 @@ export default function BrandSettings() {
     buttons: { status: "pending", preview: "", errors: [] },
     photography: { status: "pending", preview: "", errors: [] },
     voice: { status: "pending", preview: "", errors: [] },
+    content: { status: "pending", preview: "", errors: [] },
+    structure: { status: "pending", preview: "", errors: [] },
   });
   const [importSelectedLogo, setImportSelectedLogo] = useState<string | null>(null);
 
@@ -1851,6 +1853,8 @@ export default function BrandSettings() {
       buttons: { status: "loading", preview: "", errors: [] },
       photography: { status: "loading", preview: "", errors: [] },
       voice: { status: "loading", preview: "", errors: [] },
+      content: { status: "loading", preview: "", errors: [] },
+      structure: { status: "loading", preview: "", errors: [] },
     });
 
     try {
@@ -1901,6 +1905,17 @@ export default function BrandSettings() {
         if (dim === "voice") {
           const p = (d.profile as { tone?: string[]; formality?: number }) ?? {};
           return `${(p.tone ?? []).join(", ") || "?"} • formality ${p.formality ?? "?"}`;
+        }
+        if (dim === "content") {
+          const name = typeof d.brandName === "string" ? d.brandName : "";
+          const taglines = Array.isArray(d.taglines) ? d.taglines.length : 0;
+          const pillars = Array.isArray(d.messagingPillars) ? d.messagingPillars.length : 0;
+          return `${name || "(no name)"} • ${taglines} tagline${taglines === 1 ? "" : "s"}, ${pillars} pillar${pillars === 1 ? "" : "s"}`;
+        }
+        if (dim === "structure") {
+          const products = Array.isArray(d.productLines) ? d.productLines.length : 0;
+          const segments = Array.isArray(d.segments) ? d.segments.length : 0;
+          return `${products} product${products === 1 ? "" : "s"} • ${segments} segment${segments === 1 ? "" : "s"}`;
         }
         return "";
       };
@@ -1979,8 +1994,16 @@ export default function BrandSettings() {
     }
     setConfig((prev) => {
       const next = { ...prev, ...updates } as BrandConfig;
+      // Importer-derived structure arrays append to whatever the user
+      // already has rather than replacing — same rationale for both
+      // segments and productLines: the user may have hand-crafted
+      // entries we shouldn't blow away just because the importer found
+      // additional candidates.
       if (updates["segments"] && Array.isArray(updates["segments"])) {
         next.segments = [...(prev.segments ?? []), ...(updates["segments"] as typeof prev.segments)];
+      }
+      if (updates["productLines"] && Array.isArray(updates["productLines"])) {
+        next.productLines = [...(prev.productLines ?? []), ...(updates["productLines"] as typeof prev.productLines)];
       }
       return next;
     });
@@ -2015,6 +2038,8 @@ export default function BrandSettings() {
       buttons: { status: "pending", preview: "", errors: [] },
       photography: { status: "pending", preview: "", errors: [] },
       voice: { status: "pending", preview: "", errors: [] },
+      content: { status: "pending", preview: "", errors: [] },
+      structure: { status: "pending", preview: "", errors: [] },
     });
   };
 
@@ -3841,7 +3866,7 @@ export default function BrandSettings() {
                     Extracting brand…
                   </div>
                   <ul className="divide-y divide-border">
-                    {(["logos", "colors", "typography", "buttons", "photography", "voice"] as ImportDimensionName[]).map((dim) => {
+                    {(["logos", "colors", "typography", "buttons", "photography", "voice", "content", "structure"] as ImportDimensionName[]).map((dim) => {
                       const d = importDimensions[dim];
                       const icon =
                         d.status === "loading" ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />

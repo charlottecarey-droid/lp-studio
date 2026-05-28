@@ -6,7 +6,9 @@ export type DimensionName =
   | "typography"
   | "buttons"
   | "photography"
-  | "voice";
+  | "voice"
+  | "content"
+  | "structure";
 
 export type DimensionStatus = "ok" | "partial" | "failed";
 export type Confidence = "high" | "medium" | "low";
@@ -184,6 +186,16 @@ export interface OrchestratorPayload {
     buttons: DimensionResult<ButtonsData>;
     photography: DimensionResult<PhotographyData>;
     voice: DimensionResult<VoiceData>;
+    /** Brand identity + messaging fields parsed from markdown corpus +
+     *  HTML meta hints. Populates brandName, companyDescription,
+     *  taglines, messagingPillars, targetAudience, copyExamples. See
+     *  extractors/content.ts. */
+    content: DimensionResult<import("./extractors/content").ContentData>;
+    /** Product / segment SHELL extraction from same-origin nav links +
+     *  pricing/about markdown. Shells only — claims/stats/personas/
+     *  comparison rows left empty so aiStrictFactsMode stays meaningful.
+     *  See extractors/structure.ts. */
+    structure: DimensionResult<import("./extractors/structure").StructureData>;
   };
   proposed: Record<string, unknown>;
   confidence: Record<string, Confidence>;
