@@ -1,0 +1,42 @@
+~/workspace$ git pull --no-rebase origin master
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch                master     -> FETCH_HEAD
+Auto-merging .replit
+CONFLICT (content): Merge conflict in .replit
+Auto-merging artifacts/api-server/src/lib/ai-rate-limit.ts
+CONFLICT (add/add): Merge conflict in artifacts/api-server/src/lib/ai-rate-limit.ts
+Auto-merging artifacts/api-server/src/routes/lp/brand-import.ts
+Auto-merging artifacts/api-server/src/routes/lp/copy-generate.ts
+CONFLICT (content): Merge conflict in artifacts/api-server/src/routes/lp/copy-generate.ts
+Auto-merging artifacts/api-server/src/routes/lp/custom-blocks-generate.ts
+CONFLICT (content): Merge conflict in artifacts/api-server/src/routes/lp/custom-blocks-generate.ts
+Auto-merging artifacts/api-server/src/routes/lp/generate-page.ts
+Auto-merging artifacts/api-server/src/routes/lp/seo-meta-generate.ts
+CONFLICT (content): Merge conflict in artifacts/api-server/src/routes/lp/seo-meta-generate.ts
+Auto-merging artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
+CONFLICT (content): Merge conflict in artifacts/lp-studio/src/blocks/BlockDandyProductHero.tsx
+Auto-merging artifacts/lp-studio/src/blocks/BlockStoryHub.tsx
+CONFLICT (content): Merge conflict in artifacts/lp-studio/src/blocks/BlockStoryHub.tsx
+Auto-merging artifacts/lp-studio/src/lib/block-types/block-registry.tsx
+Auto-merging artifacts/lp-studio/src/lib/block-types/dso-blocks.ts
+Auto-merging artifacts/lp-studio/src/lib/block-types/index.ts
+Auto-merging artifacts/lp-studio/src/marketing/components/AssembleScene.tsx
+CONFLICT (content): Merge conflict in artifacts/lp-studio/src/marketing/components/AssembleScene.tsx
+Auto-merging artifacts/lp-studio/src/marketing/components/DeepFeatures.tsx
+Auto-merging artifacts/lp-studio/src/marketing/components/FAQ.tsx
+CONFLICT (content): Merge conflict in artifacts/lp-studio/src/marketing/components/FAQ.tsx
+Auto-merging artifacts/lp-studio/src/marketing/components/Integrations.tsx
+CONFLICT (content): Merge conflict in artifacts/lp-studio/src/marketing/components/Integrations.tsx
+Auto-merging artifacts/lp-studio/src/marketing/components/Pricing.tsx
+CONFLICT (content): Merge conflict in artifacts/lp-studio/src/marketing/components/Pricing.tsx
+CONFLICT (modify/delete): artifacts/lp-studio/src/marketing/components/StatsBand.tsx deleted in HEAD and modified in 64b4683ce509e0d30553668ac68dc4479ff58465.  Version 64b4683ce509e0d30553668ac68dc4479ff58465 of artifacts/lp-studio/src/marketing/components/StatsBand.tsx left in tree.
+CONFLICT (modify/delete): artifacts/lp-studio/src/marketing/components/Testimonials.tsx deleted in HEAD and modified in 64b4683ce509e0d30553668ac68dc4479ff58465.  Version 64b4683ce509e0d30553668ac68dc4479ff58465 of artifacts/lp-studio/src/marketing/components/Testimonials.tsx left in tree.
+Auto-merging artifacts/lp-studio/src/marketing/components/UseCases.tsx
+Auto-merging artifacts/lp-studio/src/pages/sales/sales-campaign-detail.tsx
+Automatic merge failed; fix conflicts and then commit the result.
+~/workspace$ git pull --no-rebase --no-edit origin master && git push origin master
+error: Pulling is not possible because you have unmerged files.
+hint: Fix them up in the work tree, and then use 'git add/rm <file>'
+hint: as appropriate to mark resolution and make a commit.
+fatal: Exiting because of an unresolved conflict.
+~/workspace$ 
