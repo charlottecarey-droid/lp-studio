@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
   Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload, Globe,
-  CircleDashed, CheckCircle2, Check,
+  CircleDashed, CheckCircle2, Check, Wand2, Code2, Camera,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -34,6 +34,8 @@ import type {
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
   ClaimEntry, SalesConsoleConfig, SalesConsoleValuePropPair,
+  ImportedButtonStyle, ImportedSurfaceStyle,
+  ImportedVoiceProfile, ImportedPhotographyProfile,
 } from "@/lib/brand-config";
 import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
@@ -1553,6 +1555,119 @@ export default function BrandSettings() {
   const updateSocial = (key: keyof BrandConfig["socialUrls"], value: string) =>
     setConfig((prev) => ({ ...prev, socialUrls: { ...prev.socialUrls, [key]: value } }));
 
+  // ── Nested updaters for URL-importer fields. Each lazily seeds an empty
+  // record on the first edit so the rest of the form can stay null-safe.
+  const updateButtonRaw = <K extends keyof ImportedButtonStyle>(key: K, value: ImportedButtonStyle[K]) =>
+    setConfig((prev) => {
+      const cur: ImportedButtonStyle = prev.buttonStyleRaw ?? {
+        category: "rounded", radiusPx: null, paddingX: null, paddingY: null,
+        fontWeight: null, textTransform: null, background: null, boxShadow: null,
+        raw: {}, visionAgreed: false, visionNotes: "",
+      };
+      return { ...prev, buttonStyleRaw: { ...cur, [key]: value } };
+    });
+  const updateSurface = <K extends keyof ImportedSurfaceStyle>(key: K, value: ImportedSurfaceStyle[K]) =>
+    setConfig((prev) => {
+      const cur: ImportedSurfaceStyle = prev.surfaceStyle ?? { radiusPx: null, boxShadow: null, border: null, raw: {} };
+      return { ...prev, surfaceStyle: { ...cur, [key]: value } };
+    });
+  const updateVoiceProfile = <K extends keyof ImportedVoiceProfile["profile"]>(key: K, value: ImportedVoiceProfile["profile"][K]) =>
+    setConfig((prev) => {
+      const cur: ImportedVoiceProfile = prev.voiceProfile ?? {
+        profile: { tone: [], formality: 3, sentenceLengthAvg: "medium", vocabularyRegister: "everyday", signaturePhrases: [], forbiddenPhrases: [], summary: "" },
+        selfCheckScore: null, selfCheckSourceSentence: null, selfCheckRewrite: null,
+      };
+      return { ...prev, voiceProfile: { ...cur, profile: { ...cur.profile, [key]: value } } };
+    });
+  const updatePhotoProfile = <K extends keyof ImportedPhotographyProfile["profile"]>(key: K, value: ImportedPhotographyProfile["profile"][K]) =>
+    setConfig((prev) => {
+      const cur: ImportedPhotographyProfile = prev.photographyProfile ?? {
+        profile: { medium: "unknown", paletteTemperature: "unknown", lightness: "unknown", subject: "unknown", mood: "", summary: "" },
+        referenceImageUrls: [],
+      };
+      return { ...prev, photographyProfile: { ...cur, profile: { ...cur.profile, [key]: value } } };
+    });
+  const parseNumOrNull = (s: string): number | null => {
+    const t = s.trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // Defensive normalizers for the importer-populated subobjects. `/lp/brand`
+  // persists raw JSONB without server-side shape validation, so a partial
+  // payload like `{ voiceProfile: {} }` (or one written by an older
+  // importer version, or hand-edited via the DB) must not crash the form.
+  // Each normalizer returns null when there's no useful data, else a
+  // fully-shaped object the JSX can read without further null-checks.
+  const normalizedButtonRaw: ImportedButtonStyle | null = (() => {
+    const b = config.buttonStyleRaw;
+    if (!b || typeof b !== "object") return null;
+    const okCats = ["pill","rounded","square","gradient-pill","outline","ghost"] as const;
+    return {
+      category: (okCats as readonly string[]).includes(b.category) ? b.category : "rounded",
+      radiusPx: typeof b.radiusPx === "number" ? b.radiusPx : null,
+      paddingX: typeof b.paddingX === "string" ? b.paddingX : null,
+      paddingY: typeof b.paddingY === "string" ? b.paddingY : null,
+      fontWeight: typeof b.fontWeight === "number" ? b.fontWeight : null,
+      textTransform: typeof b.textTransform === "string" ? b.textTransform : null,
+      background: b.background && typeof b.background === "object" && typeof b.background.value === "string"
+        ? { type: b.background.type === "gradient" || b.background.type === "transparent" ? b.background.type : "solid", value: b.background.value }
+        : null,
+      boxShadow: typeof b.boxShadow === "string" ? b.boxShadow : null,
+      raw: b.raw && typeof b.raw === "object" && !Array.isArray(b.raw) ? b.raw : {},
+      visionAgreed: b.visionAgreed === true,
+      visionNotes: typeof b.visionNotes === "string" ? b.visionNotes : "",
+    };
+  })();
+  const normalizedSurface: ImportedSurfaceStyle | null = (() => {
+    const s = config.surfaceStyle;
+    if (!s || typeof s !== "object") return null;
+    return {
+      radiusPx: typeof s.radiusPx === "number" ? s.radiusPx : null,
+      boxShadow: typeof s.boxShadow === "string" ? s.boxShadow : null,
+      border: typeof s.border === "string" ? s.border : null,
+      raw: s.raw && typeof s.raw === "object" && !Array.isArray(s.raw) ? s.raw : {},
+    };
+  })();
+  const normalizedVoiceProfile: ImportedVoiceProfile["profile"] | null = (() => {
+    const v = config.voiceProfile;
+    if (!v || typeof v !== "object" || !v.profile || typeof v.profile !== "object") return null;
+    const p = v.profile;
+    const okLen = ["short","medium","long"] as const;
+    const okReg = ["everyday","industry","specialist"] as const;
+    const f = typeof p.formality === "number" && p.formality >= 1 && p.formality <= 5 ? p.formality : 3;
+    return {
+      tone: Array.isArray(p.tone) ? p.tone.filter((x): x is string => typeof x === "string") : [],
+      formality: Math.round(f) as 1|2|3|4|5,
+      sentenceLengthAvg: (okLen as readonly string[]).includes(p.sentenceLengthAvg) ? p.sentenceLengthAvg : "medium",
+      vocabularyRegister: (okReg as readonly string[]).includes(p.vocabularyRegister) ? p.vocabularyRegister : "everyday",
+      signaturePhrases: Array.isArray(p.signaturePhrases) ? p.signaturePhrases.filter((x): x is string => typeof x === "string") : [],
+      forbiddenPhrases: Array.isArray(p.forbiddenPhrases) ? p.forbiddenPhrases.filter((x): x is string => typeof x === "string") : [],
+      summary: typeof p.summary === "string" ? p.summary : "",
+    };
+  })();
+  const normalizedPhotoProfile: ImportedPhotographyProfile["profile"] | null = (() => {
+    const pp = config.photographyProfile;
+    if (!pp || typeof pp !== "object" || !pp.profile || typeof pp.profile !== "object") return null;
+    const p = pp.profile;
+    const okMed = ["photographic","illustrated","mixed","abstract","unknown"] as const;
+    const okTemp = ["warm","cool","neutral","unknown"] as const;
+    const okLight = ["light","dark","mid","unknown"] as const;
+    const okSubj = ["people","product","environment","abstract","mixed","unknown"] as const;
+    return {
+      medium: (okMed as readonly string[]).includes(p.medium) ? p.medium : "unknown",
+      paletteTemperature: (okTemp as readonly string[]).includes(p.paletteTemperature) ? p.paletteTemperature : "unknown",
+      lightness: (okLight as readonly string[]).includes(p.lightness) ? p.lightness : "unknown",
+      subject: (okSubj as readonly string[]).includes(p.subject) ? p.subject : "unknown",
+      mood: typeof p.mood === "string" ? p.mood : "",
+      summary: typeof p.summary === "string" ? p.summary : "",
+    };
+  })();
+  const normalizedPhotoRefImages: string[] = Array.isArray(config.photographyProfile?.referenceImageUrls)
+    ? (config.photographyProfile?.referenceImageUrls ?? []).filter((u): u is string => typeof u === "string")
+    : [];
+
   const REQUIRED_COLOR_KEYS: (keyof BrandConfig)[] = [
     "primaryColor", "accentColor", "navBgColor", "textColor",
     "ctaBackground", "ctaText", "pageBackground", "cardBackground",
@@ -2614,6 +2729,398 @@ export default function BrandSettings() {
                   { value: "filled", label: "Filled" },
                 ]}
               />
+            </div>
+          </Card>
+
+          {/* SECTION 3.5 — IMPORTED BRAND DETAILS (URL importer raw data) */}
+          {/*
+            Surfaces every additive field the streaming URL importer
+            populates: the raw button CSS, card/surface CSS, structured
+            voice profile, photography profile, detected fonts, and the
+            full logo-candidate set. Each subsection is editable so
+            tenants can override the importer's findings — overrides
+            persist back through saveBrandConfig like any other field.
+            Empty subsections render a one-line "run a brand import"
+            hint so the panel always shows what data is available.
+          */}
+          <Card className="p-6 flex flex-col gap-6 lg:col-span-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Wand2 className="w-4 h-4 text-primary" />
+              <h2 className="font-display font-semibold text-lg">Imported Brand Details</h2>
+            </div>
+            <p className="text-sm text-muted-foreground -mt-3">
+              Raw data captured when you ran <span className="font-medium">Import from URL</span>.
+              Edit any value to override the importer's findings — your edits feed AI generation,
+              the live preview, and (eventually) AI image generation. Run a brand import at the top
+              of the page to populate empty subsections.
+            </p>
+            <Separator />
+
+            {/* Primary button CSS */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Primary button CSS</h3>
+                {normalizedButtonRaw?.visionAgreed && (
+                  <Badge variant="secondary" className="ml-auto gap-1"><Check className="w-3 h-3" /> Vision-verified</Badge>
+                )}
+              </div>
+              {normalizedButtonRaw ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Category</Label>
+                      <Select value={normalizedButtonRaw.category} onValueChange={(v) => updateButtonRaw("category", v as ImportedButtonStyle["category"])}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(["pill","rounded","square","gradient-pill","outline","ghost"] as const).map((v) => (
+                            <SelectItem key={v} value={v}>{v}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Border radius (px)</Label>
+                      <Input type="number" min={0} value={normalizedButtonRaw.radiusPx ?? ""} onChange={(e) => updateButtonRaw("radiusPx", parseNumOrNull(e.target.value))} placeholder="e.g. 8" className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Padding X</Label>
+                      <Input value={normalizedButtonRaw.paddingX ?? ""} onChange={(e) => updateButtonRaw("paddingX", e.target.value.trim() || null)} placeholder="e.g. 24px" className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Padding Y</Label>
+                      <Input value={normalizedButtonRaw.paddingY ?? ""} onChange={(e) => updateButtonRaw("paddingY", e.target.value.trim() || null)} placeholder="e.g. 12px" className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Font weight</Label>
+                      <Input type="number" min={100} max={900} step={100} value={normalizedButtonRaw.fontWeight ?? ""} onChange={(e) => updateButtonRaw("fontWeight", parseNumOrNull(e.target.value))} placeholder="400-700" className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Text transform</Label>
+                      <Input value={normalizedButtonRaw.textTransform ?? ""} onChange={(e) => updateButtonRaw("textTransform", e.target.value.trim() || null)} placeholder="uppercase / none" className="h-9 text-sm" />
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-sm font-medium mb-1.5 block">Background ({normalizedButtonRaw.background?.type ?? "—"})</Label>
+                      <Input value={normalizedButtonRaw.background?.value ?? ""} onChange={(e) => {
+                        const v = e.target.value.trim();
+                        if (!v) { updateButtonRaw("background", null); return; }
+                        const type: "solid" | "gradient" = /gradient/i.test(v) ? "gradient" : "solid";
+                        updateButtonRaw("background", { type, value: v });
+                      }} placeholder="#0f172a or linear-gradient(...)" className="h-9 text-sm font-mono" />
+                    </div>
+                    <div className="col-span-2 md:col-span-4">
+                      <Label className="text-sm font-medium mb-1.5 block">Box shadow</Label>
+                      <Input value={normalizedButtonRaw.boxShadow ?? ""} onChange={(e) => updateButtonRaw("boxShadow", e.target.value.trim() || null)} placeholder="e.g. 0 1px 2px rgba(0,0,0,.1)" className="h-9 text-sm font-mono" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">Vision-model notes</Label>
+                    <Textarea value={normalizedButtonRaw.visionNotes} onChange={(e) => updateButtonRaw("visionNotes", e.target.value)} className="min-h-[60px] text-sm resize-none" placeholder="What the vision model observed about the rendered button (size, shadow nuance, hover state)..." />
+                  </div>
+                  {Object.keys(normalizedButtonRaw.raw).length > 0 && (
+                    <details className="text-sm">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+                        Raw extracted CSS declarations ({Object.keys(normalizedButtonRaw.raw).length})
+                      </summary>
+                      <div className="mt-3 rounded-md border border-border/50 bg-muted/30 p-3 font-mono text-xs grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 max-h-72 overflow-auto">
+                        {Object.entries(normalizedButtonRaw.raw).map(([k, v]) => (
+                          <Fragment key={k}>
+                            <span className="text-muted-foreground">{k}:</span>
+                            <span className="break-all">{String(v)}</span>
+                          </Fragment>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No button CSS captured yet. Run an Import from URL to populate.</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Card / surface CSS */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Card / surface CSS</h3>
+              </div>
+              {normalizedSurface ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Border radius (px)</Label>
+                      <Input type="number" min={0} value={normalizedSurface.radiusPx ?? ""} onChange={(e) => updateSurface("radiusPx", parseNumOrNull(e.target.value))} placeholder="e.g. 12" className="h-9 text-sm" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-sm font-medium mb-1.5 block">Box shadow</Label>
+                      <Input value={normalizedSurface.boxShadow ?? ""} onChange={(e) => updateSurface("boxShadow", e.target.value.trim() || null)} placeholder="e.g. 0 4px 12px rgba(0,0,0,.08)" className="h-9 text-sm font-mono" />
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label className="text-sm font-medium mb-1.5 block">Border</Label>
+                      <Input value={normalizedSurface.border ?? ""} onChange={(e) => updateSurface("border", e.target.value.trim() || null)} placeholder="e.g. 1px solid #e5e7eb" className="h-9 text-sm font-mono" />
+                    </div>
+                  </div>
+                  {Object.keys(normalizedSurface.raw).length > 0 && (
+                    <details className="text-sm">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+                        Raw extracted CSS declarations ({Object.keys(normalizedSurface.raw).length})
+                      </summary>
+                      <div className="mt-3 rounded-md border border-border/50 bg-muted/30 p-3 font-mono text-xs grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 max-h-72 overflow-auto">
+                        {Object.entries(normalizedSurface.raw).map(([k, v]) => (
+                          <Fragment key={k}>
+                            <span className="text-muted-foreground">{k}:</span>
+                            <span className="break-all">{String(v)}</span>
+                          </Fragment>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No card/surface CSS captured yet.</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Structured voice profile */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Voice profile (structured)</h3>
+                {config.voiceProfile?.selfCheckScore != null && (
+                  <Badge variant="secondary" className="ml-auto">
+                    Self-check {Math.round((config.voiceProfile.selfCheckScore ?? 0) * 100)}%
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Used alongside the free-form Voice &amp; Messaging section above. These structured fields
+                give AI generation a tighter constraint set than prose alone.
+              </p>
+              {normalizedVoiceProfile ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium mb-1.5 block">Tone descriptors</Label>
+                    <TagInput value={normalizedVoiceProfile.tone} onChange={(v) => updateVoiceProfile("tone", v)} placeholder='e.g. "confident", "warm"' />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">Formality (1=casual, 5=formal)</Label>
+                    <Select value={String(normalizedVoiceProfile.formality)} onValueChange={(v) => updateVoiceProfile("formality", Number(v) as 1|2|3|4|5)}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[1,2,3,4,5].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">Sentence length</Label>
+                    <Select value={normalizedVoiceProfile.sentenceLengthAvg} onValueChange={(v) => updateVoiceProfile("sentenceLengthAvg", v as "short"|"medium"|"long")}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="short">Short</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="long">Long</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">Vocabulary register</Label>
+                    <Select value={normalizedVoiceProfile.vocabularyRegister} onValueChange={(v) => updateVoiceProfile("vocabularyRegister", v as "everyday"|"industry"|"specialist")}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="everyday">Everyday</SelectItem>
+                        <SelectItem value="industry">Industry</SelectItem>
+                        <SelectItem value="specialist">Specialist</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium mb-1.5 block">Signature phrases</Label>
+                    <TagInput value={normalizedVoiceProfile.signaturePhrases} onChange={(v) => updateVoiceProfile("signaturePhrases", v)} placeholder='Phrases the AI should reach for, e.g. "ship it"' />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium mb-1.5 block">Forbidden phrases</Label>
+                    <TagInput value={normalizedVoiceProfile.forbiddenPhrases} onChange={(v) => updateVoiceProfile("forbiddenPhrases", v)} placeholder='Phrases the AI must avoid' />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium mb-1.5 block">Profile summary</Label>
+                    <Textarea value={normalizedVoiceProfile.summary} onChange={(e) => updateVoiceProfile("summary", e.target.value)} className="min-h-[60px] text-sm resize-none" placeholder="One-sentence summary of the brand voice." />
+                  </div>
+                  {(typeof config.voiceProfile?.selfCheckSourceSentence === "string" || typeof config.voiceProfile?.selfCheckRewrite === "string") && (
+                    <details className="md:col-span-2 text-sm">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+                        Self-check evidence
+                      </summary>
+                      <div className="mt-3 space-y-2 rounded-md border border-border/50 bg-muted/30 p-3">
+                        {typeof config.voiceProfile?.selfCheckSourceSentence === "string" && (
+                          <div><span className="text-xs uppercase tracking-wider text-muted-foreground">Source:</span> <span className="italic">"{config.voiceProfile.selfCheckSourceSentence}"</span></div>
+                        )}
+                        {typeof config.voiceProfile?.selfCheckRewrite === "string" && (
+                          <div><span className="text-xs uppercase tracking-wider text-muted-foreground">Rewrite:</span> <span className="italic">"{config.voiceProfile.selfCheckRewrite}"</span></div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No structured voice profile yet. Run a brand import to populate.</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Photography profile */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Photography profile</h3>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                A brief used for future AI image generation — describes what kind of imagery the brand
+                uses on its site.
+              </p>
+              {normalizedPhotoProfile ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {([
+                      ["medium", ["photographic","illustrated","mixed","abstract","unknown"]],
+                      ["paletteTemperature", ["warm","cool","neutral","unknown"]],
+                      ["lightness", ["light","dark","mid","unknown"]],
+                      ["subject", ["people","product","environment","abstract","mixed","unknown"]],
+                    ] as const).map(([key, opts]) => (
+                      <div key={key}>
+                        <Label className="text-sm font-medium mb-1.5 block">{key === "paletteTemperature" ? "Palette temperature" : key[0].toUpperCase() + key.slice(1)}</Label>
+                        <Select value={normalizedPhotoProfile[key]} onValueChange={(v) => updatePhotoProfile(key, v as never)}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {opts.map((o) => <SelectItem key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">Mood</Label>
+                    <Input value={normalizedPhotoProfile.mood} onChange={(e) => updatePhotoProfile("mood", e.target.value)} placeholder="e.g. optimistic, gritty, clinical" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">Summary</Label>
+                    <Textarea value={normalizedPhotoProfile.summary} onChange={(e) => updatePhotoProfile("summary", e.target.value)} className="min-h-[60px] text-sm resize-none" />
+                  </div>
+                  {normalizedPhotoRefImages.length > 0 && (
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">
+                        Reference images ({normalizedPhotoRefImages.length})
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {normalizedPhotoRefImages.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noreferrer" className="relative w-20 h-20 rounded-md border border-border/50 overflow-hidden bg-muted/30 hover:border-primary transition">
+                            <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.2"; }} />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No photography profile yet. Run a brand import to populate.</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Detected fonts */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Type className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Detected fonts</h3>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Read-only — the importer auto-injects these stylesheets when rendering pages that use
+                the matched roles. Edit the Display / Body / Numbers font pickers in the Typography
+                section above to override.
+              </p>
+              {config.loadedFonts && config.loadedFonts.length > 0 ? (
+                <div className="rounded-md border border-border/50 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Family</th>
+                        <th className="px-3 py-2 text-left">Role</th>
+                        <th className="px-3 py-2 text-left">Stylesheet URL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {config.loadedFonts.map((f, i) => (
+                        <tr key={i} className="border-t border-border/40">
+                          <td className="px-3 py-2 font-medium">{f.family}</td>
+                          <td className="px-3 py-2"><Badge variant="outline">{f.role}</Badge></td>
+                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground break-all">{f.url}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No fonts detected by the importer.</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Logo candidates */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">
+                  All logo candidates ({config.logoAlternates?.length ?? 0})
+                </h3>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Click any tile to set it as the primary logo. The current logo is highlighted.
+              </p>
+              {config.logoAlternates && config.logoAlternates.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {config.logoAlternates.map((alt, i) => {
+                    const isCurrent = alt.url === config.logoUrl;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => update("logoUrl", alt.url)}
+                        className={cn(
+                          "flex flex-col gap-2 p-3 rounded-lg border-2 transition text-left",
+                          isCurrent ? "border-primary bg-primary/5" : "border-border/50 hover:border-border",
+                        )}
+                      >
+                        <div className="aspect-video w-full bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                          <img
+                            src={alt.url}
+                            alt=""
+                            className="max-w-full max-h-full object-contain"
+                            loading="lazy"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.15"; }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <Badge variant="outline" className="text-[10px]">{alt.source}</Badge>
+                          <span className="text-muted-foreground">{alt.format}{typeof alt.score === "number" ? ` · ${Math.round(alt.score)}` : ""}</span>
+                        </div>
+                        {isCurrent && (
+                          <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Current</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No alternate logos. Run a brand import to discover variants.
+                </p>
+              )}
             </div>
           </Card>
 
