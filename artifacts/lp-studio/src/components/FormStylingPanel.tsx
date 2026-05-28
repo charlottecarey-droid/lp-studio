@@ -28,6 +28,13 @@ export interface FormStylingPanelProps {
    * tenants get their own primary/accent baked in.
    */
   presetValues?: FormStyling;
+  /**
+   * Additional one-click presets shown alongside the primary preset
+   * button. Lets Brand Settings expose both a Light *and* Dark option
+   * (driven by the tenant's brand colors) without changing the existing
+   * single-preset call sites.
+   */
+  extraPresets?: Array<{ label: string; values: FormStyling }>;
   /** Render an inline live preview of the form using the resolved tokens. */
   showPreview?: boolean;
 }
@@ -50,6 +57,7 @@ export function FormStylingPanel({
   helpText,
   presetLabel = "Inside Dandy / AVP",
   presetValues,
+  extraPresets,
   showPreview = false,
 }: FormStylingPanelProps) {
   const s = styling ?? {};
@@ -189,10 +197,21 @@ export function FormStylingPanel({
               {helpText ?? "Overrides per-block form colors. Blank tokens fall through."}
             </p>
           </div>
-          <div className="flex gap-1.5 shrink-0">
+          <div className="flex gap-1.5 shrink-0 flex-wrap">
             <Button size="sm" variant="default" className="gap-1 h-8" onClick={applyPreset}>
               <Sparkles className="w-3.5 h-3.5" /> {presetLabel}
             </Button>
+            {extraPresets?.map((p) => (
+              <Button
+                key={p.label}
+                size="sm"
+                variant="outline"
+                className="gap-1 h-8"
+                onClick={() => onChange({ ...p.values })}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> {p.label}
+              </Button>
+            ))}
             {active && (
               <Button size="sm" variant="outline" className="gap-1 h-8" onClick={clearAll}>
                 <RotateCcw className="w-3.5 h-3.5" /> Clear

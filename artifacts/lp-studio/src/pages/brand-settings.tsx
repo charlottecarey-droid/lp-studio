@@ -75,6 +75,48 @@ function buildDarkFormPreset(primary?: string, accent?: string): FormStyling {
   };
 }
 
+/**
+ * Light counterpart to {@link buildDarkFormPreset}. Mirrors the dark
+ * preset's role assignments — stage / surface / accent — but with light
+ * surfaces and the tenant's brand text color for headlines & inputs. CTA
+ * uses the brand's existing CTA tokens when present (so the submit button
+ * matches every other button on the page), falling back to the primary
+ * color otherwise.
+ *
+ * Also serves as the default `placeholderLayer` in Brand Settings so the
+ * form-styling panel never looks "empty" — operators see their brand
+ * tokens previewed as muted placeholders before they configure anything.
+ */
+function buildLightFormPreset(
+  primary?: string,
+  accent?: string,
+  textColor?: string,
+  ctaBg?: string,
+  ctaText?: string,
+): FormStyling {
+  const primaryColor = primary && /^#[0-9a-fA-F]{6}$/.test(primary) ? primary : "#0f172a";
+  const accentColor = accent && /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : primaryColor;
+  const text = textColor && /^#[0-9a-fA-F]{6}$/.test(textColor) ? textColor : "#0f172a";
+  const textRgb = hexToRgbTriplet(text);
+  const primaryRgb = hexToRgbTriplet(primaryColor);
+  const buttonBackground = ctaBg && ctaBg.trim() ? ctaBg : primaryColor;
+  const buttonForeground = ctaText && ctaText.trim() ? ctaText : "#ffffff";
+  return {
+    background: "#ffffff",
+    surface: "#ffffff",
+    border: `rgba(${primaryRgb},0.10)`,
+    headlineColor: text,
+    subheadlineColor: `rgba(${textRgb},0.65)`,
+    labelColor: `rgba(${textRgb},0.70)`,
+    inputBg: "#ffffff",
+    inputBorder: `rgba(${textRgb},0.15)`,
+    inputText: text,
+    buttonBg: buttonBackground,
+    buttonText: buttonForeground,
+    accent: accentColor,
+  };
+}
+
 function hexToRgbTriplet(hex: string): string {
   const m = /^#([0-9a-fA-F]{6})$/.exec(hex);
   if (!m) return "199,231,56";
@@ -2612,9 +2654,31 @@ export default function BrandSettings() {
             <FormStylingPanel
               styling={config.formStyling ?? null}
               onChange={(s) => update("formStyling", s)}
-              helpText="These tokens become the default for every linked global form and the form rendered inside CTA modals. Per-form and per-block overrides still win — leave a field blank to skip setting a brand default for it."
-              presetLabel="Apply Dark preset"
-              presetValues={buildDarkFormPreset(config.primaryColor, config.accentColor)}
+              helpText="These tokens become the default for every linked global form and the form rendered inside CTA modals. Per-form and per-block overrides still win — leave a field blank to skip setting a brand default for it. Until you save anything, the Light preset (built from your brand colors) shows through as muted placeholders so you can see what the form will look like."
+              presetLabel="Apply Light preset"
+              presetValues={buildLightFormPreset(
+                config.primaryColor,
+                config.accentColor,
+                config.textColor,
+                config.ctaBackground,
+                config.ctaText,
+              )}
+              extraPresets={[
+                {
+                  label: "Apply Dark preset",
+                  values: buildDarkFormPreset(config.primaryColor, config.accentColor),
+                },
+              ]}
+              // Pre-fill the panel placeholders with the brand-colored Light
+              // preset so it's never empty — operators see their brand
+              // tokens immediately and can apply / tweak from there.
+              placeholderLayer={buildLightFormPreset(
+                config.primaryColor,
+                config.accentColor,
+                config.textColor,
+                config.ctaBackground,
+                config.ctaText,
+              )}
               showPreview
             />
           </Card>
