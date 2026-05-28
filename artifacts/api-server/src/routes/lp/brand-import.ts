@@ -62,6 +62,11 @@ const SEGMENT_FIELDS = [
 // imports that operate on pasted brand-guidelines text.
 const MEDIA_FIELDS = [
   "logoUrl",
+  // Social URLs are extracted via regex from scraped footer markdown
+  // (see extractSocialUrlsFromMarkdown in the orchestrator / from-url
+  // route) — not from the LLM. Allow-listed here so the sanitizer
+  // accepts them when the importer merges them into `proposed`.
+  "socialUrls",
 ];
 
 export function getFieldsForSection(section: ImportSection): string[] {
@@ -124,6 +129,7 @@ export function buildPromptForSection(section: ImportSection): string {
     copyExamples: "string[] — up to 6 sample headlines or CTAs representing brand voice",
     productLines: '{ name: string, description: string, valueProps: string[], claims: string[], keywords: string[] }[] — up to 12 product lines. name = product name, description = one-line summary, valueProps = key benefits, claims = provable statements (e.g. "50% faster"), keywords = SEO target keywords',
     logoUrl: 'string — absolute http(s) URL to the brand\'s primary logo image (svg/png/jpg). Pick the logo shown in the site header / nav. Prefer SVG when available, then PNG. Must be a fully-qualified URL, not a relative path.',
+    socialUrls: '{ facebook?: string, instagram?: string, linkedin?: string } — public social profile URLs surfaced in the site footer / contact page. Only include keys you actually find. Each value must be an absolute https URL on the matching domain (facebook.com / instagram.com / linkedin.com).',
     segments: '{ name: string, description: string, messagingAngle: string, uniqueContext: string, valueProps: string[], segmentProducts: string[], personas: { role: string, painPoints: string[] }[], challenges: { title: string, desc: string }[], stats: { value: string, label: string }[], comparisonRows: { need: string, us: string, them: string }[] }[] — audience segments. name = segment name (e.g. "DSO Leaders"), description = brief overview, messagingAngle = core pitch angle for this segment, uniqueContext = what makes this segment distinct, valueProps = up to 8 key benefits for this segment, segmentProducts = product names most relevant to this segment, personas = up to 6 buyer roles with their pain points, challenges = up to 8 problems this segment faces, stats = up to 6 proof-point metrics (value + label), comparisonRows = up to 8 comparison rows (need, what we offer, what competitors offer)',
   };
 
@@ -322,6 +328,29 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
       if (u.protocol !== "https:" && u.protocol !== "http:") return { valid: false, sanitized: null };
       return { valid: true, sanitized: u.toString() };
     } catch { return { valid: false, sanitized: null }; }
+  }
+  if (field === "socialUrls") {
+    if (typeof value !== "object" || value === null) return { valid: false, sanitized: null };
+    const o = value as Record<string, unknown>;
+    const out: { facebook: string; instagram: string; linkedin: string } = { facebook: "", instagram: "", linkedin: "" };
+    const hostFor: Record<keyof typeof out, RegExp> = {
+      facebook: /(^|\.)facebook\.com$/i,
+      instagram: /(^|\.)instagram\.com$/i,
+      linkedin: /(^|\.)linkedin\.com$/i,
+    };
+    for (const key of Object.keys(out) as (keyof typeof out)[]) {
+      const v = o[key];
+      if (typeof v !== "string" || v.trim().length === 0) continue;
+      const trimmed = v.trim().slice(0, 500);
+      try {
+        const u = new URL(trimmed);
+        if (u.protocol !== "https:" && u.protocol !== "http:") continue;
+        if (!hostFor[key].test(u.hostname)) continue;
+        out[key] = u.toString();
+      } catch { /* ignore invalid url */ }
+    }
+    if (!out.facebook && !out.instagram && !out.linkedin) return { valid: false, sanitized: null };
+    return { valid: true, sanitized: out };
   }
   if (field === "logoUrl") {
     if (typeof value !== "string") return { valid: false, sanitized: null };

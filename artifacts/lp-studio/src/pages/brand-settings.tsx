@@ -902,6 +902,8 @@ const FIELD_LABELS: Record<string, string> = {
   avoidPhrases: "Avoid Phrases", targetAudience: "Target Audience",
   copyExamples: "Copy Examples",
   salesConsole: "Sales Console (value props + AI prompts)",
+  logoUrl: "Logo", logoUrlDark: "Dark-mode Logo",
+  socialUrls: "Social Links",
 };
 
 interface SalesBrandSetupSummary {
@@ -1489,6 +1491,11 @@ export default function BrandSettings() {
     structure: { status: "pending", preview: "", errors: [] },
   });
   const [importSelectedLogo, setImportSelectedLogo] = useState<string | null>(null);
+  // Dark-mode logo picked from the same alternates list as the primary
+  // logo. Applied unconditionally if set (no `importChecked["logoUrlDark"]`
+  // gate) so the user can pick a dark logo without having to also check a
+  // separate row in the proposed-changes table.
+  const [importSelectedLogoDark, setImportSelectedLogoDark] = useState<string | null>(null);
 
   const [hexErrors, setHexErrors] = useState<Record<string, boolean>>({});
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -1874,6 +1881,7 @@ export default function BrandSettings() {
     setImportResult(null);
     setImportApplied(false);
     setImportSelectedLogo(null);
+    setImportSelectedLogoDark(null);
     setImportDimensions({
       logos: { status: "loading", preview: "", errors: [] },
       colors: { status: "loading", preview: "", errors: [] },
@@ -2020,6 +2028,14 @@ export default function BrandSettings() {
     if (importSelectedLogo && importChecked["logoUrl"]) {
       updates["logoUrl"] = importSelectedLogo;
     }
+    // Dark-mode logo: applied unconditionally if the user picked one in
+    // the import dialog. We don't gate on importChecked because the
+    // dark logo isn't surfaced as its own row in the proposed-changes
+    // table — it's a side-channel pick from the same alternates list.
+    if (importSelectedLogoDark) {
+      updates["logoUrlDark"] = importSelectedLogoDark;
+      if (!appliedFields.includes("logoUrlDark")) appliedFields.push("logoUrlDark");
+    }
     setConfig((prev) => {
       const next = { ...prev, ...updates } as BrandConfig;
       // Importer-derived structure arrays append to whatever the user
@@ -2091,6 +2107,7 @@ export default function BrandSettings() {
     setImportMode("text");
     setImportTab("colors");
     setImportSelectedLogo(null);
+    setImportSelectedLogoDark(null);
     setImportDimensions({
       logos: { status: "pending", preview: "", errors: [] },
       colors: { status: "pending", preview: "", errors: [] },
@@ -3371,7 +3388,7 @@ export default function BrandSettings() {
               <h2 className="font-display font-semibold text-lg">Footer</h2>
             </div>
             <Separator />
-            <TextField label="Copyright Name" value={config.copyrightName} onChange={(v) => update("copyrightName", v)} placeholder="Dandy" hint={`Appears as: \u00a9 ${new Date().getFullYear()} [Name]. All rights reserved.`} />
+            <TextField label="Copyright Name" value={config.copyrightName} onChange={(v) => update("copyrightName", v)} placeholder="Your company" hint={`Appears as: \u00a9 ${new Date().getFullYear()} [Name]. All rights reserved.`} />
             <div className="flex flex-col gap-3">
               <Label className="text-sm font-medium">Social Links</Label>
               <div className="flex items-center gap-2">
@@ -3965,26 +3982,53 @@ export default function BrandSettings() {
           {importResult && !importApplied ? (
             <div className="flex flex-col gap-4 py-2">
               {importResult.logoAlternates && importResult.logoAlternates.length > 1 && (
-                <div className="rounded-xl border border-border bg-card p-3">
-                  <div className="text-sm font-medium mb-2">Pick a logo</div>
-                  <div className="flex flex-wrap gap-2">
-                    {importResult.logoAlternates.slice(0, 8).map((alt) => {
-                      const selected = (importSelectedLogo ?? (importResult.proposed["logoUrl"] as string | undefined)) === alt.url;
-                      return (
-                        <button
-                          key={alt.url}
-                          type="button"
-                          onClick={() => setImportSelectedLogo(alt.url)}
-                          className={cn(
-                            "flex items-center justify-center w-20 h-14 rounded-lg border-2 bg-muted/20 overflow-hidden transition-colors",
-                            selected ? "border-primary" : "border-border hover:border-muted-foreground/40",
-                          )}
-                          title={`${alt.source} • ${alt.format}`}
-                        >
-                          <img src={alt.url} alt={alt.source} className="max-w-full max-h-full object-contain" loading="lazy" />
-                        </button>
-                      );
-                    })}
+                <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+                  <div>
+                    <div className="text-sm font-medium mb-2">Pick a logo (light backgrounds)</div>
+                    <div className="flex flex-wrap gap-2">
+                      {importResult.logoAlternates.slice(0, 8).map((alt) => {
+                        const selected = (importSelectedLogo ?? (importResult.proposed["logoUrl"] as string | undefined)) === alt.url;
+                        return (
+                          <button
+                            key={`light-${alt.url}`}
+                            type="button"
+                            onClick={() => setImportSelectedLogo(alt.url)}
+                            className={cn(
+                              "flex items-center justify-center w-20 h-14 rounded-lg border-2 bg-muted/20 overflow-hidden transition-colors",
+                              selected ? "border-primary" : "border-border hover:border-muted-foreground/40",
+                            )}
+                            title={`${alt.source} • ${alt.format}`}
+                          >
+                            <img src={alt.url} alt={alt.source} className="max-w-full max-h-full object-contain" loading="lazy" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium mb-2">
+                      Pick a logo (dark backgrounds)
+                      <span className="text-xs font-normal text-muted-foreground ml-2">— optional, used on dark sections</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {importResult.logoAlternates.slice(0, 8).map((alt) => {
+                        const selected = importSelectedLogoDark === alt.url;
+                        return (
+                          <button
+                            key={`dark-${alt.url}`}
+                            type="button"
+                            onClick={() => setImportSelectedLogoDark(selected ? null : alt.url)}
+                            className={cn(
+                              "flex items-center justify-center w-20 h-14 rounded-lg border-2 bg-neutral-900 overflow-hidden transition-colors",
+                              selected ? "border-primary" : "border-border hover:border-muted-foreground/40",
+                            )}
+                            title={`${alt.source} • ${alt.format}`}
+                          >
+                            <img src={alt.url} alt={alt.source} className="max-w-full max-h-full object-contain" loading="lazy" />
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}

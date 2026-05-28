@@ -78,6 +78,37 @@ interface Options {
   tenantId?: number;
 }
 
+// Regex-based extraction of social profile URLs from the scraped
+// markdown corpus. Cheap (no LLM call), high signal — virtually every
+// site footers its facebook/instagram/linkedin handles as plain links.
+// Returns the first match per network; subsequent matches are ignored
+// so a blog post that happens to link to a competitor's facebook page
+// doesn't override the brand's own footer link.
+function extractSocialUrlsFromMarkdown(markdowns: string[]): { facebook: string; instagram: string; linkedin: string } | null {
+  const joined = markdowns.join("\n");
+  // Use non-greedy character classes and stop at common URL terminators
+  // (whitespace, closing brackets/parens, quotes). Anchoring each
+  // network to its own host segment prevents `facebook.com/sharer`
+  // share buttons from being mistaken for the brand's profile.
+  const patterns: Record<"facebook" | "instagram" | "linkedin", RegExp> = {
+    facebook: /https?:\/\/(?:[a-z0-9-]+\.)*facebook\.com\/(?!sharer|share|dialog)[A-Za-z0-9._\-/]+/i,
+    instagram: /https?:\/\/(?:[a-z0-9-]+\.)*instagram\.com\/[A-Za-z0-9._\-/]+/i,
+    linkedin: /https?:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/(?:company|in|school|showcase)\/[A-Za-z0-9._\-/%]+/i,
+  };
+  const out = { facebook: "", instagram: "", linkedin: "" };
+  let found = false;
+  for (const key of Object.keys(patterns) as ("facebook" | "instagram" | "linkedin")[]) {
+    const m = joined.match(patterns[key]);
+    if (m) {
+      // Strip common trailing markdown / punctuation that the URL regex
+      // would otherwise eat (e.g. `](`, `)`, `.`, `,`, `;`).
+      out[key] = m[0].replace(/[)\].,;>"']+$/, "");
+      found = true;
+    }
+  }
+  return found ? out : null;
+}
+
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race<T>([
     p,
@@ -415,6 +446,18 @@ export async function* runOrchestrator(
   }
 
   const { proposed, confidence } = flattenForProposed(results);
+
+  // Regex-based social URL extraction from the scraped markdown corpus.
+  // Runs after the dimension extractors so it can't slow them down, and
+  // is a deterministic regex (no LLM call) so it can't fail or time
+  // out. Surfaces facebook/instagram/linkedin profile links from the
+  // site footer — confidence "high" because either the regex matched
+  // a real URL in the page or it didn't.
+  const socialUrls = extractSocialUrlsFromMarkdown(evidence.pages.map((p) => p.markdown));
+  if (socialUrls) {
+    proposed["socialUrls"] = socialUrls;
+    confidence["socialUrls"] = "high";
+  }
 
   const payload: OrchestratorPayload = {
     sourceUrl: evidence.homeUrl,

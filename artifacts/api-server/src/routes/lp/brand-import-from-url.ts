@@ -173,6 +173,29 @@ async function firecrawlScrape(apiKey: string, url: string, withScreenshot: bool
   }
 }
 
+// Regex-based extraction of social profile URLs from the scraped
+// markdown corpus. Cheap (no LLM call), high signal — virtually every
+// site footers its facebook/instagram/linkedin handles as plain links.
+// Mirrors the helper in lib/brand-import/orchestrator.ts so both the
+// streaming and non-streaming importer paths surface socialUrls.
+function extractSocialUrlsFromMarkdown(markdown: string): { facebook: string; instagram: string; linkedin: string } | null {
+  const patterns: Record<"facebook" | "instagram" | "linkedin", RegExp> = {
+    facebook: /https?:\/\/(?:[a-z0-9-]+\.)*facebook\.com\/(?!sharer|share|dialog)[A-Za-z0-9._\-/]+/i,
+    instagram: /https?:\/\/(?:[a-z0-9-]+\.)*instagram\.com\/[A-Za-z0-9._\-/]+/i,
+    linkedin: /https?:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/(?:company|in|school|showcase)\/[A-Za-z0-9._\-/%]+/i,
+  };
+  const out = { facebook: "", instagram: "", linkedin: "" };
+  let found = false;
+  for (const key of Object.keys(patterns) as ("facebook" | "instagram" | "linkedin")[]) {
+    const m = markdown.match(patterns[key]);
+    if (m) {
+      out[key] = m[0].replace(/[)\].,;>"']+$/, "");
+      found = true;
+    }
+  }
+  return found ? out : null;
+}
+
 function safeJoinUrl(base: string, path: string): string | null {
   try {
     return new URL(path, base).toString();
@@ -309,6 +332,19 @@ router.post("/lp/brand-import/from-url", requireAuth, aiLightLimiter, aiLightHou
       confidence[field] = conf === "high" || conf === "medium" || conf === "low" ? conf : "medium";
     } else {
       unparsed.push(field);
+    }
+  }
+
+  // Regex-based social URL extraction from the combined markdown.
+  // Runs after the LLM extraction so the field is sanitized through
+  // the same `socialUrls` path as the streaming importer. Confidence
+  // is "high" because regex either matched a real URL or it didn't.
+  const socialUrls = extractSocialUrlsFromMarkdown(combined);
+  if (socialUrls) {
+    const result = sanitizeField("socialUrls", socialUrls);
+    if (result.valid) {
+      sanitized["socialUrls"] = result.sanitized;
+      confidence["socialUrls"] = "high";
     }
   }
 
