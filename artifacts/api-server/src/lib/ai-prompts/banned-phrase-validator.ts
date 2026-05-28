@@ -115,7 +115,8 @@ function compilePhrases(brandAvoidPhrases: string[]): CompiledPhrase[] {
   const seen = new Set<string>();
   const out: CompiledPhrase[] = [];
   // Brand phrases first so a phrase appearing in both is attributed to the brand.
-  for (const raw of brandAvoidPhrases) {
+  for (const raw of Array.isArray(brandAvoidPhrases) ? brandAvoidPhrases : []) {
+    if (typeof raw !== "string") continue;
     const p = raw.trim().toLowerCase();
     if (!p || seen.has(p)) continue;
     seen.add(p);

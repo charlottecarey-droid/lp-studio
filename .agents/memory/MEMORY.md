@@ -10,3 +10,4 @@
 - [Drizzle journal must list every migration](auth-exchange-codes-schema.md) — adding a .sql to lib/db/migrations does nothing unless its tag is also in meta/_journal.json; missing entry = silent skip on every release; symptom is prod 42703 "column does not exist" on the cross-domain OAuth callback.
 - [Fetch redirect SSRF](fetch-redirect-ssrf.md) — backend fetches of untrusted URLs must use `redirect:"manual"` and re-validate each hop's host; `"follow"` defeats the initial public-IP check.
 - [Tenant-scoped queries fail closed](tenant-scoped-query-fail-closed.md) — DB helpers reading tenant rows must take required tenantId, or return empty on null; never fall back to unfiltered or `limit(1)` queries.
+- [lib/db composite dist drives types](lib-db-composite-dist-types.md) — after editing a lib/db schema, `npx tsc -b` in lib/db (no build script) or consumer tsc errors "field does not exist" though runtime/build is fine.

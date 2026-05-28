@@ -66,6 +66,15 @@ describe("findBannedPhrases", () => {
     expect(findBannedPhrases(undefined)).toEqual([]);
   });
 
+  it("tolerates malformed brandAvoidPhrases entries", () => {
+    const blocks = [{ id: "b1", type: "x", props: { t: "the smile journey awaits" } }];
+    // Non-array and non-string entries must not throw.
+    // @ts-expect-error — exercising the defensive non-array guard
+    expect(findBannedPhrases(blocks, "smile journey")).toEqual([]);
+    const hits = findBannedPhrases(blocks, [null as unknown as string, 42 as unknown as string, "smile journey"]);
+    expect(hits.map((h) => h.phrase)).toContain("smile journey");
+  });
+
   it("caps the number of hits", () => {
     const filler = GLOBAL_CLICHES.join(". ");
     const blocks = Array.from({ length: 30 }, (_, i) => ({ id: `b${i}`, type: "x", props: { t: filler } }));
