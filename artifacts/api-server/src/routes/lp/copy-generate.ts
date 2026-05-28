@@ -2,7 +2,7 @@ import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpMediaTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 import { withOpenAIConcurrency } from "../../lib/brand-import/openai-semaphore";
@@ -39,12 +39,15 @@ interface MediaImage { url: string; title: string; tags: string[] }
 const PURPOSE_TAGS = new Set(["lp-hero", "lp-feature", "product-detail"]);
 const SKIP_TAGS_IMG = new Set(["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art", "lp-hero", "lp-feature", "product-detail"]);
 
-async function fetchLibraryImages(): Promise<MediaImage[]> {
+// Tenant isolation: tenantId is REQUIRED — without it we would query the global
+// media pool and leak other tenants' images (e.g. Dandy sales-rep photos appearing
+// on a Frambam furniture page). Callers must pass the authenticated tenant id.
+async function fetchLibraryImages(tenantId: number): Promise<MediaImage[]> {
   try {
     const rows = await db
       .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
       .from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "image"))
+      .where(and(eq(lpMediaTable.mediaType, "image"), eq(lpMediaTable.tenantId, tenantId)))
       .orderBy(desc(lpMediaTable.createdAt))
       .limit(500);
     return rows.map(r => ({ url: r.url, title: r.title ?? "", tags: (r.tags as string[]) ?? [] }));
@@ -234,7 +237,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
     const requestedTypes: string[] = Array.isArray(body.tileTypes) ? body.tileTypes : ["stat", "stat", "stat", "photo", "quote", "feature"];
 
     // Fetch library images upfront so photo tiles use real media
-    const libraryImages = await fetchLibraryImages();
+    const libraryImages = await fetchLibraryImages(tenantId);
     const usedImageUrls = new Set<string>();
 
     const tileSchemaDesc = `Return a JSON array called "tiles" where each element is one of:

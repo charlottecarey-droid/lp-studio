@@ -82,6 +82,10 @@ export interface BriefContext {
   toneGuidance?: string;
   suggestedHeadline?: string;
   segmentContext?: SegmentContext;
+  /** Free-text revisions / additional context the user typed in the brief
+   *  modal before clicking Generate. Threaded straight into the prompt as
+   *  high-priority guidance. */
+  extraContext?: string;
 }
 
 // ── DB load ───────────────────────────────────────────────────────────────
@@ -241,6 +245,14 @@ export function buildBrandSystemPrompt(brand: BrandConfig): string {
     'CAPITALIZATION: Always use sentence casing. Capitalize only the first word of each sentence and proper nouns / official product names. NEVER title-case headlines or subheadlines. BAD: "More Cases, Less Drama" — GOOD: "More cases, less drama".',
   );
 
+  // Hard guard against generic-SaaS fallback when brand context is thin.
+  // Without this the model gravitates to "tools your team won't ignore" /
+  // "built to keep your team on track" — wrong for a Frambam furniture page
+  // or any non-SaaS brand. Anchor to the brand's actual domain instead.
+  parts.push(
+    `ANTI-CLICHÉ: Do not use generic SaaS / B2B-tool phrasing ("tools your team", "built for teams", "ship faster", "essentials your team will actually use", "stop wasting time", "all-in-one platform", "supercharge your workflow") unless the brand above is literally a SaaS / B2B tool company. Match the brand's actual product category — if the brand is furniture, talk about furniture; if it's a dental lab, talk about cases and chair-time; if it's a consumer brand, talk about the product itself. Generic team-productivity copy is a failure.`,
+  );
+
   return parts.join("\n");
 }
 
@@ -254,7 +266,8 @@ export function hasBriefSignal(brief: BriefContext | null | undefined): boolean 
       brief.suggestedHeadline ||
       (brief.valueProps?.length ?? 0) > 0 ||
       brief.toneGuidance ||
-      brief.segmentContext?.name,
+      brief.segmentContext?.name ||
+      brief.extraContext?.trim(),
   );
 }
 
@@ -269,6 +282,9 @@ export function buildBriefContextPrompt(brief: BriefContext): string {
     parts.push(`Key value props to emphasize:\n${brief.valueProps.map((v) => `- ${v}`).join("\n")}`);
   }
   if (brief.toneGuidance) parts.push(`Tone guidance: ${brief.toneGuidance}`);
+  if (brief.extraContext?.trim()) {
+    parts.push(`Additional context / user revisions (HIGH PRIORITY — these are direct edits from the user, treat them as the most authoritative signal in the brief):\n${brief.extraContext.trim()}`);
+  }
 
   const seg = brief.segmentContext;
   if (seg?.name) {

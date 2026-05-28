@@ -113,15 +113,19 @@ function getImagePurpose(img: MediaImage): string {
  * is_shared=true) are intentionally excluded so generated pages cannot leak
  * Dandy (or any other tenant's) imagery into a Royal / non-Dandy instance.
  */
-async function fetchMediaCatalog(tenantId?: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
+async function fetchMediaCatalog(tenantId: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
+  // Tenant isolation: without a tenantId we MUST NOT query the global media
+  // pool — that's how Dandy sales-rep photos previously leaked onto a Frambam
+  // furniture page. Fail closed: return empty so the generator falls back to
+  // Unsplash / AI image generation instead of cross-tenant library images.
+  if (tenantId == null) {
+    return { images: [], allImages: [], catalogText: "" };
+  }
   try {
-    const where = tenantId != null
-      ? and(eq(lpMediaTable.mediaType, "image"), eq(lpMediaTable.tenantId, tenantId))
-      : eq(lpMediaTable.mediaType, "image");
     const rows = await db
       .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
       .from(lpMediaTable)
-      .where(where)
+      .where(and(eq(lpMediaTable.mediaType, "image"), eq(lpMediaTable.tenantId, tenantId)))
       .orderBy(desc(lpMediaTable.createdAt))
       .limit(500);
 
@@ -730,12 +734,17 @@ function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknow
   });
 }
 
-async function fetchBrand(tenantId?: number | null): Promise<BrandConfig> {
+async function fetchBrand(tenantId: number | null): Promise<BrandConfig> {
+  // Tenant isolation: without a tenantId we MUST NOT fall back to "any tenant's
+  // first brand row" — that previously let unauth /lp/generate-page callers
+  // pull another tenant's brand voice into their prompt. Fail closed.
+  if (tenantId == null) return {};
   try {
-    const query = db.select().from(lpBrandSettingsTable);
-    const rows = tenantId
-      ? await query.where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1)
-      : await query.limit(1);
+    const rows = await db
+      .select()
+      .from(lpBrandSettingsTable)
+      .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+      .limit(1);
     if (rows.length === 0) return {};
     return (rows[0].config as BrandConfig) ?? {};
   } catch {

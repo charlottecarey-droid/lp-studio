@@ -57,7 +57,7 @@ function isDsoPracticesSegment(segment: AudienceSegment | null): boolean {
   return name.includes("dso practices") || name.includes("dso practice");
 }
 
-function buildBriefPrompt(brief: ContentBrief, company: string, objective: string, segment: AudienceSegment | null): string {
+function buildBriefPrompt(brief: ContentBrief, company: string, objective: string, segment: AudienceSegment | null, extraContext: string): string {
   const isDsoPractices = isDsoPracticesSegment(segment);
   const parts: string[] = [];
 
@@ -80,6 +80,9 @@ function buildBriefPrompt(brief: ContentBrief, company: string, objective: strin
   if (brief.personas.length) {
     const personaLines = brief.personas.map(p => `${p.title}: ${p.painPoints.slice(0, 2).join("; ")}`);
     parts.push(`Buyer personas: ${personaLines.join(" | ")}`);
+  }
+  if (extraContext.trim()) {
+    parts.push(`ADDITIONAL CONTEXT / USER REVISIONS (HIGH PRIORITY — treat as the most authoritative direction; override conflicting guidance above):\n${extraContext.trim()}`);
   }
   return parts.join("\n\n");
 }
@@ -130,6 +133,7 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
   const [brand, setBrand] = useState<BrandConfig | null>(null);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>(initialSegmentId ?? "");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [extraContext, setExtraContext] = useState<string>("");
 
   const segments: AudienceSegment[] = brand?.segments ?? [];
   const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
@@ -241,7 +245,7 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
     setGenerating(true);
     setError(null);
     try {
-      const prompt = buildBriefPrompt(brief, briefCompany, briefObjective, selectedSegment);
+      const prompt = buildBriefPrompt(brief, briefCompany, briefObjective, selectedSegment, extraContext);
       const tplId = selectedTemplateId ? Number(selectedTemplateId) : null;
       await onGeneratePage(prompt, selectedSegment ?? undefined, tplId);
       onClose();
@@ -258,6 +262,7 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
       setCompany(initialCompany ?? "");
       setObjective("");
       setError(null);
+      setExtraContext("");
     }
   };
 
@@ -506,6 +511,23 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
                           </>
                         )}
                       </Button>
+                    </div>
+                    <div className="border-t border-primary/20 pt-3">
+                      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Wand2 className="w-3 h-3" />
+                        Revise the brief / add context
+                      </Label>
+                      <textarea
+                        className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y min-h-[72px]"
+                        placeholder={`e.g. "Focus on dorm-room shoppers under 25, mention free shipping, drop the enterprise angle, lead with the bunk-bed line, avoid 'productivity' language."`}
+                        value={extraContext}
+                        onChange={e => setExtraContext(e.target.value)}
+                        disabled={generating}
+                        rows={3}
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+                        Optional. Notes here override the brief above and steer headline, value props, and tone when the page is built.
+                      </p>
                     </div>
                     {templates && templates.length > 0 && (
                       <div className="border-t border-primary/20 pt-3">
