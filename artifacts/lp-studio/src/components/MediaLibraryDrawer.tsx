@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
@@ -49,6 +49,62 @@ export interface MediaLibraryDrawerProps {
 
 const DRAWER_PAGE_SIZE = 24;
 
+// Group key for visual dedupe. Unsplash serves the same photo at many widths
+// (?w=400/900/1200/1920) — those share the `photo-XXXX-YYY` path segment.
+// We collapse ONLY when the URLs differ purely by `w`: other transforms
+// (sat, h, fit, crop, etc.) can change the rendered image meaningfully, so
+// those variants stay distinct. For every other host we use the full URL
+// (including query string) so unrelated assets never get collapsed.
+function imageGroupKey(url: string): string {
+  try {
+    const u = new URL(url, window.location.origin);
+    if (/(^|\.)unsplash\.com$/i.test(u.hostname)) {
+      const m = u.pathname.match(/\/(photo-[^/]+)/i);
+      if (m) {
+        const params = new URLSearchParams(u.search);
+        params.delete("w");
+        const transforms = [...params.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}=${v}`)
+          .join("&");
+        return `unsplash:${m[1].toLowerCase()}|${transforms}`;
+      }
+    }
+    return u.href;
+  } catch {
+    return url;
+  }
+}
+
+function urlWidth(url: string): number {
+  try {
+    const w = new URL(url, window.location.origin).searchParams.get("w");
+    return w ? parseInt(w, 10) || 0 : 0;
+  } catch { return 0; }
+}
+
+function dedupeBySourceImage(items: MediaItem[]): MediaItem[] {
+  const best = new Map<string, MediaItem>();
+  for (const item of items) {
+    const key = imageGroupKey(item.url);
+    const prev = best.get(key);
+    if (!prev || urlWidth(item.url) > urlWidth(prev.url)) {
+      best.set(key, item);
+    }
+  }
+  // Preserve original order by first appearance.
+  const seen = new Set<string>();
+  const out: MediaItem[] = [];
+  for (const item of items) {
+    const key = imageGroupKey(item.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const winner = best.get(key);
+    if (winner) out.push(winner);
+  }
+  return out;
+}
+
 // ─── Images tab ─────────────────────────────────────────────────────────────
 
 function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
@@ -92,6 +148,14 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
   }, [query, activeTag, page]);
 
   useEffect(() => { fetchImages(page); }, [fetchImages]);
+
+  // Visually dedupe size variants of the same image. The starter library has
+  // many entries that are the same Unsplash photo at different widths
+  // (?w=400, ?w=900, ?w=1200, ?w=1920) — we collapse those into a single
+  // tile per image (largest width wins) without touching the database, so
+  // any template that still references a smaller URL keeps rendering fine.
+  // Non-Unsplash URLs and anything we can't parse fall through unchanged.
+  const visibleItems = useMemo(() => dedupeBySourceImage(items), [items]);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = (value: string) => {
@@ -211,7 +275,7 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {items.map(item => (
+            {visibleItems.map(item => (
               <div key={item.id} className="group relative rounded-lg border border-border overflow-hidden bg-muted/20 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                 <div className="aspect-video" onClick={() => onSelect(item.url)}>
                   <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
