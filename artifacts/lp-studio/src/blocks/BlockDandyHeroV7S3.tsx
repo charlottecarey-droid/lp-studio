@@ -136,7 +136,7 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             pageId={pageId}
             variantId={variantId}
             source="dandy-hero-v7-s3"
-            className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2"
+            className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2"
           >
             <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </CtaButton>
@@ -148,7 +148,7 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             {props.chilipiperUrl && (
               <button
                 onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
-                className="mt-1 flex items-center gap-2 bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-5 py-2.5 rounded-full text-sm"
+                className="mt-1 flex items-center gap-2 bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-5 py-2.5 rounded-full text-sm"
               >
                 <Calendar className="w-3.5 h-3.5" /> Schedule a call
               </button>
@@ -168,7 +168,7 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             <button
               type="submit"
               disabled={formState === "loading"}
-              className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70"
+              className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70"
             >
               {formState === "loading" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

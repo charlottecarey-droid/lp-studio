@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { BookOpen, Building2, FileText, Loader2, Sparkles, Users, Wand2 } from "lucide-react";
+import { useEffect, useState, type KeyboardEvent } from "react";
+import { BookOpen, Building2, FileText, Link2, Loader2, Sparkles, Users, Wand2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +52,10 @@ interface Props {
     blocks: PageBlock[];
     fromTemplateId: number | null;
   }) => Promise<void>;
-  onAiGenerate: (prompt: string, templateId: number | null) => Promise<void>;
+  /** Workstream A (May 2026) — referenceUrls lets the user point the
+   *  generator at 1–5 pages whose voice/structure should inform the output.
+   *  Merged server-side with the brand's persisted inspirationUrls. */
+  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[]) => Promise<void>;
   onOpenBriefModal: () => void;
 }
 
@@ -81,6 +84,12 @@ export function CreatePageModal({
   // rewrites copy for the template's predefined blocks instead of choosing
   // its own block layout. "" means "Generate from scratch".
   const [aiTemplateId, setAiTemplateId] = useState<string>("");
+  // Workstream A — reference URL chips. Each chip is one URL we'll scrape
+  // and inject into the prompt. Capped at 5 (server caps too). The pending
+  // input field commits to a chip on Enter, comma, or blur.
+  const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
+  const [pendingRefUrl, setPendingRefUrl] = useState("");
+  const MAX_REF_URLS = 5;
   const [isCreating, setIsCreating] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -170,9 +179,17 @@ export function CreatePageModal({
     setCreateError(null);
     try {
       const tplId = aiTemplateId ? Number(aiTemplateId) : null;
-      await onAiGenerate(aiPrompt, tplId);
+      // Roll the pending input into the chip list so users don't lose a URL
+      // they typed but didn't press Enter on.
+      const trimmedPending = pendingRefUrl.trim();
+      const finalRefUrls = trimmedPending && !referenceUrls.includes(trimmedPending)
+        ? [...referenceUrls, trimmedPending].slice(0, MAX_REF_URLS)
+        : referenceUrls;
+      await onAiGenerate(aiPrompt, tplId, finalRefUrls);
       setAiPrompt("");
       setAiTemplateId("");
+      setReferenceUrls([]);
+      setPendingRefUrl("");
       setCreateMode("template");
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to generate page");
@@ -450,6 +467,66 @@ export function CreatePageModal({
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">
                 Tip: The more detail you provide, the better the result. Mention your product, audience, key benefits, and desired tone.
+              </p>
+            </div>
+
+            {/* Workstream A — reference URLs. Promoted from advanced/hidden
+                to a primary input. Up to 5 URLs that the generator will
+                scrape and use to anchor voice / structure / density. */}
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                Pages to learn from
+                <span className="text-[11px] font-normal text-muted-foreground">(optional, up to {MAX_REF_URLS})</span>
+              </Label>
+              {referenceUrls.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {referenceUrls.map((u) => (
+                    <span
+                      key={u}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-input bg-muted/50 font-mono max-w-full"
+                    >
+                      <span className="truncate" title={u}>{u}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${u}`}
+                        className="text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={() => setReferenceUrls(prev => prev.filter(x => x !== u))}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <Input
+                className="mt-1.5 text-sm font-mono"
+                placeholder={referenceUrls.length === 0
+                  ? "https://stripe.com  — paste a URL and press Enter"
+                  : referenceUrls.length >= MAX_REF_URLS
+                    ? `Up to ${MAX_REF_URLS} URLs — remove one to add another`
+                    : "Add another URL and press Enter"}
+                value={pendingRefUrl}
+                disabled={referenceUrls.length >= MAX_REF_URLS}
+                onChange={e => setPendingRefUrl(e.target.value)}
+                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const v = pendingRefUrl.trim();
+                    if (!v || referenceUrls.includes(v) || referenceUrls.length >= MAX_REF_URLS) return;
+                    setReferenceUrls(prev => [...prev, v]);
+                    setPendingRefUrl("");
+                  }
+                }}
+                onBlur={() => {
+                  const v = pendingRefUrl.trim();
+                  if (!v || referenceUrls.includes(v) || referenceUrls.length >= MAX_REF_URLS) return;
+                  setReferenceUrls(prev => [...prev, v]);
+                  setPendingRefUrl("");
+                }}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                We'll scrape these pages and use their voice, structure, and density to anchor your output. Brand settings &gt; Inspiration sites are added automatically.
               </p>
             </div>
 

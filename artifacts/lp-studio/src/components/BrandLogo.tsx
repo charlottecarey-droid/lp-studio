@@ -38,7 +38,17 @@ export function BrandLogo({
   className,
   style,
 }: Props) {
-  const src = (url && url.trim()) || brand.logoUrl?.trim() || "";
+  // Prefer the dark-surface logo on explicitly-dark surfaces when the tenant
+  // has uploaded one. We only swap on `tone === "onDark"` — not on
+  // `onPrimary`/`onAccent`, since brand primary or accent can be light, and
+  // we'd otherwise serve a dark-painted asset onto a light tile. Auto-recolor
+  // still wins for monochrome SVGs (handled below); the dark variant exists
+  // specifically for multi-color marks and raster files that don't recolor
+  // cleanly. Falls back to `logoUrl` when no dark variant is set.
+  const brandSrc = tone === "onDark" && brand.logoUrlDark?.trim()
+    ? brand.logoUrlDark.trim()
+    : brand.logoUrl?.trim() ?? "";
+  const src = (url && url.trim()) || brandSrc;
   const [aspect, setAspect] = useState<number | null>(null);
   if (!src) return null;
 

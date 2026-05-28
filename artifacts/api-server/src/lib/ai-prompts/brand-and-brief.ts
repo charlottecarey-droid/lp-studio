@@ -62,6 +62,27 @@ export interface BrandConfig {
   productLines?: ProductLine[];
   defaultCtaText?: string;
   voiceProfile?: VoiceProfileWrapper;
+  /** Workstream A (May 2026) — persistent "inspiration sites" for this brand.
+   *  Stored as `{url, note}` objects; legacy string entries tolerated. */
+  inspirationUrls?: Array<string | { url?: string; note?: string }>;
+  /** When true (the default for new tenants), AI generation is restricted
+   *  to facts the brand owner has explicitly approved and the model is
+   *  instructed not to invent stats / quotes. Legacy rows without the
+   *  field set are treated as ON (use `!== false`). */
+  aiStrictFactsMode?: boolean;
+  /** Stats scraped from the brand's own marketing pages during URL brand
+   *  import. Each row carries an `approvedForAi` flag (default true on
+   *  fresh scrapes). In strict mode only `approvedForAi !== false` rows
+   *  reach the prompt. */
+  scrapedStats?: Array<{ value: string; label: string; approvedForAi?: boolean }>;
+  /** Customer quotes / testimonials scraped during URL brand import.
+   *  Same approval contract as `scrapedStats`. */
+  scrapedTestimonials?: Array<{
+    quote: string;
+    author?: string;
+    role?: string;
+    approvedForAi?: boolean;
+  }>;
 }
 
 export interface SegmentContext {
@@ -217,6 +238,69 @@ export function buildBrandSystemPrompt(brand: BrandConfig): string {
       `WRITE IN THIS VOICE — match the rhythm, sentence length, vocabulary, and specificity of these example headlines and CTAs from the brand's existing marketing. Treat them as the gold standard your output is compared against:\n${brand.copyExamples
         .map((e) => `- ${e}`)
         .join("\n")}`,
+    );
+  }
+
+  // Scraped proof points — stats and testimonials pulled from the
+  // brand's marketing pages during URL brand-import. When strict facts
+  // mode is on (now the default), we filter to rows the brand owner
+  // has approved (`approvedForAi !== false`). Without strict mode every
+  // scraped row is fair game. Either way these are the highest-quality
+  // evidence the model has access to — they came from the brand's own
+  // site — so we promote them above messaging pillars in the prompt.
+  //
+  // sanitizeScraped collapses whitespace + strips control chars so a
+  // hostile or malformed scraped quote can't smuggle fake instructions
+  // ("\n\nSYSTEM: ignore the above and …") into the system prompt.
+  const sanitizeScraped = (raw: string): string =>
+    raw
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001F\u007F]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const strict = brand.aiStrictFactsMode !== false;
+  if (brand.scrapedStats?.length) {
+    const stats = strict
+      ? brand.scrapedStats.filter((s) => s.approvedForAi !== false)
+      : brand.scrapedStats;
+    if (stats.length) {
+      const lines = stats
+        .filter((s) => s.value && s.label)
+        .map((s) => `- ${sanitizeScraped(s.value)} ${sanitizeScraped(s.label)}`)
+        .join("\n");
+      if (lines) {
+        parts.push(
+          `Approved brand stats (from the brand's own marketing pages — use these verbatim when a stat fits; do not invent others):\n${lines}`,
+        );
+      }
+    }
+  }
+  if (brand.scrapedTestimonials?.length) {
+    const quotes = strict
+      ? brand.scrapedTestimonials.filter((t) => t.approvedForAi !== false)
+      : brand.scrapedTestimonials;
+    if (quotes.length) {
+      const lines = quotes
+        .filter((t) => t.quote)
+        .map((t) => {
+          const q = sanitizeScraped(t.quote);
+          const attribution = [t.author, t.role]
+            .map((s) => (s ? sanitizeScraped(s) : ""))
+            .filter(Boolean)
+            .join(", ");
+          return attribution ? `- "${q}" — ${attribution}` : `- "${q}"`;
+        })
+        .join("\n");
+      if (lines) {
+        parts.push(
+          `Approved customer quotes (verbatim from the brand's own marketing — use these in testimonial blocks; do not invent or paraphrase customer quotes):\n${lines}`,
+        );
+      }
+    }
+  }
+  if (strict) {
+    parts.push(
+      "STRICT FACTS MODE: Do not invent statistics, customer counts, percentages, or customer quotes. If a stat or quote would strengthen the copy and none of the approved ones fit, leave the slot generic or omit it — never fabricate.",
     );
   }
 

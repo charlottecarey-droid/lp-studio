@@ -80,7 +80,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
       ? "border-current/30 hover:bg-black/5"
       : "text-white border-white/30 hover:bg-white/10",
   );
-  const primaryClass = "bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all";
+  const primaryClass = "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all";
 
   return (
     <header className="w-full shadow-sm" style={headerStyle}>

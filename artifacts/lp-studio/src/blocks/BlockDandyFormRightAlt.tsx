@@ -278,7 +278,7 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     <button
       type="submit"
       disabled={formState === "loading"}
-      className="w-full bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
+      className="w-full bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
     >
       {formState === "loading" ? (
         <Loader2 className="w-4 h-4 animate-spin" />

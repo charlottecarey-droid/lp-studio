@@ -1,6 +1,6 @@
 import { ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
@@ -31,7 +31,16 @@ interface Props {
 export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, contentPaddingX, childrenSlot }: Props) {
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
-  const CTA_TEXT_COLOR = props.ctaTextColor || FOREST;
+  // Contrast guard: if the author-picked CTA text color is too close to the
+  // button background (the classic "blue-on-blue" Zoom-style failure), fall
+  // back to brand primary, then to a guaranteed-legible black/white. Same
+  // for the small nav CTA in the top right.
+  const CTA_TEXT_COLOR = pickContrastingColor(
+    props.ctaTextColor || FOREST,
+    LIME,
+    [FOREST, "#ffffff", "#000000"],
+  );
+  const NAV_CTA_TEXT_COLOR = pickContrastingColor(FOREST, LIME, ["#ffffff", "#000000"]);
   const isFullWidth = props.buttonWidth === "full";
   const isDark = isDarkBg(props.backgroundStyle);
   const bgExtended = ["black", "gradient", "muted", "light-gray"].includes(props.backgroundStyle ?? "")
@@ -187,7 +196,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
       <div className="min-h-[70vh] flex flex-col">
         <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
           <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || "Logo"} className="h-8 w-auto" />
-          <a href={brand.navCtaUrl} target="_blank" rel="noopener noreferrer" className={getButtonClasses(brand)} style={{ backgroundColor: LIME, color: FOREST }}>
+          <a href={brand.navCtaUrl} target="_blank" rel="noopener noreferrer" className={getButtonClasses(brand)} style={{ backgroundColor: LIME, color: NAV_CTA_TEXT_COLOR }}>
             {brand.navCtaText}
           </a>
         </nav>

@@ -49,7 +49,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
         {(props.eyebrow || props.headline || props.subheadline) && (
           <div className="mb-12 max-w-2xl">
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--brand-primary)", fontFamily: BODY }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--brand-eyebrow-on-light)", fontFamily: BODY }}>
                 <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} style={{ fontFamily: BODY }}/>
               </p>
             )}

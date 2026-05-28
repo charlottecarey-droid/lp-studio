@@ -3,7 +3,7 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_FONT;
 import type { SectionBlockProps } from "@/lib/block-types/container-blocks";
-import { getBgStyle } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
@@ -50,6 +50,14 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   const sectionBg = getBgStyle(backgroundStyle);
+  // Eyebrow color is contrast-aware: on light sections we lean on
+  // `--brand-eyebrow-on-light` (brand-primary stepped down to a near-black
+  // ink when primary ≈ page bg), on dark sections we use
+  // `--brand-eyebrow-on-dark` (a tint that contrasts with brand-primary).
+  // Both vars are emitted by getBrandStyleVars on the page wrapper.
+  const eyebrowColor = isDarkBg(backgroundStyle)
+    ? "var(--brand-eyebrow-on-dark, #ffffff)"
+    : "var(--brand-eyebrow-on-light, #003A30)";
   const padY = PAD_Y[paddingY];
 
   return (
@@ -88,7 +96,7 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
               fontWeight: 600,
               letterSpacing: "0.15em",
               textTransform: "uppercase",
-              color: "var(--brand-primary, #003A30)",
+              color: eyebrowColor,
               alignSelf: align === "center" ? "center" : undefined,
               fontFamily: BODY,
             }}/>

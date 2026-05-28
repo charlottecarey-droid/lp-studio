@@ -26,6 +26,7 @@ import {
   getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass,
   isValidHex,
   getClaimText, isClaimApproved,
+  normalizeInspirationUrls,
 } from "@/lib/brand-config";
 import type {
   BrandConfig, ButtonRadius, ButtonShadow, ButtonPaddingX, ButtonPaddingY,
@@ -1516,6 +1517,32 @@ export default function BrandSettings() {
     }
   }, [toast]);
 
+  const [uploadingLogoDark, setUploadingLogoDark] = useState(false);
+  const logoDarkFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoDarkFilePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (logoDarkFileInputRef.current) logoDarkFileInputRef.current.value = "";
+    if (!file) return;
+    setUploadingLogoDark(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const data = await res.json();
+      setConfig((prev) => ({ ...prev, logoUrlDark: `/api/storage${data.url}` }));
+      toast({ title: "Dark logo uploaded", description: "Don't forget to save your brand settings." });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingLogoDark(false);
+    }
+  }, [toast]);
+
   const [uploadingEmailBanner, setUploadingEmailBanner] = useState(false);
   const emailBannerFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2230,22 +2257,35 @@ export default function BrandSettings() {
                   <h3 className="text-sm font-semibold">Strict AI facts mode</h3>
                   <span className={cn(
                     "text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-mono",
-                    config.aiStrictFactsMode
+                    config.aiStrictFactsMode !== false
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground",
                   )}>
-                    {config.aiStrictFactsMode ? "On" : "Off"}
+                    {config.aiStrictFactsMode !== false ? "On" : "Off"}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  When on, AI generation may only use stats, product claims, and case studies you have explicitly marked as <span className="font-medium">Approved for AI</span>. The model is also instructed not to invent percentages or customer counts.
+                  When on, AI generation may only use stats, product claims, customer quotes, and case studies you have explicitly marked as <span className="font-medium">Approved for AI</span>. The model is also instructed not to invent percentages or customer counts.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("content-library");
+                    if (typeof window !== "undefined") {
+                      history.replaceState(null, "", `${window.location.pathname}${window.location.search}#content-library`);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  className="mt-2 text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Add or review your approved facts →
+                </button>
               </div>
               <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={config.aiStrictFactsMode === true}
+                  checked={config.aiStrictFactsMode !== false}
                   onChange={(e) => update("aiStrictFactsMode", e.target.checked)}
                 />
                 <div className="w-10 h-6 bg-muted rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-4" />
@@ -2340,6 +2380,56 @@ export default function BrandSettings() {
                         />
                       </div>
                     </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Dark-surface logo (optional)</Label>
+                      <p className="text-xs text-muted-foreground mb-2">Used automatically on dark backgrounds (nav headers, footers, dark hero sections). Upload a version painted for dark surfaces when your main logo is multi-color or a raster file that doesn't auto-recolor cleanly.</p>
+                      <input
+                        ref={logoDarkFileInputRef}
+                        type="file"
+                        accept="image/svg+xml,image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleLogoDarkFilePick}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => logoDarkFileInputRef.current?.click()}
+                          disabled={uploadingLogoDark}
+                          className="gap-1.5 shrink-0"
+                        >
+                          {uploadingLogoDark
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                            : <><Upload className="w-3.5 h-3.5" /> Upload dark logo</>}
+                        </Button>
+                        {config.logoUrlDark && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => update("logoUrlDark", "")}
+                            disabled={uploadingLogoDark}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5 block">…or paste a URL</Label>
+                        <Input
+                          value={config.logoUrlDark ?? ""}
+                          onChange={(e) => update("logoUrlDark", e.target.value)}
+                          placeholder="https://… or /assets/logo-dark.svg"
+                        />
+                      </div>
+                      {config.logoUrlDark && (
+                        <div className="mt-3 rounded-md border border-border bg-slate-900 p-4 flex items-center justify-center">
+                          <img src={config.logoUrlDark} alt="Dark logo preview" className="h-10 w-auto object-contain" />
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-start gap-2">
                       <Checkbox
                         id="logoAutoRecolor"
@@ -2351,7 +2441,7 @@ export default function BrandSettings() {
                           Auto-recolor monochrome SVG
                         </Label>
                         <p className="text-xs text-muted-foreground">
-                          Repaint the logo to match each surface (white on dark headers, brand color on light backgrounds, etc.). Turn off if your logo is multi-color.
+                          Repaint the logo to match each surface (white on dark headers, brand color on light backgrounds, etc.). Turn off if your logo is multi-color (or upload a dark-surface logo above to use instead).
                         </p>
                       </div>
                     </div>
@@ -3520,6 +3610,97 @@ export default function BrandSettings() {
             </div>
           </Card>
 
+          {/* SECTION 5b — INSPIRATION SITES (Workstream A, May 2026).
+              Persistent set of URLs that auto-attach as reference pages
+              on every AI page generation. Merged with any per-request
+              URLs from the create-page modal (per-request wins on dedup;
+              total capped at 5 server-side). */}
+          <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-primary" />
+                <div>
+                  <h2 className="font-display font-semibold text-lg">Inspiration sites</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Pages we want our landing pages to look like. AI scrapes these on every generation to anchor voice, structure, and density. Up to 5.</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setConfig(prev => {
+                    const arr = normalizeInspirationUrls(prev.inspirationUrls);
+                    if (arr.length >= 5) return prev;
+                    return { ...prev, inspirationUrls: [...arr, { url: "", note: "" }] };
+                  });
+                }}
+                disabled={normalizeInspirationUrls(config.inspirationUrls).length >= 5}
+                className="gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Site
+              </Button>
+            </div>
+            <Separator />
+
+            {normalizeInspirationUrls(config.inspirationUrls).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Link2 className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No inspiration sites yet. Add up to 5 URLs (competitor pages, sites whose tone you admire) and AI will study them on every page generation.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {normalizeInspirationUrls(config.inspirationUrls).map((item, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-start">
+                    <Input
+                      className="text-sm font-mono"
+                      placeholder="https://stripe.com"
+                      value={item.url}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setConfig(prev => {
+                          const arr = normalizeInspirationUrls(prev.inspirationUrls);
+                          arr[i] = { ...arr[i], url: v };
+                          return { ...prev, inspirationUrls: arr };
+                        });
+                      }}
+                    />
+                    <Input
+                      className="text-sm"
+                      placeholder="What to draw from this site (optional)"
+                      value={item.note}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setConfig(prev => {
+                          const arr = normalizeInspirationUrls(prev.inspirationUrls);
+                          arr[i] = { ...arr[i], note: v };
+                          return { ...prev, inspirationUrls: arr };
+                        });
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        setConfig(prev => {
+                          const arr = normalizeInspirationUrls(prev.inspirationUrls);
+                          arr.splice(i, 1);
+                          return { ...prev, inspirationUrls: arr };
+                        });
+                      }}
+                      aria-label="Remove inspiration site"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <p className="text-[11px] text-muted-foreground">
+                  These URLs are also auto-included when you click "AI Generate" from the Pages list. Per-page URLs you add in the create dialog take priority on dedup.
+                </p>
+              </div>
+            )}
+          </Card>
+
           {/* SECTION 6 — PRODUCT LINES */}
           <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-1">
@@ -3553,7 +3734,7 @@ export default function BrandSettings() {
                   <ProductLineCard
                     key={i}
                     product={product}
-                    strictMode={config.aiStrictFactsMode === true}
+                    strictMode={config.aiStrictFactsMode !== false}
                     onChange={(key, value) => updateProductLine(i, key, value)}
                     onRemove={() => removeProductLine(i)}
                   />
@@ -3595,7 +3776,7 @@ export default function BrandSettings() {
                   <SegmentCard
                     key={seg.id || i}
                     segment={seg}
-                    strictMode={config.aiStrictFactsMode === true}
+                    strictMode={config.aiStrictFactsMode !== false}
                     onChange={(updated) => updateSegment(i, updated)}
                     onRemove={() => removeSegment(i)}
                   />

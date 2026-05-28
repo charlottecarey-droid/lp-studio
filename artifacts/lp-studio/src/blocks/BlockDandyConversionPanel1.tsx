@@ -30,9 +30,9 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
   };
   const textMap: Record<string, { eyebrow: string; heading: string; sub: string; divider: string }> = {
     teal:   { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-white/70",   divider: "border-white/10" },
-    lime:   { eyebrow: "text-[var(--brand-primary)]", heading: "text-[var(--brand-primary)]",  sub: "text-[rgb(var(--brand-primary-rgb)/0.7)]",   divider: "border-[rgb(var(--brand-primary-rgb)/0.1)]" },
+    lime:   { eyebrow: "text-[var(--brand-eyebrow-on-light)]", heading: "text-[var(--brand-heading-on-light,var(--brand-primary))]",  sub: "text-[rgb(var(--brand-primary-rgb)/0.7)]",   divider: "border-[rgb(var(--brand-primary-rgb)/0.1)]" },
     medium: { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-white/70",   divider: "border-white/10" },
-    white:  { eyebrow: "text-[var(--brand-primary)]", heading: "text-[var(--brand-primary)]",  sub: "text-slate-500",      divider: "border-slate-200" },
+    white:  { eyebrow: "text-[var(--brand-eyebrow-on-light)]", heading: "text-[var(--brand-heading-on-light,var(--brand-primary))]",  sub: "text-slate-500",      divider: "border-slate-200" },
   };
 
   const bg = props.bgColor ?? bgMap[style] ?? bgMap.teal;
@@ -40,7 +40,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
 
   const primaryBtnCls = style === "lime"
     ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:brightness-90"
-    : "bg-[var(--brand-accent)] text-[var(--brand-primary)] hover:brightness-105";
+    : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] hover:brightness-105";
 
   const secondaryBtnCls = style === "lime" || style === "white"
     ? "border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"

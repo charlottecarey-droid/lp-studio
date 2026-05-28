@@ -287,7 +287,7 @@ export default function PagesGallery() {
     navigate(`/builder/${page.id}`);
   };
 
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null) => {
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[]) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
     const segmentContext = activeSeg ? {
       name: activeSeg.name,
@@ -299,6 +299,8 @@ export default function PagesGallery() {
       challenges: activeSeg.challenges?.map((c: { title: string; desc: string }) => ({ title: c.title, desc: c.desc })),
     } : undefined;
 
+    const cleanedRefUrls = (referenceUrls ?? []).map(u => u.trim()).filter(Boolean);
+
     const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -306,6 +308,7 @@ export default function PagesGallery() {
         prompt: prompt.trim(),
         ...(segmentContext ? { segmentContext } : {}),
         ...(templateId ? { templateId } : {}),
+        ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
       }),
     });
     if (!genRes.ok) {
@@ -346,8 +349,8 @@ export default function PagesGallery() {
     navigate(`/builder/${page.id}`);
   };
 
-  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null) => {
-    await generatePageFromPrompt(prompt, selectedSegment, templateId);
+  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[]) => {
+    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls);
     setShowCreateModal(false);
   };
 

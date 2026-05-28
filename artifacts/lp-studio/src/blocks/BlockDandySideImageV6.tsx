@@ -85,7 +85,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
             modalShowCompany={props.modalShowCompany}
             brand={brand}
             source="dandy-side-image-v6-primary"
-            className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+            className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
           >
             <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </CtaButton>
@@ -134,7 +134,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         />
       </div>
       {props.badgeText && (
-        <div className="absolute -bottom-5 -right-5 bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-base px-6 py-3.5 rounded-2xl shadow-lg">
+        <div className="absolute -bottom-5 -right-5 bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold text-base px-6 py-3.5 rounded-2xl shadow-lg">
           <InlineText value={props.badgeText} onUpdate={field("badgeText")} style={{ fontFamily: BODY }}/>
         </div>
       )}

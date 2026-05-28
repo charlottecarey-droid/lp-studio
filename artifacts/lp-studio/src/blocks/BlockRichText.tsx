@@ -27,7 +27,12 @@ export function BlockRichText({ props }: Props) {
           "[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3",
           "[&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mb-2",
           "[&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1",
-          "[&_a]:text-blue-600 [&_a]:underline",
+          // Links inherit the surrounding text color so they stay legible on
+          // any section background. The brand-aware `--brand-link-on-light`
+          // (and -on-dark) variables are picked up by blocks that explicitly
+          // set their own link color; this block lives inside arbitrary prose
+          // so `currentColor` is the safest default.
+          "[&_a]:text-[currentColor] [&_a]:underline [&_a]:decoration-current/40 [&_a]:underline-offset-2",
           "[&_hr]:my-6 [&_strong]:font-bold [&_em]:italic [&_u]:underline",
           // inline images
           "[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_img]:my-4",

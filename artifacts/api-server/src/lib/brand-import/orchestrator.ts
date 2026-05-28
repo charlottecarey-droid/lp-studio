@@ -219,6 +219,16 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     // existing salesConsole fields the user has already tweaked aren't
     // clobbered. See `handleApplyImport` in brand-settings.tsx.
     if (c.salesConsole) put("salesConsole", c.salesConsole, conf);
+    // Scraped proof points. Default each row to approvedForAi:true so
+    // strict-facts-mode tenants (the new default) immediately benefit;
+    // the brand owner can flip individual rows off in Brand Settings
+    // if they misattribute or misquote.
+    if (c.scrapedStats.length) {
+      put("scrapedStats", c.scrapedStats.map((s) => ({ ...s, approvedForAi: true })), conf);
+    }
+    if (c.scrapedTestimonials.length) {
+      put("scrapedTestimonials", c.scrapedTestimonials.map((t) => ({ ...t, approvedForAi: true })), conf);
+    }
   }
 
   if (results.structure.status !== "failed" && results.structure.data) {

@@ -859,7 +859,7 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
     //   - claims may be legacy strings (treated as approved) or
     //     {text, approvedForAi} objects.
     //   - stats: skip when approvedForAi === false.
-    const strict = cfg.aiStrictFactsMode === true;
+    const strict = cfg.aiStrictFactsMode !== false;
     const approvedClaims: string[] = [];
     const productLines = Array.isArray(cfg.productLines) ? cfg.productLines as Array<Record<string, unknown>> : [];
     for (const pl of productLines) {

@@ -65,6 +65,14 @@ export interface ContentData {
    *  Sales Console section of brand-settings; left undefined when the
    *  source page lacks enough signal to seed it confidently. */
   salesConsole?: SalesConsoleSeed;
+  /** Stat-style proof points scraped verbatim from the source pages —
+   *  numeric claims with a short label ("10M+ patients served"). Empty
+   *  when the page lacks a stats band / metrics grid. */
+  scrapedStats: { value: string; label: string }[];
+  /** Customer quotes / testimonials scraped from the source pages.
+   *  Author / role optional (sometimes a homepage only has the quote
+   *  with a logo strip and no attribution). */
+  scrapedTestimonials: { quote: string; author?: string; role?: string }[];
 }
 
 /**
@@ -110,6 +118,12 @@ Return shape:
   ]   // 3-4 high-level value themes ("Trusted by clinicians", "Built for scale", etc.). If the homepage has a "Why us" / feature grid, extract from there.
   "targetAudience": "string (1-2 sentences describing WHO this is for — roles, company size, industry)",
   "copyExamples": string[3-5],   // VERBATIM sentences from the evidence that best demonstrate the brand's voice (pick punchy hero/feature lines, not generic CTAs)
+  "scrapedStats": [
+    { "value": "string (the headline number/figure as it appears, e.g. '10M+', '99.9%', '4.8/5', '$2B')", "label": "string (≤80 chars — what it measures, e.g. 'patients served', 'uptime', 'avg rating')" }
+  ],   // 0-10 stat-style proof points lifted from a metrics band / stats grid / hero KPIs. ONLY include numbers that appear verbatim on the page next to a clear label. Skip pricing, skip dates, skip phone numbers.
+  "scrapedTestimonials": [
+    { "quote": "string (verbatim quote, ≤320 chars — trim leading/trailing quotation marks)", "author": "string (full name if shown)", "role": "string (role + company if shown, e.g. 'CEO, Acme')" }
+  ],   // 0-8 customer quotes / testimonials. Quote MUST be verbatim — do not paraphrase. Author / role only if visibly attributed on the page; omit either field when missing rather than inventing.
   "salesConsole": {
     "valuePropPairs": [
       {
@@ -137,6 +151,8 @@ Return shape:
 Rules:
 - If the evidence does not support a field, omit it (or set it to an empty array/string). Do NOT invent.
 - copyExamples MUST be verbatim quotes from the corpus.
+- scrapedStats MUST be verbatim. If a number is not explicitly on the page next to a label, do not include it. Empty array is correct when the page has no stats band.
+- scrapedTestimonials.quote MUST be verbatim. Drop the entry rather than paraphrase. Author and role are optional — omit when not visibly attributed; do not guess.
 - salesConsole.valuePropPairs MUST be grounded in the evidence — each "proof" must reference a real capability / metric / customer mentioned on the page, never a generic claim.
 - salesConsole.customerNameRules empty string is fine if no naming convention is evident.
 - targetAudience low confidence is fine if only inferred from pricing tiers or one mention.
@@ -246,6 +262,40 @@ Rules:
     return { valuePropPairs: pairs, briefBlurb: brief, customerNameRules: naming, salesIntroLine: intro };
   };
 
+  // Scraped proof-point parsers. Both arrays are bounded + verbatim
+  // (per system prompt) so the parsing layer just enforces shape and
+  // trims. Empty arrays are the expected shape for pages without a
+  // metrics band / testimonial section.
+  const parseScrapedStats = (v: unknown): { value: string; label: string }[] => {
+    if (!Array.isArray(v)) return [];
+    return v
+      .map((entry) => {
+        if (typeof entry !== "object" || entry === null) return null;
+        const o = entry as Record<string, unknown>;
+        const value = typeof o.value === "string" ? o.value.trim().slice(0, 40) : "";
+        const label = typeof o.label === "string" ? o.label.trim().slice(0, 100) : "";
+        if (!value || !label) return null;
+        return { value, label };
+      })
+      .filter((s): s is { value: string; label: string } => s !== null)
+      .slice(0, 10);
+  };
+  const parseScrapedTestimonials = (v: unknown): { quote: string; author?: string; role?: string }[] => {
+    if (!Array.isArray(v)) return [];
+    return v
+      .map((entry) => {
+        if (typeof entry !== "object" || entry === null) return null;
+        const o = entry as Record<string, unknown>;
+        const quote = typeof o.quote === "string" ? o.quote.trim().replace(/^["'“”]+|["'“”]+$/g, "").slice(0, 360) : "";
+        if (!quote) return null;
+        const author = typeof o.author === "string" && o.author.trim() ? o.author.trim().slice(0, 120) : undefined;
+        const role = typeof o.role === "string" && o.role.trim() ? o.role.trim().slice(0, 160) : undefined;
+        return { quote, ...(author ? { author } : {}), ...(role ? { role } : {}) };
+      })
+      .filter((t): t is { quote: string; author?: string; role?: string } => t !== null)
+      .slice(0, 8);
+  };
+
   const data: ContentData = {
     brandName,
     companyDescription: trimStr(parsed.companyDescription, 500)
@@ -255,6 +305,8 @@ Rules:
     targetAudience: trimStr(parsed.targetAudience, 500),
     copyExamples: arrStr(parsed.copyExamples, 5, 280),
     salesConsole: parseSalesConsole(parsed.salesConsole),
+    scrapedStats: parseScrapedStats((parsed as Record<string, unknown>).scrapedStats),
+    scrapedTestimonials: parseScrapedTestimonials((parsed as Record<string, unknown>).scrapedTestimonials),
   };
 
   const populated =

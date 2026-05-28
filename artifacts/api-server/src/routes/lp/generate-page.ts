@@ -1,13 +1,14 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
+import { aiGenerationLogTable, lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
+import { createHash } from "node:crypto";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
-import { maybeMultiPageScrapeRef, type MaybeScrapeResult } from "./firecrawl";
+import { maybeMultiPageScrapeRef, maybeScrapeRef, type MaybeScrapeResult } from "./firecrawl";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 
@@ -71,6 +72,12 @@ interface BrandConfig {
   };
   /** Task #253 — locks AI generation to approved facts only when true. */
   aiStrictFactsMode?: boolean;
+  /** Workstream A (May 2026) — persistent "inspiration sites" for this brand.
+   *  Auto-included as reference URLs on every page generation. Capped at 5;
+   *  merged with any per-request `referenceUrls` (dedup, per-request wins).
+   *  Stored as `{url, note}` objects by the lp-studio brand-settings UI;
+   *  legacy string entries are tolerated for back-compat. */
+  inspirationUrls?: Array<string | { url?: string; note?: string }>;
 }
 
 /** Task #253 — short, assertive instruction appended to AI prompts when
@@ -783,7 +790,7 @@ function buildBrandContext(brand: BrandConfig): string {
   }
   if (brand.copyInstructions?.trim()) parts.push(brand.copyInstructions.trim());
   if (brand.productLines?.length) {
-    const strict = brand.aiStrictFactsMode === true;
+    const strict = brand.aiStrictFactsMode !== false;
     const productInfo = brand.productLines
       .filter((p) => p.name)
       .map((p) => {
@@ -800,7 +807,9 @@ function buildBrandContext(brand: BrandConfig): string {
       }).join("\n");
     parts.push(`Product lines:\n${productInfo}\nUse these product details to make copy specific and credible.`);
   }
-  if (brand.aiStrictFactsMode) parts.push(STRICT_FACTS_INSTRUCTION);
+  // Strict facts mode defaults ON: legacy rows where the field is unset
+  // (`undefined`) still receive the "do not invent stats" instruction.
+  if (brand.aiStrictFactsMode !== false) parts.push(STRICT_FACTS_INSTRUCTION);
   return parts.join("\n");
 }
 
@@ -1469,17 +1478,117 @@ function buildSegmentSection(
   return parts.join("\n");
 }
 
+/** Workstream A (May 2026) — gather scrape results for a list of reference
+ *  URLs. When the list is empty, returns an empty result. When the list has
+ *  exactly one URL, uses the multi-page scrape (homepage + /about +
+ *  /pricing + …) for richer voice signal. When it has 2+ URLs, scrapes
+ *  each as a single page in parallel and stitches the markdown together
+ *  under per-URL section headers (same shape `maybeMultiPageScrapeRef`
+ *  emits, so downstream code keeps working unchanged).
+ *
+ *  The first URL in `urls` is treated as the primary (its screenshot wins
+ *  for vision context; its URL fills `scraped.url`). */
+async function gatherReferences(
+  urls: string[],
+  tenantId: number,
+): Promise<MaybeScrapeResult> {
+  if (urls.length === 0) return { scraped: null, failureReason: "no_url" };
+  if (urls.length === 1) return maybeMultiPageScrapeRef(urls[0], tenantId);
+  const results = await Promise.all(urls.map((u) => maybeScrapeRef(u, tenantId).catch(() => null)));
+  const successful = results
+    .map((r, i) => (r && r.scraped ? { url: urls[i], result: r } : null))
+    .filter((x): x is { url: string; result: MaybeScrapeResult } => x !== null);
+  if (successful.length === 0) {
+    return { scraped: null, failureReason: "firecrawl_failed" };
+  }
+  const primary = successful[0];
+  const stitched = successful
+    .map((s) => `### ${s.url}\n\n${s.result.scraped?.markdown ?? ""}`)
+    .join("\n\n---\n\n");
+  const COMBINED_MAX = 24_000;
+  const truncated = stitched.length > COMBINED_MAX;
+  const screenshotUrl = primary.result.screenshotUrl
+    ?? successful.find((s) => s.result.screenshotUrl)?.result.screenshotUrl;
+  return {
+    scraped: {
+      url: primary.url,
+      markdown: stitched.slice(0, COMBINED_MAX),
+      truncated,
+      additionalUrls: successful.slice(1).map((s) => s.url),
+    },
+    screenshotUrl,
+  };
+}
+
+/** Deduplicate URLs case-insensitively (preserving the first-seen casing)
+ *  and cap to `max`. Empty/whitespace entries are dropped. */
+function dedupeUrls(input: unknown[], max: number): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of input) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** Fire-and-forget insert into ai_generation_log. Logging failures must
+ *  never affect the user's generation, so all errors are swallowed. */
+function logAiGeneration(row: {
+  tenantId: number | null;
+  endpoint: string;
+  promptPath: string | null;
+  prompt: string;
+  referenceUrls: string[];
+  inspirationUrls: string[];
+  sectionsIncluded: string[];
+  templateId: number | null;
+  composerDurationMs: number | null;
+  outputBlockTypes: string[];
+  usedScreenshot: boolean;
+  errorMessage: string | null;
+}): void {
+  const promptHash = createHash("sha256").update(row.prompt).digest("hex");
+  void db.insert(aiGenerationLogTable).values({
+    tenantId: row.tenantId,
+    endpoint: row.endpoint,
+    promptPath: row.promptPath,
+    promptHash,
+    promptPreview: row.prompt.slice(0, 200),
+    referenceUrls: row.referenceUrls,
+    inspirationUrls: row.inspirationUrls,
+    sectionsIncluded: row.sectionsIncluded,
+    templateId: row.templateId,
+    composerDurationMs: row.composerDurationMs,
+    outputBlockTypes: row.outputBlockTypes,
+    usedScreenshot: row.usedScreenshot,
+    errorMessage: row.errorMessage,
+  }).catch((err) => {
+    logger.warn({ err: String(err) }, "[generate-page] ai_generation_log insert failed");
+  });
+}
+
 router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
-  const { prompt, segmentContext, templateId, referenceUrl, screenshotDataUrl, _captureOnly } = req.body as {
+  const { prompt, segmentContext, templateId, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
     templateId?: number;
-    /** May 2026 audit follow-up — accept a reference URL so the generator
-     *  can clone tone/structure/voice from an existing marketing page. When
-     *  the URL is a bare root, multi-page scrape pulls homepage + /about +
-     *  /pricing + /customers + /product + /platform. Deep links scrape only
-     *  the page given. */
+    /** May 2026 audit follow-up — accept a single reference URL (legacy).
+     *  When `referenceUrls` is also provided, this is merged in as the
+     *  first entry. Kept for back-compat with older clients. */
     referenceUrl?: string;
+    /** Workstream A (May 2026) — list of reference URLs (up to 5). When the
+     *  list has exactly one URL we use the multi-page scrape pattern; with
+     *  2+ URLs we scrape each as a single page and stitch the markdown. The
+     *  brand's persisted `inspirationUrls` are merged in automatically
+     *  (request URLs win on dedup; total capped at 5). */
+    referenceUrls?: string[];
     /** Data-URL of a reference screenshot (paste from clipboard, drag/drop,
      *  etc.). Resized + JPEG-compressed before being shipped to vision. */
     screenshotDataUrl?: string;
@@ -1509,21 +1618,49 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
   }
 
   const tenantId = req.authUser?.tenantId ?? null;
+  const _genStartTime = Date.now();
+
+  // Workstream A (May 2026) — reference URLs are now a first-class array
+  // input AND merged with the brand's persisted `inspirationUrls`. The
+  // brand fetch has to settle before we can build the scrape list (we need
+  // its inspirationUrls), so it moves out of the big Promise.all. The
+  // ~50ms latency hit is acceptable; everything else still runs in
+  // parallel afterward.
+  const brand = tenantId != null ? await fetchBrand(tenantId) : {};
+
+  const perRequestUrls = dedupeUrls(
+    [
+      ...(Array.isArray(referenceUrlsRaw) ? referenceUrlsRaw : []),
+      ...(typeof referenceUrl === "string" ? [referenceUrl] : []),
+    ],
+    5,
+  );
+  // Flatten the brand's inspiration set (either string[] or {url, note}[])
+  // into a plain string list of URLs for the scrape pipeline.
+  const inspirationUrls = dedupeUrls(
+    (brand.inspirationUrls ?? []).map((entry) =>
+      typeof entry === "string" ? entry : entry?.url,
+    ),
+    5,
+  );
+  // Per-request URLs win on dedup; total capped at 5 so Firecrawl fan-out
+  // stays predictable.
+  const mergedReferenceUrls = dedupeUrls([...perRequestUrls, ...inspirationUrls], 5);
+
   // May 2026 audit follow-up — let users seed full-page generation with a
   // reference URL and/or screenshot. The scrape (multi-page when the user
   // pastes a homepage; single-page for deep links) and uploaded screenshot
-  // preprocess both run in parallel with the brand/media/proof-point reads
-  // so we don't add latency to the happy path.
-  const scrapePromise: Promise<MaybeScrapeResult> = referenceUrl && tenantId != null
-    ? maybeMultiPageScrapeRef(referenceUrl, tenantId)
+  // preprocess both run in parallel with the media/proof-point reads so we
+  // don't add latency to the happy path.
+  const scrapePromise: Promise<MaybeScrapeResult> = tenantId != null && mergedReferenceUrls.length > 0
+    ? gatherReferences(mergedReferenceUrls, tenantId)
     : Promise.resolve({ scraped: null, failureReason: "no_url" } as MaybeScrapeResult);
   const screenshotPromise: Promise<string | undefined> =
     typeof screenshotDataUrl === "string" && screenshotDataUrl.startsWith("data:image/")
       ? preprocessScreenshotDataUrl(screenshotDataUrl).then((s) => s)
       : Promise.resolve(undefined);
 
-  const [brand, mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, uploadedScreenshot] = await Promise.all([
-    fetchBrand(tenantId),
+  const [mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, uploadedScreenshot] = await Promise.all([
     fetchMediaCatalog(tenantId),
     tenantId != null
       ? db.select({ slug: tenantsTable.slug }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
@@ -1532,6 +1669,12 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
     scrapePromise,
     screenshotPromise,
   ]);
+
+  // The list of URLs actually scraped successfully (echoed back in the
+  // response so the FE can display "we looked at: X, Y, Z").
+  const scrapedUrls: string[] = scrapeResult.scraped
+    ? [scrapeResult.scraped.url, ...(scrapeResult.scraped.additionalUrls ?? [])]
+    : [];
 
   // Uploaded screenshot always wins over Firecrawl's full-page render — the
   // user gave us their own picture, that's the one they want matched.
@@ -1570,7 +1713,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
   // "APPROVED CASE STUDIES" with the locked-down "do not invent others"
   // language. When OFF we fetch every case study and surface them under a
   // neutral "CASE STUDIES" header (no exclusivity language).
-  const strict = brand.aiStrictFactsMode === true;
+  const strict = brand.aiStrictFactsMode !== false;
   const caseStudies = await fetchApprovedCaseStudies(tenantId, strict);
   // Task #256 — proof-point library section. Always emit when there are
   // points (it's useful context for non-strict generations too); strict
@@ -1678,6 +1821,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
           userPrompt: templateUserPromptParts.join("\n\n"),
           strict,
           referenceUrl: scrapeResult.scraped?.url ?? null,
+          referenceUrls: scrapedUrls,
           usedReference: !!scrapeResult.scraped,
           referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
             ? scrapeResult.failureReason
@@ -1835,6 +1979,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
         blocks: mergedBlocks,
         strictMismatches,
         referenceUrl: scrapeResult.scraped?.url ?? null,
+        referenceUrls: scrapedUrls,
         usedReference: !!scrapeResult.scraped,
         referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
           ? scrapeResult.failureReason
@@ -1843,9 +1988,37 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
         referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
         usedScreenshot: !!visionImage,
       });
+      logAiGeneration({
+        tenantId,
+        endpoint: "/lp/generate-page",
+        promptPath: "TEMPLATE",
+        prompt: prompt ?? "",
+        referenceUrls: scrapedUrls,
+        inspirationUrls,
+        sectionsIncluded: ["template", referenceSection ? "reference" : "", visionImage ? "vision" : "", brandContext ? "brand" : ""].filter(Boolean),
+        templateId: typeof templateId === "number" ? templateId : null,
+        composerDurationMs: Date.now() - _genStartTime,
+        outputBlockTypes: mergedBlocks.map((b) => (b as { type?: string }).type ?? ""),
+        usedScreenshot: !!visionImage,
+        errorMessage: null,
+      });
       return;
     } catch (err) {
       logger.error({ err: String(err) }, "[generate-page] template-mode generation failed");
+      logAiGeneration({
+        tenantId,
+        endpoint: "/lp/generate-page",
+        promptPath: "TEMPLATE",
+        prompt: prompt ?? "",
+        referenceUrls: scrapedUrls,
+        inspirationUrls,
+        sectionsIncluded: [],
+        templateId: typeof templateId === "number" ? templateId : null,
+        composerDurationMs: Date.now() - _genStartTime,
+        outputBlockTypes: [],
+        usedScreenshot: !!visionImage,
+        errorMessage: String(err).slice(0, 500),
+      });
       res.status(500).json({ error: String(err) });
       return;
     }
@@ -1896,6 +2069,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
       userPrompt,
       strict,
       referenceUrl: scrapeResult.scraped?.url ?? null,
+      referenceUrls: scrapedUrls,
       usedReference: !!scrapeResult.scraped,
       referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
         ? scrapeResult.failureReason
@@ -2399,6 +2573,7 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
       blocks: parsed.blocks,
       strictMismatches,
       referenceUrl: scrapeResult.scraped?.url ?? null,
+      referenceUrls: scrapedUrls,
       usedReference: !!scrapeResult.scraped,
       referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
         ? scrapeResult.failureReason
@@ -2407,7 +2582,42 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
       referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
       usedScreenshot: !!visionImage,
     });
+    logAiGeneration({
+      tenantId,
+      endpoint: "/lp/generate-page",
+      promptPath,
+      prompt: prompt ?? "",
+      referenceUrls: scrapedUrls,
+      inspirationUrls,
+      sectionsIncluded: [
+        brandContext ? "brand" : "",
+        segmentContext ? "segment" : "",
+        proofPoints.length > 0 ? "proofPoints" : "",
+        caseStudies.length > 0 ? "caseStudies" : "",
+        referenceSection ? "reference" : "",
+        visionImage ? "vision" : "",
+      ].filter(Boolean),
+      templateId: null,
+      composerDurationMs: Date.now() - _genStartTime,
+      outputBlockTypes: parsed.blocks.map((b) => (b as { type?: string }).type ?? ""),
+      usedScreenshot: !!visionImage,
+      errorMessage: null,
+    });
   } catch (err) {
+    logAiGeneration({
+      tenantId,
+      endpoint: "/lp/generate-page",
+      promptPath,
+      prompt: prompt ?? "",
+      referenceUrls: scrapedUrls,
+      inspirationUrls,
+      sectionsIncluded: [],
+      templateId: null,
+      composerDurationMs: Date.now() - _genStartTime,
+      outputBlockTypes: [],
+      usedScreenshot: !!visionImage,
+      errorMessage: String(err).slice(0, 500),
+    });
     res.status(500).json({ error: String(err) });
   }
 });

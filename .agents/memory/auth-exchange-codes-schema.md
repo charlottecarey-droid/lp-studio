@@ -1,10 +1,20 @@
 ---
-name: auth_exchange_codes schema
-description: The cross-domain auth handoff table must stay in the Drizzle schema, not only in raw SQL migrations, or Publish will not sync new columns to prod.
+name: Drizzle journal must list every migration
+description: Adding a .sql file under lib/db/migrations/ does NOT apply it. Drizzle's tracked migrator only runs files registered in meta/_journal.json — a missing entry silently skips on every release and prod ends up without the column/table.
 ---
 
-The `auth_exchange_codes` table backs the cross-domain OAuth handoff (callback on `app.lpstudio.ai` mints a code → redirect to tenant host's `/api/auth/accept`). Any column on this table — `target_host`, future fields — MUST be defined in `lib/db/src/schema/authExchangeCodes.ts`.
+The api-server's release build calls `drizzleMigrate(db, { migrationsFolder: lib/db/migrations })` on every deploy. That helper does **not** scan the directory — it iterates `meta/_journal.json` and runs each listed `.sql` file at most once (tracked in the `drizzle.__drizzle_migrations` table). A `.sql` file with no journal entry is invisible to it. No error, no warning — just silently skipped on every release forever.
 
-**Why:** This project's `lib/db/migrations/*.sql` files are NOT applied automatically. `scripts/post-merge.sh` only runs a handful of `CREATE INDEX IF NOT EXISTS` statements and explicitly skips `drizzle-kit push` because it hangs on interactive rename prompts. The only path that updates production schema is the Publish flow, which diffs the **Drizzle schema source-of-truth** against prod. Tables/columns that exist only in raw SQL migration files are invisible to that diff and silently miss every publish.
+Caught this twice now, both as the same prod symptom:
+- `0031_auth_exchange_codes_target_host.sql` (target_host column) → prod OAuth callbacks failed with `column "target_host" of relation "auth_exchange_codes" does not exist` → cross-domain handoff broken → every tenant login (lpstudio.ai subdomains AND custom domains) appeared as "routing broken".
+- `0033_ai_generation_log` (table missing entirely) → `/api/lp/generate-page` succeeded but observability insert threw a warn on every generation.
 
-**How to apply:** When adding a column to any auth/session-related table, (1) update the Drizzle table definition in `lib/db/src/schema/`, (2) apply to dev via `executeSql` DDL (drizzle push hangs on unrelated renames), (3) tell the user to re-publish so the diff carries the change to prod. Symptom of forgetting this: prod returns `column "X" of relation "Y" does not exist` (PG code 42703) from the OAuth callback, the outer catch redirects to `/?error=auth_failed`, and every tenant login is broken.
+**Rule:** when adding a column or table:
+1. Update `lib/db/src/schema/*.ts` (Drizzle schema is the source of truth for types).
+2. Write the `.sql` under `lib/db/migrations/`.
+3. **Append an entry to `lib/db/migrations/meta/_journal.json`** with the next idx, `version: "7"`, a strictly-monotonic `when` (the rest of the file uses 1700000000000 + idx-bumped offsets), and `tag` matching the filename without `.sql`. Without this step, the file does nothing.
+4. Restart the api-server workflow to apply locally; the same migration runs at the next prod publish via the release build hook.
+
+**Why the post-merge script doesn't catch it:** `scripts/post-merge.sh` only runs a handful of `CREATE INDEX IF NOT EXISTS` statements and skips `drizzle-kit push` because it hangs on interactive rename prompts. The journal-driven migrator is the only thing that touches DDL in prod.
+
+**How to spot it pre-deploy:** `diff <(ls lib/db/migrations/*.sql | xargs -n1 basename | sed 's/\.sql$//') <(jq -r '.entries[].tag' lib/db/migrations/meta/_journal.json)` should be empty. Anything in the left column is a silent-skip risk.

@@ -523,7 +523,7 @@ const SalesRoiCalculator = () => {
                         onClick={() => setScenario(s)}
                         className={`py-2 text-[13px] font-semibold capitalize transition-all ${
                           scenario === s
-                            ? "bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold"
+                            ? "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold"
                             : "bg-background text-muted-foreground hover:text-foreground"
                         }`}
                       >

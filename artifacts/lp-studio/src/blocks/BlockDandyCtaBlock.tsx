@@ -97,7 +97,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
               ctaUrl={props.primaryCtaUrl}
               chilipiperUrl={props.primaryChilipiperUrl}
               {...modalCfg}
-              className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+              className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
               brand={brand}
               pageId={pageId}
               variantId={variantId}

@@ -73,6 +73,19 @@ export interface SegmentStat {
   linkProofPointId?: number;
 }
 
+/** Testimonial / quote pulled from a brand's marketing pages during URL
+ *  brand-import. Used as evidence material for AI page generation when
+ *  `aiStrictFactsMode` is on (only `approvedForAi !== false` rows pass
+ *  through). Defaults match the import contract: a freshly scraped quote
+ *  arrives with `approvedForAi: true` so the brand owner can immediately
+ *  use it, then opt out per-row if it misquotes or misattributes. */
+export interface ScrapedTestimonial {
+  quote: string;
+  author?: string;
+  role?: string;
+  approvedForAi?: boolean;
+}
+
 export interface SegmentComparisonRow {
   need: string;
   us: string;
@@ -93,7 +106,51 @@ export interface AudienceSegment {
   comparisonRows: SegmentComparisonRow[];
 }
 
+/**
+ * Workstream A (May 2026) — coerce `BrandConfig.inspirationUrls` (union of
+ * legacy `string` and current `{url, note}` shapes) into a clean object array.
+ * Drops blank/invalid entries and caps at 5 so the brand-settings UI never
+ * corrupts legacy data via object spread on a string.
+ */
+export function normalizeInspirationUrls(
+  raw: BrandConfig["inspirationUrls"] | undefined,
+): { url: string; note: string }[] {
+  if (!Array.isArray(raw)) return [];
+  const out: { url: string; note: string }[] = [];
+  for (const entry of raw) {
+    if (typeof entry === "string") {
+      const url = entry.trim();
+      if (url) out.push({ url, note: "" });
+    } else if (entry && typeof entry === "object") {
+      const url = typeof entry.url === "string" ? entry.url.trim() : "";
+      const note = typeof entry.note === "string" ? entry.note : "";
+      out.push({ url, note });
+    }
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
 export interface BrandConfig {
+  /**
+   * Dark-surface logo variant. When the brand logo doesn't render well via
+   * SVG auto-recolor (multi-color marks, raster PNG/JPG, etc.), upload a
+   * second logo file painted for dark backgrounds and we'll swap it in
+   * automatically for nav headers / footers / any "onDark" surface.
+   * Falls back to `logoUrl` when empty.
+   */
+  logoUrlDark?: string;
+  /**
+   * Workstream A (May 2026) — persistent "inspiration sites" for this brand.
+   * Each is a URL (e.g. of a competitor or admired page) that should be
+   * auto-included as a reference on every page generation. Capped at 5.
+   * Optional per-URL note explains what to draw from that specific site.
+   *
+   * Type is a union to tolerate legacy `string[]` entries that may exist in
+   * older tenant configs — UI must run `normalizeInspirationUrls` before
+   * rendering or saving to coerce both shapes into `{url, note}` objects.
+   */
+  inspirationUrls?: Array<string | { url?: string; note?: string }>;
   primaryColor: string;
   accentColor: string;
   navBgColor: string;
@@ -176,6 +233,16 @@ export interface BrandConfig {
   copyInstructions: string;
   productLines: ProductLine[];
   segments: AudienceSegment[];
+  /** Stats pulled directly from the brand's marketing pages during URL
+   *  brand-import (e.g. "10M+ patients served", "99.9% uptime"). Surfaced
+   *  in Brand Settings under "Scraped facts" and fed into AI page
+   *  generation as approved evidence. When `aiStrictFactsMode` is on,
+   *  only entries with `approvedForAi !== false` reach the prompt. */
+  scrapedStats?: SegmentStat[];
+  /** Customer quotes / testimonials pulled from the brand's marketing
+   *  pages during URL brand-import. Same approval contract as
+   *  `scrapedStats` — strict mode filters to `approvedForAi !== false`. */
+  scrapedTestimonials?: ScrapedTestimonial[];
   chilipiperUrl?: string;
   logoUrl?: string;
   logoAutoRecolor?: boolean;
@@ -400,6 +467,13 @@ export const DEFAULT_BRAND: BrandConfig = {
   logoUrl: "",
   logoAutoRecolor: true,
   emailBannerUrl: "",
+  // Strict facts default ON: new tenants get the safer "don't invent
+  // numbers" behaviour by default. Existing tenants whose row was
+  // written before this change still read `undefined` from DB → callsites
+  // were updated to treat `aiStrictFactsMode !== false` as ON.
+  aiStrictFactsMode: true,
+  scrapedStats: [],
+  scrapedTestimonials: [],
 };
 
 /* ----------------------------------------------------------------------------
@@ -467,6 +541,36 @@ function contrastRatio(hexA: string, hexB: string): number {
 }
 
 /**
+ * Pick the first color (the caller's preferred choice, then any fallbacks)
+ * that meets a minimum WCAG contrast ratio against `bg`. If none qualify,
+ * fall back to whichever of black/white contrasts better.
+ *
+ * Use this anywhere a brand color (primary, accent) is painted on top of
+ * another brand color where the two might be visually similar — most
+ * commonly: button text on accent buttons, eyebrows over dark sections,
+ * inline links over branded backgrounds. Default threshold is WCAG AA for
+ * normal text (4.5:1).
+ */
+export function pickContrastingColor(
+  preferred: string | undefined | null,
+  bg: string | undefined | null,
+  fallbacks: (string | undefined | null)[] = [],
+  minContrast = 4.5,
+): string {
+  const bgHex = bg && isValidHex(bg) ? bg : "#ffffff";
+  const candidates = [preferred, ...fallbacks].filter(
+    (c): c is string => !!c && isValidHex(c),
+  );
+  for (const c of candidates) {
+    if (contrastRatio(c, bgHex) >= minContrast) return c;
+  }
+  // Last resort: whichever of black/white has the higher contrast.
+  return contrastRatio("#000000", bgHex) >= contrastRatio("#ffffff", bgHex)
+    ? "#000000"
+    : "#ffffff";
+}
+
+/**
  * Resolve the heading color a block should use for the given background
  * darkness. Honors explicit `headingOnLightColor` / `headingOnDarkColor`
  * brand tokens; otherwise derives a sensible default from the brand
@@ -504,6 +608,32 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
   const text = isValidHex(brand.textColor) ? brand.textColor : DEFAULT_BRAND.textColor;
   const onPrimary = contrastTextColor(primary);
   const onAccent = contrastTextColor(accent);
+  const pageBg = isValidHex(brand.pageBackground) ? brand.pageBackground : "#ffffff";
+  // Eyebrow + link tokens are a contrast-aware version of "brand primary".
+  // On a light section the eyebrow wants brand-primary (rich, on-brand) but
+  // we step it down to a near-black ink when primary ≈ page bg (a "blue on
+  // blue" surface). On dark sections we promote to a light tint of accent so
+  // it still reads.
+  //
+  // For the -on-dark variants we test against a *generic* dark surface
+  // (#0a0a0a) rather than the brand primary, because dark section presets
+  // (black, gradient, etc.) are not necessarily primary-colored — and if
+  // the brand primary itself is light, picking a color that only contrasts
+  // against primary will be illegible on a true-black section.
+  const GENERIC_DARK = "#0a0a0a";
+  const eyebrowOnLight = pickContrastingColor(primary, pageBg, [accent, "#0f172a"]);
+  const eyebrowOnDark = pickContrastingColor(accent, GENERIC_DARK, [
+    primary,
+    "#e2e8f0", // slate-200
+    "#ffffff",
+  ]);
+  const linkOnLight = pickContrastingColor(primary, pageBg, [accent, "#1d4ed8"]); // blue-700 default ink
+  const linkOnDark = pickContrastingColor(accent, GENERIC_DARK, [
+    primary,
+    "#93c5fd", // blue-300, a soft link tint that reads on most dark brand colors
+    "#ffffff",
+  ]);
+
   const vars: Record<string, string> = {
     "--brand-primary": primary,
     "--brand-primary-rgb": hexToRgbTriplet(primary),
@@ -525,6 +655,13 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
     // not a guaranteed-legible text color).
     "--brand-heading-on-light": resolveHeadingColor(brand, false),
     "--brand-heading-on-dark": resolveHeadingColor(brand, true),
+    // Eyebrow + link tokens — contrast-aware so a brand whose primary ≈ its
+    // page bg (or whose accent ≈ its primary, like Zoom blue on Zoom blue)
+    // does not render illegible labels and links.
+    "--brand-eyebrow-on-light": eyebrowOnLight,
+    "--brand-eyebrow-on-dark": eyebrowOnDark,
+    "--brand-link-on-light": linkOnLight,
+    "--brand-link-on-dark": linkOnDark,
     // Numeric heading weight so blocks that drive headings via inline
     // `style={{ fontWeight: ... }}` (instead of Tailwind classes) can still
     // inherit the tenant's chosen brand heading weight. Mirrors
@@ -695,7 +832,7 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
     parts.push(brand.copyInstructions.trim());
   }
   if (brand.productLines?.length > 0) {
-    const strict = brand.aiStrictFactsMode === true;
+    const strict = brand.aiStrictFactsMode !== false;
     const productInfo = brand.productLines
       .filter((p) => p.name)
       .map((p) => {
@@ -717,7 +854,7 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
   // regenerations, etc.) is also bound to the approved pool. In strict mode
   // we filter to approved entries; otherwise we list everything for context.
   if (brand.segments?.length) {
-    const strict = brand.aiStrictFactsMode === true;
+    const strict = brand.aiStrictFactsMode !== false;
     const segLines: string[] = [];
     for (const seg of brand.segments) {
       const stats = (seg.stats ?? []).filter((s) => s.value || s.label);
