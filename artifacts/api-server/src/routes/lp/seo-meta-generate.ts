@@ -89,17 +89,63 @@ router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async
   const audiencePrompt = buildAudiencePrompt(audienceType, segmentContext);
 
   // Extract key text from blocks — page content is the PRIMARY anchor.
+  // Walks all string values inside `props` recursively (Dandy/Dso blocks
+  // use many prop keys beyond headline/body — eyebrow, copy, callout,
+  // bullets[], stats[], steps[], items[].title/description, etc.). Skips
+  // url/id/color/css-ish fields so we don't pollute the prompt with
+  // hrefs and hex codes.
+  // Only skip clearly structural/technical keys. Keep ambiguous keys
+  // like name/type/kind/title/label — those often hold real copy
+  // (plan names, person names, item labels) and we'd rather have noise
+  // than miss page signal.
+  const SKIP_KEY = /^(id|url|href|src|image|imageurl|imagesrc|imageurldark|imageurllight|bgcolor|bgimage|bgimagedark|bgimagelight|bgvideo|bgvideourl|color|textcolor|accentcolor|fontfamily|font|class|classname|style|cssclass|customcss|trackingid|gtm|ga|pixel|fbpixel|webhook|formid|chilipiper|chilipiperurl|chilipiperhandoffurl|calendly|calendlyurl|hubspot|hubspotformid|ogimage|favicon|videourl|videoposter|videopostersrc|posterurl|aspectratio|borderradius|shadow|maxwidth|minwidth|maxheight|minheight|datatestid|testid|anchorid|slug|target|rel|method|enctype|ariadescribedby|arialabel|arialabelledby|role)$/i;
+  const URLISH = /^(https?:\/\/|mailto:|tel:|\/\/)/i;
+  const HEXISH = /^#[0-9a-f]{3,8}$/i;
+
   const texts: string[] = [];
-  for (const block of blocks as Record<string, unknown>[]) {
-    const props = block.props as Record<string, unknown> | undefined;
-    if (!props) continue;
-    for (const key of ["headline", "subheadline", "body", "ctaText"]) {
-      if (typeof props[key] === "string" && (props[key] as string).trim()) {
-        texts.push(props[key] as string);
+  const seen = new Set<string>();
+  const pushText = (s: string) => {
+    const t = s.trim();
+    if (!t || t.length < 3 || t.length > 600) return;
+    if (URLISH.test(t) || HEXISH.test(t)) return;
+    if (seen.has(t)) return;
+    seen.add(t);
+    texts.push(t);
+  };
+  // Hard traversal budget so a pathological blocks payload can't make
+  // this loop O(payload size).
+  let visited = 0;
+  const VISIT_CAP = 4000;
+  const walk = (val: unknown, key: string, depth: number) => {
+    if (visited >= VISIT_CAP || depth > 4 || texts.length >= 60) return;
+    visited++;
+    if (val == null) return;
+    if (typeof val === "string") {
+      if (SKIP_KEY.test(key)) return;
+      pushText(val);
+      return;
+    }
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        if (visited >= VISIT_CAP || texts.length >= 60) break;
+        walk(item, key, depth + 1);
+      }
+      return;
+    }
+    if (typeof val === "object") {
+      for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+        if (visited >= VISIT_CAP || texts.length >= 60) break;
+        walk(v, k, depth + 1);
       }
     }
+  };
+  for (const block of blocks as Record<string, unknown>[]) {
+    if (visited >= VISIT_CAP || texts.length >= 60) break;
+    const props = block.props as Record<string, unknown> | undefined;
+    if (!props) continue;
+    walk(props, "props", 0);
   }
-  const pageContent = texts.slice(0, 12).join("\n");
+  const pageContent = texts.slice(0, 40).join("\n");
 
   // Pull product keywords from brand for the slug/keyword hint only.
   const productKeywords = (brand.productLines ?? [])
