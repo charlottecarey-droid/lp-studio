@@ -12,6 +12,7 @@ import { maybeMultiPageScrapeRef, maybeScrapeRef, type MaybeScrapeResult } from 
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
+import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 
 const router = Router();
 
@@ -2005,12 +2006,38 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
         );
       }
 
+      // Workstream C — two-pass critique (template path). Fail-open.
+      let critiqueAnnotations: CritiqueAnnotation[] = [];
+      {
+        const critique = await critiqueAndRewriteBlocks({
+          blocks: mergedBlocks,
+          bannedPhraseHits,
+          brand,
+          openai,
+        });
+        critiqueAnnotations = critique.annotations;
+        if (critique.critiqued) {
+          logger.info(
+            {
+              event: "ai_critique_rewrite",
+              tenantId,
+              promptPath: "TEMPLATE",
+              slug,
+              rewrittenBlocks: critique.annotations.map((a) => a.blockId),
+              resolved: critique.annotations.filter((a) => a.resolved).length,
+            },
+            "[generate-page] two-pass critique rewrote low-quality blocks",
+          );
+        }
+      }
+
       res.json({
         title: parsed.title,
         slug,
         blocks: mergedBlocks,
         strictMismatches,
         bannedPhraseHits,
+        critiqueAnnotations,
         referenceUrl: scrapeResult.scraped?.url ?? null,
         referenceUrls: scrapedUrls,
         usedReference: !!scrapeResult.scraped,
@@ -2619,12 +2646,40 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
       );
     }
 
+    // Workstream C — two-pass critique. Rewrite the copy of the worst 1–2
+    // blocks (by banned-phrase count). Fail-open: mutates parsed.blocks in
+    // place on success, leaves them untouched on timeout/error.
+    let critiqueAnnotations: CritiqueAnnotation[] = [];
+    {
+      const critique = await critiqueAndRewriteBlocks({
+        blocks: parsed.blocks,
+        bannedPhraseHits,
+        brand,
+        openai,
+      });
+      critiqueAnnotations = critique.annotations;
+      if (critique.critiqued) {
+        logger.info(
+          {
+            event: "ai_critique_rewrite",
+            tenantId,
+            promptPath,
+            slug: parsed.slug,
+            rewrittenBlocks: critique.annotations.map((a) => a.blockId),
+            resolved: critique.annotations.filter((a) => a.resolved).length,
+          },
+          "[generate-page] two-pass critique rewrote low-quality blocks",
+        );
+      }
+    }
+
     res.json({
       title: parsed.title,
       slug: parsed.slug,
       blocks: parsed.blocks,
       strictMismatches,
       bannedPhraseHits,
+      critiqueAnnotations,
       referenceUrl: scrapeResult.scraped?.url ?? null,
       referenceUrls: scrapedUrls,
       usedReference: !!scrapeResult.scraped,

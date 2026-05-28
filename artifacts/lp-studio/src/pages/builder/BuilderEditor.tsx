@@ -34,6 +34,7 @@ import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
+import { consumeCritiqueAnnotations, type CritiqueAnnotation } from "@/lib/critiqueAnnotations";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, templateToBlocks, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
@@ -1048,6 +1049,8 @@ export default function BuilderEditor() {
   // on first mount and shown as a dismissable banner pointing at Brand Settings.
   const [strictMismatches, setStrictMismatches] = useState<StrictMismatch[]>([]);
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
+  const [critiqueAnnotations, setCritiqueAnnotations] = useState<CritiqueAnnotation[]>([]);
+  const [critiqueBannerDismissed, setCritiqueBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   // Snapshot of the last saved page payload (JSON string). Used to derive a
@@ -1240,6 +1243,15 @@ export default function BuilderEditor() {
     if (isNaN(pageIdNum)) return;
     const items = consumeStrictMismatches(pageIdNum);
     if (items.length > 0) setStrictMismatches(items);
+  }, [pageIdNum]);
+
+  // Workstream C — pull the two-pass critique annotations the create flow
+  // stashed in sessionStorage. consumeCritiqueAnnotations clears the entry so
+  // the banner only shows once per generation.
+  useEffect(() => {
+    if (isNaN(pageIdNum)) return;
+    const items = consumeCritiqueAnnotations(pageIdNum);
+    if (items.length > 0) setCritiqueAnnotations(items);
   }, [pageIdNum]);
 
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
@@ -2412,6 +2424,44 @@ export default function BuilderEditor() {
             aria-label="Dismiss"
             onClick={() => setStrictBannerDismissed(true)}
             className="text-amber-700/60 hover:text-amber-700 dark:text-amber-400/60 dark:hover:text-amber-300 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Workstream C — two-pass critique banner. Surfaces when the most
+          recent AI generation rewrote the copy of one or more low-quality
+          blocks so editors know which sections were auto-polished. */}
+      {critiqueAnnotations.length > 0 && !critiqueBannerDismissed && (
+        <div className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/40 px-4 py-3">
+          <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
+            <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-violet-800 dark:text-violet-300">
+              {critiqueAnnotations.length === 1
+                ? "AI polished 1 block to remove generic copy"
+                : `AI polished ${critiqueAnnotations.length} blocks to remove generic copy`}
+            </p>
+            <p className="text-[11px] text-violet-700/80 dark:text-violet-400/80 mt-0.5 leading-relaxed">
+              A second editing pass rewrote the weakest copy on this page. Review the highlighted sections and tweak anything that drifted from your intent.{" "}
+              {(() => {
+                const phrases = [...new Set(critiqueAnnotations.flatMap(a => a.removedPhrases))];
+                return phrases.length > 0 ? (
+                  <span className="font-medium">
+                    Removed: {phrases.slice(0, 3).map(p => `"${p}"`).join(", ")}
+                    {phrases.length > 3 ? ` and ${phrases.length - 3} more` : ""}
+                  </span>
+                ) : null;
+              })()}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setCritiqueBannerDismissed(true)}
+            className="text-violet-700/60 hover:text-violet-700 dark:text-violet-400/60 dark:hover:text-violet-300 shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

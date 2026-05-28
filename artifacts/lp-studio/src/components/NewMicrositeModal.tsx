@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { AccountCombobox } from "@/components/AccountCombobox";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { rememberStrictMismatches } from "@/lib/strictMismatches";
+import { rememberCritiqueAnnotations } from "@/lib/critiqueAnnotations";
 import { cn } from "@/lib/utils";
 
 const API_BASE = "/api";
@@ -244,6 +245,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           slug?: string;
           blocks?: unknown[];
           strictMismatches?: unknown;
+          critiqueAnnotations?: unknown;
         };
         // Save the AI-generated page. If the user supplied a title, prefer
         // theirs; otherwise fall back to the AI's suggestion.
@@ -269,6 +271,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
         createdSlug = finalSlug;
         // Task #254 — surface unapproved-stat warnings on the editor.
         rememberStrictMismatches(pageId, generated.strictMismatches);
+        rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
       } else {
         // Template / Blank mode — POST /lp/pages and let the server clone
         // blocks from the template when fromTemplateId is set.
@@ -309,6 +312,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             slug?: string;
             blocks?: unknown[];
             strictMismatches?: unknown;
+            critiqueAnnotations?: unknown;
           };
           const saveRes = await fetch(`${API_BASE}/lp/pages`, {
             method: "POST",
@@ -328,6 +332,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           pageId = page.id;
           // Task #254 — surface unapproved-stat warnings on the editor.
           rememberStrictMismatches(pageId, generated.strictMismatches);
+          rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
         } else {
           const body: Record<string, unknown> = {
             title: createdTitle,
