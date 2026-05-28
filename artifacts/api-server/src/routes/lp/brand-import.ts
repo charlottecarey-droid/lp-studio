@@ -293,7 +293,22 @@ export function sanitizeField(field: string, value: unknown): { valid: boolean; 
   if (field === "logoUrl") {
     if (typeof value !== "string") return { valid: false, sanitized: null };
     const trimmed = value.trim();
-    if (trimmed.length === 0 || trimmed.length > 2000) return { valid: false, sanitized: null };
+    if (trimmed.length === 0) return { valid: false, sanitized: null };
+    // Allow inline-SVG data URLs produced by the Playwright logo worker.
+    // Worker caps serialized SVG at 64KB; base64 inflates ~1.33×, plus the
+    // `data:image/svg+xml;base64,` prefix — 100KB is a comfortable ceiling
+    // that also blocks pathological payloads. Only `image/svg+xml;base64`
+    // is accepted (no other media types, no plain `data:` URLs, no
+    // `javascript:` scheme).
+    const SVG_DATA_PREFIX = "data:image/svg+xml;base64,";
+    const SVG_DATA_MAX = 100_000;
+    if (trimmed.startsWith(SVG_DATA_PREFIX)) {
+      if (trimmed.length > SVG_DATA_MAX) return { valid: false, sanitized: null };
+      const payload = trimmed.slice(SVG_DATA_PREFIX.length);
+      if (!/^[A-Za-z0-9+/=]+$/.test(payload)) return { valid: false, sanitized: null };
+      return { valid: true, sanitized: trimmed };
+    }
+    if (trimmed.length > 2000) return { valid: false, sanitized: null };
     try {
       const u = new URL(trimmed);
       if (u.protocol !== "http:" && u.protocol !== "https:") return { valid: false, sanitized: null };

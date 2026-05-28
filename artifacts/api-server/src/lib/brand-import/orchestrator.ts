@@ -24,6 +24,46 @@ import type {
 const EXTRACTOR_PHASE_BUDGET_MS = 25_000;
 const PER_EXTRACTOR_BUDGET_MS = 20_000;
 const CACHE_MAX_AGE_HOURS = 24;
+// Per-extractor launch stagger. Five of the six extractors (everything
+// but logos) make at least one OpenAI call as their first action; if all
+// six kick off in the same tick, the AI proxy 429s the back half of the
+// burst and voice — being the last in the launch order with two
+// sequential calls — loses every time. A 150ms gap between launches
+// spreads the first call from each extractor across ~900ms total, which
+// is well within the proxy's per-minute window and below the noise
+// threshold against the 25s master budget.
+const LAUNCH_STAGGER_MS = 150;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function staggered<T>(index: number, fn: () => Promise<T>): Promise<T> {
+  if (index <= 0) return fn();
+  return delay(LAUNCH_STAGGER_MS * index).then(fn);
+}
+
+// Per-extractor budget. Voice gets the lion's share because it makes
+// the most sequential LLM calls (profile + optional rewrite + score) and
+// is the one most likely to be rate-limited by the AI proxy. The others
+// at 20s have always landed comfortably.
+function budgetFor(name: DimensionName): number {
+  if (name === "voice") return 23_000;
+  return PER_EXTRACTOR_BUDGET_MS;
+}
+
+// Wrap a staggered launch so the timeout clock starts AFTER the stagger
+// resolves — otherwise the late-stagger extractors eat their headroom
+// just waiting in line. Total time bounded by stagger + budget, but
+// because launches are <1s apart this stays well under the 25s master.
+function launchWithBudget<T>(
+  index: number,
+  name: DimensionName,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (index <= 0) return withTimeout(fn(), budgetFor(name), name);
+  return delay(LAUNCH_STAGGER_MS * index).then(() => withTimeout(fn(), budgetFor(name), name));
+}
 
 interface Options {
   forceRefresh?: boolean;
@@ -184,15 +224,19 @@ export async function* runOrchestrator(
     return;
   }
 
-  // Kick off all six extractors in parallel. We stream each result as it
-  // lands; whichever haven't landed at master-budget time emit `failed`.
+  // Kick off all six extractors with a small launch stagger (see
+  // LAUNCH_STAGGER_MS above). logos goes first with zero stagger since
+  // it's deterministic-only — no OpenAI hit, no rate-limit concern.
+  // voice goes last because it makes the most LLM calls (profile +
+  // optional rewrite + optional score), so it benefits most from
+  // landing after the earlier burst has released its slots.
   const tasks: { name: DimensionName; promise: Promise<DimensionResult<unknown>> }[] = [
-    { name: "logos", promise: withTimeout(extractLogos(evidence), PER_EXTRACTOR_BUDGET_MS, "logos") },
-    { name: "colors", promise: withTimeout(extractColors(evidence, openai), PER_EXTRACTOR_BUDGET_MS, "colors") },
-    { name: "typography", promise: withTimeout(extractTypography(evidence, openai), PER_EXTRACTOR_BUDGET_MS, "typography") },
-    { name: "buttons", promise: withTimeout(extractButtons(evidence, openai), PER_EXTRACTOR_BUDGET_MS, "buttons") },
-    { name: "photography", promise: withTimeout(extractPhotography(evidence, openai), PER_EXTRACTOR_BUDGET_MS, "photography") },
-    { name: "voice", promise: withTimeout(extractVoice(evidence, openai), PER_EXTRACTOR_BUDGET_MS, "voice") },
+    { name: "logos", promise: launchWithBudget(0, "logos", () => extractLogos(evidence)) },
+    { name: "colors", promise: launchWithBudget(1, "colors", () => extractColors(evidence, openai)) },
+    { name: "typography", promise: launchWithBudget(2, "typography", () => extractTypography(evidence, openai)) },
+    { name: "buttons", promise: launchWithBudget(3, "buttons", () => extractButtons(evidence, openai)) },
+    { name: "photography", promise: launchWithBudget(4, "photography", () => extractPhotography(evidence, openai)) },
+    { name: "voice", promise: launchWithBudget(5, "voice", () => extractVoice(evidence, openai)) },
   ];
 
   const remaining = new Map<DimensionName, Promise<DimensionResult<unknown>>>();

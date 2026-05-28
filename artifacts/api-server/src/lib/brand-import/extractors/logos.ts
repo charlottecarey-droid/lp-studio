@@ -1,5 +1,119 @@
 import type * as cheerio from "cheerio";
+import { spawn } from "node:child_process";
+import path from "node:path";
 import type { Evidence, DimensionResult, LogoCandidate, LogosData } from "../types";
+
+// Budget for the out-of-process Playwright fallback. Has to fit comfortably
+// inside the per-extractor 20s budget: launch + nav + extract is typically
+// 2-5s; cap at 10s so a runaway page can't starve the rest of logos.
+const PLAYWRIGHT_FALLBACK_BUDGET_MS = 10_000;
+
+interface PlaywrightWorkerSuccess {
+  ok: true;
+  dataUrl: string;
+  width: number;
+  height: number;
+  viewBox: string | null;
+  source: "header-svg-rendered";
+}
+interface PlaywrightWorkerFailure {
+  ok: false;
+  error: string;
+}
+type PlaywrightWorkerResult = PlaywrightWorkerSuccess | PlaywrightWorkerFailure;
+
+// Spawn `scripts/playwright-logo-worker.ts` via tsx so the parent (the
+// API server) doesn't get a Playwright lifecycle attached to its event
+// loop. The worker emits a single line of JSON on stdout and exits.
+async function runPlaywrightLogoFallback(url: string): Promise<PlaywrightWorkerResult> {
+  // The script lives at <api-server>/scripts/playwright-logo-worker.ts.
+  // __dirname here points at .../src/lib/brand-import/extractors when run
+  // through tsx, or .../dist/... when compiled — resolve from the api-server
+  // root via the package.json location.
+  const workerScript = path.resolve(
+    process.cwd(),
+    "scripts",
+    "playwright-logo-worker.ts",
+  );
+
+  return await new Promise<PlaywrightWorkerResult>((resolve) => {
+    let settled = false;
+    const settle = (r: PlaywrightWorkerResult): void => {
+      if (settled) return;
+      settled = true;
+      resolve(r);
+    };
+
+    let child;
+    try {
+      child = spawn(
+        process.execPath,
+        ["--import", "tsx", workerScript, url, String(PLAYWRIGHT_FALLBACK_BUDGET_MS)],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+          // Inherit env so PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH propagates if set.
+          env: process.env,
+          // `detached: true` puts the child into its own process group. The
+          // worker then spawns Chromium (which itself fans out into zygote /
+          // renderer / GPU processes) — they all inherit that PGID. On hard
+          // kill we negate the PID to signal the whole group, otherwise a
+          // mid-run SIGKILL leaves orphaned Chromium processes accumulating
+          // across importer runs and eventually OOMs the container.
+          detached: true,
+        },
+      );
+    } catch (e) {
+      settle({ ok: false, error: `spawn failed: ${e instanceof Error ? e.message : String(e)}` });
+      return;
+    }
+
+    let stdoutBuf = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdoutBuf += chunk.toString("utf8");
+    });
+    // Drain stderr so the pipe buffer doesn't fill and stall the worker;
+    // intentionally don't surface playwright's noisy launch logs to ours.
+    child.stderr?.on("data", () => { /* noop */ });
+
+    // Kill the entire process group (negative PID), not just the worker
+    // Node process — Chromium spawns its own renderer/zygote children and
+    // a plain `child.kill()` orphans them. See `detached: true` above.
+    const killTree = (signal: NodeJS.Signals): void => {
+      if (typeof child.pid !== "number") return;
+      try {
+        process.kill(-child.pid, signal);
+      } catch {
+        // ESRCH means the group is already gone; fall back to direct kill.
+        try { child.kill(signal); } catch { /* noop */ }
+      }
+    };
+    const killTimer = setTimeout(() => {
+      killTree("SIGKILL");
+      settle({ ok: false, error: "worker killed (parent budget exceeded)" });
+    }, PLAYWRIGHT_FALLBACK_BUDGET_MS + 2_000);
+
+    child.on("error", (err) => {
+      clearTimeout(killTimer);
+      settle({ ok: false, error: `child error: ${err.message}` });
+    });
+    child.on("close", () => {
+      clearTimeout(killTimer);
+      // Worker emits one JSON line at the end of stdout. Tolerate extra
+      // chatter by taking the last non-empty line.
+      const line = stdoutBuf.split(/\r?\n/).filter(Boolean).pop();
+      if (!line) {
+        settle({ ok: false, error: "worker produced no stdout" });
+        return;
+      }
+      try {
+        const parsed = JSON.parse(line) as PlaywrightWorkerResult;
+        settle(parsed);
+      } catch (e) {
+        settle({ ok: false, error: `worker stdout not JSON: ${e instanceof Error ? e.message : String(e)}` });
+      }
+    });
+  });
+}
 
 // cheerio re-exports node types from domhandler which isn't a direct dep here;
 // using `cheerio.AnyNode` (re-exported in cheerio 1.x) keeps us off that path.
@@ -130,7 +244,11 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
 
   // Score: header strongly preferred; SVG bonus; favicons get a small score
   // so they always rank last but stay as alternates.
+  // `header-svg-rendered` outranks plain header because it's a Playwright-
+  // rendered inline SVG — visually true to what users see in the browser,
+  // and only used when the cheerio pass couldn't find a real header logo.
   const sourceWeight: Record<LogoCandidate["source"], number> = {
+    "header-svg-rendered": 120,
     header: 100,
     "svg-alt": 60,
     og: 40,
@@ -153,6 +271,43 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
   }
   candidates.sort((a, b) => b.score - a.score);
 
+  // Playwright fallback — runs only when the deterministic pass couldn't
+  // find a real header/footer/svg-alt candidate. This is the case on
+  // Stripe / Anthropic / Vercel-style sites that render their wordmark as
+  // an inline <svg> with no `alt`, no `aria-label`, and no `<use href>` —
+  // cheerio sees a path soup and we fall back to favicon. Spawning an
+  // out-of-process Chromium lets us serialize the rendered SVG into a
+  // data URL and surface it as the brand logo.
+  const topIsBrandLogo = candidates[0] &&
+    (candidates[0].source === "header" ||
+      candidates[0].source === "footer" ||
+      candidates[0].source === "svg-alt");
+  if (!topIsBrandLogo) {
+    const fallback = await runPlaywrightLogoFallback(base);
+    if (fallback.ok) {
+      const area = fallback.width * fallback.height;
+      push({
+        url: fallback.dataUrl,
+        source: "header-svg-rendered",
+        format: "svg",
+        estimatedArea: area > 0 ? area : null,
+        transparent: true,
+        score: 0,
+      });
+      // Re-score the freshly-added candidate (loop above already ran)
+      const newCand = candidates[candidates.length - 1];
+      if (newCand && newCand.source === "header-svg-rendered") {
+        const areaBonus = newCand.estimatedArea && newCand.estimatedArea > 0
+          ? Math.min(40, Math.log2(newCand.estimatedArea + 1) * 3)
+          : 0;
+        newCand.score = sourceWeight["header-svg-rendered"] + formatBonus["svg"] + areaBonus;
+      }
+      candidates.sort((a, b) => b.score - a.score);
+    } else {
+      errors.push(`playwright logo fallback: ${fallback.error}`);
+    }
+  }
+
   if (!candidates.length) {
     return {
       status: "failed",
@@ -166,7 +321,7 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
   const status: DimensionResult<LogosData>["status"] =
     def.source === "favicon" && candidates.length === 1 ? "partial" : "ok";
   const confidence =
-    def.source === "header" || def.source === "svg-alt"
+    def.source === "header" || def.source === "svg-alt" || def.source === "header-svg-rendered"
       ? "high"
       : def.source === "footer" || def.source === "og"
       ? "medium"

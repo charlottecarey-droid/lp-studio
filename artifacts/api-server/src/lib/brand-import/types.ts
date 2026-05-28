@@ -56,7 +56,7 @@ export interface Evidence {
 
 export interface LogoCandidate {
   url: string;
-  source: "header" | "footer" | "favicon" | "apple-touch-icon" | "og" | "svg-alt";
+  source: "header" | "footer" | "favicon" | "apple-touch-icon" | "og" | "svg-alt" | "header-svg-rendered";
   format: "svg" | "png" | "jpg" | "ico" | "webp" | "unknown";
   estimatedArea: number | null;
   transparent: boolean | null;

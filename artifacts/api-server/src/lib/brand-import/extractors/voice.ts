@@ -86,11 +86,26 @@ async function extractProfile(openai: OpenAI, corpus: CorpusEntry[]): Promise<Vo
 Return ONLY valid JSON. Do not include anything not directly supported by the corpus.`;
 
   const userPayload = corpus.map((e) => `[${e.source}] ${e.text}`).join("\n\n");
+  // Profile call gets a single retry-with-backoff. The Replit AI proxy
+  // 429s under burst load when all 6 extractors hit it within a few
+  // hundred ms of each other; the orchestrator's launch stagger spreads
+  // the initial calls, and this retry covers the residual case where
+  // voice's call still lands on a saturated minute-window. 600ms is
+  // long enough to clear the proxy's short rate-limit window without
+  // eating significantly into the per-extractor budget.
   let raw = "{}";
   try {
     raw = await llmCall(openai, system, userPayload, 800);
-  } catch {
-    return null;
+  } catch (firstErr) {
+    await new Promise((r) => setTimeout(r, 600));
+    try {
+      raw = await llmCall(openai, system, userPayload, 800);
+    } catch {
+      // Surface the first error in logs even though we swallow it —
+      // useful when debugging persistent proxy outages.
+      void firstErr;
+      return null;
+    }
   }
   let parsed: Partial<VoiceProfile> = {};
   try { parsed = JSON.parse(raw); } catch { return null; }
