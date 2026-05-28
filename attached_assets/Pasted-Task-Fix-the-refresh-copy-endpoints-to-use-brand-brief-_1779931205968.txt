@@ -1,0 +1,133 @@
+Task: Fix the refresh-copy endpoints to use brand + brief, not just existing block content
+
+Context Most of our AI text flows work correctly: AI email draft, AI Content Brief generation, prompt-to-page assembly, and AI SEO meta gen all pull from the brand voice profile and produce on-brand output. Two flows have a specific bug:
+
+
+
+
+
+Block-level "refresh copy" button — refreshes the copy on a whole block. Today it uses the block's existing content as the only source. When the block was pulled from the central block catalog (and arrived with generic placeholder copy), refreshing produces more generic copy because there's nothing on-brand to amplify.
+
+
+
+SEO Metadata gen pulls from the brand settings instead of page settings/brief. it needs to pull from the page/brief since its specific to the page (needs to be on brand too but page is first priority
+
+Neither endpoint loads the tenant's brand voice profile or the page's active brief. They should.
+
+This is not a refactor task. Other AI flows already work — leave them alone. Just fix these two endpoints.
+
+Before writing any code, please:
+
+
+
+
+
+Find and show me the two endpoints: the route, the function that builds the LLM prompt, and the OpenAI call.
+
+
+
+Find the existing prompt-builder used by AI Content Brief generation (or whichever AI flow is most clearly brand-aware today) and show me how it loads + serializes the brand voice profile. We're going to mirror that pattern.
+
+
+
+Confirm there's a way to access the active brief from inside the page editor context (i.e., when a user clicks "refresh copy" on a block inside a page that has a brief attached, the endpoint can read that brief). If there isn't, propose how to thread it through. Wait for my OK before implementing.
+
+Implementation
+
+For each of the two endpoints:
+
+Build the prompt from three layers:
+
+[System] Brand voice profile (tone, formality, vocabulary, signature phrases, forbidden phrases, one-sentence brand summary).
+         Mirror the serialization pattern from the AI Content Brief flow.
+
+[Context] Active brief if one exists (audience, pain points, value props, voice).
+          If no brief, omit this section entirely — do not invent.
+
+[Task]   Block context (block type, role on page, surrounding blocks' summary)
+         + current content (as a *reference*, not the only source)
+         + user's action (refresh / rewrite / shorten / lengthen / change tone)
+         + output format expectations.
+
+Key behavioral change: the existing content becomes a reference the model can ignore or rewrite freely, not the primary source. The brand voice and brief drive the output; existing content just signals what slot/role we're filling.
+
+For field-level Sparkle specifically:
+
+
+
+
+
+Also include 2–3 surrounding fields' content as context so the rewritten field still fits the block's local rhythm.
+
+
+
+Respect the Sparkle mode (rewrite vs shorten vs lengthen vs change tone) — these are different prompts internally, just all sharing the same brand+brief injection.
+
+Cross-cutting
+
+
+
+
+
+Backward compat: input/output shape of both endpoints stays the same. Only the LLM prompt changes.
+
+
+
+Concurrency: reuse the existing OpenAI semaphore from the brand-import work. Don't introduce parallel rate limiting.
+
+
+
+No feature flag needed — this is a bug fix, not a new behavior. The old behavior was wrong; the new behavior is what users assumed was happening.
+
+
+
+If brand voice profile is missing for a tenant, fall back to the current behavior (regenerate from existing content). Don't error out. Add a one-time log line so we know which tenants need their brand voice trained.
+
+
+
+Observability: log every refresh-copy call with { endpoint, tenant_id, brand_id, brief_id?, block_type, sparkle_mode?, prompt_tokens, completion_tokens, success }. We'll want this to spot regressions.
+
+Test plan
+
+Three side-by-side tests, each showing old output vs new output:
+
+
+
+
+
+Generic catalog block, no brief. Pull a generic block from the block catalog onto a fresh page (no brief), click refresh copy. Old: generic refresh. New: copy in the tenant's brand voice. Run this for Dandy and at least one other tenant with a different brand voice; outputs should be visibly different.
+
+
+
+Generic catalog block, brief present. Same block on a page with an active brief targeting (e.g.) "DSO operations leaders piloting a lab consolidation pilot." Click refresh copy. Old: generic copy. New: copy in brand voice AND clearly responsive to the brief's audience/value props.
+
+
+
+Field-level Sparkle with brief. On the page from test 2, click Sparkle on a single CTA field, pick "change tone → more urgent." Old: generic urgency. New: urgency in brand voice, in service of the brief's audience.
+
+Show me old vs new outputs for all three. If new output isn't visibly better on all three, hold and tell me.
+
+Quality bar
+
+
+
+
+
+Both endpoints inject brand voice profile when available.
+
+
+
+Both endpoints inject active brief when present, omit cleanly when absent.
+
+
+
+Side-by-side tests show visible quality lift on all three test cases.
+
+
+
+No latency regression > 200ms.
+
+
+
+No regression on tenants without brand voice profiles (graceful fallback to old behavior).
+
