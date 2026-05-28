@@ -167,19 +167,7 @@ export default function Waitlist() {
             margin: "0 auto",
           }}
         >
-          Stop waiting on the marketing queue.{" "}
-          <span
-            className="font-display"
-            style={{
-              background: "linear-gradient(135deg, var(--cream) 0%, #F4A172 50%, var(--cream) 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              color: "transparent",
-            }}
-          >
-            already
-          </span>{" "}
+          Skip the 14-step process.{" "}
           <span
             className="font-display"
             style={{

@@ -1369,12 +1369,8 @@ export default function AssembleScene() {
               maxWidth: 620,
             }}
           >
-            Since the beginning of time, shipping a page has taken a brief, a
-            wireframe, five revisions, copy edits, three approval rounds, and a
-            dev ticket — and ended in generic copy anyway. Marketing takes
-            forever. Sales ships with ChatGPT. Not anymore. Type a prompt,
-            paste a URL, drop a screenshot — get a real, on-brand page in
-            under a minute.
+            Type a prompt, paste a URL, drop a screenshot — get a real,
+            on-brand page in under a minute.
           </p>
 
           {/* Prompt generator card */}
