@@ -1570,7 +1570,20 @@ function logAiGeneration(row: {
     usedScreenshot: row.usedScreenshot,
     errorMessage: row.errorMessage,
   }).catch((err) => {
-    logger.warn({ err: String(err) }, "[generate-page] ai_generation_log insert failed");
+    // Elevated to error (was warn) — silent insert failures had been masking
+    // the entire AI-generation observability surface (0 rows logged for 24h
+    // despite successful generations in prod). Tag with a stable event name
+    // so it's grep-able in log aggregators.
+    logger.error(
+      {
+        err: String(err),
+        event: "ai_generation_log_insert_failed",
+        endpoint: row.endpoint,
+        tenantId: row.tenantId,
+        promptPath: row.promptPath,
+      },
+      "[generate-page] ai_generation_log insert failed",
+    );
   });
 }
 

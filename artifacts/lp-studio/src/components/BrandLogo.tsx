@@ -1,7 +1,25 @@
 import { useState, type CSSProperties } from "react";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, relativeLuminance } from "@/lib/brand-config";
 
 export type BrandLogoTone = "onDark" | "onLight" | "onPrimary" | "onAccent";
+
+const HEX6_RE = /^#[0-9a-f]{6}$/i;
+
+/**
+ * A surface is "dark enough that we want the dark-mode logo asset" when its
+ * relative luminance falls below ~0.4 (WCAG-ish). Used by `tone === "onPrimary"`
+ * and `onAccent` so a brand whose primary/accent happens to be dark (Zoom
+ * blue, etc.) doesn't render a dark-painted raster logo on a same-dark tile.
+ */
+function isDarkSurfaceForTone(brand: BrandConfig, tone: BrandLogoTone): boolean {
+  if (tone === "onDark") return true;
+  const hex =
+    tone === "onPrimary" ? brand.primaryColor :
+    tone === "onAccent" ? brand.accentColor :
+    null;
+  if (!hex || !HEX6_RE.test(hex)) return false;
+  return relativeLuminance(hex) < 0.4;
+}
 
 interface Props {
   brand: BrandConfig;
@@ -38,14 +56,14 @@ export function BrandLogo({
   className,
   style,
 }: Props) {
-  // Prefer the dark-surface logo on explicitly-dark surfaces when the tenant
-  // has uploaded one. We only swap on `tone === "onDark"` — not on
-  // `onPrimary`/`onAccent`, since brand primary or accent can be light, and
-  // we'd otherwise serve a dark-painted asset onto a light tile. Auto-recolor
-  // still wins for monochrome SVGs (handled below); the dark variant exists
-  // specifically for multi-color marks and raster files that don't recolor
-  // cleanly. Falls back to `logoUrl` when no dark variant is set.
-  const brandSrc = tone === "onDark" && brand.logoUrlDark?.trim()
+  // Prefer the dark-surface logo when (a) the tenant uploaded one AND (b)
+  // the surface we're painting on is actually dark. We test luminance for
+  // `onPrimary` / `onAccent` rather than blindly swapping, because brand
+  // primary or accent can be light — in which case the light-mode asset
+  // is still correct. Auto-recolor still wins for monochrome SVGs
+  // (handled below); the dark variant exists for multi-color marks and
+  // raster files that don't recolor cleanly. Falls back to `logoUrl`.
+  const brandSrc = isDarkSurfaceForTone(brand, tone) && brand.logoUrlDark?.trim()
     ? brand.logoUrlDark.trim()
     : brand.logoUrl?.trim() ?? "";
   const src = (url && url.trim()) || brandSrc;

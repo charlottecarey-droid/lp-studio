@@ -571,6 +571,35 @@ export function pickContrastingColor(
 }
 
 /**
+ * Resolve the bg + text colors a CTA button should use given the section
+ * background it's sitting on. Guards against the "blue button on blue
+ * section" failure mode where the AI sets `bgColor` to the brand primary
+ * or accent and the button (hardcoded to `var(--brand-accent)`) becomes
+ * invisible.
+ *
+ * Preference order for button bg:
+ *   1. `brand.ctaBackground` (explicit tenant override) if it contrasts.
+ *   2. `brand.accentColor` if it contrasts with the section.
+ *   3. `brand.primaryColor` if it contrasts.
+ *   4. Black/white — whichever contrasts better.
+ *
+ * Threshold 3.0 matches WCAG AA for non-text UI components; text on the
+ * chosen bg is then resolved with the stricter 4.5 (AA normal text).
+ */
+export function pickCtaButtonColors(
+  brand: BrandConfig,
+  sectionBg: string | undefined | null,
+): { bg: string; text: string } {
+  const accent = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;
+  const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const ctaBgPref = isValidHex(brand.ctaBackground ?? "") ? (brand.ctaBackground as string) : accent;
+  const bg = pickContrastingColor(ctaBgPref, sectionBg, [accent, primary], 3.0);
+  const ctaTextPref = isValidHex(brand.ctaText ?? "") ? (brand.ctaText as string) : undefined;
+  const text = pickContrastingColor(ctaTextPref, bg, [contrastTextColor(bg)], 4.5);
+  return { bg, text };
+}
+
+/**
  * Resolve the heading color a block should use for the given background
  * darkness. Honors explicit `headingOnLightColor` / `headingOnDarkColor`
  * brand tokens; otherwise derives a sensible default from the brand

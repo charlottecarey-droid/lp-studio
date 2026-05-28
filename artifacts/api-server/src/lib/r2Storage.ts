@@ -39,6 +39,8 @@ import {
   NoSuchKey,
   NotFound,
 } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
+import { Agent as HttpsAgent } from "node:https";
 
 let cachedClient: S3Client | null = null;
 let cachedBucket: string | null = null;
@@ -59,6 +61,13 @@ function getR2Config(): { client: S3Client; bucket: string } | null {
   }
 
   if (!cachedClient || cachedBucket !== bucket) {
+    // Raised socket pool — @smithy/node-http-handler defaults to the Node
+    // global https.Agent maxSockets (~50), which saturates under publish
+    // fan-out (one tenant publish = N hosts × M ops, plus concurrent asset
+    // health checks). We saw `socket capacity=50` saturation in prod that
+    // back-pressured uploads. Keep-alive lets us reuse TLS handshakes
+    // across the burst of small PUT/HEAD calls a publish triggers.
+    const httpsAgent = new HttpsAgent({ maxSockets: 200, keepAlive: true });
     cachedClient = new S3Client({
       region: "auto",
       // R2 S3-compatible endpoint. Per CF docs:
@@ -68,6 +77,7 @@ function getR2Config(): { client: S3Client; bucket: string } | null {
       // R2 doesn't support some S3 features; force path-style addressing
       // to avoid SDK trying to do virtual-host-style with a non-AWS host.
       forcePathStyle: true,
+      requestHandler: new NodeHttpHandler({ httpsAgent }),
     });
     cachedBucket = bucket;
   }

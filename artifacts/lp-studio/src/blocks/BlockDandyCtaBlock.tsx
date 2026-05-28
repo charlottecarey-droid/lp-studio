@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { type BrandConfig, headingColorVarForBg } from "@/lib/brand-config";
+import { type BrandConfig, headingColorVarForBg, pickCtaButtonColors } from "@/lib/brand-config";
 import type { DandyCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -19,6 +19,11 @@ interface Props {
 export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const bg = props.bgColor ?? "#FDFCFA";
   const alignment = props.alignment ?? "center";
+  // Section bg can be any tenant-chosen color; the primary CTA button used
+  // to hardcode `bg-[var(--brand-accent)]`, which disappears when the
+  // section bg is itself the brand accent or primary. Resolve runtime
+  // colors with a WCAG contrast guard so the button is always visible.
+  const ctaColors = pickCtaButtonColors(brand, bg);
 
   const field = (key: keyof DandyCtaBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -97,7 +102,8 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
               ctaUrl={props.primaryCtaUrl}
               chilipiperUrl={props.primaryChilipiperUrl}
               {...modalCfg}
-              className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+              className="font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+              style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
               brand={brand}
               pageId={pageId}
               variantId={variantId}

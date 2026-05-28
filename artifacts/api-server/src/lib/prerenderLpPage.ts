@@ -234,9 +234,31 @@ export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
 
     // Useful debug surface if a publish render starts failing in prod.
     page.on("pageerror", (err) => console.warn(`[prerender] pageerror ${opts.slug}:`, err.message));
+    // Known-noisy third parties that consistently fail in the prerender
+    // container's outbound network (egress allow-list does not cover
+    // google fonts CDN or the cloudflare analytics beacon) but whose
+    // failure is harmless for the snapshot — visitors load these
+    // directly from the rendered HTML, not via the prerender. Silence
+    // them so the real signal in the logs isn't drowned out.
+    const QUIET_HOSTS = new Set([
+      "fonts.gstatic.com",
+      "fonts.googleapis.com",
+      "static.cloudflareinsights.com",
+      "cloudflareinsights.com",
+    ]);
+    const isQuietHost = (rawUrl: string): boolean => {
+      try {
+        const h = new URL(rawUrl).hostname;
+        return QUIET_HOSTS.has(h) || h.endsWith(".cloudflareinsights.com");
+      } catch {
+        return false;
+      }
+    };
     page.on("requestfailed", (req) => {
       const f = req.failure();
-      if (f) console.warn(`[prerender] reqfail ${opts.slug}: ${req.url()} ${f.errorText}`);
+      if (!f) return;
+      if (isQuietHost(req.url())) return;
+      console.warn(`[prerender] reqfail ${opts.slug}: ${req.url()} ${f.errorText}`);
     });
 
     const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
