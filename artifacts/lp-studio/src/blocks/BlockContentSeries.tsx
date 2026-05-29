@@ -3026,8 +3026,14 @@ function applyEpisodeToHero(p: ContentSeriesBlockProps, ep: ContentSeriesEpisode
     ...p,
     heroEpisodeTitle: ep.title,
     heroEpisodeDescription: ep.description,
-    heroGuestName: ep.guestName ?? p.heroGuestName,
-    heroGuestTitle: [ep.guestTitle, ep.guestCompany].filter(Boolean).join(", ") || p.heroGuestTitle,
+    // Guest identity must come from the applied episode ALONE — never fall back
+    // to the block-level hero guest, which belongs to a *different* (manual /
+    // featured) episode. Mixing one episode's title/description with another
+    // episode's guest is the "wrong person" bug seen when a visitor lands via
+    // ?episode=<slug> on an episode that has no guest fields filled in. If the
+    // episode has no guest, render no guest line rather than the wrong name.
+    heroGuestName: ep.guestName ?? "",
+    heroGuestTitle: [ep.guestTitle, ep.guestCompany].filter(Boolean).join(", "),
     heroImageUrl: ep.thumbnailUrl ?? p.heroImageUrl,
     heroCtaUrl: ep.ctaUrl ?? p.heroCtaUrl,
     heroCtaText: ep.ctaText ?? p.heroCtaText,
