@@ -167,7 +167,7 @@ export default function Waitlist() {
             margin: "0 auto",
           }}
         >
-          Skip the 14-step process.{" "}
+          Skip the brief.<br />
           <span
             className="font-display"
             style={{

@@ -1357,7 +1357,7 @@ export default function AssembleScene() {
               maxWidth: 980,
             }}
           >
-            Describe a page.{" "}
+            Describe a page.<br />
             <span style={{ color: LIME }}>Watch it build.</span>
           </h1>
           <p
