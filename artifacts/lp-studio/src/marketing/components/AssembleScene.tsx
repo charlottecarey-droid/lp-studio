@@ -1067,8 +1067,9 @@ export default function AssembleScene() {
   // Mad-Libs placeholder: rotates through fresh random combos so visitors see
   // a variety of examples, with an SSR-safe default on first paint so prerender
   // + hydration match. Rotation pauses while the field is focused or has text.
+  // Rendered as a fading overlay (below) — the native placeholder can't animate.
   const madLibsPlaceholder = useMadLibsPlaceholder(heroFocused || heroPrompt.length > 0);
-  const heroPlaceholder = heroFocused || heroPrompt.length > 0 ? "" : madLibsPlaceholder;
+  const showHeroPlaceholder = !heroFocused && heroPrompt.length === 0;
   const submitHero = (override?: string) => {
     const value = (override ?? heroPrompt).trim();
     const url = value
@@ -1405,7 +1406,7 @@ export default function AssembleScene() {
                       handleGenerate();
                     }
                   }}
-                  placeholder={heroPlaceholder}
+                  placeholder=""
                   rows={isMobile ? 3 : 2}
                   aria-label="Describe the landing page you want"
                   aria-invalid={heroError}
@@ -1420,6 +1421,29 @@ export default function AssembleScene() {
                     padding: "18px 18px 6px 18px",
                   }}
                 />
+                {/* Animated placeholder overlay — fades on each rotation so the
+                    text eases in/out instead of snapping. pointer-events:none so
+                    clicks pass through to the textarea; aria-hidden since the
+                    textarea already carries an aria-label. */}
+                {showHeroPlaceholder && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute left-0 top-0 right-0 select-none"
+                    style={{
+                      fontFamily:
+                        "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
+                      fontSize: 16,
+                      lineHeight: 1.5,
+                      color: FAINT,
+                      padding: "18px 18px 6px 18px",
+                      pointerEvents: "none",
+                      opacity: madLibsPlaceholder.visible ? 1 : 0,
+                      transition: "opacity 320ms ease-in-out",
+                    }}
+                  >
+                    {madLibsPlaceholder.text}
+                  </div>
+                )}
               </div>
 
               {/* Card footer — affordances + generate CTA */}

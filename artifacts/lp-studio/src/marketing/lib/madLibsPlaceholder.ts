@@ -147,30 +147,55 @@ export function generatePlaceholder(): string {
   return template.replace("{subject}", subject) + qualifier;
 }
 
+export interface MadLibsPlaceholder {
+  /** The current placeholder text to render. */
+  text: string;
+  /** Drives a crossfade: drops to false just before each swap, back to true
+   *  after the new text is set. Bind to an overlay's opacity for an ease. */
+  visible: boolean;
+}
+
 /**
  * Auto-rotating Mad-Libs placeholder. Starts from a fixed default on first
  * paint (avoids SSR/prerender hydration mismatches), swaps to a random combo
  * once mounted, then rotates to a fresh combo on an interval so visitors see
- * a variety of examples. Pass `paused` (e.g. when the field is focused or has
- * text) to freeze rotation so the user isn't fighting a moving target.
+ * a variety of examples. Each swap fades out then in (via `visible`) so the
+ * change eases instead of snapping. Pass `paused` (e.g. when the field is
+ * focused or has text) to freeze rotation so the user isn't fighting a moving
+ * target.
  */
 export function useMadLibsPlaceholder(
   paused = false,
-  intervalMs = 3200,
-): string {
-  const [placeholder, setPlaceholder] = useState<string>(
-    "Describe the landing page you want",
-  );
+  intervalMs = 3600,
+  fadeMs = 320,
+): MadLibsPlaceholder {
+  const [text, setText] = useState<string>("Describe the landing page you want");
+  const [visible, setVisible] = useState(true);
+
   useEffect(() => {
     // Pick an initial random combo on mount (post-hydration).
-    setPlaceholder(generatePlaceholder());
+    setText(generatePlaceholder());
   }, []);
+
   useEffect(() => {
-    if (paused) return;
-    const t = setInterval(() => {
-      setPlaceholder(generatePlaceholder());
+    if (paused) {
+      setVisible(true);
+      return;
+    }
+    let fadeTimer: ReturnType<typeof setTimeout>;
+    const cycle = setInterval(() => {
+      // Fade the current text out, swap underneath, then fade the new one in.
+      setVisible(false);
+      fadeTimer = setTimeout(() => {
+        setText(generatePlaceholder());
+        setVisible(true);
+      }, fadeMs);
     }, intervalMs);
-    return () => clearInterval(t);
-  }, [paused, intervalMs]);
-  return placeholder;
+    return () => {
+      clearInterval(cycle);
+      clearTimeout(fadeTimer);
+    };
+  }, [paused, intervalMs, fadeMs]);
+
+  return { text, visible };
 }
