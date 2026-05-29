@@ -13,3 +13,4 @@
 - [LP hero overlayOpacity scale](lp-hero-overlay-opacity-scale.md) — LP hero overlayOpacity is a 0-100 percent (renderer ÷100); AI prompt schemas must use whole-number percents, not 0-1.
 - [lib/db composite dist drives types](lib-db-composite-dist-types.md) — after editing a lib/db schema, `npx tsc -b` in lib/db (no build script) or consumer tsc errors "field does not exist" though runtime/build is fine.
 - [Generated block contrast](generated-block-contrast.md) — AI page blocks must derive text/badge/button colors from their actual bg, never pair two brand colors; fix at render-block layer.
+- [Prod DB is Neon not Helium](prod-db-is-neon-not-helium.md) — app uses NEON_DATABASE_URL; executeSql dev/prod targets read stale Helium DB. Verify prod by querying Neon directly; dev-shell scripts via lib/db hit PROD.
