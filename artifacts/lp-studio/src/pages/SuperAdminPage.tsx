@@ -27,15 +27,16 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
-  Library, LayoutTemplate, Activity,
+  Library, LayoutTemplate, Activity, CreditCard,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
+import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
-const PLAN_TIERS: readonly Plan[] = ["starter", "growth", "enterprise"];
+const PLAN_TIERS: readonly Plan[] = ["free", "starter", "growth", "scale", "enterprise"];
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -1121,11 +1122,12 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#templates") return "templates";
       if (window.location.hash === "#asset-health") return "asset-health";
+      if (window.location.hash === "#plans") return "plans";
     }
     return "tenants";
   });
@@ -1273,12 +1275,22 @@ export default function SuperAdminPage() {
           >
             <Activity className="w-3.5 h-3.5" /> Asset Health
           </button>
+          <button
+            onClick={() => setTab("plans")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "plans" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" /> Plans
+          </button>
         </div>
 
         {tab === "catalog" ? (
           <SuperAdminBlockCatalog />
         ) : tab === "templates" ? (
           <SuperAdminTemplates />
+        ) : tab === "plans" ? (
+          <SuperAdminPlanConfig />
         ) : tab === "asset-health" ? (
           <SuperAdminAssetHealth />
         ) : (

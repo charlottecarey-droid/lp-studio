@@ -4,7 +4,8 @@ import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
 import { PLANS, normalizePlan, getTenantPlanFeatures, type Plan } from "../lib/planFeatures";
-import { getPlanFeatures, getPlanFeaturesMap } from "../lib/planConfig";
+import { getPlanFeatures, getPlanFeaturesMap, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
+import { PLAN_CONFIG } from "@workspace/plan-config";
 import {
   validateDomain,
   findDomainConflict,
@@ -588,6 +589,149 @@ router.patch("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Pro
       return;
     }
     console.error("[superadmin] PATCH /tenants/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/admin/superadmin/plan-config — full editable plan/pricing config
+// (display names, prices, caps, feature flags) for every canonical tier,
+// ordered low->high. Reads through the same cached, DB-backed accessor the
+// gates use, so the editor reflects exactly what the backend enforces.
+router.get("/superadmin/plan-config", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const cfg = await getPlanConfig();
+    const plans = PLANS.map((p) => cfg[p]).sort((a, b) => a.sortOrder - b.sortOrder);
+    res.json({ plans });
+  } catch (err) {
+    console.error("[superadmin] GET /plan-config error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/superadmin/plan-config/:tier — edit one tier's display
+// name, prices, caps, and feature flags. The canonical tier KEY is never
+// editable (it anchors code + Stripe metadata) — `:tier` only identifies the
+// row. Caps are integers where null = unlimited; prices are USD integers
+// where null = sales-only. Stripe prices are immutable: editing a price here
+// updates the display + drives the next re-seed (new price, old archived) —
+// existing subscribers keep their price until they re-checkout. Caps, names,
+// and flags take effect immediately (within the cache TTL, instantly in this
+// process after the bust below).
+router.patch("/superadmin/plan-config/:tier", requireSuperadmin, async (req, res): Promise<void> => {
+  const tier = String(req.params.tier ?? "").toLowerCase();
+  if (!PLANS.includes(tier as Plan)) {
+    res.status(400).json({ error: `tier must be one of: ${PLANS.join(", ")}` });
+    return;
+  }
+  const plan = tier as Plan;
+  const body = req.body ?? {};
+
+  // Validators: a string field must be a non-empty string; a money/cap field
+  // must be a non-negative integer or null (null = unlimited / sales-only); a
+  // flag must be a boolean. Anything else is a 400 — we never coerce.
+  const isNullableInt = (v: unknown): v is number | null =>
+    v === null || (typeof v === "number" && Number.isInteger(v) && v >= 0);
+  const isBool = (v: unknown): v is boolean => typeof v === "boolean";
+
+  // Field name -> { column, validate }. selfServe/sortOrder are presentation
+  // metadata; sortOrder is a non-negative int (not nullable).
+  const checks: Array<[string, (v: unknown) => boolean]> = [
+    ["displayName", (v) => typeof v === "string" && v.trim().length > 0],
+    ["priceMonthly", isNullableInt],
+    ["priceAnnual", isNullableInt],
+    ["selfServe", isBool],
+    ["sortOrder", (v) => typeof v === "number" && Number.isInteger(v) && v >= 0],
+    ["salesConsole", isBool],
+    ["aiImageGen", isBool],
+    ["customDomain", isBool],
+    ["capPages", isNullableInt],
+    ["capForms", isNullableInt],
+    ["capUserSeats", isNullableInt],
+    ["capAiGenerationsPerMonth", isNullableInt],
+    ["capHeatmapSessionsPerMonth", isNullableInt],
+  ];
+  for (const [field, ok] of checks) {
+    if (body[field] !== undefined && !ok(body[field])) {
+      res.status(400).json({ error: `Invalid value for "${field}"` });
+      return;
+    }
+  }
+
+  try {
+    // Merge requested changes over the current resolved config (DB row or
+    // canonical default) so an UPSERT always writes a complete row even if the
+    // tier had no DB row yet.
+    const current = (await getPlanConfig())[plan];
+    const fb = PLAN_CONFIG[plan];
+    const pick = <T,>(field: string, fallback: T): T =>
+      body[field] !== undefined ? (body[field] as T) : fallback;
+
+    const next = {
+      displayName: pick<string>("displayName", current.displayName ?? fb.displayName),
+      priceMonthly: pick<number | null>("priceMonthly", current.priceMonthly),
+      priceAnnual: pick<number | null>("priceAnnual", current.priceAnnual),
+      selfServe: pick<boolean>("selfServe", current.selfServe),
+      sortOrder: pick<number>("sortOrder", current.sortOrder),
+      salesConsole: pick<boolean>("salesConsole", current.features.salesConsole),
+      aiImageGen: pick<boolean>("aiImageGen", current.features.aiImageGen),
+      customDomain: pick<boolean>("customDomain", current.features.customDomain),
+      capPages: pick<number | null>("capPages", current.features.limits.pages),
+      capForms: pick<number | null>("capForms", current.features.limits.forms),
+      capUserSeats: pick<number | null>("capUserSeats", current.features.limits.userSeats),
+      capAiGenerationsPerMonth: pick<number | null>(
+        "capAiGenerationsPerMonth", current.features.limits.aiGenerationsPerMonth),
+      capHeatmapSessionsPerMonth: pick<number | null>(
+        "capHeatmapSessionsPerMonth", current.features.limits.heatmapSessionsPerMonth),
+    };
+
+    await pool.query(
+      `INSERT INTO plan_config
+         (tier, display_name, price_monthly, price_annual, self_serve, sort_order,
+          sales_console, ai_image_gen, custom_domain,
+          cap_pages, cap_forms, cap_user_seats,
+          cap_ai_generations_per_month, cap_heatmap_sessions_per_month, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now())
+       ON CONFLICT (tier) DO UPDATE SET
+         display_name = EXCLUDED.display_name,
+         price_monthly = EXCLUDED.price_monthly,
+         price_annual = EXCLUDED.price_annual,
+         self_serve = EXCLUDED.self_serve,
+         sort_order = EXCLUDED.sort_order,
+         sales_console = EXCLUDED.sales_console,
+         ai_image_gen = EXCLUDED.ai_image_gen,
+         custom_domain = EXCLUDED.custom_domain,
+         cap_pages = EXCLUDED.cap_pages,
+         cap_forms = EXCLUDED.cap_forms,
+         cap_user_seats = EXCLUDED.cap_user_seats,
+         cap_ai_generations_per_month = EXCLUDED.cap_ai_generations_per_month,
+         cap_heatmap_sessions_per_month = EXCLUDED.cap_heatmap_sessions_per_month,
+         updated_at = now()`,
+      [
+        plan, next.displayName, next.priceMonthly, next.priceAnnual, next.selfServe, next.sortOrder,
+        next.salesConsole, next.aiImageGen, next.customDomain,
+        next.capPages, next.capForms, next.capUserSeats,
+        next.capAiGenerationsPerMonth, next.capHeatmapSessionsPerMonth,
+      ],
+    );
+
+    // Make the edit visible immediately in THIS process; other API processes
+    // converge within the cache TTL.
+    bustPlanConfigCache();
+
+    console.info(
+      "[admin][audit] plan-config.changed",
+      JSON.stringify({
+        tier: plan,
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        at: new Date().toISOString(),
+      }),
+    );
+
+    const updated = (await getPlanConfig())[plan];
+    res.json(updated);
+  } catch (err) {
+    console.error("[superadmin] PATCH /plan-config/:tier error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
