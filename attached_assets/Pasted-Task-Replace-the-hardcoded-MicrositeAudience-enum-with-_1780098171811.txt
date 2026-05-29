@@ -1,0 +1,149 @@
+Task: Replace the hardcoded MicrositeAudience enum with the existing brand-config AudienceSegment[]
+Context
+The microsite generator (artifacts/api-server/src/routes/sales/generate-microsite.ts) has hardcoded audience branches keyed to Dandy-specific enums (dso-corporate, dso-practice, independent). When the audience matches a Dandy-coded branch, the AI prompt injects Dandy DSO value props ("$1,500 lab credit", "AI Scan Review", "practice efficiency"), Dandy-specific block types (dso-heartland-hero, dso-practice-nav, dso-partnership-perks), and dental vocabulary into the generation regardless of tenant. This produces leaky output for non-Dandy tenants — empirically confirmed by Charlotte generating a Zoom microsite targeting Salesforce with the "Network Leadership" audience and getting "Standardize operations. Protect EBITDA. 200+ practices streamlined. 96% on-time case delivery rate. 5 days average turnaround time" in dental-lab vocabulary.
+The data structure already exists — please confirm before scoping. BrandConfig.segments: AudienceSegment[] is already in artifacts/lp-studio/src/lib/brand-config.ts (around lines 95-107, with BrandConfig.segments declared around line 235). It has way more fields than a "MicrositeAudience" needs: id, name, description, messagingAngle, uniqueContext, valueProps, segmentProducts, personas[], challenges[], stats[], comparisonRows[]. Brand Settings already exposes a full management UI for it (SegmentCard in artifacts/lp-studio/src/pages/brand-settings.tsx around line 493). And generate-microsite.ts already has findMatchingSegment + buildSegmentSection helpers that consume it (wired today off the per-account segment tag, NOT off the audience picker).
+The fix is structural, not additive: stop using the parallel MicrositeAudience enum, and route the audience picker + prompt builder through brand.segments instead. Dandy is configured with segments that match the current hardcoded branches verbatim, so Dandy's behavior is byte-identical pre/post. Zoom uses Zoom's segments. Crunchy uses Crunchy's. Tenants with no segments get a neutral fallback that doesn't mention DSOs.
+Note on Workstreams B + C: the banned-phrase validator (Workstream B) and critique pass (Workstream C) are now in place as post-generation quality guards. They help catch some Dandy strings post-hoc, but the empirically-confirmed leakage above shows the structural fix (audience routed through brand.segments) is still needed — the validator catches symptoms, this prompt fixes the source. Belt-and-suspenders.
+
+Before writing any code, please:
+
+Confirm BrandConfig.segments — re-read artifacts/lp-studio/src/lib/brand-config.ts lines 50-110 and 220-245 and confirm the AudienceSegment interface + BrandConfig.segments field exist exactly as described above. Don't propose a new BrandSegment type — the existing one is richer than anything we'd want to add.
+Show me the current audience branches in generate-microsite.ts — specifically the buildSystemPrompt function around lines 915-1133. Quote the four hardcoded sites that read audience:
+
+The template-mode AUDIENCE: line at ~1066 (hardcoded dental/DSO copy).
+if (audience === "dso-corporate") at ~1076-1093 (Dandy dso-heartland-hero / dso-stat-bar / dso-challenges / dso-insights-dashboard / dso-success-stories / dso-pilot-steps / dso-final-cta block list + EBITDA framing).
+if (audience === "dso-practice") at ~1095-1113 (Dandy dso-practice-nav / dso-practice-hero / dso-stat-row / dso-partnership-perks / dso-split-feature / dso-software-showcase / dso-faq / dso-activation-steps / dso-final-cta block list + "$1,500 lab credit" / "AI Scan Review" framing).
+The fallback at ~1117-1132 (hero / trust-bar / benefits-grid / testimonial / how-it-works / comparison / bottom-cta block list — this one is already brand-neutral and is the right starting point for the non-Dandy default).
+
+
+Show me the audience picker UI in artifacts/lp-studio/src/pages/sales/sales-accounts.tsx around lines 3120-3170: the MicrositeAudience type alias, AUDIENCE_OPTIONS (with hardcoded "Network Leadership" / "Network Site" / "Independent Operator" labels), and where audience flows from useState into the POST body to /sales/accounts/:accountId/generate-microsite.
+Show me the request validation in generate-microsite.ts around lines 1141-1146 — the check that rejects anything not in ["dso-corporate", "dso-practice", "independent"].
+Show me the slug generator for the microsite URL — Charlotte caught that the URL is /lp/zoom-salesforce-dso-corporate (the internal enum leaks into the slug). I want to see exactly where the audience portion of the slug is built before we change it to slugify(segment.name).
+Propose the architecture per the spec below. Wait for my OK before implementing.
+
+
+Step 1 — Make audience-specific block lists configurable per-segment
+The hardcoded branches today do two distinct things:
+
+Inject audience copy guidance (which buildSegmentSection(matchedSegment) already does, just driven off the wrong selector).
+Specify exactly which block types the AI may emit (this is NOT in AudienceSegment today).
+
+The block list is the only piece we genuinely need to add. Extend AudienceSegment with one new optional field:
+tsexport interface AudienceSegment {
+  // ...existing fields...
+
+  /**
+   * Optional per-segment block-list override for the microsite generator.
+   * Each entry is { type, schema } where `type` is a registered block
+   * type and `schema` is the prop-shape hint string passed to the AI
+   * (same format `BLOCK_PROP_SCHEMAS` uses today). When empty/unset, the
+   * generator falls back to the brand's default block list (see below).
+   */
+  micrositeBlockList?: Array<{ type: string; schemaHint?: string }>;
+}
+Keep the field optional and additive — existing brand configs without it stay valid. Brand Settings' SegmentCard UI gets one new collapsible section ("Microsite block list — advanced") with an array editor; default it collapsed so non-power-users don't see it.
+
+Step 2 — Add a brand-level default block list with a neutral fallback
+Add one more optional field to BrandConfig (not to AudienceSegment):
+ts/**
+ * Default microsite block list when the selected segment has no
+ * `micrositeBlockList` of its own. When this is also unset, the
+ * generator uses a built-in neutral set (`hero`, `trust-bar`,
+ * `benefits-grid`, `testimonial`, `how-it-works`, `comparison`,
+ * `bottom-cta`) — the same one the legacy "independent" branch
+ * already used, which doesn't mention DSOs or dentistry.
+ */
+defaultMicrositeBlockList?: Array<{ type: string; schemaHint?: string }>;
+Brand Settings exposes this under the existing "Sales Console" or "Microsite defaults" section (your call — whichever is more discoverable for admins).
+
+Step 3 — API: replace the MicrositeAudience enum with segmentId
+In generate-microsite.ts:
+
+Change the request body shape. Replace audience: MicrositeAudience with segmentId: string. Validate that the supplied segmentId exists in brand.segments for the tenant; if not, 400 with { error: "Unknown segmentId; segment must be defined in Brand Settings → Audience segments." }. Keep the legacy audience field as an aliased fallback for one release: if the request includes audience and not segmentId, look up the tenant's segments by id === audience (Dandy's seeded segments will use the existing enum strings as their ids — see Step 5).
+Delete MicrositeAudience and the ["dso-corporate", "dso-practice", "independent"] validator. No more hardcoded enum. The set of valid values is whatever the tenant has in brand.segments.
+Inside buildSystemPrompt:
+
+Rename the audience: MicrositeAudience parameter to segment: AudienceSegment (look it up at the route handler from brand.segments by id and pass the whole object down).
+Collapse all three if (audience === "...") branches and the template-mode AUDIENCE: line into one segment-driven section. The audience copy guidance becomes:
+tsconst audienceSection = [
+  segment.description ? `AUDIENCE: ${segment.description}` : `AUDIENCE: ${segment.name}`,
+  segment.messagingAngle ? `Messaging angle: ${segment.messagingAngle}` : null,
+  segment.uniqueContext ? `Unique context: ${segment.uniqueContext}` : null,
+  segment.valueProps?.length
+    ? `Messaging themes: ${segment.valueProps.join(", ")}.`
+    : null,
+].filter(Boolean).join("\n");
+Note: this is the same data buildSegmentSection already formats for the per-account segment match. If extracting a shared helper makes the call sites cleaner, do that — but the goal here is "one segment source of truth," not "refactor the whole prompt builder."
+The block list comes from (in order): the selected segment's micrositeBlockList → the brand's defaultMicrositeBlockList → the built-in neutral fallback (hero / trust-bar / benefits-grid / testimonial / how-it-works / comparison / bottom-cta).
+Remove every hardcoded reference to "AI Scan Review", "$0 CAPEX scanner", "$1,500 lab credit", "DSO partnership perks", "EBITDA protection", "case delivery rate", "dental practice", "DSO", "practice efficiency" from the prompt builder. Those strings now live in Dandy's seeded segment data and will only be emitted when Dandy is the active tenant.
+Remove the template-mode hardcoded AUDIENCE: line at ~1066 — feed the same segment-driven audienceSection block in for the template-layout branch too. Both branches (template-mode and free-mode) should produce identical AUDIENCE copy for a given segment.
+
+
+Account-segment vs. picker-segment. Today, buildSegmentSection(matchedSegment) is already keyed off account.segment (the per-account tag) and is a separate concern from the audience picker. After this change, both will read from brand.segments. Keep them as two independent inputs to the prompt — the picker drives the AUDIENCE / messaging / block-list, and the account tag (if set) drives the existing pre-validated TARGET SEGMENT section with stats / comparisons / personas. If the picker-segment and account-tag-segment match (same id), de-dupe so we don't print the segment context twice.
+
+
+Step 4 — UI: drive the audience picker from brand.segments
+In artifacts/lp-studio/src/pages/sales/sales-accounts.tsx around line 3120:
+
+Delete the MicrositeAudience type alias and AUDIENCE_OPTIONS constant. No more hardcoded "Network Leadership / Network Site / Independent Operator" — those are Dandy's labels and they leak into the UI for every tenant today.
+Fetch brand.segments at modal open time (the same GET /api/lp/brand call that already runs on line ~3185). Drop a useState<AudienceSegment[]> for the segments and populate it from the response.
+Render the picker as a .map() over brand.segments, sorted in whatever order the brand-settings UI sorts them. Each option shows segment.name as the label and segment.description (truncated to ~80 chars) as the sub-label. Selected value is segment.id (a string).
+Empty-segments state. If brand.segments is empty, show an inline empty state in the modal: "No audience segments defined yet. Add at least one in Brand Settings → Audience segments before generating a microsite." with a deep-link to brand settings. Don't fall back to the Dandy enum.
+POST body: send { segmentId: segment.id } instead of { audience }. For one release, also send the legacy audience field set to segment.id so the API's fallback alias keeps working through deploys.
+
+
+Step 5 — Seed Dandy's brand with the three existing audiences (regression guarantee)
+Seed Dandy's brand.segments with three entries whose ids match the current MicrositeAudience enum strings exactly — dso-corporate, dso-practice, independent — so:
+
+The fallback alias from Step 3.1 keeps any in-flight or hand-saved Dandy URLs working.
+Anyone who has the picker open mid-deploy still sees the same three options.
+
+Each Dandy segment must include the verbatim hardcoded copy from generate-microsite.ts today, and its own micrositeBlockList matching the existing branches:
+dso-corporate — name: "DSO Leadership", description: "DSO corporate leadership — VP of Operations, CFO, Chief Dental Officer.", messagingAngle: "Same-store growth, EBITDA protection, standardization at scale, network-wide visibility, pilot-then-scale, zero CAPEX.", micrositeBlockList: dso-heartland-hero, dso-stat-bar, dso-challenges, dso-insights-dashboard, dso-success-stories, dso-pilot-steps, dso-final-cta (use the exact schemaHint strings from generate-microsite.ts:1084-1090).
+dso-practice — name: "DSO Practice", description: "Individual dental practice within a DSO network — the dentist or office manager, not corporate leadership.", messagingAngle: "Practice-level benefits, $0 CAPEX scanner, $1,500 lab credit, first-time fit guarantee, chairside AI, easy onboarding, DSO partnership perks.", micrositeBlockList: dso-practice-nav, dso-practice-hero, dso-stat-row, dso-partnership-perks, dso-split-feature, dso-software-showcase, dso-faq, dso-activation-steps, dso-final-cta (use the exact schemaHint strings from generate-microsite.ts:1103-1111).
+independent — name: "Independent Operator", description: "Independent dental practice — solo dentist or small group, not part of a DSO.", messagingAngle: "Lab quality, turnaround time, free remakes, digital workflow, practice growth, no contracts.", micrositeBlockList: hero, trust-bar, benefits-grid, testimonial, how-it-works, comparison, bottom-cta (use the exact schemaHint strings from generate-microsite.ts:1124-1130).
+Before seeding: confirm with the operator that these messaging angles still match Dandy's current pricing/positioning — the values above were captured from a May 28 audit, and if any have changed since (e.g. the lab credit amount, scanner pricing, or product names), update the seed accordingly. Stale Dandy seed = a different kind of regression.
+If Dandy already has brand.segments populated for other purposes (the per-account accountSegment flow uses the same array — please check), merge by id rather than overwriting. Do not create duplicate segment ids.
+Seed via a one-off admin script or a Drizzle migration — your call, whichever is the project convention. Either way, idempotent and Dandy-tenant-scoped only.
+
+Step 6 — URL slug fix
+Today the microsite URL is /lp/zoom-salesforce-dso-corporate because the slug is composed from the raw enum string. Fix:
+
+Find the slug generator (Grep slugify and the /lp/:slug route handler).
+Derive the audience portion from segment.name, not from segment.id: slugify(segment.name) → dso-leadership (or network-leadership if Dandy renames). Use the existing slugify helper in artifacts/lp-studio/src/pages/sales/sales-accounts.tsx:3146 (or a shared util if one exists — please reuse, don't re-implement).
+Backward compat: existing microsites with dso-corporate in their slugs keep working — only newly-generated slugs use slugify(segment.name). No back-population.
+
+
+Cross-cutting
+
+Backward compat for Dandy: Dandy's existing microsites + new microsites for any of the three seeded segments produce IDENTICAL output before and after this change. Seed Dandy's segments verbatim, alias the legacy audience field for one release, keep existing slugs working.
+No-segments tenants: the picker shows an empty state with a deep-link to brand settings — it does NOT fall back to Dandy's enum.
+Empty valueProps case: when a segment has no valueProps, the prompt skips the "Messaging themes" line and the AI uses the brand's overall value props from BRAND VOICE — no hardcoded fallback strings.
+Empty micrositeBlockList case: falls through to BrandConfig.defaultMicrositeBlockList, then to the built-in neutral set (hero / trust-bar / benefits-grid / testimonial / how-it-works / comparison / bottom-cta). This neutral set is the safe default for any B2B tenant and does not mention dentistry or DSOs.
+Observability: log every microsite generation with { tenant_id, brand_id, segment_id, segment_value_props_count, used_block_list_source: "segment" | "brand_default" | "builtin_fallback", prompt_token_count } so we can spot tenants who haven't populated their segments yet (signal to nag them in brand settings).
+Don't refactor the per-account accountSegment flow. findMatchingSegment / buildSegmentSection already work — they're driven off account.segment and feed the TARGET SEGMENT section. Leave them alone except for the de-dupe note in Step 3.4.
+
+
+Test plan
+Generate microsites for 4 tenant/audience combinations end-to-end:
+
+Dandy + DSO Leadership (regression check): output should match what Dandy gets today — EBITDA framing, practice operations vocabulary, all Dandy DSO value props, the exact same 7 dso-* block types in the same order. If this output changes, something is broken.
+Zoom + Enterprise (the empirical bug case from Charlotte): output should be Zoom-voiced, Enterprise-appropriate, NO dental vocabulary, NO "practice efficiency", NO "case delivery rate", NO "DSOS" in the eyebrow. Block list comes from Zoom's segment or the brand default or the built-in neutral set — never Dandy's dso-heartland-hero.
+Crunchy + whatever segments Crunchy has: output should be Crunchy-voiced and fitness-relevant.
+Fresh tenant with one neutral segment (e.g. "Enterprise") and no micrositeBlockList: output should be brand-voiced (whatever brand they have) using the built-in neutral block set, with no Dandy leakage at all.
+
+Show me side-by-side outputs for all 4 + the segment config that drove each + which used_block_list_source fired.
+Plus URL slug verification: confirm the slugs for tests 2-4 don't contain dso-corporate (or any other Dandy id).
+
+Quality bar (when to ship)
+
+Dandy regression test produces identical output to current behavior (visual + structural identical) for all three seeded segments.
+The Zoom-for-Salesforce case (Charlotte's empirical bug) no longer leaks dental vocabulary or DSO block types.
+All other test tenants produce brand-appropriate output with NO Dandy strings.
+URL slugs use slugify(segment.name), not the segment id.
+The audience picker reads from brand.segments; non-Dandy tenants see THEIR segments (or the empty state with a deep-link to brand settings) — never Dandy's labels.
+MicrositeAudience type alias, AUDIENCE_OPTIONS constant, and the three hardcoded if (audience === ...) branches are deleted from the codebase.
+The fallback alias accepting audience in the request body is in place for one release and clearly TODO-marked for removal in the next deploy after.
+
+Don't ship if Dandy's existing microsite output changes in any visible way. Don't ship if any Dandy string ("AI Scan Review", "$1,500 lab credit", "case delivery rate", "DSO", "EBITDA protection", "practice efficiency") appears in a non-Dandy tenant's generated output. Don't ship if any Dandy-specific block type (dso-heartland-hero, dso-practice-hero, dso-partnership-perks, etc.) appears in a non-Dandy tenant's microsite.
+
