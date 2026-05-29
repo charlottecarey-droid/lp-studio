@@ -29,6 +29,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { logger } from "./logger";
 import { extractAssetPaths, STUDIO_ASSETS_PREFIX } from "./assetRefs";
+import { buildR2S3Client } from "./r2Storage";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -59,12 +60,7 @@ function getR2() {
     }
     return null;
   }
-  const client = new S3Client({
-    region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
-  });
+  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey });
   return { client, bucket };
 }
 

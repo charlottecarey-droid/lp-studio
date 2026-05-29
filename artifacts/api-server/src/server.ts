@@ -160,6 +160,17 @@ const SLUG_REDIRECT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
 const LP_ASSET_HEALTH_INTERVAL_MS = 15 * 60 * 1000;
 // Task #374 — daily R2 asset GC. Dry-run by default (LP_ASSETS_GC_DRY_RUN).
 const LP_ASSETS_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Defer the FIRST asset health-check + GC sweep off the cold-start path.
+// Both walk R2 (list/GET/HEAD across the whole bucket); running them
+// immediately inside the app.listen callback put a burst of R2 I/O in the
+// exact window the Cloud Run startup probe (/healthz) needs, which on a
+// cold start saturated the S3 socket pool and starved the event loop long
+// enough to fail the deploy promote step. A short delay lets the instance
+// pass the probe first; the periodic intervals below are unchanged. The
+// health-check and GC first runs are staggered so they don't fire as one
+// synchronized R2 burst right after readiness.
+const LP_ASSET_HEALTH_BOOT_DELAY_MS = 60 * 1000;
+const LP_ASSETS_GC_BOOT_DELAY_MS = 120 * 1000;
 // Task #152 — warn admins ~7 days before an old workspace URL stops working.
 // Run on a daily cadence so a row created at any time of day still gets at
 // least one scan inside the warning window before it expires.
@@ -361,14 +372,23 @@ const httpServer = app.listen(port, (err) => {
   // pages from R2 and alerts (Sentry + log) when a referenced /assets/*
   // is missing — the canary that catches a regression of the lp-studio
   // build hook before it bites a visitor.
-  void runAssetHealthCheck();
+  // First run is deferred off the cold-start path (see
+  // LP_ASSET_HEALTH_BOOT_DELAY_MS) so the R2 fan-out doesn't compete with
+  // the startup probe; the steady-state cadence is unchanged.
+  setTimeout(() => {
+    void runAssetHealthCheck();
+  }, LP_ASSET_HEALTH_BOOT_DELAY_MS).unref();
   setInterval(() => {
     void runAssetHealthCheck();
   }, LP_ASSET_HEALTH_INTERVAL_MS).unref();
 
   // Task #374 — daily R2 asset GC. Dry-run by default
-  // (LP_ASSETS_GC_DRY_RUN unset or set to anything except "0").
-  void runAssetsGc();
+  // (LP_ASSETS_GC_DRY_RUN unset or set to anything except "0"). First run
+  // is likewise deferred off the cold-start path, staggered after the
+  // health check so the two sweeps don't burst R2 simultaneously.
+  setTimeout(() => {
+    void runAssetsGc();
+  }, LP_ASSETS_GC_BOOT_DELAY_MS).unref();
   setInterval(() => {
     void runAssetsGc();
   }, LP_ASSETS_GC_INTERVAL_MS).unref();

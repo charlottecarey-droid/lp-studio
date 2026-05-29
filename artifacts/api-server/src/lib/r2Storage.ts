@@ -42,6 +42,40 @@ import {
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { Agent as HttpsAgent } from "node:https";
 
+/**
+ * Build an R2-targeted S3 client with a raised socket pool.
+ *
+ * Every R2 client in this service MUST be created through here.
+ * @smithy/node-http-handler otherwise falls back to Node's global
+ * https.Agent (`maxSockets` ~50). The periodic asset health-check / GC
+ * sweeps blow past that on a cold start — we observed
+ * `socket usage at capacity=50 and 590 additional requests are enqueued`
+ * in prod, which back-pressured uploads and starved the event loop during
+ * the deploy startup probe. Keep-alive also lets the burst of small
+ * PUT/HEAD/GET calls a publish or sweep triggers reuse TLS handshakes.
+ */
+export function buildR2S3Client(opts: {
+  accountId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}): S3Client {
+  const httpsAgent = new HttpsAgent({ maxSockets: 200, keepAlive: true });
+  return new S3Client({
+    region: "auto",
+    // R2 S3-compatible endpoint. Per CF docs:
+    //   https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    endpoint: `https://${opts.accountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: opts.accessKeyId,
+      secretAccessKey: opts.secretAccessKey,
+    },
+    // R2 doesn't support some S3 features; force path-style addressing
+    // to avoid SDK trying to do virtual-host-style with a non-AWS host.
+    forcePathStyle: true,
+    requestHandler: new NodeHttpHandler({ httpsAgent }),
+  });
+}
+
 let cachedClient: S3Client | null = null;
 let cachedBucket: string | null = null;
 
@@ -61,24 +95,7 @@ function getR2Config(): { client: S3Client; bucket: string } | null {
   }
 
   if (!cachedClient || cachedBucket !== bucket) {
-    // Raised socket pool — @smithy/node-http-handler defaults to the Node
-    // global https.Agent maxSockets (~50), which saturates under publish
-    // fan-out (one tenant publish = N hosts × M ops, plus concurrent asset
-    // health checks). We saw `socket capacity=50` saturation in prod that
-    // back-pressured uploads. Keep-alive lets us reuse TLS handshakes
-    // across the burst of small PUT/HEAD calls a publish triggers.
-    const httpsAgent = new HttpsAgent({ maxSockets: 200, keepAlive: true });
-    cachedClient = new S3Client({
-      region: "auto",
-      // R2 S3-compatible endpoint. Per CF docs:
-      //   https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: { accessKeyId, secretAccessKey },
-      // R2 doesn't support some S3 features; force path-style addressing
-      // to avoid SDK trying to do virtual-host-style with a non-AWS host.
-      forcePathStyle: true,
-      requestHandler: new NodeHttpHandler({ httpsAgent }),
-    });
+    cachedClient = buildR2S3Client({ accountId, accessKeyId, secretAccessKey });
     cachedBucket = bucket;
   }
   return { client: cachedClient, bucket };

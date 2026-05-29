@@ -28,6 +28,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getActiveHostsForTenant } from "./tenantHosts";
 import { extractAssetPaths, r2AssetExists } from "./assetRefs";
+import { buildR2S3Client } from "./r2Storage";
 
 const CONCURRENCY = 8;
 
@@ -79,12 +80,7 @@ function getR2() {
     }
     return null;
   }
-  const client = new S3Client({
-    region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
-  });
+  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey });
   return { client, bucket };
 }
 

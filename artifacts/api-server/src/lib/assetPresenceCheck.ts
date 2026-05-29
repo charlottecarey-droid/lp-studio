@@ -13,6 +13,7 @@
  * sample-and-alert across all published pages.
  */
 import { S3Client } from "@aws-sdk/client-s3";
+import { buildR2S3Client } from "./r2Storage";
 import { extractAssetPaths, r2AssetExists } from "./assetRefs";
 
 function getR2Cfg() {
@@ -44,12 +45,7 @@ function getR2Cfg() {
     }
     return null;
   }
-  const client = new S3Client({
-    region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
-  });
+  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey });
   return { client, bucket };
 }
 
