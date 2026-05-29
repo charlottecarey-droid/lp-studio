@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { type BrandConfig, headingColorVarForBg, pickCtaButtonColors } from "@/lib/brand-config";
+import { type BrandConfig, headingColorVarForBg, pickCtaButtonColors, pickOutlineButtonColors } from "@/lib/brand-config";
 import type { DandyCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -24,6 +24,11 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
   // section bg is itself the brand accent or primary. Resolve runtime
   // colors with a WCAG contrast guard so the button is always visible.
   const ctaColors = pickCtaButtonColors(brand, bg);
+  // The secondary/outline button used to hardcode
+  // `border-[var(--brand-primary)] text-[var(--brand-primary)]`, which goes
+  // invisible when the section bg is itself the brand primary. Derive a
+  // contrasting border + text color from the section bg instead.
+  const outlineColors = pickOutlineButtonColors(brand, bg);
 
   const field = (key: keyof DandyCtaBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -121,7 +126,8 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange, pageId, varian
               ctaUrl={props.secondaryCtaUrl}
               chilipiperUrl={props.secondaryChilipiperUrl}
               {...modalCfg}
-              className="border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] font-semibold px-10 py-4 rounded-xl text-base hover:bg-[var(--brand-primary)] hover:text-white transition-all"
+              className="border-2 font-semibold px-10 py-4 rounded-xl text-base hover:opacity-80 transition-all"
+              style={{ borderColor: outlineColors.border, color: outlineColors.text }}
               brand={brand}
               pageId={pageId}
               variantId={variantId}
