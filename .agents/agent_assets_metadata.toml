@@ -167,3 +167,21 @@ id = "4GPxBUrDuvUpUC5uwCAom"
 uri = "file://docs/packaging/pricing-5-tier-implementation-plan.md"
 type = "text"
 title = "5-Tier Pricing + Gate Enforcement — Implementation Plan"
+
+[[outputs]]
+id = "tqCd_G-1AodMsyQBbpCni"
+uri = "file://attached_assets/dandy-dentures/dandy-live-communication-2-column.png"
+type = "image"
+title = "Dandy Live Communication"
+
+[[outputs]]
+id = "nTAXZjr46AsmpMtqeaYh8"
+uri = "file://attached_assets/dandy-dentures/Zig-Zag-5.1_1296x880@2x.png"
+type = "image"
+title = "Zig-Zag 5.1 (2x)"
+
+[[outputs]]
+id = "OT6iTvotVHaFVp8rw9ThG"
+uri = "file://attached_assets/dandy-dentures/dandy-dentures-dentist-arch.jpg"
+type = "image"
+title = "Dandy Dentures Dentist Arch"
