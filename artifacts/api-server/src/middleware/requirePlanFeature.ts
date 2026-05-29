@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { getTenantPlan, type PlanFeatures } from "../lib/planFeatures";
-import { getPlanFeaturesMap } from "../lib/planConfig";
+import { getTenantPlan } from "../lib/planFeatures";
+import { getPlanConfig } from "../lib/planConfig";
+import { featureUpgradeBody, type BooleanFeatureKey } from "../lib/planGate";
 
 /**
  * Plan-tier feature gate. Returns 402 Payment Required when the active
@@ -27,21 +28,16 @@ import { getPlanFeaturesMap } from "../lib/planConfig";
  * The 402 response shape is intentionally machine-readable so the
  * client can show an upgrade CTA instead of a generic error toast.
  */
-export function requirePlanFeature(feature: keyof PlanFeatures) {
+export function requirePlanFeature(feature: BooleanFeatureKey) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const user = req.authUser;
     if (!user) return next();
     if (user.appUserRole === "superadmin") return next();
     try {
       const plan = await getTenantPlan(user.tenantId);
-      const featuresMap = await getPlanFeaturesMap();
-      if (featuresMap[plan][feature]) return next();
-      res.status(402).json({
-        error: "plan_upgrade_required",
-        feature,
-        plan,
-        message: `Your current plan does not include ${feature}.`,
-      });
+      const config = await getPlanConfig();
+      if (config[plan].features[feature]) return next();
+      res.status(402).json(featureUpgradeBody(feature, plan, config));
     } catch (err) {
       console.error("[requirePlanFeature] lookup failed:", err);
       // Fail closed — refusing a paid feature on a DB blip is better

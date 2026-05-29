@@ -3,8 +3,9 @@ import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
-import { PLANS, normalizePlan, getTenantPlanFeatures, type Plan } from "../lib/planFeatures";
+import { PLANS, normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures, getPlanFeaturesMap, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
+import { capUpgradeBody } from "../lib/planGate";
 import { PLAN_CONFIG } from "@workspace/plan-config";
 import {
   validateDomain,
@@ -1195,8 +1196,9 @@ router.post("/members", async (req, res): Promise<void> => {
   // teammate to any workspace regardless of plan.
   if (req.authUser?.appUserRole !== "superadmin") {
     try {
-      const { plan, features } = await getTenantPlanFeatures(req.authUser!.tenantId);
-      const cap = features.limits.userSeats;
+      const plan = await getTenantPlan(req.authUser!.tenantId);
+      const config = await getPlanConfig();
+      const cap = config[plan].features.limits.userSeats;
       if (cap !== null) {
         const countRow = await pool.query<{ n: string }>(
           `SELECT COUNT(*)::text AS n FROM tenant_members WHERE tenant_id = $1`,
@@ -1204,14 +1206,7 @@ router.post("/members", async (req, res): Promise<void> => {
         );
         const current = Number(countRow.rows[0]?.n ?? 0);
         if (current >= cap) {
-          res.status(402).json({
-            error: "plan_upgrade_required",
-            feature: "userSeats",
-            plan,
-            limit: cap,
-            current,
-            message: `Your ${plan} plan is limited to ${cap} user seats. Upgrade to invite more.`,
-          });
+          res.status(402).json(capUpgradeBody("userSeats", current, cap, plan, config));
           return;
         }
       }

@@ -8,6 +8,7 @@ import { logger } from "../../lib/logger";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
+import { requireAiGenerationQuota } from "../../middleware/requireAiGenerationQuota";
 import { maybeMultiPageScrapeRef, maybeScrapeRef, type MaybeScrapeResult } from "./firecrawl";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
@@ -1719,7 +1720,7 @@ function logAiGeneration(row: {
   });
 }
 
-router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
+router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
   const { prompt, segmentContext, templateId, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;

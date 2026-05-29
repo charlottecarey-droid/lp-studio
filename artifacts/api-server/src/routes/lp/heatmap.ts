@@ -2,6 +2,13 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { lpHeatmapEventsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { getTenantPlan } from "../../lib/planFeatures";
+import { getPlanConfig } from "../../lib/planConfig";
+import { capUpgradeBody } from "../../lib/planGate";
+import {
+  resolveTenantIdForPage,
+  countTenantHeatmapSessionsThisMonth,
+} from "../../lib/heatmapUsage";
 
 const router = Router();
 
@@ -19,6 +26,38 @@ router.post("/lp/heatmap", async (req, res): Promise<void> => {
 
     // Cap batch size to prevent abuse
     const batch = events.slice(0, 200);
+
+    // Plan-tier heatmap session-quota gate (`heatmapSessionsPerMonth`).
+    // This is a public, visitor-facing collector — the tenant is resolved via
+    // the page the batch belongs to (collector batches are per page-load, so
+    // all events share a pageId). Once the tenant has hit its monthly distinct-
+    // session cap, the whole batch is dropped with the shared structured 402;
+    // the browser collector ignores the response. Best-effort on this hot path:
+    // any error fails OPEN (records the events) rather than 503-ing visitors.
+    const firstPageId = batch
+      .map((e: Record<string, unknown>) => Number(e.pageId))
+      .find((id) => Number.isFinite(id));
+    if (firstPageId != null) {
+      try {
+        const tenantId = await resolveTenantIdForPage(firstPageId);
+        if (tenantId != null) {
+          const plan = await getTenantPlan(tenantId);
+          const config = await getPlanConfig();
+          const cap = config[plan].features.limits.heatmapSessionsPerMonth;
+          if (cap !== null) {
+            const current = await countTenantHeatmapSessionsThisMonth(tenantId);
+            if (current >= cap) {
+              res
+                .status(402)
+                .json(capUpgradeBody("heatmapSessionsPerMonth", current, cap, plan, config));
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[lp/heatmap] session-quota check failed (failing open):", err);
+      }
+    }
 
     const rows = batch.map((e: Record<string, unknown>) => ({
       pageId: Number(e.pageId),

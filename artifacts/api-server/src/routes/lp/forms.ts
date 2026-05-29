@@ -5,7 +5,9 @@ import { db } from "@workspace/db";
 import { lpFormsTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
-import { getTenantPlanFeatures } from "../../lib/planFeatures";
+import { getTenantPlan } from "../../lib/planFeatures";
+import { getPlanConfig } from "../../lib/planConfig";
+import { capUpgradeBody } from "../../lib/planGate";
 
 const router = Router();
 
@@ -29,22 +31,16 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
   // Task #407 — plan-tier form-count gate. Superadmin bypass.
   if (req.authUser?.appUserRole !== "superadmin") {
     try {
-      const { plan, features } = await getTenantPlanFeatures(tenantId);
-      const cap = features.limits.forms;
+      const plan = await getTenantPlan(tenantId);
+      const config = await getPlanConfig();
+      const cap = config[plan].features.limits.forms;
       if (cap !== null) {
         const countRow = await db.execute(
           sql`SELECT COUNT(*)::int AS n FROM lp_forms WHERE tenant_id = ${tenantId}`,
         );
         const current = Number((countRow.rows[0] as { n: number } | undefined)?.n ?? 0);
         if (current >= cap) {
-          res.status(402).json({
-            error: "plan_upgrade_required",
-            feature: "forms",
-            plan,
-            limit: cap,
-            current,
-            message: `Your ${plan} plan is limited to ${cap} forms. Upgrade to add more.`,
-          });
+          res.status(402).json(capUpgradeBody("forms", current, cap, plan, config));
           return;
         }
       }

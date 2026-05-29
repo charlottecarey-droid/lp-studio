@@ -134,8 +134,12 @@ describe("requirePlanFeature — /sales gate", () => {
     const body = await res.json();
     expect(body).toMatchObject({
       error: "plan_upgrade_required",
-      feature: "salesConsole",
-      plan: "starter",
+      gate: "salesConsole",
+      currentUsage: null,
+      cap: null,
+      currentPlan: "starter",
+      minimumPlanWithFeature: "growth",
+      upgradeUrl: "/settings/billing",
     });
   });
 

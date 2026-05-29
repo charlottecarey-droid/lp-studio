@@ -6,7 +6,9 @@ import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable, salesAccountsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
-import { getTenantPlanFeatures } from "../../lib/planFeatures";
+import { getTenantPlan } from "../../lib/planFeatures";
+import { getPlanConfig } from "../../lib/planConfig";
+import { capUpgradeBody } from "../../lib/planGate";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
@@ -444,8 +446,9 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   // marketing surface, not the tenant's own marketing output.
   if (req.authUser?.appUserRole !== "superadmin") {
     try {
-      const { plan, features } = await getTenantPlanFeatures(tenantId);
-      const cap = features.limits.pages;
+      const plan = await getTenantPlan(tenantId);
+      const config = await getPlanConfig();
+      const cap = config[plan].features.limits.pages;
       if (cap !== null) {
         const countRow = await pool.query<{ count: string }>(
           `SELECT COUNT(*)::text AS count FROM lp_pages
@@ -454,14 +457,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         );
         const current = Number(countRow.rows[0]?.count ?? 0);
         if (current >= cap) {
-          res.status(402).json({
-            error: "plan_upgrade_required",
-            feature: "pages",
-            plan,
-            limit: cap,
-            current,
-            message: `Your ${plan} plan is limited to ${cap} pages. Upgrade to add more.`,
-          });
+          res.status(402).json(capUpgradeBody("pages", current, cap, plan, config));
           return;
         }
       }
