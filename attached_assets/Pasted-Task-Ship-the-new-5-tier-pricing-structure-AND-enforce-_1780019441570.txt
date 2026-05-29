@@ -1,0 +1,259 @@
+Task: Ship the new 5-tier pricing structure AND enforce every gate in the marketing feature map
+Context
+Marketing has shipped a 5-tier pricing structure at artifacts/lp-studio/src/marketing/components/Pricing.tsx — see FEATURE_MAP (45 rows across 7 groups) and ENTERPRISE_FEATURES (11 items). The codebase has the old 3-tier setup with enforcement on only 3 gates: page count, Sales Console access, AI image generation.
+Close the entire gap in one ship:
+
+Move FEATURE_MAP into a shared library so marketing + backend both import from one place.
+Create Stripe products for the 4 paid tiers (Free is no-Stripe-product, Enterprise is sales-assist).
+Update planFeatures.ts to the 5-tier structure, derived from FEATURE_MAP.
+Build the missing enforcement for every gate marketing claims, prioritized by user-facing impact.
+Update the in-app upgrade UI to show 5 tiers and surface upgrade prompts on gate hits.
+Add observability so we can spot drift between marketing claims and code enforcement post-launch.
+
+Before writing any code, please:
+
+Find and show me:
+
+artifacts/api-server/src/lib/planFeatures.ts — current plan-features matrix
+artifacts/api-server/src/lib/stripePlanMapping.ts — Stripe lookup-key → plan mapping
+artifacts/lp-studio/src/lib/plan-features.ts (if exists) — frontend mirror
+Stripe webhook handlers in artifacts/api-server/src/routes/
+Any existing requirePlanFeature / requirePlan / similar enforcement middlewares
+The badge-injection code path in injectPageMeta.ts (per the audit, the badge conditional may be missing)
+
+
+Produce the audit table. This is the gate before any code gets written. For every row in FEATURE_MAP + every item in ENTERPRISE_FEATURES:
+Feature row (from Pricing.tsx)Tier values (Free / Starter / Growth / Scale / Enterprise)Enforced today? Where?GapActive landing pages1 / 10 / ∞ / ∞ / ∞✓ partial — /lp/pages POST handler caps Starter at 5 (outdated)Update Starter cap from 5 → 10, add Free cap of 1Forms1 / 5 / ∞ / ∞ / ∞✗ not enforcedAdd count check on /lp/forms POSTUser seats1 / 3 / 10 / 25 / ∞✗ not enforcedAdd count check on tenant-member-invite routeAI copy generations / month30 / 200 / ∞ / ∞ / ∞✗ — only per-minute rate limit, no monthly quotaNew ai_usage_counters table + monthly cap check(... one row per FEATURE_MAP entry + ENTERPRISE_FEATURES)
+Wait for my approval of the audit table before any code changes. The audit IS the scoping — I'll mark which gaps to enforce in this PR vs. which to defer.
+Propose the per-phase implementation plan. Wait for my OK before implementing.
+
+
+Phase 1 — Move FEATURE_MAP into a shared library
+Create lib/plan-features/src/feature-map.ts (or extend lib/db if more appropriate). Export:
+tsexport type PlanKey = "free" | "starter" | "growth" | "scale" | "enterprise";
+
+export interface FeatureRow {
+  id: string;                                  // stable lookup key, snake_case from `feature` name
+  feature: string;                             // display text shown in marketing map
+  group: string;                               // group label (Build, Sales Console, etc.)
+  values: Record<PlanKey, boolean | number | string>;
+  note?: string;
+}
+
+export const FEATURE_MAP: { group: string; rows: FeatureRow[] }[] = [
+  // Ported verbatim from artifacts/lp-studio/src/marketing/components/Pricing.tsx
+  // Plus Enterprise column added as a 5th tier (everything-true superset).
+];
+
+export const ENTERPRISE_FEATURES = [/* ported from Pricing.tsx */];
+
+/** Look up a feature row by its stable id. */
+export function getFeatureRow(id: string): FeatureRow | undefined;
+
+/** Returns true/false for binary features; numeric cap (or Infinity) for numeric features. */
+export function hasFeature(plan: PlanKey, featureId: string): boolean;
+export function getCap(plan: PlanKey, featureId: string): number; // Infinity for unlimited
+Wire it up:
+
+artifacts/lp-studio/src/marketing/components/Pricing.tsx imports FEATURE_MAP from the new lib (replacing the local constant).
+artifacts/api-server/src/lib/planFeatures.ts imports the same FEATURE_MAP and derives its existing PLAN_FEATURES matrix from it.
+artifacts/lp-studio/src/lib/plan-features.ts (frontend mirror) imports from the new lib.
+
+After Phase 1: changing a cap in FEATURE_MAP flows automatically to marketing + backend + frontend. Single source of truth.
+
+Phase 2 — Create Stripe products + prices
+For each of Starter, Growth, Scale, create:
+
+One Stripe Product named LP Studio — {Tier}
+Two Stripe Prices per product: monthly recurring + annual recurring (billed monthly at the discounted rate)
+
+Pricing (per cardTiers in Pricing.tsx):
+TierMonthlyAnnual (per month)Annual totalStarter$59$49$588/yrGrowth$249$199$2,388/yrScale$649$499$5,988/yr
+Use Stripe lookup_keys per the existing pattern in stripePlanMapping.ts. Add new keys:
+tsexport const LOOKUP_KEYS = {
+  starterMonthly: "starter_monthly",
+  starterAnnual:  "starter_annual",
+  growthMonthly:  "growth_monthly",     // existing
+  growthAnnual:   "growth_annual",      // existing
+  scaleMonthly:   "scale_monthly",
+  scaleAnnual:    "scale_annual",
+} as const;
+Archive any legacy growth_* prices from the old $119 era — no grandfathering needed (no paying customers).
+Update the seed script at scripts/src/seed-stripe-products.ts to create all 6 prices idempotently. Test in Stripe test mode first; only after validation, swap env vars and re-seed in live mode.
+
+Phase 3 — Update planFeatures.ts to the new 5-tier structure
+Restructure the Plan type and PLAN_FEATURES map:
+tsexport type Plan = "free" | "starter" | "growth" | "scale" | "enterprise";
+Update normalizePlan so:
+
+Unknown / null / undefined → "free" (safest default for new signups)
+Legacy "trial" and "business" → still map to "growth" (preserve backward-compat note from existing file)
+Legacy "pro" → still maps to "enterprise"
+Add "scale" as a recognized value
+
+Update PLAN_FEATURES to derive from the new shared FEATURE_MAP library. Each tier's features come from the FEATURE_MAP rows. Add fields to the PlanFeatures interface for every binary feature in the map (not just the 3 currently enforced). Example shape after refactor:
+tsexport interface PlanFeatures {
+  // Enforced today
+  salesConsole: boolean;
+  aiImageGen: boolean;
+  customDomain: boolean;
+
+  // New flags from FEATURE_MAP (some enforced in Phase 4, others data-only)
+  brandSystem: boolean;
+  customBlocks: boolean;
+  multiWorkspace: boolean;
+  programmaticPages: boolean;
+  smartSections: boolean;
+  tokenBasedExternalReview: boolean;
+  smartTrafficRouting: boolean;
+  conversionScoring: boolean;
+  multivariateTesting: boolean;
+  vanityShortLinks: boolean;
+  partnerMicrosites: boolean;
+  scheduledPublish: boolean;
+  reviewWorkflow: boolean;
+  sso: boolean;
+  ssoSaml: boolean;
+  soc2Report: boolean;
+  dpaMsa: boolean;
+  customDataResidency: boolean;
+  slaUptime: boolean;
+  dedicatedCSM: boolean;
+
+  // Numeric caps from FEATURE_MAP
+  limits: {
+    pages: number;                  // Infinity = unlimited
+    forms: number;
+    userSeats: number;
+    aiGenerationsPerMonth: number;
+    heatmapSessionsPerMonth: number;
+  };
+}
+Verify the quick check matrix below after the refactor:
+
+getCap("free", "pages") === 1
+getCap("starter", "pages") === 10
+getCap("growth" | "scale" | "enterprise", "pages") === Infinity
+hasFeature("growth", "salesConsole") === true
+hasFeature("scale", "multiWorkspace") === true
+hasFeature("enterprise", "aiImageGen") === true
+hasFeature("scale", "aiImageGen") === false
+hasFeature("scale", "ssoSaml") === false
+
+Mirror the same matrix in any frontend plan-features file.
+
+Phase 4 — Build the missing enforcement, prioritized
+Priority order is what most affects cost + user trust. Ship P0 + P1 in this PR; P2 can be data-only flags surfaced in UI but not strictly enforced.
+P0 — must enforce (cost risk + free-tier abuse vector):
+
+AI generation monthly quota. Today ai-rate-limit.ts does per-minute and per-hour caps but no monthly. Add lp_ai_usage_counters table (tenant_id, month_yyyymm, count). Wrap runBrandAwareCompletion (or whichever wrapper hosts AI text calls) to increment + check vs getCap(plan, "ai_copy_monthly"). 402 with quota_exceeded when capped. Reset on the 1st of each month (cron or lazy-on-read).
+Heatmap session metering per tier. Today /lp/heatmap accepts unlimited sessions. Add lp_heatmap_session_counters table tracking unique sessions per tenant per month. Reject new heatmap events once cap is hit (drop silently with 200 to avoid client errors). Caps from FEATURE_MAP: 1K / 5K / 25K / 100K / unlimited.
+"Built with LP Studio" badge — conditional render. The badge HTML exists in injectPageMeta.ts. Make it render only when hasFeature(tenantPlan, "lpStudioBadge") === true (Free tier only — per FEATURE_MAP, badge is hidden on Starter+). Today the conditional may not exist; fix it.
+
+P1 — should enforce (sales-cycle risk):
+
+Form count cap. Add count check on form-create route. Caps: 1 / 5 / ∞ / ∞ / ∞.
+User seat cap. Add count check on tenant-member-invite route. Caps: 1 / 3 / 10 / 25 / ∞.
+Page count cap update. Existing gate enforces Starter at 5; update to Free=1, Starter=10, rest unlimited.
+Custom domain gate. Verify existing requirePlanFeature("customDomain") is correctly gating on Starter+ (Free can't, Starter+ can).
+
+P2 — data-only, surface in UI but no strict enforcement yet:
+
+Multi-workspace, custom blocks, programmatic pages, smart sections, token-based external review, multivariate testing, smart traffic routing, conversion scoring, vanity short links, partner microsites, scheduled publish, review workflow, SSO/SAML, SOC 2, DPA/MSA, custom data residency, SLA, dedicated CSM. These get stored as PlanFeatures flags so the in-app UI can show locked-feature states + upgrade prompts, but we don't add new middleware for them. If a user finds a way to use these features without the gate enforcement, they're getting a free preview — acceptable risk at current scale.
+
+
+Phase 5 — Update Stripe webhook + plan resolution
+Update stripePlanMapping.ts:
+tsexport function planForLookupKey(lookupKey: string | null | undefined): Plan | null {
+  switch (lookupKey) {
+    case LOOKUP_KEYS.starterMonthly:
+    case LOOKUP_KEYS.starterAnnual:
+      return "starter";
+    case LOOKUP_KEYS.growthMonthly:
+    case LOOKUP_KEYS.growthAnnual:
+      return "growth";
+    case LOOKUP_KEYS.scaleMonthly:
+    case LOOKUP_KEYS.scaleAnnual:
+      return "scale";
+    default:
+      return null;
+  }
+}
+
+export function lookupKeyFor(
+  plan: "starter" | "growth" | "scale",
+  cadence: "monthly" | "annual"
+): StripeLookupKey { /* ... handle all 3 */ }
+The Stripe webhook handler that listens for customer.subscription.updated / customer.subscription.deleted should:
+
+Use planForLookupKey to resolve the subscription's first item's lookup_key to a Plan.
+Update tenants.plan accordingly.
+Handle downgrades cleanly (e.g., Scale → Growth: keep Sales Console, lose multi-workspace).
+Handle cancellation cleanly (drop to free).
+
+
+Phase 6 — Update the in-app upgrade UI + structured 402 responses
+Billing settings page (find under artifacts/lp-studio/src/pages/ — likely billing.tsx or similar): show all 5 tiers using the new pricing, with the user's current tier highlighted. Upgrade buttons trigger Stripe Checkout with the appropriate lookupKeyFor(targetPlan, cadence). Downgrade buttons trigger subscription update via Stripe. Cancellation drops to Free.
+Structured 402 response shape — every new gate firing returns:
+json{
+  "error": "plan_quota_exceeded",
+  "gate": "forms_count",
+  "currentUsage": 5,
+  "cap": 5,
+  "currentPlan": "starter",
+  "minimumPlanWithFeature": "growth",
+  "upgradeUrl": "/billing/upgrade?from=starter&trigger=forms_count"
+}
+In-product upgrade prompt (<PlanUpgradePrompt /> component): a reusable modal that catches 402s with this shape and renders "You've hit your Starter cap of 5 forms. Upgrade to Growth for unlimited forms. [Upgrade]". Build once, reuse across all gates.
+
+Phase 7 — Telemetry + observability
+Log every gate-check call with structured fields:
+tslogger.info("plan_gate_check", {
+  tenant_id, brand_id, plan, gate_id,
+  action: "page_create" | "form_create" | "ai_generation" | ...,
+  current_usage, cap, decision: "allow" | "deny",
+});
+Add /api/internal/usage/:tenantId (admin-only) returning current usage + caps for the tenant across all metered gates. Used for support + your own debugging.
+Sentry alerts:
+
+plan_gate_misconfigured (error): a 402 fired but the response shape was malformed (e.g., missing gate field)
+feature_map_drift_detected (warning): a feature exists in FEATURE_MAP but no corresponding flag in PlanFeatures (or vice versa)
+
+
+Cross-cutting
+
+Backward compat: existing tenants on growth continue to work (the legacy "trial" / "business" normalization stays). Dandy enterprise tenants are completely unaffected.
+No new dependencies, no schema migrations beyond: lp_ai_usage_counters, lp_heatmap_session_counters, and additive columns where needed.
+Free-tier hardening: verify with adversarial testing — spin up 5 fresh free accounts, try to burn 30 AI generations each, confirm caps fire correctly.
+All caps live in feature-map.ts only. Hardcoded numbers in route handlers are a regression — flag any you find.
+
+
+Test plan
+Run all of these end-to-end in Stripe test mode before going live:
+
+New signup → Free: fresh tenant via Google OAuth, confirm plan === "free", confirm 1-page cap fires on 2nd page creation, confirm "Built with LP Studio" badge renders on published pages.
+Free → Starter upgrade: in-app billing page, click "Upgrade to Starter," complete Stripe Checkout with test card. Confirm plan === "starter" after webhook, confirm 10-page cap now applies, confirm badge gone.
+Free → Growth upgrade: same flow, confirm Sales Console becomes accessible.
+Free → Scale upgrade: same flow, confirm multi-workspace UI affordances appear.
+Scale → Growth downgrade: confirm plan === "growth" after webhook, confirm Sales Console still works, confirm multi-workspace UI now shows "upgrade to Scale" instead.
+Cancel subscription: confirm drop to free, confirm appropriate caps return.
+Free-tier abuse: spin up 3 fresh Free accounts. From each: try page #2 (402), form #2 (402), seat #2 (402), AI gen #31 (402), heatmap session #1001 (drop silently). All gates fire correctly.
+Dandy enterprise smoke test: hit a few existing Dandy tenant pages — confirm no 402s, Sales Console works, AI image gen accessible. They're unaffected by all this work.
+Structured 402 response shape: every new gate's 402 includes the structured fields needed for <PlanUpgradePrompt />.
+
+Show me the structured logs + test outputs for all 9.
+
+Quality bar (when to ship)
+
+6 new Stripe price IDs created in test mode, validated end-to-end, then re-seeded in live mode.
+FEATURE_MAP lives in the shared library; marketing + backend + frontend all import from it.
+planFeatures.ts derives from the shared FEATURE_MAP; all quick-check matrix items pass.
+All P0 gates enforce correctly: AI monthly quota, heatmap session metering, badge conditional.
+All P1 gates enforce correctly: form count, seat cap, updated page count.
+All P2 flags stored in PlanFeatures (data only, surface in UI as locked states).
+All 9 test scenarios pass.
+Dandy enterprise tenants show no regression.
+Free-tier abuse adversarial test passes.
+Sentry observability + /api/internal/usage/:tenantId endpoint working.
+
+Don't ship if any tenant's plan changes without explicit user-initiated upgrade. Don't ship if Dandy regresses. Don't ship if Free-tier accounts can violate caps. Don't ship if any P0 gate produces a 500 instead of a structured 402.
