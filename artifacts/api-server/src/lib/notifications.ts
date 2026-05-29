@@ -372,6 +372,160 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
   }
 }
 
+export interface PaymentFailedPayload {
+  /** Every accepted workspace admin gets the same email. */
+  recipientEmails: string[];
+  tenantName: string;
+  /** Link to the in-app Billing page where the card can be updated. */
+  billingUrl: string;
+  /** Stripe `attempt_count` for this invoice (1-based). */
+  attemptCount: number;
+  /** True once Stripe has exhausted its retries (no further attempt). */
+  finalAttempt: boolean;
+  /** Invoice amount due, in the smallest currency unit (e.g. cents). */
+  amountDue: number | null;
+  currency: string | null;
+  /** Last 4 of the card on file, if known. */
+  cardLast4?: string | null;
+  fromEmail?: string;
+}
+
+/**
+ * Dunning email — sent on every `invoice.payment_failed` Stripe event so a
+ * tenant's workspace admins learn their renewal charge failed within minutes
+ * and can fix the card before the subscription is cancelled.
+ *
+ * Returns true if Resend accepted the message, false otherwise (including
+ * "no API key configured" / "no recipients").
+ */
+export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Promise<boolean> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn("RESEND_API_KEY not set — skipping payment-failed email");
+    return false;
+  }
+  const recipients = payload.recipientEmails.filter((e) => e && e.includes("@"));
+  if (recipients.length === 0) {
+    logger.warn({ tenantName: payload.tenantName }, "payment-failed email has no recipients — skipping");
+    return false;
+  }
+
+  const { tenantName, billingUrl, attemptCount, finalAttempt, amountDue, currency, cardLast4 } = payload;
+  // Per the slug-expiry precedent: always send from the verified platform
+  // sender, never a per-tenant domain (most tenant domains aren't verified
+  // with Resend, which would hard-bounce the one email that matters most).
+  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+
+  const amountText =
+    amountDue != null && currency
+      ? (amountDue / 100).toLocaleString(undefined, {
+          style: "currency",
+          currency: currency.toUpperCase(),
+          maximumFractionDigits: 2,
+        })
+      : null;
+  const cardText = cardLast4 ? `the card ending in ${escapeHtml(cardLast4)}` : "your card on file";
+
+  const headline = finalAttempt
+    ? `Action needed: your ${escapeHtml(tenantName)} subscription payment failed`
+    : `We couldn't process your ${escapeHtml(tenantName)} payment`;
+  const intro = finalAttempt
+    ? `We tried charging ${cardText}${amountText ? ` for ${amountText}` : ""} and the payment didn't go through. This was the final automatic attempt, so your paid plan has now been paused. Update your payment method to restore access.`
+    : `We tried charging ${cardText}${amountText ? ` for ${amountText}` : ""} and it was declined. We'll retry automatically, but you can avoid any interruption by updating your payment method now.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
+          <tr>
+            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
+              <div style="margin-bottom:20px">
+                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
+                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
+                </span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 40px">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+                ${intro}
+              </p>
+
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 28px;width:100%">
+                <tr>
+                  <td style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 16px">
+                    <div style="font-size:12px;color:#991b1b;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Payment failed${attemptCount > 1 ? ` · attempt ${attemptCount}` : ""}</div>
+                    <div style="font-size:14px;color:#991b1b">${amountText ? `${amountText} could not be charged to ${cardText}.` : `${cardText.charAt(0).toUpperCase()}${cardText.slice(1)} was declined.`}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(billingUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      Update payment method →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
+                Once your payment goes through, your plan stays active with no further action needed.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const subject = finalAttempt
+    ? `Your ${tenantName} subscription was paused — payment failed`
+    : `Payment failed for ${tenantName} — update your card`;
+
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: payload.fromEmail ?? fromAddress,
+        to: recipients,
+        subject,
+        html,
+      }),
+    });
+    logger.info({ tenantName, recipients, attemptCount, finalAttempt }, "Payment-failed email sent");
+    return true;
+  } catch (err) {
+    logger.error({ err, tenantName, recipients }, "Failed to send payment-failed email");
+    return false;
+  }
+}
+
 export interface LeadPayload {
   leadId: number;
   pageId: number;

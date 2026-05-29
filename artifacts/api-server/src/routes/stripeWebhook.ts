@@ -26,6 +26,7 @@ import { pool } from "@workspace/db";
 import { getStripe, getStripeSync, getWebhookSecret, StripeNotConfiguredError } from "../lib/stripeClient";
 import { normalizePlan, type Plan } from "../lib/planFeatures";
 import { planForLookupKey, cadenceForLookupKey, isSelfServePaidPlan } from "../lib/stripePlanMapping";
+import { sendPaymentFailedEmail } from "../lib/notifications";
 import { logger } from "../lib/logger";
 import type Stripe from "stripe";
 
@@ -34,6 +35,54 @@ interface TenantStripeRow {
   plan: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+}
+
+interface TenantBillingContactRow {
+  id: number;
+  name: string | null;
+  domain: string | null;
+  stripe_payment_last4: string | null;
+}
+
+/**
+ * Resolve the billing-contact info we need to send a dunning email: the
+ * tenant's display name, the host its workspace lives on (for the deep link
+ * to the in-app Billing page), the card last4 we last snapshotted, and the
+ * set of accepted workspace-admin emails. Returns null when the tenant or
+ * its admins can't be resolved (caller logs + skips the email).
+ */
+async function loadDunningRecipients(
+  tenantId: number,
+): Promise<{ tenantName: string; billingUrl: string; cardLast4: string | null; emails: string[] } | null> {
+  const tRes = await pool.query<TenantBillingContactRow>(
+    `SELECT id, name, domain, stripe_payment_last4 FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  const tenant = tRes.rows[0];
+  if (!tenant) return null;
+
+  const aRes = await pool.query<{ email: string }>(
+    `SELECT lower(tm.email) AS email
+       FROM tenant_members tm
+       JOIN tenant_roles tr ON tr.id = tm.role_id
+      WHERE tm.tenant_id = $1
+        AND tr.is_admin = true
+        AND tm.accepted_at IS NOT NULL
+        AND tm.email IS NOT NULL AND tm.email <> ''
+      ORDER BY tm.accepted_at ASC`,
+    [tenantId],
+  );
+  const emails = Array.from(new Set(aRes.rows.map((r) => r.email).filter(Boolean)));
+
+  // Deep-link to the tenant's own host when we have one; otherwise fall back
+  // to the canonical app host (mirrors customDomainPoller's settings link).
+  const host = tenant.domain && tenant.domain !== "localhost" ? tenant.domain : "app.lpstudio.ai";
+  return {
+    tenantName: tenant.name ?? "your workspace",
+    billingUrl: `https://${host}/settings/billing`,
+    cardLast4: tenant.stripe_payment_last4,
+    emails,
+  };
 }
 
 async function findTenantByCustomer(customerId: string): Promise<TenantStripeRow | null> {
@@ -240,6 +289,23 @@ async function applyPlanFromSubscription(
  * Idempotent: re-running on the same event (or a redelivery) re-issues the
  * same UPDATE — no harm if the tenant is already on starter.
  */
+// Best-effort guard against sending duplicate dunning emails when Stripe
+// redelivers the same invoice.payment_failed event within this process. Not
+// cross-process/persistent (that would need a schema change); the email send
+// is time-bounded below so the 2xx stays fast and redelivery is rare anyway.
+const DUNNING_EMAIL_TIMEOUT_MS = 5_000;
+const DUNNING_DEDUPE_MAX = 500;
+const recentDunningEventIds = new Set<string>();
+function shouldSendDunning(eventId: string): boolean {
+  if (recentDunningEventIds.has(eventId)) return false;
+  recentDunningEventIds.add(eventId);
+  if (recentDunningEventIds.size > DUNNING_DEDUPE_MAX) {
+    const oldest = recentDunningEventIds.values().next().value;
+    if (oldest !== undefined) recentDunningEventIds.delete(oldest);
+  }
+  return true;
+}
+
 async function handleInvoicePaymentFailed(
   event: Stripe.Event,
   stripe: Stripe,
@@ -259,51 +325,87 @@ async function handleInvoicePaymentFailed(
     "[stripe][webhook] invoice.payment_failed",
   );
 
-  if (!finalAttempt || !customerId) return;
+  if (!customerId) return;
   const tenant = await findTenantByCustomer(customerId);
   if (!tenant) {
-    logger.warn({ eventId: event.id, customerId }, "[stripe][webhook] payment_failed final attempt: no tenant for customer");
+    logger.warn({ eventId: event.id, customerId }, "[stripe][webhook] payment_failed: no tenant for customer");
     return;
   }
-  // Re-fetch the subscription so applyPlanFromSubscription sees the latest
-  // status (Stripe usually flips it to `unpaid` or `canceled` simultaneous
-  // with the final failed attempt). resolvePlanFromSubscription downgrades
-  // any non-active status to the FREE floor.
-  const subIdRaw = (inv as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null }).subscription
-    ?? tenant.stripe_subscription_id;
-  const subId = typeof subIdRaw === "string" ? subIdRaw : subIdRaw?.id ?? null;
-  if (!subId) {
-    // No subscription on the invoice — direct DB downgrade as a fallback.
-    // Must land on `free`, NOT `starter` — `starter` is now a paid tier, so
-    // a tenant whose payment finally failed must not be parked there gratis.
-    await pool.query(
-      `UPDATE tenants
-          SET plan                       = 'free',
-              stripe_subscription_status = 'unpaid',
-              updated_at                 = now()
-        WHERE id = $1`,
-      [tenant.id],
-    );
-    console.info(
-      "[admin][audit] tenant.plan.changed",
-      JSON.stringify({
-        tenantId: tenant.id,
-        fromRaw: tenant.plan,
-        fromCanonical: normalizePlan(tenant.plan),
-        to: "free",
-        source: "stripe_webhook",
-        sourceSubtype: "dunning_final_attempt",
-        stripeEventId: event.id,
-        stripeInvoiceId: inv.id,
-        at: new Date().toISOString(),
-      }),
-    );
-    return;
+
+  // Critical path FIRST: on the final attempt, downgrade to the free floor
+  // before doing anything that can hang (the dunning email below). This
+  // guarantees a slow email provider can never delay revoking paid features.
+  if (finalAttempt) {
+    // Re-fetch the subscription so applyPlanFromSubscription sees the latest
+    // status (Stripe usually flips it to `unpaid` or `canceled` simultaneous
+    // with the final failed attempt). resolvePlanFromSubscription downgrades
+    // any non-active status to the FREE floor.
+    const subIdRaw = (inv as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null }).subscription
+      ?? tenant.stripe_subscription_id;
+    const subId = typeof subIdRaw === "string" ? subIdRaw : subIdRaw?.id ?? null;
+    if (!subId) {
+      // No subscription on the invoice — direct DB downgrade as a fallback.
+      // Must land on `free`, NOT `starter` — `starter` is now a paid tier, so
+      // a tenant whose payment finally failed must not be parked there gratis.
+      await pool.query(
+        `UPDATE tenants
+            SET plan                       = 'free',
+                stripe_subscription_status = 'unpaid',
+                updated_at                 = now()
+          WHERE id = $1`,
+        [tenant.id],
+      );
+      console.info(
+        "[admin][audit] tenant.plan.changed",
+        JSON.stringify({
+          tenantId: tenant.id,
+          fromRaw: tenant.plan,
+          fromCanonical: normalizePlan(tenant.plan),
+          to: "free",
+          source: "stripe_webhook",
+          sourceSubtype: "dunning_final_attempt",
+          stripeEventId: event.id,
+          stripeInvoiceId: inv.id,
+          at: new Date().toISOString(),
+        }),
+      );
+    } else {
+      const sub = await stripe.subscriptions.retrieve(subId, {
+        expand: ["items.data.price", "default_payment_method"],
+      });
+      await applyPlanFromSubscription(stripe, sub, event.id);
+    }
   }
-  const sub = await stripe.subscriptions.retrieve(subId, {
-    expand: ["items.data.price", "default_payment_method"],
-  });
-  await applyPlanFromSubscription(stripe, sub, event.id);
+
+  // Dunning email: notify every workspace admin on EACH failed attempt (not
+  // just the final one) so they can fix the card before Stripe gives up.
+  // Best-effort by design: it runs AFTER the downgrade, never throws, is
+  // de-duped per Stripe event id (guards in-process webhook redelivery), and
+  // is time-bounded so a hung provider can't stall the 2xx response (which
+  // would make Stripe retry the event and re-trigger this handler).
+  if (!shouldSendDunning(event.id)) return;
+  try {
+    const contacts = await loadDunningRecipients(tenant.id);
+    if (contacts && contacts.emails.length > 0) {
+      await Promise.race([
+        sendPaymentFailedEmail({
+          recipientEmails: contacts.emails,
+          tenantName: contacts.tenantName,
+          billingUrl: contacts.billingUrl,
+          attemptCount: inv.attempt_count ?? 1,
+          finalAttempt,
+          amountDue: inv.amount_due ?? null,
+          currency: inv.currency ?? null,
+          cardLast4: contacts.cardLast4,
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, DUNNING_EMAIL_TIMEOUT_MS)),
+      ]);
+    } else {
+      logger.warn({ eventId: event.id, tenantId: tenant.id }, "[stripe][webhook] payment_failed: no admin recipients for dunning email");
+    }
+  } catch (err) {
+    logger.error({ err, eventId: event.id, tenantId: tenant.id }, "[stripe][webhook] dunning email failed (continuing)");
+  }
 }
 
 async function handleCheckoutCompleted(

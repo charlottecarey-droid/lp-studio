@@ -332,8 +332,38 @@ function CurrentPlanCard({
 }) {
   const copy = planCopy(summary.plan);
   const sub = summary.stripe.subscription;
+  const isPastDue = sub?.status === "past_due" || sub?.status === "unpaid";
   return (
     <Card className="p-6 space-y-4">
+      {isPastDue && (
+        <div
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-start gap-3"
+          data-testid="payment-failed-banner"
+        >
+          <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+          <div className="space-y-2 min-w-0">
+            <div className="space-y-0.5">
+              <p className="font-medium text-destructive">Your last payment failed</p>
+              <p className="text-sm text-destructive/90">
+                We couldn't charge {formatPaymentMethod(summary.stripe.paymentMethod)}. Update your
+                payment method to keep your plan active — we'll retry the charge automatically.
+              </p>
+            </div>
+            {summary.stripe.customerId && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onOpenPortal}
+                disabled={portalDisabled || portalBusy}
+                data-testid="payment-failed-update-button"
+              >
+                {portalBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CreditCard className="w-4 h-4 mr-1" />}
+                Update payment method
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
