@@ -439,6 +439,65 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       });
     }
 
+    // ── New generic SHOWCASE blocks (May 2026) ──────────────────────────
+    // full-bleed-hero: background photo (video is never auto-filled)
+    if (blockType === "full-bleed-hero" && !props.backgroundImageUrl) {
+      props.backgroundImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+    }
+    // sticky-stack cards
+    if (blockType === "sticky-stack" && Array.isArray(props.cards)) {
+      props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
+        if (!card.imageUrl) {
+          const ctx = `${card.tag ?? ""} ${card.title ?? ""} ${card.body ?? ""}`;
+          return { ...card, imageUrl: findBestImage(ctx, images, usedUrls, "lp-feature") };
+        }
+        return card;
+      });
+    }
+    // horizontal-showcase panels
+    if (blockType === "horizontal-showcase" && Array.isArray(props.panels)) {
+      props.panels = (props.panels as Record<string, unknown>[]).map((panel) => {
+        if (!panel.imageUrl) {
+          const ctx = `${panel.tag ?? ""} ${panel.title ?? ""} ${panel.body ?? ""}`;
+          return { ...panel, imageUrl: findBestImage(ctx, images, usedUrls, "lp-feature") };
+        }
+        return panel;
+      });
+    }
+    // bento-showcase image tiles (kind "image" stores the URL in `primary`)
+    if (blockType === "bento-showcase" && Array.isArray(props.tiles)) {
+      props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
+        if (tile.kind === "image" && !tile.primary) {
+          const ctx = `${tile.secondary ?? ""} ${blockContext}`;
+          return { ...tile, primary: findBestImage(ctx, images, usedUrls, "lp-feature") };
+        }
+        return tile;
+      });
+    }
+    // before-after-gallery pairs
+    if (blockType === "before-after-gallery" && Array.isArray(props.pairs)) {
+      props.pairs = (props.pairs as Record<string, unknown>[]).map((pair) => {
+        const next = { ...pair };
+        if (!next.beforeSrc) {
+          next.beforeSrc = findBestImage(`${pair.caption ?? ""} before`, images, usedUrls, "lp-feature");
+        }
+        if (!next.afterSrc) {
+          next.afterSrc = findBestImage(`${pair.caption ?? ""} after`, images, usedUrls, "lp-feature");
+        }
+        return next;
+      });
+    }
+    // editorial-carousel slides
+    if (blockType === "editorial-carousel" && Array.isArray(props.slides)) {
+      props.slides = (props.slides as Record<string, unknown>[]).map((slide) => {
+        if (!slide.src) {
+          const ctx = `${slide.caption ?? ""} ${slide.headline ?? ""}`;
+          return { ...slide, src: findBestImage(ctx, images, usedUrls, "lp-feature") };
+        }
+        return slide;
+      });
+    }
+
     b.props = props;
     return b;
   });
@@ -699,10 +758,49 @@ function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknow
         imageUrl: typeof ch.imageUrl === "string" ? cleanUrl(ch.imageUrl) : ch.imageUrl,
       }));
     }
+    // tiles: legacy tiles use `imageUrl`; bento-showcase image tiles
+    // (kind "image") store the URL in `primary`. Clean both.
     if (Array.isArray(props.tiles)) {
       props.tiles = (props.tiles as Record<string, unknown>[]).map(tile => ({
         ...tile,
         imageUrl: typeof tile.imageUrl === "string" ? cleanUrl(tile.imageUrl) : tile.imageUrl,
+        primary:
+          tile.kind === "image" && typeof tile.primary === "string"
+            ? cleanUrl(tile.primary)
+            : tile.primary,
+      }));
+    }
+
+    // sticky-stack cards[].imageUrl
+    if (Array.isArray(props.cards)) {
+      props.cards = (props.cards as Record<string, unknown>[]).map(card => ({
+        ...card,
+        imageUrl: typeof card.imageUrl === "string" ? cleanUrl(card.imageUrl) : card.imageUrl,
+      }));
+    }
+
+    // horizontal-showcase panels[].imageUrl
+    if (Array.isArray(props.panels)) {
+      props.panels = (props.panels as Record<string, unknown>[]).map(panel => ({
+        ...panel,
+        imageUrl: typeof panel.imageUrl === "string" ? cleanUrl(panel.imageUrl) : panel.imageUrl,
+      }));
+    }
+
+    // before-after-gallery pairs[].beforeSrc / afterSrc
+    if (Array.isArray(props.pairs)) {
+      props.pairs = (props.pairs as Record<string, unknown>[]).map(pair => ({
+        ...pair,
+        beforeSrc: typeof pair.beforeSrc === "string" ? cleanUrl(pair.beforeSrc) : pair.beforeSrc,
+        afterSrc: typeof pair.afterSrc === "string" ? cleanUrl(pair.afterSrc) : pair.afterSrc,
+      }));
+    }
+
+    // editorial-carousel slides[].src
+    if (Array.isArray(props.slides)) {
+      props.slides = (props.slides as Record<string, unknown>[]).map(slide => ({
+        ...slide,
+        src: typeof slide.src === "string" ? cleanUrl(slide.src) : slide.src,
       }));
     }
 
@@ -772,7 +870,14 @@ function buildBrandContext(brand: BrandConfig): string {
   if (brand.messagingPillars?.length) {
     parts.push(`Key themes: ${brand.messagingPillars.map(p => `${p.label} (${p.description})`).join("; ")}`);
   }
-  if (brand.toneKeywords?.length) parts.push(`Style: ${brand.toneKeywords.join(", ")}`);
+  if (brand.toneKeywords?.length) {
+    // Promote tone keywords from a passive "Style:" label to an explicit
+    // block-selection signal — these are the main per-brand lever the model
+    // has for choosing a hero + showcase blocks that match the brand's vibe.
+    parts.push(
+      `Style / personality: ${brand.toneKeywords.join(", ")} — let this drive which hero and showcase blocks you choose, so the page's structure reflects this brand's character (not a generic template).`,
+    );
+  }
   if (brand.targetAudience) parts.push(`Audience: ${brand.targetAudience}`);
   // Voice-anchor block (May 2026 audit follow-up). Promoted from a passive
   // "Example headlines: …" one-liner to a hard constraint — exemplars are the
@@ -1229,6 +1334,26 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 
 - "photo-strip": Scrolling image gallery. Props: images (array of {src, alt} — EXACTLY 5–10 images, alt is a 4–10 word descriptive caption naming the subject + context).
 
+SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT every page should look the same. Pick 2+ per page that match the brand's personality. For ALL image fields below, leave them as "" and the server fills them from the brand's image library):
+
+- "full-bleed-hero": Immersive full-screen hero with a background photo and overlaid text. A bolder alternative to "hero" for visual / consumer / lifestyle brands. Props: headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), backgroundType ("image" — ALWAYS use "image" unless you have a REAL brand video URL), backgroundImageUrl (""), overlayOpacity (number 40–65 — a 0-100 percent; higher = darker = more legible white text), minHeight ("full"|"large"|"medium"), contentAlignment ("left"|"center"|"right"), navLinks ([]), showSocialProof (boolean), socialProofText (10–18 words). This block renders its own nav — never precede it with a nav block.
+
+- "magazine-hero": Editorial split hero with a large photo, serif display headline, eyebrow tag and byline. Use for premium, brand-led, or storytelling pages. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), bylineLabel (e.g. "Featured"), bylineValue (e.g. "Issue 01"), imageUrl (""), layout ("split"|"stacked"|"cover"), imageAspect ("portrait"|"landscape"|"wide").
+
+- "parallax-image-hero": Cinematic hero with a parallax-scrolling background image and overlaid text. Props: eyebrow (2–4 words), referenceLabel (short label e.g. the brand name), headline (5–12 words), ctaText (2–5 words), ctaUrl ("#"), imageUrl (""), brandMark (the brand name), overlayOpacity (number 35–55 — a 0-100 percent; higher = darker), parallaxStrength (number 0.15–0.3), minHeight ("large"|"medium").
+
+- "sticky-stack": Apple-style cards that pin and stack as the visitor scrolls — walks through a sequence of features dramatically. Props: eyebrow (2–4 words), headline (5–12 words), cards (array of EXACTLY 3–5 of {tag (1–3 words), title (4–9 words SPECIFIC capability), body (18–34 words concrete mechanism + outcome), imageUrl (""), imageSide ("left"|"right" — alternate per card)}), cardScrollVh (number, default 110).
+
+- "horizontal-showcase": Panels that scroll sideways as the visitor scrolls down (Apple/Stripe style). Props: eyebrow (2–4 words), headline (5–12 words), panels (array of EXACTLY 3–5 of {tag (1–3 words), title (3–7 words), body (14–26 words), imageUrl (""), alignment ("left"|"center"|"right")}), panelHeightVh (number, default 90).
+
+- "bento-showcase": Asymmetric bento grid of mixed tiles (image, stat, quote, feature) — magazine-style, visually richer than benefits-grid. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), tiles (array of EXACTLY 6–8 of {kind ("image"|"stat"|"quote"|"feature"), size ("sm"|"md"|"lg"|"xl"), primary (for image: leave ""; for stat: the big number e.g. "96%"; for quote: the quote body; for feature: the headline), secondary (label/caption/byline/description), tertiary (quote attribution or feature subtitle), icon (Lucide icon name for feature tiles)}). Mix tile kinds — include at least one image, one stat, one quote.
+
+- "bold-statement": Oversized typographic statement section — the brand's core belief in big type. Props: eyebrow (2–4 words), statement (12–28 words; wrap the 1–2 most important words in <em>…</em> to render them in the accent color), footnote (6–14 words, optional), ctaText (optional), ctaUrl (optional), scrollReveal (boolean, default true).
+
+- "before-after-gallery": Before/after image comparison gallery — ideal for visible-results brands (dental, design, fitness, renovation). Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), beforeLabel (1–3 words, default "Before"), afterLabel (1–3 words, default "After"), pairs (array of EXACTLY 2–4 of {beforeSrc (""), beforeAlt (4–8 words), afterSrc (""), afterAlt (4–8 words), caption (4–10 words)}).
+
+- "editorial-carousel": Auto-advancing, draggable photo / case-study carousel with a premium dark-luxury treatment. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (optional), mode ("image"|"case-study"), aspect ("16/9"|"4/3"|"3/2"|"1/1"), slides (array of EXACTLY 4–8 of {src (""), alt (4–8 words), caption (image mode: 3–7 word uppercase label), headline (case-study mode: 3–7 words), subheadline (case-study mode: 10–20 words), ctaText (optional)}).
+
 GLOBAL DENSITY ENFORCEMENT — NEVER SHIP EMPTY OR STUB CONTENT:
 Every array field above states an EXACT count range. Violating it is a failure: the block renders as visibly broken or sparse. If you cannot produce the minimum count with specific, on-topic content, swap the block for a different one — never trim the array. Single-word labels, generic verbs ("Streamline", "Empower", "Unlock"), and platitudes ("industry-leading", "world-class") are failures. Every item must reference a concrete noun (a product, metric, audience, location, or named workflow) within its first 5 words.
 
@@ -1254,7 +1379,7 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 5-10 blocks per page. Always start with a "hero" block and end with a "bottom-cta" block.
+4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), or "parallax-image-hero" (cinematic brands). NEVER use more than one hero-class block on a page. End with a "bottom-cta" block.
 5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text. Every multi-item array MUST hit the per-block minimum count stated in AVAILABLE BLOCK TYPES above. Empty arrays, 1–3 word stubs ("Slow", "Fast", "Better"), and generic platitudes ("industry-leading", "best-in-class") are failures — the block renders broken.
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
@@ -1271,7 +1396,9 @@ RULES:
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
-14. NO STANDALONE NAV BLOCK with "hero": the standard "hero" block already renders its own sticky navigation bar at the top. NEVER prepend a separate "nav-header" (or any other nav block) on a page that starts with "hero" — doing so produces two stacked navs. The page's first block should be the hero itself.`;
+14. NO STANDALONE NAV BLOCK with "hero": the standard "hero" block already renders its own sticky navigation bar at the top. NEVER prepend a separate "nav-header" (or any other nav block) on a page that starts with "hero" — doing so produces two stacked navs. The page's first block should be the hero itself. (This also applies to "full-bleed-hero", which renders its own nav.)
+15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, editorial-carousel, video-section) on every page so two different brands never produce identical-looking pages.
+16. VIDEO: Only set videoUrl, backgroundType:"video", or backgroundVideoUrl when you have a REAL video URL provided in the brand assets or the DANDY VIDEOS section. Otherwise use backgroundType:"image" (full-bleed-hero) and leave image fields "" for the server to fill. NEVER invent or guess a video URL.`;
 
 const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
 
@@ -2407,6 +2534,18 @@ router.post("/lp/generate-page", aiHeavyLimiter, aiHeavyHourlyLimiter, async (re
     // skip auto-injecting nav-header on top of them, otherwise the page
     // ends up with two stacked navs.
     const SELF_NAV_TYPES = new Set(["full-bleed-hero", "dso-heartland-hero", "hero"]);
+    // Defensive strip: the prompt forbids prepending a standalone nav before a
+    // self-nav hero, but if the model ignores that and emits e.g.
+    // [nav-header, full-bleed-hero, …], drop the leading nav so we don't ship
+    // two stacked navbars. Only strips a nav that sits directly before a
+    // self-nav hero at the very top of the page.
+    while (
+      blocks.length >= 2 &&
+      NAV_TYPES.has(blocks[0].type as string) &&
+      SELF_NAV_TYPES.has(blocks[1].type as string)
+    ) {
+      blocks.shift();
+    }
     const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string) || SELF_NAV_TYPES.has(b.type as string));
     if (!hasNav) {
       if (useDsoPractices) {
