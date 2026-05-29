@@ -1,0 +1,209 @@
+Task: Add a Mad-Libs randomized placeholder to the hero textarea
+The marketing hero at artifacts/lp-studio/src/marketing/components/AssembleScene.tsx has a textarea with a static placeholder ("A pricing page for a B2B platform aimed at COOs"). Replace that single placeholder with a randomized combination drawn from three arrays — picked once per page mount, kept stable during the visit.
+Implementation:
+
+Create artifacts/lp-studio/src/marketing/lib/madLibsPlaceholder.ts. Export the three arrays + a generatePlaceholder() function + a useMadLibsPlaceholder() React hook that runs the random pick once on mount.
+Update AssembleScene.tsx to import and use the hook. The textarea's placeholder attribute reads from the hook.
+First-paint fallback: during SSR/prerender, the random pick hasn't run yet — render a stable default ("Describe the landing page you want") for the initial paint, then swap to the random pick on client hydration. Avoids hydration mismatches.
+Keep the existing "Or start from: Pricing page | Event landing | Product hero | Demo-request page" chips below the textarea. The chips are the structured menu; the placeholder is the unstructured inspiration. They complement each other.
+
+
+The arrays (use these verbatim)
+ts// 14 templates — mix of sentence structures so the placeholder doesn't
+// feel like the same shape every time. Each has exactly one {subject} slot.
+const templates = [
+  // Verb-first action
+  "Build a pilot landing page for {subject}",
+  "Design a microsite for {subject}",
+  "Make a business case for {subject}",
+  "Spin up a one-pager about {subject}",
+  "Create an event landing for {subject}",
+
+  // Subject-first
+  "{subject}'s Q4 renewal page",
+  "{subject}'s expansion announcement",
+  "{subject}, but as a hero block",
+
+  // Outcome-first
+  "Get {subject} to book a demo",
+  "Convince {subject} to upgrade — one-pager",
+
+  // Casual / conversational
+  "Make me something for {subject} that doesn't sound generic",
+  "I need a page for the {subject} thing — punchy",
+
+  // Specific format
+  "Case study about {subject} — short version",
+  "Comparison page: us vs the legacy stack, for {subject}",
+];
+
+// Subjects are SPLIT into two arrays so the picker can weight selection:
+// outlandish/personality subjects should surface ~1 in 10 placeholders,
+// not equal-probability with serious ones. With auto-rotation, equal
+// weighting would make the page feel jokey; capped weighting keeps it
+// B2B-credible while still surfacing personality regularly.
+
+// 35 serious B2B subjects — picked ~90% of the time.
+// Avoid famous fictional company names (Northwind, Initech, Acme, Vandelay).
+// Lean on plausible-sounding generic business names + descriptive scenarios.
+const seriousSubjects = [
+  // SaaS / tech (10)
+  "Atlas Logistics' Q2 platform migration",
+  "the Northstar Devtools partnership",
+  "our top 10 enterprise accounts in retail",
+  "mid-market HR tech buyers",
+  "the Pinnacle Cloud expansion",
+  "a Series B fintech we're piloting with",
+  "RevOps leads at companies under 500",
+  "developer relations teams scaling past 50",
+  "AI ops platforms doing enterprise sales",
+  "vertical SaaS founders considering ABM",
+
+  // Healthcare / dental / vet (6)
+  "the Smilist's 16-location rollout",
+  "Bright Smile DSO's pilot",
+  "Mercer Veterinary's Q4 growth plan",
+  "Heartland Dental's renewal cycle",
+  "a 200-clinic urgent care network",
+  "specialty pediatric practices",
+
+  // Field services (5)
+  "ServiceTitan-style HVAC operators",
+  "the Q3 plumbing-tech roundup",
+  "our top 5 home services accounts",
+  "regional roofing contractors at $10M+ ARR",
+  "a national pool service expansion",
+
+  // Finance / insurance (4)
+  "B2B insurance buyers post-renewal",
+  "lending platforms targeting SMBs",
+  "the Q4 risk-mgmt conference outreach",
+  "credit unions over $5B in assets",
+
+  // Marketing / agencies (4)
+  "an in-house creative team of 12",
+  "demand gen leaders at mid-market SaaS",
+  "agencies pitching the holding-co RFP",
+  "the Q4 'state of ABM' content push",
+
+  // Generic / scenario (5)
+  "our top 10 renewal accounts",
+  "the partnership we just signed",
+  "anyone evaluating us against the legacy stack",
+  "the prospects on this week's pipeline",
+  "Q4 outbound to our ICP",
+];
+
+// 19 outlandish/personality subjects — picked ~10% of the time only.
+// These are deliberately specific (not generic "weird products") and
+// plausible-real-adjacent ("could almost be a real bored startup pivot").
+const outlandishSubjects = [
+  "our experimental llama-themed pricing tier",
+  "the office's new 18-foot pinball machine",
+  "the Q4 'whose dishes are these' campaign",
+  "our line of ergonomic cat keyboards",
+  "the new espresso machine, marketed as B2B SaaS",
+  "the dog who comes to work on Tuesdays",
+  "the haunted printer on floor 3",
+  "Susan from accounting's farewell tour",
+  "the Tuesday 'did you eat my lunch' situation",
+  "the conference room booking war of '26",
+  "our quarterly mandatory escape room initiative",
+  "the chatbot we built to apologize for our other chatbot",
+  "our new B2B SaaS marketplace for B2B SaaS marketplaces",
+  "the AI we trained on our CEO's Slack messages",
+  "our launch page generator's own launch page",
+  "our pivot into NFT trading cards for accountants",
+  "our line of corporate-branded hot sauces",
+  "the dental SaaS we built for cats",
+  "our pet insurance product for houseplants",
+];
+
+// 14 qualifiers — empty 4/14 of the time (~28% no qualifier), otherwise
+// adds a short voice/tone instruction after the main clause. Always
+// starts with " — " so grammar stays valid no matter what template ran.
+const qualifiers = [
+  "", "", "", "",
+  " — heavy on the ROI",
+  " — for the legal team",
+  " — keep it short",
+  " — lean into urgency",
+  " — for the C-suite, not procurement",
+  " — don't mention pricing",
+  " — punchy, under 200 words",
+  " — match their voice, not ours",
+  " — make it scannable",
+  " — outcomes first, features last",
+];
+Combo math: 14 templates × 40 subjects × 14 qualifiers = 7,840 unique placeholders. Plenty of variety; a returning visitor will rarely see the same one twice.
+
+The hook + function
+tsimport { useEffect, useState } from "react";
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Weighted subject picker — outlandish/personality subjects appear at most
+ * ~10% of the time (1 in 10 placeholders). Keeps the page B2B-credible
+ * while still surfacing personality regularly under auto-rotation.
+ */
+function pickSubject(): string {
+  return Math.random() < 0.10
+    ? pick(outlandishSubjects)
+    : pick(seriousSubjects);
+}
+
+export function generatePlaceholder(): string {
+  const template = pick(templates);
+  const subject = pickSubject();
+  const qualifier = pick(qualifiers);
+  return template.replace("{subject}", subject) + qualifier;
+}
+
+/** Returns a stable random placeholder per page mount. Falls back to a
+ *  default string on first paint to avoid SSR/prerender hydration mismatches. */
+export function useMadLibsPlaceholder(): string {
+  const [placeholder, setPlaceholder] = useState<string>(
+    "Describe the landing page you want"
+  );
+  useEffect(() => {
+    setPlaceholder(generatePlaceholder());
+  }, []);
+  return placeholder;
+}
+Then in AssembleScene.tsx:
+tsximport { useMadLibsPlaceholder } from "../lib/madLibsPlaceholder";
+
+// inside the hero component:
+const placeholder = useMadLibsPlaceholder();
+// ...
+<textarea placeholder={placeholder} ... />
+
+Cross-cutting requirements
+
+Don't auto-submit the placeholder. If a user clicks Generate without typing anything, show a soft validation ("Type a brief to continue") — do NOT submit the placeholder string as the prompt. Placeholders are inspiration, not input.
+Hydration: the useState initial value is the SSR-safe default ("Describe the landing page you want"). The random pick only runs on the client via useEffect. This prevents prerender + hydration mismatch warnings.
+Accessibility: screen readers reading random placeholders is fine, but add an aria-label="Describe the landing page you want" to the textarea so the assistive-tech experience is consistent regardless of which placeholder rendered.
+No tracking on the placeholder itself. We don't need to log which placeholder a user saw. If we later want to A/B test prompt sets, that's a follow-up.
+
+
+Test plan
+
+Hard-reload the marketing site 10 times. Confirm you see 10 different placeholders, no obviously broken grammar.
+Confirm the SSR-rendered HTML contains the default "Describe the landing page you want" (view source on a curl-fetched version), so search engines and previews see a stable string.
+Click Generate without typing anything → soft validation appears, no submission.
+Click into the textarea → placeholder disappears as expected, typing works normally.
+Tab through with a keyboard → focus order is correct, screen reader announces the field correctly.
+
+
+Quality bar
+
+14 × 40 × 14 = 7,840 unique placeholders available on generatePlaceholder().
+No hydration mismatch warnings in the console on first load.
+No grammar errors across a sample of 20 reloads (eyeball check).
+Placeholder never submitted as the user's actual prompt.
+Bundle size impact: under 5KB gzipped (the arrays are small strings).
+
+Don't ship if hydration mismatch warnings appear, or if any combination produces obviously broken grammar.
