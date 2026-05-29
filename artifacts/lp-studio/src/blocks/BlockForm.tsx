@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormBlockProps, FormField, FormStep, StepCondition, ChiliPiperHandoffConfig } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { contrastTextColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { MarketoForm } from "@/components/MarketoForm";
@@ -782,7 +783,15 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
 
   // Brand-aware defaults (Dandy-style), with FormStyling taking precedence.
   const submitBg = formStyling?.buttonBg || props.submitButtonColor || brand.accentColor || "var(--brand-accent)";
-  const submitFg = formStyling?.buttonText || props.submitButtonTextColor || brand.primaryColor || "var(--brand-primary)";
+  // Derive the submit label color from the actual button fill so it stays
+  // legible even when the brand's accent and primary are the same hue (which
+  // previously rendered e.g. a blue label on a blue button).
+  const submitBgHex = isValidHex(submitBg)
+    ? submitBg
+    : isValidHex(brand.accentColor)
+      ? brand.accentColor
+      : DEFAULT_BRAND.accentColor;
+  const submitFg = formStyling?.buttonText || props.submitButtonTextColor || contrastTextColor(submitBgHex);
   const inputAccent = formStyling?.accent || props.inputAccentColor || brand.primaryColor || "var(--brand-primary)";
   const cardBg = formStyling?.surface || props.cardBgColor || (isDark ? undefined : "#ffffff");
   const cardBorderColor = formStyling?.border;

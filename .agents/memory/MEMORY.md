@@ -11,3 +11,4 @@
 - [Fetch redirect SSRF](fetch-redirect-ssrf.md) — backend fetches of untrusted URLs must use `redirect:"manual"` and re-validate each hop's host; `"follow"` defeats the initial public-IP check.
 - [Tenant-scoped queries fail closed](tenant-scoped-query-fail-closed.md) — DB helpers reading tenant rows must take required tenantId, or return empty on null; never fall back to unfiltered or `limit(1)` queries.
 - [lib/db composite dist drives types](lib-db-composite-dist-types.md) — after editing a lib/db schema, `npx tsc -b` in lib/db (no build script) or consumer tsc errors "field does not exist" though runtime/build is fine.
+- [Generated block contrast](generated-block-contrast.md) — AI page blocks must derive text/badge/button colors from their actual bg, never pair two brand colors; fix at render-block layer.

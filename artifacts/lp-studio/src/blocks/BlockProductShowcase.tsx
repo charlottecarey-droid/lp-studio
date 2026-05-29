@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, contrastTextColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import type { ProductShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -89,7 +89,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
                 multiline style={{ fontFamily: BODY }} />
               {card.badge && (
                 <div className="mt-2">
-                  <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full" style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, fontFamily: BODY }}>
+                  <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-full" style={{ backgroundColor: brand.accentColor, color: contrastTextColor(isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor), fontFamily: BODY }}>
                     <InlineText
                       value={card.badge}
                       onUpdate={onFieldChange ? (v) => updateCard(i, "badge", v) : undefined}

@@ -2,7 +2,7 @@ import { XCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ComparisonBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
+import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, contrastTextColor, pickContrastingColor, pickCtaButtonColors, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -22,8 +22,8 @@ interface Props {
 
 export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
-  const LIME = brand.accentColor;
-  const FOREST = brand.primaryColor;
+  // CTA sits on the light (slate-50) section background.
+  const ctaColors = pickCtaButtonColors(brand, "#f8fafc");
 
   const action: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =
     props.ctaAction === "chilipiper" || props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper"
@@ -32,6 +32,17 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
 
   const oldCardBg = props.oldCardBg ?? "#f1f5f9";
   const newCardBg = props.newCardBg ?? "var(--brand-primary)";
+  // The "new way" card is painted with the brand primary. Derive its text +
+  // accent colors from that actual fill so the eyebrow/heading/bullets never
+  // render accent-on-primary or text-white-on-light (illegible) when a brand's
+  // accent and primary are the same hue or its primary is light.
+  const newCardBgHex = isValidHex(newCardBg)
+    ? newCardBg
+    : isValidHex(brand.primaryColor)
+      ? brand.primaryColor
+      : DEFAULT_BRAND.primaryColor;
+  const onNewCard = contrastTextColor(newCardBgHex);
+  const accentOnNewCard = pickContrastingColor(brand.accentColor, newCardBgHex, [onNewCard], 3.0);
 
   const updateOldBullet = (index: number, value: string) => {
     if (!onFieldChange) return;
@@ -67,14 +78,14 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
           <div className="rounded-3xl p-8 md:p-12 flex flex-col ring-2 ring-[rgb(var(--brand-accent-rgb)/0.2)] shadow-xl relative overflow-hidden" style={{ backgroundColor: newCardBg }}>
             <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--brand-accent)] opacity-[0.03] blur-3xl rounded-full" />
             <div className="mb-8 relative z-10">
-              <span className="text-sm font-bold tracking-widest text-[var(--brand-accent)] uppercase mb-2 block" style={{ fontFamily: BODY }}>NEW WAY</span>
-              <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-white", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
+              <span className="text-sm font-bold tracking-widest uppercase mb-2 block" style={{ color: accentOnNewCard, fontFamily: BODY }}>NEW WAY</span>
+              <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ color: onNewCard, fontFamily: DISPLAY }} />
             </div>
             <ul className="space-y-6 flex-1 relative z-10">
               {props.newWayBullets.map((bullet, i) => (
                 <li key={i} className="flex items-start gap-4" style={{ fontFamily: BODY }}>
-                  <CheckCircle2 className="w-6 h-6 text-[var(--brand-accent)] shrink-0 mt-0.5" />
-                  <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateNewBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline style={{ fontFamily: BODY }} />
+                  <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" style={{ color: accentOnNewCard }} />
+                  <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateNewBullet(i, v) : undefined} className="font-medium leading-relaxed opacity-90" multiline style={{ color: onNewCard, fontFamily: BODY }} />
                 </li>
               ))}
             </ul>
@@ -105,7 +116,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
             modalShowCompany={props.modalShowCompany}
             onClick={onCtaClick}
             className={getButtonClasses(brand, "inline-flex items-center")}
-            style={{ backgroundColor: LIME, color: FOREST }}
+            style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
             brand={brand}
             pageId={pageId}
             variantId={variantId}

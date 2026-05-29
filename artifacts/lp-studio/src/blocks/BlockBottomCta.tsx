@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BottomCtaBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
+import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickCtaButtonColors, contrastTextColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { CtaButton } from "@/components/CtaButton";
@@ -23,8 +23,14 @@ interface Props {
 
 export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId, variantId, animationsEnabled = true }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
-  const LIME = brand.accentColor;
-  const FOREST = brand.primaryColor;
+  // The section paints `var(--brand-primary)`, so the actual background hex is
+  // the brand primary. Resolve text + button colors against it so a brand
+  // whose accent ≈ primary (e.g. Zoom blue on Zoom blue) never renders an
+  // invisible button or illegible copy.
+  const sectionBg = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const onBg = contrastTextColor(sectionBg);
+  const onBgMuted = onBg === "#ffffff" ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)";
+  const cta = pickCtaButtonColors(brand, sectionBg);
   const field = (key: keyof BottomCtaBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -35,10 +41,10 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId
       : "url";
 
   return (
-    <section className={cn("w-full bg-[var(--brand-primary)] text-white px-6 text-center", sectionPy)}>
+    <section className={cn("w-full bg-[var(--brand-primary)] px-6 text-center", sectionPy)} style={{ color: onBg }}>
       <div className="max-w-3xl mx-auto">
-        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
-        {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className={cn(getBodySizeClass(brand), "text-white/80 mb-10")} style={{ fontFamily: BODY }} multiline />}
+        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY, color: onBg }} />
+        {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className={cn(getBodySizeClass(brand), "mb-10")} style={{ fontFamily: BODY, color: onBgMuted }} multiline />}
         <CtaButton
           ctaAction={action}
           ctaUrl={props.ctaUrl}
@@ -63,7 +69,7 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId
           modalShowCompany={props.modalShowCompany}
           onClick={onCtaClick}
           className={getButtonClasses(brand, "inline-flex items-center")}
-          style={{ backgroundColor: LIME, color: FOREST }}
+          style={{ backgroundColor: cta.bg, color: cta.text }}
           brand={brand}
           pageId={pageId}
           variantId={variantId}

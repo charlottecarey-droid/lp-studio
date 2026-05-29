@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { StatCalloutBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, contrastTextColor, pickContrastingColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { useCountUp } from "@/hooks/use-count-up";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
@@ -36,14 +36,19 @@ function AnimatedStat({ value, enabled, className, style }: { value: string; ena
 
 export function BlockStatCallout({ props, brand, onFieldChange, animationsEnabled = true }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
-  const LIME = brand.accentColor;
+  // Section is painted with the brand primary. Derive text + stat colors from
+  // that actual fill so the giant stat never renders accent-on-primary (blue
+  // on blue) and copy stays legible for light-primary brands.
+  const primaryHex = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const onPrimary = contrastTextColor(primaryHex);
+  const LIME = pickContrastingColor(brand.accentColor, primaryHex, [onPrimary], 3.0);
   const field = (key: keyof StatCalloutBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   const countUpActive = (props.countUpEnabled ?? true) && animationsEnabled && !onFieldChange;
 
   return (
-    <section className={cn("w-full bg-[var(--brand-primary)] px-6 text-center", sectionPy)}>
+    <section className={cn("w-full bg-[var(--brand-primary)] px-6 text-center", sectionPy)} style={{ color: onPrimary }}>
       <div className="max-w-4xl mx-auto flex flex-col items-center">
         <div className={cn("text-8xl md:text-[10rem] font-display leading-none mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ color: LIME, fontFamily: NUMBERS }}>
           {onFieldChange ? (
@@ -57,8 +62,8 @@ export function BlockStatCallout({ props, brand, onFieldChange, animationsEnable
             />
           )}
         </div>
-        <InlineText as="p" value={props.description} onUpdate={field("description")} className={cn(getBodySizeClass(brand), "text-white max-w-xl mx-auto mb-8 leading-relaxed")} multiline style={{ fontFamily: BODY }} />
-        {props.footnote && <InlineText as="p" value={props.footnote} onUpdate={field("footnote")} className="text-sm text-white/50 max-w-lg mx-auto" style={{ fontFamily: BODY }} />}
+        <InlineText as="p" value={props.description} onUpdate={field("description")} className={cn(getBodySizeClass(brand), "max-w-xl mx-auto mb-8 leading-relaxed")} multiline style={{ fontFamily: BODY }} />
+        {props.footnote && <InlineText as="p" value={props.footnote} onUpdate={field("footnote")} className="text-sm opacity-50 max-w-lg mx-auto" style={{ fontFamily: BODY }} />}
       </div>
     </section>
   );

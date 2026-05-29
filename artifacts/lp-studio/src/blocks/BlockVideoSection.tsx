@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
+import { SECTION_PY, pickCtaButtonColors, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { useState, useRef, useCallback } from "react";
@@ -139,8 +139,14 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   const bgGradientStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
   const layout = props.layout ?? "full-width";
   const isSplit = layout === "split-left" || layout === "split-right";
-  const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
+  // Derive CTA button colors from the actual section background so an
+  // accent-on-primary button never goes invisible when a brand's accent and
+  // primary are the same hue (e.g. Zoom blue). The overlay CTA sits on a dark
+  // video gradient; the split/full-width CTAs sit on the section bg.
+  const primaryHex = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const sectionCta = pickCtaButtonColors(brand, isDark ? primaryHex : "#ffffff");
+  const overlayCta = pickCtaButtonColors(brand, "#1a1a1a");
 
   const hasVideo = props.videoUrl && props.videoUrl.trim() !== "";
   const VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
@@ -230,7 +236,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                 <motion.a
                   href={props.overlayCtaUrl ?? "#"}
                   className="inline-block mt-2 px-5 sm:px-7 py-2.5 sm:py-3 rounded-full font-bold text-sm"
-                  style={{ backgroundColor: LIME, color: FOREST }}
+                  style={{ backgroundColor: overlayCta.bg, color: overlayCta.text }}
                   whileHover={{ scale: 1.04, y: -1 }}
                   whileTap={{ scale: 0.96 }}
                   transition={SPRING}
@@ -399,7 +405,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
         <motion.button
           onClick={handleCtaClick}
           className={getButtonClasses(brand, "inline-flex items-center justify-center")}
-          style={{ backgroundColor: LIME, color: FOREST }}
+          style={{ backgroundColor: sectionCta.bg, color: sectionCta.text }}
           whileHover={{ scale: 1.04, y: -1 }}
           whileTap={{ scale: 0.96 }}
           transition={SPRING}
@@ -522,7 +528,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
               <motion.button
                 onClick={handleCtaClick}
                 className={getButtonClasses(brand, "inline-flex items-center justify-center")}
-                style={{ backgroundColor: LIME, color: FOREST }}
+                style={{ backgroundColor: sectionCta.bg, color: sectionCta.text }}
                 whileHover={{ scale: 1.04, y: -1 }}
                 whileTap={{ scale: 0.96 }}
                 transition={SPRING}

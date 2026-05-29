@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { HowItWorksBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, contrastTextColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -17,6 +17,18 @@ interface Props {
 
 export function BlockHowItWorks({ props, brand, onFieldChange }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
+  // The step circle defaults to a brand-primary fill. Derive its number color
+  // from the actual fill so it never renders e.g. a blue number on a blue
+  // circle when the brand's accent and primary are the same hue.
+  const circleBgHex = isValidHex(props.circleBg ?? "")
+    ? (props.circleBg as string)
+    : isValidHex(brand.primaryColor)
+      ? brand.primaryColor
+      : DEFAULT_BRAND.primaryColor;
+  const circleBg = props.circleBg ?? "var(--brand-primary)";
+  const circleText = isValidHex(props.circleText ?? "")
+    ? (props.circleText as string)
+    : contrastTextColor(circleBgHex);
 
   const updateStep = (index: number, field: "title" | "description" | "number", value: string) => {
     if (!onFieldChange) return;
@@ -33,7 +45,7 @@ export function BlockHowItWorks({ props, brand, onFieldChange }: Props) {
           <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-slate-100 z-0" />
           {props.steps.map((step, i) => (
             <div key={i} className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full font-display font-bold text-2xl flex items-center justify-center mb-6 shadow-xl border-4 border-white" style={{ backgroundColor: props.circleBg ?? "var(--brand-primary)", color: props.circleText ?? "var(--brand-accent)", fontFamily: DISPLAY }}>
+              <div className="w-16 h-16 rounded-full font-display font-bold text-2xl flex items-center justify-center mb-6 shadow-xl border-4 border-white" style={{ backgroundColor: circleBg, color: circleText, fontFamily: DISPLAY }}>
                 {step.number}
               </div>
               <InlineText as="h3" value={step.title} onUpdate={onFieldChange ? (v) => updateStep(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)] mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
