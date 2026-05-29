@@ -5,10 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useToast } from "@/hooks/use-toast";
-import { copyForFeature, type GatedFeature } from "@/lib/plan-upgrade";
+import { copyForGate, type GatedFeature } from "@/lib/plan-upgrade";
+import { PLAN_CONFIG, type Plan } from "@workspace/plan-config";
 
 interface Props {
-  feature: GatedFeature | string;
+  gate: GatedFeature | string;
+  /** Server-resolved unlock tier from the 402 contract (optional for static callers). */
+  minimumPlanWithFeature?: Plan | null;
+  /** Current usage for cap gates (optional). */
+  currentUsage?: number | null;
+  /** Cap value for cap gates (optional). */
+  cap?: number | null;
   /** When true, wraps the prompt in <AppLayout> so it slots into the standard shell. */
   withLayout?: boolean;
 }
@@ -24,12 +31,23 @@ interface Props {
  * mailto: link. Enterprise still uses sales@ — it's sales-assisted by
  * design and Checkout has no SKU for it.
  */
-export function UpgradePrompt({ feature, withLayout = true }: Props) {
-  const copy = copyForFeature(feature);
+export function UpgradePrompt({
+  gate,
+  minimumPlanWithFeature,
+  currentUsage,
+  cap,
+  withLayout = true,
+}: Props) {
+  const copy = copyForGate({ gate, minimumPlanWithFeature, currentUsage, cap });
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
-  async function startGrowthCheckout(): Promise<void> {
+  const unlockTierName = copy.unlockTier
+    ? PLAN_CONFIG[copy.unlockTier].displayName
+    : "a higher plan";
+
+  async function startCheckout(): Promise<void> {
+    if (!copy.unlockTier || !copy.selfServe) return;
     setBusy(true);
     try {
       const res = await fetch("/api/billing/checkout-session", {
@@ -37,8 +55,10 @@ export function UpgradePrompt({ feature, withLayout = true }: Props) {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         // Default to monthly from upgrade prompts; the Billing settings
-        // page is where users pick the cadence explicitly.
-        body: JSON.stringify({ priceLookupKey: "growth_monthly" }),
+        // page is where users pick the cadence explicitly. The unlock tier
+        // is driven off the server's minimumPlanWithFeature so the right
+        // tier (starter / growth / scale) is purchased.
+        body: JSON.stringify({ priceLookupKey: `${copy.unlockTier}_monthly` }),
       });
       if (res.status === 503) {
         // Stripe-not-configured fallback: send the operator to the
@@ -69,7 +89,10 @@ export function UpgradePrompt({ feature, withLayout = true }: Props) {
     }
   }
 
-  const isGrowth = copy.unlockTier === "growth";
+  const isSelfServe = copy.selfServe && !!copy.unlockTier;
+  // Non-self-serve splits two ways: enterprise is sales-assisted (mailto),
+  // anything else (no tier / free / unknown) routes to the Billing page.
+  const isEnterprise = copy.unlockTier === "enterprise";
   const body = (
     <div className="flex items-center justify-center min-h-[70vh] px-4 py-12">
       <Card className="max-w-xl w-full p-8 sm:p-10 space-y-6">
@@ -90,7 +113,7 @@ export function UpgradePrompt({ feature, withLayout = true }: Props) {
         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <Sparkles className="w-3.5 h-3.5" />
-            What you get on {isGrowth ? "Growth" : "Enterprise"}
+            What you get on {unlockTierName}
           </div>
           <ul className="space-y-2">
             {copy.bullets.map((b) => (
@@ -103,30 +126,39 @@ export function UpgradePrompt({ feature, withLayout = true }: Props) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          {isGrowth ? (
+          {isSelfServe ? (
             <Button
               className="flex-1"
-              onClick={startGrowthCheckout}
+              onClick={startCheckout}
               disabled={busy}
               data-testid="upgrade-prompt-checkout"
             >
               {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-              Upgrade to Growth
+              Upgrade to {unlockTierName}
               {!busy && <ArrowRight className="w-4 h-4 ml-1" />}
             </Button>
-          ) : (
-            // Enterprise is sales-assisted. No Stripe price for it; the
-            // mailto stays.
+          ) : isEnterprise ? (
+            // Enterprise is sales-assisted. No Stripe SKU for it; the mailto
+            // stays.
             <Button asChild className="flex-1">
               <a href="mailto:sales@meetdandy.com?subject=Upgrade%20my%20Landing%20Page%20Studio%20plan">
                 Talk to sales
                 <ArrowRight className="w-4 h-4 ml-1" />
               </a>
             </Button>
+          ) : (
+            // No purchasable tier resolved (free / unknown). Send the operator
+            // to Billing, which renders the full plan picker.
+            <Button asChild className="flex-1">
+              <Link to="/settings/billing">
+                View plans
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Link>
+            </Button>
           )}
           <Button asChild variant="outline" className="flex-1">
-            <Link to={isGrowth ? "/settings/billing" : "/"}>
-              {isGrowth ? "See pricing" : "Back to workspace"}
+            <Link to={isSelfServe ? "/settings/billing" : "/"}>
+              {isSelfServe ? "See pricing" : "Back to workspace"}
             </Link>
           </Button>
         </div>

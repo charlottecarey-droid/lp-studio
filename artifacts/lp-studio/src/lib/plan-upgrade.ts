@@ -1,86 +1,114 @@
 /**
  * Shared client-side helpers for the plan-upgrade UX.
  *
- * The api-server returns a machine-readable 402 for any paid feature
- * a starter tenant tries to hit:
+ * The api-server denies every plan gate with one machine-readable 402
+ * (see api-server/src/lib/planGate.ts):
  *
- *   { error: "plan_upgrade_required", feature, plan, message }
+ *   {
+ *     error: "plan_upgrade_required",
+ *     gate,                    // feature key OR cap key
+ *     currentUsage,            // number for caps, null for boolean gates
+ *     cap,                     // number for caps, null for boolean gates
+ *     currentPlan,             // the tenant's resolved plan
+ *     minimumPlanWithFeature,  // lowest tier that admits it (null if none)
+ *     upgradeUrl,              // "/settings/billing"
+ *   }
  *
  * Two surfaces consume that signal:
  *
- *   1. The /sales/* route guard in App.tsx renders <UpgradePrompt /> in
- *      place of the silent redirect that used to live there.
- *   2. A global fetch interceptor (api-fetch.ts) catches 402s with this
- *      shape on any /api/* call and dispatches the
- *      `plan-upgrade-required` window event below. The listener mounted
- *      in App.tsx turns it into an upgrade toast — so even
- *      future-gated features (AI image gen, etc.) get the same
- *      treatment without each call site having to opt in.
+ *   1. The /sales/* route guard + DomainPage render <UpgradePrompt /> inline
+ *      for a known boolean feature.
+ *   2. A global fetch interceptor (api-fetch.ts) catches the 402 on any
+ *      /api/* call and dispatches the `plan-upgrade-required` window event
+ *      below; the listener mounted in App.tsx turns it into an upgrade toast.
  *
  * The copy here is the single source of truth for "what does each tier
- * unlock" — both the inline upgrade page and the toast pull from it,
- * so they always agree.
+ * unlock". The unlock tier is driven off the server's
+ * `minimumPlanWithFeature` (computed against the live, SuperAdmin-editable
+ * config) and falls back to a client-side computation over the shared
+ * PLAN_CONFIG when a static caller has no server payload.
  */
-import type { PlanFeatures } from "./plan-features";
+import { PLAN_CONFIG, PLANS, type Plan } from "@workspace/plan-config";
 
 /**
- * Server-emitted `feature` string in the 402 payload. Mirrors the
- * top-level boolean flags on PlanFeatures plus the limits we enforce
- * with a count gate — the API uses bare names like `pages` / `forms` /
- * `userSeats` rather than `limits.pages` so the wire format stays flat.
+ * Server-emitted `gate` string in the 402 payload. Mirrors the boolean
+ * feature flags on PlanFeatures plus the numeric caps under
+ * PlanFeatures.limits. The wire format is flat (`pages`, not `limits.pages`).
  */
 export type GatedFeature =
-  | keyof PlanFeatures
+  | "salesConsole"
+  | "aiImageGen"
+  | "customDomain"
   | "pages"
   | "forms"
-  | "userSeats";
+  | "userSeats"
+  | "aiGenerationsPerMonth"
+  | "heatmapSessionsPerMonth";
+
+/** Gates whose value is a boolean feature flag rather than a numeric cap. */
+const BOOLEAN_GATES = new Set<string>(["salesConsole", "aiImageGen", "customDomain"]);
 
 export interface UpgradePromptCopy {
   /** Headline shown above the bullets. */
   title: string;
-  /** One-line subtitle that names the feature. */
+  /** One-line subtitle that names the feature (usage-aware for caps). */
   subtitle: string;
-  /** Tier that unlocks this feature (what the CTA upgrades to). */
-  unlockTier: "growth" | "enterprise";
+  /** Lowest tier that unlocks this gate; null when no tier offers it. */
+  unlockTier: Plan | null;
+  /** Whether `unlockTier` is purchasable via self-serve Stripe checkout. */
+  selfServe: boolean;
   /** Bullets of what the user gets at the unlock tier. */
   bullets: string[];
 }
 
-const GROWTH_SALES_BULLETS = [
+const SALES_CONSOLE_BULLETS = [
   "Sales Console — accounts, contacts, and signals in one place",
   "Personalized one-pagers and microsites for every account",
   "AI-drafted outreach with campaign tracking",
   "Salesforce sync so every page maps back to a lead",
 ];
 
-const ENTERPRISE_AI_BULLETS = [
+const AI_IMAGE_BULLETS = [
   "On-brand AI image generation inside every block",
-  "Unlimited image regeneration credits",
-  "Everything in Growth, including the Sales Console",
+  "Generate and refine imagery without leaving the builder",
+  "Everything in lower tiers",
 ];
 
-const GROWTH_CUSTOM_DOMAIN_BULLETS = [
+const CUSTOM_DOMAIN_BULLETS = [
   "Publish on your own domain (lp.yourbrand.com)",
-  "Removes the \"Powered by LP Studio\" badge from public pages",
-  "Unlimited landing pages and forms",
-  "Up to 10 teammates with role-based access",
+  'Removes the "Powered by LP Studio" badge from public pages',
+  "More landing pages and forms",
+  "Role-based access for your team",
 ];
 
-const GROWTH_LIMITS_PAGES_BULLETS = [
-  "Unlimited landing pages",
+const PAGES_BULLETS = [
+  "A higher landing-page allowance (unlimited on top tiers)",
   "Custom domain (lp.yourbrand.com)",
-  "Removes the \"Powered by LP Studio\" badge",
-  "Everything in Starter",
+  'Removes the "Powered by LP Studio" badge',
+  "Everything in your current plan",
 ];
 
-const GROWTH_LIMITS_FORMS_BULLETS = [
-  "Unlimited forms and submissions",
-  "Everything in Growth: custom domain, larger team, unlimited pages",
+const FORMS_BULLETS = [
+  "A higher form allowance for more lead-capture surfaces",
+  "More landing pages and teammates",
+  "Everything in your current plan",
 ];
 
-const GROWTH_LIMITS_SEATS_BULLETS = [
-  "Up to 10 teammates with role-based access",
-  "Everything in Growth, including the Sales Console",
+const SEATS_BULLETS = [
+  "More teammate seats with role-based access",
+  "Everything in your current plan",
+];
+
+const AI_GENERATION_BULLETS = [
+  "A higher monthly AI page-generation allowance",
+  "Keep drafting full pages with AI as your volume grows",
+  "Everything in your current plan",
+];
+
+const HEATMAP_BULLETS = [
+  "A higher monthly heatmap session allowance",
+  "Keep recording visitor behavior as your traffic grows",
+  "Everything in your current plan",
 ];
 
 const FALLBACK_BULLETS = [
@@ -88,83 +116,208 @@ const FALLBACK_BULLETS = [
   "Talk to us about the right tier for your team",
 ];
 
-export function copyForFeature(feature: GatedFeature | string): UpgradePromptCopy {
-  switch (feature) {
-    case "salesConsole":
-      return {
-        title: "Sales Console is a Growth feature",
-        subtitle: "Upgrade to Growth to turn landing pages into a full account-based sales motion.",
-        unlockTier: "growth",
-        bullets: GROWTH_SALES_BULLETS,
-      };
-    case "aiImageGen":
-      return {
-        title: "AI image generation is an Enterprise feature",
-        subtitle: "Upgrade to Enterprise to generate and refine on-brand imagery without leaving the builder.",
-        unlockTier: "enterprise",
-        bullets: ENTERPRISE_AI_BULLETS,
-      };
-    case "customDomain":
-      return {
-        title: "Custom domains are a Growth feature",
-        subtitle: "Upgrade to Growth to publish on your own domain.",
-        unlockTier: "growth",
-        bullets: GROWTH_CUSTOM_DOMAIN_BULLETS,
-      };
-    case "pages":
-    case "limits.pages":
-      return {
-        title: "You've reached your page limit",
-        subtitle: "Upgrade to Growth for unlimited landing pages.",
-        unlockTier: "growth",
-        bullets: GROWTH_LIMITS_PAGES_BULLETS,
-      };
-    case "forms":
-    case "limits.forms":
-      return {
-        title: "You've reached your form limit",
-        subtitle: "Upgrade to Growth for unlimited forms.",
-        unlockTier: "growth",
-        bullets: GROWTH_LIMITS_FORMS_BULLETS,
-      };
-    case "userSeats":
-    case "limits.userSeats":
-      return {
-        title: "You've reached your user seat limit",
-        subtitle: "Upgrade to Growth to invite more teammates.",
-        unlockTier: "growth",
-        bullets: GROWTH_LIMITS_SEATS_BULLETS,
-      };
-    default:
-      return {
-        title: "This feature isn't on your current plan",
-        subtitle: "Upgrade your workspace to unlock it.",
-        unlockTier: "growth",
-        bullets: FALLBACK_BULLETS,
-      };
+interface GateDescriptor {
+  /** Human label for the gated capability. */
+  label: string;
+  /** Verb phrase used as "Upgrade to {tier} to {blurb}." */
+  blurb: string;
+  bullets: string[];
+}
+
+const GATE_COPY: Record<GatedFeature, GateDescriptor> = {
+  salesConsole: {
+    label: "Sales Console",
+    blurb: "turn landing pages into a full account-based sales motion",
+    bullets: SALES_CONSOLE_BULLETS,
+  },
+  aiImageGen: {
+    label: "AI image generation",
+    blurb: "generate and refine on-brand imagery without leaving the builder",
+    bullets: AI_IMAGE_BULLETS,
+  },
+  customDomain: {
+    label: "Custom domains",
+    blurb: "publish on your own domain",
+    bullets: CUSTOM_DOMAIN_BULLETS,
+  },
+  pages: {
+    label: "landing pages",
+    blurb: "create more landing pages",
+    bullets: PAGES_BULLETS,
+  },
+  forms: {
+    label: "forms",
+    blurb: "create more forms",
+    bullets: FORMS_BULLETS,
+  },
+  userSeats: {
+    label: "teammate seats",
+    blurb: "invite more teammates",
+    bullets: SEATS_BULLETS,
+  },
+  aiGenerationsPerMonth: {
+    label: "monthly AI page generations",
+    blurb: "generate more pages with AI each month",
+    bullets: AI_GENERATION_BULLETS,
+  },
+  heatmapSessionsPerMonth: {
+    label: "monthly heatmap sessions",
+    blurb: "record more visitor sessions each month",
+    bullets: HEATMAP_BULLETS,
+  },
+};
+
+function plansBySortOrder(): Plan[] {
+  return [...PLANS].sort((a, b) => PLAN_CONFIG[a].sortOrder - PLAN_CONFIG[b].sortOrder);
+}
+
+/**
+ * Client-side fallback for the lowest tier that admits a gate, mirroring the
+ * server's minimumPlanForFeature / minimumPlanForCap over the shared config.
+ * Used when a static caller (route guard, DomainPage) has no server payload.
+ */
+export function minimumTierForGate(gate: string, currentUsage?: number | null): Plan | null {
+  if (BOOLEAN_GATES.has(gate)) {
+    for (const p of plansBySortOrder()) {
+      const features = PLAN_CONFIG[p].features as unknown as Record<string, unknown>;
+      if (features[gate] === true) return p;
+    }
+    return null;
   }
+  const usage = typeof currentUsage === "number" ? currentUsage : 0;
+  for (const p of plansBySortOrder()) {
+    const limits = PLAN_CONFIG[p].features.limits as unknown as Record<string, number | null>;
+    const limit = limits[gate];
+    if (limit === undefined) continue;
+    if (limit === null || limit > usage) return p;
+  }
+  return null;
+}
+
+function tierName(tier: Plan | null): string {
+  return tier ? PLAN_CONFIG[tier].displayName : "a higher plan";
+}
+
+function indefiniteArticle(word: string): string {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
+export interface CopyForGateOptions {
+  gate: string;
+  minimumPlanWithFeature?: Plan | null;
+  currentUsage?: number | null;
+  cap?: number | null;
+}
+
+export function copyForGate(opts: CopyForGateOptions): UpgradePromptCopy {
+  const { gate } = opts;
+  const unlockTier =
+    opts.minimumPlanWithFeature ?? minimumTierForGate(gate, opts.currentUsage);
+  // `free` is never a checkout target even though it is technically
+  // self-serve in PLAN_CONFIG — there is no Stripe SKU for it. Guarding here
+  // keeps every CTA callsite from ever producing a `free_monthly` checkout.
+  const selfServe =
+    unlockTier && unlockTier !== "free" ? PLAN_CONFIG[unlockTier].selfServe : false;
+  const name = tierName(unlockTier);
+  const desc = GATE_COPY[gate as GatedFeature];
+
+  if (!desc) {
+    return {
+      title: "This feature isn't on your current plan",
+      subtitle: `Upgrade to ${name} to unlock it.`,
+      unlockTier,
+      selfServe,
+      bullets: FALLBACK_BULLETS,
+    };
+  }
+
+  if (!BOOLEAN_GATES.has(gate)) {
+    const { currentUsage, cap } = opts;
+    const usageLine =
+      typeof currentUsage === "number" && typeof cap === "number"
+        ? `You've used ${currentUsage} of ${cap} ${desc.label} on your current plan.`
+        : `You've reached your ${desc.label} limit.`;
+    return {
+      title: `You've reached your ${desc.label} limit`,
+      subtitle: `${usageLine} Upgrade to ${name} to ${desc.blurb}.`,
+      unlockTier,
+      selfServe,
+      bullets: desc.bullets,
+    };
+  }
+
+  return {
+    title: unlockTier
+      ? `${desc.label} is ${indefiniteArticle(name)} ${name} feature`
+      : `${desc.label} isn't on your plan`,
+    subtitle: `Upgrade to ${name} to ${desc.blurb}.`,
+    unlockTier,
+    selfServe,
+    bullets: desc.bullets,
+  };
+}
+
+/**
+ * Thin alias for static callers that only know a boolean feature key and have
+ * no server payload (the /sales route guard, DomainPage). Computes the unlock
+ * tier client-side from the shared config.
+ */
+export function copyForFeature(feature: GatedFeature | string): UpgradePromptCopy {
+  return copyForGate({ gate: feature });
 }
 
 export const UPGRADE_EVENT = "plan-upgrade-required";
 
 export interface UpgradeEventDetail {
-  feature: GatedFeature | string;
-  plan: string;
-  message?: string;
+  gate: string;
+  currentPlan: string;
+  currentUsage: number | null;
+  cap: number | null;
+  minimumPlanWithFeature: Plan | null;
+  upgradeUrl: string;
+}
+
+function asNumberOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function asPlanOrNull(v: unknown): Plan | null {
+  return typeof v === "string" && (PLANS as readonly string[]).includes(v)
+    ? (v as Plan)
+    : null;
 }
 
 /**
- * Dispatch an upgrade event. Called from the global fetch interceptor
- * when it sees a 402 `plan_upgrade_required`. A debounce window
- * suppresses repeat events for the same feature so a screen full of
- * parallel queries hitting the same gate only shows one toast.
+ * Parse a parsed JSON body into an UpgradeEventDetail iff it matches the
+ * server's structured `plan_upgrade_required` contract (keyed on `gate`).
+ * Returns null for any other shape. Pure — used by the fetch interceptor.
+ */
+export function parseUpgradeBody(body: unknown): UpgradeEventDetail | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as Record<string, unknown>;
+  if (b.error !== "plan_upgrade_required" || !b.gate) return null;
+  return {
+    gate: String(b.gate),
+    currentPlan: String(b.currentPlan ?? "free"),
+    currentUsage: asNumberOrNull(b.currentUsage),
+    cap: asNumberOrNull(b.cap),
+    minimumPlanWithFeature: asPlanOrNull(b.minimumPlanWithFeature),
+    upgradeUrl: typeof b.upgradeUrl === "string" ? b.upgradeUrl : "/settings/billing",
+  };
+}
+
+/**
+ * Dispatch an upgrade event. Called from the global fetch interceptor when it
+ * sees a 402 `plan_upgrade_required`. A debounce window suppresses repeat
+ * events for the same gate so a screen full of parallel queries hitting the
+ * same gate only shows one toast.
  */
 const recent = new Map<string, number>();
 const DEDUP_MS = 4000;
 
 export function emitUpgradeRequired(detail: UpgradeEventDetail): void {
   if (typeof window === "undefined") return;
-  const key = String(detail.feature);
+  const key = String(detail.gate);
   const now = Date.now();
   const last = recent.get(key) ?? 0;
   if (now - last < DEDUP_MS) return;

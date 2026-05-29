@@ -17,7 +17,7 @@
  * the header to them is harmless.
  */
 
-import { emitUpgradeRequired } from "./plan-upgrade";
+import { emitUpgradeRequired, parseUpgradeBody } from "./plan-upgrade";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const CSRF_HEADER = "X-CSRF-Token";
@@ -79,27 +79,21 @@ function isSameOriginApi(url: string): boolean {
 }
 
 /**
- * Inspect a 402 to see if it's the server's `plan_upgrade_required`
- * shape from requirePlanFeature. If so, fire the global upgrade event
- * so the listener in App.tsx can show a toast. We clone the response
- * before reading it so the caller still gets a fresh body to consume.
+ * Inspect a 402 to see if it's the server's structured `plan_upgrade_required`
+ * contract (see api-server/src/lib/planGate.ts). If so, fire the global
+ * upgrade event so the listener in App.tsx can show a toast. We clone the
+ * response before reading it so the caller still gets a fresh body to consume.
  *
  * Silent on any other 402 or unexpected body — we only react to the
- * documented contract.
+ * documented contract (keyed on `gate`).
  */
 async function maybeEmitPlanUpgrade(res: Response): Promise<void> {
   if (res.status !== 402) return;
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) return;
   try {
-    const body = await res.clone().json();
-    if (body?.error === "plan_upgrade_required" && body?.feature) {
-      emitUpgradeRequired({
-        feature: String(body.feature),
-        plan: String(body.plan ?? "starter"),
-        message: typeof body.message === "string" ? body.message : undefined,
-      });
-    }
+    const detail = parseUpgradeBody(await res.clone().json());
+    if (detail) emitUpgradeRequired(detail);
   } catch {
     // Non-JSON or malformed body — ignore.
   }

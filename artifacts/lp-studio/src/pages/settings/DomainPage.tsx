@@ -182,7 +182,7 @@ function DomainContent() {
           </div>
         </Card>
       ) : planLocked ? (
-        <UpgradePrompt feature="customDomain" withLayout={false} />
+        <UpgradePrompt gate="customDomain" withLayout={false} />
       ) : (
         <>
           <Card className="p-5">

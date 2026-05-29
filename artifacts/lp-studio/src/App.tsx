@@ -12,7 +12,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { RoleGuard } from "@/components/RoleGuard";
 import { DevToolsPanel } from "@/components/DevToolsPanel";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
-import { UPGRADE_EVENT, copyForFeature, type UpgradeEventDetail } from "@/lib/plan-upgrade";
+import { UPGRADE_EVENT, copyForGate, type UpgradeEventDetail } from "@/lib/plan-upgrade";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -516,7 +516,7 @@ function AppShell() {
       return (
         <AuthGate>
           <ModeProvider permissions={effectivePermissions} isAdmin={effectiveIsAdmin}>
-            <UpgradePrompt feature="salesConsole" />
+            <UpgradePrompt gate="salesConsole" />
           </ModeProvider>
           <Toaster />
         </AuthGate>
@@ -591,7 +591,7 @@ function PlanUpgradeToastListener() {
     function onUpgrade(e: Event) {
       const detail = (e as CustomEvent<UpgradeEventDetail>).detail;
       if (!detail) return;
-      const copy = copyForFeature(detail.feature);
+      const copy = copyForGate(detail);
       toast({
         title: copy.title,
         description: copy.subtitle,
