@@ -1064,9 +1064,10 @@ export default function AssembleScene() {
   const [heroFocused, setHeroFocused] = useState(false);
   const [heroError, setHeroError] = useState(false);
   const heroTextareaRef = useRef<HTMLTextAreaElement>(null);
-  // Mad-Libs placeholder: picked once per page mount (stable for the visit),
-  // with an SSR-safe default on first paint so prerender + hydration match.
-  const madLibsPlaceholder = useMadLibsPlaceholder();
+  // Mad-Libs placeholder: rotates through fresh random combos so visitors see
+  // a variety of examples, with an SSR-safe default on first paint so prerender
+  // + hydration match. Rotation pauses while the field is focused or has text.
+  const madLibsPlaceholder = useMadLibsPlaceholder(heroFocused || heroPrompt.length > 0);
   const heroPlaceholder = heroFocused || heroPrompt.length > 0 ? "" : madLibsPlaceholder;
   const submitHero = (override?: string) => {
     const value = (override ?? heroPrompt).trim();

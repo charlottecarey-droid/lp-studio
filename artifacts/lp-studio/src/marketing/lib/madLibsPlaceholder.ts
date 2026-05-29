@@ -147,14 +147,30 @@ export function generatePlaceholder(): string {
   return template.replace("{subject}", subject) + qualifier;
 }
 
-/** Returns a stable random placeholder per page mount. Falls back to a
- *  default string on first paint to avoid SSR/prerender hydration mismatches. */
-export function useMadLibsPlaceholder(): string {
+/**
+ * Auto-rotating Mad-Libs placeholder. Starts from a fixed default on first
+ * paint (avoids SSR/prerender hydration mismatches), swaps to a random combo
+ * once mounted, then rotates to a fresh combo on an interval so visitors see
+ * a variety of examples. Pass `paused` (e.g. when the field is focused or has
+ * text) to freeze rotation so the user isn't fighting a moving target.
+ */
+export function useMadLibsPlaceholder(
+  paused = false,
+  intervalMs = 3200,
+): string {
   const [placeholder, setPlaceholder] = useState<string>(
     "Describe the landing page you want",
   );
   useEffect(() => {
+    // Pick an initial random combo on mount (post-hydration).
     setPlaceholder(generatePlaceholder());
   }, []);
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => {
+      setPlaceholder(generatePlaceholder());
+    }, intervalMs);
+    return () => clearInterval(t);
+  }, [paused, intervalMs]);
   return placeholder;
 }
