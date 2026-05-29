@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2, CheckCircle2, Calendar } from "lucide-react";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
@@ -40,6 +40,12 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
   const ctaAction = props.ctaAction ?? "inline-form";
 
   const bg = props.bgColor ?? "var(--brand-primary)";
+  // When the section bg is an AI/tenant-chosen hex (not the brand-primary
+  // CSS-var fallback), resolve CTA colors with a WCAG contrast guard so the
+  // `bg-[var(--brand-accent)]` buttons don't vanish on an accent/primary bg.
+  const ctaColors = isValidHex(bg) ? pickCtaButtonColors(brand, bg) : null;
+  const ctaBtnCls = ctaColors ? "" : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)]";
+  const ctaBtnStyle = ctaColors ? { backgroundColor: ctaColors.bg, color: ctaColors.text } : undefined;
   const bgImage = props.backgroundImageUrl;
 
   const field = (key: keyof DandyHeroV7S3BlockProps) =>
@@ -136,7 +142,8 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             pageId={pageId}
             variantId={variantId}
             source="dandy-hero-v7-s3"
-            className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2"
+            className={`${ctaBtnCls} font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2`}
+            style={ctaBtnStyle}
           >
             <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </CtaButton>
@@ -148,7 +155,8 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             {props.chilipiperUrl && (
               <button
                 onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
-                className="mt-1 flex items-center gap-2 bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-5 py-2.5 rounded-full text-sm"
+                className={`mt-1 flex items-center gap-2 ${ctaBtnCls} font-bold px-5 py-2.5 rounded-full text-sm`}
+                style={ctaBtnStyle}
               >
                 <Calendar className="w-3.5 h-3.5" /> Schedule a call
               </button>
@@ -168,7 +176,8 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             <button
               type="submit"
               disabled={formState === "loading"}
-              className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70"
+              className={`${ctaBtnCls} font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70`}
+              style={ctaBtnStyle}
             >
               {formState === "loading" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

@@ -4,7 +4,7 @@ const BODY = BRAND_BODY_FONT;
 import { useState } from "react";
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
 import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -80,7 +80,14 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
       ? "border-current/30 hover:bg-black/5"
       : "text-white border-white/30 hover:bg-white/10",
   );
-  const primaryClass = "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all";
+  // When the header bg is an AI/tenant-chosen hex (not the brand-primary
+  // CSS-var fallback), resolve the primary CTA colors with a WCAG contrast
+  // guard so the button doesn't vanish on an accent/primary-colored header.
+  const ctaColors = isValidHex(headerBg) ? pickCtaButtonColors(brand, headerBg) : null;
+  const primaryClass = ctaColors
+    ? "font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all"
+    : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all";
+  const primaryStyle = ctaColors ? { backgroundColor: ctaColors.bg, color: ctaColors.text } : undefined;
 
   return (
     <header className="w-full shadow-sm" style={headerStyle}>
@@ -143,11 +150,11 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange, pageId, vari
 
           {props.primaryCtaText && (
             primaryAction === "chilipiper" ? (
-              <ChiliPiperButton url={props.primaryCtaUrl || brand.chilipiperUrl || "#"} className={primaryClass}>
+              <ChiliPiperButton url={props.primaryCtaUrl || brand.chilipiperUrl || "#"} className={primaryClass} style={primaryStyle}>
                 <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
               </ChiliPiperButton>
             ) : (
-              <button onClick={() => handleClick(primaryAction, props.primaryCtaUrl)} className={primaryClass}>
+              <button onClick={() => handleClick(primaryAction, props.primaryCtaUrl)} className={primaryClass} style={primaryStyle}>
                 <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} style={{ fontFamily: BODY }}/>
               </button>
             )

@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, pickCtaButtonColors } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -21,6 +21,11 @@ interface Props {
 export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   const reversed = props.imagePosition === "left";
   const bg = props.bgColor ?? "#FDFCFA";
+  // Section bg can be any tenant/AI-chosen color; the primary CTA used to
+  // hardcode `bg-[var(--brand-accent)]`, which vanishes when the section bg
+  // is itself the brand accent or primary. Resolve runtime button colors
+  // with a WCAG contrast guard so the button stays visible.
+  const ctaColors = pickCtaButtonColors(brand, bg);
 
   const field = (key: keyof DandySideImageV6BlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -85,7 +90,8 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
             modalShowCompany={props.modalShowCompany}
             brand={brand}
             source="dandy-side-image-v6-primary"
-            className="bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+            className="font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+            style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
           >
             <InlineText value={props.ctaText} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </CtaButton>

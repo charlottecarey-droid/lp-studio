@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { BrandConfig } from "@/lib/brand-config";
+import { type BrandConfig, isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
 import type { DandyConversionPanel1BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -38,7 +38,15 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
   const bg = props.bgColor ?? bgMap[style] ?? bgMap.teal;
   const colors = textMap[style] ?? textMap.teal;
 
-  const primaryBtnCls = style === "lime"
+  // When the section bg is an AI/tenant-chosen hex (not one of the preset
+  // CSS-var styles), resolve the primary button colors with a WCAG contrast
+  // guard so a `bg-[var(--brand-accent)]` button doesn't vanish on an
+  // accent/primary-colored section. Preset styles keep their tuned classes.
+  const ctaColors = isValidHex(bg) ? pickCtaButtonColors(brand, bg) : null;
+
+  const primaryBtnCls = ctaColors
+    ? "hover:brightness-105"
+    : style === "lime"
     ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:brightness-90"
     : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] hover:brightness-105";
 
@@ -110,6 +118,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
               chilipiperUrl={props.primaryChilipiperUrl}
               {...modalCfg}
               className={cn("font-bold px-10 py-4 rounded-xl text-base transition-all", primaryBtnCls)}
+              style={ctaColors ? { backgroundColor: ctaColors.bg, color: ctaColors.text } : undefined}
               brand={brand}
               pageId={pageId}
               variantId={variantId}

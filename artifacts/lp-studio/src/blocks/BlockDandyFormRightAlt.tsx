@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Check, Loader2, Calendar } from "lucide-react";
-import { type BrandConfig, headingColorVarForBg } from "@/lib/brand-config";
+import { type BrandConfig, headingColorVarForBg, pickCtaButtonColors } from "@/lib/brand-config";
 import type {
   DandyFormRightAltBlockProps,
   ChiliPiperHandoffConfig,
@@ -59,7 +59,7 @@ function buildLegacyCpUrl(base: string, email: string): string {
   }
 }
 
-export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pageId, variantId }: Props) {
+export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const [formState, setFormState] = useState<FormState>("idle");
   const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
   // Native fields used when no global form is linked.
@@ -209,6 +209,10 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
   };
 
   const bg = props.bgColor ?? "#FDFCFA";
+  // The submit button sits on the white form card, so resolve its colors
+  // against white with a WCAG contrast guard. This keeps the button visible
+  // even when a tenant's accent is itself near-white.
+  const ctaColors = pickCtaButtonColors(brand, "#ffffff");
   const leftMode = props.leftMode ?? "bullets";
   const headlineLayout = props.headlineLayout ?? "default";
   const aspect = ASPECT_CLASS[props.imageAspect ?? "portrait"];
@@ -278,7 +282,8 @@ export function BlockDandyFormRightAlt({ props, brand: _brand, onFieldChange, pa
     <button
       type="submit"
       disabled={formState === "loading"}
-      className="w-full bg-[var(--brand-accent)] text-[var(--brand-cta-text)] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
+      className="w-full font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
+      style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
     >
       {formState === "loading" ? (
         <Loader2 className="w-4 h-4 animate-spin" />
