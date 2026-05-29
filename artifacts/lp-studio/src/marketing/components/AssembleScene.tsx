@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
+import { useMadLibsPlaceholder } from "../lib/madLibsPlaceholder";
 
 // Palette retargeted from "dark + lime" to "warm cream + ink + indigo" to match
 // the app. Names preserved so call sites don't need rewrites.
@@ -1007,27 +1008,6 @@ function MockPage({
   );
 }
 
-/* Hero prompt — rotates through realistic example prompts so the input
- * doesn't read as a static placeholder. Pauses on focus so the user isn't
- * fighting a moving target as they start typing. */
-const HERO_PROMPT_EXAMPLES: string[] = [
-  "A pricing page for a B2B platform aimed at COOs",
-  "An event landing page for a fintech roadshow in October",
-  "A product hero for a new clear aligner launch",
-  "A practice onboarding page for a 14-location dental network",
-  "A demo-request page for an HR analytics product",
-];
-
-function useRotatingExample(active: boolean, intervalMs = 2800): string {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const t = setInterval(() => setI((n) => (n + 1) % HERO_PROMPT_EXAMPLES.length), intervalMs);
-    return () => clearInterval(t);
-  }, [active, intervalMs]);
-  return HERO_PROMPT_EXAMPLES[i];
-}
-
 /* Small inline-SVG icons used in the hero generator card. Avoiding a
  * lucide-react dep here keeps this marketing chunk lean — the rest of the
  * marketing site is icon-light by design. */
@@ -1082,14 +1062,29 @@ export default function AssembleScene() {
   // query param so the actual generator flow can pre-fill it.
   const [heroPrompt, setHeroPrompt] = useState("");
   const [heroFocused, setHeroFocused] = useState(false);
-  const rotatingExample = useRotatingExample(!heroFocused && heroPrompt.length === 0);
-  const heroPlaceholder = heroFocused || heroPrompt.length > 0 ? "" : rotatingExample;
+  const [heroError, setHeroError] = useState(false);
+  const heroTextareaRef = useRef<HTMLTextAreaElement>(null);
+  // Mad-Libs placeholder: picked once per page mount (stable for the visit),
+  // with an SSR-safe default on first paint so prerender + hydration match.
+  const madLibsPlaceholder = useMadLibsPlaceholder();
+  const heroPlaceholder = heroFocused || heroPrompt.length > 0 ? "" : madLibsPlaceholder;
   const submitHero = (override?: string) => {
     const value = (override ?? heroPrompt).trim();
     const url = value
       ? `https://app.lpstudio.ai/pages?new=ai&prompt=${encodeURIComponent(value)}`
       : "https://app.lpstudio.ai/pages?new=ai";
     window.location.href = url;
+  };
+  // Generate action — requires a real brief. The placeholder is inspiration,
+  // never input, so an empty Generate shows a soft validation instead of
+  // submitting the placeholder string.
+  const handleGenerate = () => {
+    if (!heroPrompt.trim()) {
+      setHeroError(true);
+      heroTextareaRef.current?.focus();
+      return;
+    }
+    submitHero();
   };
 
   // ---------- phase plan ----------
@@ -1377,7 +1372,7 @@ export default function AssembleScene() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              submitHero();
+              handleGenerate();
             }}
             className="mt-9 w-full"
             style={{ maxWidth: 680 }}
@@ -1395,19 +1390,24 @@ export default function AssembleScene() {
             >
               <div className="relative">
                 <textarea
+                  ref={heroTextareaRef}
                   value={heroPrompt}
-                  onChange={(e) => setHeroPrompt(e.target.value)}
+                  onChange={(e) => {
+                    setHeroPrompt(e.target.value);
+                    if (heroError) setHeroError(false);
+                  }}
                   onFocus={() => setHeroFocused(true)}
                   onBlur={() => setHeroFocused(false)}
                   onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                       e.preventDefault();
-                      submitHero();
+                      handleGenerate();
                     }
                   }}
                   placeholder={heroPlaceholder}
                   rows={isMobile ? 3 : 2}
                   aria-label="Describe the landing page you want"
+                  aria-invalid={heroError}
                   spellCheck={false}
                   className="w-full resize-none outline-none"
                   style={{
@@ -1419,21 +1419,6 @@ export default function AssembleScene() {
                     padding: "18px 18px 6px 18px",
                   }}
                 />
-                {/* Rotating-placeholder hint shown only when empty + unfocused */}
-                {heroPlaceholder === "" && !heroPrompt && (
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      top: 18,
-                      left: 18,
-                      color: FAINT,
-                      fontSize: 16,
-                      fontStyle: "italic",
-                    }}
-                  >
-                    Try: "{HERO_PROMPT_EXAMPLES[0]}"
-                  </div>
-                )}
               </div>
 
               {/* Card footer — affordances + generate CTA */}
@@ -1499,6 +1484,18 @@ export default function AssembleScene() {
               </div>
             </div>
           </form>
+
+          {/* Soft validation — the placeholder is inspiration, never input,
+              so an empty Generate prompts for a brief instead of submitting. */}
+          {heroError && (
+            <div
+              role="alert"
+              className="mt-2 text-[13px]"
+              style={{ color: "#C2410C", fontWeight: 500 }}
+            >
+              Type a brief to continue
+            </div>
+          )}
 
           {/* Suggestion pills */}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2" style={{ maxWidth: 680 }}>
