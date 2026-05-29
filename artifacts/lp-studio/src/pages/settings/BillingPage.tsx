@@ -1,15 +1,21 @@
-// Task #425 — self-serve Billing settings page.
+// Self-serve Billing settings page.
 //
 // Renders:
-//   • Current plan card (PLAN_FEATURES bullets)
+//   • Current plan card (display name + feature bullets from PLAN_CONFIG)
 //   • Subscription status (trialing / active / past_due / canceled / etc.)
 //   • Renewal/cancel date and cadence (monthly | annual)
-//   • Upgrade controls (Growth monthly / annual)
+//   • Upgrade controls for every higher self-serve tier (starter / growth /
+//     scale), monthly + annual, driven off the shared PLAN_CONFIG
 //   • "Manage billing" → Stripe Billing Portal for active subscribers
 //
 // Treats Stripe-not-configured (503 from the API) as a soft-disable: shows
 // the current plan but hides upgrade controls and tells the operator to
 // enable billing in env.
+//
+// The tier ladder (free/starter/growth/scale/enterprise) is the single
+// source of truth in @workspace/plan-config — this page must never hardcode
+// a subset of tiers, or an out-of-range `plan` from the API crashes the page
+// (the classic "undefined is not an object" on PLAN_COPY[plan]).
 import { useCallback, useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card } from "@/components/ui/card";
@@ -19,9 +25,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, CreditCard, Check, ArrowRight, AlertTriangle, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
+import { PLAN_CONFIG, PLANS, type Plan } from "@workspace/plan-config";
+
+type Cadence = "monthly" | "annual";
 
 interface BillingSummary {
-  plan: "starter" | "growth" | "enterprise";
+  plan: Plan;
   features: Record<string, unknown>;
   stripe: {
     configured: boolean;
@@ -31,7 +40,7 @@ interface BillingSummary {
       status: string | null;
       cancelAtPeriodEnd: boolean;
       currentPeriodEnd: number | null;
-      cadence: "monthly" | "annual" | null;
+      cadence: Cadence | null;
       lookupKey: string | null;
       unitAmount: number | null;
       currency: string | null;
@@ -40,23 +49,49 @@ interface BillingSummary {
   };
 }
 
-const PLAN_COPY: Record<BillingSummary["plan"], { name: string; tagline: string; bullets: string[] }> = {
-  starter: {
-    name: "Starter",
-    tagline: "Free — single landing page, built-in workspace URL.",
+interface PlanCopy {
+  tagline: string;
+  bullets: string[];
+}
+
+// Curated marketing copy per tier. Display names + prices come from
+// PLAN_CONFIG; this only holds the tagline + bullets. Keyed on every Plan so
+// it can never be indexed out of range.
+const PLAN_COPY: Record<Plan, PlanCopy> = {
+  free: {
+    tagline: "Free — one landing page on a workspace subdomain.",
     bullets: ["1 published landing page", "lp-studio.app subdomain", "Email lead capture"],
   },
+  starter: {
+    tagline: "For getting a real presence live, your own domain.",
+    bullets: ["Up to 10 landing pages", "Custom domain", "Email lead capture", "5 forms"],
+  },
   growth: {
-    name: "Growth",
-    tagline: "$199/month — for teams running active acquisition.",
+    tagline: "For teams running active acquisition.",
     bullets: ["Unlimited landing pages", "Custom domains", "Sales Console", "Block library", "Priority support"],
   },
+  scale: {
+    tagline: "For high-volume teams that need AI + more seats.",
+    bullets: ["Everything in Growth", "AI image generation", "Up to 25 seats", "Higher heatmap limits"],
+  },
   enterprise: {
-    name: "Enterprise",
     tagline: "Custom — SSO, white-glove onboarding, dedicated success.",
-    bullets: ["Everything in Growth", "SSO + SCIM", "Custom block templates", "Dedicated CSM"],
+    bullets: ["Everything in Scale", "SSO + SCIM", "Custom block templates", "Dedicated CSM"],
   },
 };
+
+const FALLBACK_COPY: PlanCopy = {
+  tagline: "Your current plan.",
+  bullets: [],
+};
+
+function planDisplayName(plan: Plan): string {
+  return PLAN_CONFIG[plan]?.displayName ?? plan;
+}
+
+function planCopy(plan: Plan): PlanCopy {
+  return PLAN_COPY[plan] ?? FALLBACK_COPY;
+}
 
 function formatPaymentMethod(pm: { brand: string | null; last4: string | null } | null): string {
   if (!pm || (!pm.brand && !pm.last4)) return "—";
@@ -76,6 +111,14 @@ function formatPrice(unitAmount: number | null, currency: string | null, cadence
   return `${amount} / ${cadence === "annual" ? "year" : "month"}`;
 }
 
+function usd(amount: number): string {
+  return amount.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
 function formatDate(epochSeconds: number | null): string {
   if (!epochSeconds) return "—";
   return new Date(epochSeconds * 1000).toLocaleDateString(undefined, {
@@ -88,6 +131,17 @@ function statusBadgeVariant(status: string): "default" | "secondary" | "destruct
   if (status === "past_due" || status === "unpaid") return "destructive";
   if (status === "canceled" || status === "incomplete_expired") return "outline";
   return "secondary";
+}
+
+// Self-serve paid tiers strictly above the current plan, in ladder order.
+// `free` is the floor (no checkout) and `enterprise` is sales-assisted, so
+// neither is ever an upgrade *target* here.
+function upgradeTargets(currentPlan: Plan): Plan[] {
+  const current = PLAN_CONFIG[currentPlan]?.sortOrder ?? 0;
+  return PLANS.filter((p) => {
+    const cfg = PLAN_CONFIG[p];
+    return cfg && cfg.selfServe && p !== "free" && cfg.sortOrder > current;
+  });
 }
 
 export default function BillingPage() {
@@ -147,14 +201,15 @@ export default function BillingPage() {
     }
   }, [location, toast, load]);
 
-  async function startCheckout(cadence: "monthly" | "annual"): Promise<void> {
+  async function startCheckout(plan: Plan, cadence: Cadence): Promise<void> {
     if (!isAdmin) {
       toast({ title: "Workspace admin required", variant: "destructive" });
       return;
     }
-    setActionInFlight(`checkout-${cadence}`);
+    const key = `checkout-${plan}-${cadence}`;
+    setActionInFlight(key);
     try {
-      const priceLookupKey = cadence === "annual" ? "growth_annual" : "growth_monthly";
+      const priceLookupKey = `${plan}_${cadence}`;
       const res = await fetch("/api/billing/checkout-session", {
         method: "POST",
         credentials: "include",
@@ -192,6 +247,10 @@ export default function BillingPage() {
     }
   }
 
+  const targets = summary ? upgradeTargets(summary.plan) : [];
+  const showEnterpriseUpsell =
+    !!summary && summary.plan !== "enterprise" && targets.length === 0;
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-6">
@@ -225,21 +284,34 @@ export default function BillingPage() {
 
         {summary && <CurrentPlanCard summary={summary} onOpenPortal={openPortal} portalDisabled={!isAdmin} portalBusy={actionInFlight === "portal"} />}
 
-        {summary && summary.plan !== "growth" && summary.plan !== "enterprise" && (
+        {summary && targets.length > 0 && (
           <UpgradeCard
+            targets={targets}
             disabled={!isAdmin || !summary.stripe.configured}
-            disabledReason={!isAdmin ? "Only workspace admins can upgrade." : !summary.stripe.configured ? "Billing is not configured on this deployment." : null}
+            disabledReason={
+              !isAdmin
+                ? "Only workspace admins can upgrade."
+                : !summary.stripe.configured
+                  ? "Billing is not configured on this deployment."
+                  : null
+            }
             onCheckout={startCheckout}
             busy={actionInFlight}
           />
         )}
 
-        {summary && summary.plan === "growth" && (
+        {showEnterpriseUpsell && (
           <Card className="p-5 text-sm text-muted-foreground">
-            You're on the Growth plan. Need SSO, custom blocks, or a dedicated CSM?{" "}
+            You're on the {planDisplayName(summary.plan)} plan. Need SSO, custom blocks, or a dedicated CSM?{" "}
             <a href="mailto:sales@meetdandy.com?subject=LP%20Studio%20Enterprise" className="text-primary underline">
               Talk to sales about Enterprise.
             </a>
+          </Card>
+        )}
+
+        {summary && summary.plan === "enterprise" && (
+          <Card className="p-5 text-sm text-muted-foreground">
+            You're on the Enterprise plan. Reach your account team for any plan changes.
           </Card>
         )}
       </div>
@@ -258,14 +330,14 @@ function CurrentPlanCard({
   portalDisabled: boolean;
   portalBusy: boolean;
 }) {
-  const copy = PLAN_COPY[summary.plan];
+  const copy = planCopy(summary.plan);
   const sub = summary.stripe.subscription;
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">{copy.name}</h2>
+            <h2 className="text-lg font-semibold">{planDisplayName(summary.plan)}</h2>
             {sub && (
               <Badge variant={statusBadgeVariant(sub.status ?? "")} data-testid="subscription-status-badge">
                 {sub.status}
@@ -288,14 +360,16 @@ function CurrentPlanCard({
         )}
       </div>
 
-      <ul className="grid sm:grid-cols-2 gap-2 text-sm">
-        {copy.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2">
-            <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
+      {copy.bullets.length > 0 && (
+        <ul className="grid sm:grid-cols-2 gap-2 text-sm">
+          {copy.bullets.map((b) => (
+            <li key={b} className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {sub && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t text-sm">
@@ -332,22 +406,26 @@ function CurrentPlanCard({
 }
 
 function UpgradeCard({
+  targets,
   disabled,
   disabledReason,
   onCheckout,
   busy,
 }: {
+  targets: Plan[];
   disabled: boolean;
   disabledReason: string | null;
-  onCheckout: (cadence: "monthly" | "annual") => void;
+  onCheckout: (plan: Plan, cadence: Cadence) => void;
   busy: string | null;
 }) {
   return (
     <Card className="p-6 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold">Upgrade to Growth</h2>
+        <h2 className="text-lg font-semibold">
+          {targets.length === 1 ? `Upgrade to ${planDisplayName(targets[0])}` : "Upgrade your plan"}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Unlock unlimited landing pages, custom domains, and the Sales Console.
+          Unlock more pages, custom domains, the Sales Console, and AI features.
         </p>
       </div>
       {disabledReason && (
@@ -355,26 +433,44 @@ function UpgradeCard({
           {disabledReason}
         </div>
       )}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <PriceTile
-          label="Monthly"
-          price="$199"
-          cadence="per month"
-          busy={busy === "checkout-monthly"}
-          disabled={disabled || busy !== null}
-          onClick={() => onCheckout("monthly")}
-          testId="checkout-growth-monthly"
-        />
-        <PriceTile
-          label="Annual"
-          price="$1,990"
-          cadence="per year · 2 months free"
-          busy={busy === "checkout-annual"}
-          disabled={disabled || busy !== null}
-          onClick={() => onCheckout("annual")}
-          highlighted
-          testId="checkout-growth-annual"
-        />
+      <div className="space-y-6">
+        {targets.map((plan) => {
+          const cfg = PLAN_CONFIG[plan];
+          const monthly = cfg.priceMonthly;
+          const annualPerMonth = cfg.priceAnnual;
+          return (
+            <div key={plan} className="space-y-3">
+              {targets.length > 1 && (
+                <h3 className="text-sm font-semibold">{cfg.displayName}</h3>
+              )}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <PriceTile
+                  label="Monthly"
+                  price={monthly != null ? usd(monthly) : "—"}
+                  cadence="per month"
+                  busy={busy === `checkout-${plan}-monthly`}
+                  disabled={disabled || busy !== null || monthly == null}
+                  onClick={() => onCheckout(plan, "monthly")}
+                  testId={`checkout-${plan}-monthly`}
+                />
+                <PriceTile
+                  label="Annual"
+                  price={annualPerMonth != null ? usd(annualPerMonth * 12) : "—"}
+                  cadence={
+                    annualPerMonth != null
+                      ? `per year · ${usd(annualPerMonth)}/mo billed annually`
+                      : "billed annually"
+                  }
+                  busy={busy === `checkout-${plan}-annual`}
+                  disabled={disabled || busy !== null || annualPerMonth == null}
+                  onClick={() => onCheckout(plan, "annual")}
+                  highlighted
+                  testId={`checkout-${plan}-annual`}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
