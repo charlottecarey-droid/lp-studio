@@ -12,6 +12,12 @@ import type { Plan } from "@workspace/plan-config";
 const planByTenant = new Map<number, Plan>();
 let resolvedTenantId: number | null = 1;
 let sessionCount = 0;
+const sessionByTenant = new Map<number, number>();
+
+// Captures the rows passed to db.insert(...).values(...) so tests can assert
+// exactly which events were persisted (e.g. that a blocked tenant's events
+// were dropped from a mixed-page batch).
+let insertedRows: Array<{ pageId: number }> = [];
 
 vi.mock("../../lib/planFeatures", async () => {
   const actual = await vi.importActual<typeof import("../../lib/planFeatures")>("../../lib/planFeatures");
@@ -24,13 +30,23 @@ vi.mock("../../lib/planFeatures", async () => {
 });
 
 vi.mock("../../lib/heatmapUsage", () => ({
-  resolveTenantIdForPage: vi.fn(async () => resolvedTenantId),
-  countTenantHeatmapSessionsThisMonth: vi.fn(async () => sessionCount),
+  resolveTenantIdForPage: vi.fn(async (pageId: number) =>
+    pageToTenant.size > 0 ? (pageToTenant.get(pageId) ?? null) : resolvedTenantId,
+  ),
+  countTenantHeatmapSessionsThisMonth: vi.fn(async (tenantId: number) =>
+    sessionByTenant.size > 0 ? (sessionByTenant.get(tenantId) ?? 0) : sessionCount,
+  ),
 }));
 
 vi.mock("@workspace/db", () => ({
   pool: { query: vi.fn(async () => { throw new Error("no db in test"); }) },
-  db: { insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })) },
+  db: {
+    insert: vi.fn(() => ({
+      values: vi.fn(async (rows: Array<{ pageId: number }>) => {
+        insertedRows = rows;
+      }),
+    })),
+  },
   lpHeatmapEventsTable: {},
 }));
 
@@ -38,6 +54,10 @@ import heatmapRouter from "./heatmap";
 
 const FREE_TENANT = 1;
 const ENTERPRISE_TENANT = 2;
+
+// Page -> tenant map for the mixed-batch test. When set, the resolve mock
+// reads from here; otherwise it returns the single `resolvedTenantId`.
+const pageToTenant = new Map<number, number | null>();
 
 function buildHarness(): Express {
   const app = express();
@@ -66,6 +86,9 @@ beforeEach(async () => {
   planByTenant.set(ENTERPRISE_TENANT, "enterprise");
   resolvedTenantId = FREE_TENANT;
   sessionCount = 0;
+  pageToTenant.clear();
+  sessionByTenant.clear();
+  insertedRows = [];
   running = await listen(buildHarness());
 });
 afterAll(async () => {
@@ -115,5 +138,62 @@ describe("POST /lp/heatmap — session-quota gate", () => {
     sessionCount = 1000;
     const res = await ingest();
     expect(res.status).toBe(200);
+  });
+
+  it("drops only the over-cap tenant's events in a mixed-page batch (no bypass)", async () => {
+    // Page 5 -> tenant 1 (free, UNDER cap); page 9 -> tenant 3 (free, OVER cap).
+    // A malicious batch mixing both must not smuggle tenant 3's events through
+    // tenant 1's under-cap page.
+    const OVER_TENANT = 3;
+    planByTenant.set(OVER_TENANT, "free");
+    pageToTenant.set(5, FREE_TENANT);
+    pageToTenant.set(9, OVER_TENANT);
+    sessionByTenant.set(FREE_TENANT, 10);
+    sessionByTenant.set(OVER_TENANT, 1000);
+
+    const res = await fetch(`${running.baseUrl}/lp/heatmap`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        events: [
+          { pageId: 5, sessionId: "ok-1", eventType: "click" },
+          { pageId: 9, sessionId: "blocked-1", eventType: "click" },
+          { pageId: 9, sessionId: "blocked-2", eventType: "click" },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ success: true, count: 1 });
+    // Only tenant 1's page-5 event was persisted; tenant 3's were dropped.
+    expect(insertedRows.map((r) => r.pageId)).toEqual([5]);
+  });
+
+  it("returns 200 count 0 (not 402) for a mixed batch where every tenant is over cap", async () => {
+    // Two distinct over-cap tenants — not the normal single-tenant collector
+    // case, so we silently drop everything rather than emitting a 402.
+    const OVER_A = 3;
+    const OVER_B = 4;
+    planByTenant.set(OVER_A, "free");
+    planByTenant.set(OVER_B, "free");
+    pageToTenant.set(7, OVER_A);
+    pageToTenant.set(8, OVER_B);
+    sessionByTenant.set(OVER_A, 1000);
+    sessionByTenant.set(OVER_B, 1000);
+
+    const res = await fetch(`${running.baseUrl}/lp/heatmap`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        events: [
+          { pageId: 7, sessionId: "a-1", eventType: "click" },
+          { pageId: 8, sessionId: "b-1", eventType: "click" },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ success: true, count: 0 });
+    expect(insertedRows).toEqual([]);
   });
 });

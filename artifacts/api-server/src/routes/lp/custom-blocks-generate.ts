@@ -19,6 +19,9 @@ import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getOpenAIClient } from "./brand-import";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getAiImageGenStatus } from "../../lib/tenantSettings";
+import { normalizePlan } from "../../lib/planFeatures";
+import { getPlanConfig } from "../../lib/planConfig";
+import { featureUpgradeBody } from "../../lib/planGate";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import { maybeMultiPageScrapeRef } from "./firecrawl";
 import { aiHeavyLimiter, aiHeavyHourlyLimiter, aiLightLimiter } from "../../lib/ai-rate-limit";
@@ -1064,14 +1067,19 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
   if (body.generateImages && payload && errors.length === 0) {
     const status = await getAiImageGenStatus(tenantId);
     if (!status.enabled) {
-      res.status(402).json({
-        error: status.available
-          ? "AI image generation is disabled for this workspace. Enable it in Settings → General."
-          : "AI image generation requires a top-tier plan.",
-        code: status.available ? "feature_disabled" : "plan_upgrade_required",
-        plan: status.plan,
-        available: status.available,
-      });
+      if (!status.available) {
+        const config = await getPlanConfig();
+        res.status(402).json(featureUpgradeBody("aiImageGen", normalizePlan(status.plan), config));
+      } else {
+        // Plan admits the feature, but the per-tenant operator toggle is OFF —
+        // a workspace setting, not a plan gate, so it keeps its own shape.
+        res.status(402).json({
+          error: "AI image generation is disabled for this workspace. Enable it in Settings → General.",
+          code: "feature_disabled",
+          plan: status.plan,
+          available: status.available,
+        });
+      }
       return;
     }
     imageGen = await fillImageFields(payload, brand, tenantId);
@@ -1247,14 +1255,19 @@ router.post("/lp/custom-blocks/generate-image", requireAuth, aiLightLimiter, asy
   // regenerate endpoint directly.
   const status = await getAiImageGenStatus(tenantId);
   if (!status.enabled) {
-    res.status(402).json({
-      error: status.available
-        ? "AI image generation is disabled for this workspace. Enable it in Settings → General."
-        : "AI image generation requires a top-tier plan.",
-      code: status.available ? "feature_disabled" : "plan_upgrade_required",
-      plan: status.plan,
-      available: status.available,
-    });
+    if (!status.available) {
+      const config = await getPlanConfig();
+      res.status(402).json(featureUpgradeBody("aiImageGen", normalizePlan(status.plan), config));
+    } else {
+      // Plan admits the feature, but the per-tenant operator toggle is OFF —
+      // a workspace setting, not a plan gate, so it keeps its own shape.
+      res.status(402).json({
+        error: "AI image generation is disabled for this workspace. Enable it in Settings → General.",
+        code: "feature_disabled",
+        plan: status.plan,
+        available: status.available,
+      });
+    }
     return;
   }
 

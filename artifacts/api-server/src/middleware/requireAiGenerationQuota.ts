@@ -26,14 +26,15 @@ import { countTenantAiGenerationsThisMonth } from "../lib/aiUsage";
 export function requireAiGenerationQuota() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const user = req.authUser;
-    if (!user) return next();
+    if (!user || user.tenantId == null) return next();
     if (user.appUserRole === "superadmin") return next();
+    const tenantId = user.tenantId;
     try {
-      const plan = await getTenantPlan(user.tenantId);
+      const plan = await getTenantPlan(tenantId);
       const config = await getPlanConfig();
       const cap = config[plan].features.limits.aiGenerationsPerMonth;
       if (cap === null) return next();
-      const current = await countTenantAiGenerationsThisMonth(user.tenantId);
+      const current = await countTenantAiGenerationsThisMonth(tenantId);
       if (current >= cap) {
         res
           .status(402)

@@ -19,7 +19,9 @@
 import { Router } from "express";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAiImageGenOutsideBuilderEnabled } from "../../lib/tenantSettings";
-import { getTenantPlanFeatures } from "../../lib/planFeatures";
+import { getTenantPlan } from "../../lib/planFeatures";
+import { getPlanConfig } from "../../lib/planConfig";
+import { featureUpgradeBody } from "../../lib/planGate";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 
 const router = Router();
@@ -57,14 +59,10 @@ router.post("/lp/image/generate", requireAuth, async (req, res): Promise<void> =
   // by accident.
   if (req.authUser?.appUserRole !== "superadmin") {
     try {
-      const { plan, features } = await getTenantPlanFeatures(tenantId);
-      if (!features.aiImageGen) {
-        res.status(402).json({
-          error: "plan_upgrade_required",
-          feature: "aiImageGen",
-          plan,
-          message: "AI image generation is an Enterprise feature. Upgrade your plan to enable it.",
-        });
+      const plan = await getTenantPlan(tenantId);
+      const config = await getPlanConfig();
+      if (!config[plan].features.aiImageGen) {
+        res.status(402).json(featureUpgradeBody("aiImageGen", plan, config));
         return;
       }
     } catch (err) {

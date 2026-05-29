@@ -27,38 +27,6 @@ router.post("/lp/heatmap", async (req, res): Promise<void> => {
     // Cap batch size to prevent abuse
     const batch = events.slice(0, 200);
 
-    // Plan-tier heatmap session-quota gate (`heatmapSessionsPerMonth`).
-    // This is a public, visitor-facing collector — the tenant is resolved via
-    // the page the batch belongs to (collector batches are per page-load, so
-    // all events share a pageId). Once the tenant has hit its monthly distinct-
-    // session cap, the whole batch is dropped with the shared structured 402;
-    // the browser collector ignores the response. Best-effort on this hot path:
-    // any error fails OPEN (records the events) rather than 503-ing visitors.
-    const firstPageId = batch
-      .map((e: Record<string, unknown>) => Number(e.pageId))
-      .find((id) => Number.isFinite(id));
-    if (firstPageId != null) {
-      try {
-        const tenantId = await resolveTenantIdForPage(firstPageId);
-        if (tenantId != null) {
-          const plan = await getTenantPlan(tenantId);
-          const config = await getPlanConfig();
-          const cap = config[plan].features.limits.heatmapSessionsPerMonth;
-          if (cap !== null) {
-            const current = await countTenantHeatmapSessionsThisMonth(tenantId);
-            if (current >= cap) {
-              res
-                .status(402)
-                .json(capUpgradeBody("heatmapSessionsPerMonth", current, cap, plan, config));
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        console.error("[lp/heatmap] session-quota check failed (failing open):", err);
-      }
-    }
-
     const rows = batch.map((e: Record<string, unknown>) => ({
       pageId: Number(e.pageId),
       sessionId: String(e.sessionId ?? ""),
@@ -73,8 +41,69 @@ router.post("/lp/heatmap", async (req, res): Promise<void> => {
       device: e.device ? String(e.device) : null,
     }));
 
-    await db.insert(lpHeatmapEventsTable).values(rows);
-    res.json({ success: true, count: rows.length });
+    // Plan-tier heatmap session-quota gate (`heatmapSessionsPerMonth`).
+    // Public, visitor-facing collector — there is no authUser, so the owning
+    // tenant is resolved per distinct page in the batch (lp_heatmap_events has
+    // no tenant_id). Each page maps to a tenant; tenants over their monthly
+    // distinct-session cap are "blocked" and ALL their events are dropped — we
+    // resolve every page rather than just the first so a mixed-page batch can't
+    // smuggle an over-cap tenant's events in under an under-cap tenant's page.
+    // Best-effort: any error fails OPEN (records events) over 503-ing visitors.
+    let allowedRows = rows;
+    let denial: ReturnType<typeof capUpgradeBody> | null = null;
+    try {
+      const config = await getPlanConfig();
+      const distinctPageIds = [...new Set(rows.map((r) => r.pageId).filter((id) => Number.isFinite(id)))];
+      const pageTenant = new Map<number, number | null>();
+      await Promise.all(
+        distinctPageIds.map(async (pid) => {
+          pageTenant.set(pid, await resolveTenantIdForPage(pid));
+        }),
+      );
+      const distinctTenantIds = [...new Set([...pageTenant.values()].filter((t): t is number => t != null))];
+      const blocked = new Set<number>();
+      const denialByTenant = new Map<number, ReturnType<typeof capUpgradeBody>>();
+      await Promise.all(
+        distinctTenantIds.map(async (tid) => {
+          const plan = await getTenantPlan(tid);
+          const cap = config[plan].features.limits.heatmapSessionsPerMonth;
+          if (cap === null) return;
+          const current = await countTenantHeatmapSessionsThisMonth(tid);
+          if (current >= cap) {
+            blocked.add(tid);
+            denialByTenant.set(tid, capUpgradeBody("heatmapSessionsPerMonth", current, cap, plan, config));
+          }
+        }),
+      );
+      if (blocked.size > 0) {
+        // Keep events for unresolved pages (fail open) and under-cap tenants only.
+        allowedRows = rows.filter((r) => {
+          const tid = pageTenant.get(r.pageId);
+          return tid == null || !blocked.has(tid);
+        });
+        // Only the normal collector case — a single resolved tenant, fully over
+        // cap — surfaces the structured 402 (the browser collector ignores it).
+        // Mixed/abuse batches just silently drop the blocked tenant's rows and
+        // report success with the count actually persisted.
+        const hasUnresolved = [...pageTenant.values()].some((t) => t == null);
+        if (!hasUnresolved && distinctTenantIds.length === 1) {
+          denial = denialByTenant.get(distinctTenantIds[0]) ?? null;
+        }
+      }
+    } catch (err) {
+      console.error("[lp/heatmap] session-quota check failed (failing open):", err);
+      allowedRows = rows;
+    }
+
+    if (denial) {
+      res.status(402).json(denial);
+      return;
+    }
+
+    if (allowedRows.length > 0) {
+      await db.insert(lpHeatmapEventsTable).values(allowedRows);
+    }
+    res.json({ success: true, count: allowedRows.length });
   } catch (err) {
     console.error("Heatmap ingest error:", err);
     res.status(500).json({ error: "Failed to store heatmap events" });

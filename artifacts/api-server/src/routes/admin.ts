@@ -4,8 +4,8 @@ import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
 import { PLANS, normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
-import { getPlanFeatures, getPlanFeaturesMap, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
-import { capUpgradeBody } from "../lib/planGate";
+import { getPlanFeatures, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
+import { capUpgradeBody, featureUpgradeBody } from "../lib/planGate";
 import { PLAN_CONFIG } from "@workspace/plan-config";
 import {
   validateDomain,
@@ -511,13 +511,9 @@ router.patch("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Pro
         nextPlan ?? normalizePlan(
           (await pool.query<{ plan: string | null }>(`SELECT plan FROM tenants WHERE id = $1`, [tenantId])).rows[0]?.plan,
         );
-      if (!(await getPlanFeaturesMap())[effectivePlan].customDomain) {
-        res.status(402).json({
-          error: "plan_upgrade_required",
-          feature: "customDomain",
-          plan: effectivePlan,
-          message: "Custom domains require the Growth plan or higher. Upgrade the tenant's plan first (or include `plan` in the same PATCH).",
-        });
+      const planConfig = await getPlanConfig();
+      if (!planConfig[effectivePlan].features.customDomain) {
+        res.status(402).json(featureUpgradeBody("customDomain", effectivePlan, planConfig));
         return;
       }
     }
@@ -1587,13 +1583,10 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
         [tenantId],
       );
       if (!planRow.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
-      if (!(await getPlanFeatures(normalizePlan(planRow.rows[0].plan))).aiImageGen) {
-        res.status(402).json({
-          error: "plan_upgrade_required",
-          feature: "aiImageGen",
-          plan: normalizePlan(planRow.rows[0].plan),
-          message: "AI image generation is an Enterprise feature. Upgrade your plan to enable it.",
-        });
+      const aiPlan = normalizePlan(planRow.rows[0].plan);
+      const aiConfig = await getPlanConfig();
+      if (!aiConfig[aiPlan].features.aiImageGen) {
+        res.status(402).json(featureUpgradeBody("aiImageGen", aiPlan, aiConfig));
         return;
       }
     }
