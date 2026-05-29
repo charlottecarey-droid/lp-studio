@@ -42,6 +42,7 @@ import pageSpeedRouter from "./page-speed";
 import programmaticPagesRouter from "./programmatic-pages";
 import adMapRouter from "./ad-map";
 import rssSyncRouter from "./rss-sync";
+import extractGuestsRouter from "./extract-guests";
 import podcastAvailabilityRouter from "./podcast-availability";
 import renderedRouter from "./rendered";
 import planConfigRouter from "./plan-config";
@@ -96,6 +97,7 @@ router.use(conversionScoringRouter);
 router.use(programmaticPagesRouter);
 router.use(adMapRouter);
 router.use(rssSyncRouter);
+router.use(extractGuestsRouter);
 router.use(podcastAvailabilityRouter);
 router.use(testSentryErrorRouter);
 

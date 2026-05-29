@@ -113,6 +113,72 @@ function RssSyncControls({ p, set }: { p: ContentSeriesBlockProps; set: (patch: 
     setInfo(`${added} new, ${updated} updated, ${parsed.length} in feed`);
   };
 
+  // Podcast feeds carry no structured guest field — the guest's name only lives
+  // in the episode title/description prose. This asks the server to read that
+  // prose with AI and fill the per-episode guest fields (which drive the hero
+  // when a visitor lands via ?episode=<slug>). Only episodes that are missing a
+  // guest name are touched, so manually-entered guests are never overwritten.
+  const handleExtractGuests = async () => {
+    setError(null);
+    setInfo(null);
+    const all = p.episodes ?? [];
+    const targets = all
+      .map((ep, idx) => ({ ep, idx }))
+      .filter(({ ep }) => !(ep.guestName && ep.guestName.trim()));
+    if (targets.length === 0) {
+      setInfo("Every episode already has a guest name.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const resp = await fetch("/api/lp/rss/extract-guests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          episodes: targets.map(({ ep }) => ({
+            title: ep.title ?? "",
+            description: ep.description ?? "",
+          })),
+        }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as {
+        guests?: Array<{ guestName?: string; guestTitle?: string; guestCompany?: string }>;
+        error?: string;
+      };
+      if (!resp.ok) {
+        setError(data.error ?? `Extraction failed (${resp.status})`);
+        return;
+      }
+      const guests = data.guests ?? [];
+      const next = [...all];
+      let filled = 0;
+      targets.forEach(({ idx }, i) => {
+        const g = guests[i];
+        if (!g || !g.guestName) return;
+        // Only fill blank fields — never overwrite a manually-entered title or
+        // company (these episodes were selected because guestName was blank, but
+        // title/company may already have been typed by hand).
+        next[idx] = {
+          ...next[idx],
+          guestName: g.guestName,
+          guestTitle: next[idx].guestTitle?.trim() ? next[idx].guestTitle : g.guestTitle,
+          guestCompany: next[idx].guestCompany?.trim() ? next[idx].guestCompany : g.guestCompany,
+        };
+        filled += 1;
+      });
+      if (filled === 0) {
+        setInfo("No guest names could be found in the episode descriptions.");
+        return;
+      }
+      set({ episodes: next });
+      setInfo(`Filled guests for ${filled} of ${targets.length} episode${targets.length === 1 ? "" : "s"}. Review, then publish.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Extraction failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleSync = async () => {
     setError(null);
     setInfo(null);
@@ -150,9 +216,14 @@ function RssSyncControls({ p, set }: { p: ContentSeriesBlockProps; set: (patch: 
     <div className="space-y-2 border border-border rounded-md p-2.5 bg-muted/20">
       <div className="flex items-center justify-between gap-2">
         <Label className="text-xs font-medium">RSS Episode Sync</Label>
-        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy || !p.rssFeedUrl} onClick={handleSync}>
-          {busy ? "Syncing…" : "Sync now"}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy || !(p.episodes && p.episodes.length)} onClick={handleExtractGuests} title="Use AI to read each episode's description and fill in missing guest name, title, and company.">
+            {busy ? "Working…" : "Extract guests"}
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy || !p.rssFeedUrl} onClick={handleSync}>
+            {busy ? "Syncing…" : "Sync now"}
+          </Button>
+        </div>
       </div>
       <label className="flex items-start gap-2 text-[11px] text-muted-foreground cursor-pointer">
         <input

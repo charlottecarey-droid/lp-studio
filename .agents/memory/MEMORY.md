@@ -20,3 +20,4 @@
 - [Generated block contrast](generated-block-contrast.md) — AI page blocks must derive text/badge/button colors from their actual bg, never pair two brand colors; fix at render-block layer.
 - [Prod DB is Neon not Helium](prod-db-is-neon-not-helium.md) — app uses NEON_DATABASE_URL; executeSql dev/prod targets read stale Helium DB. Verify prod by querying Neon directly; dev-shell scripts via lib/db hit PROD.
 - [R2 boot sweeps vs startup probe](r2-boot-sweeps-vs-startup-probe.md) — build-OK-but-promote-failed w/ zero logs = startup-probe starvation; keep R2 sweeps off app.listen path; all S3 clients via buildR2S3Client (200 sockets).
+- [Content Series guest fields](content-series-guest-fields.md) — podcast RSS has no guest field (author=producer); populate via AI prose extraction; hero must source guest from the targeted episode alone.
