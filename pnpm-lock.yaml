@@ -887,6 +887,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db
+      '@workspace/plan-config':
+        specifier: workspace:*
+        version: link:../lib/plan-config
       stripe:
         specifier: ^22.1.1
         version: 22.1.1(@types/node@25.3.5)

@@ -25,7 +25,7 @@ import type { Request, Response } from "express";
 import { pool } from "@workspace/db";
 import { getStripe, getStripeSync, getWebhookSecret, StripeNotConfiguredError } from "../lib/stripeClient";
 import { normalizePlan, type Plan } from "../lib/planFeatures";
-import { planForLookupKey, cadenceForLookupKey } from "../lib/stripePlanMapping";
+import { planForLookupKey, cadenceForLookupKey, isSelfServePaidPlan } from "../lib/stripePlanMapping";
 import { logger } from "../lib/logger";
 import type Stripe from "stripe";
 
@@ -58,18 +58,32 @@ async function findTenantBySubscription(subscriptionId: string): Promise<TenantS
   return r.rows[0] ?? null;
 }
 
-function resolvePlanFromSubscription(sub: Stripe.Subscription): Plan | null {
-  // Treat a non-active subscription as a downgrade to free starter. Stripe
+export function resolvePlanFromSubscription(sub: Stripe.Subscription): Plan | null {
+  // Treat a non-active subscription as a downgrade to the FREE floor. Stripe
   // sends a separate `customer.subscription.deleted` event for full
   // cancellation; we belt-and-brace here so a status flip (`unpaid`,
   // `canceled`) inside `customer.subscription.updated` also lands the
-  // tenant back on starter immediately.
+  // tenant back on free immediately. NOTE: this must be `free`, not
+  // `starter` — `starter` is now a PAID self-serve tier, so a cancelled
+  // tenant must never be parked there for free.
   const downgradeStatuses: Stripe.Subscription.Status[] = ["canceled", "unpaid", "incomplete_expired"];
-  if (downgradeStatuses.includes(sub.status)) return "starter";
+  if (downgradeStatuses.includes(sub.status)) return "free";
 
   const item = sub.items?.data?.[0];
   const lookupKey = item?.price?.lookup_key ?? null;
-  return planForLookupKey(lookupKey);
+  const byLookupKey = planForLookupKey(lookupKey);
+  if (byLookupKey) return byLookupKey;
+
+  // Fallback: a subscription grandfathered onto an archived price (whose
+  // lookup_key was cleared during a re-key) still carries the canonical tier
+  // in price.metadata.lpstudio_plan (stamped by the seed script). Only trust
+  // it if it is a recognised self-serve paid tier — a typo/unknown marker
+  // must NOT be coerced (normalizePlan would map it to `free` and silently
+  // downgrade a paying tenant). Unknown → null so the caller leaves the plan
+  // untouched.
+  const metaTier = item?.price?.metadata?.lpstudio_plan ?? null;
+  if (isSelfServePaidPlan(metaTier)) return metaTier;
+  return null;
 }
 
 interface PaymentMethodSnapshot {
@@ -254,15 +268,17 @@ async function handleInvoicePaymentFailed(
   // Re-fetch the subscription so applyPlanFromSubscription sees the latest
   // status (Stripe usually flips it to `unpaid` or `canceled` simultaneous
   // with the final failed attempt). resolvePlanFromSubscription downgrades
-  // any non-active status to starter.
+  // any non-active status to the FREE floor.
   const subIdRaw = (inv as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null }).subscription
     ?? tenant.stripe_subscription_id;
   const subId = typeof subIdRaw === "string" ? subIdRaw : subIdRaw?.id ?? null;
   if (!subId) {
     // No subscription on the invoice — direct DB downgrade as a fallback.
+    // Must land on `free`, NOT `starter` — `starter` is now a paid tier, so
+    // a tenant whose payment finally failed must not be parked there gratis.
     await pool.query(
       `UPDATE tenants
-          SET plan                       = 'starter',
+          SET plan                       = 'free',
               stripe_subscription_status = 'unpaid',
               updated_at                 = now()
         WHERE id = $1`,
@@ -274,7 +290,7 @@ async function handleInvoicePaymentFailed(
         tenantId: tenant.id,
         fromRaw: tenant.plan,
         fromCanonical: normalizePlan(tenant.plan),
-        to: "starter",
+        to: "free",
         source: "stripe_webhook",
         sourceSubtype: "dunning_final_attempt",
         stripeEventId: event.id,

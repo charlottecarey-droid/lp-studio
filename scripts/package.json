@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
+    "@workspace/plan-config": "workspace:*",
     "stripe": "^22.1.1"
   },
   "devDependencies": {

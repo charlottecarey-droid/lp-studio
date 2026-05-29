@@ -205,18 +205,35 @@ router.post("/billing/checkout-session", async (req: Request, res: Response): Pr
   // is a billing-portal action (it modifies the existing subscription
   // item; Stripe handles proration), NOT a new Checkout flow. We point
   // the operator at /settings/billing → "Manage billing" instead.
-  if (
-    requestedPlan !== "starter" &&
-    requestedPlan === currentPlan &&
+  //
+  // Applies to EVERY self-serve tier (starter included). `priceLookupKey`
+  // is always a paid lookup key here — `free` has no key and can never be
+  // requestedPlan.
+  //
+  // CRITICAL: Checkout (`mode:"subscription"`) ALWAYS creates a NEW
+  // subscription. So once a tenant has ANY live subscription, every change —
+  // tier up/down OR cadence — must go through the Stripe billing portal
+  // (which MODIFIES the existing subscription, with proration). Routing a
+  // tier change back through Checkout would leave the old subscription
+  // running and double-bill the tenant. Checkout is therefore reserved for
+  // tenants with no active subscription.
+  const hasActiveSub =
     tenant.stripe_subscription_id != null &&
-    activeStatuses.has(tenant.stripe_subscription_status ?? "")
-  ) {
+    activeStatuses.has(tenant.stripe_subscription_status ?? "");
+  if (hasActiveSub) {
+    const isTierChange = requestedPlan !== currentPlan;
     const isCadenceChange = tenant.stripe_cadence !== requestedCadence;
     res.status(409).json({
-      error: isCadenceChange
-        ? `Tenant is already on ${currentPlan}. To switch ${tenant.stripe_cadence ?? "current"} → ${requestedCadence} billing, open Manage billing (Stripe portal) instead of starting a new checkout.`
-        : `Tenant is already on ${currentPlan} (${requestedCadence}). Use Manage billing to change payment details.`,
-      code: isCadenceChange ? "use_portal_for_cadence_change" : "already_on_tier",
+      error: isTierChange
+        ? `Tenant is already on ${currentPlan} with a live subscription. To switch to ${requestedPlan}, open Manage billing (Stripe portal) — a new checkout would create a second subscription and double-bill.`
+        : isCadenceChange
+          ? `Tenant is already on ${currentPlan}. To switch ${tenant.stripe_cadence ?? "current"} → ${requestedCadence} billing, open Manage billing (Stripe portal) instead of starting a new checkout.`
+          : `Tenant is already on ${currentPlan} (${requestedCadence}). Use Manage billing to change payment details.`,
+      code: isTierChange
+        ? "use_portal_for_tier_change"
+        : isCadenceChange
+          ? "use_portal_for_cadence_change"
+          : "already_on_tier",
     });
     return;
   }

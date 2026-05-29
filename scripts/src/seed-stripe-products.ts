@@ -1,8 +1,12 @@
 // Seed Stripe with the LP Studio packaging catalog. Idempotent — re-running
 // it does NOT create duplicates: each price is keyed by `lookup_key` and
-// each product is keyed by `metadata.lpstudio_plan`. The lookup_keys here
-// MUST stay in sync with `artifacts/api-server/src/lib/stripePlanMapping.ts`
-// — that file maps them back to canonical plan tiers at webhook time.
+// each product is keyed by `metadata.lpstudio_plan`.
+//
+// SINGLE SOURCE OF TRUTH: the catalog is DERIVED from `@workspace/plan-config`
+// (PLAN_CONFIG). Display names + prices come from there so Stripe can never
+// drift from the marketing page / in-app gates. The lookup_keys are produced
+// via `lookupKeyFor`, which the webhook uses in reverse to map a subscription
+// back to a tier — so a rename touches exactly one mapping file.
 //
 // Run:
 //   pnpm --filter @workspace/scripts exec tsx src/seed-stripe-products.ts
@@ -12,9 +16,24 @@
 // the workspace's integration settings; the STRIPE_SECRET_KEY env var
 // override lets you run this against any account on demand.
 import type Stripe from "stripe";
+import { PLAN_CONFIG, PLANS, type PlanConfigEntry } from "@workspace/plan-config";
 import { getStripe } from "./stripeClient";
 
 const PLAN_METADATA_KEY = "lpstudio_plan";
+
+// The Stripe-purchasable tiers and billing cadences. Kept as local literals
+// (rather than importing from the api-server package, which would cross the
+// scripts rootDir boundary) — the `<tier>_<cadence>` lookup-key convention is
+// asserted to match `lookupKeyFor` by a test in
+// `artifacts/api-server/src/lib/stripePlanMapping.test.ts`, so the two cannot
+// drift silently.
+type SelfServePaidPlan = "starter" | "growth" | "scale";
+type Cadence = "monthly" | "annual";
+
+// Mirror of `lookupKeyFor(plan, cadence)` in stripePlanMapping.ts.
+function lookupKeyFor(plan: SelfServePaidPlan, cadence: Cadence): string {
+  return `${plan}_${cadence}`;
+}
 
 interface ProductSeed {
   planSlug: string;        // value written to metadata.lpstudio_plan
@@ -30,19 +49,51 @@ interface PriceSeed {
   nickname: string;
 }
 
-// Single source of truth for catalog contents. Bump prices / add cadences
-// here, then re-run the script.
-const CATALOG: ProductSeed[] = [
-  {
-    planSlug: "growth",
-    name: "LP Studio Growth",
-    description: "Self-serve workspace plan. Unlocks the Sales Console, custom domains, and unlimited landing pages.",
-    prices: [
-      { lookupKey: "growth_monthly", unitAmount: 19900, interval: "month", nickname: "Growth · Monthly" },
-      { lookupKey: "growth_annual",  unitAmount: 199000, interval: "year",  nickname: "Growth · Annual"  },
-    ],
-  },
-];
+// The Stripe-purchasable tiers, in display order. `free` (no Stripe) and
+// `enterprise` (sales-assisted) are intentionally excluded.
+const SELF_SERVE_PAID: readonly SelfServePaidPlan[] = ["starter", "growth", "scale"];
+
+const PLAN_DESCRIPTIONS: Record<SelfServePaidPlan, string> = {
+  starter:
+    "Paid floor. Removes the “Powered by” badge, adds custom domains and higher page/form caps.",
+  growth:
+    "Adds the Sales Console and generous caps on top of Starter — for teams running active campaigns.",
+  scale:
+    "Everything in Growth plus AI image generation and higher seat caps — for scaling go-to-market teams.",
+};
+
+// Convert a per-month USD figure into the Stripe `unit_amount` (cents) for a
+// given cadence. Annual is billed yearly at the per-month annual rate × 12.
+function unitAmountFor(entry: PlanConfigEntry, cadence: Cadence): number {
+  if (cadence === "monthly") {
+    if (entry.priceMonthly == null) throw new Error(`${entry.tier} has no priceMonthly`);
+    return Math.round(entry.priceMonthly * 100);
+  }
+  if (entry.priceAnnual == null) throw new Error(`${entry.tier} has no priceAnnual`);
+  return Math.round(entry.priceAnnual * 12 * 100);
+}
+
+// Build the catalog from canonical config. Each self-serve tier gets a
+// product with a monthly + annual price.
+function buildCatalog(): ProductSeed[] {
+  return SELF_SERVE_PAID.map((tier) => {
+    const entry = PLAN_CONFIG[tier];
+    const prices: PriceSeed[] = (["monthly", "annual"] as const).map((cadence) => ({
+      lookupKey: lookupKeyFor(tier, cadence),
+      unitAmount: unitAmountFor(entry, cadence),
+      interval: cadence === "monthly" ? "month" : "year",
+      nickname: `${entry.displayName} · ${cadence === "monthly" ? "Monthly" : "Annual"}`,
+    }));
+    return {
+      planSlug: tier,
+      name: `LP Studio ${entry.displayName}`,
+      description: PLAN_DESCRIPTIONS[tier],
+      prices,
+    };
+  });
+}
+
+const CATALOG: ProductSeed[] = buildCatalog();
 
 async function findExistingProduct(stripe: Stripe, planSlug: string): Promise<Stripe.Product | null> {
   // products.search supports metadata filters; covers the case where the
@@ -80,24 +131,42 @@ async function upsertProduct(stripe: Stripe, seed: ProductSeed): Promise<Stripe.
 }
 
 async function upsertPrice(stripe: Stripe, product: Stripe.Product, seed: PriceSeed): Promise<Stripe.Price> {
+  const tier = product.metadata?.[PLAN_METADATA_KEY] ?? "";
   const existing = await findExistingPrice(stripe, seed.lookupKey);
   if (existing) {
-    // Stripe prices are immutable except for nickname/metadata/active.
-    // If the seeded amount or interval differs we cannot edit in place;
-    // refuse loudly so the operator decides whether to deactivate the old
-    // one and re-run, vs. accept the existing price unchanged.
     const sameAmount = existing.unit_amount === seed.unitAmount;
     const sameInterval = existing.recurring?.interval === seed.interval;
-    if (!sameAmount || !sameInterval) {
-      console.warn(
-        `! Price ${seed.lookupKey} exists with mismatched amount/interval ` +
-          `(have $${(existing.unit_amount ?? 0) / 100}/${existing.recurring?.interval}, ` +
-          `want $${seed.unitAmount / 100}/${seed.interval}). Deactivate the existing price in Stripe and re-run.`,
-      );
-      return existing;
+    if (sameAmount && sameInterval) {
+      console.log(`✓ Price exists: ${seed.lookupKey} (${existing.id})`);
+      // Backfill the tier marker on already-correct prices too, so the
+      // webhook's metadata fallback can resolve grandfathered subscriptions
+      // even after a future re-key clears the lookup_key.
+      return stripe.prices.update(existing.id, {
+        nickname: seed.nickname,
+        metadata: { [PLAN_METADATA_KEY]: tier },
+      });
     }
-    console.log(`✓ Price exists: ${seed.lookupKey} (${existing.id})`);
-    return stripe.prices.update(existing.id, { nickname: seed.nickname });
+    // Stripe prices are immutable on amount/interval. To change them we
+    // ARCHIVE the old price (deactivate it AND free its lookup_key so the
+    // new price can claim it) then create the replacement. Existing
+    // subscriptions stay on the old price until they renew/are migrated;
+    // new checkouts resolve the lookup_key to the new price.
+    console.warn(
+      `! Price ${seed.lookupKey} changed ` +
+        `(have $${(existing.unit_amount ?? 0) / 100}/${existing.recurring?.interval}, ` +
+        `want $${seed.unitAmount / 100}/${seed.interval}). Archiving old price ${existing.id}…`,
+    );
+    await stripe.prices.update(existing.id, {
+      active: false,
+      // Move the lookup_key OFF the old price so the create below can take
+      // it. (transfer_lookup_key on create also handles this, but doing it
+      // explicitly keeps the archived price clearly disassociated.)
+      lookup_key: "",
+      nickname: `${seed.nickname} (archived)`,
+      // Stamp the canonical tier so the webhook can still resolve any
+      // subscriptions grandfathered onto this now-keyless price.
+      metadata: { [PLAN_METADATA_KEY]: tier },
+    });
   }
   const created = await stripe.prices.create({
     product: product.id,
@@ -106,6 +175,8 @@ async function upsertPrice(stripe: Stripe, product: Stripe.Product, seed: PriceS
     recurring: { interval: seed.interval },
     lookup_key: seed.lookupKey,
     nickname: seed.nickname,
+    // Tier marker = webhook fallback when a future re-key clears lookup_key.
+    metadata: { [PLAN_METADATA_KEY]: tier },
     // Allow lookup_key reuse across creates if a previous run left a
     // dangling inactive price — Stripe otherwise errors with
     // "lookup_key already in use".
@@ -118,6 +189,7 @@ async function upsertPrice(stripe: Stripe, product: Stripe.Product, seed: PriceS
 async function main(): Promise<void> {
   const stripe = await getStripe();
   console.log(`Seeding LP Studio packaging to Stripe (${process.env.STRIPE_SECRET_KEY ? "env-var" : "connector"} mode)…`);
+  console.log(`Tiers (from @workspace/plan-config): ${CATALOG.map((c) => c.planSlug).join(", ")}`);
   for (const seed of CATALOG) {
     const product = await upsertProduct(stripe, seed);
     for (const priceSeed of seed.prices) {
@@ -125,6 +197,9 @@ async function main(): Promise<void> {
     }
   }
   console.log("Done. Lookup keys ready: " + CATALOG.flatMap(p => p.prices.map(pr => pr.lookupKey)).join(", "));
+  // Reference PLANS so a future tier addition that forgets the catalog is
+  // visible in `git blame` here. (No-op log of the full ladder.)
+  console.log("Full tier ladder: " + PLANS.join(" → "));
 }
 
 main().catch((err) => {
