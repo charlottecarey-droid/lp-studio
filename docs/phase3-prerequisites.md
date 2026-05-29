@@ -163,7 +163,7 @@ These apply to both stages — Stage 1 cannot start until they're all green.
 ## Day-of cutover sequence
 
 Per-hostname execution lives in the project task (Task #373) — including
-pre-flight checklists, exact Name.com clicks, monitoring queries, pass
+pre-flight checklists, exact Google Cloud DNS clicks, monitoring queries, pass
 criteria, and rollback steps. This doc is the prerequisite gate; the
 task is the runbook.
 
