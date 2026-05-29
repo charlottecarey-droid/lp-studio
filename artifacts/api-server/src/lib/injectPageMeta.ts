@@ -76,11 +76,42 @@ function escapeAttr(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+/**
+ * Social scrapers (facebookexternalhit, LinkedInBot, Twitterbot, …) require
+ * an ABSOLUTE og:image URL — a relative or root-relative path silently
+ * renders no preview image. lp_pages.og_image is author-supplied and may be
+ * relative, root-relative, protocol-relative, or already absolute; normalise
+ * every shape to an absolute https URL against the page's canonical host.
+ * data: URIs are passed through untouched (scrapers ignore them, but we must
+ * not corrupt them).
+ */
+function toAbsoluteUrl(raw: string, canonicalHost: string): string {
+  const url = (raw || "").trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url) || /^data:/i.test(url)) return url;
+  if (url.startsWith("//")) return `https:${url}`;
+  if (url.startsWith("/")) return `https://${canonicalHost}${url}`;
+  return `https://${canonicalHost}/${url}`;
+}
+
+/** Best-effort og:image:type from the URL extension. Empty when unknown. */
+function inferImageType(url: string): string {
+  const clean = url.split(/[?#]/)[0].toLowerCase();
+  if (/\.(jpg|jpeg)$/.test(clean)) return "image/jpeg";
+  if (/\.png$/.test(clean)) return "image/png";
+  if (/\.webp$/.test(clean)) return "image/webp";
+  if (/\.gif$/.test(clean)) return "image/gif";
+  if (/\.svg$/.test(clean)) return "image/svg+xml";
+  if (/\.avif$/.test(clean)) return "image/avif";
+  return "";
+}
+
 function buildTags(meta: PageMetaInput): {
   title: string;
   description: string;
   canonical: string;
   ogImage: string;
+  ogImageType: string;
 } {
   const title =
     (meta.metaTitle && meta.metaTitle.trim()) ||
@@ -91,8 +122,9 @@ function buildTags(meta: PageMetaInput): {
     (meta.title && meta.title.trim()) ||
     meta.tenantName;
   const canonical = `https://${meta.canonicalHost}/${meta.slug}`;
-  const ogImage = (meta.ogImage || "").trim();
-  return { title, description, canonical, ogImage };
+  const ogImage = toAbsoluteUrl(meta.ogImage || "", meta.canonicalHost);
+  const ogImageType = ogImage ? inferImageType(ogImage) : "";
+  return { title, description, canonical, ogImage, ogImageType };
 }
 
 /**
@@ -125,8 +157,9 @@ const MANAGED_TAG_PATTERNS: RegExp[] = [
   /<title>[\s\S]*?<\/title>/gi,
   /<meta[^>]+name=["']description["'][^>]*>/gi,
   /<link[^>]+rel=["']canonical["'][^>]*>/gi,
-  /<meta[^>]+property=["']og:(type|url|title|description|image)["'][^>]*>/gi,
-  /<meta[^>]+name=["']twitter:(card|title|description|image)["'][^>]*>/gi,
+  /<meta[^>]+property=["']og:(type|url|title|description|image|site_name)["'][^>]*>/gi,
+  /<meta[^>]+property=["']og:image:(secure_url|type|alt|width|height)["'][^>]*>/gi,
+  /<meta[^>]+name=["']twitter:(card|title|description|image|image:alt)["'][^>]*>/gi,
 ];
 
 function stripManagedTags(html: string): string {
@@ -136,7 +169,7 @@ function stripManagedTags(html: string): string {
 }
 
 export function injectPageMeta(html: string, meta: PageMetaInput): string {
-  const { title, description, canonical, ogImage } = buildTags(meta);
+  const { title, description, canonical, ogImage, ogImageType } = buildTags(meta);
 
   // Strip ALL existing managed tags first so we can't accumulate stale
   // duplicates, and so clearing a column (e.g. og_image) actually removes
@@ -186,11 +219,40 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
     /<meta[^>]+property=["']og:description["'][^>]*>/i,
     `<meta property="og:description" content="${escapeAttr(description)}" />`,
   );
+  // og:site_name (tenant brand) is always emitted — it describes the site,
+  // not the image, and improves the share-card header on every gate.
+  out = upsertHeadTag(
+    out,
+    /<meta[^>]+property=["']og:site_name["'][^>]*>/i,
+    `<meta property="og:site_name" content="${escapeAttr(meta.tenantName)}" />`,
+  );
   if (ogImage) {
     out = upsertHeadTag(
       out,
       /<meta[^>]+property=["']og:image["'][^>]*>/i,
       `<meta property="og:image" content="${escapeAttr(ogImage)}" />`,
+    );
+    // secure_url duplicates the https URL — some scrapers only render the
+    // image over https when this is present.
+    out = upsertHeadTag(
+      out,
+      /<meta[^>]+property=["']og:image:secure_url["'][^>]*>/i,
+      `<meta property="og:image:secure_url" content="${escapeAttr(ogImage)}" />`,
+    );
+    if (ogImageType) {
+      out = upsertHeadTag(
+        out,
+        /<meta[^>]+property=["']og:image:type["'][^>]*>/i,
+        `<meta property="og:image:type" content="${escapeAttr(ogImageType)}" />`,
+      );
+    }
+    // og:image:alt mirrors the title — we don't know the tenant image's
+    // dimensions, so width/height are deliberately omitted (a wrong size
+    // is worse than none).
+    out = upsertHeadTag(
+      out,
+      /<meta[^>]+property=["']og:image:alt["'][^>]*>/i,
+      `<meta property="og:image:alt" content="${escapeAttr(title)}" />`,
     );
   }
 
@@ -215,6 +277,11 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
       out,
       /<meta[^>]+name=["']twitter:image["'][^>]*>/i,
       `<meta name="twitter:image" content="${escapeAttr(ogImage)}" />`,
+    );
+    out = upsertHeadTag(
+      out,
+      /<meta[^>]+name=["']twitter:image:alt["'][^>]*>/i,
+      `<meta name="twitter:image:alt" content="${escapeAttr(title)}" />`,
     );
   }
 

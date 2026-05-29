@@ -6,6 +6,16 @@ export interface PageMeta {
   canonical?: string;
   ogImage?: string;
   ogType?: string;
+  /** og:image:width — pass alongside ogImage so scrapers render the card without re-fetching. */
+  ogImageWidth?: number;
+  /** og:image:height — see ogImageWidth. */
+  ogImageHeight?: number;
+  /** og:image:type MIME (e.g. "image/jpeg"). */
+  ogImageType?: string;
+  /** og:image:alt accessible description. */
+  ogImageAlt?: string;
+  /** og:site_name. */
+  siteName?: string;
 }
 
 const MANAGED_ATTR = "data-page-meta";
@@ -70,13 +80,42 @@ export function usePageMeta(meta: PageMeta): void {
     setManagedMeta("property", "og:title", meta.title);
     setManagedMeta("property", "og:description", meta.description);
     setManagedMeta("property", "og:type", meta.ogType ?? "website");
+    if (meta.siteName) {
+      setManagedMeta("property", "og:site_name", meta.siteName);
+    } else {
+      removeManagedMeta("property", "og:site_name");
+    }
     if (meta.ogImage) {
       setManagedMeta("property", "og:image", meta.ogImage);
+      // secure_url duplicates the https URL — some scrapers (older FB) only
+      // honour the image over https when this is present.
+      setManagedMeta("property", "og:image:secure_url", meta.ogImage);
+      if (meta.ogImageType) {
+        setManagedMeta("property", "og:image:type", meta.ogImageType);
+      } else {
+        removeManagedMeta("property", "og:image:type");
+      }
+      if (meta.ogImageWidth) {
+        setManagedMeta("property", "og:image:width", String(meta.ogImageWidth));
+      } else {
+        removeManagedMeta("property", "og:image:width");
+      }
+      if (meta.ogImageHeight) {
+        setManagedMeta("property", "og:image:height", String(meta.ogImageHeight));
+      } else {
+        removeManagedMeta("property", "og:image:height");
+      }
+      setManagedMeta("property", "og:image:alt", meta.ogImageAlt ?? meta.title);
     } else {
       // Clear so a page without an og:image doesn't inherit one from a
       // previously-rendered page (real concern for prerender, where a
       // single Playwright page snapshots multiple routes sequentially).
       removeManagedMeta("property", "og:image");
+      removeManagedMeta("property", "og:image:secure_url");
+      removeManagedMeta("property", "og:image:type");
+      removeManagedMeta("property", "og:image:width");
+      removeManagedMeta("property", "og:image:height");
+      removeManagedMeta("property", "og:image:alt");
     }
     if (meta.canonical) {
       setManagedMeta("property", "og:url", meta.canonical);
@@ -87,8 +126,21 @@ export function usePageMeta(meta: PageMeta): void {
     setManagedMeta("name", "twitter:description", meta.description);
     if (meta.ogImage) {
       setManagedMeta("name", "twitter:image", meta.ogImage);
+      setManagedMeta("name", "twitter:image:alt", meta.ogImageAlt ?? meta.title);
     } else {
       removeManagedMeta("name", "twitter:image");
+      removeManagedMeta("name", "twitter:image:alt");
     }
-  }, [meta.title, meta.description, meta.canonical, meta.ogImage, meta.ogType]);
+  }, [
+    meta.title,
+    meta.description,
+    meta.canonical,
+    meta.ogImage,
+    meta.ogType,
+    meta.ogImageWidth,
+    meta.ogImageHeight,
+    meta.ogImageType,
+    meta.ogImageAlt,
+    meta.siteName,
+  ]);
 }

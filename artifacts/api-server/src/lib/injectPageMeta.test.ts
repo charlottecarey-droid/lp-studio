@@ -152,3 +152,105 @@ describe("injectPageMeta", () => {
     expect(tags.title).toBe("Example Co");
   });
 });
+
+describe("injectPageMeta — OG image robustness for scrapers", () => {
+  it("resolves a root-relative og_image to an absolute https URL on the canonical host", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, ogImage: "/uploads/og.jpg" });
+    expect(out).toContain(
+      `<meta property="og:image" content="https://pages.example.com/uploads/og.jpg" />`,
+    );
+    expect(out).toContain(
+      `<meta name="twitter:image" content="https://pages.example.com/uploads/og.jpg" />`,
+    );
+  });
+
+  it("resolves a bare relative og_image to an absolute https URL", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, ogImage: "uploads/og.jpg" });
+    expect(out).toContain(
+      `<meta property="og:image" content="https://pages.example.com/uploads/og.jpg" />`,
+    );
+  });
+
+  it("upgrades a protocol-relative og_image to https", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, ogImage: "//cdn.example.com/og.png" });
+    expect(out).toContain(
+      `<meta property="og:image" content="https://cdn.example.com/og.png" />`,
+    );
+  });
+
+  it("leaves an already-absolute og_image untouched", () => {
+    const out = injectPageMeta(baseHtml, meta);
+    expect(out).toContain(
+      `<meta property="og:image" content="https://cdn.example.com/og.png" />`,
+    );
+  });
+
+  it("preserves an absolute http:// og_image verbatim (does not coerce to https)", () => {
+    // Author-supplied absolute URLs are trusted as-is; we only normalise
+    // relative/protocol-relative shapes. Coercing the scheme could break a
+    // host that only serves the asset over http.
+    const out = injectPageMeta(baseHtml, {
+      ...meta,
+      ogImage: "http://cdn.example.com/og.png",
+    });
+    expect(out).toContain(
+      `<meta property="og:image" content="http://cdn.example.com/og.png" />`,
+    );
+  });
+
+  it("emits og:image:secure_url, og:image:type, og:image:alt and og:site_name", () => {
+    const out = injectPageMeta(baseHtml, meta);
+    expect(out).toContain(
+      `<meta property="og:image:secure_url" content="https://cdn.example.com/og.png" />`,
+    );
+    expect(out).toContain(`<meta property="og:image:type" content="image/png" />`);
+    expect(out).toContain(`<meta property="og:image:alt" content="SEO Title" />`);
+    expect(out).toContain(`<meta name="twitter:image:alt" content="SEO Title" />`);
+    expect(out).toContain(`<meta property="og:site_name" content="Example Co" />`);
+  });
+
+  it("infers og:image:type from a .jpg extension (ignoring query strings)", () => {
+    const out = injectPageMeta(baseHtml, {
+      ...meta,
+      ogImage: "https://cdn.example.com/og.jpg?v=2",
+    });
+    expect(out).toContain(`<meta property="og:image:type" content="image/jpeg" />`);
+  });
+
+  it("omits og:image:type when the extension is unknown", () => {
+    const out = injectPageMeta(baseHtml, {
+      ...meta,
+      ogImage: "https://cdn.example.com/render",
+    });
+    expect(out).not.toContain("og:image:type");
+    expect(out).toContain(`<meta property="og:image" content="https://cdn.example.com/render" />`);
+  });
+
+  it("strips og:image:secure_url/type/alt and twitter:image:alt when ogImage cleared", () => {
+    const seeded = baseHtml.replace(
+      "</head>",
+      `<meta property="og:image:secure_url" content="https://old/stale.png" />` +
+        `<meta property="og:image:type" content="image/png" />` +
+        `<meta property="og:image:alt" content="stale" />` +
+        `<meta name="twitter:image:alt" content="stale" /></head>`,
+    );
+    const out = injectPageMeta(seeded, { ...meta, ogImage: null });
+    expect(out).not.toContain("og:image:secure_url");
+    expect(out).not.toContain("og:image:type");
+    expect(out).not.toContain("og:image:alt");
+    expect(out).not.toContain("twitter:image:alt");
+    expect(out).not.toContain("stale");
+  });
+
+  it("does not duplicate og:site_name on re-render of a snapshot that already has one", () => {
+    const seeded = baseHtml.replace(
+      "</head>",
+      `<meta property="og:site_name" content="STALE CO" /></head>`,
+    );
+    const out = injectPageMeta(seeded, meta);
+    const matches = out.match(/property="og:site_name"/g) || [];
+    expect(matches.length).toBe(1);
+    expect(out).toContain(`content="Example Co"`);
+    expect(out).not.toContain("STALE CO");
+  });
+});

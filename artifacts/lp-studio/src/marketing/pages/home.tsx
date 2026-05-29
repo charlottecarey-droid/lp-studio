@@ -7,7 +7,7 @@ import Pricing from "../components/Pricing";
 import FAQ from "../components/FAQ";
 import Waitlist from "../components/Waitlist";
 import Footer from "../components/Footer";
-// import { usePageMeta } from "../hooks/usePageMeta"; // re-enable after CNAME flip
+import { usePageMeta } from "../hooks/usePageMeta";
 
 // Marketing accuracy pass (May 2026):
 // StatsBand and Testimonials were removed — LP Studio is in private beta and
@@ -19,18 +19,24 @@ import Footer from "../components/Footer";
 //  library, Salesforce sync, Sales Console, A/B testing, etc. are all real
 //  and shipped; surface them honestly in DeepFeatures and Integrations.)
 export default function Home() {
-  // Temporarily disabled until the lpstudio.ai CNAME flip lands — until
-  // then, social shares from this host should fall through to whatever
-  // static <title>/<meta> the index.html shell ships with, instead of us
-  // overwriting them with LP Studio copy on a domain that still resolves
-  // to the old destination. Re-enable after CNAME is verified.
-  // usePageMeta({
-  //   title: "LP Studio — Skip the 14-step process. Ship the page.",
-  //   description:
-  //     "Marketing takes forever. Sales ships with ChatGPT. LP Studio is the AI revenue workspace where pages, microsites, and outreach get built on-brand in minutes — not weeks.",
-  //   canonical: "https://lpstudio.ai/",
-  //   ogImage: "https://lpstudio.ai/lpstudio-og.png",
-  // });
+  // The marketing prerender (scripts/prerender-marketing.mjs) bakes these
+  // tags into the static dist/public/index.html that lpstudio.ai serves, so
+  // social scrapers (which never run JS) see real OG metadata. og:image must
+  // be an absolute URL to a small file — opengraph.jpg is 1280×720 / ~61KB;
+  // the legacy opengraph.png is 6.5MB and large images frequently time out
+  // in scrapers' short fetch windows, which is why previews "rarely showed".
+  usePageMeta({
+    title: "LP Studio — Skip the brief. Ship the page.",
+    description:
+      "Marketing takes forever. Sales ships with ChatGPT. LP Studio is the AI revenue workspace where pages, microsites, and outreach get built on-brand in minutes — not weeks.",
+    canonical: "https://lpstudio.ai/",
+    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImageWidth: 1280,
+    ogImageHeight: 720,
+    ogImageType: "image/jpeg",
+    ogImageAlt: "LP Studio — the AI revenue workspace",
+    siteName: "LP Studio",
+  });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>
       <Navbar />
