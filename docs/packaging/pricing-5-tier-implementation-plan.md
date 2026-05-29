@@ -102,6 +102,39 @@ called out clearly in the UI. Caps, names, and feature flags take effect immedia
 Stripe involved). Canonical tier keys are NOT editable (they anchor code + Stripe
 metadata).
 
+**Cache strategy:** the config accessor caches the resolved plan-config map
+**in-memory, per-process, with a 60s TTL**. A SuperAdmin save **busts the cache
+immediately in the saving process** so the editor sees changes instantly; other API
+processes converge within the 60s TTL. No cross-process pub/sub — the short TTL is the
+convergence mechanism. The hardcoded defaults remain the fallback if the config row is
+missing or unreadable.
+
+**Structured 402 shape (all gates):** every plan gate — counts (pages/forms/seats) and
+feature flags (salesConsole/aiImageGen/customDomain/quotas) — returns the **same** JSON
+body on a 402, so the client can render one consistent upgrade prompt:
+
+```json
+{
+  "error": "plan_upgrade_required",
+  "gate": "pages",
+  "currentUsage": 10,
+  "cap": 10,
+  "currentPlan": "starter",
+  "minimumPlanWithFeature": "growth",
+  "upgradeUrl": "/settings/billing"
+}
+```
+
+For boolean feature gates (no numeric cap), `currentUsage` and `cap` are `null` and
+`gate` is the feature key (e.g. `"salesConsole"`). `minimumPlanWithFeature` is the
+lowest tier whose config satisfies the gate.
+
+**P2 features (multi-workspace, SSO/SAML, custom blocks, etc.):** these are carried as
+**data-only flags** in the config map and surfaced in the UI as **locked / upgrade
+states**, but have **NO server-side middleware enforcement yet**. The feature map stays
+complete and honest (it never claims enforcement that isn't wired). Real gates for these
+land in a later pass, not in this plan's phases.
+
 ## Phases (each stops for approval)
 
 ### Phase 0 — Tier model + Dandy safeguard

@@ -8,13 +8,32 @@ import { pool } from "@workspace/db";
  * client via /api/auth/me.
  *
  * Tier ladder (low → high):
- *   starter  — marketing only, no Sales Console, capped counts, "Powered by" badge
- *   growth   — marketing + Sales Console + custom domain, generous caps
- *   enterprise — everything: + AI image generation, no count caps
+ *   free       — marketing only, 1 page/form, no Sales Console, "Powered by" badge
+ *   starter    — paid floor: more pages/forms, no badge, still no Sales Console
+ *   growth     — marketing + Sales Console + custom domain, generous caps
+ *   scale      — growth + AI image generation, higher seat cap
+ *   enterprise — everything: no count caps (sales-assisted)
+ *
+ * NOTE — these hardcoded defaults are the SEED + FALLBACK values. Phase 1
+ * moves the per-tier caps/flags into a SuperAdmin-editable config; until
+ * then this map is the live source of truth.
  */
-export type Plan = "starter" | "growth" | "enterprise";
+export type Plan = "free" | "starter" | "growth" | "scale" | "enterprise";
 
-export const PLANS: readonly Plan[] = ["starter", "growth", "enterprise"];
+export const PLANS: readonly Plan[] = ["free", "starter", "growth", "scale", "enterprise"];
+
+/**
+ * Tenant slugs that must ALWAYS resolve to enterprise, regardless of the
+ * stored `tenants.plan` value or any Stripe webhook. The two Dandy
+ * workspaces are sales-assisted (no Stripe subscription) and must never be
+ * downgraded by the tier reconciliation. Matched by slug (not id) so the
+ * guard is environment-independent (dev vs prod tenant ids differ).
+ */
+export const PROTECTED_ENTERPRISE_SLUGS: readonly string[] = ["dandy", "dandy-smb"];
+
+export function isProtectedEnterpriseSlug(slug: string | null | undefined): boolean {
+  return !!slug && PROTECTED_ENTERPRISE_SLUGS.includes(slug.toLowerCase());
+}
 
 /**
  * Map legacy / inbound plan strings to a canonical tier.
@@ -29,17 +48,25 @@ export const PLANS: readonly Plan[] = ["starter", "growth", "enterprise"];
  */
 export function normalizePlan(raw: string | null | undefined): Plan {
   switch ((raw ?? "").toLowerCase()) {
+    case "free":
+      return "free";
     case "starter":
+      // NOTE — post-reconciliation `starter` is the PAID floor. Legacy
+      // free-floor tenants that stored `starter` are rewritten to `free`
+      // by migration 0035, so any remaining `starter` here is the paid
+      // tier (set by Stripe checkout / superadmin).
       return "starter";
     case "growth":
     case "business":
     case "trial":
       return "growth";
+    case "scale":
+      return "scale";
     case "pro":
     case "enterprise":
       return "enterprise";
     default:
-      return "starter";
+      return "free";
   }
 }
 
@@ -81,17 +108,29 @@ export interface PlanFeatures {
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
+  free: {
+    salesConsole: false,
+    aiImageGen: false,
+    customDomain: false,
+    limits: { pages: 1, forms: 1, userSeats: 1 },
+  },
   starter: {
     salesConsole: false,
     aiImageGen: false,
     customDomain: false,
-    limits: { pages: 5, forms: 2, userSeats: 3 },
+    limits: { pages: 10, forms: 5, userSeats: 3 },
   },
   growth: {
     salesConsole: true,
     aiImageGen: false,
     customDomain: true,
     limits: { pages: null, forms: null, userSeats: 10 },
+  },
+  scale: {
+    salesConsole: true,
+    aiImageGen: true,
+    customDomain: true,
+    limits: { pages: null, forms: null, userSeats: 25 },
   },
   enterprise: {
     salesConsole: true,
@@ -106,17 +145,21 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
 }
 
 /**
- * Look up a tenant's normalized plan. Returns "starter" for an unknown
+ * Look up a tenant's normalized plan. Returns "free" for an unknown
  * or missing tenant — the safest default (least access). Callers that
  * need the raw DB value should query `tenants.plan` directly.
  */
 export async function getTenantPlan(tenantId: number | null | undefined): Promise<Plan> {
-  if (tenantId == null) return "starter";
-  const r = await pool.query<{ plan: string | null }>(
-    `SELECT plan FROM tenants WHERE id = $1`,
+  if (tenantId == null) return "free";
+  const r = await pool.query<{ plan: string | null; slug: string | null }>(
+    `SELECT plan, slug FROM tenants WHERE id = $1`,
     [tenantId],
   );
-  return normalizePlan(r.rows[0]?.plan);
+  const row = r.rows[0];
+  // Dandy safeguard — the two Dandy workspaces always resolve to enterprise,
+  // regardless of stored plan or any Stripe webhook. See PROTECTED_ENTERPRISE_SLUGS.
+  if (isProtectedEnterpriseSlug(row?.slug)) return "enterprise";
+  return normalizePlan(row?.plan);
 }
 
 export async function getTenantPlanFeatures(

@@ -400,19 +400,19 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     }
   }
 
-  // Task #407 — starter-tier "Powered by LP Studio" badge. Look up the
+  // Task #407 — free-tier "Powered by LP Studio" badge. Look up the
   // tenant's plan once per render. Fail OPEN toward the packaging gate:
   // on any DB lookup failure we default to SHOWING the badge rather
   // than silently stripping it from a tenant that may well be on the
-  // starter tier. The render itself never fails for badge reasons —
-  // worst case a Growth/Enterprise tenant briefly sees the badge during
-  // a DB hiccup, which is recoverable (the next publish corrects it),
-  // versus a starter tenant getting unbranded output for free, which is
-  // an undetectable packaging leak.
+  // free tier. The render itself never fails for badge reasons —
+  // worst case a paid tenant briefly sees the badge during a DB hiccup,
+  // which is recoverable (the next publish corrects it), versus a free
+  // tenant getting unbranded output for free, which is an undetectable
+  // packaging leak.
   let showPoweredByBadge = true;
   try {
     const { plan } = await getTenantPlanFeatures(page.tenantId);
-    showPoweredByBadge = plan === "starter";
+    showPoweredByBadge = plan === "free";
   } catch (err) {
     console.warn("[triggerPublishedRender] plan lookup for badge failed; failing OPEN with badge on", {
       pageId: page.id, tenantId: page.tenantId, err,

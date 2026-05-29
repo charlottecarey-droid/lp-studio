@@ -15,11 +15,11 @@ const meta = {
 
 describe("injectPageMeta — powered-by badge per tier", () => {
   // The plan→showPoweredByBadge mapping itself lives in
-  // triggerPublishedRender.ts (`plan === "starter"`); here we just lock
-  // in that injectPageMeta honours the flag both ways, so a tenant on
-  // Growth/Enterprise never accidentally gets the starter badge and a
-  // starter tenant never accidentally has it stripped.
-  it("starter tier: appends the Powered by LP Studio badge before </body>", () => {
+  // triggerPublishedRender.ts (`plan === "free"`); here we just lock
+  // in that injectPageMeta honours the flag both ways, so a paid tenant
+  // never accidentally gets the badge and a free tenant never
+  // accidentally has it stripped.
+  it("free tier: appends the Powered by LP Studio badge before </body>", () => {
     const out = injectPageMeta(baseHtml, { ...meta, showPoweredByBadge: true });
     expect(out).toContain("Powered by");
     expect(out).toContain("<strong style=\"font-weight:700\">LP Studio</strong>");

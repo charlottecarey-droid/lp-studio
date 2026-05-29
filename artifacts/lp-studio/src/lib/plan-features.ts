@@ -12,7 +12,7 @@
  * compute features locally as a fallback for sessions issued before
  * the field existed.
  */
-export type Plan = "starter" | "growth" | "enterprise";
+export type Plan = "free" | "starter" | "growth" | "scale" | "enterprise";
 
 export interface PlanLimits {
   pages: number | null;
@@ -28,17 +28,29 @@ export interface PlanFeatures {
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
+  free: {
+    salesConsole: false,
+    aiImageGen: false,
+    customDomain: false,
+    limits: { pages: 1, forms: 1, userSeats: 1 },
+  },
   starter: {
     salesConsole: false,
     aiImageGen: false,
     customDomain: false,
-    limits: { pages: 5, forms: 2, userSeats: 3 },
+    limits: { pages: 10, forms: 5, userSeats: 3 },
   },
   growth: {
     salesConsole: true,
     aiImageGen: false,
     customDomain: true,
     limits: { pages: null, forms: null, userSeats: 10 },
+  },
+  scale: {
+    salesConsole: true,
+    aiImageGen: true,
+    customDomain: true,
+    limits: { pages: null, forms: null, userSeats: 25 },
   },
   enterprise: {
     salesConsole: true,
@@ -50,17 +62,21 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
 
 export function normalizePlan(raw: string | null | undefined): Plan {
   switch ((raw ?? "").toLowerCase()) {
+    case "free":
+      return "free";
     case "starter":
       return "starter";
     case "growth":
     case "business":
     case "trial":
       return "growth";
+    case "scale":
+      return "scale";
     case "pro":
     case "enterprise":
       return "enterprise";
     default:
-      return "starter";
+      return "free";
   }
 }
 

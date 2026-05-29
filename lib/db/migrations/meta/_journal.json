@@ -36,6 +36,7 @@
     { "idx": 31, "version": "7", "when": 1748400000000, "tag": "0031_auth_exchange_codes_target_host",         "breakpoints": false },
     { "idx": 32, "version": "7", "when": 1748500000000, "tag": "0032_lp_brand_import_cache",                   "breakpoints": false },
     { "idx": 33, "version": "7", "when": 1748600000000, "tag": "0033_ai_generation_log",                       "breakpoints": false },
-    { "idx": 34, "version": "7", "when": 1748700000000, "tag": "0034_ai_generation_log_banned_phrase_hits",   "breakpoints": false }
+    { "idx": 34, "version": "7", "when": 1748700000000, "tag": "0034_ai_generation_log_banned_phrase_hits",   "breakpoints": false },
+    { "idx": 35, "version": "7", "when": 1748800000000, "tag": "0035_pricing_5tier_plan_reconcile",           "breakpoints": false }
   ]
 }
