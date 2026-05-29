@@ -161,3 +161,9 @@ id = "TSyaia5zsoAY6NBifnzXk"
 uri = "file://.local/brand-import-test-report.md"
 type = "text"
 title = "Brand Importer — 5-URL Test Report"
+
+[[outputs]]
+id = "4GPxBUrDuvUpUC5uwCAom"
+uri = "file://docs/packaging/pricing-5-tier-implementation-plan.md"
+type = "text"
+title = "5-Tier Pricing + Gate Enforcement — Implementation Plan"
