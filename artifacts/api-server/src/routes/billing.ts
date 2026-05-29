@@ -25,7 +25,8 @@ import type Stripe from "stripe";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getPriceIdForLookupKey, getStripe, StripeNotConfiguredError } from "../lib/stripeClient";
-import { normalizePlan, PLAN_FEATURES, type Plan } from "../lib/planFeatures";
+import { normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
+import { getPlanFeatures } from "../lib/planConfig";
 import {
   ALL_LOOKUP_KEYS,
   cadenceForLookupKey,
@@ -110,8 +111,11 @@ router.get("/billing/summary", async (req: Request, res: Response): Promise<void
   const tenant = await loadTenant(user.tenantId);
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
-  const plan: Plan = normalizePlan(tenant.plan);
-  const features = PLAN_FEATURES[plan];
+  // Route through getTenantPlan so protected enterprise tenants (Dandy) keep
+  // their tier, and read features from the live (SuperAdmin-editable) accessor
+  // instead of the static map so the billing page can't drift.
+  const plan: Plan = await getTenantPlan(user.tenantId);
+  const features = await getPlanFeatures(plan);
 
   // We consider Stripe "configured for this deployment" when we can mint
   // a client without an error — but we still serve summary even when not

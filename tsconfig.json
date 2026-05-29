@@ -17,6 +17,9 @@
     },
     {
       "path": "./lib/lp-template-engine"
+    },
+    {
+      "path": "./lib/plan-config"
     }
   ]
 }

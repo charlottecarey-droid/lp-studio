@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
-import { featuresForPlan, normalizePlan } from "./planFeatures";
+import { normalizePlan } from "./planFeatures";
+import { getPlanFeatures } from "./planConfig";
 
 /**
  * Tenant-wide page-review-workflow toggle (task #113).
@@ -69,7 +70,7 @@ export async function getAiImageGenStatus(
   const row = r.rows[0];
   if (!row) return { available: false, enabled: false, plan: "" };
   const plan = row.plan ?? "trial";
-  const available = featuresForPlan(normalizePlan(plan)).aiImageGen;
+  const available = (await getPlanFeatures(normalizePlan(plan))).aiImageGen;
   const enabled = available && row.settings?.aiImageGenEnabled === true;
   return { available, enabled, plan };
 }

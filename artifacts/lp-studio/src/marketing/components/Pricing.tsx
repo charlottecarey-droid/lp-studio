@@ -1,7 +1,41 @@
 import { useState } from "react";
 import { useInView } from "../hooks/useInView";
+import { PLAN_CONFIG, type Plan } from "../../lib/plan-features";
 
 type Billing = "monthly" | "annual";
+
+// ── Canonical-config derivation ────────────────────────────────────────────
+// Every price and numeric cap on this page is DERIVED from the shared
+// `PLAN_CONFIG` (@workspace/plan-config) so the marketing promises can never
+// drift from what the backend 402-gates actually enforce. Only descriptive
+// prose (feature names, support copy) is authored here. A drift test guards
+// that PLAN_CONFIG matches the DB seed.
+
+// Comparison-table column order (also the self-serve card order minus free).
+const COMPARE_PLANS: Plan[] = ["free", "starter", "growth", "scale"];
+
+/** Format a numeric cap: null → "Unlimited". */
+function fmtCap(n: number | null): string {
+  return n === null ? "Unlimited" : n.toLocaleString();
+}
+
+/** Build a comparison-table row of a single limit across COMPARE_PLANS. */
+function capRow(key: keyof (typeof PLAN_CONFIG)["free"]["features"]["limits"]): string[] {
+  return COMPARE_PLANS.map((p) => fmtCap(PLAN_CONFIG[p].features.limits[key]));
+}
+
+/** Heatmap row: "<n> sessions/mo" across COMPARE_PLANS. */
+function heatmapRow(): string[] {
+  return COMPARE_PLANS.map((p) => {
+    const n = PLAN_CONFIG[p].features.limits.heatmapSessionsPerMonth;
+    return n === null ? "Unlimited" : `${n.toLocaleString()} sessions/mo`;
+  });
+}
+
+/** Build a boolean comparison row for a gated feature across COMPARE_PLANS. */
+function featRow(key: "salesConsole" | "aiImageGen" | "customDomain"): boolean[] {
+  return COMPARE_PLANS.map((p) => PLAN_CONFIG[p].features[key]);
+}
 
 interface Tier {
   name: string;
@@ -29,26 +63,29 @@ interface Tier {
 const cardTiers: Tier[] = [
   {
     name: "Starter",
-    monthly: 59,
-    annual: 49,
+    monthly: PLAN_CONFIG.starter.priceMonthly ?? "Custom",
+    annual: PLAN_CONFIG.starter.priceAnnual ?? "Custom",
     desc: "Ship more than one page. Custom domain. No badge.",
     idealFor: "Founders, agencies & small teams",
     groups: [
       {
         label: "Build",
         items: [
-          "10 active landing pages",
-          "5 forms",
-          "Up to 3 seats",
+          `${fmtCap(PLAN_CONFIG.starter.features.limits.pages)} active landing pages`,
+          `${fmtCap(PLAN_CONFIG.starter.features.limits.forms)} forms`,
+          `Up to ${fmtCap(PLAN_CONFIG.starter.features.limits.userSeats)} seats`,
           "Visual builder + 124-block library",
-          "AI copy · 200 generations/mo",
+          `AI copy · ${fmtCap(PLAN_CONFIG.starter.features.limits.aiGenerationsPerMonth)} generations/mo`,
           "Your own custom domain",
           "No LP Studio badge",
         ],
       },
       {
         label: "Test & measure",
-        items: ["Unlimited A/B variants", "Heatmaps · 5,000 sessions/mo"],
+        items: [
+          "Unlimited A/B variants",
+          `Heatmaps · ${fmtCap(PLAN_CONFIG.starter.features.limits.heatmapSessionsPerMonth)} sessions/mo`,
+        ],
       },
       {
         label: "Support",
@@ -60,8 +97,8 @@ const cardTiers: Tier[] = [
   },
   {
     name: "Growth",
-    monthly: 249,
-    annual: 199,
+    monthly: PLAN_CONFIG.growth.priceMonthly ?? "Custom",
+    annual: PLAN_CONFIG.growth.priceAnnual ?? "Custom",
     desc: "Sales and marketing shipping from the same canvas. The Sales Console unlocks here.",
     idealFor: "Mid-market revenue teams",
     groups: [
@@ -69,11 +106,11 @@ const cardTiers: Tier[] = [
         label: "Everything in Starter, plus the Sales Console",
         items: [
           "Unlimited pages, forms & A/B tests",
-          "Up to 10 seats",
+          `Up to ${fmtCap(PLAN_CONFIG.growth.features.limits.userSeats)} seats`,
           "Sales Console — per-account microsites, AI outreach drafts, personalized links",
           "Salesforce + Marketo bidirectional sync",
           "Apollo signals · Chili Piper · Asana · GA4 · Webhooks",
-          "Smart Traffic routing + heatmaps · 25,000 sessions/mo",
+          `Smart Traffic routing + heatmaps · ${fmtCap(PLAN_CONFIG.growth.features.limits.heatmapSessionsPerMonth)} sessions/mo`,
           "Brand system & locked tokens",
           "Token-based external review (no seat cost for legal/clients)",
         ],
@@ -90,8 +127,8 @@ const cardTiers: Tier[] = [
   },
   {
     name: "Scale",
-    monthly: 649,
-    annual: 499,
+    monthly: PLAN_CONFIG.scale.priceMonthly ?? "Custom",
+    annual: PLAN_CONFIG.scale.priceAnnual ?? "Custom",
     desc: "Multi-brand, multi-team. The whole revenue org on one canvas.",
     idealFor: "Multi-brand operations & agencies",
     groups: [
@@ -99,11 +136,11 @@ const cardTiers: Tier[] = [
         label: "Everything in Growth, plus",
         items: [
           "Multi-workspace · multi-brand",
-          "Up to 25 seats",
+          `Up to ${fmtCap(PLAN_CONFIG.scale.features.limits.userSeats)} seats`,
           "Custom blocks + advanced template library",
           "Programmatic pages + smart sections",
           "Salesforce custom field mapping",
-          "Heatmaps · 100,000 sessions/mo",
+          `Heatmaps · ${fmtCap(PLAN_CONFIG.scale.features.limits.heatmapSessionsPerMonth)} sessions/mo`,
         ],
       },
       {
@@ -136,14 +173,14 @@ const FEATURE_MAP: FeatureGroup[] = [
   {
     label: "Build",
     rows: [
-      { feature: "Active landing pages", values: ["1", "10", "Unlimited", "Unlimited"] },
-      { feature: "Forms", values: ["1", "5", "Unlimited", "Unlimited"] },
-      { feature: "User seats", values: ["1", "3", "10", "25"] },
-      { feature: "AI copy generations / month", values: ["30", "200", "Unlimited", "Unlimited"] },
+      { feature: "Active landing pages", values: capRow("pages") },
+      { feature: "Forms", values: capRow("forms") },
+      { feature: "User seats", values: capRow("userSeats") },
+      { feature: "AI copy generations / month", values: capRow("aiGenerationsPerMonth") },
       { feature: "124-block library", values: [true, true, true, true] },
       { feature: "Brand system & locked tokens", values: [false, true, true, true] },
       { feature: "Custom blocks", values: [false, false, true, true] },
-      { feature: "AI image generation", values: [false, false, false, false], note: "Enterprise tier" },
+      { feature: "AI image generation", values: featRow("aiImageGen") },
     ],
   },
   {
@@ -177,7 +214,7 @@ const FEATURE_MAP: FeatureGroup[] = [
       { feature: "A/B testing", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
       { feature: "Multivariate testing", values: [false, false, true, true] },
       { feature: "Smart Traffic routing (Thompson sampling)", values: [false, false, true, true] },
-      { feature: "Heatmaps & scroll depth", values: ["1,000 sessions/mo", "5,000 sessions/mo", "25,000 sessions/mo", "100,000 sessions/mo"] },
+      { feature: "Heatmaps & scroll depth", values: heatmapRow() },
       { feature: "Conversion scoring", values: [false, false, true, true] },
       { feature: "Page speed audit", values: [true, true, true, true] },
       { feature: "Programmatic pages + smart sections", values: [false, false, false, true] },
@@ -186,7 +223,7 @@ const FEATURE_MAP: FeatureGroup[] = [
   {
     label: "Distribution",
     rows: [
-      { feature: "Custom domain (auto SSL)", values: [false, true, true, true] },
+      { feature: "Custom domain (auto SSL)", values: featRow("customDomain") },
       { feature: 'No "Built with LP Studio" badge', values: [false, true, true, true] },
       { feature: "Tenant subdomain (your-brand.lpstudio.ai)", values: [true, true, true, true] },
       { feature: "Vanity short links", values: [false, false, true, true] },
@@ -361,7 +398,7 @@ export default function Pricing() {
               Free forever
             </span>
             <span>
-              <strong style={{ color: "var(--ink)" }}>Just kicking the tires?</strong> Free gets you 1 page, 1 form, 30 AI generations/mo and a "Built with LP Studio" badge — no card required.
+              <strong style={{ color: "var(--ink)" }}>Just kicking the tires?</strong> Free gets you {fmtCap(PLAN_CONFIG.free.features.limits.pages)} page, {fmtCap(PLAN_CONFIG.free.features.limits.forms)} form, {fmtCap(PLAN_CONFIG.free.features.limits.aiGenerationsPerMonth)} AI generations/mo and a "Built with LP Studio" badge — no card required.
             </span>
           </div>
           <a
@@ -693,12 +730,20 @@ function FeatureMap() {
   );
 }
 
+// Sticky-header price reminders — annual (month-equivalent) prices derived
+// from PLAN_CONFIG so they can't drift from the cards above.
 function tierPriceLabel(name: string): string {
-  if (name === "Free") return "$0";
-  if (name === "Starter") return "$49/mo";
-  if (name === "Growth") return "$199/mo";
-  if (name === "Scale") return "$499/mo";
-  return "";
+  const byName: Record<string, Plan> = {
+    Free: "free",
+    Starter: "starter",
+    Growth: "growth",
+    Scale: "scale",
+  };
+  const plan = byName[name];
+  if (!plan) return "";
+  const annual = PLAN_CONFIG[plan].priceAnnual;
+  if (annual === null) return "";
+  return annual === 0 ? "$0" : `$${annual}/mo`;
 }
 
 function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {

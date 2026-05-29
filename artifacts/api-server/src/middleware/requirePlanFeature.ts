@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { getTenantPlan, PLAN_FEATURES, type PlanFeatures } from "../lib/planFeatures";
+import { getTenantPlan, type PlanFeatures } from "../lib/planFeatures";
+import { getPlanFeaturesMap } from "../lib/planConfig";
 
 /**
  * Plan-tier feature gate. Returns 402 Payment Required when the active
@@ -33,7 +34,8 @@ export function requirePlanFeature(feature: keyof PlanFeatures) {
     if (user.appUserRole === "superadmin") return next();
     try {
       const plan = await getTenantPlan(user.tenantId);
-      if (PLAN_FEATURES[plan][feature]) return next();
+      const featuresMap = await getPlanFeaturesMap();
+      if (featuresMap[plan][feature]) return next();
       res.status(402).json({
         error: "plan_upgrade_required",
         feature,

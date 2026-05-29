@@ -3,7 +3,8 @@ import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
-import { PLANS, PLAN_FEATURES, featuresForPlan, normalizePlan, getTenantPlanFeatures, type Plan } from "../lib/planFeatures";
+import { PLANS, normalizePlan, getTenantPlanFeatures, type Plan } from "../lib/planFeatures";
+import { getPlanFeatures, getPlanFeaturesMap } from "../lib/planConfig";
 import {
   validateDomain,
   findDomainConflict,
@@ -508,7 +509,7 @@ router.patch("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Pro
         nextPlan ?? normalizePlan(
           (await pool.query<{ plan: string | null }>(`SELECT plan FROM tenants WHERE id = $1`, [tenantId])).rows[0]?.plan,
         );
-      if (!PLAN_FEATURES[effectivePlan].customDomain) {
+      if (!(await getPlanFeaturesMap())[effectivePlan].customDomain) {
         res.status(402).json({
           error: "plan_upgrade_required",
           feature: "customDomain",
@@ -1392,7 +1393,7 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     const settings = r.rows[0].settings ?? {};
-    const aiImageGenAvailable = featuresForPlan(normalizePlan(r.rows[0].plan)).aiImageGen;
+    const aiImageGenAvailable = (await getPlanFeatures(normalizePlan(r.rows[0].plan))).aiImageGen;
     const vanityRaw = Array.isArray(settings.vanityLinks) ? settings.vanityLinks : [];
     const vanityLinks: VanityLink[] = (vanityRaw as unknown[])
       .filter((x): x is { slug: string; targetUrl: string } =>
@@ -1447,7 +1448,7 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
         [tenantId],
       );
       if (!planRow.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
-      if (!featuresForPlan(normalizePlan(planRow.rows[0].plan)).aiImageGen) {
+      if (!(await getPlanFeatures(normalizePlan(planRow.rows[0].plan))).aiImageGen) {
         res.status(402).json({
           error: "plan_upgrade_required",
           feature: "aiImageGen",
@@ -1490,7 +1491,7 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
       invalidateDomainContextForTenant(tenantId);
     }
     const settings = r.rows[0].settings ?? {};
-    const aiImageGenAvailable = featuresForPlan(normalizePlan(r.rows[0].plan)).aiImageGen;
+    const aiImageGenAvailable = (await getPlanFeatures(normalizePlan(r.rows[0].plan))).aiImageGen;
     const vanityRaw = Array.isArray(settings.vanityLinks) ? settings.vanityLinks : [];
     const vanityLinks: VanityLink[] = (vanityRaw as unknown[])
       .filter((x): x is { slug: string; targetUrl: string } =>

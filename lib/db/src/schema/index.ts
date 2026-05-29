@@ -43,3 +43,6 @@ export * from "./aiGenerationLog";
 
 // Per-tenant inbound webhook secrets
 export * from "./tenantWebhookSecrets";
+
+// SuperAdmin-configurable plan/pricing tiers
+export * from "./planConfig";

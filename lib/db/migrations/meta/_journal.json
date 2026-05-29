@@ -37,6 +37,7 @@
     { "idx": 32, "version": "7", "when": 1748500000000, "tag": "0032_lp_brand_import_cache",                   "breakpoints": false },
     { "idx": 33, "version": "7", "when": 1748600000000, "tag": "0033_ai_generation_log",                       "breakpoints": false },
     { "idx": 34, "version": "7", "when": 1748700000000, "tag": "0034_ai_generation_log_banned_phrase_hits",   "breakpoints": false },
-    { "idx": 35, "version": "7", "when": 1748800000000, "tag": "0035_pricing_5tier_plan_reconcile",           "breakpoints": false }
+    { "idx": 35, "version": "7", "when": 1748800000000, "tag": "0035_pricing_5tier_plan_reconcile",           "breakpoints": false },
+    { "idx": 36, "version": "7", "when": 1748900000000, "tag": "0036_plan_config",                            "breakpoints": false }
   ]
 }

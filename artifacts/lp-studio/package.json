@@ -110,6 +110,7 @@
     "@tiptap/starter-kit": "^3.20.4",
     "@workspace/lp-template-engine": "workspace:*",
     "@workspace/one-pager-types": "workspace:*",
+    "@workspace/plan-config": "workspace:*",
     "dompurify": "^3.4.5",
     "html-to-image": "^1.11.11",
     "jspdf": "^4.2.1",

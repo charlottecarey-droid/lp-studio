@@ -10,6 +10,7 @@
 - [Drizzle journal must list every migration](auth-exchange-codes-schema.md) — adding a .sql to lib/db/migrations does nothing unless its tag is also in meta/_journal.json; missing entry = silent skip on every release; symptom is prod 42703 "column does not exist" on the cross-domain OAuth callback.
 - [Fetch redirect SSRF](fetch-redirect-ssrf.md) — backend fetches of untrusted URLs must use `redirect:"manual"` and re-validate each hop's host; `"follow"` defeats the initial public-IP check.
 - [Tenant-scoped queries fail closed](tenant-scoped-query-fail-closed.md) — DB helpers reading tenant rows must take required tenantId, or return empty on null; never fall back to unfiltered or `limit(1)` queries.
+- [Plan config live accessor](plan-config-live-accessor.md) — tenant-scoped/live plan features must read the DB accessor (getPlanFeatures) + getTenantPlan, never static PLAN_FEATURES; marketing static is OK (drift test guards it).
 - [LP hero overlayOpacity scale](lp-hero-overlay-opacity-scale.md) — LP hero overlayOpacity is a 0-100 percent (renderer ÷100); AI prompt schemas must use whole-number percents, not 0-1.
 - [lib/db composite dist drives types](lib-db-composite-dist-types.md) — after editing a lib/db schema, `npx tsc -b` in lib/db (no build script) or consumer tsc errors "field does not exist" though runtime/build is fine.
 - [Generated block contrast](generated-block-contrast.md) — AI page blocks must derive text/badge/button colors from their actual bg, never pair two brand colors; fix at render-block layer.

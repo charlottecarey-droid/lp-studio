@@ -7,7 +7,8 @@ import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
-import { normalizePlan, PLAN_FEATURES } from "../lib/planFeatures";
+import { normalizePlan } from "../lib/planFeatures";
+import { getPlanFeaturesMap } from "../lib/planConfig";
 
 /**
  * Pick the user-facing wildcard base host for building tenant login URLs
@@ -554,7 +555,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
         tenantHost = getCanonicalTenantHost({ slug: tenantSlug, domain: tenantDomain });
         tenantLoginUrl = tenantHost ? `https://${tenantHost}` : null;
         tenantPlan = row.plan ?? null;
-        aiImageGenAvailable = PLAN_FEATURES[normalizePlan(tenantPlan)].aiImageGen;
+        aiImageGenAvailable = (await getPlanFeaturesMap())[normalizePlan(tenantPlan)].aiImageGen;
         aiImageGenEnabled = aiImageGenAvailable && settings.aiImageGenEnabled === true;
         aiImageGenOutsideBuilderEnabled = settings.aiImageGenOutsideBuilderEnabled === true;
       }
@@ -613,7 +614,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     // server-computed feature map the UI uses to hide the Sales toggle
     // and short-circuit /sales/* routes before the request fires.
     const planTier = normalizePlan(tenantPlan);
-    const planFeatures = PLAN_FEATURES[planTier];
+    const planFeatures = (await getPlanFeaturesMap())[planTier];
 
     res.json({
       ...sess,
