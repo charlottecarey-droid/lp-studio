@@ -600,6 +600,34 @@ export function pickCtaButtonColors(
 }
 
 /**
+ * Resolve the border + text color an *outline* (secondary/ghost) button
+ * should use given the section background it's sitting on. Outline buttons
+ * have a transparent fill and draw their identity from a colored border and
+ * matching text, so both must contrast with the section bg — otherwise a
+ * `border-[var(--brand-primary)]` button vanishes the moment the AI sets the
+ * section background to the brand primary color (the "blue outline on blue
+ * section" failure mode, mirroring the filled-button issue solved by
+ * {@link pickCtaButtonColors}).
+ *
+ * Preference order for the border/text color:
+ *   1. `brand.primaryColor` if it contrasts with the section.
+ *   2. `brand.accentColor` if it contrasts.
+ *   3. Black/white — whichever contrasts better.
+ *
+ * Threshold 4.5 matches WCAG AA for normal text, since the same color is
+ * used for both the border and the (text-sized) label.
+ */
+export function pickOutlineButtonColors(
+  brand: BrandConfig,
+  sectionBg: string | undefined | null,
+): { border: string; text: string } {
+  const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const accent = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;
+  const color = pickContrastingColor(primary, sectionBg, [accent], 4.5);
+  return { border: color, text: color };
+}
+
+/**
  * Resolve the heading color a block should use for the given background
  * darkness. Honors explicit `headingOnLightColor` / `headingOnDarkColor`
  * brand tokens; otherwise derives a sensible default from the brand

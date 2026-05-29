@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { type BrandConfig, isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
+import { type BrandConfig, isValidHex, pickCtaButtonColors, pickOutlineButtonColors } from "@/lib/brand-config";
 import type { DandyConversionPanel1BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -50,7 +50,15 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
     ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:brightness-90"
     : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] hover:brightness-105";
 
-  const secondaryBtnCls = style === "lime" || style === "white"
+  // When the section bg is an AI/tenant-chosen hex, the outline button's
+  // border + text must contrast with it too — otherwise a
+  // `border-[var(--brand-primary)]` outline vanishes on a primary-colored
+  // section the same way the filled CTA used to.
+  const outlineColors = isValidHex(bg) ? pickOutlineButtonColors(brand, bg) : null;
+
+  const secondaryBtnCls = outlineColors
+    ? "border-2 hover:opacity-80"
+    : style === "lime" || style === "white"
     ? "border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
     : "border-2 border-white text-white hover:bg-white hover:text-[var(--brand-primary)]";
 
@@ -137,6 +145,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
               chilipiperUrl={props.secondaryChilipiperUrl}
               {...modalCfg}
               className={cn("font-semibold px-10 py-4 rounded-xl text-base transition-all", secondaryBtnCls)}
+              style={outlineColors ? { borderColor: outlineColors.border, color: outlineColors.text } : undefined}
               brand={brand}
               pageId={pageId}
               variantId={variantId}

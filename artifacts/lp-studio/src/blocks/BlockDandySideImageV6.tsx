@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type BrandConfig, pickCtaButtonColors } from "@/lib/brand-config";
+import { type BrandConfig, pickCtaButtonColors, pickOutlineButtonColors } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -26,6 +26,10 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   // is itself the brand accent or primary. Resolve runtime button colors
   // with a WCAG contrast guard so the button stays visible.
   const ctaColors = pickCtaButtonColors(brand, bg);
+  // Outline secondary button: its border + text must contrast with the
+  // section bg too, or a `border-[var(--brand-primary)]` outline vanishes
+  // when the section bg is the brand primary color.
+  const outlineColors = pickOutlineButtonColors(brand, bg);
 
   const field = (key: keyof DandySideImageV6BlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -120,7 +124,8 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
               modalShowCompany={props.modalShowCompany}
               brand={brand}
               source="dandy-side-image-v6-secondary"
-              className="border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] font-semibold px-8 py-4 rounded-xl text-base hover:bg-[var(--brand-primary)] hover:text-white transition-all"
+              className="border-2 font-semibold px-8 py-4 rounded-xl text-base hover:opacity-80 transition-all"
+              style={{ borderColor: outlineColors.border, color: outlineColors.text }}
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} style={{ fontFamily: BODY }}/>
             </CtaButton>
