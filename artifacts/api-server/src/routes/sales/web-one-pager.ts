@@ -3,8 +3,16 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable, lpPageVisitsTable } from "@workspace/db";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
+import { isDandyTenant } from "../../lib/planFeatures";
 
 const router = Router();
+
+// Built-in one-pager templates gated to Dandy-only tenants. Mirrors the
+// canonical DANDY_GATED_BUILTIN_IDS in @workspace/one-pager-types (kept as a
+// tiny local literal so the API server doesn't pull the jspdf-heavy package).
+const DANDY_GATED_BUILTIN_IDS = ["comparison", "agreement-summary"];
+const isDandyGatedBuiltin = (id: unknown): boolean =>
+  typeof id === "string" && DANDY_GATED_BUILTIN_IDS.includes(id);
 
 type Audience = "executive" | "clinical" | "practice-manager";
 
@@ -80,6 +88,8 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       teamMembers,
       ctaUrl,
       tenantId,
+      builtinId,
+      template,
     } = req.body as {
       dsoName: string;
       audience?: Audience;
@@ -88,6 +98,8 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       teamMembers?: { name: string; role: string; email?: string; photo?: string; chilipiperUrl?: string }[];
       ctaUrl?: string;
       tenantId?: number;
+      builtinId?: string;
+      template?: string;
     };
 
     if (!dsoName || typeof dsoName !== "string") {
@@ -100,6 +112,13 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
     // identify which tenant the page belongs to.
     if (typeof tenantId !== "number" || !Number.isFinite(tenantId) || tenantId <= 0) {
       res.status(400).json({ error: "tenantId is required" });
+      return;
+    }
+
+    // Gate the Dandy-only built-ins: reject explicit requests to publish them
+    // from non-Dandy tenants (mirrors the picker gate in the client).
+    if ((isDandyGatedBuiltin(builtinId) || isDandyGatedBuiltin(template)) && !(await isDandyTenant(tenantId))) {
+      res.status(403).json({ error: "This built-in template is not available for your workspace." });
       return;
     }
 

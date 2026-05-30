@@ -25,3 +25,4 @@
 - [Block role tags](block-role-tags.md) — semantic tag vocab+defaults live ONLY in lp-template-engine/block-tags.ts; DB overrides via resolveBlockTags; AI guide parses allowed blocks from system-prompt `- "type":` bullets (silently empties if format changes).
 - [One-pager brand asset URLs](one-pager-brand-asset-urls.md) — Dandy one-pager images = static public files seeded into salesConsole.onePager*; empty=neutral; root-relative URLs need base-path normalization before render.
 - [vitest app.listen hangs](vitest-listen-hangs-inproc-inject.md) — vitest worker pool never fires app.listen callback; api-server route tests must use in-process inject() helper, not port+fetch.
+- [E2E can't create Dandy tenants](e2e-dandy-tenant-limit.md) — royal-tenant fixture only makes non-Dandy tenants; Dandy gating needs reserved dandy/dandy-smb slug (collides w/ seed), so only negative-path testable.

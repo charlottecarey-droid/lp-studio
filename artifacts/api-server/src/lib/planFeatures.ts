@@ -54,6 +54,21 @@ export async function getTenantPlan(tenantId: number | null | undefined): Promis
 }
 
 /**
+ * True when the tenant is one of the protected Dandy workspaces (dandy /
+ * dandy-smb). Used to gate Dandy-only built-in one-pager templates on the
+ * server publish/save paths. Returns false for unknown/missing tenants
+ * (fail closed — non-Dandy tenants must not reach the gated built-ins).
+ */
+export async function isDandyTenant(tenantId: number | null | undefined): Promise<boolean> {
+  if (tenantId == null) return false;
+  const r = await pool.query<{ slug: string | null }>(
+    `SELECT slug FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  return isProtectedEnterpriseSlug(r.rows[0]?.slug);
+}
+
+/**
  * Resolve a tenant's plan AND its live (DB-backed, SuperAdmin-editable)
  * feature matrix in one call.
  */

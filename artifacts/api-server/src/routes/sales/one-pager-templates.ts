@@ -3,8 +3,16 @@ import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesOnePagerTemplatesTable } from "@workspace/db";
+import { isDandyTenant } from "../../lib/planFeatures";
 
 const requireTemplateEdit = requireAnyPermission(["sales_campaigns", "one_pager_templates"]);
+
+// Built-in one-pager templates that are too Dandy-coded to neutralize. Mirrors
+// the canonical DANDY_GATED_BUILTIN_IDS in @workspace/one-pager-types (kept as
+// a tiny local literal so the API server doesn't pull the jspdf-heavy package).
+const DANDY_GATED_BUILTIN_IDS = ["comparison", "agreement-summary"];
+const isDandyGatedBuiltin = (id: unknown): boolean =>
+  typeof id === "string" && DANDY_GATED_BUILTIN_IDS.includes(id);
 import multer from "multer";
 import { ObjectStorageService } from "../../lib/objectStorage";
 
@@ -77,8 +85,14 @@ router.get("/one-pager-templates/:id", requireAuth, async (req, res): Promise<vo
 router.post("/one-pager-templates", requireTemplateEdit, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const { name, background_url, orientation, fields, headerHeight, headerImageUrl } = req.body;
+    const { name, background_url, orientation, fields, headerHeight, headerImageUrl, builtinId } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
+    // Gate the Dandy-only built-ins: reject explicit requests to clone/save
+    // them from non-Dandy tenants (the picker already hides them client-side).
+    if (isDandyGatedBuiltin(builtinId) && !(await isDandyTenant(tenantId))) {
+      res.status(403).json({ error: "This built-in template is not available for your workspace." });
+      return;
+    }
     const [tpl] = await db
       .insert(salesOnePagerTemplatesTable)
       .values({
@@ -104,6 +118,11 @@ router.post("/one-pager-templates", requireTemplateEdit, async (req, res): Promi
 router.patch("/one-pager-templates/:id", requireTemplateEdit, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    // Gate the Dandy-only built-ins on explicit save/update requests too.
+    if (isDandyGatedBuiltin(req.body.builtinId) && !(await isDandyTenant(tenantId))) {
+      res.status(403).json({ error: "This built-in template is not available for your workspace." });
+      return;
+    }
     const updates: Record<string, unknown> = {};
     if (req.body.name !== undefined) updates.name = String(req.body.name).trim();
     if (req.body.background_url !== undefined) updates.backgroundUrl = req.body.background_url;

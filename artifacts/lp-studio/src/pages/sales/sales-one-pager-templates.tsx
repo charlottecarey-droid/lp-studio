@@ -15,7 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig as BrandConfigT } from "@/lib/brand-config";
-import { scrubBrand, type BrandContext as BrandContextT } from "@workspace/one-pager-types";
+import { scrubBrand, isDandyBrandName, isDandyGatedBuiltin, type BrandContext as BrandContextT } from "@workspace/one-pager-types";
 import {
   generatePilotOnePager,
   generateComparisonOnePager,
@@ -157,34 +157,52 @@ const BUILTIN_TEMPLATES = [
 
 type BuiltinId = typeof BUILTIN_TEMPLATES[number]["id"];
 
-const cloneFieldsForBuiltin = (id: BuiltinId): OverlayField[] => {
+// Brand inputs for the field factories below. Threaded from the live tenant
+// brand so cloned overlays never hardcode "Dandy"/"DSO"/meetdandy.com for
+// non-Dandy tenants. Dandy passes its own values so its defaults are unchanged.
+interface BrandFieldDefaults {
+  /** Wordmark used in prefixes/labels (e.g. "Dandy" or the tenant brand). */
+  brandLabel: string;
+  /** Industry/segment label used in labels (e.g. "DSO" or "Group"). */
+  industryLabel: string;
+  /** Default URL for QR/link fields — the tenant CTA URL, or "" (never meetdandy.com). */
+  ctaDefault: string;
+}
+
+const cloneFieldsForBuiltin = (id: BuiltinId, brand: BrandFieldDefaults): OverlayField[] => {
   const mk = (f: Omit<OverlayField, "id">): OverlayField => ({ ...f, id: crypto.randomUUID() });
-  const base: Omit<OverlayField, "id"> = { label: "DSO Name", type: "dso_name", x: 10, y: 10, fontSize: 24, fontFamily: "helvetica", color: "#FFFFFF", bold: true, italic: false, defaultValue: "" };
+  const { brandLabel, industryLabel, ctaDefault } = brand;
+  // The logo field reads "Brand Logo" for every tenant (the enum value stays
+  // `dandy_logo` for backward compatibility).
+  const logoLabel = "Brand Logo";
+  const nameLabel = `${brandLabel} & ${industryLabel} Name`;
+  const namePrefix = `${brandLabel} & `;
+  const base: Omit<OverlayField, "id"> = { label: `${industryLabel} Name`, type: "dso_name", x: 10, y: 10, fontSize: 24, fontFamily: "helvetica", color: "#FFFFFF", bold: true, italic: false, defaultValue: "" };
   if (id === "roi") return [
-    mk({ ...base, label: "Dandy Logo", type: "dandy_logo", x: 7.8, y: 4.5, fontSize: 18, logoScale: 13 }),
-    mk({ ...base, label: "& DSO Name", type: "dso_name", x: 7.8, y: 11.6, fontSize: 22, bold: false, prefix: "& " }),
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 4.5, fontSize: 18, logoScale: 13 }),
+    mk({ ...base, label: `& ${industryLabel} Name`, type: "dso_name", x: 7.8, y: 11.6, fontSize: 22, bold: false, prefix: "& " }),
   ];
   if (id === "pilot") return [
-    mk({ ...base, label: "Dandy Logo", type: "dandy_logo", x: 7.8, y: 6.3, fontSize: 18, logoScale: 13 }),
-    mk({ ...base, label: "Dandy & DSO Name", type: "dso_name", x: 24.5, y: 8.8, fontSize: 14, bold: false, italic: true, prefix: "Dandy & ", suffix: ":" }),
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 6.3, fontSize: 18, logoScale: 13 }),
+    mk({ ...base, label: nameLabel, type: "dso_name", x: 24.5, y: 8.8, fontSize: 14, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
     mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 10, bold: false }),
     mk({ ...base, label: "Prospect Logo", type: "logo", x: 24.5, y: 7.6, fontSize: 12, bold: false, logoScale: 16, logoWidth: 135, logoHeight: 36 }),
   ];
   if (id === "comparison") return [
-    mk({ ...base, label: "Dandy Logo", type: "dandy_logo", x: 7.8, y: 2.8, fontSize: 18, logoScale: 11.4 }),
-    mk({ ...base, label: "Dandy & DSO Name", type: "dso_name", x: 22.5, y: 5, fontSize: 12, bold: false, italic: true, prefix: "Dandy & ", suffix: ":" }),
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 2.8, fontSize: 18, logoScale: 11.4 }),
+    mk({ ...base, label: nameLabel, type: "dso_name", x: 22.5, y: 5, fontSize: 12, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
     mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 8, bold: false }),
     mk({ ...base, label: "Prospect Logo", type: "logo", x: 22.5, y: 4.3, fontSize: 12, bold: false, logoScale: 14, logoWidth: 135, logoHeight: 30 }),
   ];
   // Agreement Summary is procedurally rendered (text edited in dialog), so a
   // clone gets the rendered defaults as a background with no overlays — the
-  // user can then drop their own logo, DSO name, etc. on top if they want.
+  // user can then drop their own logo, name, etc. on top if they want.
   if (id === "agreement-summary") return [];
   return [
-    mk({ ...base, label: "Dandy Logo", type: "dandy_logo", x: 7.8, y: 3.8, fontSize: 18, logoScale: 11.4 }),
-    mk({ ...base, label: "Dandy & DSO Name", type: "dso_name", x: 7.8, y: 12.6, fontSize: 16, bold: false, italic: true, prefix: "Dandy & ", suffix: ":" }),
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 3.8, fontSize: 18, logoScale: 11.4 }),
+    mk({ ...base, label: nameLabel, type: "dso_name", x: 7.8, y: 12.6, fontSize: 16, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
     mk({ ...base, label: "Phone Number", type: "phone", x: 66, y: 95.4, fontSize: 9, bold: false }),
-    mk({ ...base, label: "QR Code", type: "qr_code", x: 80.2, y: 66.5, fontSize: 12, color: "#000000", bold: false, defaultValue: "https://meetdandy.com", qrSize: 9.5 }),
+    mk({ ...base, label: "QR Code", type: "qr_code", x: 80.2, y: 66.5, fontSize: 12, color: "#000000", bold: false, defaultValue: ctaDefault, qrSize: 9.5 }),
     mk({ ...base, label: "Prospect Logo", type: "logo", x: 88, y: 5.3, fontSize: 12, bold: false, logoScale: 11, logoWidth: 70, logoHeight: 26 }),
   ];
 };
@@ -202,23 +220,29 @@ const FONT_OPTIONS = [
 const getFontCss = (f: string) => FONT_OPTIONS.find(o => o.value === f)?.css || "sans-serif";
 
 // ── Field type definitions (for toolbar) ──────────────────────────────
-const FIELD_TYPES: { type: OverlayField["type"]; label: string; icon: React.ReactNode; defaultProps: Partial<OverlayField> }[] = [
+// Built as a factory so the QR/link defaults follow the tenant's CTA URL
+// instead of hardcoding meetdandy.com. `ctaDefault` is "" for tenants with
+// no configured CTA — never a literal Dandy URL.
+type FieldTypeDef = { type: OverlayField["type"]; label: string; icon: React.ReactNode; defaultProps: Partial<OverlayField> };
+const buildFieldTypes = (ctaDefault: string): FieldTypeDef[] => [
   { type: "dso_name", label: "DSO Name", icon: <User className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", bold: true } },
   { type: "phone", label: "Phone", icon: <Phone className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#FFFFFF", bold: false } },
   { type: "heading", label: "Heading", icon: <Heading1 className="w-3.5 h-3.5" />, defaultProps: { fontSize: 22, color: "#FFFFFF", bold: true, defaultValue: "Section Heading" } },
   { type: "custom_text", label: "Body Text", icon: <Type className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#333333", bold: false, defaultValue: "Text here" } },
   { type: "footer", label: "Footer", icon: <AlignJustify className="w-3.5 h-3.5" />, defaultProps: { fontSize: 9, color: "#FFFFFF", bold: false, defaultValue: "Footer text" } },
-  { type: "link", label: "Link / URL", icon: <Link className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#7EC8E3", bold: false, underline: true, defaultValue: "https://meetdandy.com" } },
+  { type: "link", label: "Link / URL", icon: <Link className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#7EC8E3", bold: false, underline: true, defaultValue: ctaDefault } },
   { type: "divider", label: "Divider Line", icon: <Minus className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#FFFFFF", lineThickness: 0.75, width: 80 } },
   { type: "meet_the_team", label: "Meet the Team", icon: <Users className="w-3.5 h-3.5" />, defaultProps: { fontSize: 13, color: "#FFFFFF", bold: true, sectionTitle: "Meet The Team", width: 80, photoSize: 5, teamMembers: [{ name: "Rep Name", title: "Account Executive" }] } },
-  { type: "qr_code", label: "QR Code", icon: <QrCode className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#000000", qrSize: 12, defaultValue: "https://meetdandy.com" } },
+  { type: "qr_code", label: "QR Code", icon: <QrCode className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#000000", qrSize: 12, defaultValue: ctaDefault } },
   { type: "logo", label: "Logo", icon: <ImageIcon className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#FFFFFF", logoScale: 15 } },
   // "Image" is the same underlying field type as "Logo" (both render a bitmap
   // via field.logoUrl) but exposed separately so marketing has a clear option
   // for decorative / inline images that aren't the prospect's logo. Defaults
   // sized larger than logo so dropped images aren't tiny.
   { type: "logo", label: "Image", icon: <ImageIcon className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#FFFFFF", logoScale: 25, label: "Image" } },
-  { type: "dandy_logo", label: "Dandy Logo", icon: <FileText className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", logoScale: 13, bold: true } },
+  // Enum value stays `dandy_logo` for backward compatibility; the label is
+  // brand-neutral ("Brand Logo") for every tenant.
+  { type: "dandy_logo", label: "Brand Logo", icon: <FileText className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", logoScale: 13, bold: true } },
 ];
 
 // ── Coordinate rulers (top + left) ────────────────────────────────────
@@ -351,7 +375,7 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
     field.type === "phone" ? "Phone" :
     field.type === "qr_code" ? "QR" :
     field.type === "logo" ? "Logo" :
-    field.type === "dandy_logo" ? "Dandy" :
+    field.type === "dandy_logo" ? "Brand" :
     field.type === "divider" ? "Divider" :
     field.type === "meet_the_team" ? "Team" :
     field.type === "heading" ? "Heading" :
@@ -629,6 +653,11 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
   };
   const oneAssets = resolveOnePagerAssets(brand);
+  const brandLogoUrl = isDandy ? undefined : (brand.logoUrl || undefined);
+  // Render-only scrub of legacy stored field labels: map the legacy "Dandy
+  // Logo" label to "Brand Logo" for all tenants, then scrub remaining
+  // Dandy/DSO copy for non-Dandy tenants. Stored data is never mutated.
+  const displayLabel = (label: string) => scrubBrand(label === "Dandy Logo" ? "Brand Logo" : label, brandContext);
 
   const isAgreement = builtinId === "agreement-summary";
   const [dsoName, setDsoName] = useState("");
@@ -849,7 +878,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
               {editableFields.map(f => (
                 <div key={f.id}>
                   <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
-                    {f.salesLabel || f.label}
+                    {displayLabel(f.salesLabel || f.label)}
                   </label>
                   <input
                     type={f.type === "qr_code" || f.type === "link" ? "url" : "text"}
@@ -917,11 +946,20 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
 // ════════════════════════════════════════════════════════════════════
 // TEMPLATE EDITOR
 // ════════════════════════════════════════════════════════════════════
-function TemplateEditor({ initial, onSave, onCancel }: {
+function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext }: {
   initial?: CustomTemplate;
   onSave: (tpl: CustomTemplate) => Promise<void>;
   onCancel: () => void;
+  /** Tenant CTA URL used as the default for new QR/link fields ("" if none). */
+  ctaDefault: string;
+  /** Brand scrub context (undefined for Dandy) for render-only label scrubbing. */
+  brandContext?: BrandContextT;
 }) {
+  // Field palette defaults follow the tenant CTA URL (never meetdandy.com).
+  const FIELD_TYPES = buildFieldTypes(ctaDefault);
+  // Render-only scrub of legacy stored field labels (e.g. "Dandy Logo" →
+  // "Brand Logo" for all tenants; Dandy/DSO copy scrubbed for non-Dandy).
+  const displayLabel = (label: string) => scrubBrand(label === "Dandy Logo" ? "Brand Logo" : label, brandContext);
   const [tpl, setTpl] = useState<CustomTemplate>(initial ?? { name: "", background_url: "", orientation: "portrait", fields: [], headerHeight: 30 });
   const [bgPreview, setBgPreview] = useState<string | null>(initial?.background_url || null);
   const [uploading, setUploading] = useState(false);
@@ -993,7 +1031,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
         for (const f of tpl.fields) {
           const isText = f.type === "heading" || f.type === "footer" || f.type === "custom_text" || f.type === "dso_name" || f.type === "phone" || f.type === "link";
           if (isText && !f.defaultValue) {
-            previewValues[f.id] = `{${f.salesLabel || f.label}}`;
+            previewValues[f.id] = `{${displayLabel(f.salesLabel || f.label)}}`;
           }
         }
         const doc = await generateCustomTemplatePdf(tpl, previewValues, dandyLogoWhiteUrl);
@@ -1323,7 +1361,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                   <button key={f.id} onClick={() => setSelectedId(f.id === selectedId ? null : f.id)}
                     className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-left transition-colors ${f.id === selectedId ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: f.color }} />
-                    <span className="truncate">{f.label}</span>
+                    <span className="truncate">{displayLabel(f.label)}</span>
                   </button>
                 ))}
               </div>
@@ -1558,7 +1596,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                   <option value="meet_the_team">Meet the Team</option>
                   <option value="qr_code">QR Code</option>
                   <option value="logo">Logo</option>
-                  <option value="dandy_logo">Dandy Logo</option>
+                  <option value="dandy_logo">Brand Logo</option>
                 </select>
               </div>
 
@@ -2120,7 +2158,11 @@ export default function SalesOnePagerTemplates() {
         name: `${label} (Custom)`,
         background_url: bgUrl,
         orientation: "portrait",
-        fields: cloneFieldsForBuiltin(builtinId),
+        fields: cloneFieldsForBuiltin(builtinId, {
+          brandLabel: previewIsDandy ? "Dandy" : (previewBrandLabel || "Brand"),
+          industryLabel: previewBrandContext?.industryLabel ?? "DSO",
+          ctaDefault: previewQrFallback,
+        }),
         headerHeight: 30,
       };
       setEditing(newTpl);
@@ -2169,10 +2211,14 @@ export default function SalesOnePagerTemplates() {
     await load();
   };
 
+  // Gate the two Dandy-coded built-ins (comparison / agreement-summary) out of
+  // the picker for non-Dandy tenants — both the active list and the
+  // "removed" list, so they can't be surfaced or restored either.
+  const builtinVisibleForTenant = (id: string) => previewIsDandy || !isDandyGatedBuiltin(id);
   const filteredBuiltins = typeFilter !== "custom" ? BUILTIN_TEMPLATES.filter(bt =>
-    !deletedBuiltins[bt.id] && bt.label.toLowerCase().includes(search.toLowerCase())
+    !deletedBuiltins[bt.id] && builtinVisibleForTenant(bt.id) && bt.label.toLowerCase().includes(search.toLowerCase())
   ) : [];
-  const deletedBuiltinsList = BUILTIN_TEMPLATES.filter(bt => deletedBuiltins[bt.id]);
+  const deletedBuiltinsList = BUILTIN_TEMPLATES.filter(bt => deletedBuiltins[bt.id] && builtinVisibleForTenant(bt.id));
   const activeTemplates = typeFilter !== "builtin"
     ? templates
         .filter(t => !t.isDeleted && t.name.toLowerCase().includes(search.toLowerCase()))
@@ -2197,6 +2243,8 @@ export default function SalesOnePagerTemplates() {
             initial={editing.id || editing.background_url ? editing : undefined}
             onSave={handleSave}
             onCancel={() => setEditing(null)}
+            ctaDefault={previewQrFallback}
+            brandContext={previewBrandContext}
           />
         </div>
       </SalesLayout>

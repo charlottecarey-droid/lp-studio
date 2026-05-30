@@ -992,7 +992,7 @@ const SalesOnePager = () => {
                   Partner 2
                 </button>
               )}
-              {!deletedBuiltins["comparison"] && templateVisibility["comparison"] !== false && (
+              {isDandy && !deletedBuiltins["comparison"] && templateVisibility["comparison"] !== false && (
                 <button
                   onClick={() => { setTemplate("comparison"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "comparison" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
@@ -1008,7 +1008,7 @@ const SalesOnePager = () => {
                   90-Day Pilot
                 </button>
               )}
-              {!deletedBuiltins["agreement-summary"] && templateVisibility["agreement-summary"] !== false && (
+              {isDandy && !deletedBuiltins["agreement-summary"] && templateVisibility["agreement-summary"] !== false && (
                 <button
                   onClick={() => { setTemplate("agreement-summary"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "agreement-summary" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
