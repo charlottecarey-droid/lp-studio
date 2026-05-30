@@ -493,7 +493,7 @@ function DeleteConfirm({
   open: boolean;
   onClose: () => void;
   row: CatalogRow | null;
-  onDeleted: () => void;
+  onDeleted: (row: CatalogRow) => void;
 }) {
   const [confirm, setConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -512,7 +512,7 @@ function DeleteConfirm({
         `/api/admin/block-catalog/${encodeURIComponent(row.block_type)}/${encodeURIComponent(row.industry)}`,
         { method: "DELETE" },
       );
-      onDeleted();
+      onDeleted(row);
       onClose();
     } catch (err: any) {
       setError(err?.message ?? "Delete failed");
@@ -816,6 +816,48 @@ export default function SuperAdminBlockCatalog() {
     });
   }, [refresh, toast, undoReset]);
 
+  // Re-create the exact custom override row that a delete just removed (label,
+  // category, default_props, is_enabled, sort_order). Used by the Undo
+  // affordance so an accidental delete of a custom block is fully reversible.
+  const undoDelete = useCallback(async (row: CatalogRow) => {
+    try {
+      await apiFetch("/api/admin/block-catalog", {
+        method: "PUT",
+        body: JSON.stringify({
+          block_type: row.block_type,
+          industry: row.industry,
+          label: row.label,
+          category: row.category,
+          default_props: row.default_props ?? {},
+          is_enabled: row.is_enabled,
+          sort_order: row.sort_order,
+        }),
+      });
+      await refresh();
+      toast({
+        title: "Delete undone",
+        description: `${row.block_type} (${INDUSTRY_LABEL[row.industry]}) is restored.`,
+      });
+    } catch (err: any) {
+      let msg = err?.message ?? "Undo failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+      setActionError(`Could not undo delete for ${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
+    }
+  }, [refresh, toast]);
+
+  const handleDelete = useCallback((row: CatalogRow) => {
+    refresh();
+    toast({
+      title: "Block deleted",
+      description: `${row.block_type} (${INDUSTRY_LABEL[row.industry]}) was removed.`,
+      action: (
+        <ToastAction altText="Undo delete" onClick={() => undoDelete(row)}>
+          Undo
+        </ToastAction>
+      ),
+    });
+  }, [refresh, toast, undoDelete]);
+
   const openNew = () => {
     setEditorInitial({ ...EMPTY_FORM, industry: filterIndustry === "dental" ? "dental" : "generic" });
     setEditorIsNew(true);
@@ -1077,7 +1119,7 @@ export default function SuperAdminBlockCatalog() {
         open={!!deleteRow}
         onClose={() => setDeleteRow(null)}
         row={deleteRow}
-        onDeleted={refresh}
+        onDeleted={handleDelete}
       />
       <ResetConfirm
         open={!!resetRow}
