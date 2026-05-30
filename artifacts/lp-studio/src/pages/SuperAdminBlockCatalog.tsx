@@ -16,6 +16,8 @@ import {
 import {
   Loader2, Plus, RefreshCw, Pencil, Copy, Trash2, Search, AlertTriangle, RotateCcw,
 } from "lucide-react";
+import { ToastAction } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
 import { neutralizeLabel } from "@/hooks/use-block-catalog";
 import {
@@ -579,7 +581,7 @@ function ResetConfirm({
   open: boolean;
   onClose: () => void;
   row: CatalogRow | null;
-  onReset: () => void;
+  onReset: (row: CatalogRow) => void;
 }) {
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -596,7 +598,7 @@ function ResetConfirm({
         `/api/admin/block-catalog/${encodeURIComponent(row.block_type)}/${encodeURIComponent(row.industry)}`,
         { method: "DELETE" },
       );
-      onReset();
+      onReset(row);
       onClose();
     } catch (err: any) {
       let msg = err?.message ?? "Reset failed";
@@ -643,6 +645,7 @@ function ResetConfirm({
 
 // ── Main panel ─────────────────────────────────────────────────────────────
 export default function SuperAdminBlockCatalog() {
+  const { toast } = useToast();
   const [rows, setRows] = useState<CatalogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -770,6 +773,48 @@ export default function SuperAdminBlockCatalog() {
       dental: perInd("dental"),
     };
   }, [merged]);
+
+  // Re-create the exact override row that a "Reset to code default" just
+  // deleted (label, category, default_props, is_enabled, sort_order). Used by
+  // the Undo affordance so an accidental reset is fully reversible.
+  const undoReset = useCallback(async (row: CatalogRow) => {
+    try {
+      await apiFetch("/api/admin/block-catalog", {
+        method: "PUT",
+        body: JSON.stringify({
+          block_type: row.block_type,
+          industry: row.industry,
+          label: row.label,
+          category: row.category,
+          default_props: row.default_props ?? {},
+          is_enabled: row.is_enabled,
+          sort_order: row.sort_order,
+        }),
+      });
+      await refresh();
+      toast({
+        title: "Reset undone",
+        description: `${row.block_type} (${INDUSTRY_LABEL[row.industry]}) is customized again.`,
+      });
+    } catch (err: any) {
+      let msg = err?.message ?? "Undo failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+      setActionError(`Could not undo reset for ${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
+    }
+  }, [refresh, toast]);
+
+  const handleReset = useCallback((row: CatalogRow) => {
+    refresh();
+    toast({
+      title: "Reset to code default",
+      description: `${row.block_type} (${INDUSTRY_LABEL[row.industry]}) reverted to its built-in default.`,
+      action: (
+        <ToastAction altText="Undo reset" onClick={() => undoReset(row)}>
+          Undo
+        </ToastAction>
+      ),
+    });
+  }, [refresh, toast, undoReset]);
 
   const openNew = () => {
     setEditorInitial({ ...EMPTY_FORM, industry: filterIndustry === "dental" ? "dental" : "generic" });
@@ -1038,7 +1083,7 @@ export default function SuperAdminBlockCatalog() {
         open={!!resetRow}
         onClose={() => setResetRow(null)}
         row={resetRow}
-        onReset={refresh}
+        onReset={handleReset}
       />
     </div>
   );
