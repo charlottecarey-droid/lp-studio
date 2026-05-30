@@ -215,10 +215,18 @@ router.post("/tenants", requireSuperadmin, async (req, res): Promise<void> => {
     // (requireReviewBeforePublish=false). Tenants existing before this
     // change are backfilled to TRUE on server boot, preserving the #108
     // behaviour they were used to.
+    //
+    // Task #494: new tenants default to seo.allowIndexing=false /
+    // allowFollowing=false (noindex,nofollow). This is INTENTIONALLY the
+    // OPPOSITE of the boot backfill in migrate.ts, which seeds existing
+    // tenants to TRUE/TRUE. New workspaces are ABM-safe by default — a 1:1
+    // prospect microsite should not surface in Google for the prospect's
+    // brand name until an admin opts in via the SEO settings page. Do NOT
+    // "align" these two defaults.
     const tenantResult = await client.query(
       `INSERT INTO tenants (name, slug, domain, microsite_domain, plan, status, settings)
        VALUES ($1, $2, $3, $4, $5, 'active',
-               '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb)
+               '{"industry":"generic","requireReviewBeforePublish":false,"seo":{"allowIndexing":false,"allowFollowing":false}}'::jsonb)
        RETURNING *`,
       [name.trim(), slugClean, domain ?? null, micrositeDomain ?? null, plan ?? "trial"]
     );
@@ -1438,6 +1446,14 @@ interface TenantSettingsPayload {
   rootRedirectUrl: string | null;
   /** Short URL aliases served by the public microsite shell. */
   vanityLinks: VanityLink[];
+  /**
+   * Task #494 — workspace-wide SEO robots defaults. These are the fallback
+   * for any page whose per-page override is "inherit". Existing tenants were
+   * backfilled to true/true on boot (no behaviour change); new tenants are
+   * seeded false/false at creation (ABM-safe). Stored under settings.seo.
+   */
+  seoAllowIndexing: boolean;
+  seoAllowFollowing: boolean;
 }
 
 // Reserved microsite paths the vanity router must not shadow. Keep in sync
@@ -1549,6 +1565,10 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
         ? (settings.rootRedirectUrl as string).trim()
         : null,
       vanityLinks,
+      // Read `!== false` so a tenant missing the key (or only partially
+      // backfilled) defaults to ALLOW, matching the prerender resolver.
+      seoAllowIndexing: (settings.seo as { allowIndexing?: unknown } | undefined)?.allowIndexing !== false,
+      seoAllowFollowing: (settings.seo as { allowFollowing?: unknown } | undefined)?.allowFollowing !== false,
     };
     res.json(payload);
   } catch (err) {
@@ -1602,18 +1622,43 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
     if (!v.ok) { res.status(400).json({ error: v.error }); return; }
     merge.vanityLinks = v.value;
   }
-  if (Object.keys(merge).length === 0) {
+  // Task #494 — SEO robots defaults. `seo` is a NESTED object, so a shallow
+  // top-level JSONB `||` merge would REPLACE the whole `seo` key and drop the
+  // axis the caller didn't send. Instead we merge ONLY the provided axes into
+  // the existing `seo` object atomically inside the UPDATE (jsonb_set with the
+  // current `settings->'seo'` as the base) — no read-then-write, so two
+  // concurrent single-axis toggles can't clobber each other.
+  const seoMerge: Record<string, boolean> = {};
+  if (typeof body?.seoAllowIndexing === "boolean") seoMerge.allowIndexing = body.seoAllowIndexing;
+  if (typeof body?.seoAllowFollowing === "boolean") seoMerge.allowFollowing = body.seoAllowFollowing;
+  const hasSeo = Object.keys(seoMerge).length > 0;
+  if (Object.keys(merge).length === 0 && !hasSeo) {
     res.status(400).json({ error: "No recognised settings to update" });
     return;
   }
   try {
+    // Base expression applies the shallow `||` merge of the simple top-level
+    // flags. When SEO axes are present we wrap it in jsonb_set so the nested
+    // `{seo}` key is updated by merging the provided axes into the *current*
+    // seo object (COALESCE handles a tenant that never had `seo`).
+    const settingsExpr = hasSeo
+      ? `jsonb_set(
+           COALESCE(settings, '{}'::jsonb) || $1::jsonb,
+           '{seo}',
+           COALESCE(settings->'seo', '{}'::jsonb) || $3::jsonb,
+           true
+         )`
+      : `COALESCE(settings, '{}'::jsonb) || $1::jsonb`;
+    const params: unknown[] = hasSeo
+      ? [JSON.stringify(merge), tenantId, JSON.stringify(seoMerge)]
+      : [JSON.stringify(merge), tenantId];
     const r = await pool.query<{ plan: string | null; settings: Record<string, unknown> }>(
       `UPDATE tenants
-          SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb,
+          SET settings = ${settingsExpr},
               updated_at = now()
         WHERE id = $2
         RETURNING plan, settings`,
-      [JSON.stringify(merge), tenantId],
+      params,
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
     // Drop cached domain-context entries so the new microsite redirect /
@@ -1640,6 +1685,8 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
         ? (settings.rootRedirectUrl as string).trim()
         : null,
       vanityLinks,
+      seoAllowIndexing: (settings.seo as { allowIndexing?: unknown } | undefined)?.allowIndexing !== false,
+      seoAllowFollowing: (settings.seo as { allowFollowing?: unknown } | undefined)?.allowFollowing !== false,
     } satisfies TenantSettingsPayload);
   } catch (err) {
     console.error("[admin] PATCH /tenant-settings error:", err);

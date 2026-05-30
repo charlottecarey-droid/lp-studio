@@ -18,7 +18,14 @@
  *   - <meta name="twitter:card|title|description|image">
  *
  * Task #364.
+ *
+ * Task #494 — also injects <meta name="robots"> (noindex/nofollow) when the
+ * page's resolved SEO state requires it. This affects CRAWLERS ONLY (search
+ * engines + LLMs); it deliberately does NOT touch og:/twitter: social-share
+ * tags, so a noindexed page still renders a rich preview when shared.
  */
+
+import { resolveRobotsMeta, robotsMetaContent } from "@workspace/lp-template-engine";
 
 interface PageMetaInput {
   /** lp_pages.title — fallback when metaTitle is empty. */
@@ -44,6 +51,20 @@ interface PageMetaInput {
    * head tags.
    */
   showPoweredByBadge?: boolean;
+  /**
+   * Task #494 — per-page robots overrides (lp_pages.allow_indexing /
+   * allow_following). Tri-state: null/undefined = inherit the tenant
+   * default below, true = force allow, false = force deny.
+   */
+  allowIndexing?: boolean | null;
+  allowFollowing?: boolean | null;
+  /**
+   * Resolved tenant SEO defaults (tenants.settings.seo.*). Default to true
+   * when absent so a caller that hasn't wired this up yet produces today's
+   * behaviour (no robots tag) rather than accidentally noindexing.
+   */
+  tenantAllowIndexing?: boolean;
+  tenantAllowFollowing?: boolean;
 }
 
 /**
@@ -160,6 +181,9 @@ const MANAGED_TAG_PATTERNS: RegExp[] = [
   /<meta[^>]+property=["']og:(type|url|title|description|image|site_name)["'][^>]*>/gi,
   /<meta[^>]+property=["']og:image:(secure_url|type|alt|width|height)["'][^>]*>/gi,
   /<meta[^>]+name=["']twitter:(card|title|description|image|image:alt)["'][^>]*>/gi,
+  // Robots is managed (task #494): stripped first so a snapshot leftover or a
+  // page flipped back to "allow" never leaves a stale noindex behind.
+  /<meta[^>]+name=["']robots["'][^>]*>/gi,
 ];
 
 function stripManagedTags(html: string): string {
@@ -282,6 +306,27 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
       out,
       /<meta[^>]+name=["']twitter:image:alt["'][^>]*>/i,
       `<meta name="twitter:image:alt" content="${escapeAttr(title)}" />`,
+    );
+  }
+
+  // <meta name="robots"> — crawlers only (task #494). Emitted ONLY when the
+  // resolved state requires a directive; a fully-allowed page emits nothing
+  // (robotsMetaContent returns null), keeping today's pages byte-identical.
+  // Any pre-existing robots tag was already stripped above, so "allow" means
+  // no tag at all.
+  const robots = robotsMetaContent(
+    resolveRobotsMeta({
+      pageAllowIndexing: meta.allowIndexing ?? null,
+      pageAllowFollowing: meta.allowFollowing ?? null,
+      tenantAllowIndexing: meta.tenantAllowIndexing ?? true,
+      tenantAllowFollowing: meta.tenantAllowFollowing ?? true,
+    }),
+  );
+  if (robots) {
+    out = upsertHeadTag(
+      out,
+      /<meta[^>]+name=["']robots["'][^>]*>/i,
+      `<meta name="robots" content="${escapeAttr(robots)}" />`,
     );
   }
 

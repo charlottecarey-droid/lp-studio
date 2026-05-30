@@ -134,6 +134,9 @@ interface FetchedPage {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  // Task #494 — tri-state robots overrides. null = inherit tenant default.
+  allowIndexing?: boolean | null;
+  allowFollowing?: boolean | null;
   animationsEnabled?: boolean;
   smoothScroll?: boolean;
   pageVariables?: Record<string, string>;
@@ -171,6 +174,9 @@ interface SavePageData {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  // Task #494 — tri-state robots overrides. null = inherit tenant default.
+  allowIndexing?: boolean | null;
+  allowFollowing?: boolean | null;
   pageVariables?: Record<string, string>;
   audienceType?: string | null;
   segmentId?: string | null;
@@ -1031,6 +1037,9 @@ export default function BuilderEditor() {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  // Task #494 — per-page robots overrides. null = inherit tenant default.
+  const [allowIndexing, setAllowIndexing] = useState<boolean | null>(null);
+  const [allowFollowing, setAllowFollowing] = useState<boolean | null>(null);
   const [pageVariables, setPageVariables] = useState<Record<string, string>>({});
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
@@ -1325,6 +1334,8 @@ export default function BuilderEditor() {
         setMetaTitle(p.metaTitle ?? "");
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
+        setAllowIndexing(p.allowIndexing ?? null);
+        setAllowFollowing(p.allowFollowing ?? null);
         setPageVariables(p.pageVariables ?? {});
         setBrand(b);
         setBlockDefaults(defaults);
@@ -1352,6 +1363,8 @@ export default function BuilderEditor() {
             metaTitle: p.metaTitle ?? "",
             metaDescription: p.metaDescription ?? "",
             ogImage: p.ogImage ?? "",
+            allowIndexing: p.allowIndexing ?? null,
+            allowFollowing: p.allowFollowing ?? null,
             animationsEnabled: p.animationsEnabled !== false,
             smoothScroll: p.smoothScroll !== false,
             pageVariables: p.pageVariables ?? {},
@@ -1913,6 +1926,8 @@ export default function BuilderEditor() {
     metaTitle,
     metaDescription,
     ogImage,
+    allowIndexing,
+    allowFollowing,
     pageVariables: Object.keys(pageVariables).length > 0 ? pageVariables : undefined,
     audienceType: pageAudienceType ?? (appliedSegment ? null : undefined),
     segmentId: appliedSegment?.id ?? (pageAudienceType ? null : undefined),
@@ -1933,6 +1948,8 @@ export default function BuilderEditor() {
         metaTitle,
         metaDescription,
         ogImage,
+        allowIndexing,
+        allowFollowing,
         animationsEnabled,
         smoothScroll,
         pageVariables: pageVariables ?? {},
@@ -1940,7 +1957,7 @@ export default function BuilderEditor() {
     } catch {
       return "";
     }
-  }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables]);
+  }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, pageVariables]);
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
 
@@ -3060,6 +3077,48 @@ export default function BuilderEditor() {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Search engine visibility (task #494) */}
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Search Engine Visibility</p>
+                  <p className="text-[10px] text-muted-foreground mb-3 leading-relaxed">
+                    Control whether search engines &amp; AI crawlers index this page and follow its links. &ldquo;Use company default&rdquo; inherits your workspace SEO setting.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs font-medium text-foreground mb-1 block">Indexing</Label>
+                      <select
+                        value={allowIndexing === null ? "inherit" : allowIndexing ? "allow" : "deny"}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setAllowIndexing(v === "inherit" ? null : v === "allow");
+                          setTimeout(handleSave, 50);
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="inherit">Use company default</option>
+                        <option value="allow">Allow indexing</option>
+                        <option value="deny">No indexing (noindex)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-foreground mb-1 block">Link Following</Label>
+                      <select
+                        value={allowFollowing === null ? "inherit" : allowFollowing ? "allow" : "deny"}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setAllowFollowing(v === "inherit" ? null : v === "allow");
+                          setTimeout(handleSave, 50);
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="inherit">Use company default</option>
+                        <option value="allow">Follow links</option>
+                        <option value="deny">Don&apos;t follow links (nofollow)</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Animations toggle */}

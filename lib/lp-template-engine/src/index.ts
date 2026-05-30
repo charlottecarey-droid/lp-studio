@@ -25,6 +25,7 @@
  */
 
 export * from "./block-tags";
+export * from "./robots";
 
 export type Scalar = string | number | boolean;
 /**

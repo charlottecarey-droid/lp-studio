@@ -785,7 +785,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -799,9 +799,12 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     pageVariables?: Record<string, string>;
     audienceType?: string | null;
     segmentId?: string | null;
+    // Task #494 — tri-state robots overrides. null = inherit tenant default.
+    allowIndexing?: boolean | null;
+    allowFollowing?: boolean | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -852,6 +855,26 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (pageVariables !== undefined) updates.pageVariables = pageVariables;
   if (audienceType !== undefined) updates.audienceType = audienceType ?? null;
   if (segmentId !== undefined) updates.segmentId = segmentId ?? null;
+  // Task #494 — accept tri-state robots overrides. An explicit `null` resets
+  // the page back to "inherit tenant default", so we must distinguish
+  // "field present" (write, possibly null) from "field absent" (leave as-is).
+  // Enforce STRICT tri-state at the boundary: only boolean | null are valid.
+  // No `!!` coercion — a stray string like "false" must 400, not silently
+  // flip the page to allow-indexing.
+  if (allowIndexing !== undefined) {
+    if (allowIndexing !== null && typeof allowIndexing !== "boolean") {
+      res.status(400).json({ error: "allowIndexing must be true, false, or null" });
+      return;
+    }
+    updates.allowIndexing = allowIndexing;
+  }
+  if (allowFollowing !== undefined) {
+    if (allowFollowing !== null && typeof allowFollowing !== "boolean") {
+      res.status(400).json({ error: "allowFollowing must be true, false, or null" });
+      return;
+    }
+    updates.allowFollowing = allowFollowing;
+  }
   updates.updatedBy = req.authUser?.email ?? null;
 
   // Capture pre-update state so we can detect status transitions + slug

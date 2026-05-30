@@ -42,8 +42,9 @@
  *      the next publish.
  */
 import * as Sentry from "@sentry/node";
-import { db, lpPagesTable } from "@workspace/db";
+import { db, lpPagesTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { resolveRobotsMeta } from "@workspace/lp-template-engine";
 import { findTenantByHost, getActiveHostsForTenant } from "./tenantHosts";
 import { prerenderLpPage, PrerenderPageMissingError } from "./prerenderLpPage";
 import { injectPageMeta } from "./injectPageMeta";
@@ -123,6 +124,29 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     outcome.skipped = "not_published";
     outcome.durationMs = Date.now() - t0;
     return outcome;
+  }
+
+  // Task #494 — resolve the tenant's SEO robots defaults from
+  // tenants.settings.seo. Read `!== false` so any tenant the boot backfill
+  // hasn't touched (or a row missing the key) defaults to ALLOW, preserving
+  // today's no-robots-tag behaviour. New tenants are seeded false/false at
+  // creation (admin.ts), so their pages noindex by default. Fail-open to
+  // allow if the lookup throws — a transient DB error must never silently
+  // deindex a tenant's whole site.
+  let tenantAllowIndexing = true;
+  let tenantAllowFollowing = true;
+  try {
+    const [tenantRow] = await db
+      .select({ settings: tenantsTable.settings })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, page.tenantId));
+    const seo = (tenantRow?.settings as { seo?: { allowIndexing?: unknown; allowFollowing?: unknown } } | null)?.seo;
+    tenantAllowIndexing = seo?.allowIndexing !== false;
+    tenantAllowFollowing = seo?.allowFollowing !== false;
+  } catch (seoErr) {
+    console.warn("[triggerPublishedRender] tenant SEO defaults lookup failed; failing OPEN (allow)", {
+      pageId: page.id, tenantId: page.tenantId, err: seoErr,
+    });
   }
 
   // Resolve tenant name + the full set of hosts the tenant publishes on.
@@ -419,6 +443,25 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     });
   }
 
+  // Task #494 — structured audit of the resolved robots decision, logged
+  // once per render (not per host — the decision is host-independent). Lets
+  // operators confirm why a page is/ isn't indexable without re-deriving the
+  // page/tenant precedence by hand.
+  const resolvedRobots = resolveRobotsMeta({
+    pageAllowIndexing: page.allowIndexing ?? null,
+    pageAllowFollowing: page.allowFollowing ?? null,
+    tenantAllowIndexing,
+    tenantAllowFollowing,
+  });
+  console.info("[triggerPublishedRender] robots resolved", {
+    tenant_id: page.tenantId,
+    page_id: page.id,
+    resolved_indexing: resolvedRobots.indexing,
+    resolved_following: resolvedRobots.following,
+    indexing_source: resolvedRobots.indexingSource,
+    following_source: resolvedRobots.followingSource,
+  });
+
   const buildHtmlForHost = (host: string): string =>
     injectPageMeta(html, {
       title: page.title,
@@ -429,6 +472,10 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
       canonicalHost: host,
       tenantName,
       showPoweredByBadge,
+      allowIndexing: page.allowIndexing ?? null,
+      allowFollowing: page.allowFollowing ?? null,
+      tenantAllowIndexing,
+      tenantAllowFollowing,
     });
 
   // ── R2 write (awaited, visitor-facing, looped per host) ──────────────

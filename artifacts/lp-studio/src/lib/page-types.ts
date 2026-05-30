@@ -13,6 +13,13 @@ export interface BuilderPageResponse {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  /**
+   * Task #494 — server-resolved `<meta name="robots">` content (e.g.
+   * "noindex", "nofollow", "noindex,nofollow"). null/absent = fully allowed,
+   * so the viewer emits NO robots tag (matching the prerendered static HTML,
+   * which never writes a redundant index,follow).
+   */
+  robots?: string | null;
   accountNameApollo?: string;
   /**
    * Page-record variables (lp_pages.pageVariables jsonb). Includes the

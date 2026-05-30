@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { db, pool } from "@workspace/db";
+import { db, pool, tenantsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
+import { resolveRobotsMeta, robotsMetaContent } from "@workspace/lp-template-engine";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
@@ -23,6 +24,45 @@ async function resolveTenantIdFromRequest(req: Request): Promise<number | null> 
   if (!host) return null;
   const match = await findTenantByHost(host);
   return match?.tenantId ?? null;
+}
+
+/**
+ * Task #494 — resolve the final `<meta name="robots">` content for a page so
+ * the SPA viewer (landing-page-viewer) emits the SAME directive as the
+ * prerendered static HTML written by triggerPublishedRender. Returns null
+ * when the page is fully allowed (no tag — never a redundant index,follow).
+ * Fails OPEN (allow → null) on any DB error: a transient lookup failure must
+ * never make the in-app preview disagree by silently showing noindex.
+ */
+async function resolveRobotsContent(page: {
+  allowIndexing: boolean | null;
+  allowFollowing: boolean | null;
+  tenantId: number;
+}): Promise<string | null> {
+  let tenantAllowIndexing = true;
+  let tenantAllowFollowing = true;
+  try {
+    const [tenantRow] = await db
+      .select({ settings: tenantsTable.settings })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, page.tenantId));
+    const seo = (tenantRow?.settings as { seo?: { allowIndexing?: unknown; allowFollowing?: unknown } } | null)?.seo;
+    tenantAllowIndexing = seo?.allowIndexing !== false;
+    tenantAllowFollowing = seo?.allowFollowing !== false;
+  } catch (err) {
+    console.warn("[tracking] tenant SEO defaults lookup failed; failing OPEN (allow)", {
+      pageId: (page as { id?: number }).id, tenantId: page.tenantId, err,
+    });
+    return null;
+  }
+  return robotsMetaContent(
+    resolveRobotsMeta({
+      pageAllowIndexing: page.allowIndexing ?? null,
+      pageAllowFollowing: page.allowFollowing ?? null,
+      tenantAllowIndexing,
+      tenantAllowFollowing,
+    }),
+  );
 }
 
 /** Extract UTM parameters from the request query string */
@@ -396,6 +436,10 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         res.set("Cache-Control", "no-store");
       }
 
+      // Task #494 — resolved robots directive so the SPA viewer matches the
+      // prerendered static HTML. null = fully allowed (viewer emits no tag).
+      const robots = await resolveRobotsContent(builderPage);
+
       res.json({
         pageType: "builder",
         id: builderPage.id,
@@ -409,6 +453,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         metaTitle: builderPage.metaTitle || "",
         metaDescription: builderPage.metaDescription || "",
         ogImage: builderPage.ogImage || "",
+        robots,
         accountNameApollo,
         pageVariables: (builderPage.pageVariables && typeof builderPage.pageVariables === "object" && !Array.isArray(builderPage.pageVariables))
           ? builderPage.pageVariables as Record<string, string>
@@ -664,6 +709,9 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
   } catch (err) {
     console.warn("hydrateCustomSchemaBlocks failed for preview page", page.id, ":", err);
   }
+  // Task #494 — resolved robots directive so the in-builder preview matches
+  // the published page. null = fully allowed (viewer emits no tag).
+  const robots = await resolveRobotsContent(page);
   res.json({
     pageType: "builder",
     id: page.id,
@@ -677,6 +725,7 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     metaTitle: page.metaTitle || "",
     metaDescription: page.metaDescription || "",
     ogImage: page.ogImage || "",
+    robots,
     accountNameApollo: "",
     pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
       ? page.pageVariables as Record<string, string>

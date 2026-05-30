@@ -15,6 +15,14 @@ export const lpPagesTable = pgTable("lp_pages", {
   metaTitle: text("meta_title").notNull().default(""),
   metaDescription: text("meta_description").notNull().default(""),
   ogImage: text("og_image").notNull().default(""),
+  // Per-page robots overrides (task #494). TRI-STATE — intentionally NULLABLE
+  // with no DB default: NULL = inherit the tenant default
+  // (tenants.settings.seo.*), true = force allow, false = force deny. The
+  // resolved <meta name="robots"> is computed in application code
+  // (resolveRobotsMeta in @workspace/lp-template-engine), never at the DB
+  // layer, so the "inherit" state is preserved.
+  allowIndexing: boolean("allow_indexing"),
+  allowFollowing: boolean("allow_following"),
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
   smoothScroll: boolean("smooth_scroll").notNull().default(true),
   pageVariables: jsonb("page_variables").default({}),

@@ -450,6 +450,39 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Task #494 — SEO robots controls rollout. Backfill every tenant that
+    // existed BEFORE this change with `seo: { allowIndexing: true,
+    // allowFollowing: true }` so their published pages stay implicitly
+    // indexable exactly as they are today (zero HTML diff). Tenants created
+    // AFTER this change default to FALSE/FALSE in the POST /api/admin/tenants
+    // insert (ABM-safe — a 1:1 prospect microsite should not surface in
+    // Google by default). The two sites INTENTIONALLY differ; do not "align"
+    // them. Marker-guarded so reboots are no-ops and an admin who later opts
+    // in/out via the SEO settings page is never overwritten.
+    await runStep("seo robots defaults backfill", async () => {
+    try {
+      const seoMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'seo_robots_defaults_backfill_v1'`
+      );
+      if (seoMarker.rows.length === 0) {
+        await db.execute(sql`
+          UPDATE tenants
+             SET settings = COALESCE(settings, '{}'::jsonb)
+                          || '{"seo":{"allowIndexing":true,"allowFollowing":true}}'::jsonb,
+                 updated_at = now()
+           WHERE settings IS NULL
+              OR NOT (settings ? 'seo')
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('seo_robots_defaults_backfill_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info("seo robots defaults backfill applied");
+      }
+    } catch (seoErr) {
+      logger.error({ err: seoErr }, "seo robots defaults backfill failed (non-fatal)");
+    }
+    });
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.

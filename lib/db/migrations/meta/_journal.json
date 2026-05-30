@@ -39,6 +39,7 @@
     { "idx": 34, "version": "7", "when": 1748700000000, "tag": "0034_ai_generation_log_banned_phrase_hits",   "breakpoints": false },
     { "idx": 35, "version": "7", "when": 1748800000000, "tag": "0035_pricing_5tier_plan_reconcile",           "breakpoints": false },
     { "idx": 36, "version": "7", "when": 1748900000000, "tag": "0036_plan_config",                            "breakpoints": false },
-    { "idx": 37, "version": "7", "when": 1749000000000, "tag": "0037_block_catalog_tags",                     "breakpoints": false }
+    { "idx": 37, "version": "7", "when": 1749000000000, "tag": "0037_block_catalog_tags",                     "breakpoints": false },
+    { "idx": 38, "version": "7", "when": 1749100000000, "tag": "0038_lp_pages_robots",                        "breakpoints": false }
   ]
 }

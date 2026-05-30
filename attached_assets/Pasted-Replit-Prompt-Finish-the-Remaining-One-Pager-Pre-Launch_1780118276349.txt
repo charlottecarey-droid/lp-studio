@@ -1,0 +1,243 @@
+Replit Prompt — Finish the Remaining One-Pager Pre-Launch Gaps
+Two small fixes the prior round of one-pager commits (dd412e6f9, 4b273b475, 4299e2d50, 483bd9724, 9b1a49a05, 9007146f4, 061adcd75, 516d25973) didn't close. Both are pre-launch:
+
+LAUNCH BLOCKER — lib/one-pager-types/src/pdf.ts (the custom-template PDF generator) still hardcodes three Dandy strings. None of the prior commits touched this file. For non-Dandy customers using the custom-template overlay tool — which is explicitly the primary non-Dandy launch path per the spec — the rendered PDF can still contain Dandy's white SVG, fall through to the literal text "dandy", or QR-encode https://meetdandy.com.
+PRE-LAUNCH FIX — sales-one-pager-editor.tsx is not gated. A non-Dandy admin can hit /sales/one-pager/editor directly, click the (scrubbed) "Evolution" tab, edit, and persist a dandy_comparison_template_layout row via the ungated PUT /sales/layout-defaults/:key route. The route at artifacts/api-server/src/routes/sales/layout-defaults.ts:57 checks requirePermission("sales_campaigns") only — no Dandy gate by key prefix. Defense in depth needed on both the client tab list and the server route.
+
+While we're in the editor: the existing isDandy check at sales-one-pager-editor.tsx:263 reads brand.brandName.toLowerCase() === "dandy" (client-spoofable) instead of the server-authoritative brand.isDandy flag added in 061adcd75. Align it as part of this work so a future engineer doesn't follow the wrong pattern.
+Estimated scope: ~1 day of Replit work.
+
+The prompt
+
+Task: Close the remaining two one-pager de-branding gaps
+Context
+The prior wave of one-pager de-branding commits (foundation through Dandy fallback hardening) resolved most of the pre-launch surface area but missed two specific gaps surfaced in a follow-up code review:
+
+Custom-template PDF generator in lib/one-pager-types/src/pdf.ts still hardcodes three Dandy strings — was acknowledged as out-of-scope in the original 4b273b475 commit message but is a launch blocker because the custom-template overlay path is the primary non-Dandy launch surface (the gated built-ins are Dandy-only by design, leaving the custom-template path as the everyday tool for non-Dandy reps).
+One-pager Template Editor at /sales/one-pager/editor is not gated. Non-Dandy admins can author and save layout state for the two Dandy-gated built-ins (comparison / agreement-summary). The picker UI is filtered for non-Dandy tenants and the rep-generator buttons are gated, but the editor isn't — and the server PUT /sales/layout-defaults/:key route accepts any key with just requirePermission("sales_campaigns").
+
+Same architecture as the prior commits: use the server-authoritative brand.isDandy flag (added in 061adcd75, computed from immutable tenant slug, stripped on PUT). Use the canonical DANDY_GATED_BUILTIN_IDS from lib/one-pager-types/src/constants.ts (added in 483bd9724).
+Before writing any code, please:
+
+Read the custom-template PDF generator at lib/one-pager-types/src/pdf.ts lines 70-160. Quote the three leak sites:
+
+Line 80: dandyLogoSvgPath = "/src/assets/dandy-logo.svg" default arg of generateCustomTemplatePdf
+Line 123: const url = resolveValue(field) || "https://meetdandy.com"; — QR fallback when admin leaves the field blank
+Line 142: doc.text("dandy", fx, fy + (field.fontSize || 18)); — text fallback rendered when the dandy_logo SVG fails to load
+
+
+Quote the three call sites that invoke generateCustomTemplatePdf:
+
+artifacts/lp-studio/src/pages/sales/sales-one-pager-templates.tsx:752 — passes dandyLogoWhiteUrl as the third arg
+artifacts/lp-studio/src/pages/sales/sales-one-pager-templates.tsx:1037 — passes dandyLogoWhiteUrl as the third arg
+artifacts/lp-studio/src/pages/sales/sales-one-pager.tsx:861 (or wherever the rep generator now calls it — line may have shifted by ±10 since the review; grep for generateCustomTemplatePdf(ct, values)) — passes NO third arg, falls through to the Dandy default
+
+
+Read the editor's current state:
+
+artifacts/lp-studio/src/pages/sales/sales-one-pager-editor.tsx:263 — the client-spoofable isDandy check that needs to switch to brand.isDandy
+artifacts/lp-studio/src/pages/sales/sales-one-pager-editor.tsx:609-615 — visibilityKeyFor and isTemplateVisible, where the new Dandy gate goes
+artifacts/lp-studio/src/pages/sales/sales-one-pager-editor.tsx:619-626 — the auto-fallback effect that picks a visible tab when the current one is hidden; will need to handle the gated case too
+
+
+Read the layout-defaults server route at artifacts/api-server/src/routes/sales/layout-defaults.ts:55-100 (the PUT handler). Quote the current permission check and confirm there's no Dandy key-prefix gate.
+Confirm the canonical Dandy-gated set: read lib/one-pager-types/src/constants.ts (added in 483bd9724) for DANDY_GATED_BUILTIN_IDS and isDandyGatedBuiltin. The editor's tab id ("partner" for new-partner, everything else 1:1) goes through visibilityKeyFor first — confirm.
+Confirm the layout-default storage key convention. The keys you'll see in the editor (e.g. dandy_comparison_template_layout, dandy_agreement_summary_template_layout) are formed by the editor at save time — quote where they're built. The server-side gate (Step 4 of the spec below) needs to recognize the same key shape.
+Propose the architecture per the spec below. Wait for my OK before implementing.
+
+
+Step 1 — Fix pdf.ts custom-template PDF generator
+Change the signature of generateCustomTemplatePdf from:
+tsexport async function generateCustomTemplatePdf(
+  tpl: CustomTemplate,
+  values: Record<string, string>,
+  dandyLogoSvgPath = "/src/assets/dandy-logo.svg",
+): Promise<jsPDF>
+to:
+tsexport interface CustomTemplatePdfBrandOpts {
+  /** SVG URL of the tenant's wordmark, used when a "Brand Logo" field
+   *  (legacy field.type === "dandy_logo") is rendered. null/empty →
+   *  render the brand wordmark as text instead, never the bundled
+   *  Dandy SVG. */
+  brandLogoSvgUrl?: string | null;
+  /** Text wordmark shown when no SVG is available (lowercase brand
+   *  name, matching the `brandContext.wordmark` pattern). null/empty
+   *  → render nothing (no "dandy" literal fallback). */
+  brandWordmark?: string | null;
+  /** Fallback URL encoded into QR fields when the admin leaves the
+   *  field blank. null/empty → skip the QR (don't draw anything),
+   *  never default to https://meetdandy.com. */
+  qrFallbackUrl?: string | null;
+}
+
+export async function generateCustomTemplatePdf(
+  tpl: CustomTemplate,
+  values: Record<string, string>,
+  brandOpts?: CustomTemplatePdfBrandOpts,
+): Promise<jsPDF>
+Three behavior changes inside the function:
+
+Line 123 (QR fallback): replace const url = resolveValue(field) || "https://meetdandy.com"; with:
+tsconst url = resolveValue(field) || brandOpts?.qrFallbackUrl || "";
+if (!url) continue;  // skip empty QR — never default to a Dandy URL
+
+Lines 133-144 (dandy_logo field): replace the hardcoded path with brandOpts?.brandLogoSvgUrl. If null/empty, skip the svgToPng call entirely and go straight to the text fallback. If the text fallback fires, render brandOpts?.brandWordmark (no default — empty string renders nothing, never literal "dandy"):
+tsif (field.type === "dandy_logo") {
+  const svgUrl = brandOpts?.brandLogoSvgUrl;
+  if (svgUrl) {
+    try {
+      const png = await svgToPng(svgUrl, 206, 74);
+      const scale = field.logoScale || 11.4;
+      const lw = w * (scale / 100); const lh = lw * (74 / 206);
+      doc.addImage(png, "PNG", fx, fy, lw, lh);
+      continue;
+    } catch { /* fall through to text */ }
+  }
+  const wordmark = (brandOpts?.brandWordmark ?? "").trim();
+  if (wordmark) {
+    const rgb = hexToRgb(field.color || "#FFFFFF");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(field.fontSize || 18);
+    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+    doc.text(wordmark, fx, fy + (field.fontSize || 18));
+  }
+  // If neither SVG nor wordmark available → render nothing. Never "dandy".
+  continue;
+}
+
+Leave the legacy field type name "dandy_logo" unchanged in the data model. Renaming would break existing saved templates. The UI label is already "Brand Logo" per 4299e2d50; only the internal enum stays as dandy_logo for back-compat. Add a comment at the field-type check noting this is a legacy enum name with a now-generic meaning.
+
+
+Step 2 — Update the three call sites to pass brand context
+Each caller already has the tenant's BrandConfig in scope (via fetchBrandConfig / resolveOnePagerAssets). Thread it through.
+sales-one-pager-templates.tsx:752 and :1037: replace dandyLogoWhiteUrl with a brandOpts object built from the active brand. For Dandy tenants (brand.isDandy === true), the values resolve to the existing Dandy URLs (use resolveOnePagerAssets(brand) or the same oneAssets.headerLogoUrl pattern already in the file). For non-Dandy tenants, values come from the brand config — brand.logoUrl for the SVG, brand.brandName lowercased for the wordmark, brand.defaultCtaUrl for the QR fallback (skip if "#" or empty).
+Build a small helper near the top of the file (or in brand-config.ts if it has a natural home there):
+tsfunction buildCustomTemplateBrandOpts(brand: BrandConfig): CustomTemplatePdfBrandOpts {
+  const isDandy = brand.isDandy === true;
+  const assets = resolveOnePagerAssets(brand);
+  const wordmark = (brand.brandName ?? "").trim().toLowerCase();
+  const cta = (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#")
+    ? brand.defaultCtaUrl
+    : "";
+  return {
+    // Dandy's white SVG is served from /dandy-logo-white.svg per the
+    // 061adcd75 hardening. For non-Dandy tenants, brand.logoUrl is the
+    // tenant's uploaded wordmark; if unset, we skip the SVG and render
+    // the text wordmark instead.
+    brandLogoSvgUrl: isDandy ? (assets.headerLogoUrl ?? "/dandy-logo-white.svg") : (brand.logoUrl ?? null),
+    brandWordmark: wordmark || null,
+    qrFallbackUrl: isDandy ? "https://meetdandy.com" : cta || null,
+  };
+}
+Use it at both call sites: generateCustomTemplatePdf(tpl, values, buildCustomTemplateBrandOpts(brand)).
+sales-one-pager.tsx:861 (rep generator): same helper. The rep generator already has brand in scope (line ~150 region — find via grep). Add the third arg.
+
+Step 3 — Gate the editor (client side)
+In sales-one-pager-editor.tsx:
+
+Switch isDandy at line 263 from brand.brandName.toLowerCase() === "dandy" to brand.isDandy === true. The server-authoritative flag is the new canonical signal — using brandName is client-spoofable and now inconsistent with the rest of the codebase post-061adcd75. Update the comment at line 259-260 to reflect.
+Add a Dandy gate to isTemplateVisible at line 612:
+tsconst isTemplateVisible = (t: EditorTemplate): boolean => {
+  const key = visibilityKeyFor(t);
+  // Hide Dandy-only built-ins from non-Dandy tenants. Defense in depth:
+  // the server PUT /sales/layout-defaults/:key route also gates by key
+  // prefix, so even a non-Dandy admin bypassing this client filter
+  // (e.g. by editing local state) cannot persist a dandy_*_template_layout.
+  if (!isDandy && isDandyGatedBuiltin(key)) return false;
+  return !deletedBuiltins[key] && templateVisibility[key] !== false;
+};
+Import isDandyGatedBuiltin from @workspace/one-pager-types/constants (the dependency-free entry point added in 483bd9724).
+Update the auto-fallback effect at lines 619-626 — the order array ["pilot", "comparison", "partner", "roi", "agreement-summary"] should still work since isTemplateVisible now filters out gated entries for non-Dandy tenants. Add a defensive test that confirms a non-Dandy tenant landing on /sales/one-pager/editor?tab=comparison (via a direct URL) gets bounced to pilot instead of rendering the gated tab.
+
+
+Step 4 — Gate the layout-defaults server route (defense in depth)
+In artifacts/api-server/src/routes/sales/layout-defaults.ts:55-100 (PUT handler), add a Dandy gate before the upsert. The handler already has tenantId from session — use the existing isDandyTenant(tenantId) helper from planFeatures.ts.
+The gate fires when the request key is a dandy_*_template_layout shape AND the tenant is not Dandy. Use the canonical key check from lib/one-pager-types/src/constants.ts — if no helper exists for "is this a Dandy-gated layout key", add one:
+ts// In lib/one-pager-types/src/constants.ts
+/** True when the given layout-defaults key is for a Dandy-gated built-in
+ *  template (e.g. `dandy_comparison_template_layout`,
+ *  `dandy_agreement_summary_template_layout`). Used by the api-server to
+ *  reject PUTs from non-Dandy tenants. */
+export function isDandyGatedLayoutKey(key: string): boolean {
+  if (!key.startsWith("dandy_")) return false;
+  if (!key.endsWith("_template_layout")) return false;
+  const builtinId = key.slice("dandy_".length, -"_template_layout".length).replace(/_/g, "-");
+  return isDandyGatedBuiltin(builtinId);
+}
+Confirm the key shape against what the editor actually saves at the call sites (~lines 735/743/749/758/760 of sales-one-pager-editor.tsx) — adjust the slice/replace logic if the saved keys use a different separator.
+In the PUT handler:
+tsrouter.put("/layout-defaults/:key", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const key = req.params.key;
+
+  // Defense in depth: client picker already hides gated keys for
+  // non-Dandy tenants (sales-one-pager-editor.tsx:isTemplateVisible),
+  // but a direct API call must still be rejected.
+  if (isDandyGatedLayoutKey(key) && !(await isDandyTenant(tenantId))) {
+    res.status(403).json({ error: "Template not available for this workspace." });
+    return;
+  }
+
+  // ...existing upsert logic...
+});
+Apply the same gate to the DELETE handler at line 103 (a non-Dandy admin shouldn't be able to delete Dandy's layout defaults either — even if no row exists for them).
+
+Step 5 — Extend the test coverage
+
+Custom-template PDF non-Dandy test. Extend artifacts/lp-studio/src/lib/pdf-no-dandy-leak.test.ts (or wherever PDF leak tests live — confirm during investigation) with a case for generateCustomTemplatePdf. Build a tpl with each of: a qr_code field with no value, a dandy_logo field, a link field with no default. Call generateCustomTemplatePdf(tpl, {}, buildCustomTemplateBrandOpts(zoomFixtureBrand)). Extract text via pdfjs; spy on QRCode.toDataURL (same pattern as the existing tests). Assert: no "dandy" text on the page, no meetdandy.com in any QR payload, no Dandy SVG loaded.
+Editor non-Dandy gate test. Extend artifacts/lp-studio/tests/dandy-gated-builtins.spec.ts with a non-Dandy admin landing on /sales/one-pager/editor — assert the "Comparison" and "Agreement Summary" tabs are NOT present, and that a direct URL /sales/one-pager/editor?tab=comparison (or however the editor accepts deep links) bounces to pilot.
+Layout-defaults server-route gate test. Extend artifacts/api-server/src/routes/sales/dandyGatedTemplates.integration.test.ts (added in 9007146f4) with a PUT to /sales/layout-defaults/dandy_comparison_template_layout from a non-Dandy tenant — assert 403. Same for DELETE. Add a positive control (PUT from the Dandy tenant — assert 200/201).
+Don't extend the existing positive-path tests for the editor. The Royal-fixture-with-brandName-"Dandy" trick in 9b1a49a05 works for the picker (which currently uses brandName) but won't work for the editor after this change (which uses brand.isDandy from the server). For the editor positive path, use the seeded Dandy tenant impersonation via createDandyOperatorSession (already used in the same spec file). Keep the picker tests as-is, but add a comment near the Royal fixture explaining that the picker still keys on brandName for client-only gating — if that ever switches to brand.isDandy, those tests need updating too.
+
+
+Cross-cutting
+
+Backward compat for Dandy: every Dandy-generated PDF stays byte-identical. Dandy's brand.isDandy === true → helper returns the existing https://meetdandy.com QR fallback + Dandy logo SVG + lowercase Dandy wordmark. Non-Dandy tenants get brand-driven values or null (skip).
+Backward compat for saved templates: no schema changes. The dandy_logo field type enum stays. Existing tenant-saved templates render with the new behavior (using their own brand wordmark instead of Dandy's).
+Backward compat for layout defaults: existing Dandy rows in lp_layout_defaults (or wherever the storage lives) are untouched. New Dandy admins can still save. Non-Dandy admins get 403 on the gated keys.
+Observability: log when the QR-skip or wordmark-skip or text-fallback path fires with { tenant_id, custom_template_id, fallback_reason: "qr_no_url" | "wordmark_empty" | "logo_load_failed" } so we can spot tenants who haven't populated their brand assets yet.
+Don't touch: the picker filter at sales-one-pager-templates.tsx:2217-2221 (already correct via isDandyBrandName), the rep-generator button gates at sales-one-pager.tsx:995, 1011 (already correct via isDandy), or any of the server route gates added in 4299e2d50. Those are all working.
+
+
+Test plan
+Run all the existing one-pager tests (pdf-no-dandy-leak.test.ts, dandy-gated-builtins.spec.ts, dandyGatedTemplates.integration.test.ts) + the new cases from Step 5. All pass.
+Plus four end-to-end scenarios:
+
+Non-Dandy custom template with Brand Logo + QR + Link: sign in as a Zoom admin, open /sales/one-pager/templates, create a custom template, drag a "Brand Logo" field + a QR field (leave URL blank) + a Link field (leave URL blank), preview → PDF contains Zoom's wordmark (or empty if Zoom has no wordmark), no QR drawn, no meetdandy.com anywhere, no literal "dandy" anywhere.
+Dandy custom template with same fields: sign in as a Dandy admin (or dandy-smb), same flow → PDF contains Dandy's white SVG logo, QR encodes https://meetdandy.com, link defaults to https://meetdandy.com. Byte-identical to current behavior.
+Non-Dandy admin lands on /sales/one-pager/editor: sign in as a Zoom admin → tabs visible are pilot, partner, roi (no comparison, no agreement-summary). Visiting /sales/one-pager/editor?tab=comparison (or however deep-link works) bounces to pilot. Direct PUT /api/sales/layout-defaults/dandy_comparison_template_layout → 403.
+Dandy admin lands on /sales/one-pager/editor: sign in as Dandy admin → all five tabs visible. Save Comparison → succeeds. PUT /api/sales/layout-defaults/dandy_comparison_template_layout → 200.
+
+
+Quality bar (when to ship)
+
+All four end-to-end scenarios pass.
+All extended automated tests pass + existing one-pager test suite still passes.
+pdf.ts has no remaining references to "https://meetdandy.com", /src/assets/dandy-logo.svg, or the literal string "dandy". Grep proves it.
+Editor's isDandy reads from brand.isDandy (server-authoritative), not brand.brandName.
+isTemplateVisible returns false for the two gated built-ins when brand.isDandy === false.
+PUT /sales/layout-defaults/:key returns 403 for non-Dandy tenants on any dandy_*_template_layout key.
+Dandy regression: every Dandy-generated custom-template PDF is byte-identical pre/post. Diff the PDFs if possible.
+No new code anywhere uses brand.brandName to detect Dandy — brand.isDandy is the only canonical signal post-061adcd75. Grep for brandName references that look like Dandy checks; flag in the plan-back if any remain.
+
+Don't ship if any of: the custom-template PDF generator still has hardcoded "dandy" / meetdandy.com / Dandy SVG path; the editor renders gated tabs for non-Dandy tenants; the layout-defaults PUT route accepts gated keys from non-Dandy tenants; Dandy's PDF output changes in any visible way.
+
+
+Why this is the right scope
+1. Fix pdf.ts properly, not with band-aids. The simplest fix would be to swap dandyLogoWhiteUrl for tenantLogoUrl at the two call sites and call it done — but that leaves the QR fallback and the text-fallback leaks. Doing the signature change once, surfacing brandOpts as a single object, makes future hardening (e.g. CSS color, default font) one-place changes instead of N call-site changes.
+2. Server-side defense in depth on layout-defaults. The client filter is sufficient for trustworthy admins but not for a real boundary. The server gate adds zero cost for legitimate Dandy admins (single fast slug check) and closes a class of "non-Dandy admin curl'd the API directly" attacks. The pattern matches every other Dandy-gated route already shipped (one-pager-templates.ts, web-one-pager.ts).
+3. Switch the editor's isDandy source as part of this work, not later. The brand.brandName === "dandy" pattern survives in the editor because it predates the brand.isDandy flag. Leaving it inconsistent invites a future engineer to copy the wrong pattern into a new file. One-line change as part of this commit; deferring just guarantees we'll need a third one-pager cleanup pass.
+What this prompt explicitly doesn't do
+
+Doesn't apply the seed script (scripts/src/seed-dandy-one-pager-assets.ts). The runtime hardening in 061adcd75 made it redundant. Leave the script committed (no harm) but don't run it.
+Doesn't refactor the editor's larger structure. The component is large but the only changes here are: line 263 (isDandy source), lines 612-615 (gate), and the auto-fallback effect side effect (handled implicitly by isTemplateVisible).
+Doesn't change the layout-defaults storage shape or migrate any existing rows.
+Doesn't touch the AI Draft Email or microsite generator — out of scope per the original one-pager prompt's scope boundaries.
+
+What to expect from Replit's plan-back
+
+Quote of the three pdf.ts leak sites + the three call sites (Step 1 + Step 2 of the audit gate).
+The buildCustomTemplateBrandOpts helper signature + where it lives (helper file or inlined in sales-one-pager-templates.tsx).
+The exact saved-key shape from the editor (Step 6 of audit gate) so the isDandyGatedLayoutKey slice logic is correct on first try.
+The isDandyTenant import path for layout-defaults.ts (already used elsewhere in the route layer per the prior commits — should be a straight import).
+Test fixture availability for the non-Dandy custom-template test (Step 5.1) — needs a non-Dandy tenant with a saved custom template.

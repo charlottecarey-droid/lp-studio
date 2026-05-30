@@ -521,12 +521,14 @@ export default function LandingPageViewer() {
     let pageTitle = "";
     let pageMeta = "";
     let pageOgImage = "";
+    let pageRobots: string | null = null;
 
     if (isBuilderPageResponse(config)) {
       const bp = config as import("@/lib/page-types").BuilderPageResponse;
       pageTitle = bp.metaTitle || bp.title || "";
       pageMeta = bp.metaDescription || "";
       pageOgImage = bp.ogImage || "";
+      pageRobots = bp.robots ?? null;
     } else if (config.assignedVariant) {
       pageTitle = (config.assignedVariant as { name?: string }).name || "";
     }
@@ -559,9 +561,30 @@ export default function LandingPageViewer() {
     }
     setOrCreateMeta('meta[property="og:url"]', "property", "og:url", window.location.href);
 
+    // Task #494 — robots directive (crawlers only). Mirror the prerendered
+    // static HTML: emit a tag ONLY when the resolved state requires it; when
+    // fully allowed (pageRobots == null) we REMOVE any tag we previously
+    // added so toggling a page back to "allow" doesn't leave a stale noindex.
+    const existingRobots = document.querySelector<HTMLMetaElement>('meta[name="robots"][data-lp-managed="1"]');
+    if (pageRobots) {
+      if (existingRobots) {
+        existingRobots.setAttribute("content", pageRobots);
+      } else {
+        const el = document.createElement("meta");
+        el.setAttribute("name", "robots");
+        el.setAttribute("data-lp-managed", "1");
+        el.setAttribute("content", pageRobots);
+        document.head.appendChild(el);
+      }
+    } else if (existingRobots) {
+      existingRobots.remove();
+    }
+
     // Restore on unmount so navigating back to the app doesn't leave stale tags
     return () => {
       document.title = originalTitle;
+      const managedRobots = document.querySelector('meta[name="robots"][data-lp-managed="1"]');
+      if (managedRobots) managedRobots.remove();
     };
   }, [config]);
 

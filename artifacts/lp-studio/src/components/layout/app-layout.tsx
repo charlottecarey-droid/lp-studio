@@ -393,6 +393,16 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {(hasPerm("settings") || user?.isAdmin) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/seo"}>
+                      <Link href="/settings/seo" className="font-medium">
+                        <Search className="w-4 h-4" />
+                        <span>SEO</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {/* Task #425 — Billing settings is discoverable to ALL
                     authenticated workspace members. Non-admins see a
                     read-only view (current plan, renewal date, payment
