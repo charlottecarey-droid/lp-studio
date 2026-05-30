@@ -31,13 +31,17 @@
  *
  * NOTE: hits the live DB (lib/db prefers NEON_DATABASE_URL = PROD).
  *
- * Run:  pnpm --filter @workspace/scripts exec tsx src/seed-dandy-microsite-block-lists.ts          # dry run
- *       pnpm --filter @workspace/scripts exec tsx src/seed-dandy-microsite-block-lists.ts --apply  # write
+ * Run:  pnpm --filter @workspace/scripts exec tsx src/seed-dandy-microsite-block-lists.ts                       # dry run
+ *       pnpm --filter @workspace/scripts exec tsx src/seed-dandy-microsite-block-lists.ts --emit /tmp/x.json   # dry run + dump proposed merged config (no DB write)
+ *       pnpm --filter @workspace/scripts exec tsx src/seed-dandy-microsite-block-lists.ts --apply              # write
  */
+import { writeFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { db, pool, tenantsTable, lpBrandSettingsTable } from "@workspace/db";
 
 const APPLY = process.argv.includes("--apply");
+const EMIT_IDX = process.argv.indexOf("--emit");
+const EMIT_PATH = EMIT_IDX >= 0 ? process.argv[EMIT_IDX + 1] : null;
 const TENANT_SLUG = "dandy";
 
 interface BlockEntry { type: string; schemaHint: string; }
@@ -89,6 +93,30 @@ const SEGMENT_BLOCK_LISTS: Record<string, { label: string; blockList: BlockEntry
 
 const BRAND_DEFAULT_BLOCK_LIST = INDEPENDENT_BLOCKS;
 
+// NEW segment to insert (Dandy's base brand config IS the Private Practice voice;
+// the DSO segments are augmenting overlays). Deliberately MINIMAL: only a short
+// `description` to disambiguate the picker + the structural block-list. All other
+// copy fields are empty so the prompt builder emits BRAND VOICE only (no
+// redundant AUDIENCE add-on — base voice already carries the Private Practice
+// messaging). Matched/inserted by name so re-runs don't duplicate it.
+const PRIVATE_PRACTICE_NAME = "Private Practice";
+function buildPrivatePracticeSegment(): Segment {
+  return {
+    id: `seg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: PRIVATE_PRACTICE_NAME,
+    description: "Independent dental practice — solo dentist or small group.",
+    messagingAngle: "",
+    uniqueContext: "",
+    valueProps: [],
+    segmentProducts: [],
+    personas: [],
+    challenges: [],
+    stats: [],
+    comparisonRows: [],
+    micrositeBlockList: INDEPENDENT_BLOCKS,
+  };
+}
+
 type Segment = Record<string, unknown>;
 
 function asArr(v: unknown): unknown[] { return Array.isArray(v) ? v : []; }
@@ -130,6 +158,18 @@ async function main() {
   const merged: Segment[] = currentSegments.map(s => ({ ...s }));
   let anyChange = false;
 
+  // Insert the Private Practice base segment if it doesn't already exist
+  // (matched by name, case-insensitive, so re-runs don't duplicate it).
+  const ppExists = merged.some(s => str(s.name).trim().toLowerCase() === PRIVATE_PRACTICE_NAME.toLowerCase());
+  if (!ppExists) {
+    const pp = buildPrivatePracticeSegment();
+    merged.unshift(pp); // base/most-common segment first in the picker
+    anyChange = true;
+    console.log(`\n[NEW] Private Practice segment\n   • INSERT id=${pp.id} name="${PRIVATE_PRACTICE_NAME}" description set; all other copy EMPTY; micrositeBlockList (${INDEPENDENT_BLOCKS.length} blocks): ${INDEPENDENT_BLOCKS.map(b => b.type).join(", ")}`);
+  } else {
+    console.log(`\n[NEW] Private Practice segment\n   • already present (matched by name) — no insert`);
+  }
+
   console.log(`\n--- Proposed per-segment changes (block-list only; copy untouched) ---`);
   for (let i = 0; i < merged.length; i++) {
     const s = merged[i];
@@ -167,6 +207,14 @@ async function main() {
     console.log(`  - ${str(s.name)} (${str(s.id)}): [${bl.map(b => b.type).join(", ") || "—"}]`);
   }
   console.log(`  - brand.defaultMicrositeBlockList: [${(asArr(newConfig.defaultMicrositeBlockList) as BlockEntry[]).map(b => b.type).join(", ") || "—"}]`);
+
+  // Emit the proposed merged config to a file (for the prompt-verification
+  // harness) WITHOUT writing to the DB. Single source of truth: the harness
+  // reads exactly what --apply would persist.
+  if (EMIT_PATH) {
+    writeFileSync(EMIT_PATH, JSON.stringify(newConfig, null, 2));
+    console.log(`\n📝 Emitted proposed merged config → ${EMIT_PATH} (no DB write)`);
+  }
 
   if (!anyChange) { console.log(`\n✓ No changes needed — already seeded (idempotent no-op).\n`); return; }
   if (!APPLY) { console.log(`\nDRY RUN complete. Review above. Re-run with --apply to persist.\n`); return; }

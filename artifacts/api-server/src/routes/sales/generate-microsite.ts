@@ -790,7 +790,7 @@ interface BrandMicrositeBlockListEntry {
   type?: string;
   schemaHint?: string;
 }
-interface BrandAudienceSegment {
+export interface BrandAudienceSegment {
   id?: string;
   name?: string;
   description?: string;
@@ -937,7 +937,7 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
   return lines.join("\n");
 }
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   segment: BrandAudienceSegment,
   brand: Record<string, unknown>,
   templateBlockTypes?: string[],

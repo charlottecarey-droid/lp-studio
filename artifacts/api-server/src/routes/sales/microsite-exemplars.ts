@@ -50,7 +50,11 @@ export interface MicrositeExemplar {
 /* ─── EXEMPLAR 1 — DSO corporate / regional leadership ───────────────────── */
 const PDS_REGIONALS: MicrositeExemplar = {
   id: "pds-regionals",
-  audience: "dso-corporate",
+  // Real Dandy segment id for "Enterprise DSOs" (was legacy enum "dso-corporate").
+  // Exemplars are Dandy-only content (gated by salesConsole.useBuiltInExemplars)
+  // and pickExemplars matches `audience === segment.id`, so this must be the
+  // tenant's actual segment id, not the retired hardcoded enum value.
+  audience: "seg-1774646615094-6blv1",
   segmentHints: ["regional", "regional manager", "leadership", "operations"],
   scenario: "Enterprise DSO regional leadership — coaching with data, multi-site visibility",
   page: {
@@ -186,7 +190,9 @@ const PDS_REGIONALS: MicrositeExemplar = {
 /* ─── EXEMPLAR 2 — DSO practice (mature partnership) ─────────────────────── */
 const DCA_PRACTICES: MicrositeExemplar = {
   id: "dca-practices",
-  audience: "dso-practice",
+  // Real Dandy segment id for "DSO Practices (Land & Expand)" (was legacy enum
+  // "dso-practice"). See pds-regionals above for why this is a real segment id.
+  audience: "seg-1774716006240-qdgu9",
   segmentHints: ["dca", "dental care alliance", "established", "rollout"],
   scenario: "Established DSO partnership rolled out to individual practices in the network",
   page: {
@@ -341,7 +347,9 @@ const DCA_PRACTICES: MicrositeExemplar = {
 /* ─── EXEMPLAR 3 — DSO practice (early pilot) ────────────────────────────── */
 const SMILIST_PILOT: MicrositeExemplar = {
   id: "smilist-pilot",
-  audience: "dso-practice",
+  // Real Dandy segment id for "DSO Practices (Land & Expand)" (was legacy enum
+  // "dso-practice"). See pds-regionals above for why this is a real segment id.
+  audience: "seg-1774716006240-qdgu9",
   segmentHints: ["pilot", "trial", "smilist", "early"],
   scenario: "DSO practice in early pilot stage — leaner deck, smaller credit, prove-it-out tone",
   page: {
