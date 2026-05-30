@@ -1,0 +1,176 @@
+Replit Prompt — One-Pager Generator: Pre-Launch Cleanup + Beta Gating
+A scoped, surgical fix to make the one-pager generator safe to ship to non-Dandy tenants at launch. Two layers in one prompt:
+
+Pre-launch cleanup — eliminate the four concrete Dandy leaks that even the existing scrubBrand() regex doesn't catch (asset imports, default URLs, template labels, overlay field labels).
+Beta gating — for non-Dandy tenants, hide the two most Dandy-coded built-in templates and label the feature "(beta)" so the launch story matches reality.
+
+The defensive base is already strong. lib/one-pager-types/src/generators.ts:139-163 (scrubBrand) maps "Dandy" / "Dandy Insights" / "Dandy Practice Agreement" / "dental lab" / "DSO" / "meetdandy.com" → brand-config equivalents at PDF generation time, no-op for Dandy. Most body copy is safe. The remaining leaks are things scrubBrand can't see — bitmap assets, default form values, admin-visible UI strings, and built-in template labels stored as TypeScript literals.
+Five concrete things this prompt fixes:
+
+Four hardcoded Dandy product-screenshot imports in sales-one-pager.tsx:3-6 used as PDF header-image fallbacks (ai-scan-review-news.jpg, ai-scan-review-clinical.png, dandy-dso-enterprise-data.webp, dandy-scanner-transparent.png) — non-Dandy tenants without uploaded custom images get Dandy dental UI in their PDFs
+defaultValue: "https://meetdandy.com" on QR + link form fields in sales-one-pager-templates.tsx:187, 211, 214 — new templates created by non-Dandy admins ship with Dandy URLs baked into the field defaults
+"Summary of Dandy Agreement terms" template card description in sales-one-pager-templates.tsx:155 and "Dandy Evolution" template label in sales-one-pager-templates.tsx:152 — admin-visible UI strings that don't reach the PDF (so scrubBrand never sees them) but show in the template picker
+Hardcoded "Dandy Logo" / "Dandy & DSO Name" overlay field labels seeded by cloneFieldsForBuiltin (sales-one-pager-templates.tsx:160-189) when admins clone a built-in template — labels carry through to the editor and to the saved template JSON
+Two built-in templates that are too Dandy-coded for scrubBrand to fully neutralize (comparison / Dandy Evolution and agreement-summary / Agreement Summary) — gated to Dandy-only with a per-tenant feature check; non-Dandy tenants see only the brand-neutral built-ins (ROI, 90-Day Pilot, Partner Practices, Partner 2) plus the Custom Template overlay tool
+
+Estimated scope: ~1.5–2 days of Replit work.
+Out of scope (deferred to v1.1): a structured content-authoring UX for new one-pager types. Today's "Custom templates" path is a PDF overlay positioning tool, not a content authoring tool — admins can drop fields on a background PDF but can't write body copy / stats / structured sections without a code change to generators.ts. That's a ~3-week post-launch project.
+
+The prompt
+
+Task: One-pager generator pre-launch cleanup + beta gating for non-Dandy tenants
+Context
+The one-pager generator's scrubBrand() regex in lib/one-pager-types/src/generators.ts:139-163 already handles most Dandy strings in PDF body copy at generation time (no-op for Dandy, maps to brand-config equivalents otherwise). Good defensive engineering. But it can't see four categories of leak:
+
+Bitmap assets imported at module-load time as PDF header-image fallbacks. Non-Dandy tenants without their own uploaded headers get Dandy product UI rendered in their PDFs.
+Form defaultValue strings like "https://meetdandy.com" that prepopulate QR / link fields when admins build custom templates — these get saved into the template JSON and carry forward.
+Admin-visible UI strings (template card titles, descriptions, overlay field labels) that the brand scrubber never runs on because they don't reach the PDF.
+Built-in templates whose entire design + copy is Dandy-coded — scrubBrand can rewrite the words but not the structure or the visual identity.
+
+This prompt fixes the first three categories for all tenants, and gates the fourth (the two most Dandy-coded built-in templates) to Dandy-only with a per-tenant check. After this, non-Dandy tenants get a brand-neutral one-pager experience labeled "(beta)" — credible to demo, safe to ship, no Dandy strings in output.
+Before writing any code, please:
+
+Show me the four Dandy asset imports in artifacts/lp-studio/src/pages/sales/sales-one-pager.tsx:3-6 and their use sites: lines 161-164 (the local const aliases) plus line 421 (loadImageAsBase64(dandyScannerUrl, ...)). Quote where each of the four header images is actually rendered into the PDF — I want to see which audience (executive / clinical / practice-manager) gets which fallback so the brand-config schema matches the audience keys.
+Show me the dandyLogoWhite fallback path — sales-one-pager.tsx:164 plus sales-one-pager-templates.tsx:2, 723, 999 (where it's passed into generateCustomTemplatePdf as the logo fallback). Confirm whether Dandy's logo gets rendered when a non-Dandy tenant's brand.logoUrl is missing — that's a fifth leak we need to handle if so.
+Show me BUILTIN_TEMPLATES in sales-one-pager-templates.tsx:149-156. Re-confirm the current six entries (the audit captured roi / pilot / comparison ("Dandy Evolution") / new-partner / partner2 / agreement-summary ("Summary of Dandy Agreement terms")). Flag any new entries added since.
+Show me cloneFieldsForBuiltin in sales-one-pager-templates.tsx:160-189. Quote every place a label or string contains "Dandy" or "DSO". I want to see all of them in one place before we change them.
+Show me FIELD_TYPES in sales-one-pager-templates.tsx around lines 205-222. The toolbar entry at line 221 registers a literal "Dandy Logo" field type. Confirm whether this field type's label is shown verbatim in the admin toolbar for non-Dandy tenants.
+Show me where the per-tenant Dandy check would live. Grep for PROTECTED_ENTERPRISE_SLUGS (in @workspace/plan-config) and any existing isDandy(...) / tenant.slug === "dandy" helper. We need a single canonical way to ask "is this Dandy" — don't invent a new one if a helper already exists.
+Propose the architecture per the spec below. Wait for my OK before implementing.
+
+
+Step 1 — Move header-image fallbacks to brand config
+Add to BrandConfig (under salesConsole if a sub-object already exists for sales-console-specific settings; otherwise at the top level):
+ts/**
+ * Default header images rendered at the top of one-pager PDFs, one per
+ * audience type. Used when the tenant hasn't uploaded a per-template
+ * custom header. URLs may be R2-hosted, data: URIs, or absolute https://
+ * URLs to assets in the tenant's brand asset library. When a key is
+ * empty/unset, the generator falls back to a built-in neutral placeholder
+ * (a brand-color gradient with the brand wordmark) — NOT the Dandy product
+ * screenshot that's hardcoded today.
+ */
+onePagerHeaderImages?: {
+  executive?: string;
+  clinical?: string;
+  practiceManager?: string;
+};
+Wire it through:
+
+Replace the four imports at sales-one-pager.tsx:3-6 with consumption from the brand config. Fetch via the existing fetchBrandConfig import at line 15. The const aliases at 161-164 go away — each render site reads from brand.onePagerHeaderImages?.[audience] at use time.
+For Dandy specifically: seed brand.onePagerHeaderImages with the existing four URLs so output is byte-identical. Seed via the one-off admin script described in Step 6.
+Neutral fallback when unset: when both the brand-config value and any per-template uploaded image are missing, render a generated header — solid brand-color background (brand.primaryColor) with the brand wordmark centered. Implement as a tiny helper that draws a colored rect + text into the PDF; no bitmap asset. Better to look minimal than to leak Dandy product UI.
+dandyScannerUrl at line 421 — same treatment: move to brand.onePagerProductScreenshot? (or wherever it logically belongs given what it's used for; the investigation will tell us). Same neutral-fallback contract: brand wordmark on a solid color, no Dandy asset.
+dandyLogoWhite fallback path — if the investigation in Bullet 2 confirms Dandy's logo gets rendered for non-Dandy tenants with no brand.logoUrlDark/logoUrl, fix that too: fall back to a text-rendered brand wordmark (use the existing drawBrandLogo helper at generators.ts:121) instead of the Dandy SVG. Dandy tenants still get the SVG.
+
+
+Step 2 — Default form values: read from brand config, not hardcoded
+Three sites in sales-one-pager-templates.tsx:
+
+Line 187 — QR code overlay field default in cloneFieldsForBuiltin for the generic "else" branch
+Line 211 — link field type default in FIELD_TYPES
+Line 214 — qr_code field type default in FIELD_TYPES
+
+All three currently use defaultValue: "https://meetdandy.com". Change to defaultValue: brand.defaultCtaUrl ?? "". If the brand has no defaultCtaUrl set, the field ships with an empty value (admin sees the placeholder hint and fills it in) — never the Dandy URL.
+Since FIELD_TYPES is a module-level const that doesn't currently have access to brand context, refactor it into a getFieldTypes(brand: BrandConfig) factory that the component calls inside useMemo(() => getFieldTypes(brand), [brand]). Same pattern for cloneFieldsForBuiltin — turn into (id, brand) and pass the brand at every call site.
+
+Step 3 — Scrub admin-visible UI strings
+The strings in BUILTIN_TEMPLATES (sales-one-pager-templates.tsx:149-156) are TypeScript literals and never reach scrubBrand. Two are Dandy-coded today:
+
+Line 152: label: "Dandy Evolution" — "Dandy" in the user-facing template title
+Line 155: description: "Summary of Dandy Agreement terms" — "Dandy" in the user-facing template description
+
+Run them through scrubBrand at render time for the template picker. Easiest path: keep the literals as Dandy-canonical (so Dandy sees them unchanged), and call scrubBrand(label, brand) / scrubBrand(description, brand) in the picker UI before render. The existing scrubBrand import already handles Dandy → productName, so "Dandy Evolution" becomes e.g. "Zoom Evolution" for Zoom tenants, "Summary of Dandy Agreement terms" becomes "Summary of Zoom Agreement terms" — note that for the comparison template specifically, "Evolution" without "Dandy" reads weirdly; consider hardcoding a nonDandyLabel: "Product Evolution" override or, since comparison is one of the two templates we're gating in Step 5, this becomes moot for the launch.
+
+Step 4 — Scrub overlay field labels in cloneFieldsForBuiltin
+sales-one-pager-templates.tsx:160-189 seeds template clones with Dandy-coded overlay field labels:
+
+"Dandy Logo" (162, 164, 168, 174, 184, 221 — also in FIELD_TYPES)
+"Dandy & DSO Name" (169, 175, 185) — used as the field's label AND embedded as the prefix: "Dandy & " / suffix: ":" literal text
+
+When a non-Dandy admin clones a built-in template, these labels persist into their saved template JSON. Fix:
+
+Refactor cloneFieldsForBuiltin to take (id: BuiltinId, brand: BrandConfig).
+Replace every literal "Dandy" in the labels and prefixes with brand.brandName (or brand.productName if brandName isn't populated — pick whichever is the canonical brand-display field already used elsewhere).
+For the field type registration at line 221 in FIELD_TYPES (type: "dandy_logo", label: "Dandy Logo"): rename the user-facing label to "Brand Logo" for all tenants (this is a generic concept — the toolbar entry is for "the brand's logo," not specifically Dandy's). Keep the underlying field type: "dandy_logo" enum value as-is to preserve existing saved templates. Add a comment noting the type-string is legacy and the label is now generic.
+Backward compat for existing saved templates: any templates already saved with "Dandy Logo" / "Dandy & DSO Name" labels by Dandy admins keep working — labels are display-only and template behavior is unchanged. For non-Dandy tenants whose saved templates somehow have these labels (shouldn't be possible if they haven't been creating templates yet, but check), display them via scrubBrand(label, brand) at render. Don't mutate stored data.
+
+
+Step 5 — Beta gating: hide two Dandy-coded built-ins for non-Dandy tenants
+Two of the six built-ins are too Dandy-coded for the cleanup above to fully neutralize, even with scrubBrand on their body copy. The structure, visual design, and assumed use case are dental/DSO-specific:
+
+comparison ("Dandy Evolution" / before-after comparison) — the comparison framing assumes "before Dandy vs after Dandy" customer journey
+agreement-summary ("Agreement Summary" / Dandy Practice Agreement) — built specifically to summarize Dandy's contract structure
+
+Add a isDandyTenant() check (or reuse the existing one from Bullet 6 of the investigation gate). When false, filter BUILTIN_TEMPLATES to exclude these two before passing to the picker. Non-Dandy tenants see four built-ins (roi, pilot, new-partner, partner2) plus the Custom Template overlay tool.
+Critically: if the investigation reveals that ROI / pilot / new-partner / partner2 generators also contain Dandy-coded structural copy that scrubBrand can't catch (assets, layouts, hardcoded testimonial names), flag this in the plan-back and we'll decide whether to gate them too. The audit said these four are scrub-safe but Charlotte's empirical testing on the microsite generator showed audits can underestimate cleanliness — so I'd rather have you re-confirm with a quick visual test of each generator for a non-Dandy tenant than take the audit at its word.
+
+Step 6 — "(beta)" labeling and the Dandy seed script
+Beta labeling for non-Dandy tenants only:
+
+Sidebar nav entry: append "(beta)" to the "One-Pagers" label
+Page header in sales-one-pager.tsx: append "(beta)" to the title
+Add a small banner at the top of the page: "One-pager builder is in beta. Custom templates work today; structured content authoring is shipping in v1.1. [Send feedback]" with a mailto link to the support address from brand.salesConsole?.supportEmail (or hide the link if unset)
+For Dandy tenants: no "(beta)" label, no banner — they've been using this in production and don't need the framing
+
+Dandy seed script (one-off, idempotent, tenant-scoped to Dandy only, same pattern as the segments-prompt seed script):
+
+Read Dandy's current brand JSON
+Set brand.onePagerHeaderImages = { executive: <existing CDN URL for ai-scan-review-news.jpg>, clinical: <existing CDN URL for ai-scan-review-clinical.png>, practiceManager: <existing CDN URL for dandy-dso-enterprise-data.webp> } — using the same URLs the import statements resolve to today, so output is byte-identical
+Set brand.onePagerProductScreenshot = <existing CDN URL for dandy-scanner-transparent.png> (or whatever the Bullet 1 investigation says the right field name is)
+Merge by key — don't clobber other existing brand-config fields
+Show me a dry-run diff of Dandy's brand JSON before vs after, then I'll OK the run
+
+The four asset files (ai-scan-review-news.jpg, ai-scan-review-clinical.png, dandy-dso-enterprise-data.webp, dandy-scanner-transparent.png) need to be reachable from the brand config — either upload them to Dandy's R2 asset bucket and use those URLs, or for the launch interim, keep them in the src/assets folder and serve via the existing dev/prod asset pipeline. Whichever path Replit takes, the URLs in Dandy's seeded brand config need to resolve to the same bitmaps the imports do today.
+
+Cross-cutting
+
+Backward compat for Dandy: every Dandy-generated one-pager produced before and after this change is byte-identical. Seed Dandy's brand config with the existing image URLs, default CTA URL stays as-is, no built-ins are gated, no "(beta)" label.
+Backward compat for non-Dandy saved templates: if any non-Dandy tenants have already created custom templates with meetdandy.com defaults or "Dandy Logo" labels, those templates keep working — the cleanup applies to new defaults and the render path uses scrubBrand for legacy labels. Don't mutate stored template JSON.
+No-brand-config-defaults case: when a non-Dandy brand hasn't populated onePagerHeaderImages / defaultCtaUrl / logoUrl, every fallback is brand-neutral (solid color + brand wordmark, empty URL, generic text label). Never fall back to a Dandy asset under any code path.
+Observability: log when a non-Dandy tenant generates a one-pager with any fallback active ({ tenant_id, audience, used_header_fallback: "brand-config" | "neutral-generated" | "tenant-uploaded", used_logo_fallback: "brand-config" | "neutral-generated" }) so we can spot tenants who haven't uploaded their assets yet.
+
+
+Test plan
+Generate one-pagers for these tenant/audience combinations end-to-end and produce PDFs:
+
+Dandy + each of the six built-in templates (regression check): every PDF must be byte-identical to current output. Diff the bytes if possible; otherwise do a visual side-by-side.
+Zoom + ROI built-in (the bug case): PDF must use Zoom's brand colors, Zoom's logo, NO Dandy product screenshots, NO meetdandy.com URLs, NO dental vocabulary, NO "Dandy" anywhere in body or header.
+Zoom + Custom Template overlay (the primary non-Dandy launch path): admin creates a custom template via the overlay tool, drops a QR field. Confirm the QR defaultValue is empty (or Zoom's defaultCtaUrl if set), not meetdandy.com. Drop a "Brand Logo" field — confirm the label says "Brand Logo" not "Dandy Logo".
+Crunchy + 90-Day Pilot built-in: confirm the four hidden built-ins (comparison, agreement-summary) don't appear in the picker; the visible four (roi, pilot, new-partner, partner2) generate cleanly with no Dandy strings.
+Fresh tenant with no brand assets uploaded: header renders as a solid-color rect with brand wordmark, logo renders as text wordmark, all URLs empty. No bitmap leaks.
+
+Show me side-by-side rendered PDFs for combinations 1-5 plus the brand config that drove each.
+
+Quality bar (when to ship)
+
+Dandy regression: every Dandy-generated one-pager byte-identical pre/post.
+Non-Dandy regression: no Dandy assets, no Dandy URLs, no "Dandy" strings in any rendered PDF or admin-visible UI.
+Two Dandy-coded built-ins (comparison, agreement-summary) hidden from non-Dandy tenants.
+"(beta)" label visible in nav + page header + banner for non-Dandy tenants; invisible for Dandy.
+Custom template overlay tool works end-to-end for a non-Dandy tenant — QR/link defaults are brand-driven or empty, never meetdandy.com.
+scrubBrand covers any remaining edge cases on body copy (existing behavior, no regression).
+
+Don't ship if any Dandy product screenshot appears in a non-Dandy tenant's PDF. Don't ship if any meetdandy.com URL appears in a non-Dandy tenant's template defaults. Don't ship if Dandy's output changes in any visible way.
+
+
+Why this is the right scope
+Three specific decisions worth flagging:
+1. Beta gating > full surgery. The audit suggested rewriting the Dandy-coded built-ins to be brand-agnostic. That's a 1-2-week project and the structural assumptions in comparison and agreement-summary (before/after Dandy customer journey, Dandy Practice Agreement) don't translate cleanly to other industries even with copy rewrites. Cleaner to gate them and call it beta. The four remaining built-ins (roi, pilot, new-partner, partner2) plus the Custom Template overlay tool give non-Dandy tenants a credible feature surface today.
+2. Brand-driven assets, not bitmap renames. The four hardcoded Dandy header images are stored in the src/assets folder as part of the frontend bundle. The fix isn't "swap in neutral bitmaps for non-Dandy tenants" (which still bundles Dandy's screenshots in everyone's app); it's "move asset references to brand config so they're per-tenant data." The neutral fallback is a generated rect + wordmark, no bitmap — better to render minimally than to ship Dandy's screenshots to every customer's browser.
+3. Don't mutate saved data. Existing custom templates saved by any tenant stay intact. The cleanup applies to defaults for new templates and to render-time UI strings. This avoids a class of regressions where a "fix" rewrites stored data in a way that breaks an existing customer setup we don't know about.
+What this prompt explicitly doesn't do
+
+Doesn't build the structured content authoring UX for new one-pager types. That's the bigger ~3-week post-launch project. Today's Custom Template tool is overlay-only; admins can't define new body-copy templates without a code change to generators.ts. We accept this for v1, label it "(beta)" in the marketing copy, and ship the authoring UX in v1.1.
+Doesn't rewrite the Dandy-coded built-ins to be brand-agnostic. Gating > rewriting for these two.
+Doesn't touch the AI Draft Email (separate ~2-4 hour fix for dental publication names + DSO Perplexity queries, tracked in sales-console-audit.md).
+Doesn't touch the microsite generator (separate ~1-1.5 day fix scoped in replit-prompt-brand-defined-segments.md).
+
+What to expect from Replit's plan-back
+
+Confirmation of the four asset import sites + render call sites + the dandyLogoWhite fallback behavior.
+The proposed schema for brand.onePagerHeaderImages (and the product-screenshot field) plus where they live in BrandConfig (top-level vs salesConsole sub-object).
+The Dandy-detect helper they're reusing or proposing (must come from a single canonical source — PROTECTED_ENTERPRISE_SLUGS or an existing helper).
+A short report on whether ROI / pilot / new-partner / partner2 generators have any Dandy-coded structural copy scrubBrand can't catch (visual test, not code skim).
+Migration plan for Dandy's seeded brand-config fields (one-off admin script, idempotent, dry-run diff first).
+Confirmation that no stored template JSON gets mutated.
