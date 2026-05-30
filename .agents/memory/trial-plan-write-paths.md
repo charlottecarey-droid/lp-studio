@@ -26,15 +26,16 @@ unvalidated admin-create plan input both let new tenants get free Growth forever
   webhook must all resolve to canonical plans only; reject/ coerce anything else.
 - A source-scan guardrail test fails if `?? "trial"` or `.default("trial")` reappears
   in production source — keep it green/blocking.
-- Test fixtures can NO LONGER insert `plan='trial'`: a DB `CHECK
-  tenants_plan_canonical_check` (canonical set only) now rejects it at insert
-  time. The shared e2e fixture `createRoyalTenant` (`royal-tenant.ts`) still
-  defaults to `plan ?? "trial"`, so its tenant INSERT fails and any spec that
-  seeds a tenant without an explicit canonical plan reds out in `beforeAll` with
-  a "violates check constraint tenants_plan_canonical_check" error — that failure
-  skips every test in the describe block (~24 e2e specs share this fixture). If
-  you see `tenants_plan_canonical_check` violations in e2e, it's this
-  fixture/constraint mismatch, not your change. Pass an explicit `plan: "growth"`
-  (what trial normalizes to) at the callsite, or fix the helper default.
+- Test fixtures may still insert `plan='trial'` on purpose to exercise the legacy
+  read-normalization alias; that is not a production path — leave them.
+- The DB `CHECK tenants_plan_canonical_check` rejects `plan='trial'` at insert time.
+  The `royal-tenant.ts` e2e fixture was updated to default to canonical `'growth'`
+  (not `'trial'`) so its tenant INSERT no longer violates the constraint. If you see
+  `tenants_plan_canonical_check` violations in e2e, look for a callsite passing a
+  non-canonical `plan` opt, not the fixture default.
+- The constraint is confirmed LIVE in production (Neon `tenants` table): definition
+  is `plan = ANY(ARRAY['free','starter','growth','scale','enterprise'])`, zero
+  non-canonical rows, both Dandy workspaces stay `enterprise`. Verify prod by
+  querying `NEON_DATABASE_URL` directly (read-only), not `executeSql` (stale Helium).
 - Going-forward-only: existing accounts are not retro-enrolled; Dandy
   (`dandy`/`dandy-smb`) is always enterprise and excluded from any `trial→free` cleanup.
