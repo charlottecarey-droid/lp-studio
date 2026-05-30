@@ -534,8 +534,8 @@ function DeleteConfirm({
             catalog row for <span className="font-mono font-medium">{row.block_type}</span>.
           </p>
           <p className="text-muted-foreground text-xs">
-            For Dental tenants this means the block falls back to in-code defaults. For Generic tenants this
-            means the block is no longer visible at all until a row is added back.
+            This is a custom block with no built-in code default, so deleting it removes the block entirely.
+            Tenants will no longer see it anywhere until you re-create the row.
           </p>
           <div className="space-y-1.5">
             <Label className="text-xs">
