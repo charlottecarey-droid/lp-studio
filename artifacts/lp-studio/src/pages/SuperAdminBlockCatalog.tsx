@@ -14,12 +14,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Loader2, Plus, RefreshCw, Pencil, Copy, Trash2, Search, AlertTriangle,
+  Loader2, Plus, RefreshCw, Pencil, Copy, Trash2, Search, AlertTriangle, RotateCcw,
 } from "lucide-react";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
 import { neutralizeLabel } from "@/hooks/use-block-catalog";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Block types that have an in-code BLOCK_REGISTRY default. A customized DB row
+// for one of these can be safely reset back to its built-in default by deleting
+// the override; a custom row with no registry entry has no default to revert to.
+const REGISTRY_TYPES = new Set<string>(BLOCK_REGISTRY.map(d => d.type));
 
 type Industry = "dental" | "generic";
 
@@ -515,6 +520,81 @@ function DeleteConfirm({
   );
 }
 
+// ── Reset to code default ──────────────────────────────────────────────────
+// A non-destructive counterpart to Delete for customized rows whose block_type
+// has an in-code BLOCK_REGISTRY default: removing the override row simply
+// reverts the block to its built-in default for that industry.
+function ResetConfirm({
+  open,
+  onClose,
+  row,
+  onReset,
+}: {
+  open: boolean;
+  onClose: () => void;
+  row: CatalogRow | null;
+  onReset: () => void;
+}) {
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { if (open) setError(null); }, [open]);
+
+  if (!row) return null;
+
+  const handleReset = async () => {
+    setResetting(true);
+    setError(null);
+    try {
+      await apiFetch(
+        `/api/admin/block-catalog/${encodeURIComponent(row.block_type)}/${encodeURIComponent(row.industry)}`,
+        { method: "DELETE" },
+      );
+      onReset();
+      onClose();
+    } catch (err: any) {
+      let msg = err?.message ?? "Reset failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+      setError(msg);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <RotateCcw className="w-5 h-5" />
+            Reset to built-in default
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2 text-sm">
+          <p>
+            Revert <span className="font-mono font-medium">{row.block_type}</span> for{" "}
+            <strong>{INDUSTRY_LABEL[row.industry]}</strong> back to its built-in default.
+          </p>
+          <p className="text-muted-foreground text-xs">
+            This removes the saved global override so the block falls back to its in-code default.
+            The row will flip back to <span className="font-medium">Code default</span> in the table.
+            You can customize it again at any time.
+          </p>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={resetting}>Cancel</Button>
+          <Button size="sm" onClick={handleReset} disabled={resetting}>
+            {resetting
+              ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Resetting…</>
+              : <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Reset to code default</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Main panel ─────────────────────────────────────────────────────────────
 export default function SuperAdminBlockCatalog() {
   const [rows, setRows] = useState<CatalogRow[] | null>(null);
@@ -530,6 +610,7 @@ export default function SuperAdminBlockCatalog() {
 
   const [duplicateRow, setDuplicateRow] = useState<CatalogRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<CatalogRow | null>(null);
+  const [resetRow, setResetRow] = useState<CatalogRow | null>(null);
 
   // Quick toggle for is_enabled — saving inline without opening the editor
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
@@ -863,10 +944,17 @@ export default function SuperAdminBlockCatalog() {
                             onClick={() => setDuplicateRow(row)}>
                             <Copy className="w-3.5 h-3.5" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete override"
-                            onClick={() => setDeleteRow(row)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {REGISTRY_TYPES.has(row.block_type) ? (
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Reset to code default"
+                              onClick={() => setResetRow(row)}>
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete override"
+                              onClick={() => setDeleteRow(row)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>
@@ -896,6 +984,12 @@ export default function SuperAdminBlockCatalog() {
         onClose={() => setDeleteRow(null)}
         row={deleteRow}
         onDeleted={refresh}
+      />
+      <ResetConfirm
+        open={!!resetRow}
+        onClose={() => setResetRow(null)}
+        row={resetRow}
+        onReset={refresh}
       />
     </div>
   );
