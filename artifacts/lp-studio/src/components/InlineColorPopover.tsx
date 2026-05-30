@@ -57,7 +57,7 @@ const FALLBACK_SWATCHES: BrandSwatch[] = [
 
 // De-duplicate recents case-insensitively (keeps first/most-recent casing),
 // so the same color can't appear twice and collide as a React key.
-function dedupeRecents(list: string[]): string[] {
+export function dedupeRecents(list: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const v of list) {
