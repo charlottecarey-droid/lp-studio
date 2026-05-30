@@ -26,7 +26,7 @@ import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-type
 import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
-import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import { useAuth } from "@/context/AuthContext";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
@@ -45,11 +45,14 @@ const ONE_PAGER_BLOCK_TYPES = new Set(["one-pager-hero"]);
 function hasOnePagerBlock(blocks: { type: string }[]): boolean {
   return blocks.some((b) => ONE_PAGER_BLOCK_TYPES.has(b.type));
 }
-function OnePagerFrame({ active, children }: { active: boolean; children: ReactNode }) {
+function OnePagerFrame({ active, bg, children }: { active: boolean; bg?: string; children: ReactNode }) {
   if (!active) return <>{children}</>;
   return (
     <div className="bg-muted/40 min-h-screen md:py-10">
-      <div className="mx-auto w-full max-w-[960px] bg-background md:shadow-[0_10px_50px_-15px_rgba(0,0,0,0.25)] md:ring-1 md:ring-border/50">
+      <div
+        className="mx-auto w-full max-w-[960px] bg-background md:shadow-[0_10px_50px_-15px_rgba(0,0,0,0.25)] md:ring-1 md:ring-border/50"
+        style={bg ? { background: bg } : undefined}
+      >
         {children}
       </div>
     </div>
@@ -795,9 +798,16 @@ export default function LandingPageViewer() {
 
     const scopedCss = customCss ? scopeCustomCss(customCss, "[data-lp-page]") : "";
 
+    // One-pager pages apply the workspace-default one-pager color overrides
+    // (salesConsole.onePager*Color) so the override reaches BOTH the CSS-var
+    // layer and any block reading the brand prop directly. Landing pages are
+    // untouched (renderBrand === brand).
+    const isOnePagerPage = hasOnePagerBlock(blocks);
+    const renderBrand = isOnePagerPage ? resolveOnePagerColors(brand) : brand;
+
     return (
       <LinkedFormStyleProvider value={readLinkedFormStyle(pageVars)}>
-      <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(brand), scrollBehavior: smoothScroll ? undefined : "auto" }}>
+      <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(renderBrand), scrollBehavior: smoothScroll ? undefined : "auto" }}>
         <BrandFontLoader brand={brand} />
         <style>{`
           @keyframes marquee {
@@ -825,7 +835,7 @@ export default function LandingPageViewer() {
             </button>
           </div>
         )}
-        <OnePagerFrame active={hasOnePagerBlock(blocks)}>
+        <OnePagerFrame active={isOnePagerPage} bg={isOnePagerPage ? renderBrand.pageBackground : undefined}>
         {blocks.map((block, i) => {
           const dtrBlock = Object.keys(dtrParams).length > 0
             ? { ...block, props: applyDtr(block.props, dtrParams) }
@@ -837,7 +847,7 @@ export default function LandingPageViewer() {
                 style={block.blockSettings?.animationStyle ?? "fade-up"}
                 enabled={animationsEnabled && !NO_REVEAL.has(block.type)}
               >
-                <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
+                <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
               </ScrollReveal>
             </BlockErrorBoundary>
           );
@@ -915,9 +925,12 @@ export default function LandingPageViewer() {
       safeNavigate(dest, "_blank");
     };
 
+    const isOnePagerPage = hasOnePagerBlock(blocks);
+    const renderBrand = isOnePagerPage ? resolveOnePagerColors(brand) : brand;
+
     return (
       <LinkedFormStyleProvider value={readLinkedFormStyle(pageVars)}>
-      <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(brand), scrollBehavior: linkedSmoothScroll ? undefined : "auto" }}>
+      <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(renderBrand), scrollBehavior: linkedSmoothScroll ? undefined : "auto" }}>
         <BrandFontLoader brand={brand} />
         <style>{`
           @keyframes marquee {
@@ -950,7 +963,7 @@ export default function LandingPageViewer() {
         )}
         {blocks.length > 0
           ? (
-            <OnePagerFrame active={hasOnePagerBlock(blocks)}>
+            <OnePagerFrame active={isOnePagerPage} bg={isOnePagerPage ? renderBrand.pageBackground : undefined}>
             {blocks.map((block, i) => {
               const dtrBlock = Object.keys(dtrParams).length > 0
                 ? { ...block, props: applyDtr(block.props, dtrParams) }
@@ -962,7 +975,7 @@ export default function LandingPageViewer() {
                     style={block.blockSettings?.animationStyle ?? "fade-up"}
                     enabled={linkedAnimationsEnabled && !NO_REVEAL.has(block.type)}
                   >
-                    <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} testId={config.testId} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
+                    <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} testId={config.testId} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
                   </ScrollReveal>
                 </BlockErrorBoundary>
               );

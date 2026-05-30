@@ -453,6 +453,18 @@ export interface SalesConsoleConfig {
    * `logoUrlDark` so the sales one-pager can carry a header-specific mark.
    */
   onePagerLogoUrl?: string;
+  /**
+   * Workspace-default one-pager colors. When set, these override the brand's
+   * own palette tokens for every generated one-pager (hero band, blocks,
+   * sheet background) via `resolveOnePagerColors`. Empty/unset → the one-pager
+   * inherits the matching brand color, so existing tenants see no change.
+   * Edited from Brand Settings → Sales Console → One-pager defaults.
+   */
+  onePagerPrimaryColor?: string;
+  onePagerAccentColor?: string;
+  onePagerTextColor?: string;
+  onePagerCardColor?: string;
+  onePagerBackgroundColor?: string;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
@@ -1073,6 +1085,34 @@ export function resolveOnePagerAssets(brand: BrandConfig): OnePagerAssets {
           || (brand.logoUrlDark ?? "").trim()
           || (brand.logoUrl ?? "").trim()),
     ),
+  };
+}
+
+/**
+ * Apply the workspace-default one-pager color overrides
+ * (`salesConsole.onePager*Color`) on top of a brand config, returning a new
+ * BrandConfig whose palette tokens reflect those overrides. Only the color
+ * fields are touched and only when a valid hex override is set — every other
+ * field (fonts, logos, copy) passes through unchanged, and tenants who set no
+ * one-pager colors get the original brand back untouched.
+ *
+ * Used by the landing-page viewer for one-pager pages so the override flows to
+ * BOTH the CSS-var layer (`getBrandStyleVars`) and any block reading the
+ * `brand` prop directly (e.g. the one-pager hero gradient).
+ */
+export function resolveOnePagerColors(brand: BrandConfig): BrandConfig {
+  const sc = brand.salesConsole ?? {};
+  const pick = (override: string | undefined, current: string): string => {
+    const v = (override ?? "").trim();
+    return isValidHex(v) ? v : current;
+  };
+  return {
+    ...brand,
+    primaryColor: pick(sc.onePagerPrimaryColor, brand.primaryColor),
+    accentColor: pick(sc.onePagerAccentColor, brand.accentColor),
+    textColor: pick(sc.onePagerTextColor, brand.textColor),
+    cardBackground: pick(sc.onePagerCardColor, brand.cardBackground),
+    pageBackground: pick(sc.onePagerBackgroundColor, brand.pageBackground),
   };
 }
 

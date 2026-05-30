@@ -1,10 +1,9 @@
 import type { OnePagerHeroBlockProps } from "@/lib/block-types";
-import type { BrandConfig } from "@/lib/brand-config";
+import { resolveOnePagerAssets, type BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
 
-const DARK_GREEN = "var(--brand-primary)";
-const LIME = "var(--brand-accent)";
+const LIME = "#C7E738";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = `${BRAND_BODY_FONT}, system-ui, sans-serif`;
@@ -56,25 +55,44 @@ interface Props {
   onFieldChange?: (updated: OnePagerHeroBlockProps) => void;
 }
 
-function getPanelBackground(variant: string, accent: string): string {
-  const accentRgb = hexToRgb(accent) ?? { r: 199, g: 231, b: 56 };
+// Mix a hex color toward black (amount < 0) or white (amount > 0) by `amount`
+// in [-1, 1]. Used to derive the darker/lighter shades of the brand primary
+// that build the hero band gradient, so the band tracks whatever primary the
+// tenant chose (one-pager override or brand default) instead of hardcoded green.
+function shade(hex: string, amount: number): string {
+  const rgb = hexToRgb(hex) ?? { r: 0, g: 0, b: 0 };
+  const t = amount < 0 ? 0 : 255;
+  const p = Math.abs(amount);
+  const mix = (c: number) => Math.round((t - c) * p + c);
+  return `rgb(${mix(rgb.r)}, ${mix(rgb.g)}, ${mix(rgb.b)})`;
+}
+
+function rgba(hex: string, alpha: number): string {
+  const { r, g, b } = hexToRgb(hex) ?? { r: 0, g: 0, b: 0 };
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getPanelBackground(variant: string, primary: string, accent: string): string {
+  const lighter = shade(primary, 0.18);
+  const darker = shade(primary, -0.55);
+  const darkest = shade(primary, -0.82);
   switch (variant) {
     case "mesh":
       return [
-        `radial-gradient(ellipse 90% 70% at 10% 10%, rgba(0,102,81,0.85) 0%, transparent 60%)`,
-        `radial-gradient(ellipse 60% 60% at 90% 90%, rgba(0,22,15,0.9) 0%, transparent 55%)`,
-        `radial-gradient(ellipse 55% 40% at 50% 115%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.10) 0%, transparent 55%)`,
-        DARK_GREEN,
+        `radial-gradient(ellipse 90% 70% at 10% 10%, ${rgba(lighter, 0.85)} 0%, transparent 60%)`,
+        `radial-gradient(ellipse 60% 60% at 90% 90%, ${rgba(darkest, 0.9)} 0%, transparent 55%)`,
+        `radial-gradient(ellipse 55% 40% at 50% 115%, ${rgba(accent, 0.1)} 0%, transparent 55%)`,
+        primary,
       ].join(", ");
     case "diagonal":
-      return `linear-gradient(135deg, #005B44 0%, var(--brand-primary) 45%, #001E18 100%)`;
+      return `linear-gradient(135deg, ${lighter} 0%, ${primary} 45%, ${darkest} 100%)`;
     case "solid":
     default:
       return [
-        `radial-gradient(ellipse 75% 60% at 15% 15%, rgba(0,102,81,0.65) 0%, transparent 60%)`,
-        `radial-gradient(ellipse 50% 45% at 88% 88%, rgba(0,18,12,0.80) 0%, transparent 55%)`,
-        `radial-gradient(ellipse 80% 55% at 50% 120%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.07) 0%, transparent 50%)`,
-        DARK_GREEN,
+        `radial-gradient(ellipse 75% 60% at 15% 15%, ${rgba(lighter, 0.65)} 0%, transparent 60%)`,
+        `radial-gradient(ellipse 50% 45% at 88% 88%, ${rgba(darker, 0.8)} 0%, transparent 55%)`,
+        `radial-gradient(ellipse 80% 55% at 50% 120%, ${rgba(accent, 0.07)} 0%, transparent 50%)`,
+        primary,
       ].join(", ");
   }
 }
@@ -91,9 +109,11 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 
 export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
   const { partnerName, headline, subtitle, tagline, sideImageUrl, phone } = props;
-  const accent = props.accentColor ?? LIME;
+  const primary = brand?.primaryColor || "#003B2D";
+  const accent = props.accentColor ?? brand?.accentColor ?? LIME;
   const panelVariant = props.panelVariant ?? "solid";
   const displayHeadline = headline ?? partnerName;
+  const logoUrl = resolveOnePagerAssets(brand).logoUrl;
 
   return (
     <>
@@ -111,7 +131,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
         <div
           className="one-pager-hero__left"
           style={{
-            background: getPanelBackground(panelVariant, accent),
+            background: getPanelBackground(panelVariant, primary, accent),
             display: "flex",
             flexDirection: "column",
             position: "relative",
@@ -128,7 +148,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
               width: 220,
               height: 220,
               borderRadius: "50%",
-              background: `radial-gradient(circle, rgba(0,120,90,0.35) 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${rgba(shade(primary, 0.25), 0.35)} 0%, transparent 70%)`,
               filter: "blur(32px)",
               pointerEvents: "none",
             }}
@@ -143,15 +163,30 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
               width: 160,
               height: 160,
               borderRadius: "50%",
-              background: `radial-gradient(circle, rgba(0,60,40,0.4) 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${rgba(shade(primary, -0.45), 0.4)} 0%, transparent 70%)`,
               filter: "blur(24px)",
               pointerEvents: "none",
             }}
           />
 
-          {/* Logo */}
+          {/* Logo — prefer the resolved one-pager logo image; fall back to a
+              styled brand-name wordmark only when no logo asset exists. */}
           <div style={{ marginBottom: "2.5rem", position: "relative", zIndex: 1 }}>
-            <BrandLogo brand={brand} tone="onPrimary" alt={brand?.brandName || "Logo"} className="h-7 w-auto" />
+            {logoUrl ? (
+              <BrandLogo brand={brand} url={logoUrl} tone="onPrimary" alt={brand?.brandName || "Logo"} className="h-7 w-auto" />
+            ) : brand?.brandName ? (
+              <span
+                style={{
+                  fontFamily: DISPLAY,
+                  fontWeight: 700,
+                  fontSize: "1.25rem",
+                  letterSpacing: "-0.01em",
+                  color: "#fff",
+                }}
+              >
+                {brand.brandName}
+              </span>
+            ) : null}
           </div>
 
           {/* Content */}
@@ -254,7 +289,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
               style={{
                 width: "100%",
                 height: "100%",
-                background: `linear-gradient(150deg, #005540 0%, var(--brand-primary) 60%, #001E18 100%)`,
+                background: `linear-gradient(150deg, ${shade(primary, 0.12)} 0%, ${primary} 60%, ${shade(primary, -0.82)} 100%)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

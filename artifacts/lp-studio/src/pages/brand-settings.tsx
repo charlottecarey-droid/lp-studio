@@ -1377,6 +1377,71 @@ function SalesConsoleSettings({
         </div>
       </Card>
 
+      <Card id="sales-console-one-pager-colors" className="p-6 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" /> One-pager colors
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Default colors applied to every generated one-pager for this workspace — the hero band, blocks, and sheet background. Leave any field empty to inherit the matching color from your main brand palette.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ColorField label="Primary (hero band)" value={sc.onePagerPrimaryColor ?? ""} onChange={v => patch({ onePagerPrimaryColor: v })} />
+          <ColorField label="Accent" value={sc.onePagerAccentColor ?? ""} onChange={v => patch({ onePagerAccentColor: v })} />
+          <ColorField label="Text" value={sc.onePagerTextColor ?? ""} onChange={v => patch({ onePagerTextColor: v })} />
+          <ColorField label="Card background" value={sc.onePagerCardColor ?? ""} onChange={v => patch({ onePagerCardColor: v })} />
+          <ColorField label="Page background" value={sc.onePagerBackgroundColor ?? ""} onChange={v => patch({ onePagerBackgroundColor: v })} />
+        </div>
+      </Card>
+
+      <Card id="sales-console-one-pager-assets" className="p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" /> One-pager header images
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Banner image shown at the top of generated one-pagers, per audience. Leave empty to render a neutral brand-colored header. The product screenshot appears inside the one-pager body.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Executive header image</Label>
+          <ImagePicker
+            value={sc.onePagerHeaderImages?.executive ?? ""}
+            onChange={url => patch({ onePagerHeaderImages: { ...(sc.onePagerHeaderImages ?? {}), executive: url } })}
+            placeholder="Optional — leave empty for a neutral header"
+            aiHint="One-pager executive header image"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Clinical header image</Label>
+          <ImagePicker
+            value={sc.onePagerHeaderImages?.clinical ?? ""}
+            onChange={url => patch({ onePagerHeaderImages: { ...(sc.onePagerHeaderImages ?? {}), clinical: url } })}
+            placeholder="Optional — leave empty for a neutral header"
+            aiHint="One-pager clinical header image"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Practice-manager header image</Label>
+          <ImagePicker
+            value={sc.onePagerHeaderImages?.practiceManager ?? ""}
+            onChange={url => patch({ onePagerHeaderImages: { ...(sc.onePagerHeaderImages ?? {}), practiceManager: url } })}
+            placeholder="Optional — leave empty for a neutral header"
+            aiHint="One-pager practice-manager header image"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Product screenshot</Label>
+          <ImagePicker
+            value={sc.onePagerProductScreenshot ?? ""}
+            onChange={url => patch({ onePagerProductScreenshot: url })}
+            placeholder="Optional — product / platform image for the body"
+            aiHint="One-pager product screenshot"
+          />
+        </div>
+      </Card>
+
       <Card id="sales-console-value-prop-pairs" className="p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>

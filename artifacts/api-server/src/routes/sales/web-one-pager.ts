@@ -24,37 +24,37 @@ function buildAudienceContent(brand: SalesBrandContext): Record<Audience, Audien
   const name = brand.brandName || "";
   const possessive = name ? `${name}'s` : "our";
   const productLabel = name ? `${name} Insights` : "our insights dashboard";
-  const portalLabel = name ? `the ${name} Portal` : "our partner portal";
+  const portalLabel = name ? `the ${name} portal` : "our partner portal";
   const reduceFrictionWith = name ? `with ${name}` : "with us";
 
   return {
     executive: {
       subtitle: "Achieve quality, consistency, and control at scale.",
       features: [
-        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle hardware delivery and set up, then get your practices up to speed fast with free onboarding." },
-        { icon: "MessageCircle", title: "Clinical collaboration", description: "Live Chat and Live Scan Review connect clinicians directly with our team of lab technicians in real time." },
-        { icon: "Bot", title: "AI-powered quality checks", description: "AI Scan Review automatically reviews every scan while the patient is still in the chair, reducing remakes and adjustments." },
-        { icon: "BarChart2", title: productLabel, description: `${possessive} dashboard surfaces aggregate, pilot-level insights including scanner utilization, workflow adoption, and quality signals.` },
-        { icon: "Clipboard", title: "Case management simplified", description: `Access ${portalLabel} to track, manage, and review active orders and our dashboard to streamline invoicing.` },
-        { icon: "DollarSign", title: "Exclusive pricing for your organization", description: "Contact the team below to access a product guide with approved pricing." },
+        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle setup end to end, then get your teams up to speed fast with free onboarding." },
+        { icon: "MessageCircle", title: "Real-time collaboration", description: "Live chat and review connect your teams directly with our experts in real time." },
+        { icon: "Bot", title: "AI-powered quality checks", description: "Automated review catches issues early — before they become rework — so quality stays consistent." },
+        { icon: "BarChart2", title: productLabel, description: `${possessive} dashboard surfaces aggregate, program-level insights including adoption, utilization, and quality signals.` },
+        { icon: "Clipboard", title: "Operations simplified", description: `Access ${portalLabel} to track, manage, and review active work, and use our dashboard to streamline invoicing.` },
+        { icon: "DollarSign", title: "Exclusive pricing for your organization", description: "Contact the team below to access a tailored proposal with approved pricing." },
       ],
     },
     clinical: {
-      subtitle: "Fully embrace digital dentistry with smarter technology and seamless workflows.",
+      subtitle: "Embrace smarter technology and seamless workflows across your teams.",
       features: [
-        { icon: "MessageCircle", title: "Clinical collaboration", description: "Clinicians and staff can speak with our team of clinical experts in just 60 seconds or collaborate on complex cases virtually." },
-        { icon: "Bot", title: "AI-powered quality checks", description: "AI Scan Review automatically reviews every scan while the patient is still in the chair, reducing remakes and adjustments." },
-        { icon: "Activity", title: "2-Appointment Dentures", description: "Utilize seamless digital workflows like 2-Appointment Dentures to save chair time and create a better patient experience." },
-        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. Get up to speed fast with free onboarding and unlimited access to ongoing digital CPD credit education." },
+        { icon: "MessageCircle", title: "Expert collaboration", description: "Your teams can reach our experts in seconds or collaborate on complex work virtually." },
+        { icon: "Bot", title: "AI-powered quality checks", description: "Automated review catches issues early — before they become rework — so quality stays consistent." },
+        { icon: "Activity", title: "Streamlined workflows", description: "Adopt seamless digital workflows that save time and create a better experience for everyone involved." },
+        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. Get up to speed fast with free onboarding and unlimited access to ongoing education." },
       ],
     },
     "practice-manager": {
       subtitle: `Reduce operational friction and administrative burden ${reduceFrictionWith}.`,
       features: [
         { icon: "DollarSign", title: "Invoicing made easy", description: "Our dashboard makes invoicing a simple and efficient process." },
-        { icon: "BarChart2", title: "Get insights in Practice Portal", description: "Gain visibility into order delivery dates, communicate with the lab, manage payment, and more." },
-        { icon: "MessageCircle", title: "Real-time lab communication", description: "Our team of clinical experts handle lab communication including live collaboration, fielding questions, and issue resolution." },
-        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle hardware delivery and set up, then get your teams up to speed fast with free onboarding and CPD training." },
+        { icon: "BarChart2", title: "Insights in one place", description: `Gain visibility into timelines, communicate with our team, manage payment, and more in ${portalLabel}.` },
+        { icon: "MessageCircle", title: "Real-time communication", description: "Our experts handle communication end to end, including live collaboration, fielding questions, and issue resolution." },
+        { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle setup end to end, then get your teams up to speed fast with free onboarding and training." },
       ],
     },
   };
@@ -156,7 +156,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
         type: "dso-meet-team",
         props: {
           eyebrow: "Your Dedicated Team",
-          headline: "Meet your contacts for training, clinical support, and pilot check-ins.",
+          headline: "Meet your contacts for training, support, and pilot check-ins.",
           subheadline: "",
           backgroundStyle: "dark",
           members: teamMembers && teamMembers.length > 0
@@ -178,32 +178,32 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
           steps: [
             {
               title: "Launch a Pilot",
-              subtitle: "Start with 5–10 locations",
-              desc: `${brandName || "We"} ${brandName ? "deploys" : "deploy"} premium scanners, onboard${brandName ? "s" : ""} doctors with hands-on training, and integrate${brandName ? "s" : ""} into existing workflows — no CAPEX, no disruption.`,
+              subtitle: "Start with a handful of locations",
+              desc: `${brandName || "We"} ${brandName ? "handles" : "handle"} setup, onboard${brandName ? "s" : ""} your teams with hands-on training, and integrate${brandName ? "s" : ""} into existing workflows — no upfront investment, no disruption.`,
               details: [
-                "Premium hardware included for every operatory",
-                "Dedicated field team manages change management",
-                "Doctors trained and scanning within days",
+                "Everything you need included from day one",
+                "Dedicated team manages change management",
+                "Teams trained and up to speed within days",
               ],
             },
             {
               title: "Validate Impact",
               subtitle: "Measure results in 60–90 days",
-              desc: "Track remake reduction, chair time recovered, and same-store revenue lift in real time — proving ROI before you scale.",
+              desc: "Track efficiency gains, time recovered, and revenue lift in real time — proving ROI before you scale.",
               details: [
                 "Live dashboard tracks pilot KPIs",
-                "Compare pilot offices vs. control group",
+                "Compare pilot locations vs. control group",
                 "Executive-ready reporting for leadership review",
               ],
             },
             {
               title: "Scale With Confidence",
-              subtitle: "Roll out across the network",
-              desc: "Expand with the same standard, same playbook, and same results — predictable execution at enterprise scale.",
+              subtitle: "Roll out across your organization",
+              desc: "Expand with the same standard, same playbook, and same results — predictable execution at scale.",
               details: [
                 "Consistent onboarding across all locations",
-                "One standard across every office and brand",
-                "MSA ensures network-wide alignment at scale",
+                "One standard across every location and team",
+                "Agreement ensures alignment at scale",
               ],
             },
           ],
