@@ -13,6 +13,10 @@ One-pager generator images (audience headers, product screenshot, header logo) f
 **Base-path gotcha (for consumers, e.g. one-pager PDF/web render):** seeded URLs are root-relative (`/one-pager/...`). Under a non-root `BASE_PATH`, root-relative URLs resolve outside the app mount.
 **How to apply:** before fetching/rendering a brand asset URL that starts with `/`, normalize against the app base (`${import.meta.env.BASE_URL}foo` for `/foo`) or origin. Same latent risk exists for the legacy `/dandy-logo.svg`. The shared reader/normalizer is `resolveOnePagerAssets(brand)` in brand-config.ts (returns null per asset when unset → neutral); built-in PDF generators must resolve through it, never via hardcoded `@/assets` imports.
 
+**Client-side Dandy asset gating must use the server-computed `isDandy` flag, never the editable `brandName`.**
+**Why:** `brandName` is admin-editable, so gating a Dandy-asset fallback on `brandName === "dandy"` lets any tenant leak Dandy assets by renaming. `/lp/brand` resolves `isDandy` from the immutable protected tenant slug (`isDandyTenant` → `PROTECTED_ENTERPRISE_SLUGS`) and returns it on `BrandConfig.isDandy` (read-only; stripped client+server before persist, recomputed every GET).
+**How to apply:** built-in one-pager header logo restores the bundled Dandy mark only when `brand.isDandy === true` AND `salesConsole.onePagerLogoUrl` is empty; any tenant overrides via that field in Brand Settings. Reuse `brand.isDandy` for any future Dandy-only client asset decision — do not reintroduce a `brandName` check.
+
 **Dandy-bitmap leak sites are spread across the page, editor, AND templates files — not just the generator.**
 **Why:** a wrapper-only audit misses callers that inject their own bitmap (uploaded/forced header, or a logo arg) before the shared generator runs, so the leak survives even after the generator itself is clean.
 **How to apply:** when de-branding, grep `@/assets` across ALL one-pager files (page + editor + templates), not only the generator file. Note the custom-template generator is a separate code path from the built-in templates and may still carry a Dandy logo independently.

@@ -1349,6 +1349,31 @@ function SalesConsoleSettings({
         </div>
       </Card>
 
+      <Card id="sales-console-one-pager-logo" className="p-6 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" /> One-pager header logo
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Logo painted on the dark header of generated one-pager PDFs. Leave blank to fall back to your brand wordmark. Use a light/white version since it sits on a dark band.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Logo URL</Label>
+          <Input
+            value={sc.onePagerLogoUrl ?? ""}
+            onChange={e => patch({ onePagerLogoUrl: e.target.value })}
+            placeholder="https://… or /assets/logo-white.svg"
+          />
+          <p className="text-xs text-muted-foreground">Paste a hosted image URL (SVG/PNG). Applies to all generated one-pagers for this workspace.</p>
+          {(sc.onePagerLogoUrl ?? "").trim() && (
+            <div className="mt-3 rounded-md border border-border bg-slate-900 p-4 flex items-center justify-center">
+              <img src={sc.onePagerLogoUrl} alt="One-pager logo preview" className="h-10 w-auto object-contain" />
+            </div>
+          )}
+        </div>
+      </Card>
+
       <Card id="sales-console-value-prop-pairs" className="p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>

@@ -5,6 +5,7 @@ import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpPagesTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
+import { isDandyTenant } from "../../lib/planFeatures";
 
 const router = Router();
 
@@ -79,25 +80,36 @@ router.get("/lp/brand", optionalAuth, async (req, res): Promise<void> => {
     res.json(DEFAULT_CONFIG);
     return;
   }
+  // Server-authoritative Dandy identity (resolved from the immutable protected
+  // tenant slug, NOT the editable brandName). The one-pager generator gates its
+  // bundled Dandy logo fallback on this flag, so a non-Dandy tenant can never
+  // resurface Dandy assets by renaming their brand to "Dandy". Always written
+  // AFTER the stored config spread so a stale persisted value can't override it.
+  const isDandy = await isDandyTenant(tenantId);
   const rows = await db.select().from(lpBrandSettingsTable)
     .where(eq(lpBrandSettingsTable.tenantId, tenantId))
     .limit(1);
   if (rows.length === 0) {
-    res.json(DEFAULT_CONFIG);
+    res.json({ ...DEFAULT_CONFIG, isDandy });
     return;
   }
-  res.json({ ...DEFAULT_CONFIG, ...(rows[0].config as object) });
+  res.json({ ...DEFAULT_CONFIG, ...(rows[0].config as object), isDandy });
 });
 
 router.put("/lp/brand", async (req, res): Promise<void> => {
   // Writes still require an authenticated session — public viewers cannot
   // mutate brand settings.
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const config = req.body;
-  if (!config || typeof config !== "object") {
+  const body = req.body;
+  if (!body || typeof body !== "object") {
     res.status(400).json({ error: "Invalid config" });
     return;
   }
+  // `isDandy` is a read-only, server-computed identity flag (resolved from the
+  // immutable tenant slug on GET). Strip it before persisting so a stale or
+  // forged value from an old client / direct API caller can never be written
+  // into brand_settings JSONB — GET always recomputes it authoritatively.
+  const { isDandy: _isDandy, ...config } = body as Record<string, unknown>;
   const existing = await db.select().from(lpBrandSettingsTable)
     .where(eq(lpBrandSettingsTable.tenantId, tenantId))
     .limit(1);

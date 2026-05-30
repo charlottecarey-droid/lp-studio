@@ -240,6 +240,14 @@ export interface BrandConfig {
   bodyTextSize: BodyTextSize;
   eyebrowStyle: EyebrowStyle;
   brandName: string;
+  /**
+   * Server-computed (read-only) flag: true only for protected Dandy tenants,
+   * resolved from the immutable tenant slug by the `/lp/brand` API — never from
+   * the editable `brandName`. Used to gate Dandy-only asset fallbacks (e.g. the
+   * one-pager header logo) so renaming a brand to "Dandy" cannot leak Dandy
+   * assets. Not persisted: `saveBrandConfig` strips it before writing.
+   */
+  isDandy?: boolean;
   companyDescription: string;
   taglines: string[];
   messagingPillars: MessagingPillar[];
@@ -1033,6 +1041,14 @@ function withAppBase(url: string | null | undefined): string | null {
 export function resolveOnePagerAssets(brand: BrandConfig): OnePagerAssets {
   const sc = brand.salesConsole ?? {};
   const headers = sc.onePagerHeaderImages ?? {};
+  // Dandy fallback: when a Dandy tenant has no explicit onePagerLogoUrl, restore
+  // the bundled Dandy header logo so existing Dandy instances keep their logo.
+  // Gated on the server-authoritative `isDandy` flag (resolved from the immutable
+  // protected tenant slug, NOT the editable brandName) so non-Dandy tenants can
+  // NEVER receive a Dandy asset — even by renaming their brand to "Dandy". Any
+  // tenant (Dandy included) can override this via salesConsole.onePagerLogoUrl.
+  const logoSrc = (sc.onePagerLogoUrl ?? "").trim()
+    || (brand.isDandy === true ? "/dandy-logo-white.svg" : "");
   return {
     headerImages: {
       executive: withAppBase(headers.executive),
@@ -1040,7 +1056,7 @@ export function resolveOnePagerAssets(brand: BrandConfig): OnePagerAssets {
       "practice-manager": withAppBase(headers.practiceManager),
     },
     productScreenshot: withAppBase(sc.onePagerProductScreenshot),
-    logoUrl: withAppBase(sc.onePagerLogoUrl),
+    logoUrl: withAppBase(logoSrc),
   };
 }
 
@@ -1074,10 +1090,13 @@ export async function fetchBrandConfig(slug?: string | null): Promise<BrandConfi
 }
 
 export async function saveBrandConfig(config: BrandConfig): Promise<void> {
+  // `isDandy` is a read-only, server-computed flag — never persist it into the
+  // tenant's brand_settings JSONB (the GET route recomputes it authoritatively).
+  const { isDandy: _isDandy, ...persistable } = config;
   const res = await fetch(`${BASE}/api/lp/brand`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
+    body: JSON.stringify(persistable),
   });
   if (!res.ok) throw new Error("Failed to save brand config");
 }
