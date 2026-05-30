@@ -2,10 +2,37 @@ import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { saveBrandConfig, fetchBrandConfig } from "@/lib/brand-config";
-import { Upload, Palette, Building2, ArrowRight, ArrowLeft, Check, X, Copy, ExternalLink, PartyPopper } from "lucide-react";
+import { saveBrandConfig, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
+import { Upload, Palette, Building2, ArrowRight, ArrowLeft, Check, X, Copy, ExternalLink, PartyPopper, Globe, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import {
+  streamBrandImportFromUrl,
+  recordBrandImportSource,
+  type BrandImportDimensionName,
+  type BrandImportDimensionStatus,
+} from "@/lib/brand-import-client";
+
+const IMPORT_DIMENSIONS: { id: BrandImportDimensionName; label: string }[] = [
+  { id: "logos", label: "Logo" },
+  { id: "colors", label: "Colors" },
+  { id: "typography", label: "Fonts" },
+  { id: "buttons", label: "Buttons" },
+  { id: "photography", label: "Photography" },
+  { id: "voice", label: "Brand voice" },
+  { id: "content", label: "Messaging" },
+  { id: "structure", label: "Products & audience" },
+];
+
+function DimensionStatusIcon({ status }: { status: BrandImportDimensionStatus }) {
+  if (status === "loading") {
+    return <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />;
+  }
+  if (status === "ok") return <Check className="w-4 h-4 text-green-600" />;
+  if (status === "partial") return <Check className="w-4 h-4 text-amber-500" />;
+  if (status === "failed") return <X className="w-4 h-4 text-destructive" />;
+  return <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />;
+}
 
 interface OnboardingWizardProps {
   onComplete: () => Promise<void>;
@@ -64,6 +91,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [tenantLoginUrl, setTenantLoginUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [opening, setOpening] = useState(false);
+  // Import-from-website step — shown first so a new tenant can auto-fill their
+  // brand from an existing site, then review the prefilled steps below.
+  const [showImport, setShowImport] = useState(true);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importDims, setImportDims] = useState<Record<BrandImportDimensionName, BrandImportDimensionStatus> | null>(null);
+  // Full proposed field map from the importer, persisted at finish so the
+  // richer extracted fields (fonts, voice, messaging, products) are saved too.
+  const [importedProposed, setImportedProposed] = useState<Record<string, unknown> | null>(null);
+  const [importSourceUrl, setImportSourceUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -103,6 +141,68 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const isFullHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
 
+  async function handleImport() {
+    const url = importUrl.trim();
+    if (!url || importing) return;
+    setImporting(true);
+    setImportError("");
+    setImportDims({
+      logos: "loading",
+      colors: "loading",
+      typography: "loading",
+      buttons: "loading",
+      photography: "loading",
+      voice: "loading",
+      content: "loading",
+      structure: "loading",
+    });
+
+    try {
+      const imported = await streamBrandImportFromUrl(url, (dim, r) => {
+        setImportDims((prev) => (prev ? { ...prev, [dim]: r.status } : prev));
+      });
+      const p = imported.proposed;
+
+      if (typeof p.brandName === "string" && p.brandName.trim()) {
+        setBrandName(p.brandName.trim());
+      }
+      const tg = Array.isArray(p.taglines)
+        ? p.taglines.find((t) => typeof t === "string" && t.trim())
+        : undefined;
+      if (typeof tg === "string") setTagline(tg.trim());
+
+      // Prefer the top-ranked logo candidate; fall back to the flat logoUrl.
+      const pickedLogo =
+        imported.logoAlternates?.[0]?.url ??
+        (typeof p.logoUrl === "string" ? p.logoUrl : "");
+      if (pickedLogo) {
+        setLogoUrl(pickedLogo);
+        setLogoPreview(pickedLogo);
+      }
+      if (typeof p.primaryColor === "string" && isFullHex(p.primaryColor)) {
+        setPrimaryColor(p.primaryColor);
+      }
+      if (typeof p.accentColor === "string" && isFullHex(p.accentColor)) {
+        setAccentColor(p.accentColor);
+      }
+
+      // Keep the full proposed map (minus the UI-only logo picker list) so the
+      // richer fields are saved at finish. Pin the chosen logo into it.
+      const proposedForSave: Record<string, unknown> = { ...p };
+      delete proposedForSave.logoAlternates;
+      if (pickedLogo) proposedForSave.logoUrl = pickedLogo;
+      setImportedProposed(proposedForSave);
+      setImportSourceUrl(imported.sourceUrl ?? url);
+      setShowImport(false);
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : "Import failed. Check the URL and try again.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function handleFinish() {
     setSaving(true);
     setError("");
@@ -113,16 +213,36 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
     try {
       const existing = await fetchBrandConfig();
+
+      // Merge the imported brand fields (fonts, voice, messaging, products,
+      // etc.) under the user's reviewed name/logo/colors below. salesConsole
+      // merges into the default block so we don't drop its other fields.
+      const proposed: Record<string, unknown> = { ...(importedProposed ?? {}) };
+      delete proposed.logoAlternates;
+      const mergedSalesConsole =
+        proposed.salesConsole && typeof proposed.salesConsole === "object"
+          ? { ...(existing.salesConsole ?? {}), ...(proposed.salesConsole as Record<string, unknown>) }
+          : existing.salesConsole;
+
       await saveBrandConfig({
         ...existing,
+        ...proposed,
+        ...(mergedSalesConsole ? { salesConsole: mergedSalesConsole } : {}),
         brandName: brandName.trim(),
-        taglines: tagline.trim() ? [tagline.trim()] : existing.taglines,
+        taglines: tagline.trim()
+          ? [tagline.trim()]
+          : (Array.isArray(proposed.taglines) ? proposed.taglines as string[] : existing.taglines),
         logoUrl: logoUrl || existing.logoUrl,
         primaryColor: safePrimary,
         accentColor: safeAccent,
         ctaBackground: safeAccent,
         ctaText: safePrimary,
-      });
+      } as BrandConfig);
+
+      // Best-effort provenance so Brand Settings shows the import source.
+      if (importSourceUrl && Object.keys(proposed).length > 0) {
+        void recordBrandImportSource(importSourceUrl, Object.keys(proposed));
+      }
 
       const completeRes = await fetch("/api/auth/complete-onboarding", {
         method: "POST",
@@ -200,6 +320,86 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   }
 
   const canAdvanceStep0 = brandName.trim().length > 0;
+
+  // Import-from-website screen — the entry point of onboarding. Lets a new
+  // tenant auto-fill their brand from an existing site, then drops into the
+  // prefilled steps below. Skippable for users who'd rather set up manually.
+  if (showImport) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-lg space-y-6">
+          <div className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Let's build your brand</h1>
+            <p className="text-sm text-muted-foreground">
+              Have a website? Paste it in and we'll pull your logo, colors, fonts, and
+              messaging automatically. You can review and tweak everything next.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="import-url">Your website</Label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="import-url"
+                    placeholder="yourcompany.com"
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    disabled={importing}
+                    autoFocus
+                    className="pl-9"
+                    onKeyDown={(e) => { if (e.key === "Enter" && importUrl.trim() && !importing) handleImport(); }}
+                  />
+                </div>
+                <Button onClick={handleImport} disabled={importing || !importUrl.trim()} className="gap-2 shrink-0">
+                  {importing ? (
+                    <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Importing…</>
+                  ) : (
+                    <>Import <ArrowRight className="w-4 h-4" /></>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {importDims && (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 pt-1">
+                {IMPORT_DIMENSIONS.map((d) => (
+                  <div key={d.id} className="flex items-center gap-2 text-sm">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                      <DimensionStatusIcon status={importDims[d.id]} />
+                    </span>
+                    <span className="text-muted-foreground">{d.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {importError && <p className="text-sm text-destructive">{importError}</p>}
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => { setShowImport(false); setImportError(""); }}
+              disabled={importing}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              Skip — I'll set it up manually
+            </button>
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            You can import or change any of this later in Brand Settings.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">

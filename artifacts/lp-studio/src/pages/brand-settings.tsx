@@ -47,6 +47,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import { streamBrandImportFromUrl } from "@/lib/brand-import-client";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -1894,29 +1895,6 @@ export default function BrandSettings() {
     });
 
     try {
-      const res = await fetch(`${BASE}/api/lp/brand-import/from-url-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Import failed");
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      interface DonePayload {
-        proposed: Record<string, unknown>;
-        confidence: Record<string, "high" | "medium" | "low">;
-        sourceUrl?: string;
-        pagesScraped?: string[];
-        hasScreenshot?: boolean;
-        results?: Record<string, { status: ImportDimensionStatus; data: unknown; errors: string[] }>;
-      }
-      let donePayload: DonePayload | null = null;
-
       const summarize = (dim: ImportDimensionName, data: unknown): string => {
         if (!data || typeof data !== "object") return "";
         const d = data as Record<string, unknown>;
@@ -1956,46 +1934,25 @@ export default function BrandSettings() {
         return "";
       };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let event: { event: string; [k: string]: unknown };
-          try { event = JSON.parse(line); } catch { continue; }
-          if (event.event === "dimension") {
-            const dim = event.dimension as ImportDimensionName;
-            const result = event.result as { status: ImportDimensionStatus; data: unknown; errors?: string[] };
-            setImportDimensions((prev) => ({
-              ...prev,
-              [dim]: {
-                status: result.status,
-                preview: summarize(dim, result.data),
-                errors: result.errors ?? [],
-              },
-            }));
-          } else if (event.event === "done") {
-            donePayload = event.payload as DonePayload;
-          } else if (event.event === "error") {
-            throw new Error(String(event.error));
-          }
-        }
-      }
+      const imported = await streamBrandImportFromUrl(url, (dim, r) => {
+        setImportDimensions((prev) => ({
+          ...prev,
+          [dim]: {
+            status: r.status,
+            preview: summarize(dim, r.data),
+            errors: r.errors,
+          },
+        }));
+      });
 
-      if (!donePayload) throw new Error("Stream ended without a final payload");
       const result: ImportResult = {
-        proposed: donePayload.proposed,
-        confidence: donePayload.confidence,
+        proposed: imported.proposed,
+        confidence: imported.confidence,
         unparsed: [],
-        sourceUrl: donePayload.sourceUrl,
-        pagesScraped: donePayload.pagesScraped,
-        hasScreenshot: donePayload.hasScreenshot,
-        logoAlternates: Array.isArray(donePayload.proposed.logoAlternates)
-          ? donePayload.proposed.logoAlternates as ImportResult["logoAlternates"]
-          : undefined,
+        sourceUrl: imported.sourceUrl,
+        pagesScraped: imported.pagesScraped,
+        hasScreenshot: imported.hasScreenshot,
+        logoAlternates: imported.logoAlternates,
       };
       setImportResult(result);
       const checked: Record<string, boolean> = {};
