@@ -16,10 +16,14 @@ import {
 import {
   Loader2, Plus, RefreshCw, Pencil, Copy, Trash2, Search, AlertTriangle,
 } from "lucide-react";
+import { BLOCK_REGISTRY } from "@/lib/block-types";
+import { neutralizeLabel } from "@/hooks/use-block-catalog";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Industry = "dental" | "generic";
+
+const INDUSTRIES: Industry[] = ["generic", "dental"];
 
 interface CatalogRow {
   block_type: string;
@@ -32,6 +36,14 @@ interface CatalogRow {
   updated_at: string;
   updated_by?: string | null;
 }
+
+/**
+ * A row as shown in the superadmin table: either a saved database override
+ * (`source: "db"`) or a synthetic entry derived from the in-code
+ * BLOCK_REGISTRY default (`source: "code"`) for a block that has no override
+ * row in this industry yet.
+ */
+type DisplayRow = CatalogRow & { source: "db" | "code" };
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
@@ -509,6 +521,7 @@ export default function SuperAdminBlockCatalog() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filterIndustry, setFilterIndustry] = useState<"all" | Industry>("all");
+  const [filterSource, setFilterSource] = useState<"all" | "db" | "code">("all");
   const [search, setSearch] = useState("");
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -537,10 +550,70 @@ export default function SuperAdminBlockCatalog() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Merge the in-code BLOCK_REGISTRY with the database override rows so the
+  // superadmin sees the FULL set of blocks (one entry per block per industry),
+  // not just the rows that happen to have an override. Mirrors the resolution
+  // semantics of the builder's use-block-catalog hook: a DB row overrides the
+  // registry label/category/props ("Customized"); absence of a row means the
+  // tenant inherits the in-code default ("Code default").
+  const merged = useMemo<DisplayRow[] | null>(() => {
+    if (rows === null) return null;
+    const dbByKey = new Map<string, CatalogRow>();
+    rows.forEach(r => dbByKey.set(`${r.block_type}::${r.industry}`, r));
+
+    const out: DisplayRow[] = [];
+    const seen = new Set<string>();
+    for (const industry of INDUSTRIES) {
+      for (const def of BLOCK_REGISTRY) {
+        const key = `${def.type}::${industry}`;
+        seen.add(key);
+        const db = dbByKey.get(key);
+        if (db) {
+          out.push({ ...db, source: "db" });
+        } else {
+          let defaultProps: Record<string, unknown> = {};
+          try {
+            defaultProps = def.defaultProps();
+          } catch {
+            // A malformed registry default must never blank the whole table —
+            // surface the block with empty props so it can still be edited.
+            defaultProps = {};
+          }
+          out.push({
+            block_type: def.type,
+            industry,
+            // Generic tenants never see Dandy/DSO tokens in the builder, so
+            // surface the neutralized label here too — that's what a new
+            // generic tenant actually inherits from the code default.
+            label: industry === "generic" ? neutralizeLabel(def.label) : def.label,
+            category: def.category,
+            default_props: defaultProps,
+            is_enabled: true,
+            sort_order: 0,
+            updated_at: "",
+            updated_by: null,
+            source: "code",
+          });
+        }
+      }
+    }
+    // Custom override rows whose block_type has no in-code registry entry.
+    for (const r of rows) {
+      if (seen.has(`${r.block_type}::${r.industry}`)) continue;
+      out.push({ ...r, source: "db" });
+    }
+    out.sort((a, b) =>
+      a.block_type.localeCompare(b.block_type) ||
+      a.industry.localeCompare(b.industry),
+    );
+    return out;
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (rows ?? []).filter(r => {
+    return (merged ?? []).filter(r => {
       if (filterIndustry !== "all" && r.industry !== filterIndustry) return false;
+      if (filterSource !== "all" && r.source !== filterSource) return false;
       if (!q) return true;
       return (
         r.block_type.toLowerCase().includes(q) ||
@@ -548,15 +621,27 @@ export default function SuperAdminBlockCatalog() {
         r.category.toLowerCase().includes(q)
       );
     });
-  }, [rows, filterIndustry, search]);
+  }, [merged, filterIndustry, filterSource, search]);
 
   const counts = useMemo(() => {
-    const all = rows?.length ?? 0;
-    const dental = rows?.filter(r => r.industry === "dental").length ?? 0;
-    const generic = rows?.filter(r => r.industry === "generic").length ?? 0;
-    const disabled = rows?.filter(r => !r.is_enabled).length ?? 0;
-    return { all, dental, generic, disabled };
-  }, [rows]);
+    const list = merged ?? [];
+    const perInd = (ind: Industry) => {
+      const inIndustry = list.filter(r => r.industry === ind);
+      return {
+        total: inIndustry.length,
+        customized: inIndustry.filter(r => r.source === "db").length,
+      };
+    };
+    return {
+      uniqueTypes: new Set(list.map(r => r.block_type)).size,
+      total: list.length,
+      customized: list.filter(r => r.source === "db").length,
+      codeDefault: list.filter(r => r.source === "code").length,
+      disabled: list.filter(r => !r.is_enabled).length,
+      generic: perInd("generic"),
+      dental: perInd("dental"),
+    };
+  }, [merged]);
 
   const openNew = () => {
     setEditorInitial({ ...EMPTY_FORM, industry: filterIndustry === "dental" ? "dental" : "generic" });
@@ -564,7 +649,7 @@ export default function SuperAdminBlockCatalog() {
     setEditorOpen(true);
   };
 
-  const openEdit = (row: CatalogRow) => {
+  const openEdit = (row: DisplayRow) => {
     setEditorInitial({
       block_type: row.block_type,
       industry: row.industry,
@@ -578,7 +663,7 @@ export default function SuperAdminBlockCatalog() {
     setEditorOpen(true);
   };
 
-  const toggleEnabled = async (row: CatalogRow) => {
+  const toggleEnabled = async (row: DisplayRow) => {
     const key = `${row.block_type}::${row.industry}`;
     setTogglingKey(key);
     setActionError(null);
@@ -595,14 +680,10 @@ export default function SuperAdminBlockCatalog() {
           sort_order: row.sort_order,
         }),
       });
-      // Optimistically update local state, then sync
-      setRows(prev =>
-        (prev ?? []).map(r =>
-          r.block_type === row.block_type && r.industry === row.industry
-            ? { ...r, is_enabled: !row.is_enabled }
-            : r,
-        ),
-      );
+      // Re-fetch so the merged view reflects the new override. (Toggling a
+      // previously code-default block creates a brand-new DB row, so we can't
+      // patch local state in place — refresh to pull the canonical row.)
+      await refresh();
     } catch (err: any) {
       let msg = err?.message ?? "Toggle failed";
       try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
@@ -621,10 +702,20 @@ export default function SuperAdminBlockCatalog() {
         <div>
           <h2 className="text-lg font-semibold">Block Catalog</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {rows === null ? "Loading…" : (
+            {merged === null ? "Loading…" : (
               <>
-                {counts.all} rows · {counts.dental} dental · {counts.generic} generic
+                {counts.uniqueTypes} block types · {counts.total} rows ·{" "}
+                <span className="text-emerald-700">{counts.customized} customized</span> ·{" "}
+                {counts.codeDefault} code default
                 {counts.disabled > 0 && <> · <span className="text-amber-700">{counts.disabled} disabled</span></>}
+              </>
+            )}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {merged === null ? "" : (
+              <>
+                Generic: {counts.generic.customized}/{counts.generic.total} customized ·{" "}
+                Dental: {counts.dental.customized}/{counts.dental.total} customized
               </>
             )}
           </p>
@@ -656,6 +747,19 @@ export default function SuperAdminBlockCatalog() {
             </Button>
           ))}
         </div>
+        <div className="flex items-center gap-1">
+          {(["all", "db", "code"] as const).map(opt => (
+            <Button
+              key={opt}
+              size="sm"
+              variant={filterSource === opt ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setFilterSource(opt)}
+            >
+              {opt === "all" ? "All blocks" : opt === "db" ? "Customized" : "Code default"}
+            </Button>
+          ))}
+        </div>
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
@@ -684,40 +788,51 @@ export default function SuperAdminBlockCatalog() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[20%]">Block type</TableHead>
+              <TableHead className="w-[18%]">Block type</TableHead>
               <TableHead className="w-[24%]">Label</TableHead>
-              <TableHead className="w-[14%]">Industry</TableHead>
-              <TableHead className="w-[14%]">Category</TableHead>
-              <TableHead className="w-[8%] text-right">Sort</TableHead>
-              <TableHead className="w-[10%]">Enabled</TableHead>
-              <TableHead className="w-[10%]" />
+              <TableHead className="w-[12%]">Status</TableHead>
+              <TableHead className="w-[12%]">Industry</TableHead>
+              <TableHead className="w-[12%]">Category</TableHead>
+              <TableHead className="w-[6%] text-right">Sort</TableHead>
+              <TableHead className="w-[8%]">Enabled</TableHead>
+              <TableHead className="w-[8%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows === null && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-12">Loading…</TableCell></TableRow>
+            {merged === null && (
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-12">Loading…</TableCell></TableRow>
             )}
-            {rows?.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                No catalog rows yet. Click <strong>Add row</strong> to create one.
+            {merged && merged.length === 0 && (
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                No blocks found.
               </TableCell></TableRow>
             )}
-            {rows && rows.length > 0 && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+            {merged && merged.length > 0 && filtered.length === 0 && (
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                 No rows match your filter.
               </TableCell></TableRow>
             )}
             {filtered.map(row => {
               const key = `${row.block_type}::${row.industry}`;
               const updatedBy = row.updated_by ? ` by ${row.updated_by}` : "";
+              const isDb = row.source === "db";
               return (
                 <TableRow key={key} className={row.is_enabled ? "" : "opacity-60"}>
                   <TableCell className="font-mono text-xs">{row.block_type}</TableCell>
                   <TableCell>
                     <div className="font-medium text-sm">{row.label}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      Updated {formatDate(row.updated_at)}{updatedBy}
+                      {isDb
+                        ? <>Updated {formatDate(row.updated_at)}{updatedBy}</>
+                        : "Inherits in-code default"}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      isDb ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                    }`}>
+                      {isDb ? "Customized" : "Code default"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -737,18 +852,23 @@ export default function SuperAdminBlockCatalog() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Edit"
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                        title={isDb ? "Edit global default" : "Edit & save a global default"}
                         onClick={() => openEdit(row)}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Duplicate to other industry"
-                        onClick={() => setDuplicateRow(row)}>
-                        <Copy className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete"
-                        onClick={() => setDeleteRow(row)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {isDb && (
+                        <>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Duplicate to other industry"
+                            onClick={() => setDuplicateRow(row)}>
+                            <Copy className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete override"
+                            onClick={() => setDeleteRow(row)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

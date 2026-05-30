@@ -47,7 +47,7 @@ function normalize(rows: unknown): CatalogEntry[] {
  * block defs that fall back to BLOCK_REGISTRY (whose labels intentionally say
  * "Dandy ...", "DSO ...", "Inside Dandy · ..." for the dental industry).
  */
-function neutralizeLabel(label: string): string {
+export function neutralizeLabel(label: string): string {
   if (!label) return label;
   let out = label
     .replace(/^Inside\s+Dandy\s*[·:\-–—]\s*/i, "")
