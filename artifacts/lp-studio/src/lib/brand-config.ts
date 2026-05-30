@@ -92,6 +92,18 @@ export interface SegmentComparisonRow {
   them: string;
 }
 
+/**
+ * One entry in a microsite block-list override. `type` is a registered
+ * block type; `schemaHint` is the optional prop-shape hint string passed
+ * to the AI (same format `BLOCK_PROP_SCHEMAS` uses on the server). When
+ * `schemaHint` is omitted the generator falls back to the server's
+ * registry default, then to a generic `{ ...fields }` placeholder.
+ */
+export interface MicrositeBlockListEntry {
+  type: string;
+  schemaHint?: string;
+}
+
 export interface AudienceSegment {
   id: string;
   name: string;
@@ -104,6 +116,12 @@ export interface AudienceSegment {
   challenges: SegmentChallenge[];
   stats: SegmentStat[];
   comparisonRows: SegmentComparisonRow[];
+  /**
+   * Optional per-segment block-list override for the microsite generator.
+   * When empty/unset, the generator falls back to the brand's
+   * `defaultMicrositeBlockList`, then to a built-in neutral set.
+   */
+  micrositeBlockList?: MicrositeBlockListEntry[];
 }
 
 /**
@@ -233,6 +251,15 @@ export interface BrandConfig {
   copyInstructions: string;
   productLines: ProductLine[];
   segments: AudienceSegment[];
+  /**
+   * Default microsite block list used when the selected segment has no
+   * `micrositeBlockList` of its own. When this is also unset, the
+   * generator uses a built-in neutral set (`hero`, `trust-bar`,
+   * `benefits-grid`, `testimonial`, `how-it-works`, `comparison`,
+   * `bottom-cta`) — the same one the legacy "independent" branch used,
+   * which doesn't mention DSOs or dentistry.
+   */
+  defaultMicrositeBlockList?: MicrositeBlockListEntry[];
   /** Stats pulled directly from the brand's marketing pages during URL
    *  brand-import (e.g. "10M+ patients served", "99.9% uptime"). Surfaced
    *  in Brand Settings under "Scraped facts" and fed into AI page

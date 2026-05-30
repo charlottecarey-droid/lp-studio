@@ -3122,13 +3122,14 @@ function AccountDetailView({ id }: { id: string }) {
 
 /* ─── Generate Microsite Modal ───────────────────────────────── */
 
-type MicrositeAudience = "dso-corporate" | "dso-practice" | "independent";
-
-const AUDIENCE_OPTIONS: { value: MicrositeAudience; label: string; sub: string }[] = [
-  { value: "dso-corporate", label: "Network Leadership", sub: "Executives and decision-makers at the parent organization" },
-  { value: "dso-practice", label: "Network Site", sub: "Operators and managers at an individual location in a network" },
-  { value: "independent", label: "Independent Operator", sub: "Solo or small group operators" },
-];
+// The audience picker is driven by this tenant's own brand.segments
+// (loaded from GET /lp/brand), not a hardcoded enum — so DSO/dental
+// vocabulary never leaks into other tenants' microsite generators.
+interface PickerSegment {
+  id: string;
+  name: string;
+  description?: string;
+}
 
 interface MarketingTemplate {
   id: number;
@@ -3161,7 +3162,8 @@ function GenerateMicrositeModal({
   onCreated: () => void;
 }) {
   const [, navigate] = useLocation();
-  const [audience, setAudience] = useState<MicrositeAudience | null>(null);
+  const [segments, setSegments] = useState<PickerSegment[]>([]);
+  const [segmentId, setSegmentId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [step, setStep] = useState<"idle" | "generating" | "linking" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -3189,11 +3191,14 @@ function GenerateMicrositeModal({
       const brandConfig = (brand.config ?? brand) as Record<string, unknown>;
       const defaultUrl = (brandConfig.defaultCtaUrl as string | undefined) ?? "";
       setCtaUrl(defaultUrl);
+      const segs = Array.isArray(brandConfig.segments) ? (brandConfig.segments as PickerSegment[]) : [];
+      setSegments(segs.filter(s => s?.id && s?.name));
     });
   }, [open]);
 
   function reset() {
-    setAudience(null);
+    setSegmentId(null);
+    setSegments([]);
     setPrompt("");
     setStep("idle");
     setErrorMsg("");
@@ -3212,7 +3217,7 @@ function GenerateMicrositeModal({
   }
 
   async function handleGenerate() {
-    if (!audience) return;
+    if (!segmentId) return;
     setStep("generating");
     setErrorMsg("");
     try {
@@ -3234,7 +3239,8 @@ function GenerateMicrositeModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          audience,
+          segmentId,
+          audience: segmentId,
           prompt: prompt.trim() || undefined,
           ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
           ...(ctaOverride ? { ctaOverride } : {}),
@@ -3401,25 +3407,43 @@ function GenerateMicrositeModal({
                 Who is this page for? <span className="text-red-500">*</span>
               </Label>
               <div className="flex flex-col gap-2">
-                {AUDIENCE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setAudience(opt.value)}
-                    className={[
-                      "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                      "focus:outline-none focus:ring-2 focus:ring-primary/30",
-                      audience === opt.value
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border bg-background hover:border-primary/40",
-                      busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                    ].join(" ")}
-                  >
-                    <span className="text-sm font-medium leading-tight">{opt.label}</span>
-                    <span className="text-xs text-muted-foreground">{opt.sub}</span>
-                  </button>
-                ))}
+                {segments.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left">
+                    <p className="text-sm font-medium text-foreground">No audience segments yet</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Add audience segments in Brand Settings to target this page.
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-medium text-primary hover:underline"
+                      onClick={() => { handleClose(); navigate("/brand"); }}
+                    >
+                      Open Brand Settings →
+                    </button>
+                  </div>
+                ) : (
+                  segments.map((seg) => (
+                    <button
+                      key={seg.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setSegmentId(seg.id)}
+                      className={[
+                        "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                        segmentId === seg.id
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border bg-background hover:border-primary/40",
+                        busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      <span className="text-sm font-medium leading-tight">{seg.name}</span>
+                      {seg.description ? (
+                        <span className="text-xs text-muted-foreground line-clamp-2">{seg.description}</span>
+                      ) : null}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -3520,7 +3544,7 @@ function GenerateMicrositeModal({
             <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
               Cancel
             </Button>
-            <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !audience || !ctaValid}>
+            <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !segmentId || !ctaValid}>
               {busy ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (

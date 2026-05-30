@@ -12,6 +12,7 @@
   "dependencies": {
     "@workspace/db": "workspace:*",
     "@workspace/plan-config": "workspace:*",
+    "drizzle-orm": "catalog:",
     "stripe": "^22.1.1"
   },
   "devDependencies": {

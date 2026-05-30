@@ -19,8 +19,6 @@ const micrositeLimiter = rateLimit({
   message: { error: "Too many generation requests. Please wait before generating another microsite." },
 });
 
-export type MicrositeAudience = "dso-corporate" | "dso-practice" | "independent";
-
 // ── Media library utilities ────────────────────────────────────────────────
 
 interface MediaImage { url: string; title: string; tags: string[]; }
@@ -788,6 +786,10 @@ interface BrandSegmentComparisonRow {
   us?: string;
   them?: string;
 }
+interface BrandMicrositeBlockListEntry {
+  type?: string;
+  schemaHint?: string;
+}
 interface BrandAudienceSegment {
   id?: string;
   name?: string;
@@ -800,6 +802,29 @@ interface BrandAudienceSegment {
   challenges?: BrandSegmentChallenge[];
   stats?: BrandSegmentStat[];
   comparisonRows?: BrandSegmentComparisonRow[];
+  micrositeBlockList?: BrandMicrositeBlockListEntry[];
+}
+
+// Built-in neutral microsite block list — the legacy "independent" set,
+// used when neither the selected segment nor the brand defines one. No
+// DSO / dental vocabulary, so it's safe for any tenant.
+const NEUTRAL_MICROSITE_BLOCK_LIST: BrandMicrositeBlockListEntry[] = [
+  { type: "hero" },
+  { type: "trust-bar" },
+  { type: "benefits-grid" },
+  { type: "testimonial" },
+  { type: "how-it-works" },
+  { type: "comparison" },
+  { type: "bottom-cta" },
+];
+
+// Three-tier schema resolution for a block-list entry: explicit per-entry
+// schemaHint → server-side BLOCK_PROP_SCHEMAS registry default → generic
+// "{ ...fields }" placeholder. Never throws on missing data.
+function resolveBlockSchema(entry: BrandMicrositeBlockListEntry): string {
+  const hint = entry.schemaHint?.trim();
+  if (hint) return hint;
+  return BLOCK_PROP_SCHEMAS[entry.type ?? ""] ?? "{ ...fields }";
 }
 
 /**
@@ -913,7 +938,7 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
 }
 
 function buildSystemPrompt(
-  audience: MicrositeAudience,
+  segment: BrandAudienceSegment,
   brand: Record<string, unknown>,
   templateBlockTypes?: string[],
   accountSegment?: string | null,
@@ -940,7 +965,7 @@ function buildSystemPrompt(
   const salesConsole = (brand.salesConsole ?? {}) as { useBuiltInExemplars?: boolean };
   const useBuiltInExemplars = salesConsole.useBuiltInExemplars === true;
   const exemplarsSection = formatExemplarsSection(
-    pickExemplars(audience, accountSegment, 2, { useBuiltIn: useBuiltInExemplars }),
+    pickExemplars(segment.id ?? "", accountSegment, 2, { useBuiltIn: useBuiltInExemplars }),
   );
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
@@ -1044,7 +1069,31 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     "Never put content fields at the top level of a block. Always nest inside props.",
   ].filter(s => s !== "").join("\n");
 
-  const blockCount = templateBlockTypes ? templateBlockTypes.length : "5–7";
+  // Audience copy guidance — single segment-driven source of truth. Replaces
+  // the legacy hardcoded `audience === "dso-*"` branches; any Dandy-specific
+  // copy now lives in Dandy's seeded segment data and is only emitted when
+  // Dandy is the active tenant.
+  const audienceSection = [
+    segment.description?.trim()
+      ? `AUDIENCE: ${segment.description.trim()}`
+      : `AUDIENCE: ${segment.name?.trim() || "this account's audience"}`,
+    segment.messagingAngle?.trim() ? `Messaging angle: ${segment.messagingAngle.trim()}` : null,
+    segment.uniqueContext?.trim() ? `Unique context: ${segment.uniqueContext.trim()}` : null,
+    segment.valueProps?.length
+      ? `Messaging themes: ${segment.valueProps.filter(v => v?.trim()).join(", ")}.`
+      : null,
+  ].filter(Boolean).join("\n");
+
+  // Block list resolution order: selected segment's micrositeBlockList →
+  // brand-level defaultMicrositeBlockList → built-in neutral fallback.
+  const brandDefaultBlockList = brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined;
+  const resolvedBlockList: BrandMicrositeBlockListEntry[] =
+    (segment.micrositeBlockList?.length ? segment.micrositeBlockList : undefined)
+    ?? (brandDefaultBlockList?.length ? brandDefaultBlockList : undefined)
+    ?? NEUTRAL_MICROSITE_BLOCK_LIST;
+  const resolvedBlockTypes = resolvedBlockList.filter(b => (b.type ?? "").trim());
+
+  const blockCount = templateBlockTypes ? templateBlockTypes.length : resolvedBlockTypes.length;
   const footer = [
     "",
     `Build a page with exactly ${blockCount} blocks in the order listed.`,
@@ -1063,7 +1112,7 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     return [
       header,
       "",
-      `AUDIENCE: ${audience === "dso-corporate" ? "DSO corporate leadership — VP of Operations, CFO, Chief Dental Officer" : audience === "dso-practice" ? "Individual dental practice within a DSO network — the dentist or office manager" : "Independent dental practice — solo dentist or small group"}`,
+      audienceSection,
       "",
       "IMPORTANT: This page uses a fixed template layout. You MUST output EXACTLY these blocks in EXACTLY this order — do not add, remove, or reorder blocks. Customize ALL text copy for the specific account.",
       "",
@@ -1073,61 +1122,17 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     ].join("\n");
   }
 
-  if (audience === "dso-corporate") {
-    return [
-      header,
-      "",
-      "AUDIENCE: DSO corporate leadership — VP of Operations, CFO, Chief Dental Officer.",
-      "Messaging themes: same-store growth, EBITDA protection, standardization at scale, network-wide visibility, pilot-then-scale, zero CAPEX.",
-      "",
-      "AVAILABLE BLOCKS (use only these, in this order):",
-      "1. \"dso-heartland-hero\": { eyebrow, headline, companyName, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, stats: [{ value, label }] }",
-      "2. \"dso-stat-bar\": { stats: [{ value, label }], backgroundStyle }",
-      "3. \"dso-challenges\": { eyebrow, headline, backgroundStyle, layout (\"4-col\"), challenges: [{ title, desc }] } — 4 DSO pain points specific to this account",
-      "4. \"dso-insights-dashboard\": { eyebrow, headline, subheadline, practiceLabel, backgroundStyle, dashboardVariant (\"light\"|\"dark\") }",
-      "5. \"dso-success-stories\": { eyebrow, headline, backgroundStyle, cases: [{ name, stat, label, quote, author }] } — 2–3 real DSO case studies",
-      "6. \"dso-pilot-steps\": { eyebrow, headline, subheadline, backgroundStyle, steps: [{ title, subtitle, desc, details: string[] }] }",
-      "7. \"dso-final-cta\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
-      footer,
-    ].join("\n");
-  }
+  const blockList = resolvedBlockTypes
+    .map((entry, i) => `${i + 1}. "${entry.type}": ${resolveBlockSchema(entry)}`)
+    .join("\n");
 
-  if (audience === "dso-practice") {
-    return [
-      header,
-      "",
-      "AUDIENCE: Individual dental practice within a DSO network — the dentist or office manager, not corporate leadership.",
-      "Messaging themes: practice-level benefits, $0 CAPEX scanner, $1,500 lab credit, first-time fit guarantee, chairside AI, easy onboarding, DSO partnership perks.",
-      "",
-      "AVAILABLE BLOCKS (use only these, in EXACTLY this order):",
-      "1. \"dso-practice-nav\": { dsoName, links: [{ label, anchor }], ctaText, ctaUrl } — sticky top nav; dsoName = the DSO or practice group name; links should match section anchors below (e.g. #perks, #steps, #faq)",
-      "2. \"dso-practice-hero\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
-      "3. \"dso-stat-row\": { eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
-      "4. \"dso-partnership-perks\": { eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle } — list the exclusive DSO partnership benefits",
-      "5. \"dso-split-feature\": { eyebrow, headline, body, bullets: string[], ctaText, ctaUrl, imagePosition (\"left\"|\"right\"), backgroundStyle } — highlight AI Scan Review",
-      "6. \"dso-software-showcase\": { eyebrow, headline, body, features: [{ icon, label }], ctaText, ctaUrl, backgroundStyle, layout }",
-      "7. \"dso-faq\": { eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions practices actually ask",
-      "8. \"dso-activation-steps\": { eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
-      "9. \"dso-final-cta\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle } — closing call to action",
-      footer,
-    ].join("\n");
-  }
-
-  // independent
   return [
     header,
     "",
-    "AUDIENCE: Independent dental practice — solo dentist or small group, not part of a DSO.",
-    "Messaging themes: lab quality, turnaround time, free remakes, digital workflow, practice growth, no contracts.",
+    audienceSection,
     "",
     "AVAILABLE BLOCKS (use only these, in this order):",
-    "1. \"hero\": { headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
-    "2. \"trust-bar\": { items: [{ value, label }] } — 3–4 key proof stats",
-    `3. "benefits-grid": { headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 specific ${brandName || "product"} benefits`,
-    "4. \"testimonial\": { quote, author, role, practiceName } — a real, specific practitioner voice",
-    "5. \"how-it-works\": { headline, steps: [{ number, title, description }] }",
-    "6. \"comparison\": { headline, oldWayLabel, oldWayBullets: string[], newWayLabel, newWayBullets: string[] }",
-    "7. \"bottom-cta\": { headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
+    blockList,
     footer,
   ].join("\n");
 }
@@ -1138,12 +1143,10 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
 router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const accountId = Number(req.params.accountId);
-  const { prompt: userPrompt, audience, templateId, ctaOverride } = req.body as { prompt?: string; audience?: MicrositeAudience; templateId?: number; ctaOverride?: CtaOverride };
-
-  if (!audience || !["dso-corporate", "dso-practice", "independent"].includes(audience)) {
-    res.status(400).json({ error: "audience is required: 'dso-corporate' | 'dso-practice' | 'independent'" });
-    return;
-  }
+  // `segmentId` is the current field. `audience` is a one-release legacy alias
+  // (the old enum values doubled as segment ids); both resolve against
+  // brand.segments by id after the brand row is loaded inside the try block.
+  const { prompt: userPrompt, segmentId, audience, templateId, ctaOverride } = req.body as { prompt?: string; segmentId?: string; audience?: string; templateId?: number; ctaOverride?: CtaOverride };
 
   try {
     const [account] = await db.select().from(salesAccountsTable)
@@ -1162,6 +1165,21 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
       .limit(1);
     const brand = brandRows.length > 0 ? (brandRows[0].config as Record<string, unknown>) : {};
+
+    // Resolve the audience segment the user picked from this tenant's own
+    // brand.segments. No hardcoded enum — unknown ids fail closed with a 400
+    // so non-Dandy tenants never silently fall through to DSO/dental copy.
+    const brandSegments = (brand.segments as BrandAudienceSegment[] | undefined) ?? [];
+    const requestedSegmentId = (segmentId ?? audience ?? "").trim();
+    const segment = brandSegments.find(s => (s?.id ?? "").trim() === requestedSegmentId);
+    if (!requestedSegmentId || !segment) {
+      res.status(400).json({
+        error: requestedSegmentId
+          ? `Unknown segmentId "${requestedSegmentId}". Configure audience segments in Brand Settings.`
+          : "segmentId is required.",
+      });
+      return;
+    }
 
     // Resolved brand context — used to drive brand-neutral fallback copy
     // when the AI omits a field. Reads brandName + tagline from
@@ -1194,14 +1212,14 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     const briefingData = briefing?.briefingData as Record<string, unknown> | undefined;
-    const systemPrompt = buildSystemPrompt(audience, brand, templateBlockTypes, account.segment);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment);
 
     const contextParts: string[] = [];
     contextParts.push(`ACCOUNT: ${account.displayName ?? account.name}`);
     if (account.domain) contextParts.push(`Domain: ${account.domain}`);
     if (account.segment) contextParts.push(`Segment: ${account.segment}`);
     if (account.industry) contextParts.push(`Industry: ${account.industry}`);
-    contextParts.push(`MICROSITE AUDIENCE: ${audience}`);
+    contextParts.push(`MICROSITE AUDIENCE: ${segment.name?.trim() || segment.id || ""}`);
 
     if (briefingData) {
       if (briefingData.overview) contextParts.push(`\nACCOUNT OVERVIEW:\n${briefingData.overview}`);
@@ -1248,7 +1266,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     if (userPrompt) contextParts.push(`\nADDITIONAL INSTRUCTIONS:\n${userPrompt}`);
-    contextParts.push(`\nGenerate a personalised microsite for ${account.displayName ?? account.name} targeting ${audience} audience. Make every block specific to their business.`);
+    contextParts.push(`\nGenerate a personalised microsite for ${account.displayName ?? account.name} targeting the ${segment.name?.trim() || "specified"} audience. Make every block specific to their business.`);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -1275,7 +1293,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       return;
     }
 
-    const baseSlug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    let baseSlug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+    // Belt-and-suspenders: we feed the human-readable segment name into the
+    // prompt, never the id, so the id should never reach the slug. If the AI
+    // ever echoes it from somewhere we haven't found, strip ONLY the active
+    // segment's id (not all segment ids) and log a warning so we know it fired.
+    const activeSegmentId = (segment.id ?? "").trim().toLowerCase();
+    if (activeSegmentId) {
+      const escaped = activeSegmentId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const idPattern = new RegExp(`-?${escaped}-?`, "g");
+      const stripped = baseSlug.replace(idPattern, "-").replace(/-{2,}/g, "-").replace(/^-|-$/g, "");
+      if (stripped !== baseSlug) {
+        console.warn(`[generate-microsite] segment id "${activeSegmentId}" leaked into AI slug "${baseSlug}"; stripped to "${stripped}".`);
+        baseSlug = stripped;
+      }
+    }
 
     let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
 

@@ -890,6 +890,9 @@ importers:
       '@workspace/plan-config':
         specifier: workspace:*
         version: link:../lib/plan-config
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.18.0)(pg@8.20.0)
       stripe:
         specifier: ^22.1.1
         version: 22.1.1(@types/node@25.3.5)

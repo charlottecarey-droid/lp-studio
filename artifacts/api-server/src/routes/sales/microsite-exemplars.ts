@@ -24,8 +24,6 @@
  *     it for the right accounts.
  */
 
-import type { MicrositeAudience } from "./generate-microsite";
-
 export interface MicrositeExemplarPage {
   title: string;
   slug: string;
@@ -35,8 +33,8 @@ export interface MicrositeExemplarPage {
 export interface MicrositeExemplar {
   /** Stable id used for logging which exemplars were sent for a given run. */
   id: string;
-  /** Which audience prompt-variant this exemplar applies to. */
-  audience: MicrositeAudience;
+  /** Which audience segment this exemplar applies to (matches `segment.id`). */
+  audience: string;
   /**
    * Lowercase substrings to match against the account's `segment` field.
    * The selector boosts exemplars whose hints appear in the segment
@@ -466,7 +464,7 @@ export const EXEMPLARS: MicrositeExemplar[] = [
  * should fall back gracefully (e.g. omit the EXEMPLARS section entirely).
  */
 export function pickExemplars(
-  audience: MicrositeAudience,
+  segmentId: string,
   accountSegment: string | null | undefined,
   max = 2,
   opts: { useBuiltIn?: boolean } = {},
@@ -475,7 +473,7 @@ export function pickExemplars(
   // Other tenants must opt-in or they'd leak Dandy customer names into
   // their AI prompts.
   if (opts.useBuiltIn === false) return [];
-  const eligible = EXEMPLARS.filter(e => e.audience === audience);
+  const eligible = EXEMPLARS.filter(e => e.audience === segmentId);
   if (eligible.length === 0) return [];
 
   const seg = (accountSegment ?? "").trim().toLowerCase();
