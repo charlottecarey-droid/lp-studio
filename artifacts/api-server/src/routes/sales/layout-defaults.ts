@@ -3,6 +3,8 @@ import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesLayoutDefaultsTable } from "@workspace/db";
+import { isDandyTenant } from "../../lib/planFeatures";
+import { isDandyGatedLayoutKey } from "@workspace/one-pager-types/constants";
 
 const router = Router();
 
@@ -57,6 +59,13 @@ router.get("/layout-defaults", async (req, res): Promise<void> => {
 router.put("/layout-defaults/:key", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    // Defense in depth behind the client gate: a non-Dandy tenant must not be
+    // able to author/persist layout state for the Dandy-only built-in
+    // templates (comparison / agreement-summary).
+    if (isDandyGatedLayoutKey(String(req.params.key)) && !(await isDandyTenant(tenantId))) {
+      res.status(403).json({ error: "This template is not available for your workspace" });
+      return;
+    }
     const { config } = req.body;
     if (config === undefined) {
       res.status(400).json({ error: "config is required" });
@@ -103,6 +112,12 @@ router.put("/layout-defaults/:key", requirePermission("sales_campaigns"), async 
 router.delete("/layout-defaults/:key", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    // Defense in depth behind the client gate: reject non-Dandy deletes of the
+    // Dandy-only built-in template layouts before touching the database.
+    if (isDandyGatedLayoutKey(String(req.params.key)) && !(await isDandyTenant(tenantId))) {
+      res.status(403).json({ error: "This template is not available for your workspace" });
+      return;
+    }
     await db
       .delete(salesLayoutDefaultsTable)
       .where(

@@ -23,6 +23,8 @@ import {
   defaultAgreementSummaryContent,
   type BrandContext,
 } from "@workspace/one-pager-types/generators";
+import { generateCustomTemplatePdf, type CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf";
+import type { CustomTemplate, OverlayField } from "@workspace/one-pager-types";
 
 const ROYAL_BRAND: BrandContext = {
   wordmark: "royal",
@@ -211,5 +213,98 @@ describe("New Partner QR payload resolves from BrandContext for non-Dandy tenant
         `QR payload encoded for Royal tenant must resolve to brand.qrFallbackUrl (got "${payload}")`,
       ).toBe(ROYAL_BRAND.qrFallbackUrl);
     }
+  }, 30_000);
+});
+
+// The custom-template generator historically hardcoded the Dandy white logo
+// SVG, the meetdandy.com QR fallback, and a literal "dandy" wordmark. It now
+// takes a CustomTemplatePdfBrandOpts thread (resolved per-tenant by the
+// caller). For a non-Dandy tenant the generator must render that tenant's own
+// brand — or nothing — but NEVER a Dandy asset/URL/wordmark.
+function overlayField(partial: Partial<OverlayField> & Pick<OverlayField, "id" | "type">): OverlayField {
+  return {
+    label: partial.id,
+    x: 10,
+    y: 10,
+    fontSize: 18,
+    fontFamily: "helvetica",
+    color: "#FFFFFF",
+    bold: false,
+    italic: false,
+    defaultValue: "",
+    ...partial,
+  };
+}
+
+describe("Custom-template PDF — no Dandy logo/QR/wordmark leak for non-Dandy tenants", () => {
+  const NON_DANDY_OPTS: CustomTemplatePdfBrandOpts = {
+    // Royal has no brand-logo SVG → the legacy `dandy_logo` field must fall
+    // back to the brand wordmark text, never the Dandy logo or a "dandy" string.
+    brandLogoSvgUrl: "",
+    brandWordmark: "royal",
+    qrFallbackUrl: "https://royal.example.com",
+  };
+
+  function buildTemplate(): CustomTemplate {
+    return {
+      name: "Royal Custom",
+      background_url: "",
+      orientation: "portrait",
+      fields: [
+        overlayField({ id: "qr", type: "qr_code", x: 10, y: 10, qrSize: 12 }),
+        overlayField({ id: "logo", type: "dandy_logo", x: 10, y: 40 }),
+      ],
+    };
+  }
+
+  async function spyQr(): Promise<{ seen: string[]; restore: () => void }> {
+    const qrcode = await import("qrcode");
+    const seen: string[] = [];
+    const spy = vi
+      .spyOn(qrcode.default, "toDataURL")
+      .mockImplementation(async (text: string | qrcode.QRCodeSegment[]) => {
+        if (typeof text === "string") seen.push(text);
+        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+      });
+    return { seen, restore: () => spy.mockRestore() };
+  }
+
+  it("renders the brand wordmark (never 'dandy') and the brand QR URL (never meetdandy.com) when the rep leaves QR/link empty", async () => {
+    const { seen, restore } = await spyQr();
+    let doc;
+    try {
+      // No per-field values at all (rep left QR/link empty) → generator must
+      // resolve from brandOpts, not Dandy defaults.
+      doc = await generateCustomTemplatePdf(buildTemplate(), {}, NON_DANDY_OPTS);
+    } finally {
+      restore();
+    }
+    const text = await extractPdfText(await pdfBytes(doc));
+    expect(text, "custom-template PDF leaked the literal 'dandy' wordmark").not.toMatch(/\bdandy\b/i);
+    expect(text, "brand wordmark was not rendered for the legacy dandy_logo field").toMatch(/royal/i);
+
+    expect(seen.length, "QRCode.toDataURL was never invoked").toBeGreaterThan(0);
+    for (const payload of seen) {
+      expect(payload, `QR payload must not reference meetdandy.com (got "${payload}")`).not.toMatch(/meetdandy/i);
+      expect(payload, `QR payload must resolve to the brand fallback (got "${payload}")`).toBe(
+        "https://royal.example.com",
+      );
+    }
+  }, 30_000);
+
+  it("skips the QR and logo entirely (no Dandy fallback) when no brand logo/wordmark/QR URL is provided", async () => {
+    const { seen, restore } = await spyQr();
+    let doc;
+    try {
+      // Empty brandOpts → no QR fallback, no logo SVG, no wordmark. The
+      // generator must skip both fields rather than emit a Dandy asset.
+      doc = await generateCustomTemplatePdf(buildTemplate(), {}, {});
+    } finally {
+      restore();
+    }
+    const text = await extractPdfText(await pdfBytes(doc));
+    expect(text, "custom-template PDF leaked a Dandy token with empty brandOpts").not.toMatch(/\bdandy\b/i);
+    expect(text, "meetdandy.com leaked into the custom-template PDF").not.toMatch(/meetdandy\.com/i);
+    expect(seen.length, "QR must be skipped when there is no URL at all").toBe(0);
   }, 30_000);
 });

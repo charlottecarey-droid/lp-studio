@@ -79,6 +79,7 @@ export {
   DELETED_BUILTINS_KEY,
   DANDY_GATED_BUILTIN_IDS,
   isDandyGatedBuiltin,
+  isDandyGatedLayoutKey,
   isDandyBrandName,
   type DandyGatedBuiltinId,
 } from "./constants";

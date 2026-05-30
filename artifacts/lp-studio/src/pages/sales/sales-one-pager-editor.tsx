@@ -22,7 +22,7 @@ import {
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig } from "@/lib/brand-config";
-import { scrubBrand, type BrandContext } from "@workspace/one-pager-types";
+import { scrubBrand, isDandyGatedBuiltin, type BrandContext } from "@workspace/one-pager-types";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 
 // ── API helpers (mirrors sales-one-pager.tsx) ──────────────────────
@@ -260,7 +260,10 @@ export default function SalesOnePagerEditor() {
   // Dandy-only copy for non-Dandy tenants (mirrors sales-one-pager.tsx).
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
-  const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
+  // immutable tenant slug), NOT the editable `brandName` — so a non-Dandy
+  // tenant can never unlock the Dandy-only built-in templates by renaming.
+  const isDandy = brand.isDandy === true;
   const brandSlug = (brand.brandName || "report")
     .replace(/\s+/g, "_")
     .replace(/[^A-Za-z0-9_-]+/g, "") || "report";
@@ -611,11 +614,17 @@ export default function SalesOnePagerEditor() {
   const visibilityKeyFor = (t: EditorTemplate): string => (t === "partner" ? "new-partner" : t);
   const isTemplateVisible = (t: EditorTemplate): boolean => {
     const key = visibilityKeyFor(t);
+    // Dandy-gated built-ins (comparison / agreement-summary) are hidden from
+    // non-Dandy tenants entirely — they can't author/persist layout state for
+    // templates they can't ship.
+    if (!isDandy && isDandyGatedBuiltin(key)) return false;
     return !deletedBuiltins[key] && templateVisibility[key] !== false;
   };
 
   // If the user lands on (or stays on) a tab that was just hidden, fall back
   // to the first visible tab so the editor never renders an empty selection.
+  // Re-runs when `isDandy` resolves so a non-Dandy admin deep-linked onto a
+  // gated tab bounces to pilot once the brand loads.
   useEffect(() => {
     const order: EditorTemplate[] = ["pilot", "comparison", "partner", "roi", "agreement-summary"];
     if (!isTemplateVisible(editorTemplate)) {
@@ -623,7 +632,7 @@ export default function SalesOnePagerEditor() {
       if (next) setEditorTemplate(next);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateVisibility, deletedBuiltins]);
+  }, [templateVisibility, deletedBuiltins, isDandy]);
 
   // When audience changes in pilot, save/restore the full per-audience headerCfg
   const switchAudience = (a: Audience) => {
@@ -701,6 +710,11 @@ export default function SalesOnePagerEditor() {
     }, 500);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [
+    // `brand` + `isDandy` are deps so the preview refreshes its branding once the
+    // brand config resolves (brandContext is derived from them); otherwise a
+    // tenant's first render shows unbranded/Dandy-default output until an unrelated
+    // edit retriggers this effect.
+    brand, isDandy,
     previewVisible, editorTemplate, audience, dsoName, numPractices,
     headerCfg, bodyCfg, teamCfg, footerCfg, audienceContent,
     comparisonRows, comparisonStats, partnerHeadline, partnerIntro,

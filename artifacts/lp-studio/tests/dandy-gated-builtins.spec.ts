@@ -119,6 +119,24 @@ test.describe("Dandy-gated built-in one-pager templates (non-Dandy tenant)", () 
     await expect(page.getByRole("button", { name: /^Before \/ After$/ })).toHaveCount(0);
   });
 
+  test("Template Editor hides the gated built-in tabs but keeps the neutral ones", async ({ page }) => {
+    await page.goto("/sales/one-pager/editor");
+    await page.getByRole("heading", { name: "Template Editor" }).waitFor({ timeout: 15000 });
+
+    // A neutral tab is present (the editor falls back to the first visible tab,
+    // which is the pilot template, once the non-Dandy brand resolves).
+    await expect(page.getByRole("button", { name: /^90-Day Pilot$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Partner Practices$/ })).toBeVisible();
+
+    // The two gated tabs are absent. The comparison tab is hidden entirely for
+    // non-Dandy tenants, so NEITHER its Dandy label ("Dandy Evolution") NOR its
+    // brand-scrubbed label ("Before / After") should render — assert both, plus
+    // the Agreement Summary tab, are gone.
+    await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Before \/ After$/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toHaveCount(0);
+  });
+
   test("server save/publish routes reject the gated built-ins (403) for a non-Dandy tenant", async ({ baseURL }) => {
     const api = await newAuthedContext({
       baseURL: baseURL ?? "http://127.0.0.1:4318",
@@ -210,6 +228,40 @@ test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () =
     // labelled "Dandy Evolution" (not "Before / After").
     await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
+  });
+
+  test("Template Editor shows the gated built-in tabs for a seeded Dandy workspace", async ({ page, context, baseURL }) => {
+    // The editor's tab gate keys off the server-authoritative slug-based
+    // `brand.isDandy` (NOT brandName), so the royal-brandName fixture used by
+    // this describe won't unlock the gated tabs. Impersonate the seeded Dandy
+    // workspace via a short-lived admin session and override the cookie set in
+    // beforeEach. Read-only — no rows written, so only the session is cleaned up.
+    const operator: DandyOperatorSession = await createDandyOperatorSession(pool);
+    try {
+      const url = new URL("/", baseURL ?? "http://127.0.0.1:4318");
+      await context.addCookies([{
+        name: "lp_sid",
+        value: operator.sid,
+        domain: url.hostname,
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax",
+      }]);
+
+      await page.goto("/sales/one-pager/editor");
+      await page.getByRole("heading", { name: "Template Editor" }).waitFor({ timeout: 15000 });
+
+      // Neutral tab still present.
+      await expect(page.getByRole("button", { name: /^90-Day Pilot$/ })).toBeVisible();
+
+      // The two gated tabs now appear. For Dandy the comparison tab keeps its
+      // verbatim "Dandy Evolution" label (scrubBrand no-ops).
+      await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
+    } finally {
+      await cleanupDandyOperatorSession(pool, operator);
+    }
   });
 
   test("Agreement Summary editor populates defaults and Download PDF fires a download", async ({ page }) => {

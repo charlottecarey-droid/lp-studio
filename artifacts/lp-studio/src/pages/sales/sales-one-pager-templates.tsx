@@ -1,5 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import agreementSummaryPreviewUrl from "@/assets/agreement-summary-preview.png";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import {
@@ -39,6 +38,8 @@ import {
   saveCustomTemplate,
   deleteCustomTemplate,
   generateCustomTemplatePdf,
+  buildCustomTemplateBrandOpts,
+  type CustomTemplatePdfBrandOpts,
 } from "./one-pager-custom-utils";
 
 export type { OverlayField, CustomTemplate };
@@ -749,7 +750,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
           values.phone = phone;
           values.qr_url = qrUrl;
         }
-        const doc = await generateCustomTemplatePdf(tpl, values, dandyLogoWhiteUrl);
+        const doc = await generateCustomTemplatePdf(tpl, values, buildCustomTemplateBrandOpts(brand));
         // Use a sensible filename: prefer DSO-name-like value, fall back to template name
         const dsoLike = values.dso_name || Object.values(customValues).find(v => v && v.length < 60) || tpl.name;
         doc.save(`${dsoLike.replace(/\s+/g, "_")}_OnePager.pdf`);
@@ -946,7 +947,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
 // ════════════════════════════════════════════════════════════════════
 // TEMPLATE EDITOR
 // ════════════════════════════════════════════════════════════════════
-function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext }: {
+function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, brandOpts }: {
   initial?: CustomTemplate;
   onSave: (tpl: CustomTemplate) => Promise<void>;
   onCancel: () => void;
@@ -954,6 +955,9 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext }:
   ctaDefault: string;
   /** Brand scrub context (undefined for Dandy) for render-only label scrubbing. */
   brandContext?: BrandContextT;
+  /** Brand logo/wordmark/QR fallbacks for the live PDF preview — resolved from
+   *  the tenant BrandConfig so the preview never hardcodes Dandy assets. */
+  brandOpts: CustomTemplatePdfBrandOpts;
 }) {
   // Field palette defaults follow the tenant CTA URL (never meetdandy.com).
   const FIELD_TYPES = buildFieldTypes(ctaDefault);
@@ -1034,7 +1038,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext }:
             previewValues[f.id] = `{${displayLabel(f.salesLabel || f.label)}}`;
           }
         }
-        const doc = await generateCustomTemplatePdf(tpl, previewValues, dandyLogoWhiteUrl);
+        const doc = await generateCustomTemplatePdf(tpl, previewValues, brandOpts);
         if (token !== renderTokenRef.current) return;
         const buf = doc.output("arraybuffer");
         const pdfjsLib = await import("pdfjs-dist");
@@ -1063,7 +1067,10 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext }:
       }
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [tpl, bgPreview]);
+    // `brandOpts` is a dep so the preview re-renders once the brand config
+    // resolves async (otherwise it stays on unbranded/Dandy-default output until
+    // an unrelated edit retriggers this effect).
+  }, [tpl, bgPreview, brandOpts]);
 
   const updateField = (id: string, updates: Partial<OverlayField>) =>
     setTpl(p => ({ ...p, fields: p.fields.map(f => f.id === id ? { ...f, ...updates } : f) }));
@@ -2053,6 +2060,10 @@ export default function SalesOnePagerTemplates() {
     agreementUrl: previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#" ? previewBrand.defaultCtaUrl : "",
   };
   const previewOneAssets = resolveOnePagerAssets(previewBrand);
+  // Stable identity so the TemplateEditor live-preview effect (which lists
+  // brandOpts as a dep) only re-runs when the brand actually changes, not on
+  // every unrelated parent re-render.
+  const previewBrandOpts = useMemo(() => buildCustomTemplateBrandOpts(previewBrand), [previewBrand]);
   // Scrub Dandy-only UI labels (e.g. "Dandy Evolution", "Summary of Dandy Agreement")
   // on the template cards so non-Dandy tenants don't see Dandy copy in this page.
   const sLabel = (t: string) => scrubBrand(t, previewBrandContext);
@@ -2245,6 +2256,7 @@ export default function SalesOnePagerTemplates() {
             onCancel={() => setEditing(null)}
             ctaDefault={previewQrFallback}
             brandContext={previewBrandContext}
+            brandOpts={previewBrandOpts}
           />
         </div>
       </SalesLayout>

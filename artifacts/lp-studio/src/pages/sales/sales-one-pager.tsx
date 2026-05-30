@@ -9,7 +9,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
-import { fetchCustomTemplates, generateCustomTemplatePdf, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
+import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import {
   generatePilotOnePager as sharedGeneratePilotOnePager,
   generateComparisonOnePager as sharedGenerateComparisonOnePager,
@@ -858,7 +858,7 @@ const SalesOnePager = () => {
           values.dso_name = values.dso_name || dsoName.trim();
           values.phone = values.phone || phoneNumber;
           values.qr_url = values.qr_url || customLinkUrl;
-          doc = await generateCustomTemplatePdf(ct, values);
+          doc = await generateCustomTemplatePdf(ct, values, buildCustomTemplateBrandOpts(brand));
           const dsoLabel = (values.dso_name || dsoName.trim() || ct.name).replace(/\s+/g, "_");
           doc.save(`${ct.name.replace(/\s+/g, "_")}_${dsoLabel}.pdf`);
         }

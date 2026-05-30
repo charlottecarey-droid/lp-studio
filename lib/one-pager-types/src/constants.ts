@@ -20,6 +20,23 @@ export function isDandyGatedBuiltin(id: string | null | undefined): boolean {
 }
 
 /**
+ * True when a sales layout-defaults storage key belongs to a Dandy-gated
+ * built-in template. The editor persists layout state under keys shaped like
+ * `dandy_<id>_template_layout`, where `<id>` is the built-in id with hyphens
+ * replaced by underscores (e.g. `agreement-summary` → `agreement_summary`).
+ * This parses the key back to its built-in id and reuses `isDandyGatedBuiltin`
+ * so the server can reject non-Dandy writes to gated templates (defense in
+ * depth behind the client gate).
+ */
+export function isDandyGatedLayoutKey(key: string | null | undefined): boolean {
+  if (!key) return false;
+  const m = /^dandy_(.+)_template_layout$/.exec(key);
+  if (!m) return false;
+  const builtinId = m[1].replace(/_/g, "-");
+  return isDandyGatedBuiltin(builtinId);
+}
+
+/**
  * Canonical client-side Dandy brand check. Neutral/non-Dandy tenants ship
  * `brandName === ""`; the two Dandy workspaces (dandy, dandy-smb) share the
  * "Dandy" brand name, so this single check covers both.

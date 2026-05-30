@@ -72,12 +72,33 @@ async function drawTeamPhoto(
 }
 
 /**
+ * Brand context for the custom-template PDF generator. Threaded in by each
+ * caller (resolved from the tenant's BrandConfig) so the generator never
+ * hardcodes Dandy assets/URLs. Every field is optional and empty values mean
+ * "skip / render nothing" — the generator must NEVER fall back to a Dandy
+ * default (logo, wordmark, or QR URL).
+ */
+export interface CustomTemplatePdfBrandOpts {
+  /** SVG (or image) URL for the brand wordmark rendered in a legacy
+   *  `dandy_logo` field. When omitted/empty, the generator falls back to
+   *  `brandWordmark` text; when that is also empty it renders nothing. */
+  brandLogoSvgUrl?: string;
+  /** Plain-text wordmark drawn when no `brandLogoSvgUrl` is available (or it
+   *  fails to load). When this is also empty, nothing is rendered — never a
+   *  hardcoded Dandy wordmark. */
+  brandWordmark?: string;
+  /** Fallback URL encoded into a blank `qr_code` field. When empty, the QR is
+   *  skipped entirely — never defaults to a Dandy URL. */
+  qrFallbackUrl?: string;
+}
+
+/**
  * Generate a PDF from a custom template by drawing field overlays on top of the background image.
  */
 export async function generateCustomTemplatePdf(
   tpl: CustomTemplate,
   values: Record<string, string>,
-  dandyLogoSvgPath = "/src/assets/dandy-logo.svg",
+  brandOpts: CustomTemplatePdfBrandOpts = {},
 ): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: tpl.orientation === "landscape" ? "landscape" : "portrait", unit: "pt", format: "letter" });
   const w = doc.internal.pageSize.getWidth();
@@ -120,7 +141,13 @@ export async function generateCustomTemplatePdf(
 
     // ── QR Code ───────────────────────────────────────────────────────
     if (field.type === "qr_code") {
-      const url = resolveValue(field) || "https://meetdandy.com";
+      // Use the per-field value, else the brand fallback. NEVER default to a
+      // Dandy URL — when there is no URL at all, skip drawing entirely.
+      const url = resolveValue(field) || brandOpts.qrFallbackUrl || "";
+      if (!url) {
+        console.info("[one-pager-pdf] qr_no_url: blank QR field with no brand fallback — skipping");
+        continue;
+      }
       try {
         const qrDataUrl = await QRCode.toDataURL(url, { width: 400, margin: 1 });
         const sz = w * ((field.qrSize || 12) / 100);
@@ -129,17 +156,30 @@ export async function generateCustomTemplatePdf(
       continue;
     }
 
-    // ── Dandy Logo ────────────────────────────────────────────────────
+    // ── Brand Logo (legacy `dandy_logo` field type — now brand-agnostic) ──
+    // The enum name `dandy_logo` is retained so existing saved templates keep
+    // working, but the asset rendered is the tenant's OWN brand logo/wordmark
+    // (or nothing). It must never emit a Dandy logo or a hardcoded Dandy
+    // wordmark for a non-Dandy tenant.
     if (field.type === "dandy_logo") {
-      try {
-        const dandyPng = await svgToPng(dandyLogoSvgPath, 206, 74);
-        const scale = field.logoScale || 11.4;
-        const lw = w * (scale / 100); const lh = lw * (74 / 206);
-        doc.addImage(dandyPng, "PNG", fx, fy, lw, lh);
-      } catch {
+      if (brandOpts.brandLogoSvgUrl) {
+        try {
+          const logoPng = await svgToPng(brandOpts.brandLogoSvgUrl, 206, 74);
+          const scale = field.logoScale || 11.4;
+          const lw = w * (scale / 100); const lh = lw * (74 / 206);
+          doc.addImage(logoPng, "PNG", fx, fy, lw, lh);
+          continue;
+        } catch {
+          console.info("[one-pager-pdf] logo_load_failed: brand logo failed to load — falling back to wordmark text");
+        }
+      }
+      const wordmark = (brandOpts.brandWordmark || "").trim();
+      if (wordmark) {
         const rgb = hexToRgb(field.color || "#FFFFFF");
         doc.setFont("helvetica", "bold"); doc.setFontSize(field.fontSize || 18); doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.text("dandy", fx, fy + (field.fontSize || 18));
+        doc.text(wordmark, fx, fy + (field.fontSize || 18));
+      } else {
+        console.info("[one-pager-pdf] wordmark_empty: no brand logo or wordmark — skipping logo field");
       }
       continue;
     }

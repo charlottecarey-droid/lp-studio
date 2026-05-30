@@ -1,9 +1,39 @@
 export type { OverlayField, CustomTemplate } from "@workspace/one-pager-types";
 export { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "@workspace/one-pager-types";
 export { svgToPng, hexToRgb, loadImg, generateCustomTemplatePdf } from "@workspace/one-pager-types/pdf";
+export type { CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf";
 import type { OverlayField, CustomTemplate } from "@workspace/one-pager-types";
+import type { CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf";
+import type { BrandConfig } from "@/lib/brand-config";
+import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 
 const API_BASE = "/api";
+
+// ── Brand context for the custom-template PDF generator ────────────────
+// Resolves the third arg of `generateCustomTemplatePdf` from the tenant's
+// BrandConfig. For protected Dandy tenants (`brand.isDandy === true`) this
+// yields the exact legacy Dandy values so their output stays byte-identical:
+// the Dandy white wordmark SVG, the lowercase "dandy" wordmark fallback, and
+// the meetdandy.com QR/link fallback. For every other tenant it returns the
+// tenant's own brand-config values, leaving fields empty (→ skip / render
+// nothing) so no Dandy asset can ever leak. Detection uses the
+// server-authoritative `isDandy` flag (resolved from the immutable slug),
+// never the spoofable `brandName`.
+export function buildCustomTemplateBrandOpts(brand: BrandConfig): CustomTemplatePdfBrandOpts {
+  if (brand.isDandy === true) {
+    return {
+      brandLogoSvgUrl: dandyLogoWhiteUrl,
+      brandWordmark: "dandy",
+      qrFallbackUrl: "https://meetdandy.com",
+    };
+  }
+  const cta = brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "";
+  return {
+    brandLogoSvgUrl: brand.logoUrl || "",
+    brandWordmark: (brand.brandName || "").trim().toLowerCase(),
+    qrFallbackUrl: cta,
+  };
+}
 
 // ── API helpers ───────────────────────────────────────────────────────
 
