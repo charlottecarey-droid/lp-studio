@@ -34,9 +34,18 @@ import { describe, it, expect } from "vitest";
 import {
   generateAgreementSummaryOnePager,
   generateROIOnePager,
+  generatePilotOnePager,
+  generateComparisonOnePager,
+  generateNewPartnerOnePager,
   defaultAgreementSummaryContent,
+  defaultAudienceContent,
+  defaultComparisonRows,
+  defaultComparisonStats,
+  defaultPartnerFeatures,
+  defaultPartnerStats,
   scrubBrandDeep,
   type BrandContext,
+  type NewPartnerContent,
 } from "@workspace/one-pager-types/generators";
 import { DANDY_GATED_BUILTIN_IDS } from "@workspace/one-pager-types/constants";
 import type { jsPDF } from "jspdf";
@@ -125,6 +134,187 @@ describe("non-Dandy one-pager rebranding — ROI (non-gated built-in)", () => {
 
   it("positive control: the same template rendered as Dandy DOES contain Dandy tokens", async () => {
     const doc = await generateROIOnePager("Acme Group", 10);
+    expectHasDandyTokens(searchableText(doc));
+  });
+});
+
+describe("non-Dandy one-pager rebranding — 90-Day Pilot (non-gated built-in)", () => {
+  // The executive audience carries the richest Dandy copy ("Dandy Insights",
+  // "Dandy Portal", "Dandy surfaces ...") so it is the strongest positive
+  // control. The whole template renders in helvetica, so it is fully
+  // recoverable from the PDF text streams.
+  it("is NOT a gated built-in (a non-Dandy tenant can generate it)", () => {
+    expect(DANDY_GATED_BUILTIN_IDS).not.toContain("pilot");
+  });
+
+  it("scrubs every Dandy token from the audience content and injects the tenant brand", () => {
+    const scrubbed = scrubBrandDeep(defaultAudienceContent.executive, ROYAL_BRAND);
+    const json = JSON.stringify(scrubbed);
+    expectNoDandyTokens(json);
+    expect(json).toMatch(/royal/i);
+  });
+
+  it("renders a PDF whose searchable copy is Dandy-free and carries the brand", async () => {
+    const doc = await generatePilotOnePager(
+      "Acme Group",
+      "executive",
+      [],
+      "",
+      null,
+      { w: 0, h: 0 },
+      defaultAudienceContent.executive,
+      undefined,
+      undefined,
+      { brand: ROYAL_BRAND },
+    );
+    const text = searchableText(doc);
+    expectNoDandyTokens(text);
+    expect(text).toMatch(new RegExp(BRAND_LABEL, "i"));
+  });
+
+  it("positive control: the same template rendered as Dandy DOES contain Dandy tokens", async () => {
+    const doc = await generatePilotOnePager(
+      "Acme Group",
+      "executive",
+      [],
+      "",
+      null,
+      { w: 0, h: 0 },
+      defaultAudienceContent.executive,
+    );
+    expectHasDandyTokens(searchableText(doc));
+  });
+});
+
+describe("non-Dandy one-pager rebranding — Comparison (Dandy-gated built-in)", () => {
+  // Comparison is Dandy-gated, so a Royal tenant can only reach it through the
+  // generator (never the picker). The default rows/stats carry "Dandy
+  // diagnostic scans"; the header bands render the brand name uppercased
+  // ("DANDY 2022" / "DANDY TODAY"). All helvetica → fully PDF-recoverable.
+  it("is a gated built-in (reachable only via the generator for a non-Dandy tenant)", () => {
+    expect(DANDY_GATED_BUILTIN_IDS).toContain("comparison");
+  });
+
+  it("scrubs every Dandy token from the default rows and stats and injects the tenant brand", () => {
+    const scrubbedRows = scrubBrandDeep(defaultComparisonRows, ROYAL_BRAND);
+    const scrubbedStats = scrubBrandDeep(defaultComparisonStats, ROYAL_BRAND);
+    const json = JSON.stringify({ rows: scrubbedRows, stats: scrubbedStats });
+    expectNoDandyTokens(json);
+  });
+
+  it("renders a PDF whose searchable copy is Dandy-free and carries the brand", async () => {
+    const doc = await generateComparisonOnePager(
+      "Acme Group",
+      [],
+      "",
+      null,
+      { w: 0, h: 0 },
+      undefined,
+      undefined,
+      { brand: ROYAL_BRAND },
+    );
+    const text = searchableText(doc);
+    expectNoDandyTokens(text);
+    expect(text).toMatch(new RegExp(BRAND_LABEL, "i"));
+  });
+
+  it("positive control: the same template rendered as Dandy DOES contain Dandy tokens", async () => {
+    const doc = await generateComparisonOnePager("Acme Group", [], "", null, { w: 0, h: 0 });
+    expectHasDandyTokens(searchableText(doc));
+  });
+});
+
+describe("non-Dandy one-pager rebranding — Partner Practices / New Partner (non-gated built-in)", () => {
+  // The New Partner generator builds a QR code via a dynamic import of
+  // "qrcode" (pure-JS, runs headless in the node vitest env). We pass a Royal
+  // QR URL so the embedded QR never encodes a Dandy URL. All copy is helvetica.
+  it("is NOT a gated built-in (a non-Dandy tenant can generate it)", () => {
+    expect(DANDY_GATED_BUILTIN_IDS).not.toContain("new-partner");
+  });
+
+  it("scrubs every Dandy token from the default features and stats and injects the tenant brand", () => {
+    const scrubbedFeatures = scrubBrandDeep(defaultPartnerFeatures, ROYAL_BRAND);
+    const scrubbedStats = scrubBrandDeep(defaultPartnerStats, ROYAL_BRAND);
+    const json = JSON.stringify({ features: scrubbedFeatures, stats: scrubbedStats });
+    expectNoDandyTokens(json);
+    expect(json).toMatch(/royal/i);
+  });
+
+  it("renders a PDF whose searchable copy is Dandy-free and carries the brand", async () => {
+    const doc = await generateNewPartnerOnePager(
+      "Acme Group",
+      null,
+      { w: 0, h: 0 },
+      "https://royaldental.com",
+      undefined,
+      { brand: ROYAL_BRAND },
+    );
+    const text = searchableText(doc);
+    expectNoDandyTokens(text);
+    expect(text).toMatch(new RegExp(BRAND_LABEL, "i"));
+  });
+
+  it("positive control: the same template rendered as Dandy DOES contain Dandy tokens", async () => {
+    const doc = await generateNewPartnerOnePager(
+      "Acme Group",
+      null,
+      { w: 0, h: 0 },
+      "https://meetdandy.com",
+    );
+    expectHasDandyTokens(searchableText(doc));
+  });
+});
+
+describe("non-Dandy one-pager rebranding — Partner 2 (alternative partner template)", () => {
+  // "Partner 2" (template id "n") reuses generateNewPartnerOnePager but drives
+  // it through caller-supplied content overrides instead of the built-in
+  // defaults. This proves the opts.content path (headline / intro / features /
+  // stats / footerLink) is scrubbed too — not just the hard-coded defaults.
+  const PARTNER2_DANDY_CONTENT: NewPartnerContent = {
+    headline: "Partner with Dandy for Predictable Dentistry",
+    intro: "Dandy is the digital dental lab built for DSOs like Acme Group.",
+    features: [
+      { title: "Free Dandy Vision Scanner", desc: "Digitize with the Dandy Vision Scanner and Cart." },
+      { title: "Dandy Portal access", desc: "Manage every case in the Dandy Portal." },
+      { title: "Lab quality", desc: "State-of-the-art Dandy Dental Lab precision." },
+      { title: "Preferred pricing", desc: "" },
+    ],
+    stats: [
+      { value: "88%", desc: "say Dandy's real-time lab support makes case management easier." },
+    ],
+    footerLink: "www.meetdandy.com/dso",
+  };
+
+  it("scrubs every Dandy token from caller-supplied content and injects the tenant brand", () => {
+    const scrubbed = scrubBrandDeep(PARTNER2_DANDY_CONTENT, ROYAL_BRAND);
+    const json = JSON.stringify(scrubbed);
+    expectNoDandyTokens(json);
+    expect(json).toMatch(/royal/i);
+  });
+
+  it("renders a PDF whose searchable copy is Dandy-free and carries the brand", async () => {
+    const doc = await generateNewPartnerOnePager(
+      "Acme Group",
+      null,
+      { w: 0, h: 0 },
+      "https://royaldental.com",
+      undefined,
+      { brand: ROYAL_BRAND, content: PARTNER2_DANDY_CONTENT },
+    );
+    const text = searchableText(doc);
+    expectNoDandyTokens(text);
+    expect(text).toMatch(new RegExp(BRAND_LABEL, "i"));
+  });
+
+  it("positive control: the same content rendered as Dandy DOES contain Dandy tokens", async () => {
+    const doc = await generateNewPartnerOnePager(
+      "Acme Group",
+      null,
+      { w: 0, h: 0 },
+      "https://meetdandy.com",
+      undefined,
+      { content: PARTNER2_DANDY_CONTENT },
+    );
     expectHasDandyTokens(searchableText(doc));
   });
 });
