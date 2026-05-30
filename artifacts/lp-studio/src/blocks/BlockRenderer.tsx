@@ -601,7 +601,9 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
           <BlockParallaxImageHero
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.ctaUrl, block.props.ctaMode)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

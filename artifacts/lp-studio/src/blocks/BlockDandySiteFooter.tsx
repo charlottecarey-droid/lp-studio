@@ -41,7 +41,8 @@ function InstagramIcon() {
 
 export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
   const groups = props.linkGroups ?? [];
-  const copyright = props.copyrightText || `© ${new Date().getFullYear()} Dandy`;
+  const copyright = props.copyrightText
+    || `© ${new Date().getFullYear()}${brand.brandName ? ` ${brand.brandName}` : ""}`;
   const field = (key: keyof DandySiteFooterBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DandySiteFooterBlockProps[typeof key] }) : undefined;
   const updateGroup = onFieldChange

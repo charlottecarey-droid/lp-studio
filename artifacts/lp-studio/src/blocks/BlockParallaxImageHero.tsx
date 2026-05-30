@@ -3,11 +3,12 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
+import { getHeadingWeightClass, getHeadingLetterSpacingClass, contrastTextColor } from "@/lib/brand-config";
 import type { ParallaxImageHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImagePicker } from "@/components/ImagePicker";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { safeNavigate } from "@/lib/safe-url";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
@@ -20,6 +21,8 @@ interface Props {
   onCtaClick?: () => void;
   onFieldChange?: (updated: ParallaxImageHeroBlockProps) => void;
   animationsEnabled?: boolean;
+  pageId?: number;
+  variantId?: number;
 }
 
 function hexToRgbParts(hex: string): string {
@@ -55,12 +58,22 @@ export function BlockParallaxImageHero({
   onCtaClick,
   onFieldChange,
   animationsEnabled = true,
+  pageId,
+  variantId,
 }: Props) {
   const sectionRef = useRef<HTMLElement>(null);
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
+  const [emailValue, setEmailValue] = useState("");
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
   const isEditor = !!onFieldChange;
 
   const accentColor = props.accentColor || brand.accentColor || "#C7E738";
+  // CTA presentation. "link" (default / legacy) keeps the original underlined
+  // arrow link so existing placed blocks are unaffected.
+  const ctaStyle = props.ctaStyle ?? "link";
+  const submitMode = props.submitMode ?? "navigate";
+  const ctaButtonBg = props.ctaButtonColor || accentColor;
+  const ctaButtonText = props.ctaButtonTextColor || contrastTextColor(ctaButtonBg);
   const textColor = props.textColor || "#FFFFFF";
   const overlayColor = props.overlayColor || "#000000";
   const overlayAlpha = Math.max(0, Math.min(100, props.overlayOpacity ?? 35)) / 100;
@@ -148,6 +161,61 @@ export function BlockParallaxImageHero({
     if (props.ctaUrl && props.ctaUrl !== "#") {
       safeNavigate(props.ctaUrl, "_self");
     }
+  };
+
+  // Inline email-capture submit. Routing mirrors the Heartland hero:
+  //   1. Explicit modal modes → open the shared EmailCaptureModal.
+  //   2. ctaMode === "chilipiper" → defer to onCtaClick (viewer opens scheduler).
+  //   3. Anchor-only URL → smooth-scroll on this page.
+  //   4. Real http(s)/relative URL → navigate with ?email=… appended.
+  //   5. Brand-level default destination exists → defer to onCtaClick.
+  //   6. Nothing configured → open the modal so the email isn't dropped.
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = emailValue.trim();
+    if (!trimmed) return;
+
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setEmailModalOpen(true);
+      return;
+    }
+
+    if (props.ctaMode === "chilipiper" && onCtaClick) {
+      onCtaClick();
+      return;
+    }
+
+    const ctaUrl = props.ctaUrl?.trim() ?? "";
+
+    if (ctaUrl.startsWith("#") && ctaUrl.length > 1) {
+      const target = document.getElementById(ctaUrl.slice(1));
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    const hasRealUrl = ctaUrl && ctaUrl !== "#" && !ctaUrl.startsWith("#");
+    if (hasRealUrl) {
+      try {
+        const url = new URL(ctaUrl, window.location.origin);
+        url.searchParams.set("email", trimmed);
+        window.location.assign(url.toString());
+        return;
+      } catch {
+        // Fall through to brand-level / modal fallbacks.
+      }
+    }
+
+    const brandDefault = brand?.defaultCtaUrl?.trim();
+    const brandHasDefault = !!(brandDefault && brandDefault !== "#" && !brandDefault.startsWith("#"));
+    const brandHasChilipiper = !!brand?.chilipiperUrl;
+    if (onCtaClick && (brandHasDefault || brandHasChilipiper)) {
+      onCtaClick();
+      return;
+    }
+
+    setEmailModalOpen(true);
   };
 
   const f = (k: keyof ParallaxImageHeroBlockProps) =>
@@ -335,20 +403,60 @@ export function BlockParallaxImageHero({
             always renders (with a placeholder) so the field is still
             reachable to add text back later. */}
         <div className="flex items-end justify-between gap-4 px-6 sm:px-10 lg:px-16 pb-6 sm:pb-8 lg:pb-10">
-          {(isEditor || (props.ctaText ?? "").trim().length > 0) ? (
-            <a
-              href={props.ctaUrl || "#"}
-              onClick={handleCtaClick}
-              className="group inline-flex items-center gap-2 text-sm sm:text-base border-b border-white/70 pb-1 hover:border-white transition-colors"
-              style={{ color: textColor }}
+          {ctaStyle === "email-capture" ? (
+            <form
+              onSubmit={handleEmailSubmit}
+              className="flex items-center gap-1.5 p-1.5 rounded-full bg-white shadow-lg w-full max-w-[420px]"
             >
-              <InlineText
-                as="span"
-                value={props.ctaText ?? ""}
-                onUpdate={f("ctaText")}
-              style={{ fontFamily: BODY }}/>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </a>
+              <input
+                type="email"
+                required
+                value={emailValue}
+                onChange={(e) => setEmailValue(e.target.value)}
+                placeholder={props.emailCapturePlaceholder || "Email address"}
+                aria-label={props.emailCapturePlaceholder || "Email address"}
+                className="flex-1 min-w-0 bg-transparent outline-none border-none px-3 py-2 text-sm text-slate-900"
+                style={{ fontFamily: BODY }}
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                style={{ background: ctaButtonBg, color: ctaButtonText, fontFamily: BODY }}
+              >
+                {props.emailCaptureButtonText || props.ctaText || "Get Started"}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          ) : (isEditor || (props.ctaText ?? "").trim().length > 0) ? (
+            ctaStyle === "buttons" ? (
+              <a
+                href={onCtaClick ? undefined : (props.ctaUrl || "#")}
+                onClick={handleCtaClick}
+                className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm sm:text-base font-semibold transition-opacity hover:opacity-90"
+                style={{ background: ctaButtonBg, color: ctaButtonText, cursor: "pointer" }}
+              >
+                <InlineText
+                  as="span"
+                  value={props.ctaText ?? ""}
+                  onUpdate={f("ctaText")}
+                style={{ fontFamily: BODY }}/>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            ) : (
+              <a
+                href={props.ctaUrl || "#"}
+                onClick={handleCtaClick}
+                className="group inline-flex items-center gap-2 text-sm sm:text-base border-b border-white/70 pb-1 hover:border-white transition-colors"
+                style={{ color: textColor }}
+              >
+                <InlineText
+                  as="span"
+                  value={props.ctaText ?? ""}
+                  onUpdate={f("ctaText")}
+                style={{ fontFamily: BODY }}/>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </a>
+            )
           ) : (
             // Empty spacer keeps the brand mark right-aligned via justify-between.
             <span aria-hidden />
@@ -375,6 +483,39 @@ export function BlockParallaxImageHero({
           </div>
         </div>
       </div>
+
+      {/* Shared email-capture modal — rendered so the modal-form /
+          modal-chilipiper submit modes have somewhere to open. */}
+      <EmailCaptureModal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        email={emailValue}
+        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={props.modalChilipiperUrl}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="parallax-image-hero"
+        formSource={props.modalFormSource ?? "simple"}
+        linkedFormId={props.modalFormId}
+        marketoBaseUrl={props.modalMarketoBaseUrl}
+        marketoMunchkinId={props.modalMarketoMunchkinId}
+        marketoFormId={props.modalMarketoFormId}
+        chiliPiperConfig={props.modalChiliPiperHandoffUrl ? { url: props.modalChiliPiperHandoffUrl, mode: props.modalChiliPiperHandoffMode ?? "modal", fieldMap: props.modalChiliPiperHandoffFieldMap } : null}
+        formConfig={{
+          headline: props.modalHeadline,
+          subheadline: props.modalSubheadline,
+          submitText: props.modalSubmitText,
+          successMessage: props.modalSuccessMessage,
+          disclaimer: props.modalDisclaimer,
+          showFirstName: props.modalShowFirstName,
+          showLastName: props.modalShowLastName,
+          showPhone: props.modalShowPhone,
+          showCompany: props.modalShowCompany,
+        }}
+      />
     </section>
   );
 }

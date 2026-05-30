@@ -19,7 +19,7 @@ export interface HeroBlockProps extends CtaModalConfig {
   subheadline: string;
   ctaText: string;
   ctaUrl: string;
-  ctaColor: string;
+  ctaColor?: string;
   heroType: "dandy-video" | "static-image" | "none";
   layout: "centered" | "split" | "split-right" | "minimal";
   backgroundStyle: BackgroundStyle;
@@ -405,7 +405,7 @@ export interface FullBleedHeroBlockProps extends CtaModalConfig {
   socialProofText?: string;
 }
 
-export interface ParallaxImageHeroBlockProps {
+export interface ParallaxImageHeroBlockProps extends CtaModalConfig {
   imageUrl: string;
   /** Optional looping background video (mp4/webm). When set, replaces the
    *  parallax image with a parallax-translated <video>. The image still
@@ -419,6 +419,29 @@ export interface ParallaxImageHeroBlockProps {
   accentColor?: string;
   ctaText: string;
   ctaUrl: string;
+  /** Direct CTA action mode. "link" (default) just opens ctaUrl; "chilipiper"
+   *  hands off to the viewer's Chili Piper opener; "modal-form" /
+   *  "modal-chilipiper" open the shared EmailCaptureModal. Mirrors the
+   *  Heartland hero's primaryCtaMode. */
+  ctaMode?: CtaMode;
+  /** CTA presentation style. "link" (default) renders the original
+   *  underlined arrow link — preserves existing pages. "buttons" renders a
+   *  pill button; "email-capture" renders an inline pill-shaped email field
+   *  with a submit button (mirrors the Heartland hero). */
+  ctaStyle?: "link" | "buttons" | "email-capture";
+  /** Placeholder for the email-capture input. Defaults to "Email address". */
+  emailCapturePlaceholder?: string;
+  /** Submit button label for the email-capture form. Defaults to the CTA text. */
+  emailCaptureButtonText?: string;
+  /** Override for the pill / email-capture button background. Defaults to accent. */
+  ctaButtonColor?: string;
+  /** Override for the pill / email-capture button text color. Auto-derived for legibility. */
+  ctaButtonTextColor?: string;
+  /** What happens when the email-capture pill is submitted (ctaStyle === "email-capture").
+   *  - "navigate" (default): redirect to ctaUrl with ?email=…
+   *  - "modal-form": open the shared modal with a customizable form
+   *  - "modal-chilipiper": open the shared modal with a Chili Piper iframe */
+  submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
   brandMark: string;
   brandMarkLogoUrl?: string;
   overlayOpacity: number;

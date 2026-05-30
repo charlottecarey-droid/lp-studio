@@ -1,4 +1,4 @@
-import type { ParallaxImageHeroBlockProps } from "@/lib/block-types";
+import type { ParallaxImageHeroBlockProps, CtaModalConfig, CtaMode } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ImagePicker } from "@/components/ImagePicker";
 import { VideoPicker } from "@/components/VideoPicker";
 import { Switch } from "@/components/ui/switch";
+import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 
 interface Props {
   props: ParallaxImageHeroBlockProps;
@@ -38,11 +39,11 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top corners</div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Eyebrow (top-left)</Label>
-          <Input value={props.eyebrow ?? ""} onChange={(e) => u({ eyebrow: e.target.value })} className="h-8 text-xs" placeholder="● LIVE AT DYKEMA 2026" />
+          <Input value={props.eyebrow ?? ""} onChange={(e) => u({ eyebrow: e.target.value })} className="h-8 text-xs" placeholder="● NOW AVAILABLE" />
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Reference label (top-right)</Label>
-          <Input value={props.referenceLabel ?? ""} onChange={(e) => u({ referenceLabel: e.target.value })} className="h-8 text-xs" placeholder="FE-02" />
+          <Input value={props.referenceLabel ?? ""} onChange={(e) => u({ referenceLabel: e.target.value })} className="h-8 text-xs" placeholder="01" />
         </div>
       </div>
 
@@ -50,11 +51,11 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Headline</Label>
-          <Input value={props.headline ?? ""} onChange={(e) => u({ headline: e.target.value })} className="h-8 text-xs" placeholder="The first and only AI dental lab." />
+          <Input value={props.headline ?? ""} onChange={(e) => u({ headline: e.target.value })} className="h-8 text-xs" placeholder="Build something remarkable." />
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Accent word (italic + colored)</Label>
-          <Input value={props.headlineAccentWord ?? ""} onChange={(e) => u({ headlineAccentWord: e.target.value })} className="h-8 text-xs" placeholder="AI" />
+          <Input value={props.headlineAccentWord ?? ""} onChange={(e) => u({ headlineAccentWord: e.target.value })} className="h-8 text-xs" placeholder="remarkable" />
           <div className="text-[10px] text-muted-foreground mt-1">Must appear exactly inside the headline.</div>
         </div>
         <div>
@@ -84,18 +85,123 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bottom row</div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to action (bottom-left)</div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">CTA text (bottom-left)</Label>
-          <Input value={props.ctaText ?? ""} onChange={(e) => u({ ctaText: e.target.value })} className="h-8 text-xs" placeholder="Take a tour" />
+          <Label className="text-[11px] text-muted-foreground">CTA style</Label>
+          <Select
+            value={props.ctaStyle ?? "link"}
+            onValueChange={(v) => u({ ctaStyle: v as "link" | "buttons" | "email-capture" })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="link">Underlined link (default)</SelectItem>
+              <SelectItem value="buttons">Pill button</SelectItem>
+              <SelectItem value="email-capture">Inline email-capture pill</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground mt-1">Leave the CTA text empty to hide the link/button entirely.</p>
         </div>
+
+        {(props.ctaStyle ?? "link") !== "email-capture" && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">CTA text</Label>
+            <Input value={props.ctaText ?? ""} onChange={(e) => u({ ctaText: e.target.value })} className="h-8 text-xs" placeholder="Take a tour" />
+          </div>
+        )}
+
+        {(props.ctaStyle ?? "link") === "email-capture" && (
+          <>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Email input placeholder</Label>
+              <Input value={props.emailCapturePlaceholder ?? ""} onChange={(e) => u({ emailCapturePlaceholder: e.target.value })} className="h-8 text-xs" placeholder="Email address" />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Submit button text</Label>
+              <Input value={props.emailCaptureButtonText ?? ""} onChange={(e) => u({ emailCaptureButtonText: e.target.value })} className="h-8 text-xs" placeholder="Get Started" />
+            </div>
+          </>
+        )}
+
         <div>
-          <Label className="text-[11px] text-muted-foreground">CTA URL</Label>
+          <Label className="text-[11px] text-muted-foreground">
+            {(props.ctaStyle ?? "link") === "email-capture" ? "On submit" : "CTA action"}
+          </Label>
+          {(props.ctaStyle ?? "link") === "email-capture" ? (
+            <Select
+              value={props.submitMode ?? "navigate"}
+              onValueChange={(v) => u({ submitMode: v as "navigate" | "modal-form" | "modal-chilipiper" })}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="navigate">Navigate to URL (append ?email=…)</SelectItem>
+                <SelectItem value="modal-form">Open modal form</SelectItem>
+                <SelectItem value="modal-chilipiper">Open Chili Piper modal</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <Select
+              value={props.ctaMode ?? "link"}
+              onValueChange={(v) => u({ ctaMode: v as CtaMode })}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="link">Open URL</SelectItem>
+                <SelectItem value="chilipiper">Open Chili Piper scheduler</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        <div>
+          <Label className="text-[11px] text-muted-foreground">
+            {(props.ctaStyle ?? "link") === "email-capture" && (props.submitMode ?? "navigate") !== "navigate" ? "Fallback URL" : "CTA URL"}
+          </Label>
           <Input value={props.ctaUrl ?? ""} onChange={(e) => u({ ctaUrl: e.target.value })} className="h-8 text-xs" placeholder="#" />
         </div>
+
+        {(props.ctaStyle ?? "link") === "email-capture" && (props.submitMode === "modal-form" || props.submitMode === "modal-chilipiper") && (
+          <CtaButtonModalConfigSection
+            ctaAction={props.submitMode}
+            value={props as CtaModalConfig}
+            onChange={(next) => onChange({ ...props, ...next })}
+          />
+        )}
+
+        {(props.ctaStyle ?? "link") !== "link" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Button color</Label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={props.ctaButtonColor ?? props.accentColor ?? "#3b82f6"}
+                  onChange={(e) => u({ ctaButtonColor: e.target.value })}
+                  className="h-8 w-10 p-0 border rounded cursor-pointer"
+                />
+                <Input value={props.ctaButtonColor ?? ""} onChange={(e) => u({ ctaButtonColor: e.target.value })} className="h-8 text-xs font-mono" placeholder="accent" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Button text color</Label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={props.ctaButtonTextColor ?? "#000000"}
+                  onChange={(e) => u({ ctaButtonTextColor: e.target.value })}
+                  className="h-8 w-10 p-0 border rounded cursor-pointer"
+                />
+                <Input value={props.ctaButtonTextColor ?? ""} onChange={(e) => u({ ctaButtonTextColor: e.target.value })} className="h-8 text-xs font-mono" placeholder="auto" />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Brand mark (bottom-right)</div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Brand mark text (bottom-right)</Label>
-          <Input value={props.brandMark ?? ""} onChange={(e) => u({ brandMark: e.target.value })} className="h-8 text-xs" placeholder="dandy" />
+          <Label className="text-[11px] text-muted-foreground">Brand mark text</Label>
+          <Input value={props.brandMark ?? ""} onChange={(e) => u({ brandMark: e.target.value })} className="h-8 text-xs" placeholder="brand" />
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Brand mark logo (overrides text)</Label>
