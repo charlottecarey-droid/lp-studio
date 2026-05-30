@@ -27,12 +27,13 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
-  Library, LayoutTemplate, Activity, CreditCard,
+  Library, LayoutTemplate, Activity, CreditCard, Bell,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
+import SuperAdminNotifications from "./SuperAdminNotifications";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1122,7 +1123,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans" | "notifications">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#templates") return "templates";
@@ -1283,6 +1284,14 @@ export default function SuperAdminPage() {
           >
             <CreditCard className="w-3.5 h-3.5" /> Plans
           </button>
+          <button
+            onClick={() => setTab("notifications")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "notifications" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Bell className="w-3.5 h-3.5" /> Notifications
+          </button>
         </div>
 
         {tab === "catalog" ? (
@@ -1291,6 +1300,8 @@ export default function SuperAdminPage() {
           <SuperAdminTemplates />
         ) : tab === "plans" ? (
           <SuperAdminPlanConfig />
+        ) : tab === "notifications" ? (
+          <SuperAdminNotifications />
         ) : tab === "asset-health" ? (
           <SuperAdminAssetHealth />
         ) : (

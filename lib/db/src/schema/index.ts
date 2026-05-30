@@ -46,3 +46,7 @@ export * from "./tenantWebhookSecrets";
 
 // SuperAdmin-configurable plan/pricing tiers
 export * from "./planConfig";
+
+// In-app notifications + lifecycle email system
+export * from "./notificationTemplates";
+export * from "./notificationSends";

@@ -22,6 +22,7 @@ import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import webhooksRouter from "./webhooks";
 import cspReportRouter from "./cspReport";
 import billingRouter from "./billing";
+import notificationsRouter from "./notifications";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -101,6 +102,11 @@ router.use(videoRouter);
 // adminRouter gets a chance to swallow the request.
 router.use(blockCatalogRouter);
 router.use(tenantBlockLibraryRouter);
+// notificationsRouter owns /notifications/* (requireAuth) AND
+// /admin/notification-templates (requireSuperadmin). Like blockCatalogRouter it
+// MUST mount before adminRouter so its specific /admin paths match before
+// adminRouter's blanket requireAuth wildcard swallows them.
+router.use(notificationsRouter);
 router.use("/admin", adminRouter);
 router.use("/webhooks", webhooksRouter);
 // Task #425 — self-serve billing. The /billing/* prefix is NOT covered by

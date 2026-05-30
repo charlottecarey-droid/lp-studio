@@ -56,6 +56,7 @@ import { useBrandConfig } from "@/context/BrandConfigContext";
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette";
 import { NewLauncher } from "@/components/NewLauncher";
 import { usePendingReviewCount } from "@/hooks/use-pending-review-count";
+import { NotificationBell } from "@/components/NotificationBell";
 
 function UserFooter() {
   const { user, logout } = useAuth();
@@ -537,20 +538,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <TrialStatusBar />
           <header className="h-12 flex items-center justify-between px-3 sm:px-5 border-b border-border bg-background sticky top-0 z-50">
             <SidebarTrigger className="hover:bg-muted transition-colors rounded-md p-2 -ml-1" />
-            <button
-              type="button"
-              onClick={() => setCmdOpen(true)}
-              aria-label="Open command palette (Cmd+K)"
-              title="Search · ⌘K"
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs"
-            >
-              <Search className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Search</span>
-              <kbd
-                className="hidden md:inline text-[10px] font-medium tracking-wider text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded border border-border/60 ml-1"
-                style={{ fontFamily: "var(--app-font-mono)" }}
-              >⌘K</kbd>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCmdOpen(true)}
+                aria-label="Open command palette (Cmd+K)"
+                title="Search · ⌘K"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors text-xs"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Search</span>
+                <kbd
+                  className="hidden md:inline text-[10px] font-medium tracking-wider text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded border border-border/60 ml-1"
+                  style={{ fontFamily: "var(--app-font-mono)" }}
+                >⌘K</kbd>
+              </button>
+              <NotificationBell />
+            </div>
           </header>
           <main className="flex-1 overflow-auto px-4 py-5 sm:px-6 sm:py-6 md:px-8 md:py-8">
             <div className="max-w-[1200px] mx-auto w-full">{children}</div>

@@ -24,5 +24,10 @@ unvalidated admin-create plan input both let new tenants get free Growth forever
   in production source — keep it green/blocking.
 - Test fixtures may still insert `plan='trial'` on purpose to exercise the legacy
   read-normalization alias; that is not a production path — leave them.
+- CAVEAT (observed): a DB `CHECK tenants_plan_canonical_check` now rejects
+  `plan='trial'` at insert time, so the `royal-tenant.ts` e2e fixture (defaults to
+  `plan='trial'`) fails its tenant INSERT — this reds out ~24 e2e specs that share
+  that fixture, independent of any feature work. If you see `tenants_plan_canonical_check`
+  violations in e2e, it's this fixture/constraint mismatch, not your change.
 - Going-forward-only: existing accounts are not retro-enrolled; Dandy
   (`dandy`/`dandy-smb`) is always enterprise and excluded from any `trial→free` cleanup.

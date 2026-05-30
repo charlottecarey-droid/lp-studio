@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
+import { dispatchNotification } from "../lib/notificationDispatcher";
 import {
   normalizePlan,
   TRIAL_DURATION_DAYS,
@@ -729,6 +730,23 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
       if (claim.rows.length > 0) {
         const t = claim.rows[0];
         const host = getCanonicalTenantHost({ slug: t.slug ?? null, domain: t.domain ?? null });
+        // Drop a welcome item into the in-app inbox (best-effort, deduped by
+        // user). Runs through the notification system so the new signup sees
+        // something in their bell on first load. The welcome EMAIL stays on
+        // the separately-tested sendWelcomeEmail below.
+        if (typeof sess.userId === "number") {
+          void dispatchNotification({
+            templateKey: "welcome",
+            tenantId: sess.tenantId,
+            recipients: [{ appUserId: sess.userId, email: sess.email ?? null, name: sess.name ?? null }],
+            context: {
+              tenantName: t.name ?? "your workspace",
+              workspaceUrl: host ? `https://${host}` : null,
+            },
+            dedupeBase: `welcome:tenant:${sess.tenantId}`,
+            channels: ["in_app"],
+          }).catch((err) => console.error("[auth] welcome in-app dispatch failed:", err));
+        }
         if (host) {
           const workspaceUrl = `https://${host}`;
           // Fire-and-forget so the API response isn't blocked on Resend.
