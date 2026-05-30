@@ -3034,7 +3034,12 @@ function applyEpisodeToHero(p: ContentSeriesBlockProps, ep: ContentSeriesEpisode
     // episode has no guest, render no guest line rather than the wrong name.
     heroGuestName: ep.guestName ?? "",
     heroGuestTitle: [ep.guestTitle, ep.guestCompany].filter(Boolean).join(", "),
-    heroImageUrl: ep.thumbnailUrl ?? p.heroImageUrl,
+    // Hero background must NEVER change on episode targeting. A targeted page
+    // (?episode=<slug> / ?utm_content=<slug>) must look identical to the default
+    // homepage, with the ONLY difference being the Featured card's content. The
+    // hero/background image stays as the page's configured image across all hero
+    // layouts (full-bleed, half-bleed, text-only) — so we intentionally do NOT
+    // override heroImageUrl / heroBackgroundImageUrl here.
     heroCtaUrl: ep.ctaUrl ?? p.heroCtaUrl,
     heroCtaText: ep.ctaText ?? p.heroCtaText,
   };
