@@ -1,0 +1,77 @@
+Two new capabilities Charlotte wants. Both have to be designed as systems (not hardcoded), but the FULL superadmin authoring UI is too much pre-launch. Recommended phasing:
+What ships pre-launch (v1):
+
+Backend infrastructure for both channels. Single underlying model since in-app notifications and lifecycle emails are the same shape (template + trigger + targeting + send log):
+tsnotification_templates table:
+  id, key (e.g. "trial_day_7"), channels ("in_app" | "email" | "both"),
+  subject, body_html, body_text,
+  trigger_type ("event" | "scheduled_query"),
+  trigger_config jsonb,  -- e.g. { event: "trial_started", offset_days: 7 }
+  audience_query jsonb,  -- e.g. { plan: "free", in_trial: true, day_of_trial: 7 }
+  active boolean,
+  created_at, updated_at
+
+notification_sends table:
+  id, template_id, tenant_id, user_id, channel, sent_at,
+  delivered_status, read_at, error_message
+Resend is already integrated for email delivery per prior audit work. In-app delivery just writes a row to notification_sends with channel="in_app", read_at=null, surfaced via a /api/notifications/inbox endpoint.
+Scheduler/dispatcher. Lazy-on-read for time-based triggers — every page load checks "are there any lifecycle messages due for this tenant?" and fires them in the background. Same pattern as the trial-expiry resolver. Avoids the cron dependency that's bitten this codebase before.
+In-app notification UI components:
+
+Bell icon in top nav with unread count
+Dropdown inbox showing recent in-app notifications, marked read on click
+Toast component for high-priority (e.g. "Trial ends tomorrow")
+Existing trial banner becomes a notification with channel="in_app", template="trial_status"
+
+
+Seed the trial lifecycle templates at launch so they fire correctly out of the box:
+
+signup_welcome (event: tenant_created) → email + in-app
+trial_day_3_value_check (scheduled: day 3) → email
+trial_day_7_halfway (scheduled: day 7) → email + in-app
+trial_day_11_three_remaining (scheduled: day 11) → email + in-app
+trial_day_13_last_day (scheduled: day 13) → email + in-app
+trial_expired (event: trial_expired) → email + in-app
+post_expiry_day_7_winback (scheduled: day 21) → email
+upgrade_confirmation (event: subscription_created) → email
+
+Seeded via migration — admin-script idempotent, same pattern as the Dandy one-pager seed.
+Minimal superadmin UI — read-only for v1:
+
+List of all templates with active/inactive toggle (can disable a template without code change)
+View send history per template: who got what when, delivery status, read rates
+View per-tenant: which lifecycle messages have fired for this tenant, when
+Basic edit-in-place for subject + body (textarea, no rich editor) — so superadmin can fix typos without a deploy
+NO audience query builder, NO A/B testing, NO new-template creation UI — those wait
+
+
+
+What ships post-launch (v1.1, ~4-6 weeks post-launch):
+
+Full superadmin authoring UI: rich text editor for HTML body, template variables ({{tenant_name}}, {{user_first_name}}, {{days_remaining}}, etc.), preview pane
+Audience query builder UI (visual filter for plan, trial state, last-active, signal completion)
+New-template creation flow
+A/B test infrastructure (split traffic between two variants, measure open/click/conversion)
+Per-tenant notification preferences (let tenants opt out of marketing emails per CAN-SPAM/GDPR)
+Send-rate analytics dashboard
+
+What this depends on:
+
+The trial system from the prior plan must ship first — these lifecycle messages are useless without trial_started_at / trial_expires_at to fire against.
+Resend integration is already there per the codebase. Confirm Resend's domain authentication (DKIM/SPF) is set up correctly — if not, lifecycle emails will land in spam at launch. Quote during investigation.
+User email addresses: confirm each tenant has at least one verified user email so lifecycle emails have a recipient. The signup flow already captures this via Google OAuth — confirm it's stored on users (or wherever) and accessible to the send pipeline.
+
+Critical design constraint:
+Every lifecycle message MUST be tied to a specific tenant_id or user_id. No "send to all" capability in v1 — the blast-radius of a misconfigured all-tenants email is too high pre-launch. Even the welcome email is event: tenant_created triggered per-tenant, not bulk. Add target_tenant_id as a required field on notification_sends; reject any send with null.
+Order of operations:
+
+Schema migration (templates + sends tables)
+Dispatcher + lazy-on-read scheduler
+In-app inbox component + API
+Seed templates for the trial lifecycle
+Minimal superadmin UI (list + view + edit subject/body + active toggle)
+Verify Resend DKIM/SPF + send test emails to staging tenants
+Wire lifecycle messages to fire automatically when the trial system from the prior plan lands
+
+Build the schema + dispatcher first and propose the design before touching the superadmin UI. Once that's approved, the templates + UI are mostly mechanical.
+

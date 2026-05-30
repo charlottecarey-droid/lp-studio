@@ -11,11 +11,17 @@ import {
   normalizePlan,
   isProtectedEnterpriseSlug,
   getTenantPlan,
+  effectivePlan,
+  computeTrialState,
+  TRIAL_TIER,
   PROTECTED_ENTERPRISE_SLUGS,
   PLAN_FEATURES,
   PLANS,
   type Plan,
 } from "./planFeatures";
+
+const HOUR = 3_600_000;
+const DAY = 86_400_000;
 
 describe("normalizePlan — 5-tier reconciliation", () => {
   it("maps each canonical tier to itself", () => {
@@ -110,6 +116,117 @@ describe("getTenantPlan — DB lookup + Dandy override", () => {
   it("falls back to free when the tenant row is missing", async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
     expect(await getTenantPlan(999)).toBe("free");
+  });
+});
+
+describe("effectivePlan — trial window resolution", () => {
+  it("raises stored plan to the trial tier while the window is open", () => {
+    const future = new Date(Date.now() + 7 * DAY);
+    expect(effectivePlan({ storedPlan: "free", trialExpiresAt: future })).toBe(TRIAL_TIER);
+  });
+
+  it("never downgrades a higher stored plan during a trial", () => {
+    const future = new Date(Date.now() + 7 * DAY);
+    expect(effectivePlan({ storedPlan: "scale", trialExpiresAt: future })).toBe("scale");
+    expect(effectivePlan({ storedPlan: "enterprise", trialExpiresAt: future })).toBe("enterprise");
+  });
+
+  it("falls back to the stored plan after expiry", () => {
+    const past = new Date(Date.now() - HOUR);
+    expect(effectivePlan({ storedPlan: "free", trialExpiresAt: past })).toBe("free");
+  });
+
+  it("returns the stored plan when there is no trial window", () => {
+    expect(effectivePlan({ storedPlan: "starter", trialExpiresAt: null })).toBe("starter");
+  });
+});
+
+describe("computeTrialState", () => {
+  it("reports active with whole days remaining (ceil, min 1)", () => {
+    const s = computeTrialState({
+      trialStartedAt: new Date(Date.now() - DAY),
+      trialExpiresAt: new Date(Date.now() + 3 * DAY + HOUR),
+    });
+    expect(s.active).toBe(true);
+    expect(s.expired).toBe(false);
+    expect(s.daysRemaining).toBe(4);
+  });
+
+  it("reports expired with zero days remaining", () => {
+    const s = computeTrialState({
+      trialStartedAt: new Date(Date.now() - 20 * DAY),
+      trialExpiresAt: new Date(Date.now() - DAY),
+    });
+    expect(s.active).toBe(false);
+    expect(s.expired).toBe(true);
+    expect(s.daysRemaining).toBe(0);
+  });
+
+  it("is inert when there is no trial window", () => {
+    const s = computeTrialState({ trialStartedAt: null, trialExpiresAt: null });
+    expect(s).toMatchObject({ active: false, expired: false, daysRemaining: 0, expiresAt: null });
+  });
+});
+
+describe("getTenantPlan — trial-aware resolution", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("grants the trial tier while the window is open even on a Free floor", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{
+        plan: "free",
+        slug: "acme",
+        trial_expires_at: new Date(Date.now() + 5 * DAY),
+        has_trialed_before: false,
+      }],
+    });
+    expect(await getTenantPlan(42)).toBe(TRIAL_TIER);
+    // Active trial must NOT trigger the consume-write.
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops to the stored plan after expiry AND lazily marks the trial consumed", async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{
+          plan: "free",
+          slug: "acme",
+          trial_expires_at: new Date(Date.now() - HOUR),
+          has_trialed_before: false,
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // the UPDATE
+    expect(await getTenantPlan(42)).toBe("free");
+    // SELECT + the lazy has_trialed_before UPDATE.
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    expect(queryMock.mock.calls[1][0]).toMatch(/UPDATE tenants SET has_trialed_before/);
+  });
+
+  it("does not re-write has_trialed_before once already consumed", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{
+        plan: "free",
+        slug: "acme",
+        trial_expires_at: new Date(Date.now() - 30 * DAY),
+        has_trialed_before: true,
+      }],
+    });
+    expect(await getTenantPlan(42)).toBe("free");
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Dandy on enterprise even with an active trial window", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{
+        plan: "free",
+        slug: "dandy",
+        trial_expires_at: new Date(Date.now() + 5 * DAY),
+        has_trialed_before: false,
+      }],
+    });
+    expect(await getTenantPlan(1)).toBe("enterprise");
   });
 });
 

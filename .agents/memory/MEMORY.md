@@ -29,3 +29,4 @@
 - [vitest app.listen hangs](vitest-listen-hangs-inproc-inject.md) — vitest worker pool never fires app.listen callback; api-server route tests must use in-process inject() helper, not port+fetch.
 - [E2E Dandy-gating both paths](e2e-dandy-tenant-limit.md) — client gate=brandName (royal fixture w/ brandName:"Dandy"), server gate=slug (impersonate seeded dandy-smb + cleanup rows); both paths testable.
 - [Chili Piper booking tracking](chili-piper-booking-tracking.md) — 2 surfaces (hero ChiliPiperButton + cta-button→ChiliPiperModal hook); never gate booking recording on lead PII; only `if(!url)return`; omit testId/variantId unless a real A/B test.
+- [Trial plan write-path landmine](trial-plan-write-paths.md) — NO production path may store tenants.plan='trial' (read-normalizes to growth = indefinite free Growth); trials are date-window only; defaults+create+PATCH must be canonical; guardrail test enforces.

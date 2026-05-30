@@ -247,3 +247,84 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
 export function configForPlan(plan: Plan): PlanConfigEntry {
   return PLAN_CONFIG[plan];
 }
+
+/**
+ * TRIALS — every self-serve signup gets the SAME automatic 14-day trial of
+ * the Growth tier (no card, no tier picker in onboarding). The trial tier is
+ * a constant (not a per-tenant column): trials are uniform. Both values are
+ * defaults that can later be surfaced as SuperAdmin-editable settings.
+ */
+export const TRIAL_TIER: Plan = "growth";
+export const TRIAL_DURATION_DAYS = 14;
+
+/** Tier ladder position (low -> high). Used to compare two plans. */
+export function planRank(plan: Plan): number {
+  return PLAN_CONFIG[plan].sortOrder;
+}
+
+/** The higher (more access) of two plans on the tier ladder. */
+export function higherPlan(a: Plan, b: Plan): Plan {
+  return planRank(a) >= planRank(b) ? a : b;
+}
+
+function toDateOrNull(v: Date | string | number | null | undefined): Date | null {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Resolve a tenant's EFFECTIVE plan from its stored plan + trial window.
+ *
+ * During an active trial (`trialExpiresAt` in the future) the tenant gets at
+ * least the trial tier (Growth); we never DOWNGRADE a higher stored plan
+ * (e.g. a Scale customer who happens to carry trial dates). After expiry the
+ * stored plan stands — auto-downgrade is purely a function of the clock, no
+ * data is touched. This is the single source of truth every plan-gate reads.
+ */
+export function effectivePlan(args: {
+  storedPlan: Plan;
+  trialExpiresAt: Date | string | number | null | undefined;
+  now?: Date;
+}): Plan {
+  const expiry = toDateOrNull(args.trialExpiresAt);
+  if (!expiry) return args.storedPlan;
+  const now = args.now ?? new Date();
+  return expiry.getTime() > now.getTime()
+    ? higherPlan(args.storedPlan, TRIAL_TIER)
+    : args.storedPlan;
+}
+
+/** Trial snapshot for banners / billing UI. */
+export interface TrialState {
+  /** A trial window exists and has not yet ended. */
+  active: boolean;
+  /** A trial window exists and has ended. */
+  expired: boolean;
+  startedAt: Date | null;
+  expiresAt: Date | null;
+  /** Whole days left (ceil) while active; 0 otherwise. */
+  daysRemaining: number;
+}
+
+export function computeTrialState(args: {
+  trialStartedAt: Date | string | number | null | undefined;
+  trialExpiresAt: Date | string | number | null | undefined;
+  now?: Date;
+}): TrialState {
+  const startedAt = toDateOrNull(args.trialStartedAt);
+  const expiresAt = toDateOrNull(args.trialExpiresAt);
+  if (!expiresAt) {
+    return { active: false, expired: false, startedAt, expiresAt: null, daysRemaining: 0 };
+  }
+  const now = args.now ?? new Date();
+  const msLeft = expiresAt.getTime() - now.getTime();
+  const active = msLeft > 0;
+  return {
+    active,
+    expired: !active,
+    startedAt,
+    expiresAt,
+    daysRemaining: active ? Math.max(1, Math.ceil(msLeft / 86_400_000)) : 0,
+  };
+}

@@ -176,6 +176,16 @@ router.post("/tenants", requireSuperadmin, async (req, res): Promise<void> => {
     return;
   }
 
+  // Plan input must be canonical. Legacy aliases (e.g. "trial") normalize to a
+  // higher tier (trial -> growth) and, if stored verbatim, would grant that
+  // tier indefinitely with no trial window. Trials are date-driven (signup
+  // sets the trial_*_at columns); admin-created tenants get an explicit
+  // canonical plan or default to the Free floor. Mirror the PATCH validation.
+  if (plan !== undefined && (typeof plan !== "string" || !PLANS.includes(plan as Plan))) {
+    res.status(400).json({ error: `plan must be one of: ${PLANS.join(", ")}` });
+    return;
+  }
+
   const slugVal = validateSlug(slug);
   if (!slugVal.ok) {
     res.status(400).json({ error: `Invalid slug — ${slugVal.error}` });
@@ -228,7 +238,7 @@ router.post("/tenants", requireSuperadmin, async (req, res): Promise<void> => {
        VALUES ($1, $2, $3, $4, $5, 'active',
                '{"industry":"generic","requireReviewBeforePublish":false,"seo":{"allowIndexing":false,"allowFollowing":false}}'::jsonb)
        RETURNING *`,
-      [name.trim(), slugClean, domain ?? null, micrositeDomain ?? null, plan ?? "trial"]
+      [name.trim(), slugClean, domain ?? null, micrositeDomain ?? null, plan ?? "free"]
     );
     const tenant = tenantResult.rows[0];
 

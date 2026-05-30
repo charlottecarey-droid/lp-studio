@@ -24,6 +24,7 @@ import {
   Wand2,
   Sparkles,
   Search,
+  Clock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -459,6 +460,65 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
   );
 }
 
+// Persistent trial-status bar shown above the app content for tenants on the
+// automatic 14-day Growth trial. Three states (copy approved by Charlotte):
+//   • active, >3 days left  → gentle "days remaining · See plans"
+//   • active, ≤3 days left  → urgent "ends in N days · Upgrade to keep your features"
+//   • expired (still Free)  → "trial ended, downgraded to Free · Upgrade to restore…"
+// The expired state is gated on planTier === "free" so a tenant who trialed and
+// then moved to a paid plan (or Dandy/enterprise) never sees a stale banner.
+function TrialStatusBar() {
+  const { user } = useAuth();
+  const trial = user?.trial;
+  if (!trial) return null;
+
+  const onFree = (user?.planTier ?? "free") === "free" || !user?.planTier;
+  const days = trial.daysRemaining;
+
+  let tone: "gentle" | "urgent" | "expired" | null = null;
+  if (trial.active) tone = days <= 3 ? "urgent" : "gentle";
+  else if (trial.expired && onFree) tone = "expired";
+  if (!tone) return null;
+
+  const dayLabel = days === 1 ? "day" : "days";
+  const palette =
+    tone === "expired"
+      ? "border-amber-300 bg-amber-50 text-amber-900"
+      : tone === "urgent"
+      ? "border-amber-300 bg-amber-50 text-amber-900"
+      : "border-primary/30 bg-primary/5 text-foreground";
+
+  let message: string;
+  let cta: string;
+  if (tone === "gentle") {
+    message = `Growth trial: ${days} ${dayLabel} remaining.`;
+    cta = "See plans";
+  } else if (tone === "urgent") {
+    message = `Growth trial ends in ${days} ${dayLabel}.`;
+    cta = "Upgrade to keep your features";
+  } else {
+    message = "Your Growth trial ended. You've been downgraded to Free.";
+    cta = "Upgrade to restore Sales Console + unlimited pages";
+  }
+
+  return (
+    <div
+      data-testid={`trial-banner-${tone}`}
+      className={`flex items-center justify-center gap-x-2 gap-y-1 flex-wrap px-4 py-2 text-xs sm:text-sm border-b ${palette}`}
+    >
+      <Clock className="w-3.5 h-3.5 shrink-0" />
+      <span className="font-medium">{message}</span>
+      <Link
+        href="/settings/billing"
+        className="font-semibold underline underline-offset-2 hover:no-underline"
+        data-testid="trial-banner-cta"
+      >
+        {cta}
+      </Link>
+    </div>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const style = {
     "--sidebar-width": "16rem",
@@ -474,6 +534,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background selection:bg-primary/10">
         <AppSidebar onOpenCommand={() => setCmdOpen(true)} />
         <div className="flex flex-col flex-1 min-w-0">
+          <TrialStatusBar />
           <header className="h-12 flex items-center justify-between px-3 sm:px-5 border-b border-border bg-background sticky top-0 z-50">
             <SidebarTrigger className="hover:bg-muted transition-colors rounded-md p-2 -ml-1" />
             <button

@@ -69,7 +69,7 @@ export async function getAiImageGenStatus(
   );
   const row = r.rows[0];
   if (!row) return { available: false, enabled: false, plan: "" };
-  const plan = row.plan ?? "trial";
+  const plan = row.plan ?? "free";
   const available = (await getPlanFeatures(normalizePlan(plan))).aiImageGen;
   const enabled = available && row.settings?.aiImageGenEnabled === true;
   return { available, enabled, plan };

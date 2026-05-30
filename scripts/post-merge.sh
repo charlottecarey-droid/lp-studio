@@ -86,6 +86,18 @@ psql "$NEON_DATABASE_URL" -c "
     );
 "
 
+# Migration 0039 — automatic 14-day Growth trial. Add the trial-window columns
+# idempotently and retire the legacy plan='trial' default (move those rows to
+# the Free floor; never touch protected Dandy workspaces). Additive + IF NOT
+# EXISTS so this is safe to re-run on every merge.
+psql "$NEON_DATABASE_URL" -c "
+  ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_started_at timestamptz;
+  ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_expires_at timestamptz;
+  ALTER TABLE tenants ADD COLUMN IF NOT EXISTS has_trialed_before boolean NOT NULL DEFAULT false;
+  UPDATE tenants SET plan = 'free' WHERE plan = 'trial' AND slug NOT IN ('dandy', 'dandy-smb');
+  ALTER TABLE tenants ALTER COLUMN plan SET DEFAULT 'free';
+"
+
 if [ "${SMOKE_SKIP_TENANT_HOSTS:-0}" != "1" ]; then
   pnpm --filter @workspace/scripts run smoke-tenant-hosts
 fi

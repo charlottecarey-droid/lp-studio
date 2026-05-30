@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -21,7 +21,7 @@ export const tenantsTable = pgTable("tenants", {
   // by id (avoiding a lookup-by-hostname round trip) and so the
   // SaaS UI can poll its TLS/verification status.
   cloudflareHostnameId: text("cloudflare_hostname_id"),
-  plan: text("plan").notNull().default("trial"),
+  plan: text("plan").notNull().default("free"),
   // Task #425 — Stripe billing. `plan` remains the source of truth the rest
   // of the app reads (PLAN_FEATURES is keyed by it). Stripe is only ever
   // authoritative for *tier* selection; entitlements stay code-driven. These
@@ -40,6 +40,17 @@ export const tenantsTable = pgTable("tenants", {
   // brands like Dandy and Dandy SMB share one media catalog. Keep this minimal
   // — it is not a general parent/child tenant relationship.
   sharesLibraryWithTenantId: integer("shares_library_with_tenant_id"),
+  // TRIALS — every self-serve signup gets an automatic 14-day Growth trial.
+  // The trial tier is a constant in @workspace/plan-config (not a column);
+  // these two timestamps define the window. NULL on both = no trial (the
+  // going-forward-only default for accounts that existed before launch).
+  // `effectivePlan` grants the trial tier while now() < trial_expires_at and
+  // the stored `plan` is the floor users fall back to after expiry.
+  trialStartedAt: timestamp("trial_started_at", { withTimezone: true }),
+  trialExpiresAt: timestamp("trial_expires_at", { withTimezone: true }),
+  // Flips true once a trial has elapsed (set lazily on read) so a tenant
+  // can't restart a second trial. Default false for new + existing rows.
+  hasTrialedBefore: boolean("has_trialed_before").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

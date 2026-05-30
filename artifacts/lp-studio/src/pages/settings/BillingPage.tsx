@@ -44,6 +44,17 @@ type Cadence = "monthly" | "annual";
 interface BillingSummary {
   plan: Plan;
   features: Record<string, unknown>;
+  // DB-driven 14-day Growth trial state (NOT Stripe's `trialing` status). Our
+  // self-serve trials live on the tenants table and lift the effective plan to
+  // Growth while active; this object drives the on-page trial messaging.
+  trial: {
+    active: boolean;
+    expired: boolean;
+    daysRemaining: number;
+    startedAt: string | null;
+    expiresAt: string | null;
+    hasTrialedBefore: boolean;
+  };
   stripe: {
     configured: boolean;
     customerId: string | null;
@@ -220,12 +231,6 @@ function formatDate(epochSeconds: number | null): string {
   });
 }
 
-function daysUntil(epochSeconds: number | null): number | null {
-  if (!epochSeconds) return null;
-  const ms = epochSeconds * 1000 - Date.now();
-  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
-}
-
 function statusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "active" || status === "trialing") return "default";
   if (status === "past_due" || status === "unpaid") return "destructive";
@@ -363,7 +368,6 @@ export default function BillingPage() {
 
   const sub = summary?.stripe.subscription ?? null;
   const hasActiveSub = !!sub && !!sub.status && ACTIVE_SUB_STATUSES.has(sub.status);
-  const isTrialing = sub?.status === "trialing";
 
   return (
     <AppLayout>
@@ -401,14 +405,11 @@ export default function BillingPage() {
           </Card>
         )}
 
-        {summary && isTrialing && (
+        {summary && (summary.trial.active || (summary.trial.expired && summary.plan === "free")) && (
           <TrialBanner
-            planName={cfgMap[summary.plan]?.displayName ?? summary.plan}
-            trialEnd={sub?.currentPeriodEnd ?? null}
-            hasCustomer={!!summary.stripe.customerId}
-            onManage={() => openPortal()}
-            manageBusy={actionInFlight === "portal"}
-            manageDisabled={!isAdmin}
+            active={summary.trial.active}
+            daysRemaining={summary.trial.daysRemaining}
+            expiresAt={summary.trial.expiresAt}
           />
         )}
 
@@ -479,46 +480,55 @@ function CadenceToggle({ cadence, onChange }: { cadence: Cadence; onChange: (c: 
   );
 }
 
+// DB-driven Growth-trial banner. While the window is open it shows days
+// remaining + the end date and points the user at the plans below; once it has
+// lapsed (and the tenant has fallen back to Free) it explains the downgrade.
+// There is no "add payment method" action — self-serve trials convert through
+// the Checkout buttons in the plans grid, not a Stripe trial.
 function TrialBanner({
-  planName, trialEnd, hasCustomer, onManage, manageBusy, manageDisabled,
+  active, daysRemaining, expiresAt,
 }: {
-  planName: string;
-  trialEnd: number | null;
-  hasCustomer: boolean;
-  onManage: () => void;
-  manageBusy: boolean;
-  manageDisabled: boolean;
+  active: boolean;
+  daysRemaining: number;
+  expiresAt: string | null;
 }) {
-  const left = daysUntil(trialEnd);
+  const endMs = expiresAt ? Date.parse(expiresAt) : null;
+  const tone = active
+    ? daysRemaining <= 3 ? "border-amber-300 bg-amber-50" : "border-primary/30 bg-primary/5"
+    : "border-amber-300 bg-amber-50";
+  const iconWrap = active && daysRemaining > 3 ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700";
+  const dayLabel = daysRemaining === 1 ? "day" : "days";
   return (
-    <Card className="p-5 border-primary/30 bg-primary/5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4 text-primary" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="font-medium text-foreground">
-              You're on a free trial of {planName}
-              {left != null && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  · {left} {left === 1 ? "day" : "days"} left
-                </span>
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {trialEnd
-                ? `Your trial ends on ${formatDate(trialEnd)}. Add a payment method before then to keep your plan.`
-                : "Add a payment method to keep your plan when the trial ends."}
-            </p>
-          </div>
+    <Card className={`p-5 ${tone}`}>
+      <div className="flex items-start gap-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}>
+          <Clock className="w-4 h-4" />
         </div>
-        {hasCustomer && (
-          <Button size="sm" onClick={onManage} disabled={manageDisabled || manageBusy}>
-            {manageBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CreditCard className="w-4 h-4 mr-1" />}
-            Add payment method
-          </Button>
-        )}
+        <div className="space-y-0.5">
+          {active ? (
+            <>
+              <p className="font-medium text-foreground">
+                You're on the Growth trial
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  · {daysRemaining} {dayLabel} left
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {endMs
+                  ? `Your trial ends on ${formatDate(endMs)}. Upgrade below any time to keep your Growth features.`
+                  : "Upgrade below any time to keep your Growth features."}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-foreground">Your Growth trial has ended</p>
+              <p className="text-sm text-muted-foreground">
+                You've been downgraded to Free. Upgrade below to restore the Sales Console, unlimited
+                pages, and the rest of your Growth features.
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </Card>
   );

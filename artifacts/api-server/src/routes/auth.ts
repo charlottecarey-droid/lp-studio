@@ -7,7 +7,14 @@ import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import { sendWelcomeEmail } from "../lib/notifications";
-import { normalizePlan } from "../lib/planFeatures";
+import {
+  normalizePlan,
+  TRIAL_DURATION_DAYS,
+  effectivePlan,
+  computeTrialState,
+  isProtectedEnterpriseSlug,
+  type Plan,
+} from "../lib/planFeatures";
 import { getPlanFeaturesMap } from "../lib/planConfig";
 
 /**
@@ -549,9 +556,17 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     let tenantDomain: string | null = null;
     let tenantHost: string | null = null;
     let tenantLoginUrl: string | null = null;
+    // DB-driven trial window (NOT Stripe's `trialing`). `effectiveTier` is the
+    // plan the UI must reflect — it rises to the trial tier while the window is
+    // open so trialing users actually see/keep the Growth feature set, then
+    // falls back to the stored floor on expiry. Defaults assume no tenant.
+    let effectiveTier: Plan = "free";
+    let trialState = computeTrialState({ trialStartedAt: null, trialExpiresAt: null });
     if (sess.tenantId) {
       const tenantResult = await pool.query(
-        `SELECT onboarding_completed_at, settings, slug, domain, plan FROM tenants WHERE id = $1`,
+        `SELECT onboarding_completed_at, settings, slug, domain, plan,
+                trial_started_at, trial_expires_at, has_trialed_before
+           FROM tenants WHERE id = $1`,
         [sess.tenantId]
       );
       if (tenantResult.rows.length > 0) {
@@ -566,7 +581,20 @@ router.get("/auth/me", async (req, res): Promise<void> => {
         tenantHost = getCanonicalTenantHost({ slug: tenantSlug, domain: tenantDomain });
         tenantLoginUrl = tenantHost ? `https://${tenantHost}` : null;
         tenantPlan = row.plan ?? null;
-        aiImageGenAvailable = (await getPlanFeaturesMap())[normalizePlan(tenantPlan)].aiImageGen;
+        // Resolve the effective tier the same way getTenantPlan() does so the
+        // UI and the API agree: Dandy is always enterprise; otherwise a live
+        // trial window lifts the stored floor to the trial tier.
+        trialState = computeTrialState({
+          trialStartedAt: row.trial_started_at,
+          trialExpiresAt: row.trial_expires_at,
+        });
+        effectiveTier = isProtectedEnterpriseSlug(tenantSlug)
+          ? "enterprise"
+          : effectivePlan({
+              storedPlan: normalizePlan(tenantPlan),
+              trialExpiresAt: row.trial_expires_at,
+            });
+        aiImageGenAvailable = (await getPlanFeaturesMap())[effectiveTier].aiImageGen;
         aiImageGenEnabled = aiImageGenAvailable && settings.aiImageGenEnabled === true;
         aiImageGenOutsideBuilderEnabled = settings.aiImageGenOutsideBuilderEnabled === true;
       }
@@ -624,7 +652,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     // ("starter" / "growth" / "enterprise") and `planFeatures` is the
     // server-computed feature map the UI uses to hide the Sales toggle
     // and short-circuit /sales/* routes before the request fires.
-    const planTier = normalizePlan(tenantPlan);
+    const planTier = effectiveTier;
     const planFeatures = (await getPlanFeaturesMap())[planTier];
 
     res.json({
@@ -641,6 +669,12 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       tenantPlan,
       planTier,
       planFeatures,
+      trial: {
+        active: trialState.active,
+        expired: trialState.expired,
+        daysRemaining: trialState.daysRemaining,
+        expiresAt: trialState.expiresAt ? trialState.expiresAt.toISOString() : null,
+      },
       aiImageGenAvailable,
       aiImageGenEnabled,
       aiImageGenOutsideBuilderEnabled,
@@ -1386,12 +1420,17 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       // to TRUE on server boot so their #108 behaviour is preserved; this
       // path mirrors the admin-create default so all "new" tenants — however
       // they're created — start with the workflow off.
+      // Auto-enroll every self-serve signup in the uniform 14-day Growth trial.
+      // The stored plan is the FREE floor they fall back to after expiry; the
+      // trial window (trial_started_at / trial_expires_at) is what grants Growth
+      // features meanwhile via effectivePlan(). No card, no tier picker.
       const tenantResult = await client.query(
-        `INSERT INTO tenants (name, slug, plan, status, settings)
-         VALUES ($1, $2, 'trial', 'active',
-                 '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb)
+        `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
+         VALUES ($1, $2, 'free', 'active',
+                 '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
+                 now(), now() + make_interval(days => $3))
          RETURNING id, name, slug`,
-        [name.trim(), slugClean]
+        [name.trim(), slugClean, TRIAL_DURATION_DAYS]
       );
       const tenant = tenantResult.rows[0];
 

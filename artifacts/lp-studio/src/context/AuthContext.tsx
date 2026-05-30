@@ -55,6 +55,16 @@ export interface AuthUser {
   tenantHost?: string | null;
   tenantLoginUrl?: string | null;
   shouldRedirectToTenantHost?: boolean;
+  // DB-driven 14-day Growth trial state (set by /auth/me). `active` while the
+  // window is open (planTier is lifted to "growth"), `expired` once it has
+  // lapsed. `daysRemaining` is whole days (ceil, min 1 while active, 0 once
+  // expired). Absent on sessions/tenants with no trial window.
+  trial?: {
+    active: boolean;
+    expired: boolean;
+    daysRemaining: number;
+    expiresAt: string | null;
+  } | null;
 }
 
 export interface VanityLink {

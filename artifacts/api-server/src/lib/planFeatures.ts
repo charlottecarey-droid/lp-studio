@@ -1,10 +1,13 @@
 import { pool } from "@workspace/db";
 import {
+  computeTrialState,
+  effectivePlan,
   isProtectedEnterpriseSlug,
   normalizePlan,
   PLAN_FEATURES,
   type Plan,
   type PlanFeatures,
+  type TrialState,
 } from "@workspace/plan-config";
 import { getPlanFeatures } from "./planConfig";
 
@@ -29,28 +32,103 @@ export {
   PLAN_FEATURES,
   PLANS,
   PROTECTED_ENTERPRISE_SLUGS,
+  TRIAL_TIER,
+  TRIAL_DURATION_DAYS,
   isProtectedEnterpriseSlug,
   normalizePlan,
   featuresForPlan,
+  effectivePlan,
+  computeTrialState,
 } from "@workspace/plan-config";
-export type { Plan, PlanFeatures, PlanLimits, PlanConfigEntry } from "@workspace/plan-config";
+export type { Plan, PlanFeatures, PlanLimits, PlanConfigEntry, TrialState } from "@workspace/plan-config";
 
 /**
- * Look up a tenant's normalized plan. Returns "free" for an unknown
- * or missing tenant — the safest default (least access). Callers that
- * need the raw DB value should query `tenants.plan` directly.
+ * Look up a tenant's EFFECTIVE plan — the single chokepoint every server-side
+ * plan-gate funnels through. Returns "free" for an unknown or missing tenant
+ * (the safest default, least access). Callers that need the raw stored value
+ * should query `tenants.plan` directly.
+ *
+ * Trial handling: while a tenant's trial window is open the effective plan is
+ * raised to the trial tier (Growth); once it lapses the stored plan stands
+ * (auto-downgrade with no data touched). The very first read after expiry
+ * also flips `has_trialed_before` so the trial can't be restarted — done
+ * lazily here (same pattern as the AI-usage counter) to avoid a cron job.
  */
 export async function getTenantPlan(tenantId: number | null | undefined): Promise<Plan> {
   if (tenantId == null) return "free";
-  const r = await pool.query<{ plan: string | null; slug: string | null }>(
-    `SELECT plan, slug FROM tenants WHERE id = $1`,
+  const r = await pool.query<{
+    plan: string | null;
+    slug: string | null;
+    trial_expires_at: Date | string | null;
+    has_trialed_before: boolean | null;
+  }>(
+    `SELECT plan, slug, trial_expires_at, has_trialed_before FROM tenants WHERE id = $1`,
     [tenantId],
   );
   const row = r.rows[0];
   // Dandy safeguard — the two Dandy workspaces always resolve to enterprise,
   // regardless of stored plan or any Stripe webhook. See PROTECTED_ENTERPRISE_SLUGS.
   if (isProtectedEnterpriseSlug(row?.slug)) return "enterprise";
-  return normalizePlan(row?.plan);
+
+  const stored = normalizePlan(row?.plan);
+  const trialExpiresAt = row?.trial_expires_at ?? null;
+
+  // Lazy-on-read: stamp `has_trialed_before` the first time we observe a
+  // lapsed trial. Best-effort and idempotent (guarded WHERE) so concurrent
+  // reads don't double-write or block the response.
+  if (trialExpiresAt && !row?.has_trialed_before) {
+    const expired = new Date(trialExpiresAt).getTime() <= Date.now();
+    if (expired) void markTrialConsumed(tenantId);
+  }
+
+  return effectivePlan({ storedPlan: stored, trialExpiresAt });
+}
+
+/**
+ * Marks a tenant's trial as consumed (one-time, on expiry). Best-effort: a
+ * failure just means the next read retries. This is the natural hook point
+ * for a future `trial_expired` lifecycle notification (see notifications
+ * follow-up) — emit the event here once the dispatcher exists.
+ */
+async function markTrialConsumed(tenantId: number): Promise<void> {
+  try {
+    await pool.query(
+      `UPDATE tenants SET has_trialed_before = true WHERE id = $1 AND has_trialed_before = false`,
+      [tenantId],
+    );
+  } catch (err) {
+    console.error("[planFeatures] failed to mark trial consumed for tenant", tenantId, err);
+  }
+}
+
+/**
+ * Resolve a tenant's trial snapshot (active / expired / days-remaining) for
+ * banner + billing UI. Returns an inert "no trial" state for unknown tenants.
+ */
+export async function getTenantTrialState(
+  tenantId: number | null | undefined,
+): Promise<TrialState> {
+  const inert: TrialState = {
+    active: false,
+    expired: false,
+    startedAt: null,
+    expiresAt: null,
+    daysRemaining: 0,
+  };
+  if (tenantId == null) return inert;
+  const r = await pool.query<{
+    trial_started_at: Date | string | null;
+    trial_expires_at: Date | string | null;
+  }>(
+    `SELECT trial_started_at, trial_expires_at FROM tenants WHERE id = $1`,
+    [tenantId],
+  );
+  const row = r.rows[0];
+  if (!row) return inert;
+  return computeTrialState({
+    trialStartedAt: row.trial_started_at,
+    trialExpiresAt: row.trial_expires_at,
+  });
 }
 
 /**

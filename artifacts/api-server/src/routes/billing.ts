@@ -25,7 +25,7 @@ import type Stripe from "stripe";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getPriceIdForLookupKey, getStripe, StripeNotConfiguredError } from "../lib/stripeClient";
-import { normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
+import { normalizePlan, getTenantPlan, computeTrialState, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures } from "../lib/planConfig";
 import {
   ALL_LOOKUP_KEYS,
@@ -58,6 +58,9 @@ interface TenantBillingRow {
   stripe_currency: string | null;
   stripe_payment_brand: string | null;
   stripe_payment_last4: string | null;
+  trial_started_at: string | Date | null;
+  trial_expires_at: string | Date | null;
+  has_trialed_before: boolean | null;
 }
 
 const TENANT_COLUMNS = `
@@ -66,7 +69,8 @@ const TENANT_COLUMNS = `
   stripe_subscription_status, stripe_current_period_end,
   stripe_cancel_at_period_end, stripe_price_lookup_key,
   stripe_cadence, stripe_unit_amount, stripe_currency,
-  stripe_payment_brand, stripe_payment_last4
+  stripe_payment_brand, stripe_payment_last4,
+  trial_started_at, trial_expires_at, has_trialed_before
 `;
 
 async function loadTenant(tenantId: number): Promise<TenantBillingRow | null> {
@@ -142,9 +146,26 @@ router.get("/billing/summary", async (req: Request, res: Response): Promise<void
           currency: tenant.stripe_currency,
         };
 
+  // DB-driven trial state (NOT Stripe's `trialing` status — our trials are
+  // card-free and tracked on the tenant row). `plan` above already reflects
+  // the trial tier while active because getTenantPlan() routes through
+  // effectivePlan(); this block just exposes the window for the UI.
+  const trial = computeTrialState({
+    trialStartedAt: tenant.trial_started_at,
+    trialExpiresAt: tenant.trial_expires_at,
+  });
+
   res.json({
     plan,
     features,
+    trial: {
+      active: trial.active,
+      expired: trial.expired,
+      daysRemaining: trial.daysRemaining,
+      startedAt: trial.startedAt ? trial.startedAt.toISOString() : null,
+      expiresAt: trial.expiresAt ? trial.expiresAt.toISOString() : null,
+      hasTrialedBefore: tenant.has_trialed_before ?? false,
+    },
     stripe: {
       configured: stripeConfigured,
       customerId: tenant.stripe_customer_id,
