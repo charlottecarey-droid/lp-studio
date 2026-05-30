@@ -48,6 +48,19 @@ const SIGNED_IN_NO_TENANT = {
   isAdmin: false,
 } as const;
 
+// The same user *after* they create their first workspace: `/api/auth/me`
+// now resolves a tenant. `onboardingCompleted: false` is what advances them
+// from the create-workspace form into the OnboardingWizard (AuthGate ~L637).
+// `shouldRedirectToTenantHost` is intentionally omitted so AuthGate doesn't
+// short-circuit into the cross-domain TenantHandoffRedirect instead.
+const SIGNED_IN_WITH_TENANT = {
+  ...SIGNED_IN_NO_TENANT,
+  tenantId: 70_707,
+  role: "admin",
+  isAdmin: true,
+  onboardingCompleted: false,
+} as const;
+
 const OPEN_CTX = {
   mode: "open",
   tenantId: null,
@@ -287,6 +300,151 @@ test.describe("Post-login AuthGate — signed in, no workspace yet", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Access Pending" }),
+    ).toHaveCount(0);
+
+    await ctx.close();
+  });
+});
+
+/**
+ * Task #530 — the *happy path* (and its mirror, a server-side failure) of
+ * actually submitting the Create-your-workspace form. Task #520 above only
+ * covers that the form *renders*; this covers that *submitting* it works:
+ *   - the create-workspace endpoint (POST /api/auth/signup) is called with
+ *     the entered name + auto-slugified URL, and on success the user is
+ *     advanced into the OnboardingWizard;
+ *   - a server-side error (slug already taken) surfaces inline and keeps the
+ *     user on the form.
+ *
+ * Setup mirrors the describe block above (stub `/api/auth/me` +
+ * `/api/auth/domain-context` so the branch is deterministic), with two
+ * additions: `/api/auth/me` flips to a tenant-bound user once the workspace
+ * is created (so AuthGate re-renders into onboarding on `refresh()`), and
+ * `/api/auth/signup` is stubbed to a configurable response so the test never
+ * mutates the real database.
+ */
+async function setupCreateWorkspaceFlow(
+  page: Page,
+  signupResponse: { status: number; body: object },
+): Promise<{ signupRequests: Array<{ name?: string; slug?: string }> }> {
+  let workspaceCreated = false;
+  const signupRequests: Array<{ name?: string; slug?: string }> = [];
+
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      // Before signup: no tenant → create form. After a successful signup:
+      // tenant-bound + onboardingCompleted:false → OnboardingWizard.
+      body: JSON.stringify(
+        workspaceCreated ? SIGNED_IN_WITH_TENANT : SIGNED_IN_NO_TENANT,
+      ),
+    }),
+  );
+  await page.route("**/api/auth/domain-context**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(OPEN_CTX),
+    }),
+  );
+  await page.route("**/api/auth/signup", async (route) => {
+    signupRequests.push(
+      JSON.parse(route.request().postData() ?? "{}") as {
+        name?: string;
+        slug?: string;
+      },
+    );
+    // Only a 2xx flips the user into a created-workspace state — a failure
+    // must leave `/api/auth/me` resolving the no-tenant user (form stays).
+    if (signupResponse.status >= 200 && signupResponse.status < 300) {
+      workspaceCreated = true;
+    }
+    await route.fulfill({
+      status: signupResponse.status,
+      contentType: "application/json",
+      body: JSON.stringify(signupResponse.body),
+    });
+  });
+
+  return { signupRequests };
+}
+
+test.describe("Post-login AuthGate — submitting the Create-workspace form", () => {
+  test("submitting creates the workspace and advances the user into onboarding", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const { signupRequests } = await setupCreateWorkspaceFlow(page, {
+      status: 200,
+      body: { ok: true },
+    });
+    await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+
+    await expect(
+      page.getByRole("heading", { name: "Create your workspace" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Typing the workspace name auto-slugifies the URL field
+    // (CreateWorkspaceForm's slugify effect).
+    await page.getByLabel("Workspace name").fill("Acme Corp");
+    await expect(page.getByLabel("Workspace URL")).toHaveValue("acme-corp");
+
+    await page.getByRole("button", { name: "Create workspace" }).click();
+
+    // The create-workspace endpoint was hit exactly once with the entered
+    // name + the auto-generated slug.
+    await expect.poll(() => signupRequests.length).toBe(1);
+    expect(signupRequests[0]).toEqual({ name: "Acme Corp", slug: "acme-corp" });
+
+    // On success the user is moved forward into the OnboardingWizard, whose
+    // first screen is the import step ("Let's build your brand").
+    await expect(
+      page.getByRole("heading", { name: /Let.s build your brand/ }),
+    ).toBeVisible({ timeout: 30_000 });
+    // …and is no longer sitting on the create-workspace form.
+    await expect(
+      page.getByRole("heading", { name: "Create your workspace" }),
+    ).toHaveCount(0);
+
+    await ctx.close();
+  });
+
+  test("a server-side error (slug already taken) surfaces inline and keeps the user on the form", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    // Mirrors the real api-server response for a slug collision
+    // (auth.ts signup handler: 23505 unique-violation → 409).
+    const { signupRequests } = await setupCreateWorkspaceFlow(page, {
+      status: 409,
+      body: { error: "That workspace URL is already taken. Please choose another." },
+    });
+    await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+
+    await expect(
+      page.getByRole("heading", { name: "Create your workspace" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    await page.getByLabel("Workspace name").fill("Acme Corp");
+    await expect(page.getByLabel("Workspace URL")).toHaveValue("acme-corp");
+    await page.getByRole("button", { name: "Create workspace" }).click();
+
+    await expect.poll(() => signupRequests.length).toBe(1);
+
+    // The server's error message is surfaced inline…
+    await expect(
+      page.getByText("That workspace URL is already taken. Please choose another."),
+    ).toBeVisible();
+    // …and the user stays on the create-workspace form (not advanced into
+    // the onboarding wizard).
+    await expect(
+      page.getByRole("heading", { name: "Create your workspace" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Let.s build your brand/ }),
     ).toHaveCount(0);
 
     await ctx.close();
