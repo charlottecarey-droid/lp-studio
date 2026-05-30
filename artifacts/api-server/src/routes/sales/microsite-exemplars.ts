@@ -33,7 +33,21 @@ export interface MicrositeExemplarPage {
 export interface MicrositeExemplar {
   /** Stable id used for logging which exemplars were sent for a given run. */
   id: string;
-  /** Which audience segment this exemplar applies to (matches `segment.id`). */
+  /**
+   * Which audience segment this exemplar applies to. Matched against the live
+   * `segment.id` in pickExemplars (`e.audience === segmentId`).
+   *
+   * KNOWN LIMITATION (brittle coupling): this is a checked-in code file pinned to
+   * a specific tenant's DB-generated segment ids (Dandy's `seg-…` ids). If that
+   * segment is deleted and recreated via Brand Settings it gets a NEW auto id,
+   * `e.audience === segment.id` silently stops matching, and the EXEMPLARS
+   * section quietly disappears from generated microsites (no compile-time error).
+   * Hardening options tracked for post-launch: (a) add a stable, admin-editable
+   * `salesConsoleExemplarKey` on AudienceSegment and match on that instead of the
+   * raw id; or (b) move exemplars into per-tenant brand-config so they travel
+   * with the brand record. Until then: if exemplars stop firing for a tenant,
+   * check that these ids still match that tenant's current segment ids.
+   */
   audience: string;
   /**
    * Lowercase substrings to match against the account's `segment` field.
@@ -470,6 +484,13 @@ export const EXEMPLARS: MicrositeExemplar[] = [
  *
  * Returns an empty array when no exemplars exist for the audience — caller
  * should fall back gracefully (e.g. omit the EXEMPLARS section entirely).
+ *
+ * KNOWN LIMITATION: matching is `e.audience === segmentId` where segmentId is the
+ * live `segment.id`. Because EXEMPLARS is a checked-in file pinned to Dandy's
+ * DB-generated segment ids, recreating a segment in Brand Settings mints a new id
+ * and silently breaks matching (no error — the EXEMPLARS section just vanishes).
+ * See the `audience` field doc on MicrositeExemplar for the post-launch hardening
+ * options (stable exemplar key, or per-tenant brand-config exemplars).
  */
 export function pickExemplars(
   segmentId: string,

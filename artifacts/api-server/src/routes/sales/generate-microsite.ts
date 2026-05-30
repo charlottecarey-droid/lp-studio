@@ -790,7 +790,7 @@ interface BrandMicrositeBlockListEntry {
   type?: string;
   schemaHint?: string;
 }
-export interface BrandAudienceSegment {
+interface BrandAudienceSegment {
   id?: string;
   name?: string;
   description?: string;
@@ -937,7 +937,7 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
   return lines.join("\n");
 }
 
-export function buildSystemPrompt(
+function buildSystemPrompt(
   segment: BrandAudienceSegment,
   brand: Record<string, unknown>,
   templateBlockTypes?: string[],
@@ -1073,15 +1073,14 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
   // the legacy hardcoded `audience === "dso-*"` branches; any Dandy-specific
   // copy now lives in Dandy's seeded segment data and is only emitted when
   // Dandy is the active tenant.
+  const themes = (segment.valueProps ?? []).map(v => v?.trim()).filter(Boolean);
   const audienceSection = [
     segment.description?.trim()
       ? `AUDIENCE: ${segment.description.trim()}`
       : `AUDIENCE: ${segment.name?.trim() || "this account's audience"}`,
     segment.messagingAngle?.trim() ? `Messaging angle: ${segment.messagingAngle.trim()}` : null,
     segment.uniqueContext?.trim() ? `Unique context: ${segment.uniqueContext.trim()}` : null,
-    segment.valueProps?.length
-      ? `Messaging themes: ${segment.valueProps.filter(v => v?.trim()).join(", ")}.`
-      : null,
+    themes.length ? `Messaging themes: ${themes.join(", ")}.` : null,
   ].filter(Boolean).join("\n");
 
   // Block list resolution order: selected segment's micrositeBlockList →
