@@ -1,9 +1,8 @@
-import { describe, expect, it, vi, beforeEach, afterAll } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import type { AddressInfo } from "node:net";
-import type { Server } from "node:http";
 import type { Plan } from "@workspace/plan-config";
 import type { AuthUser } from "./requireAuth";
+import { inject } from "../test-utils/injectRequest";
 
 // Drive the per-tenant plan and the monthly AI-generation count via mocks.
 // getPlanConfig is left REAL — with no DB it falls back to the canonical
@@ -59,33 +58,18 @@ function buildHarness(): Express {
   return app;
 }
 
-interface RunningServer { server: Server; baseUrl: string; }
-async function listen(app: Express): Promise<RunningServer> {
-  return new Promise((resolve) => {
-    const server = app.listen(0, "127.0.0.1", () => {
-      const addr = server.address() as AddressInfo;
-      resolve({ server, baseUrl: `http://127.0.0.1:${addr.port}` });
-    });
-  });
-}
-async function close(s: RunningServer): Promise<void> {
-  return new Promise((resolve, reject) => s.server.close((err) => (err ? reject(err) : resolve())));
-}
-
-let running: RunningServer;
-beforeEach(async () => {
+let app: Express;
+beforeEach(() => {
   planByTenant.clear();
   planByTenant.set(FREE_TENANT, "free");
   planByTenant.set(GROWTH_TENANT, "growth");
   aiCount = 0;
-  running = await listen(buildHarness());
-});
-afterAll(async () => {
-  if (running) await close(running);
+  app = buildHarness();
 });
 
 async function post(headers: Record<string, string> = {}) {
-  return fetch(`${running.baseUrl}/lp/generate-page`, { method: "POST", headers });
+  const r = await inject(app, { method: "POST", url: "/lp/generate-page", headers });
+  return { status: r.status, json: () => r.json };
 }
 
 describe("requireAiGenerationQuota", () => {

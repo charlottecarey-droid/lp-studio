@@ -1,8 +1,7 @@
-import { describe, expect, it, vi, beforeEach, afterAll } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import express, { type Express } from "express";
-import type { AddressInfo } from "node:net";
-import type { Server } from "node:http";
 import type { Plan } from "@workspace/plan-config";
+import { inject } from "../../test-utils/injectRequest";
 
 // Heatmap ingestion is public (no authUser). We mock the two DB reads in
 // heatmapUsage (tenant resolution + session count) and the tenant->plan
@@ -66,21 +65,8 @@ function buildHarness(): Express {
   return app;
 }
 
-interface RunningServer { server: Server; baseUrl: string; }
-async function listen(app: Express): Promise<RunningServer> {
-  return new Promise((resolve) => {
-    const server = app.listen(0, "127.0.0.1", () => {
-      const addr = server.address() as AddressInfo;
-      resolve({ server, baseUrl: `http://127.0.0.1:${addr.port}` });
-    });
-  });
-}
-async function close(s: RunningServer): Promise<void> {
-  return new Promise((resolve, reject) => s.server.close((err) => (err ? reject(err) : resolve())));
-}
-
-let running: RunningServer;
-beforeEach(async () => {
+let app: Express;
+beforeEach(() => {
   planByTenant.clear();
   planByTenant.set(FREE_TENANT, "free");
   planByTenant.set(ENTERPRISE_TENANT, "enterprise");
@@ -89,18 +75,16 @@ beforeEach(async () => {
   pageToTenant.clear();
   sessionByTenant.clear();
   insertedRows = [];
-  running = await listen(buildHarness());
-});
-afterAll(async () => {
-  if (running) await close(running);
+  app = buildHarness();
 });
 
 async function ingest(pageId = 5) {
-  return fetch(`${running.baseUrl}/lp/heatmap`, {
+  const r = await inject(app, {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ events: [{ pageId, sessionId: "sess-1", eventType: "click", xPct: 10, yPct: 20 }] }),
+    url: "/lp/heatmap",
+    body: { events: [{ pageId, sessionId: "sess-1", eventType: "click", xPct: 10, yPct: 20 }] },
   });
+  return { status: r.status, json: () => r.json };
 }
 
 describe("POST /lp/heatmap — session-quota gate", () => {
@@ -151,20 +135,20 @@ describe("POST /lp/heatmap — session-quota gate", () => {
     sessionByTenant.set(FREE_TENANT, 10);
     sessionByTenant.set(OVER_TENANT, 1000);
 
-    const res = await fetch(`${running.baseUrl}/lp/heatmap`, {
+    const res = await inject(app, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+      url: "/lp/heatmap",
+      body: {
         events: [
           { pageId: 5, sessionId: "ok-1", eventType: "click" },
           { pageId: 9, sessionId: "blocked-1", eventType: "click" },
           { pageId: 9, sessionId: "blocked-2", eventType: "click" },
         ],
-      }),
+      },
     });
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ success: true, count: 1 });
+    expect(res.json).toMatchObject({ success: true, count: 1 });
     // Only tenant 1's page-5 event was persisted; tenant 3's were dropped.
     expect(insertedRows.map((r) => r.pageId)).toEqual([5]);
   });
@@ -181,19 +165,19 @@ describe("POST /lp/heatmap — session-quota gate", () => {
     sessionByTenant.set(OVER_A, 1000);
     sessionByTenant.set(OVER_B, 1000);
 
-    const res = await fetch(`${running.baseUrl}/lp/heatmap`, {
+    const res = await inject(app, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+      url: "/lp/heatmap",
+      body: {
         events: [
           { pageId: 7, sessionId: "a-1", eventType: "click" },
           { pageId: 8, sessionId: "b-1", eventType: "click" },
         ],
-      }),
+      },
     });
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ success: true, count: 0 });
+    expect(res.json).toMatchObject({ success: true, count: 0 });
     expect(insertedRows).toEqual([]);
   });
 });

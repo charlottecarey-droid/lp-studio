@@ -1,7 +1,6 @@
-import { describe, expect, it, vi, beforeEach, afterAll } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import type { AddressInfo } from "node:net";
-import type { Server } from "node:http";
+import { inject } from "../test-utils/injectRequest";
 
 // Mock the DB-backed plan lookup BEFORE importing the middleware so the
 // middleware picks up the stubbed implementation. The test drives the
@@ -68,26 +67,6 @@ function buildHarness(): { app: Express } {
   return { app };
 }
 
-interface RunningServer {
-  server: Server;
-  baseUrl: string;
-}
-
-async function listen(app: Express): Promise<RunningServer> {
-  return new Promise((resolve) => {
-    const server = app.listen(0, "127.0.0.1", () => {
-      const addr = server.address() as AddressInfo;
-      resolve({ server, baseUrl: `http://127.0.0.1:${addr.port}` });
-    });
-  });
-}
-
-async function close(s: RunningServer): Promise<void> {
-  return new Promise((resolve, reject) => {
-    s.server.close((err) => (err ? reject(err) : resolve()));
-  });
-}
-
 const STARTER_TENANT = 1001;
 const GROWTH_TENANT = 1002;
 const ENTERPRISE_TENANT = 1003;
@@ -108,23 +87,19 @@ function authUser(overrides: Partial<AuthUser>): string {
   return JSON.stringify(u);
 }
 
-let running: RunningServer;
+let app: Express;
 
-beforeEach(async () => {
+beforeEach(() => {
   planByTenant.clear();
   planByTenant.set(STARTER_TENANT, "starter");
   planByTenant.set(GROWTH_TENANT, "growth");
   planByTenant.set(ENTERPRISE_TENANT, "enterprise");
-  const { app } = buildHarness();
-  running = await listen(app);
-});
-
-afterAll(async () => {
-  if (running) await close(running);
+  app = buildHarness().app;
 });
 
 async function get(path: string, headers: Record<string, string> = {}) {
-  return fetch(`${running.baseUrl}${path}`, { headers });
+  const r = await inject(app, { method: "GET", url: path, headers });
+  return { status: r.status, json: () => r.json };
 }
 
 describe("requirePlanFeature — /sales gate", () => {
@@ -182,9 +157,9 @@ describe("requirePlanFeature — public /sales paths", () => {
 
   for (const c of cases) {
     it(`lets ${c.method} ${c.label} through with no auth cookie`, async () => {
-      const res = await fetch(`${running.baseUrl}${c.path}`, { method: c.method });
+      const res = await inject(app, { method: c.method, url: c.path });
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
+      expect(res.json).toEqual({ ok: true });
     });
   }
 

@@ -19,13 +19,18 @@ import {
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
-import { neutralizeLabel } from "@/hooks/use-block-catalog";
 import {
   BLOCK_ROLE_TAGS,
   BLOCK_ROLE_TAG_DESCRIPTIONS,
   sanitizeRoleTags,
   type BlockRoleTag,
 } from "@workspace/lp-template-engine";
+import {
+  mergeSuperadminCatalog,
+  type CatalogRow,
+  type DisplayRow,
+  type Industry,
+} from "@/lib/block-catalog-merge";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -33,31 +38,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 // for one of these can be safely reset back to its built-in default by deleting
 // the override; a custom row with no registry entry has no default to revert to.
 const REGISTRY_TYPES = new Set<string>(BLOCK_REGISTRY.map(d => d.type));
-
-type Industry = "dental" | "generic";
-
-const INDUSTRIES: Industry[] = ["generic", "dental"];
-
-interface CatalogRow {
-  block_type: string;
-  industry: Industry;
-  label: string;
-  category: string;
-  tags: string[] | null;
-  default_props: Record<string, unknown>;
-  is_enabled: boolean;
-  sort_order: number;
-  updated_at: string;
-  updated_by?: string | null;
-}
-
-/**
- * A row as shown in the superadmin table: either a saved database override
- * (`source: "db"`) or a synthetic entry derived from the in-code
- * BLOCK_REGISTRY default (`source: "code"`) for a block that has no override
- * row in this industry yet.
- */
-type DisplayRow = CatalogRow & { source: "db" | "code" };
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
@@ -686,59 +666,10 @@ export default function SuperAdminBlockCatalog() {
   // semantics of the builder's use-block-catalog hook: a DB row overrides the
   // registry label/category/props ("Customized"); absence of a row means the
   // tenant inherits the in-code default ("Code default").
-  const merged = useMemo<DisplayRow[] | null>(() => {
-    if (rows === null) return null;
-    const dbByKey = new Map<string, CatalogRow>();
-    rows.forEach(r => dbByKey.set(`${r.block_type}::${r.industry}`, r));
-
-    const out: DisplayRow[] = [];
-    const seen = new Set<string>();
-    for (const industry of INDUSTRIES) {
-      for (const def of BLOCK_REGISTRY) {
-        const key = `${def.type}::${industry}`;
-        seen.add(key);
-        const db = dbByKey.get(key);
-        if (db) {
-          out.push({ ...db, source: "db" });
-        } else {
-          let defaultProps: Record<string, unknown> = {};
-          try {
-            defaultProps = def.defaultProps();
-          } catch {
-            // A malformed registry default must never blank the whole table —
-            // surface the block with empty props so it can still be edited.
-            defaultProps = {};
-          }
-          out.push({
-            block_type: def.type,
-            industry,
-            // Generic tenants never see Dandy/DSO tokens in the builder, so
-            // surface the neutralized label here too — that's what a new
-            // generic tenant actually inherits from the code default.
-            label: industry === "generic" ? neutralizeLabel(def.label) : def.label,
-            category: def.category,
-            tags: sanitizeRoleTags(def.tags),
-            default_props: defaultProps,
-            is_enabled: true,
-            sort_order: 0,
-            updated_at: "",
-            updated_by: null,
-            source: "code",
-          });
-        }
-      }
-    }
-    // Custom override rows whose block_type has no in-code registry entry.
-    for (const r of rows) {
-      if (seen.has(`${r.block_type}::${r.industry}`)) continue;
-      out.push({ ...r, source: "db" });
-    }
-    out.sort((a, b) =>
-      a.block_type.localeCompare(b.block_type) ||
-      a.industry.localeCompare(b.industry),
-    );
-    return out;
-  }, [rows]);
+  const merged = useMemo<DisplayRow[] | null>(
+    () => (rows === null ? null : mergeSuperadminCatalog(rows)),
+    [rows],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
