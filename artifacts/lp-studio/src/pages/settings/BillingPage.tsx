@@ -1,31 +1,43 @@
 // Self-serve Billing settings page.
 //
-// Renders:
-//   • Current plan card (display name + feature bullets from PLAN_CONFIG)
-//   • Subscription status (trialing / active / past_due / canceled / etc.)
-//   • Renewal/cancel date and cadence (monthly | annual)
-//   • Upgrade controls for every higher self-serve tier (starter / growth /
-//     scale), monthly + annual, driven off the shared PLAN_CONFIG
-//   • "Manage billing" → Stripe Billing Portal for active subscribers
+// Renders a conversion-focused plan picker that mirrors the marketing
+// homepage, but driven off the LIVE, SuperAdmin-editable plan config
+// (`GET /api/lp/plan-config`) so prices, caps, and feature flags here can
+// never drift from what the backend actually enforces. The static
+// `@workspace/plan-config` is only a fallback when that fetch fails.
 //
-// Treats Stripe-not-configured (503 from the API) as a soft-disable: shows
-// the current plan but hides upgrade controls and tells the operator to
-// enable billing in env.
+// Sections:
+//   • Free-trial banner (when the Stripe subscription is `trialing`) with the
+//     exact expiry date + days remaining.
+//   • Current-plan card — status, price, renewal/cancel/trial-end date,
+//     cadence, payment method, "Manage billing" → Stripe Billing Portal.
+//   • Plan grid for EVERY tier (free → enterprise) with per-plan value detail
+//     and the right CTA for the user's state:
+//       - no live subscription  → Stripe Checkout for any paid self-serve tier
+//       - live subscription      → Billing Portal for ANY change (upgrade,
+//         downgrade, or switch to Free), because Stripe forbids swapping the
+//         tier of an existing sub from Checkout
+//       - enterprise             → sales-assisted (mailto)
+//   • A collapsible full feature-comparison table (same info as the homepage).
 //
-// The tier ladder (free/starter/growth/scale/enterprise) is the single
-// source of truth in @workspace/plan-config — this page must never hardcode
-// a subset of tiers, or an out-of-range `plan` from the API crashes the page
-// (the classic "undefined is not an object" on PLAN_COPY[plan]).
-import { useCallback, useEffect, useState } from "react";
+// The tier ladder (free/starter/growth/scale/enterprise) is the single source
+// of truth in @workspace/plan-config — this page must never hardcode a subset
+// of tiers, or an out-of-range `plan` from the API crashes the page.
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CreditCard, Check, ArrowRight, AlertTriangle, ExternalLink } from "lucide-react";
+import {
+  Loader2, CreditCard, Check, ArrowRight, AlertTriangle, ExternalLink,
+  Sparkles, ChevronDown, Clock,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
-import { PLAN_CONFIG, PLANS, type Plan } from "@workspace/plan-config";
+import {
+  PLAN_CONFIG, PLANS, type Plan, type PlanConfigEntry,
+} from "@workspace/plan-config";
 
 type Cadence = "monthly" | "annual";
 
@@ -49,73 +61,155 @@ interface BillingSummary {
   };
 }
 
-interface PlanCopy {
-  tagline: string;
-  bullets: string[];
+// Stripe statuses that mean the tenant has a live subscription — any plan
+// change must then go through the Billing Portal, not a fresh Checkout.
+const ACTIVE_SUB_STATUSES = new Set(["active", "trialing", "past_due"]);
+
+// ── Per-tier value copy (prose only) ──────────────────────────────────────
+// Kept in lockstep with the marketing homepage (Pricing.tsx). Numeric caps,
+// prices, display names, and the three gated flags come from the LIVE config
+// at render time — only the descriptive prose lives here. Keyed on every Plan
+// so it can never be indexed out of range.
+interface PlanGroup { label: string; items: string[] }
+
+function fmtCap(n: number | null): string {
+  return n === null ? "Unlimited" : n.toLocaleString();
 }
 
-// Curated marketing copy per tier. Display names + prices come from
-// PLAN_CONFIG; this only holds the tagline + bullets. Keyed on every Plan so
-// it can never be indexed out of range.
-const PLAN_COPY: Record<Plan, PlanCopy> = {
-  free: {
-    tagline: "Free — one landing page on a workspace subdomain.",
-    bullets: ["1 published landing page", "lp-studio.app subdomain", "Email lead capture"],
-  },
-  starter: {
-    tagline: "For getting a real presence live, your own domain.",
-    bullets: ["Up to 10 landing pages", "Custom domain", "Email lead capture", "5 forms"],
-  },
-  growth: {
-    tagline: "For teams running active acquisition.",
-    bullets: ["Unlimited landing pages", "Custom domains", "Sales Console", "Block library", "Priority support"],
-  },
-  scale: {
-    tagline: "For high-volume teams that need AI + more seats.",
-    bullets: ["Everything in Growth", "AI image generation", "Up to 25 seats", "Higher heatmap limits"],
-  },
-  enterprise: {
-    tagline: "Custom — SSO, white-glove onboarding, dedicated success.",
-    bullets: ["Everything in Scale", "SSO + SCIM", "Custom block templates", "Dedicated CSM"],
-  },
-};
-
-const FALLBACK_COPY: PlanCopy = {
-  tagline: "Your current plan.",
-  bullets: [],
-};
-
-function planDisplayName(plan: Plan): string {
-  return PLAN_CONFIG[plan]?.displayName ?? plan;
+function planTagline(plan: Plan): string {
+  switch (plan) {
+    case "free": return "Kick the tires — one real page, no card.";
+    case "starter": return "Ship more than one page. Your own domain.";
+    case "growth": return "Sales + marketing on one canvas. The Sales Console unlocks here.";
+    case "scale": return "Multi-brand, multi-team. The whole revenue org on one canvas.";
+    case "enterprise": return "For procurement-driven deals — SSO, SLA, dedicated CSM.";
+    default: return "Your current plan.";
+  }
 }
 
-function planCopy(plan: Plan): PlanCopy {
-  return PLAN_COPY[plan] ?? FALLBACK_COPY;
+function planIdealFor(plan: Plan): string {
+  switch (plan) {
+    case "free": return "Trying it out";
+    case "starter": return "Founders, agencies & small teams";
+    case "growth": return "Mid-market revenue teams";
+    case "scale": return "Multi-brand operations & agencies";
+    case "enterprise": return "Security-led organizations";
+    default: return "";
+  }
+}
+
+// Value groups per tier, parameterized by the LIVE config entry so caps stay
+// truthful even after a SuperAdmin price/cap edit.
+function planGroups(plan: Plan, e: PlanConfigEntry): PlanGroup[] {
+  const L = e.features.limits;
+  switch (plan) {
+    case "free":
+      return [{
+        label: "What's included",
+        items: [
+          `${fmtCap(L.pages)} published landing page`,
+          `${fmtCap(L.forms)} form`,
+          `AI copy · ${fmtCap(L.aiGenerationsPerMonth)} generations/mo`,
+          "your-brand.lpstudio.ai subdomain",
+          "Email lead capture",
+          '"Built with LP Studio" badge',
+        ],
+      }];
+    case "starter":
+      return [
+        {
+          label: "Build",
+          items: [
+            `${fmtCap(L.pages)} active landing pages`,
+            `${fmtCap(L.forms)} forms`,
+            `Up to ${fmtCap(L.userSeats)} seats`,
+            "Visual builder + 124-block library",
+            `AI copy · ${fmtCap(L.aiGenerationsPerMonth)} generations/mo`,
+            "Your own custom domain",
+            "No LP Studio badge",
+          ],
+        },
+        {
+          label: "Test & measure",
+          items: [
+            "Unlimited A/B variants",
+            `Heatmaps · ${fmtCap(L.heatmapSessionsPerMonth)} sessions/mo`,
+            "Email support",
+          ],
+        },
+      ];
+    case "growth":
+      return [
+        {
+          label: "Everything in Starter, plus the Sales Console",
+          items: [
+            "Unlimited pages, forms & A/B tests",
+            `Up to ${fmtCap(L.userSeats)} seats`,
+            "Sales Console — microsites, AI outreach, personalized links",
+            "Salesforce + Marketo bidirectional sync",
+            "Apollo · Chili Piper · Asana · GA4 · Webhooks",
+            `Smart Traffic + heatmaps · ${fmtCap(L.heatmapSessionsPerMonth)} sessions/mo`,
+            "Brand system & locked tokens",
+          ],
+        },
+        {
+          label: "Support",
+          items: ["Priority support · live chat", "Onboarding workshop"],
+        },
+      ];
+    case "scale":
+      return [
+        {
+          label: "Everything in Growth, plus",
+          items: [
+            "Multi-workspace · multi-brand",
+            `Up to ${fmtCap(L.userSeats)} seats`,
+            ...(e.features.aiImageGen ? ["AI image generation"] : []),
+            "Custom blocks + advanced templates",
+            "Programmatic pages + smart sections",
+            "Salesforce custom field mapping",
+            `Heatmaps · ${fmtCap(L.heatmapSessionsPerMonth)} sessions/mo`,
+          ],
+        },
+        {
+          label: "Support",
+          items: ["Slack channel with founders", "Quarterly review"],
+        },
+      ];
+    case "enterprise":
+      return [{
+        label: "Everything in Scale, plus",
+        items: [
+          "Unlimited seats & workspaces",
+          "SSO / SAML",
+          "SOC 2 Type II · 99.9% uptime SLA",
+          "DPA & MSA · custom data residency",
+          "Dedicated account manager",
+          "Custom integrations",
+        ],
+      }];
+    default:
+      return [];
+  }
 }
 
 function formatPaymentMethod(pm: { brand: string | null; last4: string | null } | null): string {
   if (!pm || (!pm.brand && !pm.last4)) return "—";
-  const brand = pm.brand
-    ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)
-    : "Card";
+  const brand = pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : "Card";
   return pm.last4 ? `${brand} •••• ${pm.last4}` : brand;
 }
 
-function formatPrice(unitAmount: number | null, currency: string | null, cadence: string | null): string {
+function formatSubPrice(unitAmount: number | null, currency: string | null, cadence: string | null): string {
   if (unitAmount == null || !currency) return "—";
   const amount = (unitAmount / 100).toLocaleString(undefined, {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    maximumFractionDigits: 0,
+    style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 0,
   });
   return `${amount} / ${cadence === "annual" ? "year" : "month"}`;
 }
 
 function usd(amount: number): string {
   return amount.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
+    style: "currency", currency: "USD", maximumFractionDigits: 0,
   });
 }
 
@@ -126,6 +220,12 @@ function formatDate(epochSeconds: number | null): string {
   });
 }
 
+function daysUntil(epochSeconds: number | null): number | null {
+  if (!epochSeconds) return null;
+  const ms = epochSeconds * 1000 - Date.now();
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
+
 function statusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "active" || status === "trialing") return "default";
   if (status === "past_due" || status === "unpaid") return "destructive";
@@ -133,35 +233,48 @@ function statusBadgeVariant(status: string): "default" | "secondary" | "destruct
   return "secondary";
 }
 
-// Self-serve paid tiers strictly above the current plan, in ladder order.
-// `free` is the floor (no checkout) and `enterprise` is sales-assisted, so
-// neither is ever an upgrade *target* here.
-function upgradeTargets(currentPlan: Plan): Plan[] {
-  const current = PLAN_CONFIG[currentPlan]?.sortOrder ?? 0;
-  return PLANS.filter((p) => {
-    const cfg = PLAN_CONFIG[p];
-    return cfg && cfg.selfServe && p !== "free" && cfg.sortOrder > current;
-  });
-}
-
 export default function BillingPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
+  const [liveConfig, setLiveConfig] = useState<PlanConfigEntry[] | null>(null);
+  const [cadence, setCadence] = useState<Cadence>("annual");
+  const [compareOpen, setCompareOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
 
   const isAdmin = !!(user?.isAdmin || user?.permissions?.["settings"]);
 
+  // LIVE config map (SuperAdmin-editable). Falls back to the canonical static
+  // matrix for any tier the endpoint didn't return, so the grid always renders
+  // the full ladder.
+  const cfgMap = useMemo<Record<Plan, PlanConfigEntry>>(() => {
+    const base: Record<Plan, PlanConfigEntry> = { ...PLAN_CONFIG };
+    if (liveConfig) {
+      for (const e of liveConfig) {
+        if ((PLANS as readonly string[]).includes(e.tier)) base[e.tier] = e;
+      }
+    }
+    return base;
+  }, [liveConfig]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
+      // Live plan config (best-effort — falls back to static on failure).
+      try {
+        const cfgRes = await fetch("/api/lp/plan-config", { credentials: "include" });
+        if (cfgRes.ok) {
+          const cfgJson = (await cfgRes.json()) as { plans?: PlanConfigEntry[] };
+          if (Array.isArray(cfgJson.plans)) setLiveConfig(cfgJson.plans);
+        }
+      } catch { /* keep static fallback */ }
+
       const res = await fetch("/api/billing/summary", { credentials: "include" });
       if (res.status === 503) {
-        // Stripe-not-configured — render a degraded page instead of erroring.
         const json = (await res.json().catch(() => ({}))) as { error?: string };
         setErrorMsg(json.error ?? "Billing is not configured on this deployment.");
         setSummary(null);
@@ -188,8 +301,6 @@ export default function BillingPage() {
         title: "Checkout complete",
         description: "Your subscription is being provisioned. The page will refresh in a moment.",
       });
-      // Re-poll after a short delay so the plan flip from the webhook is
-      // visible without a manual reload.
       setTimeout(() => { void load(); }, 1500);
       url.searchParams.delete("status");
       url.searchParams.delete("session_id");
@@ -201,21 +312,24 @@ export default function BillingPage() {
     }
   }, [location, toast, load]);
 
-  async function startCheckout(plan: Plan, cadence: Cadence): Promise<void> {
-    if (!isAdmin) {
-      toast({ title: "Workspace admin required", variant: "destructive" });
-      return;
-    }
-    const key = `checkout-${plan}-${cadence}`;
+  async function startCheckout(plan: Plan, c: Cadence): Promise<void> {
+    if (!isAdmin) { toast({ title: "Workspace admin required", variant: "destructive" }); return; }
+    const key = `checkout-${plan}-${c}`;
     setActionInFlight(key);
     try {
-      const priceLookupKey = `${plan}_${cadence}`;
       const res = await fetch("/api/billing/checkout-session", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceLookupKey }),
+        body: JSON.stringify({ priceLookupKey: `${plan}_${c}` }),
       });
+      if (res.status === 409) {
+        // A live subscription already exists — tier/cadence changes must go
+        // through the portal. Open it instead of dead-ending on an error.
+        toast({ title: "Manage your plan", description: "Opening the billing portal to change your plan…" });
+        await openPortal();
+        return;
+      }
       const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !json.url) throw new Error(json.error ?? `HTTP ${res.status}`);
       window.location.href = json.url;
@@ -229,9 +343,9 @@ export default function BillingPage() {
     }
   }
 
-  async function openPortal(): Promise<void> {
+  async function openPortal(actionKey = "portal"): Promise<void> {
     if (!isAdmin) { toast({ title: "Workspace admin required", variant: "destructive" }); return; }
-    setActionInFlight("portal");
+    setActionInFlight(actionKey);
     try {
       const res = await fetch("/api/billing/portal-session", { method: "POST", credentials: "include" });
       const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
@@ -247,21 +361,26 @@ export default function BillingPage() {
     }
   }
 
-  const targets = summary ? upgradeTargets(summary.plan) : [];
-  const showEnterpriseUpsell =
-    !!summary && summary.plan !== "enterprise" && targets.length === 0;
+  const sub = summary?.stripe.subscription ?? null;
+  const hasActiveSub = !!sub && !!sub.status && ACTIVE_SUB_STATUSES.has(sub.status);
+  const isTrialing = sub?.status === "trialing";
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-6 py-10 space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-muted-foreground" />
-            Billing
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your plan, payment method, and invoices.
-          </p>
+      <div className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+        <header className="flex items-end justify-between flex-wrap gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-muted-foreground" />
+              Plans &amp; billing
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Manage your plan, payment method, and invoices.
+            </p>
+          </div>
+          {summary && (
+            <CadenceToggle cadence={cadence} onChange={setCadence} />
+          )}
         </header>
 
         {loading && (
@@ -282,57 +401,145 @@ export default function BillingPage() {
           </Card>
         )}
 
-        {summary && <CurrentPlanCard summary={summary} onOpenPortal={openPortal} portalDisabled={!isAdmin} portalBusy={actionInFlight === "portal"} />}
-
-        {summary && targets.length > 0 && (
-          <UpgradeCard
-            targets={targets}
-            disabled={!isAdmin || !summary.stripe.configured}
-            disabledReason={
-              !isAdmin
-                ? "Only workspace admins can upgrade."
-                : !summary.stripe.configured
-                  ? "Billing is not configured on this deployment."
-                  : null
-            }
-            onCheckout={startCheckout}
-            busy={actionInFlight}
+        {summary && isTrialing && (
+          <TrialBanner
+            planName={cfgMap[summary.plan]?.displayName ?? summary.plan}
+            trialEnd={sub?.currentPeriodEnd ?? null}
+            hasCustomer={!!summary.stripe.customerId}
+            onManage={() => openPortal()}
+            manageBusy={actionInFlight === "portal"}
+            manageDisabled={!isAdmin}
           />
         )}
 
-        {showEnterpriseUpsell && (
-          <Card className="p-5 text-sm text-muted-foreground">
-            You're on the {planDisplayName(summary.plan)} plan. Need SSO, custom blocks, or a dedicated CSM?{" "}
-            <a href="mailto:sales@meetdandy.com?subject=LP%20Studio%20Enterprise" className="text-primary underline">
-              Talk to sales about Enterprise.
-            </a>
-          </Card>
+        {summary && (
+          <CurrentPlanCard
+            summary={summary}
+            cfgMap={cfgMap}
+            onOpenPortal={() => openPortal()}
+            portalDisabled={!isAdmin}
+            portalBusy={actionInFlight === "portal"}
+          />
         )}
 
-        {summary && summary.plan === "enterprise" && (
-          <Card className="p-5 text-sm text-muted-foreground">
-            You're on the Enterprise plan. Reach your account team for any plan changes.
-          </Card>
+        {summary && (
+          <PlansGrid
+            summary={summary}
+            cfgMap={cfgMap}
+            cadence={cadence}
+            hasActiveSub={hasActiveSub}
+            isAdmin={isAdmin}
+            actionInFlight={actionInFlight}
+            onCheckout={startCheckout}
+            onPortal={(tier) => openPortal(`switch-${tier}`)}
+          />
+        )}
+
+        {summary && (
+          <CompareSection
+            cfgMap={cfgMap}
+            currentPlan={summary.plan}
+            open={compareOpen}
+            onToggle={() => setCompareOpen((v) => !v)}
+          />
         )}
       </div>
     </AppLayout>
   );
 }
 
+function CadenceToggle({ cadence, onChange }: { cadence: Cadence; onChange: (c: Cadence) => void }) {
+  return (
+    <div className="inline-flex items-center p-1 rounded-full border border-border bg-muted/40">
+      {(["monthly", "annual"] as Cadence[]).map((c) => {
+        const active = cadence === c;
+        return (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onChange(c)}
+            data-testid={`billing-cadence-${c}`}
+            aria-pressed={active}
+            className={`relative px-4 py-1.5 text-xs font-semibold rounded-full capitalize transition-colors ${
+              active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {c}
+            {c === "annual" && (
+              <span className={`ml-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full align-middle ${
+                active ? "bg-background/20 text-background" : "bg-primary/10 text-primary"
+              }`}>
+                Save 20%
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TrialBanner({
+  planName, trialEnd, hasCustomer, onManage, manageBusy, manageDisabled,
+}: {
+  planName: string;
+  trialEnd: number | null;
+  hasCustomer: boolean;
+  onManage: () => void;
+  manageBusy: boolean;
+  manageDisabled: boolean;
+}) {
+  const left = daysUntil(trialEnd);
+  return (
+    <Card className="p-5 border-primary/30 bg-primary/5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Clock className="w-4 h-4 text-primary" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-medium text-foreground">
+              You're on a free trial of {planName}
+              {left != null && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  · {left} {left === 1 ? "day" : "days"} left
+                </span>
+              )}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {trialEnd
+                ? `Your trial ends on ${formatDate(trialEnd)}. Add a payment method before then to keep your plan.`
+                : "Add a payment method to keep your plan when the trial ends."}
+            </p>
+          </div>
+        </div>
+        {hasCustomer && (
+          <Button size="sm" onClick={onManage} disabled={manageDisabled || manageBusy}>
+            {manageBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CreditCard className="w-4 h-4 mr-1" />}
+            Add payment method
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function CurrentPlanCard({
-  summary,
-  onOpenPortal,
-  portalDisabled,
-  portalBusy,
+  summary, cfgMap, onOpenPortal, portalDisabled, portalBusy,
 }: {
   summary: BillingSummary;
+  cfgMap: Record<Plan, PlanConfigEntry>;
   onOpenPortal: () => void;
   portalDisabled: boolean;
   portalBusy: boolean;
 }) {
-  const copy = planCopy(summary.plan);
+  const plan = summary.plan;
   const sub = summary.stripe.subscription;
   const isPastDue = sub?.status === "past_due" || sub?.status === "unpaid";
+  const isTrialing = sub?.status === "trialing";
+  const dateLabel = sub?.cancelAtPeriodEnd ? "Cancels on" : isTrialing ? "Trial ends" : "Renews on";
+  const displayName = cfgMap[plan]?.displayName ?? plan;
+
   return (
     <Card className="p-6 space-y-4">
       {isPastDue && (
@@ -366,15 +573,16 @@ function CurrentPlanCard({
       )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Current plan</p>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">{planDisplayName(summary.plan)}</h2>
+            <h2 className="text-lg font-semibold">{displayName}</h2>
             {sub && (
               <Badge variant={statusBadgeVariant(sub.status ?? "")} data-testid="subscription-status-badge">
                 {sub.status}
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">{copy.tagline}</p>
+          <p className="text-sm text-muted-foreground">{planTagline(plan)}</p>
         </div>
         {summary.stripe.customerId && (
           <Button
@@ -390,27 +598,14 @@ function CurrentPlanCard({
         )}
       </div>
 
-      {copy.bullets.length > 0 && (
-        <ul className="grid sm:grid-cols-2 gap-2 text-sm">
-          {copy.bullets.map((b) => (
-            <li key={b} className="flex items-start gap-2">
-              <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <span>{b}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
       {sub && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t text-sm">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Price</p>
-            <p className="font-medium">{formatPrice(sub.unitAmount, sub.currency, sub.cadence)}</p>
+            <p className="font-medium">{formatSubPrice(sub.unitAmount, sub.currency, sub.cadence)}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {sub.cancelAtPeriodEnd ? "Cancels on" : "Renews on"}
-            </p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{dateLabel}</p>
             <p className="font-medium">{formatDate(sub.currentPeriodEnd)}</p>
           </div>
           <div>
@@ -428,108 +623,389 @@ function CurrentPlanCard({
 
       {sub?.cancelAtPeriodEnd && (
         <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Your subscription is set to cancel at the end of the current period. Re-activate from the billing portal.
+          Your subscription is set to cancel at the end of the current period — you'll move to the Free
+          plan on {formatDate(sub.currentPeriodEnd)}. Re-activate any time from the billing portal.
         </div>
       )}
     </Card>
   );
 }
 
-function UpgradeCard({
-  targets,
-  disabled,
-  disabledReason,
-  onCheckout,
-  busy,
+function planMonthlyDisplay(e: PlanConfigEntry, cadence: Cadence): {
+  price: string; sub: string; struck: string | null; save: boolean;
+} {
+  if (!e.selfServe || (e.priceMonthly == null && e.priceAnnual == null)) {
+    return { price: "Custom", sub: "tailored to your org", struck: null, save: false };
+  }
+  if (e.priceMonthly === 0 && (e.priceAnnual == null || e.priceAnnual === 0)) {
+    return { price: usd(0), sub: "free forever", struck: null, save: false };
+  }
+  if (cadence === "annual" && e.priceAnnual != null) {
+    return {
+      price: `${usd(e.priceAnnual)}`,
+      sub: "/mo · billed annually",
+      struck: e.priceMonthly != null && e.priceMonthly > e.priceAnnual ? usd(e.priceMonthly) : null,
+      save: true,
+    };
+  }
+  return {
+    price: e.priceMonthly != null ? usd(e.priceMonthly) : "—",
+    sub: "/mo · billed monthly",
+    struck: null,
+    save: false,
+  };
+}
+
+function PlansGrid({
+  summary, cfgMap, cadence, hasActiveSub, isAdmin, actionInFlight, onCheckout, onPortal,
 }: {
-  targets: Plan[];
-  disabled: boolean;
-  disabledReason: string | null;
+  summary: BillingSummary;
+  cfgMap: Record<Plan, PlanConfigEntry>;
+  cadence: Cadence;
+  hasActiveSub: boolean;
+  isAdmin: boolean;
+  actionInFlight: string | null;
   onCheckout: (plan: Plan, cadence: Cadence) => void;
-  busy: string | null;
+  onPortal: (plan: Plan) => void;
 }) {
+  const currentPlan = summary.plan;
+  const currentOrder = cfgMap[currentPlan]?.sortOrder ?? 0;
+  const stripeConfigured = summary.stripe.configured;
+  // Ordered ladder, low → high.
+  const ordered = [...PLANS].sort((a, b) => (cfgMap[a]?.sortOrder ?? 0) - (cfgMap[b]?.sortOrder ?? 0));
+
   return (
-    <Card className="p-6 space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold">
-          {targets.length === 1 ? `Upgrade to ${planDisplayName(targets[0])}` : "Upgrade your plan"}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Unlock more pages, custom domains, the Sales Console, and AI features.
-        </p>
-      </div>
-      {disabledReason && (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold">Switch plan</h2>
+      {!isAdmin && (
         <div className="rounded border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          {disabledReason}
+          Only workspace admins can change the plan.
         </div>
       )}
-      <div className="space-y-6">
-        {targets.map((plan) => {
-          const cfg = PLAN_CONFIG[plan];
-          const monthly = cfg.priceMonthly;
-          const annualPerMonth = cfg.priceAnnual;
-          return (
-            <div key={plan} className="space-y-3">
-              {targets.length > 1 && (
-                <h3 className="text-sm font-semibold">{cfg.displayName}</h3>
-              )}
-              <div className="grid sm:grid-cols-2 gap-4">
-                <PriceTile
-                  label="Monthly"
-                  price={monthly != null ? usd(monthly) : "—"}
-                  cadence="per month"
-                  busy={busy === `checkout-${plan}-monthly`}
-                  disabled={disabled || busy !== null || monthly == null}
-                  onClick={() => onCheckout(plan, "monthly")}
-                  testId={`checkout-${plan}-monthly`}
-                />
-                <PriceTile
-                  label="Annual"
-                  price={annualPerMonth != null ? usd(annualPerMonth * 12) : "—"}
-                  cadence={
-                    annualPerMonth != null
-                      ? `per year · ${usd(annualPerMonth)}/mo billed annually`
-                      : "billed annually"
-                  }
-                  busy={busy === `checkout-${plan}-annual`}
-                  disabled={disabled || busy !== null || annualPerMonth == null}
-                  onClick={() => onCheckout(plan, "annual")}
-                  highlighted
-                  testId={`checkout-${plan}-annual`}
-                />
-              </div>
-            </div>
-          );
-        })}
+      {isAdmin && !stripeConfigured && (
+        <div className="rounded border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Billing isn't configured on this deployment, so plan changes are disabled. Enterprise is still available via sales.
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {ordered.map((plan) => (
+          <PlanCard
+            key={plan}
+            plan={plan}
+            entry={cfgMap[plan]}
+            cadence={cadence}
+            isCurrent={plan === currentPlan}
+            currentOrder={currentOrder}
+            hasActiveSub={hasActiveSub}
+            isAdmin={isAdmin}
+            stripeConfigured={stripeConfigured}
+            actionInFlight={actionInFlight}
+            onCheckout={onCheckout}
+            onPortal={onPortal}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+function PlanCard({
+  plan, entry, cadence, isCurrent, currentOrder, hasActiveSub, isAdmin,
+  stripeConfigured, actionInFlight, onCheckout, onPortal,
+}: {
+  plan: Plan;
+  entry: PlanConfigEntry;
+  cadence: Cadence;
+  isCurrent: boolean;
+  currentOrder: number;
+  hasActiveSub: boolean;
+  isAdmin: boolean;
+  stripeConfigured: boolean;
+  actionInFlight: string | null;
+  onCheckout: (plan: Plan, cadence: Cadence) => void;
+  onPortal: (plan: Plan) => void;
+}) {
+  const price = planMonthlyDisplay(entry, cadence);
+  const groups = planGroups(plan, entry);
+  const isEnterprise = plan === "enterprise";
+  const isPopular = plan === "growth";
+  const direction = entry.sortOrder > currentOrder ? "up" : "down";
+  const busy = actionInFlight !== null;
+
+  // Resolve the CTA for this card given the tenant's state.
+  let cta: React.ReactNode;
+  if (isCurrent) {
+    cta = (
+      <Button variant="outline" className="w-full" disabled data-testid={`plan-current-${plan}`}>
+        <Check className="w-4 h-4 mr-1" /> Current plan
+      </Button>
+    );
+  } else if (isEnterprise) {
+    cta = (
+      <Button asChild className="w-full" variant={isPopular ? "default" : "outline"}>
+        <a
+          href="mailto:sales@meetdandy.com?subject=LP%20Studio%20Enterprise"
+          data-testid="contact-sales-enterprise"
+        >
+          Contact sales <ArrowRight className="w-4 h-4 ml-1" />
+        </a>
+      </Button>
+    );
+  } else if (!isAdmin) {
+    cta = <Button className="w-full" variant="outline" disabled>Admins only</Button>;
+  } else if (hasActiveSub) {
+    // A live subscription exists → ALL tier changes (up, down, or to Free)
+    // must run through the Billing Portal.
+    const portalKey = `switch-${plan}`;
+    const label = plan === "free" ? "Switch to Free" : direction === "up" ? `Upgrade to ${entry.displayName}` : `Switch to ${entry.displayName}`;
+    cta = (
+      <Button
+        className="w-full"
+        variant={direction === "up" ? "default" : "outline"}
+        onClick={() => onPortal(plan)}
+        disabled={busy || !stripeConfigured}
+        data-testid={portalKey}
+      >
+        {actionInFlight === portalKey ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+        {label}
+        {actionInFlight !== portalKey && <ArrowRight className="w-4 h-4 ml-1" />}
+      </Button>
+    );
+  } else if (plan === "free") {
+    // No live subscription and not currently Free: nothing to charge or
+    // cancel — Free is the floor they fall back to. Nothing actionable here.
+    cta = (
+      <Button className="w-full" variant="outline" disabled>
+        Free baseline
+      </Button>
+    );
+  } else {
+    // No live subscription → fresh Checkout for this paid self-serve tier.
+    const key = `checkout-${plan}-${cadence}`;
+    cta = (
+      <Button
+        className="w-full"
+        variant={isPopular ? "default" : "outline"}
+        onClick={() => onCheckout(plan, cadence)}
+        disabled={busy || !stripeConfigured}
+        data-testid={key}
+      >
+        {actionInFlight === key ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+        Upgrade to {entry.displayName}
+        {actionInFlight !== key && <ArrowRight className="w-4 h-4 ml-1" />}
+      </Button>
+    );
+  }
+
+  return (
+    <Card className={`p-5 flex flex-col gap-4 ${isCurrent ? "border-primary ring-1 ring-primary/30" : isPopular ? "border-primary/40" : ""}`}>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-base font-semibold">{entry.displayName}</span>
+          {isCurrent ? (
+            <Badge variant="default" className="text-[10px]">Current</Badge>
+          ) : isPopular ? (
+            <Badge variant="secondary" className="text-[10px] gap-1"><Sparkles className="w-3 h-3" /> Popular</Badge>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">{planIdealFor(plan)}</p>
+      </div>
+
+      <div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl font-bold tracking-tight">{price.price}</span>
+          <span className="text-xs text-muted-foreground">{price.sub}</span>
+        </div>
+        {price.struck && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            <span className="line-through">{price.struck}/mo</span>{" "}
+            <span className="text-primary font-medium">save 20%</span>
+          </p>
+        )}
+      </div>
+
+      <p className="text-sm text-muted-foreground leading-snug">{planTagline(plan)}</p>
+
+      <div className="space-y-3 flex-1">
+        {groups.map((g) => (
+          <div key={g.label} className="space-y-1.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{g.label}</p>
+            <ul className="space-y-1.5">
+              {g.items.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {cta}
     </Card>
   );
 }
 
-function PriceTile({
-  label, price, cadence, busy, disabled, onClick, highlighted, testId,
+// ── Full feature comparison (mirrors the homepage FEATURE_MAP) ─────────────
+const COMPARE_PLANS: Plan[] = ["free", "starter", "growth", "scale"];
+
+type CompareValue = string | boolean;
+interface CompareRow { feature: string; values: CompareValue[] }
+interface CompareGroup { label: string; rows: CompareRow[] }
+
+function buildCompareGroups(cfgMap: Record<Plan, PlanConfigEntry>): CompareGroup[] {
+  const cap = (key: keyof PlanConfigEntry["features"]["limits"]): string[] =>
+    COMPARE_PLANS.map((p) => fmtCap(cfgMap[p].features.limits[key]));
+  const heat = (): string[] =>
+    COMPARE_PLANS.map((p) => {
+      const n = cfgMap[p].features.limits.heatmapSessionsPerMonth;
+      return n === null ? "Unlimited" : `${n.toLocaleString()} sessions/mo`;
+    });
+  const flag = (key: "salesConsole" | "aiImageGen" | "customDomain"): boolean[] =>
+    COMPARE_PLANS.map((p) => cfgMap[p].features[key]);
+
+  return [
+    {
+      label: "Build",
+      rows: [
+        { feature: "Active landing pages", values: cap("pages") },
+        { feature: "Forms", values: cap("forms") },
+        { feature: "User seats", values: cap("userSeats") },
+        { feature: "AI copy generations / month", values: cap("aiGenerationsPerMonth") },
+        { feature: "124-block library", values: [true, true, true, true] },
+        { feature: "Brand system & locked tokens", values: [false, true, true, true] },
+        { feature: "Custom blocks", values: [false, false, true, true] },
+        { feature: "AI image generation", values: flag("aiImageGen") },
+      ],
+    },
+    {
+      label: "Sales Console — per-account ABM",
+      rows: [
+        { feature: "Accounts, Contacts, Signals, Campaigns", values: flag("salesConsole") },
+        { feature: "Per-account microsites (1-click)", values: flag("salesConsole") },
+        { feature: "Personalized links per contact", values: flag("salesConsole") },
+        { feature: "AI outreach email drafts", values: flag("salesConsole") },
+        { feature: "One-pager suite (PDF + web)", values: flag("salesConsole") },
+      ],
+    },
+    {
+      label: "Integrations",
+      rows: [
+        { feature: "Salesforce sync", values: [false, false, true, "+ custom fields"] },
+        { feature: "Marketo bidirectional", values: [false, false, true, true] },
+        { feature: "Apollo signals + enrichment", values: [false, false, true, true] },
+        { feature: "Chili Piper handoff", values: [false, false, true, true] },
+        { feature: "Google Analytics 4 + Webhooks", values: [true, true, true, true] },
+      ],
+    },
+    {
+      label: "Test & measure",
+      rows: [
+        { feature: "A/B testing", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
+        { feature: "Multivariate + Smart Traffic", values: [false, false, true, true] },
+        { feature: "Heatmaps & scroll depth", values: heat() },
+        { feature: "Programmatic pages + smart sections", values: [false, false, false, true] },
+      ],
+    },
+    {
+      label: "Distribution",
+      rows: [
+        { feature: "Custom domain (auto SSL)", values: flag("customDomain") },
+        { feature: 'No "Built with LP Studio" badge', values: [false, true, true, true] },
+        { feature: "Multi-workspace / multi-brand", values: [false, false, false, true] },
+      ],
+    },
+    {
+      label: "Support",
+      rows: [
+        { feature: "Support channel", values: ["Community", "Email", "Live chat", "Slack + founders"] },
+        { feature: "Onboarding", values: ["Self-serve", "Self-serve", "Workshop", "Workshop + QBR"] },
+      ],
+    },
+  ];
+}
+
+function CompareCell({ value }: { value: CompareValue }) {
+  if (value === true) return <Check className="w-4 h-4 text-primary mx-auto" />;
+  if (value === false) return <span className="text-muted-foreground/50">—</span>;
+  return <span className="text-xs">{value}</span>;
+}
+
+function CompareSection({
+  cfgMap, currentPlan, open, onToggle,
 }: {
-  label: string; price: string; cadence: string;
-  busy: boolean; disabled: boolean;
-  onClick: () => void;
-  highlighted?: boolean;
-  testId: string;
+  cfgMap: Record<Plan, PlanConfigEntry>;
+  currentPlan: Plan;
+  open: boolean;
+  onToggle: () => void;
 }) {
+  const groups = useMemo(() => buildCompareGroups(cfgMap), [cfgMap]);
+  const currentCol = COMPARE_PLANS.indexOf(currentPlan);
+
   return (
-    <div className={`rounded-lg border p-5 space-y-3 ${highlighted ? "border-primary bg-primary/5" : "border-border"}`}>
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-        {highlighted && <Badge variant="default" className="text-[10px]">Best value</Badge>}
-      </div>
-      <div>
-        <p className="text-2xl font-semibold">{price}</p>
-        <p className="text-xs text-muted-foreground">{cadence}</p>
-      </div>
-      <Button onClick={onClick} disabled={disabled} className="w-full" data-testid={testId}>
-        {busy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-        Subscribe
-        {!busy && <ArrowRight className="w-4 h-4 ml-1" />}
-      </Button>
-    </div>
+    <Card className="p-0 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        data-testid="compare-features-toggle"
+        className="w-full flex items-center justify-between px-6 py-4 text-sm font-medium hover:bg-muted/30 transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          Compare every feature
+        </span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="overflow-x-auto border-t">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left font-medium px-6 py-3 text-muted-foreground">Feature</th>
+                {COMPARE_PLANS.map((p, i) => (
+                  <th
+                    key={p}
+                    className={`text-center font-semibold px-3 py-3 ${i === currentCol ? "text-primary" : ""}`}
+                  >
+                    {cfgMap[p].displayName}
+                    {i === currentCol && <span className="block text-[10px] font-normal text-primary">Current</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => (
+                <Fragment key={group.label}>
+                  <tr className="bg-muted/40">
+                    <td colSpan={COMPARE_PLANS.length + 1} className="px-6 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.label}
+                    </td>
+                  </tr>
+                  {group.rows.map((row) => (
+                    <tr key={group.label + row.feature} className="border-b last:border-0">
+                      <td className="px-6 py-2.5 text-foreground">{row.feature}</td>
+                      {row.values.map((v, i) => (
+                        <td
+                          key={i}
+                          className={`text-center px-3 py-2.5 ${i === currentCol ? "bg-primary/5" : ""}`}
+                        >
+                          <CompareCell value={v} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-6 py-3 text-xs text-muted-foreground border-t">
+            Enterprise adds SSO/SAML, SOC 2 Type II, a 99.9% uptime SLA, unlimited seats &amp; workspaces, and a dedicated CSM.{" "}
+            <a href="mailto:sales@meetdandy.com?subject=LP%20Studio%20Enterprise" className="text-primary underline">Talk to sales</a>.
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -143,9 +143,12 @@ test.describe("Stripe upgrade flow (billing)", () => {
     await expect(page.getByTestId("subscription-status-badge")).toHaveCount(0);
     await expect(page.getByTestId("payment-failed-banner")).toHaveCount(0);
 
-    // Upgrade controls for the higher self-serve tiers are present.
-    await expect(page.getByTestId("checkout-growth-monthly")).toBeVisible();
+    // The plan grid defaults to annual pricing, so the Growth card surfaces an
+    // annual checkout CTA. Flipping the cadence toggle to monthly swaps it to
+    // the monthly checkout — both lookup keys are reachable, one per cadence.
     await expect(page.getByTestId("checkout-growth-annual")).toBeVisible();
+    await page.getByTestId("billing-cadence-monthly").click();
+    await expect(page.getByTestId("checkout-growth-monthly")).toBeVisible();
   });
 
   test("Billing reflects an upgraded Growth subscription after the webhook snapshot", async ({
