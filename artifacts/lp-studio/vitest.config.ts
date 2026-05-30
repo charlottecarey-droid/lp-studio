@@ -1,8 +1,10 @@
 import path from "node:path";
 
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
@@ -16,7 +18,9 @@ export default defineConfig({
     jsx: "automatic",
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // Pure-logic tests default to `node`; render tests opt into a DOM
+    // environment per-file via a `// @vitest-environment jsdom` docblock.
     environment: "node",
   },
 });
