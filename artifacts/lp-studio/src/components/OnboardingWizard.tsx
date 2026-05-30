@@ -12,6 +12,11 @@ import {
   type BrandImportDimensionName,
   type BrandImportDimensionStatus,
 } from "@/lib/brand-import-client";
+import {
+  buildOnboardingBrandConfig,
+  computeImportPrefill,
+  isFullHex,
+} from "@/lib/onboarding-brand-import";
 
 const IMPORT_DIMENSIONS: { id: BrandImportDimensionName; label: string }[] = [
   { id: "logos", label: "Logo" },
@@ -166,8 +171,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     e.preventDefault();
   }
 
-  const isFullHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
-
   async function handleImport() {
     const url = importUrl.trim();
     if (!url || importing) return;
@@ -188,40 +191,27 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       const imported = await streamBrandImportFromUrl(url, (dim, r) => {
         setImportDims((prev) => (prev ? { ...prev, [dim]: r.status } : prev));
       });
-      const p = imported.proposed;
 
-      if (typeof p.brandName === "string" && p.brandName.trim()) {
-        setBrandName(p.brandName.trim());
-      }
-      const tg = Array.isArray(p.taglines)
-        ? p.taglines.find((t) => typeof t === "string" && t.trim())
-        : undefined;
-      if (typeof tg === "string") setTagline(tg.trim());
+      // Derive the prefill (reviewed-field seeds + the proposed map to persist)
+      // from the raw import result. Setters fire only for fields the importer
+      // actually produced, so untouched defaults are preserved.
+      const prefill = computeImportPrefill(imported, url);
 
-      // Prefer the top-ranked logo candidate; fall back to the flat logoUrl.
-      const pickedLogo =
-        imported.logoAlternates?.[0]?.url ??
-        (typeof p.logoUrl === "string" ? p.logoUrl : "");
-      if (pickedLogo) {
-        setLogoUrl(pickedLogo);
-        setLogoPreview(pickedLogo);
+      if (prefill.brandName !== undefined) setBrandName(prefill.brandName);
+      if (prefill.tagline !== undefined) setTagline(prefill.tagline);
+      if (prefill.logoUrl !== undefined) {
+        setLogoUrl(prefill.logoUrl);
+        setLogoPreview(prefill.logoUrl);
       }
-      const gotPrimary = typeof p.primaryColor === "string" && isFullHex(p.primaryColor);
-      const gotAccent = typeof p.accentColor === "string" && isFullHex(p.accentColor);
-      if (gotPrimary) setPrimaryColor(p.primaryColor as string);
-      if (gotAccent) setAccentColor(p.accentColor as string);
+      if (prefill.primaryColor !== undefined) setPrimaryColor(prefill.primaryColor);
+      if (prefill.accentColor !== undefined) setAccentColor(prefill.accentColor);
       // Honest failure: if the extractor returned no usable colors, flag the
       // Colors step so it tells the user to pick colors rather than silently
       // presenting the navy/indigo defaults as if they were imported.
-      setColorImportFailed(!gotPrimary && !gotAccent);
+      setColorImportFailed(prefill.colorImportFailed);
 
-      // Keep the full proposed map (minus the UI-only logo picker list) so the
-      // richer fields are saved at finish. Pin the chosen logo into it.
-      const proposedForSave: Record<string, unknown> = { ...p };
-      delete proposedForSave.logoAlternates;
-      if (pickedLogo) proposedForSave.logoUrl = pickedLogo;
-      setImportedProposed(proposedForSave);
-      setImportSourceUrl(imported.sourceUrl ?? url);
+      setImportedProposed(prefill.proposedForSave);
+      setImportSourceUrl(prefill.sourceUrl);
       setShowImport(false);
     } catch (err) {
       setImportError(
@@ -236,41 +226,30 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSaving(true);
     setError("");
 
-    const safeColor = (v: string, fallback: string) => isFullHex(v) ? v : fallback;
-    const safePrimary = safeColor(primaryColor, "#1a1a2e");
-    const safeAccent = safeColor(accentColor, "#4f46e5");
-
     try {
       const existing = await fetchBrandConfig();
 
       // Merge the imported brand fields (fonts, voice, messaging, products,
-      // etc.) under the user's reviewed name/logo/colors below. salesConsole
-      // merges into the default block so we don't drop its other fields.
-      const proposed: Record<string, unknown> = { ...(importedProposed ?? {}) };
-      delete proposed.logoAlternates;
-      const mergedSalesConsole =
-        proposed.salesConsole && typeof proposed.salesConsole === "object"
-          ? { ...(existing.salesConsole ?? {}), ...(proposed.salesConsole as Record<string, unknown>) }
-          : existing.salesConsole;
-
-      await saveBrandConfig({
-        ...existing,
-        ...proposed,
-        ...(mergedSalesConsole ? { salesConsole: mergedSalesConsole } : {}),
-        brandName: brandName.trim(),
-        taglines: tagline.trim()
-          ? [tagline.trim()]
-          : (Array.isArray(proposed.taglines) ? proposed.taglines as string[] : existing.taglines),
-        logoUrl: logoUrl || existing.logoUrl,
-        primaryColor: safePrimary,
-        accentColor: safeAccent,
-        ctaBackground: safeAccent,
-        ctaText: safePrimary,
-      } as BrandConfig);
+      // etc.) under the user's reviewed name/logo/colors. salesConsole merges
+      // into the existing block so we don't drop its other fields; the UI-only
+      // logoAlternates list is stripped; tagline falls back to imported/existing
+      // only when the user left it blank. See onboarding-brand-import.ts.
+      await saveBrandConfig(
+        buildOnboardingBrandConfig(existing, importedProposed, {
+          brandName,
+          tagline,
+          logoUrl,
+          primaryColor,
+          accentColor,
+        }),
+      );
 
       // Best-effort provenance so Brand Settings shows the import source.
-      if (importSourceUrl && Object.keys(proposed).length > 0) {
-        void recordBrandImportSource(importSourceUrl, Object.keys(proposed));
+      const importedKeys = importedProposed
+        ? Object.keys(importedProposed).filter((k) => k !== "logoAlternates")
+        : [];
+      if (importSourceUrl && importedKeys.length > 0) {
+        void recordBrandImportSource(importSourceUrl, importedKeys);
       }
 
       const completeRes = await fetch("/api/auth/complete-onboarding", {
