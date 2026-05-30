@@ -21,16 +21,13 @@
 //      download, and the publish/save routes accept the gated ids (positive
 //      path).
 //
-// The two gates use DIFFERENT signals, which is what makes positive-path
-// coverage possible without minting a new reserved-slug tenant:
-//   - The picker UI keys off `brand.brandName === "dandy"`, so a Royal-style
-//     fixture created with `brandName: "Dandy"` is treated as Dandy by the
-//     client (no reserved slug needed).
-//   - The server publish/save routes key off the tenant SLUG
-//     (isProtectedEnterpriseSlug → "dandy"/"dandy-smb"), so that leg
-//     impersonates the *seeded* Dandy workspace via a short-lived admin
-//     session and deletes any rows it writes (see createDandyOperatorSession /
-//     cleanupDandyOnePagerRows) so real Dandy data is left untouched.
+// Both the picker UI and the server routes now key off the SAME
+// server-authoritative signal — `brand.isDandy`, resolved from the immutable
+// tenant SLUG (isProtectedEnterpriseSlug → "dandy"/"dandy-smb"), never the
+// editable `brandName`. So the positive path can't be faked by renaming a Royal
+// tenant's brand to "Dandy"; it must impersonate the *seeded* Dandy workspace
+// via a short-lived admin session (createDandyOperatorSession) and delete any
+// rows it writes (see cleanupDandyOnePagerRows) so real Dandy data is untouched.
 
 import pg from "pg";
 import { test, expect } from "@playwright/test";
@@ -173,19 +170,20 @@ test.describe("Dandy-gated built-in one-pager templates (non-Dandy tenant)", () 
 
 test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () => {
   let pool: pg.Pool;
-  // A Royal-style fixture flagged Dandy via brandName (drives the client-side
-  // picker gate). Its slug is still a non-reserved royal-test-* slug — that's
-  // fine because the picker gate is brandName-based, not slug-based.
-  let tenant: RoyalTenant;
+  // Both the picker UI and the server routes gate on the server-authoritative
+  // `brand.isDandy` (resolved from the immutable slug), so the positive path
+  // must impersonate the *seeded* Dandy workspace ("dandy-smb"/"dandy") via a
+  // short-lived admin session — renaming a Royal tenant's brand to "Dandy" no
+  // longer unlocks the gated built-ins.
+  let operator: DandyOperatorSession;
 
   test.beforeAll(async () => {
     pool = new Pool({ connectionString: getDatabaseUrl(), max: 4 });
-    await purgeStaleRoyalTenants(pool);
-    tenant = await createRoyalTenant(pool, { brandName: "Dandy" });
+    operator = await createDandyOperatorSession(pool);
   });
 
   test.afterAll(async () => {
-    if (tenant) await cleanupRoyalTenant(pool, tenant);
+    if (operator) await cleanupDandyOperatorSession(pool, operator);
     await pool.end();
   });
 
@@ -193,7 +191,7 @@ test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () =
     const url = new URL("/", baseURL ?? "http://127.0.0.1:4318");
     await context.addCookies([{
       name: "lp_sid",
-      value: tenant.sessionSid,
+      value: operator.sid,
       domain: url.hostname,
       path: "/",
       httpOnly: false,
@@ -230,38 +228,20 @@ test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () =
     await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
   });
 
-  test("Template Editor shows the gated built-in tabs for a seeded Dandy workspace", async ({ page, context, baseURL }) => {
+  test("Template Editor shows the gated built-in tabs for a seeded Dandy workspace", async ({ page }) => {
     // The editor's tab gate keys off the server-authoritative slug-based
-    // `brand.isDandy` (NOT brandName), so the royal-brandName fixture used by
-    // this describe won't unlock the gated tabs. Impersonate the seeded Dandy
-    // workspace via a short-lived admin session and override the cookie set in
-    // beforeEach. Read-only — no rows written, so only the session is cleaned up.
-    const operator: DandyOperatorSession = await createDandyOperatorSession(pool);
-    try {
-      const url = new URL("/", baseURL ?? "http://127.0.0.1:4318");
-      await context.addCookies([{
-        name: "lp_sid",
-        value: operator.sid,
-        domain: url.hostname,
-        path: "/",
-        httpOnly: false,
-        secure: false,
-        sameSite: "Lax",
-      }]);
+    // `brand.isDandy` (NOT brandName) — same as the pickers — so the shared
+    // seeded-Dandy operator session (set in beforeEach) unlocks the gated tabs.
+    await page.goto("/sales/one-pager/editor");
+    await page.getByRole("heading", { name: "Template Editor" }).waitFor({ timeout: 15000 });
 
-      await page.goto("/sales/one-pager/editor");
-      await page.getByRole("heading", { name: "Template Editor" }).waitFor({ timeout: 15000 });
+    // Neutral tab still present.
+    await expect(page.getByRole("button", { name: /^90-Day Pilot$/ })).toBeVisible();
 
-      // Neutral tab still present.
-      await expect(page.getByRole("button", { name: /^90-Day Pilot$/ })).toBeVisible();
-
-      // The two gated tabs now appear. For Dandy the comparison tab keeps its
-      // verbatim "Dandy Evolution" label (scrubBrand no-ops).
-      await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toBeVisible();
-      await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
-    } finally {
-      await cleanupDandyOperatorSession(pool, operator);
-    }
+    // The two gated tabs now appear. For Dandy the comparison tab keeps its
+    // verbatim "Dandy Evolution" label (scrubBrand no-ops).
+    await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
   });
 
   test("Agreement Summary editor populates defaults and Download PDF fires a download", async ({ page }) => {
@@ -298,10 +278,9 @@ test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () =
   });
 
   test("server save/publish routes accept the gated built-ins for a Dandy tenant", async ({ baseURL }) => {
-    // Impersonate the seeded Dandy workspace (slug-based gate). Track every row
-    // written through the gated routes and delete them in finally so the real
-    // Dandy workspace is left exactly as we found it.
-    const operator: DandyOperatorSession = await createDandyOperatorSession(pool);
+    // Reuse the shared seeded-Dandy operator session (slug-based gate). Track
+    // every row written through the gated routes and delete them in finally so
+    // the real Dandy workspace is left exactly as we found it.
     const createdTemplateIds: number[] = [];
     const createdPageIds: number[] = [];
     const api = await newAuthedContext({
@@ -334,7 +313,6 @@ test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () =
         templateIds: createdTemplateIds,
         pageIds: createdPageIds,
       });
-      await cleanupDandyOperatorSession(pool, operator);
     }
   });
 });

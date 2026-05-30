@@ -464,11 +464,14 @@ const SalesOnePager = () => {
   const [location] = useLocation();
   const { user, hasPerm } = useAuth();
   // Task #342 — fetch tenant brand so the page (and downstream filenames)
-  // scrub Dandy-only copy for non-Dandy tenants. Royal/neutral tenants
-  // ship with brandName="" → isDandy is false.
+  // scrub Dandy-only copy for non-Dandy tenants.
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
-  const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
+  // immutable tenant slug), NOT the editable `brandName` — so a non-Dandy admin
+  // renaming their brand to "Dandy" can't unlock the gated built-ins in the
+  // picker below. Mirrors the Template Editor and the server save/publish gates.
+  const isDandy = brand.isDandy === true;
   // Feedback address for the non-Dandy beta banner. No dedicated support field
   // exists, so reuse the sales-console reply-to; hide the mailto link if unset.
   const feedbackEmail = (brand.salesConsole?.replyTo ?? "").trim();

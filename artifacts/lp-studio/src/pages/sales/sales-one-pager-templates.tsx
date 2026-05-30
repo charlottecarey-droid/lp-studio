@@ -2042,7 +2042,11 @@ export default function SalesOnePagerTemplates() {
   // template labels scrub Dandy/DSO/dental-lab copy for non-Dandy tenants.
   const [previewBrand, setPreviewBrand] = useState<BrandConfigT>(DEFAULT_BRAND);
   useEffect(() => { fetchBrandConfig().then(setPreviewBrand).catch(() => {}); }, []);
-  const previewIsDandy = (previewBrand.brandName ?? "").trim().toLowerCase() === "dandy";
+  // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
+  // immutable tenant slug), NOT the editable `brandName` — so renaming a brand
+  // to "Dandy" can't unlock the gated built-ins in this gallery picker. Mirrors
+  // the Template Editor and the server save/publish gates.
+  const previewIsDandy = previewBrand.isDandy === true;
   const previewBrandLabel = (previewBrand.brandName || "").trim();
   const previewQrFallback = previewIsDandy
     ? "https://meetdandy.com"
