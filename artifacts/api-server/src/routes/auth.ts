@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -6,7 +7,19 @@ import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
-import { sendWelcomeEmail } from "../lib/notifications";
+import {
+  sendWelcomeEmail,
+  sendMagicLinkEmail,
+  sendPasswordResetEmail,
+  sendEmailVerificationEmail,
+} from "../lib/notifications";
+import { hashPassword, verifyPassword, validatePasswordStrength } from "../lib/password";
+import { verifyTurnstile } from "../lib/turnstile";
+import {
+  mintEmailToken,
+  redeemEmailToken,
+  invalidateUserTokens,
+} from "../lib/authEmailTokens";
 import { dispatchNotification } from "../lib/notificationDispatcher";
 import {
   normalizePlan,
@@ -84,6 +97,18 @@ const passwordAuthLimiter = rateLimit({
   message: { error: "Too many sign-in attempts. Please try again later." },
 });
 
+// Rate limit for endpoints that SEND an email (magic link, register, forgot
+// password, resend verification): 5 per IP per 15 minutes. Tight enough to
+// blunt email-bombing / enumeration probing while leaving room for a genuine
+// retry after a typo.
+const emailSendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+});
+
 // Strict rate limit for the public workspace finder: 15 lookups per IP per
 // minute. The finder is exact-match only and never lists/enumerates, but we
 // still cap it tightly to blunt brute-force tenant-existence probing.
@@ -156,6 +181,177 @@ function getOAuthClient(redirectUri?: string): OAuth2Client | null {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
   return new OAuth2Client(clientId, clientSecret, redirectUri ?? getRedirectUri());
+}
+
+/**
+ * Build the absolute base URL (`https://host` or `http://localhost:port`) for
+ * the host a request arrived on. Used to construct the email links (magic
+ * link, verify, reset) so they always point back at the exact host the user
+ * started from — which is also the host that token redemption is bound to.
+ */
+function buildHostBaseUrl(req: Request): string {
+  const host = getRequestHost(req) || process.env.REPLIT_DEV_DOMAIN || `localhost:${process.env.PORT ?? 8080}`;
+  const isLocal = host.startsWith("localhost") || host.startsWith("127.");
+  const proto = isLocal ? "http" : "https";
+  return `${proto}://${host}`;
+}
+
+interface SessionUserRow {
+  id: number;
+  email: string;
+  name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+  tenant_id: number | null;
+}
+
+/**
+ * Resolve tenant membership for a freshly-authenticated user, create a
+ * server-side session row, and set the session cookie on `res`. Shared by the
+ * Google OAuth callback and the email/password + magic-link login flows so the
+ * membership-resolution and session-creation logic never drifts between them.
+ *
+ * Membership resolution mirrors the two-mode behaviour of the original Google
+ * callback:
+ *   - tenant-locked host → membership in THAT tenant only (pending invites are
+ *     auto-accepted; an email-only pre-invite is linked to the user id).
+ *   - open host          → membership in any non-domain-locked tenant.
+ * When no membership is found `tenantId` stays null (AuthGate then shows
+ * "Access Pending" or "Create workspace").
+ *
+ * Does NOT perform cross-domain handoff — the Google callback layers that on
+ * top using the returned `sid`. The JSON/redirect email flows always run on the
+ * destination host already, so the cookie set here is the final one.
+ */
+async function establishSession(
+  res: Response,
+  user: SessionUserRow,
+  domainMode: "open" | "tenant-locked",
+  domainTenantId: number | null,
+): Promise<{ sid: string; tenantId: number | null }> {
+  const email = user.email;
+  let tenantId: number | null = null;
+  let role = "viewer";
+  let permissions: Record<string, boolean> = {};
+  let isAdmin = false;
+
+  if (domainMode === "tenant-locked" && domainTenantId) {
+    const memberResult = await pool.query(
+      `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
+              tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
+       FROM tenant_members tm
+       JOIN tenant_roles tr ON tr.id = tm.role_id
+       WHERE tm.tenant_id = $1
+         AND (tm.user_id = $2 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($3)))
+       ORDER BY tm.user_id NULLS LAST
+       LIMIT 1`,
+      [domainTenantId, user.id, email]
+    );
+
+    if (memberResult.rows.length > 0) {
+      const needsUserId = memberResult.rows[0].user_id === null;
+      const needsAccept = memberResult.rows[0].accepted_at === null;
+      if (needsUserId || needsAccept) {
+        await pool.query(
+          `UPDATE tenant_members SET
+             user_id = COALESCE(user_id, $1),
+             accepted_at = COALESCE(accepted_at, now())
+           WHERE id = $2`,
+          [user.id, memberResult.rows[0].member_id]
+        );
+      }
+      const member = memberResult.rows[0];
+      tenantId = member.tenant_id;
+      role = member.role_name;
+      permissions = (member.permissions as Record<string, boolean>) ?? {};
+      isAdmin = member.is_admin ?? false;
+      if (!user.tenant_id) {
+        await pool.query(`UPDATE app_users SET tenant_id = $1 WHERE id = $2`, [tenantId, user.id]);
+      }
+    }
+  } else {
+    const memberResult = await pool.query(
+      `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
+              tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
+       FROM tenant_members tm
+       JOIN tenant_roles tr ON tr.id = tm.role_id
+       JOIN tenants t ON t.id = tm.tenant_id
+       WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($2)))
+         AND (t.domain IS NULL OR t.domain = '')
+       ORDER BY tm.user_id NULLS LAST
+       LIMIT 1`,
+      [user.id, email]
+    );
+
+    if (memberResult.rows.length > 0) {
+      const needsUserId = memberResult.rows[0].user_id === null;
+      const needsAccept = memberResult.rows[0].accepted_at === null;
+      if (needsUserId || needsAccept) {
+        await pool.query(
+          `UPDATE tenant_members SET
+             user_id = COALESCE(user_id, $1),
+             accepted_at = COALESCE(accepted_at, now())
+           WHERE id = $2`,
+          [user.id, memberResult.rows[0].member_id]
+        );
+      }
+      const member = memberResult.rows[0];
+      tenantId = member.tenant_id;
+      role = member.role_name;
+      permissions = (member.permissions as Record<string, boolean>) ?? {};
+      isAdmin = member.is_admin ?? false;
+    }
+  }
+
+  // Look up tenant's microsite domain so it's always available in the session.
+  let micrositeDomain: string | null = null;
+  if (tenantId) {
+    const tdResult = await pool.query(
+      `SELECT microsite_domain FROM tenants WHERE id = $1`,
+      [tenantId]
+    );
+    if (tdResult.rows.length > 0) micrositeDomain = tdResult.rows[0].microsite_domain ?? null;
+  }
+
+  // Clean up any stale "no-tenant" sessions for this user before creating a new
+  // one — prevents users from getting stuck on "Access Pending" after being
+  // added to a workspace.
+  await pool.query(
+    `DELETE FROM app_sessions
+     WHERE (sess::jsonb->>'userId')::int = $1
+       AND (sess::jsonb->>'tenantId') IS NULL`,
+    [user.id]
+  );
+
+  const sid = crypto.randomUUID();
+  const sess = JSON.stringify({
+    userId: user.id,
+    email: user.email,
+    name: user.name ?? "",
+    avatarUrl: user.avatar_url ?? null,
+    tenantId,
+    role,
+    permissions,
+    isAdmin,
+    micrositeDomain,
+    appUserRole: user.role ?? null,
+  });
+  const expire = new Date(Date.now() + SESSION_TTL_MS);
+
+  await pool.query(
+    `INSERT INTO app_sessions (sid, sess, expire) VALUES ($1, $2, $3)`,
+    [sid, sess, expire]
+  );
+
+  res.cookie(SESSION_COOKIE, sid, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: SESSION_TTL_MS,
+    path: "/",
+  });
+
+  return { sid, tenantId };
 }
 
 // GET /api/auth/google — initiates Google OAuth flow
@@ -259,143 +455,9 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     );
     const user = upsertResult.rows[0];
 
-    let tenantId: number | null = null;
-    let role = "viewer";
-    let permissions: Record<string, boolean> = {};
-    let isAdmin = false;
-
-    if (domainMode === "tenant-locked" && domainTenantId) {
-      // Tenant-locked domain (e.g. ent.meetdandy.com): look up membership in that specific tenant.
-      // Include pending invites (accepted_at IS NULL) — they are auto-accepted on first login.
-      const memberResult = await pool.query(
-        `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
-                tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
-         FROM tenant_members tm
-         JOIN tenant_roles tr ON tr.id = tm.role_id
-         WHERE tm.tenant_id = $1
-           AND (tm.user_id = $2 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($3)))
-         ORDER BY tm.user_id NULLS LAST
-         LIMIT 1`,
-        [domainTenantId, user.id, email]
-      );
-
-      // Auto-accept pending invite and/or link email-only pre-invite to user_id on first login
-      if (memberResult.rows.length > 0) {
-        const needsUserId = memberResult.rows[0].user_id === null;
-        const needsAccept = memberResult.rows[0].accepted_at === null;
-        if (needsUserId || needsAccept) {
-          await pool.query(
-            `UPDATE tenant_members SET
-               user_id = COALESCE(user_id, $1),
-               accepted_at = COALESCE(accepted_at, now())
-             WHERE id = $2`,
-            [user.id, memberResult.rows[0].member_id]
-          );
-        }
-      }
-
-      if (memberResult.rows.length > 0) {
-        const member = memberResult.rows[0];
-        tenantId = member.tenant_id;
-        role = member.role_name;
-        permissions = (member.permissions as Record<string, boolean>) ?? {};
-        isAdmin = member.is_admin ?? false;
-        if (!user.tenant_id) {
-          await pool.query(`UPDATE app_users SET tenant_id = $1 WHERE id = $2`, [tenantId, user.id]);
-        }
-      }
-      // If not a member of the locked tenant, tenantId stays null → AuthGate shows "Access Pending"
-    }
-    else {
-      // Open domain (e.g. app.lpstudio.ai): look up membership, but only to non-domain-locked tenants
-      // (so Dandy employees don't get auto-dropped into Dandy's workspace on app.lpstudio.ai)
-      const memberResult = await pool.query(
-        `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
-                tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
-         FROM tenant_members tm
-         JOIN tenant_roles tr ON tr.id = tm.role_id
-         JOIN tenants t ON t.id = tm.tenant_id
-         WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($2)))
-           AND (t.domain IS NULL OR t.domain = '')
-         ORDER BY tm.user_id NULLS LAST
-         LIMIT 1`,
-        [user.id, email]
-      );
-
-      // Auto-accept pending invite and/or link email-only pre-invite to user_id on first login
-      if (memberResult.rows.length > 0) {
-        const needsUserId = memberResult.rows[0].user_id === null;
-        const needsAccept = memberResult.rows[0].accepted_at === null;
-        if (needsUserId || needsAccept) {
-          await pool.query(
-            `UPDATE tenant_members SET
-               user_id = COALESCE(user_id, $1),
-               accepted_at = COALESCE(accepted_at, now())
-             WHERE id = $2`,
-            [user.id, memberResult.rows[0].member_id]
-          );
-        }
-      }
-
-      if (memberResult.rows.length > 0) {
-        const member = memberResult.rows[0];
-        tenantId = member.tenant_id;
-        role = member.role_name;
-        permissions = (member.permissions as Record<string, boolean>) ?? {};
-        isAdmin = member.is_admin ?? false;
-      }
-      // If no open-domain membership found, tenantId stays null → AuthGate shows "Create workspace"
-    }
-
-    // Look up tenant's microsite domain so it's always available in the session
-    let micrositeDomain: string | null = null;
-    if (tenantId) {
-      const tdResult = await pool.query(
-        `SELECT microsite_domain FROM tenants WHERE id = $1`,
-        [tenantId]
-      );
-      if (tdResult.rows.length > 0) micrositeDomain = tdResult.rows[0].microsite_domain ?? null;
-    }
-
-    // Clean up any stale "no-tenant" sessions for this user before creating a new one.
-    // This prevents users from getting stuck on "Access Pending" after being added to a workspace.
-    await pool.query(
-      `DELETE FROM app_sessions
-       WHERE (sess::jsonb->>'userId')::int = $1
-         AND (sess::jsonb->>'tenantId') IS NULL`,
-      [user.id]
-    );
-
-    // Create server-side session
-    const sid = crypto.randomUUID();
-    const sess = JSON.stringify({
-      userId: user.id,
-      email: user.email,
-      name: user.name ?? "",
-      avatarUrl: user.avatar_url ?? null,
-      tenantId,
-      role,
-      permissions,
-      isAdmin,
-      micrositeDomain,
-      // Capture app_users.role at login so getTenantId can honour the
-      // X-Tenant-Id cross-tenant override for Dandy operators (task #108).
-      appUserRole: user.role ?? null,
-    });
-    const expire = new Date(Date.now() + SESSION_TTL_MS);
-
-    await pool.query(
-      `INSERT INTO app_sessions (sid, sess, expire) VALUES ($1, $2, $3)`,
-      [sid, sess, expire]
-    );
-
-    res.cookie(SESSION_COOKIE, sid, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: SESSION_TTL_MS,
-      path: "/",
-    });
+    // Resolve membership + create the session (shared with the email/password
+    // and magic-link flows so the logic never drifts).
+    const { sid } = await establishSession(res, user, domainMode, domainTenantId);
 
     // If the user came from a different domain (e.g. meetdandy-lp.com) but our
     // canonical callback lives on app.lpstudio.ai, we need to hand the session
@@ -1522,6 +1584,376 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       return;
     }
     console.error("[auth] signup error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Email + password and passwordless (magic-link) authentication.
+//
+// Extends the existing Google OAuth + admin-password flows. All email-sending
+// endpoints are optionally bot-challenged via Turnstile (gracefully skipped
+// when no key is configured) and avoid account enumeration by returning the
+// same generic response whether or not the address exists. Sessions are created
+// through the shared `establishSession()` so membership resolution matches the
+// Google flow exactly.
+// ───────────────────────────────────────────────────────────────────────────
+
+const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
+const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+const MAGIC_LINK_EXPIRY_LABEL = "15 minutes";
+const EMAIL_VERIFY_EXPIRY_LABEL = "24 hours";
+const PASSWORD_RESET_EXPIRY_LABEL = "30 minutes";
+// Identical response for every email-sending request so the presence/absence of
+// an account is never revealed.
+const GENERIC_INBOX_MSG = "If that email address has an account, we've sent it a link. Please check your inbox.";
+
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const e = value.trim().toLowerCase();
+  if (e.length < 3 || e.length > 320 || !e.includes("@") || /\s/.test(e)) return null;
+  return e;
+}
+
+/**
+ * Resolve open vs tenant-locked mode for the host a (non-OAuth) request arrived
+ * on, so the email/magic-link flows feed `establishSession` the same domain
+ * context the Google callback derives from its OAuth `state`.
+ */
+async function resolveDomainMode(
+  req: Request,
+): Promise<{ domainMode: "open" | "tenant-locked"; domainTenantId: number | null }> {
+  const originHost = getRequestHost(req);
+  if (originHost) {
+    const match = await findTenantByHost(originHost);
+    if (match && match.mode === "tenant-locked") {
+      return { domainMode: "tenant-locked", domainTenantId: match.tenantId };
+    }
+  }
+  return { domainMode: "open", domainTenantId: null };
+}
+
+// A valid scrypt hash used as a constant-time decoy when the supplied email has
+// no account, so a login probe can't distinguish "no such user" from "wrong
+// password" by timing. Computed lazily once.
+let decoyHashPromise: Promise<string> | null = null;
+function getDecoyHash(): Promise<string> {
+  return (decoyHashPromise ??= hashPassword(crypto.randomBytes(24).toString("hex")));
+}
+
+// GET /api/auth/turnstile-config — expose the PUBLIC Turnstile site key (or
+// null when unconfigured) so the frontend can decide whether to render the
+// challenge widget. The secret key never leaves the server.
+router.get("/auth/turnstile-config", (_req, res): void => {
+  res.json({ siteKey: process.env.TURNSTILE_SITE_KEY ?? null });
+});
+
+// POST /api/auth/email/register — create an email+password account and send a
+// verification link. Never overwrites an existing account (avoids takeover of a
+// Google account) and never reveals whether the address already exists.
+router.post("/auth/email/register", emailSendLimiter, async (req, res): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as { email?: unknown; password?: unknown; name?: unknown; turnstileToken?: unknown };
+    const turnstile = await verifyTurnstile(body.turnstileToken, req.ip);
+    if (!turnstile.ok) {
+      res.status(400).json({ error: "Bot check failed. Please try again." });
+      return;
+    }
+    const email = normalizeEmail(body.email);
+    if (!email) {
+      res.status(400).json({ error: "Enter a valid email address." });
+      return;
+    }
+    const strength = validatePasswordStrength(body.password);
+    if (!strength.ok) {
+      res.status(400).json({ error: strength.error });
+      return;
+    }
+    const name = typeof body.name === "string" ? body.name.trim().slice(0, 200) : "";
+    const passwordHash = await hashPassword(body.password as string);
+
+    const insert = await pool.query(
+      `INSERT INTO app_users (email, name, password_hash, status, email_verified)
+       VALUES ($1, $2, $3, 'active', false)
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id`,
+      [email, name, passwordHash]
+    );
+
+    if (insert.rows.length > 0) {
+      const userId = insert.rows[0].id as number;
+      await invalidateUserTokens(userId, "email_verify");
+      const raw = await mintEmailToken({
+        userId,
+        purpose: "email_verify",
+        ttlMs: EMAIL_VERIFY_TTL_MS,
+        targetHost: getRequestHost(req) || null,
+      });
+      const verifyUrl = `${buildHostBaseUrl(req)}/api/auth/email/verify?token=${encodeURIComponent(raw)}`;
+      await sendEmailVerificationEmail({ recipientEmail: email, verifyUrl, expiryLabel: EMAIL_VERIFY_EXPIRY_LABEL });
+    }
+    res.json({ ok: true, message: "Check your inbox to confirm your email address." });
+  } catch (err) {
+    console.error("[auth] email register error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/auth/email/verify — redeem an email-verification token, mark the
+// address verified, and log the user in.
+router.get("/auth/email/verify", async (req, res): Promise<void> => {
+  try {
+    const token = (req.query.token as string) || "";
+    const redeemed = await redeemEmailToken(token, "email_verify");
+    if (!redeemed) {
+      res.redirect("/?error=invalid_or_expired_link");
+      return;
+    }
+    if (redeemed.targetHost && redeemed.targetHost !== getRequestHost(req)) {
+      res.redirect("/?error=invalid_link_host");
+      return;
+    }
+    const userRes = await pool.query(
+      `UPDATE app_users SET email_verified = true, last_login_at = now(), updated_at = now()
+       WHERE id = $1 RETURNING id, email, name, avatar_url, role, tenant_id`,
+      [redeemed.userId]
+    );
+    if (!userRes.rows.length) {
+      res.redirect("/?error=auth_failed");
+      return;
+    }
+    const { domainMode, domainTenantId } = await resolveDomainMode(req);
+    await establishSession(res, userRes.rows[0], domainMode, domainTenantId);
+    res.redirect(sanitizeNextPath(redeemed.nextPath) ?? "/");
+  } catch (err) {
+    console.error("[auth] email verify error:", err);
+    res.redirect("/?error=auth_failed");
+  }
+});
+
+// POST /api/auth/email/resend-verification — re-send the verification email for
+// an unverified password account. Generic response (no enumeration).
+router.post("/auth/email/resend-verification", emailSendLimiter, async (req, res): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as { email?: unknown; turnstileToken?: unknown };
+    const turnstile = await verifyTurnstile(body.turnstileToken, req.ip);
+    if (!turnstile.ok) {
+      res.status(400).json({ error: "Bot check failed. Please try again." });
+      return;
+    }
+    const email = normalizeEmail(body.email);
+    if (email) {
+      const userRes = await pool.query(
+        `SELECT id, email_verified, password_hash FROM app_users WHERE email = $1`,
+        [email]
+      );
+      const row = userRes.rows[0];
+      if (row && !row.email_verified && row.password_hash) {
+        await invalidateUserTokens(row.id, "email_verify");
+        const raw = await mintEmailToken({
+          userId: row.id,
+          purpose: "email_verify",
+          ttlMs: EMAIL_VERIFY_TTL_MS,
+          targetHost: getRequestHost(req) || null,
+        });
+        const verifyUrl = `${buildHostBaseUrl(req)}/api/auth/email/verify?token=${encodeURIComponent(raw)}`;
+        await sendEmailVerificationEmail({ recipientEmail: email, verifyUrl, expiryLabel: EMAIL_VERIFY_EXPIRY_LABEL });
+      }
+    }
+    res.json({ ok: true, message: GENERIC_INBOX_MSG });
+  } catch (err) {
+    console.error("[auth] resend verification error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/email/login — email + password sign-in. Requires a verified
+// address. Generic 401 for any bad-credential case; constant-time to avoid
+// account enumeration.
+router.post("/auth/email/login", passwordAuthLimiter, async (req, res): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as { email?: unknown; password?: unknown };
+    const email = normalizeEmail(body.email);
+    if (!email || typeof body.password !== "string") {
+      res.status(400).json({ error: "Enter your email and password." });
+      return;
+    }
+    const userRes = await pool.query(
+      `SELECT id, email, name, avatar_url, role, tenant_id, password_hash, email_verified
+       FROM app_users WHERE email = $1`,
+      [email]
+    );
+    const row = userRes.rows[0];
+    const passwordOk = await verifyPassword(body.password, row?.password_hash ?? (await getDecoyHash()));
+    if (!row || !row.password_hash || !passwordOk) {
+      res.status(401).json({ error: "Invalid email or password." });
+      return;
+    }
+    if (!row.email_verified) {
+      res.status(403).json({
+        error: "Please verify your email first — check your inbox for the confirmation link.",
+        needsVerification: true,
+      });
+      return;
+    }
+    await pool.query(`UPDATE app_users SET last_login_at = now(), updated_at = now() WHERE id = $1`, [row.id]);
+    const { domainMode, domainTenantId } = await resolveDomainMode(req);
+    await establishSession(res, row, domainMode, domainTenantId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[auth] email login error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/magic-link — request a passwordless sign-in link. Creates the
+// account if new (passwordless signup). Generic response either way.
+router.post("/auth/magic-link", emailSendLimiter, async (req, res): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as { email?: unknown; turnstileToken?: unknown; next?: unknown };
+    const turnstile = await verifyTurnstile(body.turnstileToken, req.ip);
+    if (!turnstile.ok) {
+      res.status(400).json({ error: "Bot check failed. Please try again." });
+      return;
+    }
+    const email = normalizeEmail(body.email);
+    if (!email) {
+      res.status(400).json({ error: "Enter a valid email address." });
+      return;
+    }
+    const nextPath = sanitizeNextPath(body.next);
+    const userRes = await pool.query(
+      `INSERT INTO app_users (email, name, status) VALUES ($1, '', 'active')
+       ON CONFLICT (email) DO UPDATE SET updated_at = now()
+       RETURNING id`,
+      [email]
+    );
+    const userId = userRes.rows[0].id as number;
+    await invalidateUserTokens(userId, "magic_link");
+    const raw = await mintEmailToken({
+      userId,
+      purpose: "magic_link",
+      ttlMs: MAGIC_LINK_TTL_MS,
+      targetHost: getRequestHost(req) || null,
+      nextPath,
+    });
+    const magicLinkUrl = `${buildHostBaseUrl(req)}/api/auth/magic-link/verify?token=${encodeURIComponent(raw)}`;
+    await sendMagicLinkEmail({ recipientEmail: email, magicLinkUrl, expiryLabel: MAGIC_LINK_EXPIRY_LABEL });
+    res.json({ ok: true, message: GENERIC_INBOX_MSG });
+  } catch (err) {
+    console.error("[auth] magic-link request error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/auth/magic-link/verify — redeem a magic-link token and log in. The
+// link proves inbox ownership, so the address is marked verified.
+router.get("/auth/magic-link/verify", async (req, res): Promise<void> => {
+  try {
+    const token = (req.query.token as string) || "";
+    const redeemed = await redeemEmailToken(token, "magic_link");
+    if (!redeemed) {
+      res.redirect("/?error=invalid_or_expired_link");
+      return;
+    }
+    if (redeemed.targetHost && redeemed.targetHost !== getRequestHost(req)) {
+      res.redirect("/?error=invalid_link_host");
+      return;
+    }
+    const userRes = await pool.query(
+      `UPDATE app_users SET email_verified = true, last_login_at = now(), updated_at = now()
+       WHERE id = $1 RETURNING id, email, name, avatar_url, role, tenant_id`,
+      [redeemed.userId]
+    );
+    if (!userRes.rows.length) {
+      res.redirect("/?error=auth_failed");
+      return;
+    }
+    const { domainMode, domainTenantId } = await resolveDomainMode(req);
+    await establishSession(res, userRes.rows[0], domainMode, domainTenantId);
+    res.redirect(sanitizeNextPath(redeemed.nextPath) ?? "/");
+  } catch (err) {
+    console.error("[auth] magic-link verify error:", err);
+    res.redirect("/?error=auth_failed");
+  }
+});
+
+// POST /api/auth/password/forgot — send a password-reset link. Generic response
+// (no enumeration). The reset link lands on the frontend /reset-password page.
+router.post("/auth/password/forgot", emailSendLimiter, async (req, res): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as { email?: unknown; turnstileToken?: unknown };
+    const turnstile = await verifyTurnstile(body.turnstileToken, req.ip);
+    if (!turnstile.ok) {
+      res.status(400).json({ error: "Bot check failed. Please try again." });
+      return;
+    }
+    const email = normalizeEmail(body.email);
+    if (email) {
+      const userRes = await pool.query(`SELECT id FROM app_users WHERE email = $1`, [email]);
+      if (userRes.rows.length > 0) {
+        const userId = userRes.rows[0].id as number;
+        await invalidateUserTokens(userId, "password_reset");
+        const raw = await mintEmailToken({
+          userId,
+          purpose: "password_reset",
+          ttlMs: PASSWORD_RESET_TTL_MS,
+          targetHost: getRequestHost(req) || null,
+        });
+        const resetUrl = `${buildHostBaseUrl(req)}/reset-password?token=${encodeURIComponent(raw)}`;
+        await sendPasswordResetEmail({ recipientEmail: email, resetUrl, expiryLabel: PASSWORD_RESET_EXPIRY_LABEL });
+      }
+    }
+    res.json({ ok: true, message: GENERIC_INBOX_MSG });
+  } catch (err) {
+    console.error("[auth] password forgot error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/password/reset — set a new password from a reset token, mark
+// the address verified, and log the user in.
+router.post("/auth/password/reset", passwordAuthLimiter, async (req, res): Promise<void> => {
+  try {
+    const body = (req.body ?? {}) as { token?: unknown; password?: unknown };
+    const strength = validatePasswordStrength(body.password);
+    if (!strength.ok) {
+      res.status(400).json({ error: strength.error });
+      return;
+    }
+    if (typeof body.token !== "string" || !body.token) {
+      res.status(400).json({ error: "This reset link is invalid or has expired." });
+      return;
+    }
+    const redeemed = await redeemEmailToken(body.token, "password_reset");
+    if (!redeemed) {
+      res.status(400).json({ error: "This reset link is invalid or has expired." });
+      return;
+    }
+    // Host-bind the reset, same as the verify/magic-link redemption flows: a
+    // token minted for one host must be redeemed on that host.
+    if (redeemed.targetHost && redeemed.targetHost !== getRequestHost(req)) {
+      res.status(400).json({ error: "This reset link is invalid or has expired." });
+      return;
+    }
+    const passwordHash = await hashPassword(body.password as string);
+    const userRes = await pool.query(
+      `UPDATE app_users SET password_hash = $1, email_verified = true, last_login_at = now(), updated_at = now()
+       WHERE id = $2 RETURNING id, email, name, avatar_url, role, tenant_id`,
+      [passwordHash, redeemed.userId]
+    );
+    if (!userRes.rows.length) {
+      res.status(400).json({ error: "This reset link is invalid or has expired." });
+      return;
+    }
+    // Void any other outstanding reset links for this user.
+    await invalidateUserTokens(redeemed.userId, "password_reset");
+    const { domainMode, domainTenantId } = await resolveDomainMode(req);
+    await establishSession(res, userRes.rows[0], domainMode, domainTenantId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[auth] password reset error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

@@ -34,6 +34,7 @@ export * from "./tenants";
 export * from "./appUsers";
 export * from "./appSessions";
 export * from "./authExchangeCodes";
+export * from "./authEmailTokens";
 export * from "./tenantRoles";
 export * from "./tenantMembers";
 

@@ -44,6 +44,7 @@
     { "idx": 39, "version": "7", "when": 1749200000000, "tag": "0039_tenants_trial",                          "breakpoints": false },
     { "idx": 40, "version": "7", "when": 1749300000000, "tag": "0040_tenants_plan_default_free",              "breakpoints": false },
     { "idx": 41, "version": "7", "when": 1749400000000, "tag": "0041_notifications",                          "breakpoints": false },
-    { "idx": 42, "version": "7", "when": 1749500000000, "tag": "0042_tenants_plan_canonical_check",           "breakpoints": false }
+    { "idx": 42, "version": "7", "when": 1749500000000, "tag": "0042_tenants_plan_canonical_check",           "breakpoints": false },
+    { "idx": 43, "version": "7", "when": 1749600000000, "tag": "0043_auth_email_password",                    "breakpoints": false }
   ]
 }

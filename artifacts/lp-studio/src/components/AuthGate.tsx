@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ExternalLink, LogOut, Building2, Search, Sparkles, LayoutTemplate, BarChart3, ArrowRight, Loader2 } from "lucide-react";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
+import { EmailAuthForms } from "@/components/auth/EmailAuth";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
+const PUBLIC_EXACT = ["/reset-password"];
 
 function isPublicRoute(path: string) {
-  return PUBLIC_PREFIXES.some((p) => path.startsWith(p));
+  return PUBLIC_PREFIXES.some((p) => path.startsWith(p)) || PUBLIC_EXACT.includes(path);
 }
 
 function GoogleIcon() {
@@ -140,6 +142,10 @@ function SignInPanel() {
             <GoogleIcon />
             Continue with Google
           </Button>
+
+          <div className="text-left">
+            <EmailAuthForms mode="signin" allowSignup={false} />
+          </div>
 
           {isDandyTenant && (
             <a
@@ -548,6 +554,8 @@ function OpenSignInScreen() {
               <GoogleIcon />
               Continue with Google
             </Button>
+
+            <EmailAuthForms mode={isSignup ? "signup" : "signin"} allowSignup />
 
             <p className="text-center text-xs text-muted-foreground">
               {isSignup ? (

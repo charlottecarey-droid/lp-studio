@@ -238,6 +238,193 @@ export async function sendWelcomeEmail(welcome: WelcomePayload): Promise<void> {
   }
 }
 
+/**
+ * Shared transactional-email shell for the single-action auth emails
+ * (magic link, password reset, email verification). Mirrors the LP Studio
+ * brand styling used by the invite/welcome templates above. Returns the full
+ * HTML document.
+ */
+function buildAuthActionEmailHtml(opts: {
+  headline: string;
+  bodyHtml: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  footerNote: string;
+  expiryNote?: string;
+}): string {
+  const { headline, bodyHtml, ctaLabel, ctaUrl, footerNote, expiryNote } = opts;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
+          <tr>
+            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
+              <div style="margin-bottom:20px">
+                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
+                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
+                </span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 40px">
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">
+                ${bodyHtml}
+              </p>
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(ctaUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      ${escapeHtml(ctaLabel)} →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ${expiryNote ? `<p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">${escapeHtml(expiryNote)}</p>` : ""}
+              <p style="margin:16px 0 0;font-size:12px;color:#b6bcc4;line-height:1.6;word-break:break-all">
+                Or paste this link into your browser: ${escapeHtml(ctaUrl)}
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">${escapeHtml(footerNote)}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendAuthActionEmail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  fromEmail?: string;
+  logContext: Record<string, unknown>;
+  logMessage: string;
+}): Promise<boolean> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn(`RESEND_API_KEY not set — skipping ${opts.logMessage}`);
+    return false;
+  }
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: opts.fromEmail ?? process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+        to: [opts.to],
+        subject: opts.subject,
+        html: opts.html,
+      }),
+    });
+    logger.info(opts.logContext, `${opts.logMessage} sent`);
+    return true;
+  } catch (err) {
+    logger.error({ err, ...opts.logContext }, `Failed to send ${opts.logMessage}`);
+    return false;
+  }
+}
+
+/**
+ * Passwordless sign-in ("magic link"). Returns true if Resend accepted the
+ * message. The link verifies the address on redemption, so it doubles as
+ * email verification.
+ */
+export async function sendMagicLinkEmail(payload: {
+  recipientEmail: string;
+  magicLinkUrl: string;
+  expiryLabel: string;
+}): Promise<boolean> {
+  const { recipientEmail, magicLinkUrl, expiryLabel } = payload;
+  const html = buildAuthActionEmailHtml({
+    headline: "Your sign-in link",
+    bodyHtml: "Click the button below to sign in to LP Studio. No password needed.",
+    ctaLabel: "Sign in to LP Studio",
+    ctaUrl: magicLinkUrl,
+    expiryNote: `This link expires in ${expiryLabel} and can only be used once. If you didn't request it, you can safely ignore this email.`,
+    footerNote: "You're receiving this because someone requested a sign-in link for this email address on LP Studio.",
+  });
+  return sendAuthActionEmail({
+    to: recipientEmail,
+    subject: "Your LP Studio sign-in link",
+    html,
+    logContext: { recipientEmail },
+    logMessage: "magic-link email",
+  });
+}
+
+/**
+ * Forgot-password reset link. Returns true if Resend accepted the message.
+ */
+export async function sendPasswordResetEmail(payload: {
+  recipientEmail: string;
+  resetUrl: string;
+  expiryLabel: string;
+}): Promise<boolean> {
+  const { recipientEmail, resetUrl, expiryLabel } = payload;
+  const html = buildAuthActionEmailHtml({
+    headline: "Reset your password",
+    bodyHtml: "We received a request to reset the password for your LP Studio account. Click below to choose a new one.",
+    ctaLabel: "Reset password",
+    ctaUrl: resetUrl,
+    expiryNote: `This link expires in ${expiryLabel} and can only be used once. If you didn't request a reset, you can safely ignore this email — your password won't change.`,
+    footerNote: "You're receiving this because a password reset was requested for this email address on LP Studio.",
+  });
+  return sendAuthActionEmail({
+    to: recipientEmail,
+    subject: "Reset your LP Studio password",
+    html,
+    logContext: { recipientEmail },
+    logMessage: "password-reset email",
+  });
+}
+
+/**
+ * Email-address verification link sent after email+password registration.
+ * Returns true if Resend accepted the message.
+ */
+export async function sendEmailVerificationEmail(payload: {
+  recipientEmail: string;
+  verifyUrl: string;
+  expiryLabel: string;
+}): Promise<boolean> {
+  const { recipientEmail, verifyUrl, expiryLabel } = payload;
+  const html = buildAuthActionEmailHtml({
+    headline: "Confirm your email",
+    bodyHtml: "Welcome to LP Studio! Please confirm this is your email address to finish setting up your account.",
+    ctaLabel: "Confirm email",
+    ctaUrl: verifyUrl,
+    expiryNote: `This link expires in ${expiryLabel}. If you didn't create an LP Studio account, you can safely ignore this email.`,
+    footerNote: "You're receiving this because an LP Studio account was created with this email address.",
+  });
+  return sendAuthActionEmail({
+    to: recipientEmail,
+    subject: "Confirm your email for LP Studio",
+    html,
+    logContext: { recipientEmail },
+    logMessage: "email-verification email",
+  });
+}
+
 export interface SlugRedirectExpiryPayload {
   recipientEmail: string;
   tenantName: string;

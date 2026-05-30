@@ -103,6 +103,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const PartnerHome = lazy(() => import("@/pages/partner-home"));
 const PersonalizedLinkResolver = lazy(() => import("@/pages/personalized-link-resolver"));
 const ThankYou = lazy(() => import("@/pages/thank-you"));
+const ResetPassword = lazy(() => import("@/pages/reset-password"));
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const CreateTest = lazy(() => import("@/pages/create-test"));
@@ -353,6 +354,9 @@ function AppRouter() {
         {/* Thank-you page shown after form submission (No App Layout) */}
         <Route path="/thank-you" component={ThankYou} />
 
+        {/* Password reset page (No App Layout) */}
+        <Route path="/reset-password" component={ResetPassword} />
+
         {/* Personalized link resolver (No App Layout) */}
         <Route path="/p/:token" component={PersonalizedLinkResolver} />
 
@@ -472,6 +476,8 @@ function AppShell() {
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             {/* Thank-you page after form submission */}
             <Route path="/thank-you" component={ThankYou} />
+            {/* Password reset page */}
+            <Route path="/reset-password" component={ResetPassword} />
             {/* Authenticated/token-gated draft preview — must come before /:slug catch-all */}
             <Route path="/preview/:slug" component={LandingPageViewer} />
             {/* Token-based review link */}
@@ -553,6 +559,7 @@ function AppShell() {
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             <Route path="/review/:token" component={ReviewShell} />
             <Route path="/thank-you" component={ThankYou} />
+            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/preview/template/:templateId" component={TemplatePreview} />
             <Route path="/preview/generic-catalog-fixture" component={GenericCatalogFixture} />
             <Route path="/preview/:slug" component={LandingPageViewer} />
