@@ -77,6 +77,21 @@ function BrandBackdrop({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * LP Studio brand lockup (icon + wordmark) shown at the top of workspace
+ * sign-in screens. Every workspace login except the white-labelled Dandy
+ * tenant leads with this so visitors can see they're signing into LP Studio;
+ * the specific workspace is named in the heading below it.
+ */
+function LpStudioWordmark() {
+  return (
+    <div className="flex items-center justify-center gap-2.5">
+      <img src={lpstudioLogo} alt="" className="h-10 w-10 rounded-xl shadow-sm ring-1 ring-black/5" />
+      <span className="text-xl font-semibold tracking-tight text-foreground">LP Studio</span>
+    </div>
+  );
+}
+
 function SignInPanel() {
   const { domainContext } = useAuth();
   const [tenantBrand, setTenantBrand] = useState<{ logoUrl?: string | null; brandName?: string | null } | null>(null);
@@ -98,29 +113,19 @@ function SignInPanel() {
   }, [isLocked]);
 
   const displayName = tenantBrand?.brandName || domainContext?.tenantName || "";
-  const customLogoUrl = isLocked ? (tenantBrand?.logoUrl ?? null) : null;
-  // Only show the Dandy logo on actual Dandy tenant pages — never as a default for other tenants.
-  const fallbackLogo = isLocked
-    ? (isDandyTenant ? dandyLogo : null)
-    : lpstudioLogo;
-  const fallbackLogoAlt = isLocked
-    ? (isDandyTenant ? "Dandy" : displayName || "Workspace")
-    : "LP Studio";
   const title = isLocked
     ? (displayName ? `Sign in to ${displayName}` : "Sign in")
-    : "LP Studio";
+    : "Sign in";
   const subtitle = isLocked ? "Sign in to continue" : "Sign in to your workspace";
 
   return (
     <div className="w-full max-w-md">
       <div className="rounded-2xl border border-border/80 bg-white/90 backdrop-blur-xl shadow-[0_24px_60px_-20px_rgba(88,28,135,0.25)] px-8 py-10 space-y-7 text-center">
-        {customLogoUrl ? (
-          <img src={customLogoUrl} alt={displayName || "Workspace"} className="mx-auto h-11 object-contain" />
-        ) : fallbackLogo ? (
-          <img src={fallbackLogo} alt={fallbackLogoAlt} className="mx-auto h-11" />
-        ) : displayName ? (
-          <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{displayName}</p>
-        ) : null}
+        {isDandyTenant ? (
+          <img src={dandyLogo} alt="Dandy" className="mx-auto h-11" />
+        ) : (
+          <LpStudioWordmark />
+        )}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
           <p className="text-sm text-muted-foreground mt-1.5">{subtitle}</p>
@@ -545,17 +550,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // On a tenant-locked domain (e.g. meetdandy-lp.com) — invite-only, no self-serve signup
     const tenantSlug = domainContext?.tenantSlug ?? null;
     const isDandyTenant = tenantSlug === "dandy";
-    const tenantName = domainContext?.tenantName || "";
     return (
       <BrandBackdrop>
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-border/80 bg-white/90 backdrop-blur-xl shadow-[0_24px_60px_-20px_rgba(88,28,135,0.25)] px-8 py-10 space-y-6 text-center">
             {isDandyTenant ? (
               <img src={dandyLogo} alt="Dandy" className="mx-auto h-11" />
-            ) : tenantName ? (
-              <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{tenantName}</p>
             ) : (
-              <img src={lpstudioLogo} alt="LP Studio" className="mx-auto h-11" />
+              <LpStudioWordmark />
             )}
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">Access Pending</h1>

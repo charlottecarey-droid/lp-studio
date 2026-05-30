@@ -1,5 +1,6 @@
 - [Dev env source](dev-env-source.md) — dev workflows read env from `.replit` `[userenv]` + gitignored `.env`; Replit Secrets are agent/deploy-only, NOT injected into workflow shells.
 - [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
+- [Workspace login branding](workspace-login-branding.md) — tenant logins must read as LP Studio (logo+wordmark), Dandy is the sole white-label exception; no custom tenant logo, no "powered by".
 - [LP Studio dev marketing host](lp-studio-dev-marketing-host.md) — in dev, '/' renders the marketing site; E2E tests needing the SaaS shell must use '/?preview=app'.
 - [LP_PUBLIC auth hydration](lp-public-auth-hydration.md) — auth-conditional logic on LP_PUBLIC routes needs `optionalAuth` middleware or `req.authUser` is always undefined.
 - [Tenant shell vs marketing-flash band-aids](tenant-shell-vs-marketing-flash.md) — fixing tenant-host flash requires serving a different shell from the CF worker; inline "hide #root" scripts in index.html are NOT a real fix.
