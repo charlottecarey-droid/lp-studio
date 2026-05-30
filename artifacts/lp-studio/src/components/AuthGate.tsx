@@ -165,13 +165,27 @@ function SignInPanel() {
  * Workspace finder — lets a member of an existing workspace get to their own
  * company's login page from the central domain. Calls the public, exact-match,
  * rate-limited `/api/auth/find-workspace` endpoint and, on an exact hit, sends
- * the browser to that workspace's canonical login host. On no match it shows a
- * friendly inline message — never a list or suggestions.
+ * the browser to that workspace's canonical login host. On a near-miss the
+ * endpoint returns up to a few close, high-confidence suggestions which we
+ * render as clickable links; when nothing is close it shows a friendly inline
+ * message.
  */
+interface WorkspaceSuggestion {
+  name: string;
+  host: string;
+  url: string;
+}
+
 function WorkspaceFinder() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<WorkspaceSuggestion[]>([]);
+
+  function clearResults() {
+    if (error) setError("");
+    if (suggestions.length) setSuggestions([]);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -179,11 +193,24 @@ function WorkspaceFinder() {
     if (!q || loading) return;
     setLoading(true);
     setError("");
+    setSuggestions([]);
     try {
       const res = await fetch(`/api/auth/find-workspace?q=${encodeURIComponent(q)}`);
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.found && data?.url) {
         window.location.href = data.url as string;
+        return;
+      }
+      const nextSuggestions = Array.isArray(data?.suggestions)
+        ? (data.suggestions as unknown[]).filter(
+            (s): s is WorkspaceSuggestion =>
+              !!s &&
+              typeof (s as WorkspaceSuggestion).url === "string" &&
+              typeof (s as WorkspaceSuggestion).name === "string",
+          )
+        : [];
+      if (res.ok && nextSuggestions.length) {
+        setSuggestions(nextSuggestions);
         return;
       }
       setError("We couldn't find that workspace. Check the spelling, or ask your admin for the link.");
@@ -205,7 +232,7 @@ function WorkspaceFinder() {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={query}
-            onChange={(e) => { setQuery(e.target.value); if (error) setError(""); }}
+            onChange={(e) => { setQuery(e.target.value); clearResults(); }}
             placeholder="Company name or workspace"
             className="pl-8 h-10 bg-white"
             aria-label="Company name or workspace"
@@ -216,6 +243,27 @@ function WorkspaceFinder() {
           Find
         </Button>
       </form>
+      {suggestions.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs text-muted-foreground">Did you mean:</p>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {suggestions.map((s) => (
+              <li key={s.url}>
+                <a
+                  href={s.url}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-white px-3 py-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{s.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{s.host}</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );

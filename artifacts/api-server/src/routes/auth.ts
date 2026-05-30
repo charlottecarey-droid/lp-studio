@@ -1080,17 +1080,146 @@ function slugifyQuery(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
+// ─── Fuzzy workspace suggestions (typo-tolerant finder) ────────────────────
+//
+// When the exact name/slug lookup misses, we offer up to a handful of close,
+// high-confidence suggestions so a user who mistyped or abbreviated their
+// company name can still reach their workspace. To avoid turning the finder
+// into an enumeration oracle, suggestions require a minimum query length, must
+// clear a strict similarity floor, and are hard-capped (see the constants
+// below). The endpoint-level rate limit and open-domain-only guard remain in
+// force on top of these.
+
+/** Minimum normalized (alphanumeric-only) query length before we ever suggest. */
+const SUGGEST_MIN_QUERY_LEN = 3;
+/** Strict similarity floor (0..1) a candidate must clear to be suggested. */
+const SUGGEST_THRESHOLD = 0.72;
+/** Hard cap on the number of suggestions returned. */
+const SUGGEST_MAX = 3;
+/** Minimum token length considered for the abbreviation / extra-word match. */
+const SUGGEST_MIN_TOKEN_LEN = 3;
+/** Per-token similarity required for the abbreviation / extra-word match. */
+const SUGGEST_TOKEN_THRESHOLD = 0.85;
+/** Score assigned when every significant target token is covered by the query. */
+const SUGGEST_TOKEN_MATCH_SCORE = 0.9;
+
+/** Lowercase + strip everything but [a-z0-9] for char-level comparison. */
+function normalizeForCompare(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Split a value into slug-shaped tokens for token-level comparison. */
+function tokenizeForCompare(value: string): string[] {
+  return slugifyQuery(value).split("-").filter(Boolean);
+}
+
+/** Classic Levenshtein edit distance between two strings. */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let prev = new Array<number>(b.length + 1);
+  let curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+/** Normalized Levenshtein similarity in [0,1] (1 = identical). */
+function normLevSimilarity(a: string, b: string): number {
+  if (!a.length || !b.length) return 0;
+  return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+}
+
+/**
+ * Score how well a raw query matches a tenant's name/slug, returning the best
+ * signal in [0,1]. Two complementary signals are combined:
+ *   1. Char-level normalized edit similarity (catches typos: "acmee" → "acme").
+ *   2. Token coverage (catches abbreviations / extra words: "acme corp" →
+ *      "Acme") — every significant target token must be matched by some query
+ *      token at high confidence.
+ */
+function scoreTenantMatch(
+  rawQuery: string,
+  tenant: { slug: string | null; name: string | null },
+): number {
+  const q = normalizeForCompare(rawQuery);
+  if (!q) return 0;
+  const targets = [tenant.slug, tenant.name].filter((t): t is string => !!t);
+
+  let best = 0;
+  for (const target of targets) {
+    best = Math.max(best, normLevSimilarity(q, normalizeForCompare(target)));
+  }
+
+  const queryTokens = tokenizeForCompare(rawQuery);
+  for (const target of targets) {
+    const targetTokens = tokenizeForCompare(target).filter(t => t.length >= SUGGEST_MIN_TOKEN_LEN);
+    if (!targetTokens.length) continue;
+    const allCovered = targetTokens.every(tt =>
+      queryTokens.some(
+        qt => qt.length >= SUGGEST_MIN_TOKEN_LEN && normLevSimilarity(qt, tt) >= SUGGEST_TOKEN_THRESHOLD,
+      ),
+    );
+    if (allCovered) best = Math.max(best, SUGGEST_TOKEN_MATCH_SCORE);
+  }
+  return best;
+}
+
+export interface WorkspaceSuggestion {
+  name: string;
+  host: string;
+  url: string;
+}
+
+/**
+ * Rank active tenants by fuzzy similarity to `rawQuery` and return up to
+ * SUGGEST_MAX close matches above the strict threshold. Returns an empty array
+ * when the query is too short or nothing is close enough — never a fallback to
+ * the full tenant list.
+ */
+function rankWorkspaceSuggestions(
+  rawQuery: string,
+  rows: ReadonlyArray<{ slug: string | null; domain: string | null; name: string | null }>,
+): WorkspaceSuggestion[] {
+  if (normalizeForCompare(rawQuery).length < SUGGEST_MIN_QUERY_LEN) return [];
+
+  const scored = rows
+    .map(r => ({ r, score: scoreTenantMatch(rawQuery, r) }))
+    .filter(x => x.score >= SUGGEST_THRESHOLD)
+    .sort((a, b) => b.score - a.score || (a.r.name ?? "").localeCompare(b.r.name ?? ""));
+
+  const suggestions: WorkspaceSuggestion[] = [];
+  for (const { r } of scored) {
+    const host = getCanonicalTenantHost({ slug: r.slug, domain: r.domain });
+    if (!host) continue;
+    suggestions.push({ name: r.name ?? r.slug ?? host, host, url: `https://${host}` });
+    if (suggestions.length >= SUGGEST_MAX) break;
+  }
+  return suggestions;
+}
+
 // GET /api/auth/find-workspace?q=... — public workspace finder.
 // Resolves an EXACT typed company name or workspace slug to that workspace's
 // canonical login host so a member of an existing workspace can get to their
-// own login page from the central domain.
+// own login page from the central domain. When there is no exact match, it
+// returns up to a few close, high-confidence fuzzy suggestions so a mistyped or
+// abbreviated company name still leads somewhere.
 //
-// Security (see task #495 security note): exact-match only — no listing, no
-// fuzzy/partial/autocomplete results — strictly rate-limited, and only enabled
-// on the open/central domain so it can't be abused from a tenant-locked host.
-// The response carries only { found, host?, url? } and never any other tenant
-// metadata, so the worst a caller learns is "this exact workspace exists, here
-// is its login host" or "not found".
+// Security: an exact hit returns { found: true, host, url } as before. A
+// near-miss returns { found: false, suggestions: [{ name, host, url }] } with a
+// hard-capped, strictly-thresholded list — never a fallback to the full tenant
+// list (see rankWorkspaceSuggestions for the min-length / similarity-floor /
+// cap guards). The finder stays strictly rate-limited and is only enabled on
+// the open/central domain so it can't be abused from a tenant-locked host. The
+// response never carries tenant metadata beyond display name + canonical host.
 router.get("/auth/find-workspace", findWorkspaceLimiter, async (req, res): Promise<void> => {
   // Never let any finder response (positive OR negative) be cached by
   // intermediaries — results are tenant-state dependent and security-sensitive.
@@ -1140,6 +1269,19 @@ router.get("/auth/find-workspace", findWorkspaceLimiter, async (req, res): Promi
       if (nameMatches.length === 1) match = nameMatches[0];
     }
     if (!match) {
+      // No exact hit — fall back to a short list of close, high-confidence
+      // suggestions so a mistyped/abbreviated company name still leads
+      // somewhere. rankWorkspaceSuggestions enforces the min-length and
+      // strict-threshold anti-enumeration guards; the endpoint's rate limit
+      // and open-domain-only check above remain in force.
+      const all = await pool.query<{ slug: string | null; domain: string | null; name: string | null }>(
+        `SELECT slug, domain, name FROM tenants WHERE status = 'active'`,
+      );
+      const suggestions = rankWorkspaceSuggestions(raw, all.rows);
+      if (suggestions.length) {
+        res.json({ found: false, suggestions });
+        return;
+      }
       res.json({ found: false });
       return;
     }
