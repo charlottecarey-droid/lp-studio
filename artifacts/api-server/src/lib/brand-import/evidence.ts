@@ -321,7 +321,7 @@ function extractCssVarPaletteHints(
 // hard-failing on sites that genuinely do have colors, just not in the two
 // preferred forms. Near-grey/black/white colors are kept (the extractor needs
 // background/text candidates) but ranked by raw frequency.
-function harvestCssColorHints(
+export function harvestCssColorHints(
   $: cheerio.CheerioAPI,
   stylesheets: FetchedStylesheet[],
 ): string[] {
