@@ -115,7 +115,7 @@ export async function createReviewWorkflowTenant(
     });
     const tenantRes = await client.query<{ id: number }>(
       `INSERT INTO tenants (name, slug, domain, plan, status, settings, onboarding_completed_at)
-       VALUES ($1, $2, $3, 'trial', 'active', $4::jsonb, now())
+       VALUES ($1, $2, $3, 'growth', 'active', $4::jsonb, now())
        RETURNING id`,
       [`Review Workflow Tenant ${suffix}`, slug, domain, tenantSettings],
     );

@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, boolean, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -53,7 +54,16 @@ export const tenantsTable = pgTable("tenants", {
   hasTrialedBefore: boolean("has_trialed_before").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => ({
+  // Defense-in-depth: lock `plan` to the canonical 5-tier set so no legacy
+  // alias (e.g. 'trial', which normalizePlan() maps to Growth) can ever be
+  // persisted. Trials are a date window over a 'free' floor, never a stored
+  // plan. Mirrors migration 0041_tenants_plan_canonical_check.sql.
+  planCanonicalCheck: check(
+    "tenants_plan_canonical_check",
+    sql`${t.plan} IN ('free', 'starter', 'growth', 'scale', 'enterprise')`,
+  ),
+}));
 
 export const insertTenantSchema = createInsertSchema(tenantsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertTenant = z.infer<typeof insertTenantSchema>;

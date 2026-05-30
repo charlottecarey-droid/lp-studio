@@ -73,11 +73,13 @@ export interface CreateRoyalTenantOptions {
    */
   domain?: string;
   /**
-   * Raw value written to `tenants.plan`. Defaults to "trial" (which the
-   * server's `normalizePlan` maps to canonical "growth") so existing
-   * specs keep the same behaviour. Pass "starter" to exercise the
-   * plan-tier gate; "enterprise" / "growth" to opt back into Sales
-   * Console explicitly.
+   * Raw value written to `tenants.plan`. Defaults to canonical "growth" so
+   * existing specs keep the same behaviour (the legacy "trial" alias that
+   * used to be the default also normalized to "growth", but "trial" is no
+   * longer a storable value — the tenants_plan_canonical_check constraint
+   * rejects it). Pass "starter" to exercise the plan-tier gate; "enterprise"
+   * to opt into enterprise explicitly. Must be one of the canonical tiers:
+   * free | starter | growth | scale | enterprise.
    */
   plan?: string;
   /**
@@ -110,7 +112,7 @@ export async function createRoyalTenant(
   const slug = `royal-test-${suffix}`;
   const email = `royal-test-${suffix}@example.com`;
   const domain = opts.domain ?? "localhost";
-  const plan = opts.plan ?? "trial";
+  const plan = opts.plan ?? "growth";
   const appUserRole = opts.appUserRole ?? "admin";
   const sessionSid = randomBytes(24).toString("base64url");
 

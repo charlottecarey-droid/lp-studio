@@ -18,6 +18,10 @@ This was a real authorization gap: a legacy default of `'trial'` plus an
 unvalidated admin-create plan input both let new tenants get free Growth forever.
 
 **How to apply:**
+- A DB CHECK constraint (`tenants_plan_canonical_check`) now enforces the canonical
+  set at the storage layer (migration `0041` + mirrored `check()` in the Drizzle
+  `tenantsTable`). Any write of a non-canonical plan throws Postgres 23514 — keep
+  both in sync if the tier set ever changes.
 - Defaults (Drizzle + DB column), signup, admin create, admin PATCH, and the Stripe
   webhook must all resolve to canonical plans only; reject/ coerce anything else.
 - A source-scan guardrail test fails if `?? "trial"` or `.default("trial")` reappears
