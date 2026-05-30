@@ -544,7 +544,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
                   </div>
                   <div>
                     <div
-                      className="text-3xl mb-2"
+                      className="text-5xl md:text-6xl leading-none mb-3"
                       style={{ color: headline, fontFamily: DISPLAY }}
                     >
                       {s.value}
