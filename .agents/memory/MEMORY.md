@@ -30,4 +30,5 @@
 - [E2E Dandy-gating both paths](e2e-dandy-tenant-limit.md) — client gate=brandName (royal fixture w/ brandName:"Dandy"), server gate=slug (impersonate seeded dandy-smb + cleanup rows); both paths testable.
 - [Chili Piper booking tracking](chili-piper-booking-tracking.md) — 2 surfaces (hero ChiliPiperButton + cta-button→ChiliPiperModal hook); never gate booking recording on lead PII; only `if(!url)return`; omit testId/variantId unless a real A/B test.
 - [mockup-sandbox generated file untracked](mockup-sandbox-generated-file.md) — src/.generated/mockup-components.ts is gitignored (regenerated on dev start); never re-add, it conflicts every rebase.
+- [Pooler advisory-lock leak](pooler-advisory-lock-leak.md) — session pg_try_advisory_lock leaks on Neon -pooler; customDomainPoller integration tests flake (0 sends); clear orphan via pg_terminate_backend; prefer pg_advisory_xact_lock.
 - [Trial plan write-path landmine](trial-plan-write-paths.md) — NO production path may store tenants.plan='trial' (read-normalizes to growth = indefinite free Growth); trials are date-window only; defaults+create+PATCH must be canonical; guardrail test enforces.
