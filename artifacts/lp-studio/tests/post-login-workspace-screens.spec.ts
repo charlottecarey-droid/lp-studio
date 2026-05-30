@@ -90,6 +90,58 @@ async function stubSignedInNoTenant(
   );
 }
 
+/**
+ * Like stubSignedInNoTenant, but models the full sign-out round-trip:
+ *   - /api/auth/me starts signed-in, then flips to 401 once /api/auth/logout
+ *     has been hit (the logout handler does POST /api/auth/logout then
+ *     window.location.reload(); the reload re-probes /api/auth/me).
+ *   - /api/auth/logout is intercepted so the real session pool isn't touched;
+ *     hitting it flips the `me` stub to logged-out.
+ *   - /api/auth/domain-context keeps returning the supplied mode payload so
+ *     the post-reload render picks the matching logged-out screen.
+ */
+async function stubSignedInUntilLogout(
+  page: Page,
+  domainContext: object,
+): Promise<void> {
+  let loggedOut = false;
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill(
+      loggedOut
+        ? {
+            status: 401,
+            contentType: "application/json",
+            body: JSON.stringify({ error: "Unauthorized" }),
+          }
+        : {
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(SIGNED_IN_NO_TENANT),
+          },
+    ),
+  );
+  await page.route("**/api/auth/logout", (route) => {
+    loggedOut = true;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+  await page.route("**/api/auth/domain-context**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(domainContext),
+    }),
+  );
+}
+
+// The two split-screen Sign up / Log in toggle buttons are the only buttons
+// carrying aria-pressed, so this selector isolates the logged-out OpenSignInScreen
+// (it has no "Signed in as" line, unlike the signed-in CreateWorkspaceForm).
+const toggle = (page: Page) => page.locator("button[aria-pressed]");
+
 test.describe("Post-login AuthGate — signed in, no workspace yet", () => {
   test("an open domain shows the Create-your-workspace form (and Sign out)", async ({
     browser,
@@ -150,6 +202,91 @@ test.describe("Post-login AuthGate — signed in, no workspace yet", () => {
     await expect(page.getByLabel("Workspace name")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Create workspace" }),
+    ).toHaveCount(0);
+
+    await ctx.close();
+  });
+
+  test("signing out from the open create-workspace screen returns to the logged-out open sign-in screen", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await stubSignedInUntilLogout(page, OPEN_CTX);
+    await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+
+    // Start on the signed-in create-workspace form.
+    await expect(
+      page.getByRole("heading", { name: "Create your workspace" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Signed in as")).toBeVisible();
+
+    // Clicking Sign out must POST /api/auth/logout, then reload into the
+    // logged-out screen. Arm the request expectation before the click.
+    const logoutRequest = page.waitForRequest(
+      (req) =>
+        req.method() === "POST" && req.url().includes("/api/auth/logout"),
+      { timeout: 15_000 },
+    );
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await logoutRequest;
+
+    // After the reload, /api/auth/me is 401 so AuthGate renders the logged-out
+    // OpenSignInScreen — distinguished from the signed-in create form by the
+    // Sign up / Log in toggle, the workspace finder, and NO "Signed in as".
+    await expect(toggle(page).filter({ hasText: "Sign up" })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(toggle(page).filter({ hasText: "Log in" })).toBeVisible();
+    await expect(page.getByText("Already have a workspace?")).toBeVisible();
+    await expect(page.getByText("Signed in as")).toHaveCount(0);
+
+    await ctx.close();
+  });
+
+  test("signing out from the tenant-locked Access Pending card returns to the logged-out sign-in card", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await stubSignedInUntilLogout(page, LOCKED_CTX);
+    // The logged-out tenant-locked SignInPanel fetches the tenant's published
+    // brand by host; stub it so the card renders the tenant name without a DB
+    // dependency.
+    await page.route("**/api/lp/brand**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ brandName: "Acme Dental Co", logoUrl: null }),
+      }),
+    );
+    await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+
+    // Start on the signed-in Access Pending invite card.
+    await expect(
+      page.getByRole("heading", { name: "Access Pending" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Clicking Sign out must POST /api/auth/logout, then reload.
+    const logoutRequest = page.waitForRequest(
+      (req) =>
+        req.method() === "POST" && req.url().includes("/api/auth/logout"),
+      { timeout: 15_000 },
+    );
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await logoutRequest;
+
+    // After the reload, /api/auth/me is 401 so AuthGate renders the logged-out
+    // tenant-locked SignInPanel: the tenant-scoped title + "Continue with
+    // Google", and NO Access Pending card.
+    await expect(
+      page.getByRole("heading", { name: "Sign in to Acme Dental Co" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole("button", { name: "Continue with Google" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Access Pending" }),
     ).toHaveCount(0);
 
     await ctx.close();
