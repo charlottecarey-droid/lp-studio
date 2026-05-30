@@ -96,7 +96,7 @@ const STRICT_FACTS_INSTRUCTION =
 
 // ── Media library helpers ────────────────────────────────────────────────
 
-interface MediaImage {
+export interface MediaImage {
   url: string;
   title: string;
   tags: string[];
@@ -202,6 +202,53 @@ async function fetchMediaCatalog(tenantId: number | null): Promise<{ images: Med
 }
 
 /**
+ * Score a single image against a (pre-lowercased) context for a given purpose.
+ * Shared by findBestImage (empty-slot fill) and validateAndDedupeAIImages
+ * (re-scoring the model's own picks) so both passes use identical relevance
+ * + purpose logic.
+ *   — images matching the preferred purpose get a large score boost
+ *   — images explicitly mismatched (e.g. product-detail requested for hero) get penalised
+ */
+function scoreImage(
+  img: MediaImage,
+  contextLower: string,
+  contextWords: string[],
+  preferredPurpose?: string,
+): number {
+  let score = 0;
+  const imgPurpose = getImagePurpose(img);
+
+  // Purpose scoring
+  if (preferredPurpose) {
+    if (imgPurpose === preferredPurpose) {
+      score += 8; // strong boost for matching purpose
+    } else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
+      // penalise mismatches — especially keep product-detail out of hero slots
+      if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
+      else if (preferredPurpose === "lp-feature" && imgPurpose === "product-detail") score -= 4;
+      else score -= 2;
+    }
+    // unclassified images (imgPurpose === "") are neutral — no bonus, no penalty
+  }
+
+  // Content tag matching
+  for (const tag of img.tags) {
+    const tagLower = tag.toLowerCase();
+    if (SKIP_TAGS.has(tagLower)) continue;
+    if (contextLower.includes(tagLower)) score += 3;
+    for (const word of tagLower.split(/\s+/)) {
+      if (word.length > 3 && contextWords.some(w => w.includes(word) || word.includes(w))) score += 1;
+    }
+  }
+
+  // Title match
+  const titleLower = (img.title ?? "").toLowerCase();
+  if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) score += 1;
+
+  return score;
+}
+
+/**
  * Find the best matching image for a given context string.
  * preferredPurpose: "lp-hero" | "lp-feature" | "product-detail" | undefined
  *   — images matching the preferred purpose get a large score boost
@@ -222,37 +269,7 @@ function findBestImage(
 
   for (const img of images) {
     if (usedUrls.has(img.url)) continue;
-    let score = 0;
-
-    const imgPurpose = getImagePurpose(img);
-
-    // Purpose scoring
-    if (preferredPurpose) {
-      if (imgPurpose === preferredPurpose) {
-        score += 8; // strong boost for matching purpose
-      } else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
-        // penalise mismatches — especially keep product-detail out of hero slots
-        if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
-        else if (preferredPurpose === "lp-feature" && imgPurpose === "product-detail") score -= 4;
-        else score -= 2;
-      }
-      // unclassified images (imgPurpose === "") are neutral — no bonus, no penalty
-    }
-
-    // Content tag matching
-    for (const tag of img.tags) {
-      const tagLower = tag.toLowerCase();
-      if (SKIP_TAGS.has(tagLower)) continue;
-      if (contextLower.includes(tagLower)) score += 3;
-      for (const word of tagLower.split(/\s+/)) {
-        if (word.length > 3 && contextWords.some(w => w.includes(word) || word.includes(w))) score += 1;
-      }
-    }
-
-    // Title match
-    const titleLower = (img.title ?? "").toLowerCase();
-    if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) score += 1;
-
+    const score = scoreImage(img, contextLower, contextWords, preferredPurpose);
     if (score > bestScore) {
       bestScore = score;
       best = img;
@@ -267,6 +284,217 @@ function findBestImage(
   return "";
 }
 
+/** A single image-bearing slot on a block, with live get/set accessors plus
+ *  the slot's intended landing-page purpose and a context string for scoring.
+ *  Used by validateAndDedupeAIImages to walk every image shape uniformly. */
+type AIImageSlot = {
+  get: () => string;
+  set: (v: string) => void;
+  purpose: string;
+  context: string;
+};
+
+/** Collect every image-bearing slot on a block (mirrors the shapes handled by
+ *  sanitizeAIImageUrls / fillEmptyImages). Accessors mutate the block in place. */
+function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
+  const slots: AIImageSlot[] = [];
+  if (typeof block !== "object" || block === null) return slots;
+  const props = block.props as Record<string, unknown> | undefined;
+  if (!props || typeof props !== "object") return slots;
+
+  const blockType = (block.type as string) ?? "";
+  const headline = (props.headline as string) ?? "";
+  const subheadline = (props.subheadline as string) ?? "";
+  const blockContext = `${blockType} ${headline} ${subheadline}`;
+
+  // Scalar imageUrl purpose mirrors fillEmptyImages: hero blocks + the two DSO
+  // hero blocks want lp-hero, everything else wants lp-feature.
+  const heroScalar =
+    blockType === "hero" ||
+    blockType === "dso-heartland-hero" ||
+    blockType === "dso-scroll-story-hero";
+
+  const pushScalar = (key: string, purpose: string, context: string) => {
+    if (typeof props[key] === "string" && props[key]) {
+      slots.push({
+        get: () => (props[key] as string) ?? "",
+        set: (v) => { props[key] = v; },
+        purpose,
+        context,
+      });
+    }
+  };
+
+  pushScalar("imageUrl", heroScalar ? "lp-hero" : "lp-feature", blockContext);
+  pushScalar("backgroundImageUrl", "lp-hero", blockContext);
+  pushScalar("heroImageUrl", "lp-hero", blockContext);
+
+  const pushArrField = (
+    arr: unknown,
+    key: string,
+    purpose: string,
+    ctxFn: (it: Record<string, unknown>) => string,
+  ) => {
+    if (!Array.isArray(arr)) return;
+    const a = arr as Record<string, unknown>[];
+    a.forEach((item, i) => {
+      if (typeof item !== "object" || item === null) return;
+      if (typeof item[key] === "string" && item[key]) {
+        slots.push({
+          get: () => (a[i][key] as string) ?? "",
+          set: (v) => { a[i][key] = v; },
+          purpose,
+          context: ctxFn(item),
+        });
+      }
+    });
+  };
+
+  pushArrField(props.rows, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.headline ?? ""} ${it.body ?? ""}`);
+  pushArrField(props.chapters, "imageUrl", "lp-feature", it => `${it.headline ?? ""} ${it.body ?? ""}`);
+  pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
+  pushArrField(props.panels, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
+  pushArrField(props.images, "src", "lp-feature", it => `${it.alt ?? ""} ${blockContext}`);
+  pushArrField(props.items, "image", "product-detail", it => `${it.title ?? ""} ${it.description ?? ""}`);
+  pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
+  pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
+
+  // tiles: legacy/DSO photo tiles use `imageUrl`; bento-showcase image tiles
+  // (kind "image") store the URL in `primary`.
+  if (Array.isArray(props.tiles)) {
+    const a = props.tiles as Record<string, unknown>[];
+    a.forEach((tile, i) => {
+      if (typeof tile !== "object" || tile === null) return;
+      if (typeof tile.imageUrl === "string" && tile.imageUrl) {
+        slots.push({
+          get: () => (a[i].imageUrl as string) ?? "",
+          set: (v) => { a[i].imageUrl = v; },
+          purpose: "lp-feature",
+          context: `${tile.caption ?? ""} ${blockContext}`,
+        });
+      }
+      if (tile.kind === "image" && typeof tile.primary === "string" && tile.primary) {
+        slots.push({
+          get: () => (a[i].primary as string) ?? "",
+          set: (v) => { a[i].primary = v; },
+          purpose: "lp-feature",
+          context: `${tile.secondary ?? ""} ${blockContext}`,
+        });
+      }
+    });
+  }
+
+  // before-after-gallery pairs[].beforeSrc / afterSrc
+  if (Array.isArray(props.pairs)) {
+    const a = props.pairs as Record<string, unknown>[];
+    a.forEach((pair, i) => {
+      if (typeof pair !== "object" || pair === null) return;
+      (["beforeSrc", "afterSrc"] as const).forEach((key) => {
+        if (typeof pair[key] === "string" && pair[key]) {
+          slots.push({
+            get: () => (a[i][key] as string) ?? "",
+            set: (v) => { a[i][key] = v; },
+            purpose: "lp-feature",
+            context: `${pair.caption ?? ""} ${key === "beforeSrc" ? "before" : "after"}`,
+          });
+        }
+      });
+    });
+  }
+
+  // dso-problem imageUrls[] — array of plain string URLs
+  if (Array.isArray(props.imageUrls)) {
+    const a = props.imageUrls as unknown[];
+    a.forEach((u, i) => {
+      if (typeof u === "string" && u) {
+        slots.push({
+          get: () => (a[i] as string) ?? "",
+          set: (v) => { a[i] = v; },
+          purpose: "lp-feature",
+          context: blockContext,
+        });
+      }
+    });
+  }
+
+  return slots;
+}
+
+/**
+ * Subject the model's OWN image picks to the same tag/keyword + purpose + dedup
+ * guardrails used for empty slots. Runs AFTER sanitizeAIImageUrls (OG/social/
+ * hallucinated URLs already cleared) and BEFORE fillEmptyImages (so cleared
+ * slots get refilled with dedup-aware, purpose-aware selection).
+ *
+ *  1. Dedup — any URL assigned to more than one slot keeps its first
+ *     occurrence; later duplicates are cleared.
+ *  2. Relevance/purpose — a model-assigned LIBRARY image whose purpose is wrong
+ *     for the slot (negative score) or which scores clearly worse than the best
+ *     free library candidate for that slot is cleared. Reasonable matches are
+ *     preserved.
+ *
+ *  pageContext (the user's generation prompt + known industry topic) biases
+ *  scoring toward on-topic imagery even when the block headline is generic.
+ */
+export function validateAndDedupeAIImages(
+  blocks: unknown[],
+  images: MediaImage[],
+  pageContext: string,
+): unknown[] {
+  const byUrl = new Map<string, MediaImage>();
+  for (const img of images) byUrl.set(img.url, img);
+
+  // Walk every image slot across all blocks, in document order.
+  const slots = blocks.flatMap(block => collectImageSlots(block as Record<string, unknown>));
+
+  // ── Pass 1: dedupe assigned URLs (keep the first occurrence) ──
+  const seen = new Set<string>();
+  for (const slot of slots) {
+    const url = slot.get();
+    if (!url) continue;
+    if (seen.has(url)) slot.set("");
+    else seen.add(url);
+  }
+
+  // ── Pass 2: relevance / purpose validation of model-assigned library picks ──
+  // Only act on URLs that are real library images; storage-default and data:
+  // URLs (not in the catalog) are left untouched.
+  const CLEAR_GAP = 6;
+  const used = new Set<string>();
+  for (const slot of slots) {
+    const url = slot.get();
+    if (url) used.add(url);
+  }
+  for (const slot of slots) {
+    const url = slot.get();
+    if (!url) continue;
+    const assigned = byUrl.get(url);
+    if (!assigned) continue;
+
+    const ctx = `${slot.context} ${pageContext}`.toLowerCase();
+    const ctxWords = ctx.split(/\s+/);
+    const purpose = slot.purpose || undefined;
+    const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose);
+
+    // Best free alternative for this slot (exclude every currently-used URL).
+    let bestAlt = -Infinity;
+    for (const img of images) {
+      if (used.has(img.url)) continue;
+      const s = scoreImage(img, ctx, ctxWords, purpose);
+      if (s > bestAlt) bestAlt = s;
+    }
+
+    const wrongPurpose = assignedScore < 0;
+    const clearlyWorse = bestAlt - assignedScore >= CLEAR_GAP;
+    if (wrongPurpose || clearlyWorse) {
+      slot.set("");
+      used.delete(url);
+    }
+  }
+
+  return blocks;
+}
+
 /** Post-process blocks to fill in empty image URLs from the media library.
  *  Each block type requests images with the appropriate landing-page purpose:
  *    hero           → "lp-hero"   (lifestyle, people, clinic shots)
@@ -274,55 +502,23 @@ function findBestImage(
  *    photo-strip    → "lp-feature"
  *    product-grid   → "product-detail" (close-ups OK here)
  */
-function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
+export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = ""): unknown[] {
   if (images.length === 0) return blocks;
   const usedUrls = new Set<string>();
+  // Bias every selection toward the page's industry/topic so a block with a
+  // generic headline still prefers on-topic imagery.
+  const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
+    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose);
 
-  // First pass: collect already-used URLs
+  // First pass: collect already-used URLs across EVERY image-bearing shape
+  // (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
+  // tiles.primary and dso-problem imageUrls[] are all tracked). Without this,
+  // a model-kept URL in one of those shapes would be invisible here and could
+  // be re-selected into an empty sibling slot, reintroducing a duplicate.
   for (const block of blocks) {
-    const b = block as Record<string, unknown>;
-    const props = b.props as Record<string, unknown> | undefined;
-    if (!props) continue;
-    if (typeof props.imageUrl === "string" && props.imageUrl) usedUrls.add(props.imageUrl);
-    if (typeof props.backgroundImageUrl === "string" && props.backgroundImageUrl) usedUrls.add(props.backgroundImageUrl);
-    if (Array.isArray(props.images)) {
-      for (const img of props.images) {
-        const i = img as Record<string, unknown>;
-        if (typeof i.src === "string" && i.src) usedUrls.add(i.src);
-      }
-    }
-    if (Array.isArray(props.rows)) {
-      for (const row of props.rows) {
-        const r = row as Record<string, unknown>;
-        if (typeof r.imageUrl === "string" && r.imageUrl) usedUrls.add(r.imageUrl);
-      }
-    }
-    if (Array.isArray(props.items)) {
-      for (const item of props.items) {
-        const it = item as Record<string, unknown>;
-        if (typeof it.image === "string" && it.image) usedUrls.add(it.image);
-      }
-    }
-    // DSO chapters (scroll-story, scroll-story-hero)
-    if (Array.isArray(props.chapters)) {
-      for (const ch of props.chapters) {
-        const c = ch as Record<string, unknown>;
-        if (typeof c.imageUrl === "string" && c.imageUrl) usedUrls.add(c.imageUrl);
-      }
-    }
-    // DSO bento tiles
-    if (Array.isArray(props.tiles)) {
-      for (const tile of props.tiles) {
-        const t = tile as Record<string, unknown>;
-        if (typeof t.imageUrl === "string" && t.imageUrl) usedUrls.add(t.imageUrl);
-      }
-    }
-    // DSO success-stories cases
-    if (Array.isArray(props.cases)) {
-      for (const c of props.cases) {
-        const cs = c as Record<string, unknown>;
-        if (typeof cs.image === "string" && cs.image) usedUrls.add(cs.image);
-      }
+    for (const slot of collectImageSlots(block as Record<string, unknown>)) {
+      const url = slot.get();
+      if (url) usedUrls.add(url);
     }
   }
 
@@ -339,10 +535,10 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
 
     // Hero imageUrl → prefer lifestyle/people shots
     if (blockType === "hero" && "imageUrl" in props && !props.imageUrl) {
-      props.imageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+      props.imageUrl = pick(blockContext, images, usedUrls, "lp-hero");
     } else if (!blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
       // Other standard blocks with imageUrl → feature images
-      props.imageUrl = findBestImage(blockContext, images, usedUrls, "lp-feature");
+      props.imageUrl = pick(blockContext, images, usedUrls, "lp-feature");
     }
 
     // zigzag-features rows → feature images
@@ -350,7 +546,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.rows = (props.rows as Record<string, unknown>[]).map((row) => {
         if (!row.imageUrl) {
           const rowContext = `${row.tag ?? ""} ${row.headline ?? ""} ${row.body ?? ""}`;
-          return { ...row, imageUrl: findBestImage(rowContext, images, usedUrls, "lp-feature") };
+          return { ...row, imageUrl: pick(rowContext, images, usedUrls, "lp-feature") };
         }
         return row;
       });
@@ -361,7 +557,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.images = (props.images as Record<string, unknown>[]).map((img) => {
         if (!img.src) {
           const alt = (img.alt as string) ?? blockContext;
-          return { ...img, src: findBestImage(alt, images, usedUrls, "lp-feature") };
+          return { ...img, src: pick(alt, images, usedUrls, "lp-feature") };
         }
         return img;
       });
@@ -372,7 +568,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
           const itemContext = `${item.title ?? ""} ${item.description ?? ""}`;
-          return { ...item, image: findBestImage(itemContext, images, usedUrls, "product-detail") };
+          return { ...item, image: pick(itemContext, images, usedUrls, "product-detail") };
         }
         return item;
       });
@@ -386,11 +582,11 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       const layout = props.layout as string | undefined;
       if (layout === "split") {
         if (!props.heroImageUrl) {
-          props.heroImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+          props.heroImageUrl = pick(blockContext, images, usedUrls, "lp-hero");
         }
       } else {
         if (!props.backgroundImageUrl) {
-          props.backgroundImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+          props.backgroundImageUrl = pick(blockContext, images, usedUrls, "lp-hero");
         }
       }
     }
@@ -403,7 +599,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
     if (blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
       const purpose = ["dso-heartland-hero", "dso-scroll-story-hero"].includes(blockType) ? "lp-hero" : "lp-feature";
-      props.imageUrl = findBestImage(blockContext, images, usedUrls, purpose);
+      props.imageUrl = pick(blockContext, images, usedUrls, purpose);
     }
 
     // DSO scroll-story and scroll-story-hero chapters → fill each chapter's imageUrl
@@ -414,7 +610,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.chapters = (props.chapters as Record<string, unknown>[]).map((ch) => {
         if (!ch.imageUrl) {
           const chContext = `${ch.headline ?? ""} ${ch.body ?? ""}`;
-          return { ...ch, imageUrl: findBestImage(chContext, images, usedUrls, "lp-feature") };
+          return { ...ch, imageUrl: pick(chContext, images, usedUrls, "lp-feature") };
         }
         return ch;
       });
@@ -425,7 +621,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
         if (tile.type === "photo" && !tile.imageUrl) {
           const tileContext = `${tile.caption ?? ""} dental clinical`;
-          return { ...tile, imageUrl: findBestImage(tileContext, images, usedUrls, "lp-feature") };
+          return { ...tile, imageUrl: pick(tileContext, images, usedUrls, "lp-feature") };
         }
         return tile;
       });
@@ -436,7 +632,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.cases = (props.cases as Record<string, unknown>[]).map((c) => {
         if (!c.image) {
           const caseContext = `${c.name ?? ""} ${c.author ?? ""} dental practice`;
-          return { ...c, image: findBestImage(caseContext, images, usedUrls, "lp-feature") };
+          return { ...c, image: pick(caseContext, images, usedUrls, "lp-feature") };
         }
         return c;
       });
@@ -445,14 +641,14 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     // ── New generic SHOWCASE blocks (May 2026) ──────────────────────────
     // full-bleed-hero: background photo (video is never auto-filled)
     if (blockType === "full-bleed-hero" && !props.backgroundImageUrl) {
-      props.backgroundImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+      props.backgroundImageUrl = pick(blockContext, images, usedUrls, "lp-hero");
     }
     // sticky-stack cards
     if (blockType === "sticky-stack" && Array.isArray(props.cards)) {
       props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
         if (!card.imageUrl) {
           const ctx = `${card.tag ?? ""} ${card.title ?? ""} ${card.body ?? ""}`;
-          return { ...card, imageUrl: findBestImage(ctx, images, usedUrls, "lp-feature") };
+          return { ...card, imageUrl: pick(ctx, images, usedUrls, "lp-feature") };
         }
         return card;
       });
@@ -462,7 +658,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.panels = (props.panels as Record<string, unknown>[]).map((panel) => {
         if (!panel.imageUrl) {
           const ctx = `${panel.tag ?? ""} ${panel.title ?? ""} ${panel.body ?? ""}`;
-          return { ...panel, imageUrl: findBestImage(ctx, images, usedUrls, "lp-feature") };
+          return { ...panel, imageUrl: pick(ctx, images, usedUrls, "lp-feature") };
         }
         return panel;
       });
@@ -472,7 +668,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
         if (tile.kind === "image" && !tile.primary) {
           const ctx = `${tile.secondary ?? ""} ${blockContext}`;
-          return { ...tile, primary: findBestImage(ctx, images, usedUrls, "lp-feature") };
+          return { ...tile, primary: pick(ctx, images, usedUrls, "lp-feature") };
         }
         return tile;
       });
@@ -482,10 +678,10 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.pairs = (props.pairs as Record<string, unknown>[]).map((pair) => {
         const next = { ...pair };
         if (!next.beforeSrc) {
-          next.beforeSrc = findBestImage(`${pair.caption ?? ""} before`, images, usedUrls, "lp-feature");
+          next.beforeSrc = pick(`${pair.caption ?? ""} before`, images, usedUrls, "lp-feature");
         }
         if (!next.afterSrc) {
-          next.afterSrc = findBestImage(`${pair.caption ?? ""} after`, images, usedUrls, "lp-feature");
+          next.afterSrc = pick(`${pair.caption ?? ""} after`, images, usedUrls, "lp-feature");
         }
         return next;
       });
@@ -495,7 +691,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
       props.slides = (props.slides as Record<string, unknown>[]).map((slide) => {
         if (!slide.src) {
           const ctx = `${slide.caption ?? ""} ${slide.headline ?? ""}`;
-          return { ...slide, src: findBestImage(ctx, images, usedUrls, "lp-feature") };
+          return { ...slide, src: pick(ctx, images, usedUrls, "lp-feature") };
         }
         return slide;
       });
@@ -684,7 +880,7 @@ async function aiFillEmptyImages(
  *
  * Also clears URLs that don't exist in the media library at all (hallucinated URLs).
  */
-function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknown[] {
+export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknown[] {
   // Build a lookup: url → tags
   const urlToTags = new Map<string, string[]>();
   for (const img of allImages) {
@@ -2573,8 +2769,22 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // (OG images, social, ad creatives) so fillEmptyImages can replace them
     parsed.blocks = sanitizeAIImageUrls(parsed.blocks, mediaCatalog.allImages);
 
+    // Page-level topic context — the user's generation prompt plus the tenant's
+    // industry — biases image scoring toward on-topic imagery even when a block
+    // headline is generic (e.g. a dentures page should bias toward dental shots).
+    const industryForImages = await getTenantIndustry(tenantId);
+    const pageImageContext = [
+      industryForImages === "dental" ? "dental dentistry dentist clinic teeth" : "",
+      prompt.trim(),
+    ].join(" ").trim().slice(0, 240);
+
+    // Subject the model's OWN image picks to the same dedup + purpose/relevance
+    // guardrails used for empty slots: clear duplicates and wrong-purpose /
+    // clearly-off-topic library picks so the smart fill below replaces them.
+    parsed.blocks = validateAndDedupeAIImages(parsed.blocks, mediaCatalog.images, pageImageContext);
+
     // Fill in any remaining empty image URLs from the media library
-    parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images);
+    parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images, pageImageContext);
 
     // Task #234 — when the workspace has the AI-image-gen-outside-builder
     // flag flipped on, attempt to AI-generate any imageUrl slots that the

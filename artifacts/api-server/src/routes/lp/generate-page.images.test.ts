@@ -1,0 +1,162 @@
+import { describe, expect, it } from "vitest";
+import {
+  validateAndDedupeAIImages,
+  fillEmptyImages,
+  sanitizeAIImageUrls,
+  type MediaImage,
+} from "./generate-page";
+
+// A small tenant library mixing on-topic (dental/denture), off-topic
+// (restaurant) and purpose-classified images, plus an OG/social image.
+const LIB: MediaImage[] = [
+  { url: "/objects/denture-hero-1", title: "Smiling denture patient", tags: ["lp-hero", "dentures", "patient", "smile"] },
+  { url: "/objects/denture-hero-2", title: "Clinic denture consult", tags: ["lp-hero", "dentures", "clinic"] },
+  { url: "/objects/dental-feature-1", title: "Denture fitting", tags: ["lp-feature", "dentures", "fitting"] },
+  { url: "/objects/dental-feature-2", title: "Dental scan", tags: ["lp-feature", "dental", "scanner"] },
+  { url: "/objects/dental-detail-1", title: "Denture closeup", tags: ["product-detail", "dentures", "closeup"] },
+  { url: "/objects/restaurant-hero", title: "Restaurant interior", tags: ["lp-hero", "restaurant", "dining", "food"] },
+  { url: "/objects/og-share", title: "Share card", tags: ["og-image", "dentures"] },
+];
+
+const PAGE_CTX = "dental dentistry dentist clinic teeth affordable dentures landing page";
+
+describe("validateAndDedupeAIImages", () => {
+  it("clears a duplicate image assigned to two slots (keeps the first)", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/objects/denture-hero-1" } },
+      { type: "zigzag-features", props: { rows: [{ headline: "Fit", imageUrl: "/objects/denture-hero-1" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("/objects/denture-hero-1");
+    expect((blocks[1].props as any).rows[0].imageUrl).toBe("");
+  });
+
+  it("clears an off-topic hero pick when a clearly better on-topic hero exists", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "/objects/restaurant-hero" } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("");
+  });
+
+  it("clears a wrong-purpose pick (product-detail in a hero slot)", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/objects/dental-detail-1" } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("");
+  });
+
+  it("keeps a reasonable on-topic, correct-purpose pick", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/objects/denture-hero-1" } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("/objects/denture-hero-1");
+  });
+
+  it("leaves non-library URLs (storage defaults) untouched in the validation pass", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/objects/not-in-library-default" } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("/objects/not-in-library-default");
+  });
+
+  it("end-to-end: off-topic hero + duplicate get replaced by distinct on-topic images, empty slots fill", () => {
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "/objects/restaurant-hero" } },
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Custom fit", imageUrl: "/objects/dental-feature-1" },
+        { headline: "Fast turnaround", imageUrl: "/objects/dental-feature-1" }, // duplicate
+        { headline: "Digital scan", imageUrl: "" }, // empty → must fill
+      ] } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    blocks = validateAndDedupeAIImages(blocks, LIB, PAGE_CTX) as any[];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+
+    const hero = blocks[0].props.imageUrl as string;
+    const rows = blocks[1].props.rows as Array<{ imageUrl: string }>;
+
+    // Hero replaced with an on-topic hero image (not the restaurant photo).
+    expect(hero).not.toBe("/objects/restaurant-hero");
+    expect(hero.startsWith("/objects/denture-hero")).toBe(true);
+
+    // All three row images present, on-topic, and distinct (no repeats).
+    const urls = [hero, ...rows.map(r => r.imageUrl)];
+    for (const u of urls) expect(u).toBeTruthy();
+    expect(new Set(urls).size).toBe(urls.length);
+    for (const r of rows) expect(r.imageUrl).not.toBe("/objects/restaurant-hero");
+  });
+
+  it("fill does not reuse a URL kept in a previously-untracked shape (cards)", () => {
+    // Two equally on-topic feature images; without harvesting cards[].imageUrl,
+    // the empty row would re-pick feat-a (already used by the card).
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/feat-b", title: "B", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "sticky-stack", props: { cards: [{ title: "Crowns", imageUrl: "/objects/feat-a" }] } },
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures fitting", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect(blocks[0].props.cards[0].imageUrl).toBe("/objects/feat-a");
+    expect(blocks[1].props.rows[0].imageUrl).toBe("/objects/feat-b");
+  });
+
+  it("fill harvests kept URLs across all previously-untracked shapes", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/k-card", title: "card", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/k-panel", title: "panel", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/k-before", title: "before", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/k-after", title: "after", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/k-slide", title: "slide", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/k-tile", title: "tile", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/k-hero", title: "hero", tags: ["lp-hero", "dentures"] },
+      { url: "/objects/free-feature", title: "free", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "dso-heartland-hero", props: { layout: "split", heroImageUrl: "/objects/k-hero" } },
+      { type: "sticky-stack", props: { cards: [{ title: "c", imageUrl: "/objects/k-card" }] } },
+      { type: "horizontal-showcase", props: { panels: [{ title: "p", imageUrl: "/objects/k-panel" }] } },
+      { type: "before-after-gallery", props: { pairs: [{ caption: "x", beforeSrc: "/objects/k-before", afterSrc: "/objects/k-after" }] } },
+      { type: "editorial-carousel", props: { slides: [{ caption: "s", src: "/objects/k-slide" }] } },
+      { type: "bento-showcase", props: { tiles: [{ kind: "image", primary: "/objects/k-tile" }] } },
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, lib, PAGE_CTX) as any[];
+    // The empty row must get the one free feature image, not any kept URL.
+    expect(blocks[6].props.rows[0].imageUrl).toBe("/objects/free-feature");
+  });
+
+  it("validate+fill: cleared duplicate is refilled with a distinct image", () => {
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/feat-b", title: "B", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/feat-c", title: "C", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "sticky-stack", props: { cards: [
+        { title: "1", imageUrl: "/objects/feat-a" },
+        { title: "2", imageUrl: "/objects/feat-a" }, // duplicate
+        { title: "3", imageUrl: "" }, // empty
+      ] } },
+    ];
+    blocks = validateAndDedupeAIImages(blocks, featLib, PAGE_CTX) as any[];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    const urls = blocks[0].props.cards.map((c: any) => c.imageUrl);
+    expect(urls[0]).toBe("/objects/feat-a");
+    for (const u of urls) expect(u).toBeTruthy();
+    expect(new Set(urls).size).toBe(3); // all distinct
+  });
+
+  it("clears an OG/social image via sanitize before validation runs", () => {
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/objects/og-share" } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    expect(blocks[0].props.imageUrl).toBe("");
+  });
+});
