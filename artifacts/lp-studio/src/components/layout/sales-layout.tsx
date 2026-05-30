@@ -229,6 +229,8 @@ export function SalesTopNav() {
   const { brand } = useBrandConfig();
   const brandLogoUrl = brand.logoUrl ?? "";
   const brandName = brand.brandName ?? "";
+  // One-pager is beta for non-Dandy tenants until they upload branded assets.
+  const isDandy = brandName.trim().toLowerCase() === "dandy";
   const brandLogoNeedsInvert = useLogoNeedsInversion(brandLogoUrl || null);
   const [location] = useLocation();
   const { hasPerm } = useAuth();
@@ -290,7 +292,7 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/roi-calculator",
     },
     {
-      label: "One-Pager",
+      label: isDandy ? "One-Pager" : "One-Pager (beta)",
       href: "/sales/one-pager",
       icon: <FileText className="w-4 h-4" />,
       permission: "sales_accounts",

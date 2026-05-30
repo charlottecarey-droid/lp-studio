@@ -1004,6 +1004,46 @@ export function isValidHex(v: string): boolean {
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+/**
+ * Resolved one-pager generator assets for the active tenant, read from
+ * `salesConsole.onePager*` brand config. Every URL is normalized against the
+ * app base path so root-relative seeded paths (e.g. `/one-pager/foo.jpg`,
+ * `/dandy-logo-white.svg`) resolve inside the artifact mount under a non-root
+ * BASE_URL. A `null` value means "unset" — the one-pager generator must then
+ * render a NEUTRAL fallback (brand-color block + wordmark) and NEVER a Dandy
+ * bitmap. Dandy's own values come from the seed script so its output is
+ * unchanged.
+ */
+export interface OnePagerAssets {
+  headerImages: Record<"executive" | "clinical" | "practice-manager", string | null>;
+  productScreenshot: string | null;
+  logoUrl: string | null;
+}
+
+/** Prefix a root-relative asset URL with the app base path; pass through
+ *  absolute/data/blob URLs and empty values (→ null). */
+function withAppBase(url: string | null | undefined): string | null {
+  const u = (url ?? "").trim();
+  if (!u) return null;
+  if (/^(https?:|data:|blob:)/i.test(u)) return u;
+  if (u.startsWith("/")) return `${BASE}${u}`;
+  return u;
+}
+
+export function resolveOnePagerAssets(brand: BrandConfig): OnePagerAssets {
+  const sc = brand.salesConsole ?? {};
+  const headers = sc.onePagerHeaderImages ?? {};
+  return {
+    headerImages: {
+      executive: withAppBase(headers.executive),
+      clinical: withAppBase(headers.clinical),
+      "practice-manager": withAppBase(headers.practiceManager),
+    },
+    productScreenshot: withAppBase(sc.onePagerProductScreenshot),
+    logoUrl: withAppBase(sc.onePagerLogoUrl),
+  };
+}
+
 export async function fetchBrandConfig(slug?: string | null): Promise<BrandConfig> {
   // 8 s hard timeout. iOS Safari has been observed leaving fetch() hanging
   // indefinitely across network transitions (Wi-Fi ↔ cellular, iCloud Private

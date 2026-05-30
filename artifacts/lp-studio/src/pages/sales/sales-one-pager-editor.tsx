@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import headerImgExecutiveFallback from "@/assets/ai-scan-review-news.jpg";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, Upload, X, FileDown, Loader2, RotateCcw,
@@ -22,7 +21,7 @@ import {
   type AgreementContact,
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
-import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig } from "@/lib/brand-config";
 import { scrubBrand, type BrandContext } from "@workspace/one-pager-types";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 
@@ -281,7 +280,7 @@ export default function SalesOnePagerEditor() {
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
   };
-  const brandLogoUrl = isDandy ? undefined : (brand.logoUrl || undefined);
+  const oneAssets = resolveOnePagerAssets(brand);
   // Helper to scrub Dandy literals out of UI strings shown to non-Dandy tenants.
   const s = (t: string) => scrubBrand(t, brandContext);
 
@@ -641,22 +640,22 @@ export default function SalesOnePagerEditor() {
           doc = await generatePilotOnePager(
             dsoName, audience, teamContacts, phoneNumber,
             prospectLogoData, prospectLogoDims,
-            { ...content, headerImage: content.headerImage ?? headerImgExecutiveFallback },
+            content,
             customLinkText, customLinkUrl, override,
-            undefined, brandContext, brandLogoUrl,
+            undefined, brandContext, oneAssets,
           );
         } else if (editorTemplate === "comparison") {
           doc = await generateComparisonOnePager(
             dsoName, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims,
             customLinkText, customLinkUrl,
             { ...override, comparisonRows, stats: comparisonStats },
-            undefined, brandContext, brandLogoUrl,
+            undefined, brandContext, oneAssets,
           );
         } else if (editorTemplate === "partner") {
           doc = await generateNewPartnerOnePager(
             dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl,
             { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
-            undefined, brandContext, brandLogoUrl,
+            undefined, brandContext, oneAssets,
           );
         } else if (editorTemplate === "agreement-summary") {
           doc = await generateAgreementSummaryOnePager({
@@ -681,9 +680,9 @@ export default function SalesOnePagerEditor() {
             showSectionDividers: agreementShowDividers,
             footerLinkText: agreementFooterLinkText,
             footerLinkUrl: agreementFooterLinkUrl,
-          }, brandContext, brandLogoUrl);
+          }, brandContext, oneAssets);
         } else {
-          doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, brandLogoUrl);
+          doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, oneAssets);
         }
         const blob = doc.output("blob");
         const url = URL.createObjectURL(blob);
@@ -825,13 +824,13 @@ export default function SalesOnePagerEditor() {
       let doc;
       if (editorTemplate === "pilot") {
         const content = audienceContent[audience];
-        doc = await generatePilotOnePager(dsoName, audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, content, customLinkText, customLinkUrl, override, undefined, brandContext, brandLogoUrl);
+        doc = await generatePilotOnePager(dsoName, audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, content, customLinkText, customLinkUrl, override, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.replace(/\s+/g, "_")}_90Day_Pilot.pdf`);
       } else if (editorTemplate === "comparison") {
-        doc = await generateComparisonOnePager(dsoName, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, { ...override, comparisonRows, stats: comparisonStats }, undefined, brandContext, brandLogoUrl);
+        doc = await generateComparisonOnePager(dsoName, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, { ...override, comparisonRows, stats: comparisonStats }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_Evolution_${dsoName.replace(/\s+/g, "_")}.pdf`);
       } else if (editorTemplate === "partner") {
-        doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, brandLogoUrl);
+        doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.replace(/\s+/g, "_")}_Partner.pdf`);
       } else if (editorTemplate === "agreement-summary") {
         doc = await generateAgreementSummaryOnePager({
@@ -856,10 +855,10 @@ export default function SalesOnePagerEditor() {
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
-        }, brandContext, brandLogoUrl);
+        }, brandContext, oneAssets);
         doc.save(isDandy ? "Summary_of_Dandy_Agreement.pdf" : `Summary_of_${brandSlug}_Agreement.pdf`);
       } else {
-        doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, brandLogoUrl);
+        doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, oneAssets);
         doc.save(`${brandSlug}_for_${dsoName.replace(/\s+/g, "_")}.pdf`);
       }
     } finally { setGenerating(false); }

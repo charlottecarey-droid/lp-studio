@@ -1,9 +1,4 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
-import headerImgExecutiveUrl from "@/assets/ai-scan-review-news.jpg";
-import headerImgClinicalUrl from "@/assets/ai-scan-review-clinical.png";
-import headerImgPracticeManagerUrl from "@/assets/dandy-dso-enterprise-data.webp";
-import dandyScannerUrl from "@/assets/dandy-scanner-transparent.png?url";
 import { useLocation, Link as RouterLink } from "wouter";
 import {
   FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2, RotateCcw, Globe, Copy, Check, ExternalLink, Eye, RefreshCw
@@ -12,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
 import { fetchCustomTemplates, generateCustomTemplatePdf, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import {
@@ -151,35 +146,20 @@ const loadImageAsBase64 = (src: string, format: "image/jpeg" | "image/png" = "im
 
 // Audience, TeamContact, AudienceContent are imported from @workspace/one-pager-types/generators
 
-// LP Studio extends AudienceContent with a local header image path
-type LPAudienceContent = AudienceContent & { headerImage: string };
+// LP Studio extends AudienceContent with an optional per-template header image
+// override (a data:/uploaded URL saved by the editor). When unset, the header
+// image comes from brand config (salesConsole.onePagerHeaderImages) and, when
+// that is also unset, a neutral generated header is drawn — never a Dandy bitmap.
+type LPAudienceContent = AudienceContent & { headerImage?: string };
 
 // =============================================
-// IMAGE URLS
-// =============================================
-
-const headerImgExecutive = headerImgExecutiveUrl;
-const headerImgClinical = headerImgClinicalUrl;
-const headerImgPracticeManager = headerImgPracticeManagerUrl;
-const dandyLogoWhite = dandyLogoWhiteUrl;
-
-// =============================================
-// AUDIENCE-SPECIFIC CONTENT (LP Studio version with headerImage)
+// AUDIENCE-SPECIFIC CONTENT (LP Studio version)
 // =============================================
 
 export const defaultAudienceContent: Record<Audience, LPAudienceContent> = {
-  executive: {
-    ...sharedDefaultAudienceContent.executive,
-    headerImage: headerImgExecutive,
-  },
-  clinical: {
-    ...sharedDefaultAudienceContent.clinical,
-    headerImage: headerImgClinical,
-  },
-  "practice-manager": {
-    ...sharedDefaultAudienceContent["practice-manager"],
-    headerImage: headerImgPracticeManager,
-  },
+  executive: { ...sharedDefaultAudienceContent.executive },
+  clinical: { ...sharedDefaultAudienceContent.clinical },
+  "practice-manager": { ...sharedDefaultAudienceContent["practice-manager"] },
 };
 
 // =============================================
@@ -188,6 +168,52 @@ export const defaultAudienceContent: Record<Audience, LPAudienceContent> = {
 // The optional layoutOverride param lets the editor pass live config without
 // an API round-trip; omit it for normal generation (loads from layout-defaults API).
 // =============================================
+
+// Fallback-path labels surfaced in the observability log so tenants who have
+// not uploaded one-pager assets (and are therefore rendering neutral output)
+// can be spotted from the console.
+type HeaderFallbackPath = "tenant-uploaded" | "brand-config" | "neutral-generated";
+type LogoFallbackPath = "brand-config" | "neutral-generated";
+
+function logOnePagerFallback(
+  template: string,
+  audience: string | null,
+  headerPath: HeaderFallbackPath,
+  logoPath: LogoFallbackPath,
+) {
+  const aud = audience ? ` audience=${audience}` : "";
+  console.info(`[one-pager] template=${template}${aud} header=${headerPath} logo=${logoPath}`);
+}
+
+// Load the dark-header logo from brand config. When the brand has no
+// `onePagerLogoUrl` (every non-Dandy tenant until they upload one), returns a
+// null PNG so the shared generator draws the brand wordmark instead — never the
+// bundled Dandy white logo. Dandy gets its SVG via seeded config.
+async function loadHeaderLogo(assets?: OnePagerAssets): Promise<{ logoPng: string | null; logoPath: LogoFallbackPath }> {
+  const src = assets?.logoUrl ?? null;
+  if (!src) return { logoPng: null, logoPath: "neutral-generated" };
+  const logoPng = await loadImageAsBase64(src, "image/png").catch(() => null);
+  return { logoPng, logoPath: logoPng ? "brand-config" : "neutral-generated" };
+}
+
+// Resolve the header image. Priority: per-template uploaded image (editor) >
+// brand-config audience header > neutral generated (null). A null result lets
+// the shared generator draw its neutral header block instead of any bitmap.
+async function loadHeaderImage(
+  uploaded: string | null | undefined,
+  brandHeader: string | null,
+): Promise<{ headerImgData: string | null; headerPath: HeaderFallbackPath }> {
+  if (uploaded) {
+    if (uploaded.startsWith("data:")) return { headerImgData: uploaded, headerPath: "tenant-uploaded" };
+    const d = await loadImageAsBase64(uploaded).catch(() => null);
+    return { headerImgData: d, headerPath: d ? "tenant-uploaded" : "neutral-generated" };
+  }
+  if (brandHeader) {
+    const d = await loadImageAsBase64(brandHeader).catch(() => null);
+    return { headerImgData: d, headerPath: d ? "brand-config" : "neutral-generated" };
+  }
+  return { headerImgData: null, headerPath: "neutral-generated" };
+}
 
 export const generatePilotOnePager = async (
   dsoName: string,
@@ -202,7 +228,7 @@ export const generatePilotOnePager = async (
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
   brand?: BrandContext,
-  brandLogoUrl?: string,
+  assets?: OnePagerAssets,
 ) => {
   // When no override is passed (normal generation), load both the shared config AND the
   // per-audience body config — the editor saves bodyCfg to separate audience-specific keys.
@@ -256,25 +282,18 @@ export const generatePilotOnePager = async (
 
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
+  let headerPath: HeaderFallbackPath = "neutral-generated";
+  let logoPath: LogoFallbackPath = "neutral-generated";
   try {
-    // For non-Dandy tenants with a brand logo URL, prefer the tenant's logo
-    // over the built-in Dandy wordmark.
-    const logoSrc = brandLogoUrl || dandyLogoWhite;
-    const resolvedImg = hCfg.headerImage ?? editedContent.headerImage;
-    if (resolvedImg) {
-      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
-      if (resolvedImg.startsWith("data:")) {
-        headerImgData = resolvedImg;
-      } else {
-        [logoPng, headerImgData] = await Promise.all([
-          loadImageAsBase64(logoSrc, "image/png").catch(() => null),
-          loadImageAsBase64(resolvedImg),
-        ]);
-      }
-    } else {
-      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
-    }
+    const uploaded = hCfg.headerImage ?? editedContent.headerImage;
+    const [logo, header] = await Promise.all([
+      loadHeaderLogo(assets),
+      loadHeaderImage(uploaded, assets?.headerImages[audience] ?? null),
+    ]);
+    logoPng = logo.logoPng; logoPath = logo.logoPath;
+    headerImgData = header.headerImgData; headerPath = header.headerPath;
   } catch { /* continue without assets */ }
+  logOnePagerFallback("pilot", audience, headerPath, logoPath);
 
   return sharedGeneratePilotOnePager(
     dsoName, audience, teamContacts, phoneNumber,
@@ -295,7 +314,7 @@ export const generateComparisonOnePager = async (
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
   brand?: BrandContext,
-  brandLogoUrl?: string,
+  assets?: OnePagerAssets,
 ) => {
   let layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_comparison_template_layout").catch(() => null) ?? {};
   if (typeof prospectLogoScale === "number") {
@@ -311,18 +330,18 @@ export const generateComparisonOnePager = async (
 
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
+  let headerPath: HeaderFallbackPath = "neutral-generated";
+  let logoPath: LogoFallbackPath = "neutral-generated";
   try {
-    const logoSrc = brandLogoUrl || dandyLogoWhite;
-    if (hCfg.headerImage) {
-      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
-      headerImgData = hCfg.headerImage;
-    } else {
-      [logoPng, headerImgData] = await Promise.all([
-        loadImageAsBase64(logoSrc, "image/png").catch(() => null),
-        loadImageAsBase64(headerImgExecutive),
-      ]);
-    }
+    // Comparison uses the executive audience banner.
+    const [logo, header] = await Promise.all([
+      loadHeaderLogo(assets),
+      loadHeaderImage(hCfg.headerImage, assets?.headerImages.executive ?? null),
+    ]);
+    logoPng = logo.logoPng; logoPath = logo.logoPath;
+    headerImgData = header.headerImgData; headerPath = header.headerPath;
   } catch { /* continue without assets */ }
+  logOnePagerFallback("comparison", "executive", headerPath, logoPath);
 
   return sharedGenerateComparisonOnePager(
     dsoName, teamContacts, phoneNumber,
@@ -340,7 +359,7 @@ export const generateNewPartnerOnePager = async (
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
   brand?: BrandContext,
-  brandLogoUrl?: string,
+  assets?: OnePagerAssets,
 ) => {
   let saved = layoutOverride ?? await loadLayoutDefault("dandy_partner_template_layout").catch(() => null) ?? {};
   if (typeof prospectLogoScale === "number") {
@@ -356,18 +375,18 @@ export const generateNewPartnerOnePager = async (
 
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
+  let headerPath: HeaderFallbackPath = "neutral-generated";
+  let logoPath: LogoFallbackPath = "neutral-generated";
   try {
-    const logoSrc = brandLogoUrl || dandyLogoWhite;
-    if (hCfg.headerImage) {
-      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
-      headerImgData = hCfg.headerImage;
-    } else {
-      [logoPng, headerImgData] = await Promise.all([
-        loadImageAsBase64(logoSrc, "image/png").catch(() => null),
-        loadImageAsBase64(headerImgClinical),
-      ]);
-    }
+    // New Partner uses the clinical audience banner.
+    const [logo, header] = await Promise.all([
+      loadHeaderLogo(assets),
+      loadHeaderImage(hCfg.headerImage, assets?.headerImages.clinical ?? null),
+    ]);
+    logoPng = logo.logoPng; logoPath = logo.logoPath;
+    headerImgData = header.headerImgData; headerPath = header.headerPath;
   } catch { /* continue without assets */ }
+  logOnePagerFallback("new-partner", "clinical", headerPath, logoPath);
 
   const content: NewPartnerContent = {
     headline: saved.partnerHeadline as string | undefined,
@@ -386,25 +405,25 @@ export const generateROIOnePager = async (
   numPractices: number,
   layoutOverride?: Record<string, unknown>,
   brand?: BrandContext,
-  brandLogoUrl?: string,
+  assets?: OnePagerAssets,
 ) => {
   const layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_roi_template_layout").catch(() => null) ?? {};
   const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
 
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
+  let headerPath: HeaderFallbackPath = "neutral-generated";
+  let logoPath: LogoFallbackPath = "neutral-generated";
   try {
-    const logoSrc = brandLogoUrl || dandyLogoWhite;
-    if (hCfg.headerImage) {
-      logoPng = await loadImageAsBase64(logoSrc, "image/png").catch(() => null);
-      headerImgData = hCfg.headerImage;
-    } else {
-      [logoPng, headerImgData] = await Promise.all([
-        loadImageAsBase64(logoSrc, "image/png").catch(() => null),
-        loadImageAsBase64(headerImgExecutive),
-      ]);
-    }
+    // ROI uses the executive audience banner.
+    const [logo, header] = await Promise.all([
+      loadHeaderLogo(assets),
+      loadHeaderImage(hCfg.headerImage, assets?.headerImages.executive ?? null),
+    ]);
+    logoPng = logo.logoPng; logoPath = logo.logoPath;
+    headerImgData = header.headerImgData; headerPath = header.headerPath;
   } catch { /* continue without assets */ }
+  logOnePagerFallback("roi", "executive", headerPath, logoPath);
 
   return sharedGenerateROIOnePager(dsoName, numPractices, { logoPng, headerImgData, layoutOverrides, brand });
 };
@@ -412,16 +431,16 @@ export const generateROIOnePager = async (
 export const generateAgreementSummaryOnePager = async (
   content: AgreementSummaryContent,
   brand?: BrandContext,
-  brandLogoUrl?: string,
+  assets?: OnePagerAssets,
 ) => {
-  const logoSrc = brandLogoUrl || dandyLogoWhite;
-  // Load each asset independently so a single failure doesn't drop the other.
-  const [logoResult, scannerResult] = await Promise.allSettled([
-    loadImageAsBase64(logoSrc, "image/png"),
-    loadImageAsBase64(dandyScannerUrl, "image/png"),
-  ]);
-  const logoPng = logoResult.status === "fulfilled" ? logoResult.value : null;
-  const scannerPng = scannerResult.status === "fulfilled" ? scannerResult.value : null;
+  const { logoPng, logoPath } = await loadHeaderLogo(assets);
+  // Product screenshot comes from brand config; unset → omitted (never the
+  // bundled Dandy scanner image).
+  const scannerSrc = assets?.productScreenshot ?? null;
+  const scannerPng = scannerSrc
+    ? await loadImageAsBase64(scannerSrc, "image/png").catch(() => null)
+    : null;
+  logOnePagerFallback("agreement-summary", null, "neutral-generated", logoPath);
   return sharedGenerateAgreementSummaryOnePager(content, { logoPng, scannerPng, brand });
 };
 
@@ -443,6 +462,9 @@ const SalesOnePager = () => {
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
   const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  // Feedback address for the non-Dandy beta banner. No dedicated support field
+  // exists, so reuse the sales-console reply-to; hide the mailto link if unset.
+  const feedbackEmail = (brand.salesConsole?.replyTo ?? "").trim();
   const brandSlug = (brand.brandName || "report")
     .replace(/\s+/g, "_")
     .replace(/[^A-Za-z0-9_-]+/g, "") || "report";
@@ -467,7 +489,7 @@ const SalesOnePager = () => {
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
   };
-  const brandLogoUrl = isDandy ? undefined : (brand.logoUrl || undefined);
+  const oneAssets = resolveOnePagerAssets(brand);
 
   const [dsoName, setDsoName] = useState("");
   const [numPractices, setNumPractices] = useState(100);
@@ -846,25 +868,25 @@ const SalesOnePager = () => {
             }
           }
         } catch { /* use local editedContent */ }
-        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
       } else if (template === "comparison") {
-        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, oneAssets);
         doc.save(`${isDandy ? "Dandy_Evolution" : `${brandSlug}_Before_After`}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       } else if (template === "new-partner") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
       } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, brandLogoUrl);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +
         // admin-saved layout on mount), so any number/price/text edits made
         // here flow into the generated PDF.
-        doc = await generateAgreementSummaryOnePager(agreementContent, brandContext, brandLogoUrl);
+        doc = await generateAgreementSummaryOnePager(agreementContent, brandContext, oneAssets);
         doc.save(isDandy ? "Summary_of_Dandy_Agreement.pdf" : `Summary_of_${brandSlug}_Agreement.pdf`);
       } else {
-        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, brandContext, brandLogoUrl);
+        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       }
 
@@ -896,10 +918,35 @@ const SalesOnePager = () => {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
               Back
             </button>
-            <h1 className="text-3xl font-bold text-foreground text-center">One-Pager Generator</h1>
+            <h1 className="text-3xl font-bold text-foreground text-center">
+              One-Pager Generator
+              {!isDandy && <span className="ml-2 align-middle text-base font-semibold text-muted-foreground">(beta)</span>}
+            </h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">
               {isDandy ? "Generate branded PDF one-pagers for DSO prospects" : "Generate branded PDF one-pagers for prospects"}
             </p>
+            {!isDandy && (
+              <div className="mt-4 mx-auto max-w-2xl flex items-start gap-2.5 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  One-pagers are in beta. Upload your header images, product
+                  screenshot, and logo in Brand settings for fully branded output —
+                  otherwise a neutral placeholder is used.
+                  {feedbackEmail && (
+                    <>
+                      {" "}Spot something off?{" "}
+                      <a
+                        href={`mailto:${feedbackEmail}?subject=${encodeURIComponent("One-Pager beta feedback")}`}
+                        className="font-semibold underline hover:no-underline"
+                      >
+                        Send feedback
+                      </a>
+                      .
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
             {isAdmin && (
               <div className="flex justify-center mt-3">
                 <RouterLink href="/sales/one-pager/editor">

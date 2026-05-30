@@ -14,7 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig as BrandConfigT } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig as BrandConfigT } from "@/lib/brand-config";
 import { scrubBrand, type BrandContext as BrandContextT } from "@workspace/one-pager-types";
 import {
   generatePilotOnePager,
@@ -628,7 +628,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
   };
-  const brandLogoUrl = isDandy ? undefined : (brand.logoUrl || undefined);
+  const oneAssets = resolveOnePagerAssets(brand);
 
   const isAgreement = builtinId === "agreement-summary";
   const [dsoName, setDsoName] = useState("");
@@ -703,11 +703,11 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
       if (isBuiltin && builtinId) {
         let doc: jsPDF;
         const groupLabel = brandContext?.industryLabel || "DSO";
-        if (builtinId === "roi") doc = await generateROIOnePager(dsoName || groupLabel, 50, undefined, brandContext, brandLogoUrl);
-        else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || groupLabel, audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined, undefined, undefined, brandContext, brandLogoUrl);
-        else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || groupLabel, [], phone, null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, brandContext, brandLogoUrl);
-        else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(agreement, brandContext, brandLogoUrl);
-        else doc = await generateNewPartnerOnePager(dsoName || groupLabel, null, { w: 0, h: 0 }, qrUrl, undefined, undefined, brandContext, brandLogoUrl);
+        if (builtinId === "roi") doc = await generateROIOnePager(dsoName || groupLabel, 50, undefined, brandContext, oneAssets);
+        else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || groupLabel, audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined, undefined, undefined, brandContext, oneAssets);
+        else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || groupLabel, [], phone, null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, brandContext, oneAssets);
+        else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(agreement, brandContext, oneAssets);
+        else doc = await generateNewPartnerOnePager(dsoName || groupLabel, null, { w: 0, h: 0 }, qrUrl, undefined, undefined, brandContext, oneAssets);
         const baseName = isAgreement ? (agreement.headline || "Agreement_Summary") : (dsoName || builtinId);
         doc.save(`${baseName.replace(/\s+/g, "_")}_OnePager.pdf`);
       } else if (tpl) {
@@ -2014,7 +2014,7 @@ export default function SalesOnePagerTemplates() {
     agreementName: `${previewBrandLabel || "Partner"} Practice Agreement`,
     agreementUrl: previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#" ? previewBrand.defaultCtaUrl : "",
   };
-  const previewBrandLogoUrl = previewIsDandy ? undefined : (previewBrand.logoUrl || undefined);
+  const previewOneAssets = resolveOnePagerAssets(previewBrand);
   // Scrub Dandy-only UI labels (e.g. "Dandy Evolution", "Summary of Dandy Agreement")
   // on the template cards so non-Dandy tenants don't see Dandy copy in this page.
   const sLabel = (t: string) => scrubBrand(t, previewBrandContext);
@@ -2089,11 +2089,11 @@ export default function SalesOnePagerTemplates() {
     setCloningId(builtinId);
     try {
       let doc: jsPDF;
-      if (builtinId === "roi") doc = await generateROIOnePager(" ", 10, undefined, previewBrandContext, previewBrandLogoUrl);
-      else if (builtinId === "pilot") doc = await generatePilotOnePager(" ", "executive", [], "", null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined, undefined, undefined, previewBrandContext, previewBrandLogoUrl);
-      else if (builtinId === "comparison") doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, previewBrandContext, previewBrandLogoUrl);
-      else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent, previewBrandContext, previewBrandLogoUrl);
-      else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, previewQrFallback, undefined, undefined, previewBrandContext, previewBrandLogoUrl);
+      if (builtinId === "roi") doc = await generateROIOnePager(" ", 10, undefined, previewBrandContext, previewOneAssets);
+      else if (builtinId === "pilot") doc = await generatePilotOnePager(" ", "executive", [], "", null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined, undefined, undefined, previewBrandContext, previewOneAssets);
+      else if (builtinId === "comparison") doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, previewBrandContext, previewOneAssets);
+      else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent, previewBrandContext, previewOneAssets);
+      else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, previewQrFallback, undefined, undefined, previewBrandContext, previewOneAssets);
 
       const pdfBlob = doc.output("blob");
       const pdfjsLib = await import("pdfjs-dist");
