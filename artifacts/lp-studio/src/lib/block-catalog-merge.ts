@@ -1,5 +1,6 @@
 import { BLOCK_REGISTRY } from "./block-types";
 import type { BlockCategory } from "./block-types";
+import { getDefaultBlockTags, type BlockRoleTag } from "@workspace/lp-template-engine";
 
 export type Industry = "dental" | "generic";
 
@@ -168,6 +169,13 @@ export interface CatalogRow {
   industry: Industry;
   label: string;
   category: string;
+  /**
+   * Per-industry semantic role-tag override (controlled vocabulary). NULL/empty
+   * means no override → the block inherits its in-code default tags. Synthetic
+   * "code default" rows are filled with `getDefaultBlockTags(block_type)` so the
+   * superadmin always sees the effective tags.
+   */
+  tags?: BlockRoleTag[] | null;
   default_props: Record<string, unknown>;
   is_enabled: boolean;
   sort_order: number;
@@ -225,6 +233,10 @@ export function mergeSuperadminCatalog(rows: CatalogRow[]): DisplayRow[] {
           // generic tenant actually inherits from the code default.
           label: industry === "generic" ? neutralizeLabel(def.label) : def.label,
           category: def.category,
+          // Effective code-default role tags for this block type, so the
+          // superadmin sees the tags that actually apply when there's no
+          // per-industry DB override.
+          tags: getDefaultBlockTags(def.type),
           default_props: defaultProps,
           is_enabled: true,
           sort_order: 0,

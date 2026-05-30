@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { getDefaultBlockTags } from "@workspace/lp-template-engine";
 import { BLOCK_REGISTRY } from "./block-types";
 import {
   INDUSTRIES,
@@ -76,6 +77,37 @@ describe("mergeSuperadminCatalog (superadmin merged block list)", () => {
     // The SAME block in the OTHER industry (no row) is still a code default.
     const other = merged.find(r => r.block_type === SAMPLE.type && r.industry === "dental")!;
     expect(other.source).toBe("code");
+  });
+
+  it("fills code-default rows with the effective in-code role tags", () => {
+    const merged = mergeSuperadminCatalog([]);
+    const row = merged.find(r => r.block_type === SAMPLE.type && r.industry === "generic")!;
+    expect(row.source).toBe("code");
+    expect(row.tags).toEqual(getDefaultBlockTags(SAMPLE.type));
+  });
+
+  it("carries a DB override's role tags through to the merged row", () => {
+    const override = dbRow({
+      block_type: SAMPLE.type,
+      industry: "generic",
+      tags: ["cta", "form"],
+    });
+    const merged = mergeSuperadminCatalog([override]);
+    const row = merged.find(r => r.block_type === SAMPLE.type && r.industry === "generic")!;
+    expect(row.source).toBe("db");
+    expect(row.tags).toEqual(["cta", "form"]);
+  });
+
+  it("preserves a DB override's null tags (null = inherit code defaults)", () => {
+    const override = dbRow({
+      block_type: SAMPLE.type,
+      industry: "generic",
+      tags: null,
+    });
+    const merged = mergeSuperadminCatalog([override]);
+    const row = merged.find(r => r.block_type === SAMPLE.type && r.industry === "generic")!;
+    expect(row.source).toBe("db");
+    expect(row.tags).toBeNull();
   });
 
   it("appends custom DB-only rows whose block_type is not in the registry", () => {
