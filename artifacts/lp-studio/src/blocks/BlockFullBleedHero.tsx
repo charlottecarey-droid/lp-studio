@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickCtaButtonColors, pickOutlineButtonColors, isValidHex, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -52,8 +52,14 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
   const [videoMuted, setVideoMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
+  // The CTA buttons sit on the hero's dark surface (overlay / primary color /
+  // background image). Derive button colors via the shared contrast helpers so
+  // the label is always legible against the button fill — guards against the
+  // "blue-on-blue" failure when a tenant's accent ≈ primary (e.g. Zoom blue).
+  const heroSurfaceHex = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const ctaColors = pickCtaButtonColors(brand, heroSurfaceHex);
+  const secondaryCtaColors = pickOutlineButtonColors(brand, heroSurfaceHex);
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
   const isModalCta = props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper";
 
@@ -175,7 +181,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             <a
               href={props.headerCtaUrl || "#"}
               className={getButtonClasses(brand, "shrink-0 text-sm")}
-              style={{ backgroundColor: LIME, color: FOREST }}
+              style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
             >
               {props.headerCtaText}
             </a>
@@ -295,7 +301,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             <motion.button
               onClick={handleCtaClick}
               className={getButtonClasses(brand, "inline-flex items-center justify-center")}
-              style={{ backgroundColor: LIME, color: FOREST }}
+              style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
               whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
               whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
               transition={{ type: "spring", stiffness: 400, damping: 18 }}
@@ -307,7 +313,8 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             {props.secondaryCtaText && (
               <motion.a
                 href={props.secondaryCtaUrl || "#"}
-                className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/40 text-white text-sm font-semibold hover:border-white/70 hover:bg-white/10 transition-colors"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-full border text-sm font-semibold hover:bg-white/10 transition-colors"
+                style={{ borderColor: secondaryCtaColors.border, color: secondaryCtaColors.text }}
                 whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
                 whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
                 transition={{ type: "spring", stiffness: 400, damping: 18 }}
