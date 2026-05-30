@@ -1,0 +1,79 @@
+Major simplification per Charlotte — everyone gets the same 14-day trial of the Growth tier, automatically, on signup. No tier selection in onboarding. This aligns with what the marketing site already promises ("Every paid tier comes with a 14-day Growth trial. No card to start.") and removes a lot of complexity.
+Updated build plan:
+
+Schema: add trial_started_at and trial_expires_at to tenants. No trial_tier column — the trial tier is a constant ("growth") defined alongside the rest of plan-config, editable in superadmin. Default null on both columns. Add has_trialed_before boolean (default false) so users can't restart a second trial.
+Effective-plan resolver: effectivePlan(tenant) returns the trial tier (Growth) when trial_expires_at > now(), otherwise returns tenant.plan. Single source of truth — every existing plan-gate consumes it. No per-route plumbing changes. Lazy-on-read, same pattern as the existing AI-usage counter — no cron job needed.
+Auto-enroll on signup: new self-serve tenants get trial_started_at = now(), trial_expires_at = now() + 14 days automatically. No card, no tier picker.
+No per-feature cap needed. Because trial = Growth tier, Scale-only features (AI image generation) are already locked by the existing plan-gate. The only cost exposure during trial is Growth's existing AI-generations-per-month cap (already configurable in superadmin). Locked features show "Upgrade to Scale to use AI image generation" — same UX as a paid Growth customer would see. This is the clean part of the design.
+Onboarding stays brand-setup-only. Don't add a plan picker. The trial is automatic and uniform. Optionally show a "You're on a 14-day Growth trial — here's what's included" panel at the end of brand setup with a small "See full plan options" link to Billing, but no choice to make there.
+Trial-status banner (persistent above app shell while trial is active):
+
+> 7 days remaining: subtle info banner — "Growth trial: X days remaining. [See plans]"
+≤ 3 days remaining: warning color — "Growth trial ends in X days. [Upgrade to keep your features]"
+expired: alert color — "Your Growth trial ended. You've been downgraded to Free. [Upgrade to restore Sales Console + unlimited pages]"
+
+
+Billing page: show trial state prominently. Current-plan banner shows "Growth (trial — X days remaining)" instead of just "Growth." The Free tier card has a "Downgrade to Free" CTA available during trial — Charlotte explicitly called this out (people can only upgrade to Scale today; they need a path to Free too).
+Auto-downgrade on expiry: purely automatic via the resolver. No data is deleted. Pages stay, brand config stays, custom blocks stay — but plan-gated features lock. The user gets the alert-color "trial ended" banner until they take action (upgrade or dismiss).
+One-time trial enforcement: when the trial expires and has_trialed_before flips true, the user can't restart a second trial via account deletion + re-signup with the same email. Standard pattern. Bonus point: the same flag prevents Stripe-side trial abuse if you ever add a paid trial.
+Existing tenants on signup pre-this-feature: open question for Charlotte — should accounts that already exist get a trial too, or only new signups going forward? Recommend "going forward only" since existing accounts have already been on free-Growth-features for as long as they've existed. They can upgrade at any time. Migration sets trial_started_at = null, trial_expires_at = null for everyone existing.
+
+What this kills from the prior plan:
+
+The trial_tier column (was going to support per-tenant trial-of-any-tier)
+The per-feature trial-usage caps (ai_image_generations_during_trial, etc.) — not needed since Scale-only features are simply locked during trial
+The "choose Scale/Enterprise during onboarding + start a free trial" flow — replaced with "everyone gets Growth trial, automatic"
+The Enterprise mailto in onboarding — Enterprise becomes a billing-page concern, not an onboarding concern
+
+What it keeps:
+
+Live /api/lp/plan-config endpoint as source of truth (good work)
+Single-toggle billing UX (good work)
+Downgrade-to-Free CTA on the billing page (Charlotte explicit ask)
+Server-stripped, slug-derived flag pattern (matching how isDandy works)
+
+Proceed with the schema + resolver + signup auto-enroll first. Once that's in, layer on the banner UI and the billing-page trial display. Confirm with Charlotte before writing any code about: (a) the existing-tenants question in point 10, and (b) the exact banner copy.
+
+
+Two things for you, Charlotte, not for the Replit response:
+The really nice property of "everyone gets Growth trial" is that AI image generation is automatically blocked during trial without any special code — it's Scale-only, and the trial is Growth, so the existing gate locks it. Zero marginal cost exposure for you during the launch window. That's a much cleaner cost story than what we were discussing before.
+The existing tenants question matters more than it sounds. If Dandy and dandy-smb already exist with plan='enterprise', they should NOT be enrolled in a Growth trial (that would be a downgrade for them). If any test/dev tenants exist with plan='trial' (the legacy null-trial mechanism the agent found), those should be migrated to either free or a real time-bounded trial — Charlotte's call. The cleanest migration: any tenant with plan='trial' today gets trial_started_at = now(), trial_expires_at = now() + 14 days, plan = free. That gives them a real fresh 14-day trial and a defined post-trial state. Worth confirming with Replit which tenants are in this state before the migration runs.You said: can we just make it clear that they are on a free trial and signing up for a free trial?can we just make it clear that they are on a free trial and signing up for a free trial? then add things to make them want to upgradeClaude responded: Good instinct — that's the layer the prior plan was missing.Good instinct — that's the layer the prior plan was missing. The trial mechanics need messaging clarity on top so people understand they're in a trial, and conversion nudges so trial signups actually become customers. Here's the addition to send back:
+
+
+Additional scope from Charlotte on top of the trial system: make trial state explicit everywhere, and add in-product upgrade nudges. Three workstreams to layer on top of the trial schema/resolver/banner work:
+Workstream A — Signup framing is "starting a trial," not "signing up free"
+Today the marketing site's primary CTA reassurance reads "Sign in with Google · no setup · cancel any time." That positions LP Studio as a free product. We're actually selling a 14-day trial of Growth. Every CTA needs to reflect that.
+Specific copy changes:
+
+Marketing site (artifacts/lp-studio/src/marketing/components/Waitlist.tsx reassurance line): change to "Start your 14-day Growth trial · No card required" (replace "no setup · cancel any time").
+Pricing component CTAs: "Try Growth free for 14 days" is already correct on the Growth card. Verify Starter and Scale CTAs say "Start 14-day trial" or similar, not "Sign up." Buyers should consistently understand every paid tier starts as a trial.
+Nav primary CTA (top-right "Sign in" / "Get started"): change to "Start free trial" or "Start 14-day trial."
+Hero CTAs in AssembleScene (the input field): keep them functional (the input is still the demo), but the surrounding microcopy should make trial framing explicit: "Generate your first page — your 14-day trial starts when you create your workspace."
+Post-signup welcome screen (somewhere in the onboarding flow — find via grep): explicit panel "Your 14-day Growth trial has started. You've got full access to [N] of the [M] features in LP Studio. [Continue]." Show trial end date in the panel.
+
+Workstream B — Persistent trial-aware UI
+Beyond the top-of-app banner already in the plan, add three more touchpoints so trial state never disappears from the user's awareness:
+
+Inline pill in the top nav next to the workspace name: a small chip showing "14d trial" / "8d trial" / "2d trial" / "Trial ended." Click → goes to billing. Severity color matches the banner (neutral → warning → alert).
+Trial mention in empty states: every "Create your first [X]" empty state ends with "Your trial gives you full access to all Growth features for [X] more days." Subtle but reinforces ownership of what they're using.
+Settings → Billing page header: large trial-status card at the top — "You're on a Growth trial. Ends [date]. [N] days remaining." Three CTAs visible: "Upgrade to Growth," "Upgrade to Scale," "Downgrade to Free." (The downgrade-to-Free option is Charlotte's explicit ask — people need a clean off-ramp.)
+
+Workstream C — In-product upgrade nudges (the conversion engine)
+Surface upgrade prompts at the moments users feel constraint or get value. Each prompt is small, dismissible, and contextual — not blocking. Specific triggers:
+
+Hitting a Scale-only feature (AI image gen, multi-workspace, dedicated CSM, etc.): the existing structured-402 modal already does this. Confirm the modal copy mentions trial status — "AI image generation is included with Scale. Your Growth trial doesn't unlock it. [Upgrade to Scale →]". The point is: don't show generic "upgrade required" when the user is mid-trial — make the trial-specific framing visible.
+Hitting Growth's AI-generations-per-month cap during trial: hard-block with a Scale-upsell ("Trial gives you [N] AI generations/month. Scale gives you unlimited. [Upgrade to Scale →]"). This is the cap most likely to bite during trial; make sure the upsell is in the moment of frustration, not buried in settings.
+Milestone celebrations + upsell: after creating their 3rd page → toast "You've created 3 pages. Make this your team's workspace. [Keep these after trial →]". After connecting Salesforce → "Salesforce is wired up. Microsites + AI outreach are unlocked on your trial. [See Sales Console pricing →]". These celebrate value and remind that the trial is what gives them this access.
+Day 7 (halfway through): in-app modal or banner "You're halfway through your trial. [N] pages, [M] microsites, [K] AI drafts so far. Keep this workspace alive — [Upgrade to Growth →]" with a "Maybe later" dismiss. Show only once.
+Day 11 (3 days remaining): stronger banner upgrades from neutral → warning. "Trial ends in 3 days. Plans start at $[Starter monthly]. [Compare plans →] [Downgrade to Free →]"
+Day 13 (1 day remaining): alert color. "Trial ends tomorrow. Some features will lock. [Upgrade now →]"
+Post-expiry (Day 15+): the existing alert-color banner from the previous plan. Add: an in-app modal on next app-open showing exactly which features just locked + the price to restore each. This is the highest-conversion moment — they've experienced the product, the loss is concrete.
+"What you'll keep / what you'll lose" panel: surface this proactively. Settings → Billing trial card has a small section "If your trial ends today: you'd keep [Free's caps]. You'd lose Sales Console, unlimited pages, [list]. [Upgrade to keep everything →]" — makes the consequence of inaction tangible.
+
+Critically: every upgrade CTA in the trial flow should mention both Growth and Scale. Not just "Upgrade now" — make Scale visible. Most trial users will default-think they want Growth (because the trial is of Growth). Surfacing Scale in upgrade CTAs ("Upgrade to Growth · Or unlock AI image gen with Scale") plants the seed for higher ARPU.
+Implement in this order: A (signup framing) → B (persistent UI) → C (nudges, starting with the day-7/11/13 banners since those are zero-trigger). Day-1 nudges (milestones, feature-block upsells) can come in a follow-up commit.
+
+
+For you, Charlotte — two strategic notes:
+The most consequential single piece of conversion architecture here is the "what you'd keep / what you'd lose" panel. That's the difference between "trial expired, I'll figure it out next month" and "trial expired and I'm losing the Sales Console I just set up — let me upgrade today." Make sure the implementation shows specifics (their actual page count, their actual Salesforce connection status, their actual brand setup) rather than generic feature-list strings. Concreteness drives conversion.
+The "every upgrade CTA mentions both Growth and Scale" point is worth holding the line on, even though it adds copy length to every prompt. Default behavior in B2B SaaS is users self-select to the trial tier — so by anchoring every upgrade CTA to Growth alone, you lock yourself into a one-tier ARPU. Mentioning Scale in the upgrade flow ("Or unlock AI image gen + multi-workspace with Scale →") raises ARPU on the customers who would have paid more if asked. It's a small copy change with real revenue implications. Worth designing this into the upgrade-prompt component from day one rather than retrofitting it later.

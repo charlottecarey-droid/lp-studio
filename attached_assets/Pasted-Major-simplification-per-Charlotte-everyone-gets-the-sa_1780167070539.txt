@@ -1,0 +1,35 @@
+Major simplification per Charlotte — everyone gets the same 14-day trial of the Growth tier, automatically, on signup. No tier selection in onboarding. This aligns with what the marketing site already promises ("Every paid tier comes with a 14-day Growth trial. No card to start.") and removes a lot of complexity.
+Updated build plan:
+
+Schema: add trial_started_at and trial_expires_at to tenants. No trial_tier column — the trial tier is a constant ("growth") defined alongside the rest of plan-config, editable in superadmin. Default null on both columns. Add has_trialed_before boolean (default false) so users can't restart a second trial.
+Effective-plan resolver: effectivePlan(tenant) returns the trial tier (Growth) when trial_expires_at > now(), otherwise returns tenant.plan. Single source of truth — every existing plan-gate consumes it. No per-route plumbing changes. Lazy-on-read, same pattern as the existing AI-usage counter — no cron job needed.
+Auto-enroll on signup: new self-serve tenants get trial_started_at = now(), trial_expires_at = now() + 14 days automatically. No card, no tier picker.
+No per-feature cap needed. Because trial = Growth tier, Scale-only features (AI image generation) are already locked by the existing plan-gate. The only cost exposure during trial is Growth's existing AI-generations-per-month cap (already configurable in superadmin). Locked features show "Upgrade to Scale to use AI image generation" — same UX as a paid Growth customer would see. This is the clean part of the design.
+Onboarding stays brand-setup-only. Don't add a plan picker. The trial is automatic and uniform. Optionally show a "You're on a 14-day Growth trial — here's what's included" panel at the end of brand setup with a small "See full plan options" link to Billing, but no choice to make there.
+Trial-status banner (persistent above app shell while trial is active):
+
+> 7 days remaining: subtle info banner — "Growth trial: X days remaining. [See plans]"
+≤ 3 days remaining: warning color — "Growth trial ends in X days. [Upgrade to keep your features]"
+expired: alert color — "Your Growth trial ended. You've been downgraded to Free. [Upgrade to restore Sales Console + unlimited pages]"
+
+
+Billing page: show trial state prominently. Current-plan banner shows "Growth (trial — X days remaining)" instead of just "Growth." The Free tier card has a "Downgrade to Free" CTA available during trial — Charlotte explicitly called this out (people can only upgrade to Scale today; they need a path to Free too).
+Auto-downgrade on expiry: purely automatic via the resolver. No data is deleted. Pages stay, brand config stays, custom blocks stay — but plan-gated features lock. The user gets the alert-color "trial ended" banner until they take action (upgrade or dismiss).
+One-time trial enforcement: when the trial expires and has_trialed_before flips true, the user can't restart a second trial via account deletion + re-signup with the same email. Standard pattern. Bonus point: the same flag prevents Stripe-side trial abuse if you ever add a paid trial.
+Existing tenants on signup pre-this-feature: open question for Charlotte — should accounts that already exist get a trial too, or only new signups going forward? Recommend "going forward only" since existing accounts have already been on free-Growth-features for as long as they've existed. They can upgrade at any time. Migration sets trial_started_at = null, trial_expires_at = null for everyone existing.
+
+What this kills from the prior plan:
+
+The trial_tier column (was going to support per-tenant trial-of-any-tier)
+The per-feature trial-usage caps (ai_image_generations_during_trial, etc.) — not needed since Scale-only features are simply locked during trial
+The "choose Scale/Enterprise during onboarding + start a free trial" flow — replaced with "everyone gets Growth trial, automatic"
+The Enterprise mailto in onboarding — Enterprise becomes a billing-page concern, not an onboarding concern
+
+What it keeps:
+
+Live /api/lp/plan-config endpoint as source of truth (good work)
+Single-toggle billing UX (good work)
+Downgrade-to-Free CTA on the billing page (Charlotte explicit ask)
+Server-stripped, slug-derived flag pattern (matching how isDandy works)
+
+Proceed with the schema + resolver + signup auto-enroll first. Once that's in, layer on the banner UI and the billing-page trial display. Confirm with Charlotte before writing any code about: (a) the existing-tenants question in point 10, and (b) the exact banner copy.
