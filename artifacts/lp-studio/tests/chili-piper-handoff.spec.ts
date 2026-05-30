@@ -467,6 +467,80 @@ test.describe("Marketo → Chili Piper handoff", () => {
     ).toHaveLength(0);
   });
 
+  // Regression guard: a Chili Piper "booking-confirmed" postMessage that
+  // carries NO lead payload must STILL record the chilipiper_booking
+  // conversion. Direct-scheduler bookings (the visitor types their details
+  // inside the CP iframe, with no preceding lead-capture form) frequently
+  // omit PII from the message. A prior "prevent duplicate blank leads" change
+  // gated the listener on identity being present, which silently dropped the
+  // conversion AND the lead for every PII-less booking — i.e. real bookings
+  // stopped being tracked anywhere. This test fails if that gate comes back.
+  test("a booking-confirmed postMessage with NO lead payload still records a chilipiper_booking conversion", async ({ page, baseURL }) => {
+    expect(baseURL, "playwright baseURL must be configured").toBeTruthy();
+
+    const trackCalls: Array<{ conversionType: unknown }> = [];
+    page.on("request", (req) => {
+      if (req.method() !== "POST") return;
+      if (!req.url().includes("/api/lp/track")) return;
+      const raw = req.postData();
+      if (!raw) return;
+      try {
+        const body = JSON.parse(raw) as Record<string, unknown>;
+        trackCalls.push({ conversionType: body.conversionType });
+      } catch {
+        /* non-JSON track call — ignore */
+      }
+    });
+
+    await page.addInitScript(MKTO_INIT_SCRIPT);
+
+    const viewerUrl = `/lp/${pageSlug}`;
+    const response = await page.goto(viewerUrl, { waitUntil: "domcontentloaded" });
+    expect(response, `navigation to ${viewerUrl} returned no response`).not.toBeNull();
+    expect(response!.status(), `unexpected status for ${viewerUrl}`).toBeLessThan(400);
+
+    await page.waitForResponse(
+      (r) => r.url().includes(`/api/lp/forms/${formId}`) && r.ok(),
+      { timeout: 30_000 },
+    );
+    await page.waitForFunction(
+      () => Boolean((window as Window).__mktoTestForm),
+      undefined,
+      { timeout: 30_000 },
+    );
+    await page.waitForTimeout(100);
+
+    // Submit the Marketo form so the CP handoff iframe mounts and the
+    // useChiliPiperBookingTracking listener attaches (it only attaches once
+    // the handoff url flips to a non-empty value).
+    await page.evaluate(() => {
+      window.__mktoTestForm!._trigger({
+        Email: "nopii-booker@example.com",
+        FirstName: "NoPii",
+        LastName: "Booker",
+      });
+    });
+
+    const iframe = page.locator("iframe[src*='chilipiper.com']").first();
+    await expect(iframe).toBeVisible({ timeout: 10_000 });
+
+    // The critical step: a booking-confirmed with NO lead object whatsoever.
+    await page.evaluate(() => {
+      window.postMessage({ action: "booking-confirmed" }, "*");
+    });
+
+    await expect
+      .poll(
+        () => trackCalls.filter((c) => c.conversionType === "chilipiper_booking").length,
+        {
+          timeout: 10_000,
+          message:
+            "a PII-less booking-confirmed must still record a chilipiper_booking conversion",
+        },
+      )
+      .toBeGreaterThan(0);
+  });
+
   // Coverage for Task #289: per-CTA Marketo → Chili Piper handoff from a
   // modal-form CTA button (BlockBottomCta, exemplary of every CTA block).
   // Distinct surface from the FormBlock test above — this one proves the

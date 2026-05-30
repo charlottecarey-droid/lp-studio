@@ -18,7 +18,7 @@ interface ChiliPiperButtonProps {
 export function ChiliPiperButton({ url, children, className, style }: ChiliPiperButtonProps) {
   const [open, setOpen] = useState(false);
   const submittedRef = useRef(false);
-  const { pageId, variantId, sessionId } = usePageContext();
+  const { pageId, testId, variantId, sessionId } = usePageContext();
 
   useEffect(() => {
     if (!open) return;
@@ -54,12 +54,16 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
         if (typeof l.email === "string" && l.email) fields["Email"] = l.email;
         if (typeof l.phone === "string" && l.phone) fields["Phone"] = l.phone;
       }
-      // Bail when we couldn't extract any identity AND this instance has
-      // no scheduler URL. Either condition alone is enough to prove the
-      // booking didn't originate here, so we skip writing a blank lead
-      // (which is what was filling Sentry-style noise in the leads view).
-      const hasIdentity = !!(fields["Name"] || fields["Email"] || fields["Phone"]);
-      if (!url || !hasIdentity) return;
+      // Only require that THIS instance owns a scheduler URL. The listener is
+      // already gated on the modal being open (see `if (!open) return` in the
+      // effect), so a booking confirmed here genuinely originated from this
+      // button. Do NOT also require PII: direct-scheduler bookings (the
+      // visitor types their details inside the Chili Piper iframe, with no
+      // preceding lead-capture form) frequently post a `booking-confirmed`
+      // with no lead payload, and gating on identity silently dropped every
+      // one of those — losing the lead AND the conversion. Record the booking
+      // regardless; url-less sibling instances never reach here.
+      if (!url) return;
       submittedRef.current = true;
       fields["Booking Source"] = "Chili Piper";
       fields["Chili Piper URL"] = url;
@@ -74,16 +78,23 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
         } catch { }
 
         try {
+          // Omit testId/variantId unless this page is actually rendering an
+          // A/B test variant. Hardcoding `testId: 0` violated the lp_events
+          // FK and 500'd the conversion on every plain builder page — the
+          // error was swallowed by the catch below, silently dropping the
+          // booking from funnel reports. (Same bug the modal hook already
+          // fixed by omitting the keys when there's no test.)
+          const trackBody: Record<string, unknown> = {
+            sessionId: sessionId ?? `anon-${Date.now()}`,
+            eventType: "conversion",
+            conversionType: "chilipiper_booking",
+          };
+          if (testId != null) trackBody.testId = testId;
+          if (variantId != null) trackBody.variantId = variantId;
           await fetch(`${API_BASE}/lp/track`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: sessionId ?? `anon-${Date.now()}`,
-              testId: 0,
-              variantId: variantId ?? 0,
-              eventType: "conversion",
-              conversionType: "chilipiper_booking",
-            }),
+            body: JSON.stringify(trackBody),
           });
         } catch { }
       }
@@ -91,7 +102,7 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [open, url, pageId, variantId, sessionId]);
+  }, [open, url, pageId, testId, variantId, sessionId]);
 
   const handleOpen = () => {
     submittedRef.current = false;

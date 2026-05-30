@@ -103,22 +103,23 @@ export function useChiliPiperBookingTracking({
 
       if (!isBookingConfirmed) return;
 
+      // The url-less sibling case is already excluded at the effect level
+      // (`if (!url) return` before the listener attaches), so any booking that
+      // reaches here originated from THIS instance's scheduler. Record it even
+      // when Chili Piper's postMessage carries no lead payload — direct-
+      // scheduler bookings frequently omit PII, and gating on identity
+      // silently dropped the lead AND the conversion for every one of them.
       const lead = extractLeadFromEvent(data);
-      // A real booking always carries identity. If we got nothing, this
-      // is either a stray lifecycle event or a sibling instance picking
-      // up another modal's broadcast — drop it instead of writing a
-      // blank row.
-      if (!lead?.email && !lead?.firstName && !lead?.phone) return;
       submittedRef.current = true;
 
       const fields: Record<string, string> = {};
-      if (lead.firstName && lead.lastName) {
+      if (lead?.firstName && lead?.lastName) {
         fields["Name"] = `${lead.firstName} ${lead.lastName}`.trim();
-      } else if (lead.firstName) {
+      } else if (lead?.firstName) {
         fields["Name"] = lead.firstName;
       }
-      if (lead.email) fields["Email"] = lead.email;
-      if (lead.phone) fields["Phone"] = lead.phone;
+      if (lead?.email) fields["Email"] = lead.email;
+      if (lead?.phone) fields["Phone"] = lead.phone;
       fields["Booking Source"] = "Chili Piper";
       fields["Chili Piper URL"] = url;
 

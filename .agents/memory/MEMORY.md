@@ -27,3 +27,4 @@
 - [LP-viewer one-pager framing](lp-viewer-onepager-framing.md) — one-pagers share the landing-page-viewer block pipeline; detect via `one-pager-hero` block; keep BOTH builder + linkedPage render paths in sync.
 - [vitest app.listen hangs](vitest-listen-hangs-inproc-inject.md) — vitest worker pool never fires app.listen callback; api-server route tests must use in-process inject() helper, not port+fetch.
 - [E2E Dandy-gating both paths](e2e-dandy-tenant-limit.md) — client gate=brandName (royal fixture w/ brandName:"Dandy"), server gate=slug (impersonate seeded dandy-smb + cleanup rows); both paths testable.
+- [Chili Piper booking tracking](chili-piper-booking-tracking.md) — 2 surfaces (hero ChiliPiperButton + cta-button→ChiliPiperModal hook); never gate booking recording on lead PII; only `if(!url)return`; omit testId/variantId unless a real A/B test.
