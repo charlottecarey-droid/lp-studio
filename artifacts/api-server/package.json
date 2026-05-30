@@ -22,6 +22,7 @@
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/lp-template-engine": "workspace:*",
+    "@workspace/one-pager-types": "workspace:*",
     "@workspace/plan-config": "workspace:*",
     "cheerio": "^1.2.0",
     "compression": "^1.8.1",

@@ -4,15 +4,10 @@ import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesOnePagerTemplatesTable } from "@workspace/db";
 import { isDandyTenant } from "../../lib/planFeatures";
+import { isDandyGatedBuiltin } from "@workspace/one-pager-types/constants";
 
 const requireTemplateEdit = requireAnyPermission(["sales_campaigns", "one_pager_templates"]);
 
-// Built-in one-pager templates that are too Dandy-coded to neutralize. Mirrors
-// the canonical DANDY_GATED_BUILTIN_IDS in @workspace/one-pager-types (kept as
-// a tiny local literal so the API server doesn't pull the jspdf-heavy package).
-const DANDY_GATED_BUILTIN_IDS = ["comparison", "agreement-summary"];
-const isDandyGatedBuiltin = (id: unknown): boolean =>
-  typeof id === "string" && DANDY_GATED_BUILTIN_IDS.includes(id);
 import multer from "multer";
 import { ObjectStorageService } from "../../lib/objectStorage";
 

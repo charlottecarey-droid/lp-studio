@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./constants": "./src/constants.ts",
     "./pdf": "./src/pdf.ts",
     "./generators": "./src/generators.ts"
   },

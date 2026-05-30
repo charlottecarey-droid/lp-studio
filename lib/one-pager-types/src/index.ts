@@ -71,31 +71,17 @@ export interface CustomTemplate {
   createdAt?: string;
 }
 
-export const TEMPLATE_VISIBILITY_KEY = "template_visibility";
-export const DELETED_BUILTINS_KEY = "deleted_builtin_templates";
-
-/**
- * Built-in one-pager templates that are too Dandy-coded to neutralize via
- * copy scrubbing alone. They are hidden from the template picker for
- * non-Dandy tenants and rejected on the server publish/save paths when
- * requested explicitly. (Deferred: rewriting them to be brand-agnostic.)
- */
-export const DANDY_GATED_BUILTIN_IDS = ["comparison", "agreement-summary"] as const;
-export type DandyGatedBuiltinId = (typeof DANDY_GATED_BUILTIN_IDS)[number];
-
-/** True when the given built-in id is gated to Dandy-only tenants. */
-export function isDandyGatedBuiltin(id: string | null | undefined): boolean {
-  return !!id && (DANDY_GATED_BUILTIN_IDS as readonly string[]).includes(id);
-}
-
-/**
- * Canonical client-side Dandy brand check. Neutral/non-Dandy tenants ship
- * `brandName === ""`; the two Dandy workspaces (dandy, dandy-smb) share the
- * "Dandy" brand name, so this single check covers both.
- */
-export function isDandyBrandName(brandName: string | null | undefined): boolean {
-  return (brandName ?? "").trim().toLowerCase() === "dandy";
-}
+// Dependency-free constants live in ./constants so bundles that must avoid the
+// jspdf-heavy generators (e.g. the api-server) can import them directly. They
+// are re-exported here for client/PDF consumers of the main entry point.
+export {
+  TEMPLATE_VISIBILITY_KEY,
+  DELETED_BUILTINS_KEY,
+  DANDY_GATED_BUILTIN_IDS,
+  isDandyGatedBuiltin,
+  isDandyBrandName,
+  type DandyGatedBuiltinId,
+} from "./constants";
 
 export {
   scrubBrand,

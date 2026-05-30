@@ -18,6 +18,9 @@
     },
     {
       "path": "../../lib/plan-config"
+    },
+    {
+      "path": "../../lib/one-pager-types"
     }
   ]
 }

@@ -217,6 +217,9 @@ importers:
       '@workspace/lp-template-engine':
         specifier: workspace:*
         version: link:../../lib/lp-template-engine
+      '@workspace/one-pager-types':
+        specifier: workspace:*
+        version: link:../../lib/one-pager-types
       '@workspace/plan-config':
         specifier: workspace:*
         version: link:../../lib/plan-config
