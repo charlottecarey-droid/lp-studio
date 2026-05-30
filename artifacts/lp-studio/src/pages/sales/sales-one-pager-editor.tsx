@@ -406,6 +406,11 @@ export default function SalesOnePagerEditor() {
   const [agreementFooterLinkUrl, setAgreementFooterLinkUrl] = useState<string>(
     defaultAgreementSummaryContent.footerLinkUrl ?? ""
   );
+  // Optional header (scanner) image for the agreement summary. null → use the
+  // brand-config product screenshot (Dandy default for Dandy tenants).
+  const [agreementHeaderImage, setAgreementHeaderImage] = useState<string | null>(
+    defaultAgreementSummaryContent.headerImage ?? null
+  );
 
   // Team contacts
   const [teamContacts, setTeamContacts] = useState([
@@ -524,9 +529,11 @@ export default function SalesOnePagerEditor() {
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
+      setAgreementHeaderImage(defaultAgreementSummaryContent.headerImage ?? null);
       const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout");
       if (saved) {
         if (typeof saved.headline === "string") setAgreementHeadline(saved.headline);
+        if (typeof saved.headerImage === "string" || saved.headerImage === null) setAgreementHeaderImage(saved.headerImage as string | null);
         if (typeof saved.subheadline === "string") setAgreementSubheadline(saved.subheadline);
         if (typeof saved.footer === "string") setAgreementFooter(saved.footer);
         if (Array.isArray(saved.sections)) setAgreementSections(saved.sections as AgreementSection[]);
@@ -662,6 +669,7 @@ export default function SalesOnePagerEditor() {
             headline: agreementHeadline,
             subheadline: agreementSubheadline,
             footer: agreementFooter,
+            headerImage: agreementHeaderImage,
             sections: agreementSections,
             footerContacts: agreementFooterContacts,
             headlineFontSize: agreementHeadlineFontSize,
@@ -708,6 +716,7 @@ export default function SalesOnePagerEditor() {
     agreementHeadlineMaxWidthPct, agreementLogoWidth,
     agreementShowDividers,
     agreementFooterLinkText, agreementFooterLinkUrl,
+    agreementHeaderImage,
   ]);
 
   // ── Save defaults ─────────────────────────────────────────────────
@@ -752,6 +761,7 @@ export default function SalesOnePagerEditor() {
           headline: agreementHeadline,
           subheadline: agreementSubheadline,
           footer: agreementFooter,
+          headerImage: agreementHeaderImage,
           sections: agreementSections,
           footerContacts: agreementFooterContacts,
           headlineFontSize: agreementHeadlineFontSize,
@@ -813,6 +823,7 @@ export default function SalesOnePagerEditor() {
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
+      setAgreementHeaderImage(defaultAgreementSummaryContent.headerImage ?? null);
     }
   };
 
@@ -837,6 +848,7 @@ export default function SalesOnePagerEditor() {
           headline: agreementHeadline,
           subheadline: agreementSubheadline,
           footer: agreementFooter,
+          headerImage: agreementHeaderImage,
           sections: agreementSections,
           footerContacts: agreementFooterContacts,
           headlineFontSize: agreementHeadlineFontSize,
@@ -882,6 +894,13 @@ export default function SalesOnePagerEditor() {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = () => setHeaderCfg(p => ({ ...p, headerImage: reader.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleAgreementHeaderImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAgreementHeaderImage(reader.result as string);
     reader.readAsDataURL(file);
   };
 
@@ -1349,6 +1368,21 @@ export default function SalesOnePagerEditor() {
                       min={140} max={480} step={2} unit="pt"
                       onChange={v => setAgreementHeaderHeight(v)}
                     />
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">Header Image</label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <span className="rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors">
+                          {agreementHeaderImage ? "Replace image" : "Upload image"}
+                        </span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleAgreementHeaderImageUpload} />
+                        {agreementHeaderImage && (
+                          <button onClick={() => setAgreementHeaderImage(null)} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors">Remove</button>
+                        )}
+                      </label>
+                      <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                        Shown bleeding off the top-right of the header. Leave empty to use the default scanner image from Brand Settings.
+                      </p>
+                    </div>
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Headline</label>
                       <textarea

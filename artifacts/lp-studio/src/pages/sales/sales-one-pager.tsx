@@ -434,14 +434,21 @@ export const generateAgreementSummaryOnePager = async (
   assets?: OnePagerAssets,
 ) => {
   const { logoPng, logoPath } = await loadHeaderLogo(assets);
-  // Product screenshot comes from brand config; unset → omitted (never the
-  // bundled Dandy scanner image).
-  const scannerSrc = assets?.productScreenshot ?? null;
+  // Header (scanner) image priority: editor-uploaded `content.headerImage`
+  // (data:/uploaded URL) > brand-config product screenshot (which carries the
+  // Dandy default for Dandy tenants; unset → omitted, never a Dandy bitmap for
+  // other tenants). `headerImage` is stripped from the content before handing
+  // it to the shared generator so its brand scrubber never walks the data URL.
+  const { headerImage, ...restContent } = content;
+  const scannerSrc = (headerImage ?? "").trim() || assets?.productScreenshot || null;
   const scannerPng = scannerSrc
     ? await loadImageAsBase64(scannerSrc, "image/png").catch(() => null)
     : null;
-  logOnePagerFallback("agreement-summary", null, "neutral-generated", logoPath);
-  return sharedGenerateAgreementSummaryOnePager(content, { logoPng, scannerPng, brand });
+  const scannerPath: HeaderFallbackPath = !scannerPng
+    ? "neutral-generated"
+    : (headerImage ? "tenant-uploaded" : "brand-config");
+  logOnePagerFallback("agreement-summary", null, scannerPath, logoPath);
+  return sharedGenerateAgreementSummaryOnePager(restContent, { logoPng, scannerPng, brand });
 };
 
 export const defaultAgreementSummaryContent = sharedDefaultAgreementSummaryContent;

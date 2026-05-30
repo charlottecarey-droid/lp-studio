@@ -264,6 +264,16 @@ export interface AgreementSummaryContent {
    */
   footerLinkText?: string;
   footerLinkUrl?: string;
+  /**
+   * Optional header (scanner) image shown bleeding off the top-right of the
+   * header band. This is an LP Studio editor convenience field: the LP Studio
+   * wrapper loads it and passes the result as `opts.scannerPng`. The shared
+   * generator below reads the image ONLY from `opts.scannerPng` and ignores
+   * this field. A `data:` URL (editor upload) or any resolvable URL. When
+   * unset, the wrapper falls back to the brand-config product screenshot
+   * (which carries the Dandy default for Dandy tenants).
+   */
+  headerImage?: string | null;
 }
 
 export const defaultAgreementSummaryContent: AgreementSummaryContent = {

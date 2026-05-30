@@ -1041,22 +1041,27 @@ function withAppBase(url: string | null | undefined): string | null {
 export function resolveOnePagerAssets(brand: BrandConfig): OnePagerAssets {
   const sc = brand.salesConsole ?? {};
   const headers = sc.onePagerHeaderImages ?? {};
-  // Dandy fallback: when a Dandy tenant has no explicit onePagerLogoUrl, restore
-  // the bundled Dandy header logo so existing Dandy instances keep their logo.
-  // Gated on the server-authoritative `isDandy` flag (resolved from the immutable
-  // protected tenant slug, NOT the editable brandName) so non-Dandy tenants can
-  // NEVER receive a Dandy asset — even by renaming their brand to "Dandy". Any
-  // tenant (Dandy included) can override this via salesConsole.onePagerLogoUrl.
-  const logoSrc = (sc.onePagerLogoUrl ?? "").trim()
-    || (brand.isDandy === true ? "/dandy-logo-white.svg" : "");
+  // Dandy fallbacks: when a Dandy tenant has no explicit value for a one-pager
+  // asset, restore the bundled Dandy default so existing Dandy instances keep
+  // their logo, their per-audience pilot header images, AND the agreement-
+  // summary scanner image (these used to be hardcoded before de-branding and
+  // existing Dandy tenants were never seeded). Each fallback is gated on the
+  // server-authoritative `isDandy` flag (resolved from the immutable protected
+  // tenant slug, NOT the editable brandName) so a non-Dandy tenant can NEVER
+  // receive a Dandy asset — even by renaming its brand to "Dandy". Any tenant
+  // (Dandy included) overrides these via the matching salesConsole.onePager*
+  // fields. Paths mirror scripts/src/seed-dandy-one-pager-assets.ts.
+  const isDandy = brand.isDandy === true;
+  const dandyFallback = (explicit: string | null | undefined, defaultPath: string): string =>
+    (explicit ?? "").trim() || (isDandy ? defaultPath : "");
   return {
     headerImages: {
-      executive: withAppBase(headers.executive),
-      clinical: withAppBase(headers.clinical),
-      "practice-manager": withAppBase(headers.practiceManager),
+      executive: withAppBase(dandyFallback(headers.executive, "/one-pager/ai-scan-review-news.jpg")),
+      clinical: withAppBase(dandyFallback(headers.clinical, "/one-pager/ai-scan-review-clinical.png")),
+      "practice-manager": withAppBase(dandyFallback(headers.practiceManager, "/one-pager/dandy-dso-enterprise-data.webp")),
     },
-    productScreenshot: withAppBase(sc.onePagerProductScreenshot),
-    logoUrl: withAppBase(logoSrc),
+    productScreenshot: withAppBase(dandyFallback(sc.onePagerProductScreenshot, "/one-pager/dandy-scanner-transparent.png")),
+    logoUrl: withAppBase(dandyFallback(sc.onePagerLogoUrl, "/dandy-logo-white.svg")),
   };
 }
 
