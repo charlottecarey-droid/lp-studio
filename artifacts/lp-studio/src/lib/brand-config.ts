@@ -419,6 +419,32 @@ export interface SalesConsoleConfig {
   useBuiltInExemplars?: boolean;
   customerNameRules?: string;
   valuePropPairs?: SalesConsoleValuePropPair[];
+  /**
+   * One-pager generator header images, keyed by audience. Used as the banner
+   * image at the top of each generated one-pager PDF / web one-pager for the
+   * matching audience. When a key is empty/unset, the one-pager renders a
+   * neutral generated header (brand-color block + wordmark) — it must NEVER
+   * fall back to a Dandy bitmap. Dandy's own values are populated by
+   * `scripts/src/seed-dandy-one-pager-assets.ts` so Dandy output is unchanged.
+   */
+  onePagerHeaderImages?: {
+    executive?: string;
+    clinical?: string;
+    practiceManager?: string;
+  };
+  /**
+   * Product screenshot used inside the one-pager body (e.g. the scanner /
+   * platform shot in the 90-Day Pilot template). Empty/unset → omitted or a
+   * neutral placeholder, never the Dandy scanner image.
+   */
+  onePagerProductScreenshot?: string;
+  /**
+   * Logo variant painted for the dark one-pager header surface. Empty/unset →
+   * the one-pager draws the brand wordmark instead of any bitmap logo (and
+   * never the bundled Dandy white logo). Distinct from `BrandConfig.logoUrl` /
+   * `logoUrlDark` so the sales one-pager can carry a header-specific mark.
+   */
+  onePagerLogoUrl?: string;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {

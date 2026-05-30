@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "smoke-tenant-hosts": "tsx ./src/smoke-tenant-hosts.ts",
     "seed-stripe-products": "tsx ./src/seed-stripe-products.ts",
+    "seed-dandy-one-pager-assets": "tsx ./src/seed-dandy-one-pager-assets.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
