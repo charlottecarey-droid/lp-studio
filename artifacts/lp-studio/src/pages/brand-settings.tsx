@@ -46,6 +46,7 @@ import type { FormStyling } from "@/lib/form-styling";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ImagePicker } from "@/components/ImagePicker";
 import { useBrandConfig } from "@/context/BrandConfigContext";
 import { streamBrandImportFromUrl } from "@/lib/brand-import-client";
 
@@ -1355,22 +1356,24 @@ function SalesConsoleSettings({
             <Sparkles className="w-4 h-4 text-primary" /> One-pager header logo
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Logo painted on the dark header of generated one-pager PDFs. Leave blank to fall back to your brand wordmark. Use a light/white version since it sits on a dark band.
+            Logo painted on the dark header of generated one-pager PDFs. Defaults to your brand logo — upload, browse, or paste a different one here if you want. A light/white version works best since it sits on a dark band.
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm">Logo URL</Label>
-          <Input
+          <Label className="text-sm">Logo</Label>
+          <ImagePicker
             value={sc.onePagerLogoUrl ?? ""}
-            onChange={e => patch({ onePagerLogoUrl: e.target.value })}
-            placeholder="https://… or /assets/logo-white.svg"
+            onChange={url => patch({ onePagerLogoUrl: url })}
+            placeholder="Defaults to your brand logo"
+            aiHint="One-pager header logo"
           />
-          <p className="text-xs text-muted-foreground">Paste a hosted image URL (SVG/PNG). Applies to all generated one-pagers for this workspace.</p>
-          {(sc.onePagerLogoUrl ?? "").trim() && (
-            <div className="mt-3 rounded-md border border-border bg-slate-900 p-4 flex items-center justify-center">
-              <img src={sc.onePagerLogoUrl} alt="One-pager logo preview" className="h-10 w-auto object-contain" />
+          {!(sc.onePagerLogoUrl ?? "").trim() && (config.logoUrl ?? "").trim() && (
+            <div className="mt-3 rounded-md border border-border bg-slate-900 p-4 flex flex-col items-center justify-center gap-2">
+              <img src={config.logoUrl} alt="Brand logo (default)" className="h-10 w-auto object-contain" />
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">Using your brand logo (default)</span>
             </div>
           )}
+          <p className="text-xs text-muted-foreground">Leave empty to use your brand logo automatically. Applies to all generated one-pagers for this workspace.</p>
         </div>
       </Card>
 
