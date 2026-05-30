@@ -6,7 +6,7 @@ import lpstudioLogo from "@assets/IMG_0208_1779034101365.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ExternalLink, LogOut, Building2 } from "lucide-react";
+import { ExternalLink, LogOut, Building2, Search, Sparkles, LayoutTemplate, BarChart3, ArrowRight, Loader2 } from "lucide-react";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
@@ -24,6 +24,21 @@ function GoogleIcon() {
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
   );
+}
+
+/**
+ * Kick off Google OAuth, preserving the current path + query string (e.g. the
+ * marketing-homepage prompt handoff `/pages?new=ai&prompt=…`) across the
+ * round-trip. Server-side `sanitizeNextPath` rejects anything that isn't a
+ * same-origin relative path, so this can't be turned into an open redirect.
+ */
+function continueWithGoogle() {
+  const next = window.location.pathname + window.location.search;
+  const url =
+    next && next !== "/"
+      ? `/api/auth/google?next=${encodeURIComponent(next)}`
+      : "/api/auth/google";
+  window.location.href = url;
 }
 
 /**
@@ -115,19 +130,7 @@ function SignInPanel() {
           <Button
             variant="outline"
             className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
-            onClick={() => {
-              // Preserve the current path + query string (e.g. the
-              // marketing-homepage prompt handoff `/pages?new=ai&prompt=…`)
-              // across the Google OAuth round-trip. Server-side
-              // `sanitizeNextPath` rejects anything that isn't a
-              // same-origin relative path, so this can't be turned into
-              // an open redirect.
-              const next = window.location.pathname + window.location.search;
-              const url = next && next !== "/"
-                ? `/api/auth/google?next=${encodeURIComponent(next)}`
-                : "/api/auth/google";
-              window.location.href = url;
-            }}
+            onClick={continueWithGoogle}
           >
             <GoogleIcon />
             Continue with Google
@@ -149,6 +152,228 @@ function SignInPanel() {
           The fastest way to ship landing pages that convert.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Workspace finder — lets a member of an existing workspace get to their own
+ * company's login page from the central domain. Calls the public, exact-match,
+ * rate-limited `/api/auth/find-workspace` endpoint and, on an exact hit, sends
+ * the browser to that workspace's canonical login host. On no match it shows a
+ * friendly inline message — never a list or suggestions.
+ */
+function WorkspaceFinder() {
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/auth/find-workspace?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.found && data?.url) {
+        window.location.href = data.url as string;
+        return;
+      }
+      setError("We couldn't find that workspace. Check the spelling, or ask your admin for the link.");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-4">
+      <p className="text-sm font-medium text-foreground">Already have a workspace?</p>
+      <p className="text-xs text-muted-foreground mt-0.5">
+        Find your company's login page.
+      </p>
+      <form onSubmit={handleSubmit} className="mt-3 flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); if (error) setError(""); }}
+            placeholder="Company name or workspace"
+            className="pl-8 h-10 bg-white"
+            aria-label="Company name or workspace"
+          />
+        </div>
+        <Button type="submit" variant="outline" className="h-10 shrink-0 gap-1.5 bg-white" disabled={loading || !query.trim()}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+          Find
+        </Button>
+      </form>
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Central (open-domain, `mode === "open"`) sign-in / sign-up screen. A
+ * professional split-screen: a branded LP Studio panel (tagline + product
+ * highlights over the violet→coral gradient) on the left, the auth card on the
+ * right. Collapses to a single centered column on mobile. Google remains the
+ * only identity provider — the Sign in / Sign up toggle is purely a framing
+ * device that adapts the heading/subcopy while the action stays the same.
+ *
+ * Brand/tenant-locked screens intentionally do NOT use this — they keep the
+ * minimal BrandBackdrop + SignInPanel treatment.
+ */
+const OPEN_HIGHLIGHTS = [
+  { icon: Sparkles, title: "AI-built, on-brand", desc: "Describe a page and get a polished, on-brand draft in minutes." },
+  { icon: LayoutTemplate, title: "Templates & microsites", desc: "Launch landing pages, microsites, and one-pagers from a shared library." },
+  { icon: BarChart3, title: "Convert & measure", desc: "A/B test, capture leads, and track what's working — all in one place." },
+];
+
+function OpenSignInScreen() {
+  const [mode, setMode] = useState<"signup" | "signin">("signup");
+  const isSignup = mode === "signup";
+
+  return (
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-background">
+      {/* ── Left: branded LP Studio panel (desktop only) ───────────────── */}
+      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[hsl(258_70%_24%)] via-[hsl(262_60%_30%)] to-[hsl(14_70%_42%)] px-12 py-14 text-white">
+        {/* Decorative blurred blobs + faint grid, purely visual */}
+        <div aria-hidden className="pointer-events-none absolute -top-32 -left-24 h-[420px] w-[420px] rounded-full bg-white/10 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-24 h-[460px] w-[460px] rounded-full bg-[hsl(14_88%_64%/0.35)] blur-3xl" />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+            backgroundSize: "36px 36px",
+          }}
+        />
+
+        <div className="relative z-10 flex items-center gap-3">
+          <img src={lpstudioLogo} alt="" className="h-11 w-11 rounded-xl shadow-lg ring-1 ring-white/20" />
+          <span className="text-lg font-semibold tracking-tight">LP Studio</span>
+        </div>
+
+        <div className="relative z-10 max-w-md">
+          <h2 className="text-3xl font-semibold leading-tight tracking-tight">
+            The AI revenue workspace for landing pages that convert.
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-white/80">
+            LP Studio is where marketing and sales teams build on-brand landing
+            pages, microsites, and outreach in minutes — no brief, no dev queue,
+            no design bottleneck.
+          </p>
+
+          <ul className="mt-8 space-y-5">
+            {OPEN_HIGHLIGHTS.map(({ icon: Icon, title, desc }) => (
+              <li key={title} className="flex gap-3.5">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/20">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-medium">{title}</p>
+                  <p className="text-xs leading-relaxed text-white/70">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative z-10 text-xs text-white/60">
+          © {new Date().getFullYear()} LP Studio
+        </p>
+      </div>
+
+      {/* ── Right: auth card column ─────────────────────────────────────── */}
+      <div className="relative flex items-center justify-center px-4 py-10 sm:px-8">
+        {/* Soft tinted backdrop on mobile so the page never reads as a bare card */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#f5f3ff] via-white to-[#fff5f1] lg:hidden"
+        />
+        <div className="relative z-10 w-full max-w-md space-y-7">
+          {/* Mobile logo (the branded panel is hidden < lg) */}
+          <img src={lpstudioLogo} alt="LP Studio" className="mx-auto h-12 w-12 rounded-xl shadow-sm lg:hidden" />
+
+          {/* Sign in / Sign up toggle */}
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setMode("signup")}
+              aria-pressed={isSignup}
+              className={`h-9 rounded-lg text-sm font-medium transition-colors ${
+                isSignup ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Sign up
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              aria-pressed={!isSignup}
+              className={`h-9 rounded-lg text-sm font-medium transition-colors ${
+                !isSignup ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Log in
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-border/80 bg-white shadow-[0_24px_60px_-24px_rgba(88,28,135,0.25)] px-7 py-8 space-y-6">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                {isSignup ? "Create your workspace" : "Welcome back"}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                {isSignup
+                  ? "Start building landing pages in minutes — it's free to get started."
+                  : "Log in to your LP Studio workspace to keep building."}
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
+              onClick={continueWithGoogle}
+            >
+              <GoogleIcon />
+              Continue with Google
+            </Button>
+
+            <p className="text-center text-xs text-muted-foreground">
+              {isSignup ? (
+                <>
+                  Already have an account?{" "}
+                  <button type="button" onClick={() => setMode("signin")} className="font-medium text-primary hover:underline">
+                    Log in
+                  </button>
+                </>
+              ) : (
+                <>
+                  New to LP Studio?{" "}
+                  <button type="button" onClick={() => setMode("signup")} className="font-medium text-primary hover:underline">
+                    Create a workspace
+                  </button>
+                </>
+              )}
+            </p>
+
+            <WorkspaceFinder />
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            By continuing you agree to LP Studio's{" "}
+            <a href="https://lpstudio.ai/terms" className="hover:text-foreground underline-offset-2 hover:underline">Terms</a>{" "}
+            and{" "}
+            <a href="https://lpstudio.ai/privacy" className="hover:text-foreground underline-offset-2 hover:underline">Privacy Policy</a>.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -277,6 +502,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
+    // Central (open) domain — professional split-screen sign-up / log-in.
+    // Tenant-locked / microsite hosts keep the minimal backdrop + card.
+    if (domainContext?.mode === "open") {
+      return <OpenSignInScreen />;
+    }
     return (
       <BrandBackdrop>
         <SignInPanel />

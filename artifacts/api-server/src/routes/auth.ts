@@ -76,6 +76,17 @@ const passwordAuthLimiter = rateLimit({
   message: { error: "Too many sign-in attempts. Please try again later." },
 });
 
+// Strict rate limit for the public workspace finder: 15 lookups per IP per
+// minute. The finder is exact-match only and never lists/enumerates, but we
+// still cap it tightly to blunt brute-force tenant-existence probing.
+const findWorkspaceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many lookups. Please try again in a minute." },
+});
+
 export const SESSION_COOKIE = "lp_sid";
 // 7-day TTL. All three res.cookie() calls below pass maxAge: SESSION_TTL_MS so
 // the cookie persists across browser restarts (not just for the browser session).
@@ -1053,6 +1064,94 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     res.json(data);
   } catch (err) {
     console.error("[auth] /domain-context error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Local slugify mirroring the client CreateWorkspaceForm slugify so a typed
+// company name resolves to the same slug shape we generate at signup.
+function slugifyQuery(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+// GET /api/auth/find-workspace?q=... — public workspace finder.
+// Resolves an EXACT typed company name or workspace slug to that workspace's
+// canonical login host so a member of an existing workspace can get to their
+// own login page from the central domain.
+//
+// Security (see task #495 security note): exact-match only — no listing, no
+// fuzzy/partial/autocomplete results — strictly rate-limited, and only enabled
+// on the open/central domain so it can't be abused from a tenant-locked host.
+// The response carries only { found, host?, url? } and never any other tenant
+// metadata, so the worst a caller learns is "this exact workspace exists, here
+// is its login host" or "not found".
+router.get("/auth/find-workspace", findWorkspaceLimiter, async (req, res): Promise<void> => {
+  // Never let any finder response (positive OR negative) be cached by
+  // intermediaries — results are tenant-state dependent and security-sensitive.
+  res.set("Cache-Control", "no-store");
+  try {
+    // Only expose on the open/central domain. If the request host resolves to
+    // a specific tenant (tenant-locked admin host or microsite), the finder is
+    // off and we return a generic 404 rather than reveal it exists.
+    const requestHost = getRequestHost(req);
+    if (requestHost) {
+      const hostMatch = await findTenantByHost(requestHost);
+      if (hostMatch) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+    }
+
+    const raw = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (!raw || raw.length > 200) {
+      res.json({ found: false });
+      return;
+    }
+
+    // Build a small set of EXACT slug candidates: the raw text lowercased, a
+    // slugified version of it, and (when the user pasted a host/URL) the
+    // wildcard subdomain. Slugs are unique, so at most one tenant can match.
+    const lower = raw.toLowerCase();
+    const hostCandidate = lower.replace(/^https?:\/\//, "").split("/")[0].split(":")[0];
+    const slugCandidates = new Set<string>();
+    const addCandidate = (s: string | null | undefined) => { if (s) slugCandidates.add(s); };
+    addCandidate(lower);
+    addCandidate(slugifyQuery(raw));
+    addCandidate(extractWildcardSlug(hostCandidate));
+
+    const result = await pool.query<{ slug: string | null; domain: string | null; name: string | null }>(
+      `SELECT slug, domain, name FROM tenants
+        WHERE status = 'active' AND (lower(slug) = ANY($1::text[]) OR lower(name) = $2)`,
+      [Array.from(slugCandidates), lower],
+    );
+
+    // Prefer a slug match (unique). Fall back to an exact, case-insensitive
+    // name match only when it is unambiguous — if multiple workspaces share a
+    // name, return not-found rather than guess or reveal a list.
+    let match = result.rows.find(r => r.slug && slugCandidates.has(r.slug.toLowerCase())) ?? null;
+    if (!match) {
+      const nameMatches = result.rows.filter(r => (r.name ?? "").toLowerCase() === lower);
+      if (nameMatches.length === 1) match = nameMatches[0];
+    }
+    if (!match) {
+      res.json({ found: false });
+      return;
+    }
+
+    const host = getCanonicalTenantHost({ slug: match.slug, domain: match.domain });
+    if (!host) {
+      res.json({ found: false });
+      return;
+    }
+    res.json({ found: true, host, url: `https://${host}` });
+  } catch (err) {
+    console.error("[auth] /find-workspace error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
