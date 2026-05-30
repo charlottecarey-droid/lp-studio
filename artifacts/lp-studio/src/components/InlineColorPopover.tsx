@@ -55,13 +55,28 @@ const FALLBACK_SWATCHES: BrandSwatch[] = [
   { name: "Rose", value: "#E11D48" },
 ];
 
+// De-duplicate recents case-insensitively (keeps first/most-recent casing),
+// so the same color can't appear twice and collide as a React key.
+function dedupeRecents(list: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of list) {
+    const key = v.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+}
+
 function loadRecents(): string[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(RECENTS_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : null;
     if (Array.isArray(parsed)) {
-      return parsed.filter((v): v is string => typeof v === "string").slice(0, MAX_RECENTS);
+      const strings = parsed.filter((v): v is string => typeof v === "string");
+      return dedupeRecents(strings).slice(0, MAX_RECENTS);
     }
   } catch {
     // Storage may be disabled (private mode, quota); recents simply won't persist.
@@ -107,7 +122,7 @@ export function InlineColorPopover({
   const apply = (value: string) => {
     onPick(value);
     if (value && !value.startsWith("var(")) {
-      const next = [value, ...recents.filter((v) => v !== value)].slice(0, MAX_RECENTS);
+      const next = dedupeRecents([value, ...recents]).slice(0, MAX_RECENTS);
       setRecents(next);
       saveRecents(next);
     }
@@ -165,9 +180,9 @@ export function InlineColorPopover({
                 Recent
               </p>
               <div style={swatchGridStyle}>
-                {recents.map((v) => (
+                {recents.map((v, i) => (
                   <button
-                    key={v}
+                    key={`${v.toLowerCase()}-${i}`}
                     type="button"
                     title={v}
                     onMouseDown={(e) => e.preventDefault()}
