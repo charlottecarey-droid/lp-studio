@@ -26,12 +26,15 @@ unvalidated admin-create plan input both let new tenants get free Growth forever
   webhook must all resolve to canonical plans only; reject/ coerce anything else.
 - A source-scan guardrail test fails if `?? "trial"` or `.default("trial")` reappears
   in production source — keep it green/blocking.
-- Test fixtures may still insert `plan='trial'` on purpose to exercise the legacy
-  read-normalization alias; that is not a production path — leave them.
-- CAVEAT (observed): a DB `CHECK tenants_plan_canonical_check` now rejects
-  `plan='trial'` at insert time, so the `royal-tenant.ts` e2e fixture (defaults to
-  `plan='trial'`) fails its tenant INSERT — this reds out ~24 e2e specs that share
-  that fixture, independent of any feature work. If you see `tenants_plan_canonical_check`
-  violations in e2e, it's this fixture/constraint mismatch, not your change.
+- Test fixtures can NO LONGER insert `plan='trial'`: a DB `CHECK
+  tenants_plan_canonical_check` (canonical set only) now rejects it at insert
+  time. The shared e2e fixture `createRoyalTenant` (`royal-tenant.ts`) still
+  defaults to `plan ?? "trial"`, so its tenant INSERT fails and any spec that
+  seeds a tenant without an explicit canonical plan reds out in `beforeAll` with
+  a "violates check constraint tenants_plan_canonical_check" error — that failure
+  skips every test in the describe block (~24 e2e specs share this fixture). If
+  you see `tenants_plan_canonical_check` violations in e2e, it's this
+  fixture/constraint mismatch, not your change. Pass an explicit `plan: "growth"`
+  (what trial normalizes to) at the callsite, or fix the helper default.
 - Going-forward-only: existing accounts are not retro-enrolled; Dandy
   (`dandy`/`dandy-smb`) is always enterprise and excluded from any `trial→free` cleanup.

@@ -223,6 +223,11 @@ test.describe("Workspace finder — open sign-in screen", () => {
     tenant = await createRoyalTenant(pool, {
       uniqueSuffix: `finder-${suffix}`,
       domain: targetHost,
+      // createRoyalTenant defaults to the legacy plan="trial", which the
+      // tenants_plan_canonical_check constraint now rejects (trials are a
+      // date-window, never a stored plan). Pass an explicit canonical plan so
+      // this spec's setup is independent of that stale default.
+      plan: "growth",
     });
     // The finder's host-resolution check reads the in-process tenant cache;
     // drop it so the freshly seeded tenant is visible immediately.
@@ -286,6 +291,68 @@ test.describe("Workspace finder — open sign-in screen", () => {
     await expect(
       page.getByRole("heading", { name: "Create your workspace" }),
     ).toBeVisible();
+
+    await ctx.close();
+  });
+
+  test("debounced live suggestions appear as you type, without pressing Find", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await stubLoggedOut(page, OPEN_CTX);
+    await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+
+    const input = page.getByLabel("Company name or workspace");
+    await expect(input).toBeVisible({ timeout: 30_000 });
+    // Typing the known slug surfaces a live suggestion row — we never click
+    // Find. The exact hit is rendered as a selectable option (it does NOT
+    // auto-navigate mid-type).
+    await input.fill(tenant.slug);
+
+    const option = page.getByRole("option");
+    await expect(option.first()).toBeVisible({ timeout: 15_000 });
+    await expect(option.first()).toContainText(targetHost);
+
+    // Still on the open sign-in screen — typing alone must not navigate.
+    expect(page.url().startsWith(APP)).toBe(true);
+    await expect(
+      page.getByRole("heading", { name: "Create your workspace" }),
+    ).toBeVisible();
+
+    await ctx.close();
+  });
+
+  test("keyboard navigation (arrow + enter) selects a live suggestion and navigates", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await stubLoggedOut(page, OPEN_CTX);
+    await page.route(`https://${targetHost}/**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<html><body>Workspace login</body></html>",
+      }),
+    );
+    await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+
+    const input = page.getByLabel("Company name or workspace");
+    await expect(input).toBeVisible({ timeout: 30_000 });
+    await input.fill(tenant.slug);
+
+    const firstOption = page.getByRole("option").first();
+    await expect(firstOption).toBeVisible({ timeout: 15_000 });
+
+    // ArrowDown highlights the first option (aria-selected flips), Enter
+    // follows it to the workspace's canonical URL.
+    await input.press("ArrowDown");
+    await expect(firstOption).toHaveAttribute("aria-selected", "true");
+    await input.press("Enter");
+
+    await page.waitForURL(`https://${targetHost}/`, { timeout: 15_000 });
+    expect(page.url()).toBe(`https://${targetHost}/`);
 
     await ctx.close();
   });

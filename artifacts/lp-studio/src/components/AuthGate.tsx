@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -176,50 +176,184 @@ interface WorkspaceSuggestion {
   url: string;
 }
 
+// Minimum typed length before we fire a live suggestion lookup, and how long to
+// wait after the last keystroke. The finder endpoint is strictly rate-limited
+// (15 lookups/IP/min), so we debounce generously and only fire once the user
+// pauses — typical typing stays well under the cap.
+const FINDER_MIN_QUERY_LEN = 2;
+const FINDER_DEBOUNCE_MS = 350;
+
+// Normalize the finder response into a clean WorkspaceSuggestion[]. An exact hit
+// (`found: true`) is surfaced as a single selectable row rather than auto-
+// navigating mid-type; a near-miss returns the ranked `suggestions` array.
+function parseFinderSuggestions(data: unknown, typed: string): WorkspaceSuggestion[] {
+  const d = (data ?? {}) as {
+    found?: boolean;
+    host?: unknown;
+    url?: unknown;
+    suggestions?: unknown;
+  };
+  if (d.found && typeof d.url === "string") {
+    return [{ name: typed, host: typeof d.host === "string" ? d.host : "", url: d.url }];
+  }
+  return Array.isArray(d.suggestions)
+    ? (d.suggestions as unknown[]).filter(
+        (s): s is WorkspaceSuggestion =>
+          !!s &&
+          typeof (s as WorkspaceSuggestion).url === "string" &&
+          typeof (s as WorkspaceSuggestion).name === "string",
+      )
+    : [];
+}
+
 function WorkspaceFinder() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<WorkspaceSuggestion[]>([]);
+  // -1 = nothing highlighted; keyboard arrows move through the live list.
+  const [activeIndex, setActiveIndex] = useState(-1);
+  // Monotonic request id so a slow in-flight live lookup can't overwrite the
+  // results of a newer keystroke.
+  const liveSeq = useRef(0);
+  // Pending debounce timer, so an explicit Find (or Escape) can cancel a not-
+  // yet-fired live lookup instead of letting it fire a redundant request.
+  const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last completed lookup, keyed by the exact trimmed query. handleSubmit reuses
+  // it when the query is unchanged so a "type, pause, then click Find" flow
+  // costs ONE request, not two — the finder endpoint is tightly rate-limited.
+  const lastLookup = useRef<{ q: string; exactUrl: string | null; suggestions: WorkspaceSuggestion[] } | null>(null);
+
+  const NOT_FOUND_MSG =
+    "We couldn't find that workspace. Check the spelling, or ask your admin for the link.";
 
   function clearResults() {
     if (error) setError("");
     if (suggestions.length) setSuggestions([]);
+    setActiveIndex(-1);
+  }
+
+  // Live (debounced) suggestions as the user types. Failures — including a 429
+  // from the rate limiter — fail quiet here: we just don't show live results
+  // and leave the explicit Find button (handleSubmit) to surface any message.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < FINDER_MIN_QUERY_LEN) {
+      setActiveIndex(-1);
+      setSuggestions([]);
+      return;
+    }
+    const seq = ++liveSeq.current;
+    liveTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/find-workspace?q=${encodeURIComponent(q)}`);
+        if (seq !== liveSeq.current) return; // a newer keystroke won the race
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as { found?: boolean; url?: unknown };
+        if (seq !== liveSeq.current) return;
+        const next = parseFinderSuggestions(data, q);
+        const exactUrl = data?.found && typeof data.url === "string" ? data.url : null;
+        lastLookup.current = { q, exactUrl, suggestions: next };
+        setSuggestions(next);
+        setActiveIndex(-1);
+      } catch {
+        /* network hiccup — stay silent while typing */
+      }
+    }, FINDER_DEBOUNCE_MS);
+    return () => {
+      if (liveTimer.current) clearTimeout(liveTimer.current);
+    };
+  }, [query]);
+
+  function selectSuggestion(s: WorkspaceSuggestion) {
+    window.location.href = s.url;
+  }
+
+  // Cancel any pending/in-flight live lookup so it can't fire a redundant
+  // request or repopulate the list after an explicit action.
+  function cancelLiveLookup() {
+    if (liveTimer.current) clearTimeout(liveTimer.current);
+    liveSeq.current++;
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!suggestions.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setSuggestions([]);
+      setActiveIndex(-1);
+      cancelLiveLookup();
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim();
     if (!q || loading) return;
+    // If a suggestion is highlighted, Enter selects it instead of re-querying.
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      selectSuggestion(suggestions[activeIndex]);
+      return;
+    }
+    // Reuse a fresh live result for this exact query — the debounced lookup has
+    // almost always already run by the time the user clicks Find, so this
+    // avoids a second hit on the rate-limited endpoint.
+    const cached = lastLookup.current;
+    if (cached && cached.q === q) {
+      cancelLiveLookup();
+      if (cached.exactUrl) {
+        selectSuggestion({ name: q, host: "", url: cached.exactUrl });
+        return;
+      }
+      if (cached.suggestions.length) {
+        setSuggestions(cached.suggestions);
+        setActiveIndex(-1);
+        return;
+      }
+      setSuggestions([]);
+      setError(NOT_FOUND_MSG);
+      return;
+    }
     setLoading(true);
     setError("");
-    setSuggestions([]);
+    // freeze live updates while the explicit lookup runs
+    cancelLiveLookup();
     try {
       const res = await fetch(`/api/auth/find-workspace?q=${encodeURIComponent(q)}`);
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.found && data?.url) {
+        lastLookup.current = { q, exactUrl: data.url as string, suggestions: [] };
         window.location.href = data.url as string;
         return;
       }
-      const nextSuggestions = Array.isArray(data?.suggestions)
-        ? (data.suggestions as unknown[]).filter(
-            (s): s is WorkspaceSuggestion =>
-              !!s &&
-              typeof (s as WorkspaceSuggestion).url === "string" &&
-              typeof (s as WorkspaceSuggestion).name === "string",
-          )
-        : [];
+      const nextSuggestions = parseFinderSuggestions(data, q);
+      if (res.ok) lastLookup.current = { q, exactUrl: null, suggestions: nextSuggestions };
       if (res.ok && nextSuggestions.length) {
         setSuggestions(nextSuggestions);
+        setActiveIndex(-1);
         return;
       }
-      setError("We couldn't find that workspace. Check the spelling, or ask your admin for the link.");
+      setSuggestions([]);
+      setError(NOT_FOUND_MSG);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   }
+
+  const listboxId = "workspace-finder-suggestions";
+  const hasSuggestions = suggestions.length > 0;
 
   return (
     <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-4">
@@ -232,10 +366,19 @@ function WorkspaceFinder() {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={query}
-            onChange={(e) => { setQuery(e.target.value); clearResults(); }}
+            onChange={(e) => { setQuery(e.target.value); if (error) setError(""); }}
+            onKeyDown={handleKeyDown}
             placeholder="Company name or workspace"
             className="pl-8 h-10 bg-white"
             aria-label="Company name or workspace"
+            role="combobox"
+            aria-expanded={hasSuggestions}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+            }
+            autoComplete="off"
           />
         </div>
         <Button type="submit" variant="outline" className="h-10 shrink-0 gap-1.5 bg-white" disabled={loading || !query.trim()}>
@@ -243,15 +386,23 @@ function WorkspaceFinder() {
           Find
         </Button>
       </form>
-      {suggestions.length > 0 && (
+      {hasSuggestions && (
         <div className="mt-3">
           <p className="text-xs text-muted-foreground">Did you mean:</p>
-          <ul className="mt-1.5 flex flex-col gap-1.5">
-            {suggestions.map((s) => (
-              <li key={s.url}>
+          <ul id={listboxId} role="listbox" className="mt-1.5 flex flex-col gap-1.5">
+            {suggestions.map((s, i) => (
+              <li key={s.url} role="presentation">
                 <a
+                  id={`${listboxId}-option-${i}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
                   href={s.url}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-white px-3 py-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40"
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+                    i === activeIndex
+                      ? "border-primary/50 bg-muted/40"
+                      : "border-border/70 bg-white hover:border-primary/50 hover:bg-muted/40"
+                  }`}
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-foreground">{s.name}</span>
