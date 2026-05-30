@@ -1,0 +1,186 @@
+Replit Prompt — SEO Robots Controls (Tenant + Page Level)
+Add two boolean controls per scope (tenant-default + page-override) that drive a <meta name="robots"> tag on published pages:
+
+Allow search engines and LLMs to index this page — when off, emits noindex
+Let search engines follow links on this page — when off, emits nofollow
+
+Mirror Mutiny's UX pattern: each page-level checkbox shows "Using company default" when the page hasn't overridden the tenant-level setting. Three-state per page: null = inherit tenant, true = force allow, false = force deny.
+This is a companion to the custom-html-injection prompt (replit-prompt-custom-html-injection.md) — both features add to the same prerender pipeline and share UI infrastructure (settings page nav, page properties panel). They're scoped as separate prompts because:
+
+Robots controls are simple meta tags, no security implications, free for all tiers
+Custom HTML is raw script injection, admin-only, plan-gated
+
+Ship together or sequentially — no blocking dependency between them.
+
+Why this matters for LP Studio specifically
+ABM is the primary use case. Account-personalized microsites (e.g. "Zoom for Salesforce") generally should NOT be indexed by Google — they're 1:1 personalized pages, not public marketing. Today LP Studio has no way to set this — every published page is implicitly index/follow, which means tenant microsites can accidentally surface in search results for prospect company names. Embarrassing at best, leaks at worst.
+The fix is small and table-stakes for any landing-page tool. Webflow, Unbounce, Mutiny, Framer all have it.
+
+The prompt
+
+Task: Add tenant-level and page-level robots meta tag controls
+Context
+Today every published landing page is implicitly index,follow to search engines (no explicit <meta name="robots"> tag means default index+follow behavior). For an ABM tool that publishes account-personalized microsites, this is wrong — those pages shouldn't appear in Google for the prospect's company name. Admins need a way to set a tenant-wide default and override per page.
+Reference UI Charlotte wants to replicate (Mutiny pattern):
+
+Two checkboxes per scope: "Allow search engines and LLMs to index this page" + "Let search engines follow links on this page"
+Page-level checkboxes show "Using company default" sub-text when the page is inheriting
+Tenant-level settings live in a "SEO" section (or similar) in tenant settings
+Page-level settings live in the existing page properties panel alongside meta_title / meta_description / og_image
+
+Before writing any code, please:
+
+Read the publish + meta-injection path to confirm where the new meta tag should land:
+
+artifacts/api-server/src/lib/injectPageMeta.ts — this is where <title>, <meta name="description">, og tags, twitter tags are injected today. The new <meta name="robots"> slots in alongside them. Quote the existing meta-tag injection helpers (around lines 100-200, but read the whole file to be sure).
+Confirm: the function takes a PageMetaInput shape (line ~23) and rewrites the rendered HTML. We'll extend that shape with two new optional booleans + a tenant-default-resolution step upstream.
+
+
+Show me the page properties UI where meta_title / meta_description / og_image are bound today. The new robots checkboxes go in this same panel.
+Show me the tenant settings architecture. Confirm whether to add the tenant defaults to an existing SEO-adjacent settings page (if one exists) or create a new "SEO" settings page under artifacts/lp-studio/src/pages/settings/. Mirror existing structure.
+Confirm lp_pages schema — show me the columns alongside meta_title, meta_description, og_image so the two new robots columns slot in naturally.
+Confirm tenant settings storage (likely lp_brand_settings.config JSONB per the prior investigation). The two tenant-level booleans nest under whichever shape matches existing conventions — seo: { allowIndexing: boolean; allowFollowing: boolean } is fine.
+Propose the architecture per the spec below. Wait for my OK before implementing.
+
+
+Step 1 — Schema additions
+lp_pages table — add two NULLABLE boolean columns. NULL means "inherit tenant default":
+sqlallow_indexing  BOOLEAN,  -- NULL = inherit, true = index, false = noindex
+allow_following BOOLEAN   -- NULL = inherit, true = follow, false = nofollow
+NULLABLE is intentional — it's the three-state semantics the UI needs ("Using company default" when null). Don't add defaults at the DB level; the application resolves NULL → tenant default at render time.
+Tenant config — add two NON-NULL boolean fields under whichever JSONB shape matches existing convention. Recommend nesting under a seo key:
+ts// BrandConfig (or wherever tenant config lives)
+seo?: {
+  allowIndexing: boolean;   // tenant default
+  allowFollowing: boolean;  // tenant default
+};
+Important: dual-default pattern. The defaults differ for migration vs. new-tenant creation:
+
+Migration of existing tenants: default both to true. No behavior change — existing tenants' pages keep being indexable exactly as they are today. Their current behavior is "no robots meta tag → implicit index+follow"; the new fields set to true preserve that exactly.
+New tenants going forward: default both to false (noindex, nofollow). LP Studio is primarily an ABM tool; the typical first page a new tenant publishes is an account-personalized microsite (e.g. "Zoom for Salesforce") and those should not appear in public search results for the prospect's brand name. Safer-by-default. Admins flip indexing on for evergreen pages or for tenant-wide indexing.
+
+Find the tenant-creation code path (probably in artifacts/api-server/src/routes/admin.ts or wherever new tenants are provisioned — grep for tenant INSERT or db.insert(tenantsTable)) and seed seo: { allowIndexing: false, allowFollowing: false } into the new tenant's brand config at creation. For the migration on existing tenants, write true/true into every row.
+Document the dual-default loudly in code comments next to both code paths so a future engineer doesn't "fix" the inconsistency by aligning them.
+
+Step 2 — Resolution helper
+Add a single helper to compute the effective robots state:
+ts// In a shared lib (e.g. lib/seo/robots.ts or alongside injectPageMeta.ts)
+export function resolveRobotsMeta(opts: {
+  pageAllowIndexing: boolean | null;
+  pageAllowFollowing: boolean | null;
+  tenantAllowIndexing: boolean;
+  tenantAllowFollowing: boolean;
+}): { indexing: boolean; following: boolean } {
+  return {
+    indexing: opts.pageAllowIndexing ?? opts.tenantAllowIndexing,
+    following: opts.pageAllowFollowing ?? opts.tenantAllowFollowing,
+  };
+}
+
+/** Produces a robots meta-tag content string, or null if no tag is needed
+ *  (i.e. both indexing and following are true — the implicit default).
+ *  Returns "noindex", "nofollow", or "noindex,nofollow" when an override
+ *  is needed. Never emits "index" or "follow" — those are implicit. */
+export function robotsMetaContent(state: { indexing: boolean; following: boolean }): string | null {
+  const parts: string[] = [];
+  if (!state.indexing)  parts.push("noindex");
+  if (!state.following) parts.push("nofollow");
+  return parts.length ? parts.join(",") : null;
+}
+Pure functions, easy to unit test, no I/O. Reused by both the prerender path and the live SPA usePageMeta hook.
+
+Step 3 — Inject in the prerender path
+Extend artifacts/api-server/src/lib/injectPageMeta.ts:
+
+Add allowIndexing: boolean | null and allowFollowing: boolean | null to PageMetaInput.
+Add tenantAllowIndexing: boolean and tenantAllowFollowing: boolean to PageMetaInput (passed in by the caller from the tenant's brand config).
+After the existing meta-tag rewriting, compute resolveRobotsMeta(...) → robotsMetaContent(...). If non-null, inject <meta name="robots" content="${content}"> into <head> using the same upsert pattern the existing meta tags use (replace if present, create if missing). If null, do nothing (default behavior is implicit index+follow; no tag needed).
+
+Wire triggerPublishedRender.ts to pull tenantAllowIndexing / tenantAllowFollowing from the brand config when assembling the PageMetaInput payload. Resolution stays inside injectPageMeta so the helper has all four inputs.
+
+Step 4 — Live SPA: extend usePageMeta hook
+The SPA's usePageMeta hook (referenced in artifacts/lp-studio/src/marketing/pages/home.tsx:28 for the marketing site — the published-page version likely lives under artifacts/lp-studio/src/hooks/ or similar; grep for usePageMeta) sets <title> and meta tags during SPA render. Extend it to also set <meta name="robots"> using the same resolution helper.
+This is for parity — injectPageMeta is the source of truth for the static R2 file visitors see, but the SPA needs to set the same tag during in-app preview so the builder reflects the truth. Same helper, same resolution.
+
+Step 5 — UI: Page properties panel
+In the page properties panel (where meta_title / meta_description / og_image bind today), add a new "Search engine settings" section with two tri-state checkboxes:
+
+Allow search engines and LLMs to index this page — checked when page value is true, unchecked when false, indeterminate (–) when null
+Let search engines follow links on this page — same tri-state
+
+Each checkbox renders sub-text below:
+
+When the page value is null: "Using company default ({tenant value resolved to 'allowed' or 'not allowed'})"
+When the page value is true or false: "Overriding company default" (with a small "Reset to default" link that sets the value back to null)
+
+Pattern reference: shadcn Checkbox already supports an indeterminate state. Use it. Don't roll a custom three-state widget.
+
+Step 6 — UI: Tenant-level SEO settings
+Add tenant defaults to a settings page. Two options:
+
+(preferred) If there's already an SEO-adjacent settings area, add a "Search engine indexing" section to it with two simple boolean checkboxes (no tri-state, no inheritance) + help text:
+
+"These defaults apply to all published pages in your account. Individual pages can override them in page settings. For ABM/account-personalized pages — the most common use case — we keep these off by default so personalized microsites don't appear in public search results for your prospect's brand name. Turn on for evergreen marketing pages or tenant-wide indexing."
+
+
+(fallback) If no SEO settings page exists, add one under artifacts/lp-studio/src/pages/settings/SeoPage.tsx. Mirror file structure of GeneralPage.tsx. Add to settings nav as "SEO."
+
+If the custom-html-injection prompt also ships, the new "Custom HTML" settings page and the new "SEO" settings page are siblings under settings nav. Don't merge them — they're different concerns.
+No plan gating. No admin role gating beyond "can edit tenant settings" (which any editor role already has). These are table-stakes SEO controls — make them available to everyone.
+
+Cross-cutting
+
+Backward compat: all new fields are NULL or default to TRUE. Existing pages render identically (no <meta name="robots"> tag emitted because effective state is index+follow). No behavior change on migration.
+No microsites in v1: same scope boundary as custom-html-injection. Microsites use a separate publish path; adding robots controls there is a small follow-up.
+Page preview vs published: the SPA hook (usePageMeta) sets the robots tag during in-app builder preview using the same resolution helper. Builder preview shows the truth.
+Observability: log every publish with { tenant_id, page_id, resolved_indexing, resolved_following, source: "tenant_default" | "page_override" } so we can see usage patterns post-launch.
+Sitemap: if LP Studio generates a sitemap.xml for any tenant pages, exclude noindex pages from it. Find the sitemap generator (grep sitemap) and add the filter. If no sitemap generation exists today, no action needed.
+OG image / social previews unaffected: noindex only affects search engines. Facebook/LinkedIn/Twitter share previews still work because they fetch the page directly via og: tags. Document this in code comments so a future maintainer doesn't get confused.
+
+
+Test plan
+
+Tenant default off, page inherits: tenant sets allowIndexing=false. Page with allow_indexing = NULL → rendered HTML contains <meta name="robots" content="noindex">.
+Tenant default on, page overrides off: tenant allowIndexing=true. Page sets allow_indexing = false → rendered HTML contains <meta name="robots" content="noindex">.
+Tenant default off, page overrides on: tenant allowIndexing=false. Page sets allow_indexing = true → rendered HTML contains NO robots meta tag (implicit index+follow when both resolved values are true).
+Both off: tenant allowIndexing=false, allowFollowing=false → all inheriting pages emit <meta name="robots" content="noindex,nofollow">.
+Existing-tenant migration default (both true, page null): existing tenants and pages render no robots meta tag (no behavior change from today). Specifically: run the migration against a snapshot of production, then publish a page that existed before the migration — confirm zero diff in rendered HTML vs pre-migration.
+New-tenant default (created post-migration): signup a new tenant via the standard tenant-creation path, publish a page → rendered HTML contains <meta name="robots" content="noindex,nofollow"> with no per-page override. Confirms the new-tenant default is noindex,nofollow and the migration default (true/true) is NOT applied to new tenants.
+UI tri-state: page checkbox shows indeterminate state with "Using company default (allowed)" sub-text when value is null. Clicking it once sets to false ("Overriding company default"); clicking again sets to true; clicking "Reset to default" link sets back to null.
+Publish re-render: changing tenant-level defaults triggers re-render of all published pages. Page-level changes trigger re-render of only that page.
+SPA preview parity: builder preview reflects the same robots state as the published page (open page in builder, view source, confirm robots tag matches).
+
+
+Quality bar (when to ship)
+
+All 9 test cases pass.
+Default behavior unchanged for every existing tenant + page (migration writes true/true into existing rows).
+New tenants created post-migration default to noindex,nofollow and emit the robots meta tag on every published page until an admin explicitly opts in.
+Tri-state UI clearly indicates inheritance vs override.
+Helper functions (resolveRobotsMeta, robotsMetaContent) are pure and unit-tested.
+<meta name="robots"> tag is emitted only when needed (never the redundant <meta name="robots" content="index,follow">).
+Documented in code that this controls only crawler behavior, not social/share previews.
+Code comments at both the migration site and the tenant-creation site explicitly note the dual-default pattern and why (avoid future engineer "aligning" them and breaking either existing customers or the new-tenant safety default).
+Sitemap (if it exists) excludes noindex pages.
+
+
+
+Why this is the right scope
+1. Three-state nullable column for page-level, not boolean. A nullable column is the simplest way to model "use tenant default unless explicitly overridden." A boolean with a separate _isOverridden flag is more brittle and harder to migrate. NULL semantics let the resolution helper stay one line (?? tenantDefault).
+2. No meta tag when default. Don't emit <meta name="robots" content="index,follow"> — that's the implicit default and adding a redundant tag clutters the HTML. Only emit the tag when at least one override is needed. Cleaner output, smaller bytes, no SEO downside.
+3. No plan gating. Robots controls are table-stakes SEO. Every CMS has them free. Gating them behind a paid tier looks petty and would surprise customers who expect basic SEO controls in any landing-page tool. The cost to LP Studio is zero (small boolean fields, tiny meta tag injection); gate something else.
+What this prompt explicitly doesn't do
+
+No JSON-LD structured data. Mutiny includes a JSON-LD editor + AI-regenerate-on-publish feature in the same UI panel. For LP Studio v1, this is over-scoped — ABM microsites are noindex'd anyway, so JSON-LD provides no value for the primary use case. For evergreen marketing pages it has real SEO upside, but it's not table-stakes. Add when a customer asks. The Mutiny AI-generation feature is a nice differentiator but it's a meaningful project on its own (page-intent inference, schema selection, content extraction).
+No microsite robots controls. Same scope boundary as custom-html-injection.
+No per-page sitemap exclusion controls. Implicit — noindex pages get filtered from the sitemap automatically. If admins want page-level sitemap visibility separate from indexing, that's a v1.1 follow-up.
+No <meta name="googlebot"> or <meta name="bingbot"> per-crawler controls. Generic name="robots" covers every major crawler. Per-crawler overrides are advanced SEO and not requested.
+No noarchive, nosnippet, max-snippet, noimageindex controls. Future feature if anyone asks. The two checkboxes Mutiny exposes cover 99% of the use case.
+
+What to expect from Replit's plan-back
+
+Confirmation of the meta-tag injection pattern in injectPageMeta.ts (existing helpers + where the new robots tag slots in).
+Schema migration plan for the two nullable columns + the tenant JSONB addition.
+Tri-state UI pattern (shadcn Checkbox indeterminate state) confirmed working.
+The sitemap filter check — does LP Studio generate sitemaps today, and if so where?
+Settings page placement decision (existing SEO area vs new SeoPage.tsx).
