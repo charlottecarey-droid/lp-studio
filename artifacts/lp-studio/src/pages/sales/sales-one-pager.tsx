@@ -28,6 +28,7 @@ import {
   type AgreementContact,
   type BrandContext,
 } from "@workspace/one-pager-types/generators";
+import { ImagePicker } from "@/components/ImagePicker";
 
 // =============================================
 // LAYOUT DEFAULTS (API with localStorage fallback)
@@ -498,6 +499,11 @@ const SalesOnePager = () => {
     qrFallbackUrl: brandQrFallback || "",
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
+    // Thread the tenant's brand colors so the shared generators derive their
+    // dark bands / accents from these instead of Dandy's green/lime. Dandy
+    // (brandContext === undefined) keeps its hard-coded palette unchanged.
+    primaryColor: (brand.primaryColor || "").trim(),
+    accentColor: (brand.accentColor || "").trim(),
   };
   const oneAssets = resolveOnePagerAssets(brand);
 
@@ -1230,23 +1236,76 @@ const SalesOnePager = () => {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {customEditableFields.map(f => (
-                    <div key={f.id}>
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                        {f.salesLabel || f.label}
-                      </label>
-                      <input
-                        type={f.type === "qr_code" || f.type === "link" ? "url" : "text"}
-                        value={customFieldValues[f.id] ?? ""}
-                        onChange={(e) => setCustomFieldValues(p => ({ ...p, [f.id]: e.target.value }))}
-                        placeholder={f.defaultValue || ""}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-                      />
-                      {f.salesHelpText && (
-                        <p className="text-[10px] text-muted-foreground mt-1">{f.salesHelpText}</p>
-                      )}
-                    </div>
-                  ))}
+                  {customEditableFields.map(f => {
+                    const isUrl = f.type === "qr_code" || f.type === "link";
+                    const isImage = f.type === "logo";
+                    // Image/logo fields → ImagePicker; the chosen URL flows into
+                    // customFieldValues[f.id] which the custom PDF reads as the
+                    // field's logo source (resolveValue in pdf.ts).
+                    if (isImage) {
+                      return (
+                        <div key={f.id} className="md:col-span-2">
+                          <ImagePicker
+                            label={f.salesLabel || f.label}
+                            value={customFieldValues[f.id] ?? ""}
+                            onChange={(url) => setCustomFieldValues(p => ({ ...p, [f.id]: url }))}
+                            placeholder={f.defaultValue || ""}
+                            aiHint={f.salesLabel || f.label}
+                          />
+                          {f.salesHelpText && (
+                            <p className="text-[10px] text-muted-foreground mt-1">{f.salesHelpText}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    // URL fields stay single-line URL inputs (no char counter).
+                    if (isUrl) {
+                      return (
+                        <div key={f.id}>
+                          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                            {f.salesLabel || f.label}
+                          </label>
+                          <input
+                            type="url"
+                            value={customFieldValues[f.id] ?? ""}
+                            onChange={(e) => setCustomFieldValues(p => ({ ...p, [f.id]: e.target.value }))}
+                            placeholder={f.defaultValue || ""}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          />
+                          {f.salesHelpText && (
+                            <p className="text-[10px] text-muted-foreground mt-1">{f.salesHelpText}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    // Text fields → fixed-size textarea with a live char counter
+                    // and an enforced maxLength (from the template editor).
+                    const maxLen = f.salesMaxLength && f.salesMaxLength > 0 ? f.salesMaxLength : 120;
+                    const curLen = (customFieldValues[f.id] ?? "").length;
+                    return (
+                      <div key={f.id} className="md:col-span-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            {f.salesLabel || f.label}
+                          </label>
+                          <span className={`text-[10px] tabular-nums ${curLen >= maxLen ? "text-destructive" : "text-muted-foreground"}`}>
+                            {curLen}/{maxLen}
+                          </span>
+                        </div>
+                        <textarea
+                          rows={3}
+                          maxLength={maxLen}
+                          value={customFieldValues[f.id] ?? ""}
+                          onChange={(e) => setCustomFieldValues(p => ({ ...p, [f.id]: e.target.value }))}
+                          placeholder={f.defaultValue || ""}
+                          className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        />
+                        {f.salesHelpText && (
+                          <p className="text-[10px] text-muted-foreground mt-1">{f.salesHelpText}</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

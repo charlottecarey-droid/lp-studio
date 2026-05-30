@@ -89,6 +89,13 @@ export interface BrandContext {
   agreementName?: string;
   /** Agreement document URL. */
   agreementUrl?: string;
+  /** Tenant brand PRIMARY color (hex, e.g. "#0F3D2E"). When supplied (non-Dandy
+   *  tenants) the generators derive their dark band / panel fills and on-light
+   *  text from it instead of Dandy's hard-coded green. Empty/absent → Dandy. */
+  primaryColor?: string;
+  /** Tenant brand ACCENT color (hex). When supplied, replaces Dandy's lime for
+   *  accent fills, pills, and on-dark highlight text. Empty/absent → Dandy. */
+  accentColor?: string;
 }
 
 export const DEFAULT_BRAND_CONTEXT: Required<BrandContext> = {
@@ -100,6 +107,8 @@ export const DEFAULT_BRAND_CONTEXT: Required<BrandContext> = {
   qrFallbackUrl: "https://meetdandy.com",
   agreementName: "Dandy Practice Agreement",
   agreementUrl: "https://meetdandy.com/practice-agreement",
+  primaryColor: "",
+  accentColor: "",
 };
 
 function resolveBrand(b?: BrandContext): Required<BrandContext> {
@@ -113,6 +122,103 @@ function resolveBrand(b?: BrandContext): Required<BrandContext> {
     qrFallbackUrl: b.qrFallbackUrl ?? DEFAULT_BRAND_CONTEXT.qrFallbackUrl,
     agreementName: b.agreementName ?? DEFAULT_BRAND_CONTEXT.agreementName,
     agreementUrl: b.agreementUrl ?? DEFAULT_BRAND_CONTEXT.agreementUrl,
+    primaryColor: b.primaryColor ?? DEFAULT_BRAND_CONTEXT.primaryColor,
+    accentColor: b.accentColor ?? DEFAULT_BRAND_CONTEXT.accentColor,
+  };
+}
+
+// ── Brand palette ──────────────────────────────────────────────────────
+// The built-in generators were authored against Dandy's fixed green/lime
+// palette. For non-Dandy tenants we derive an equivalent palette from their
+// BrandConfig primary/accent colors, with contrast-safe text choices so a
+// poorly-contrasting brand color never makes text unreadable. When no brand
+// colors are supplied (Dandy / legacy callers) the palette is byte-identical
+// to the original constants — Dandy output never changes.
+type RGB = [number, number, number];
+
+const _hexToRgb = (hex: string): RGB => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
+};
+const _relLum = ([r, g, b]: RGB): number => {
+  const f = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+const _contrast = (a: RGB, c: RGB): number => {
+  const l1 = _relLum(a), l2 = _relLum(c);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+};
+const _darken = ([r, g, b]: RGB, f: number): RGB => [Math.round(r * f), Math.round(g * f), Math.round(b * f)];
+const _lighten = ([r, g, b]: RGB, f: number): RGB => [Math.round(r + (255 - r) * f), Math.round(g + (255 - g) * f), Math.round(b + (255 - b) * f)];
+
+interface BrandPalette {
+  primary: RGB;          // dark brand band fill (was darkGreen)
+  primaryMid: RGB;       // lighter panel fill (was midGreen)
+  primaryDeep: RGB;      // deepest vignette band (was [0,48,38])
+  primaryAlt: RGB;       // header fallback bg (was [20,50,40])
+  accent: RGB;           // bright accent fill (was lime)
+  accentBorder: RGB;     // accent-ish card border (was [180,200,60])
+  primaryOnLight: RGB;   // primary used as TEXT on light bg (was darkGreen text)
+  accentOnDark: RGB;     // accent used as TEXT on the primary band (was lime text)
+  onPrimaryMuted: RGB;   // light muted tint on primary band (was [180,210,195])
+  onPrimaryMuted2: RGB;  // lighter muted tint on primary band (was [200,215,210])
+  checkColor: RGB;       // checkmark stroke on light bg (was [0,80,60])
+}
+
+const DANDY_PALETTE: BrandPalette = {
+  primary: darkGreen,
+  primaryMid: midGreen,
+  primaryDeep: [0, 48, 38],
+  primaryAlt: [20, 50, 40],
+  accent: lime,
+  accentBorder: [180, 200, 60],
+  primaryOnLight: darkGreen,
+  accentOnDark: lime,
+  onPrimaryMuted: [180, 210, 195],
+  onPrimaryMuted2: [200, 215, 210],
+  checkColor: [0, 80, 60],
+};
+
+function resolvePalette(b?: BrandContext): BrandPalette {
+  const primaryHex = (b?.primaryColor ?? "").trim();
+  const accentHex = (b?.accentColor ?? "").trim();
+  // No brand colors → exact Dandy palette (byte-identical legacy output).
+  if (!primaryHex && !accentHex) return DANDY_PALETTE;
+
+  const primary = primaryHex ? _hexToRgb(primaryHex) : darkGreen;
+  const accent = accentHex ? _hexToRgb(accentHex) : lime;
+
+  // primary used as TEXT on a light (offWhite/white) surface — darken until it
+  // reads, so a light brand primary doesn't make stat values unreadable.
+  let primaryOnLight = primary;
+  let guard = 0;
+  while (_contrast(primaryOnLight, white) < 4.5 && guard++ < 16) primaryOnLight = _darken(primaryOnLight, 0.85);
+
+  // accent used as TEXT/marks on the primary band — keep if it reads, else
+  // lighten; if still poor, fall back to white.
+  let accentOnDark = accent;
+  guard = 0;
+  while (_contrast(accentOnDark, primary) < 3 && guard++ < 16) accentOnDark = _lighten(accentOnDark, 0.18);
+  if (_contrast(accentOnDark, primary) < 3) accentOnDark = white;
+
+  // Light muted tints rendered ON the primary band (subtitles, separators).
+  let onPrimaryMuted = _lighten(primary, 0.72);
+  if (_contrast(onPrimaryMuted, primary) < 2.2) onPrimaryMuted = white;
+  let onPrimaryMuted2 = _lighten(primary, 0.8);
+  if (_contrast(onPrimaryMuted2, primary) < 2.2) onPrimaryMuted2 = white;
+
+  return {
+    primary,
+    primaryMid: _lighten(primary, 0.12),
+    primaryDeep: _darken(primary, 0.85),
+    primaryAlt: _lighten(primary, 0.1),
+    accent,
+    accentBorder: accent,
+    primaryOnLight,
+    accentOnDark,
+    onPrimaryMuted,
+    onPrimaryMuted2,
+    checkColor: primaryOnLight,
   };
 }
 
@@ -314,6 +420,7 @@ export const generateAgreementSummaryOnePager = async (
   opts?: { logoPng?: string | null; scannerPng?: string | null; brand?: BrandContext },
 ): Promise<jsPDF> => {
   const b = resolveBrand(opts?.brand);
+  const pal = resolvePalette(opts?.brand);
   // Scrub any Dandy-specific strings out of the content (headline,
   // subheadline, section bodies, footer text, footerLinkText/Url) so a
   // non-Dandy tenant gets fully neutralized PDF text.
@@ -343,16 +450,16 @@ export const generateAgreementSummaryOnePager = async (
   // headline on the left, scanner image bleeding off the top-right.
   // Height is user-tunable; clamped to keep the page useable.
   const headerH = clamp(content.headerHeight ?? 290, 140, 480);
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.rect(0, 0, w, headerH, "F");
 
   // Soft radial-ish vignette from the right (the actual PDF has a halo
   // around the scanner). Build it with a few overlapping mid-green bands so
   // the seam between dark and mid green is gradual rather than a hard edge.
-  doc.setFillColor(...midGreen);
+  doc.setFillColor(...pal.primaryMid);
   doc.rect(w * 0.62, 0, w * 0.38, headerH, "F");
   // Slightly darker overlay on the very right edge for depth
-  doc.setFillColor(0, 48, 38);
+  doc.setFillColor(...pal.primaryDeep);
   doc.rect(w * 0.86, 0, w * 0.14, headerH, "F");
 
   // Scanner image top-right (transparent PNG bleeds to the right edge).
@@ -510,7 +617,7 @@ export const generateAgreementSummaryOnePager = async (
   // ── Footer band ──────────────────────────────────────────────────────
   // Geometry was computed up-front so the section row layout reserved
   // exactly this much space — here we just paint the band and text.
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.rect(0, h - dynamicFooterH, w, dynamicFooterH, "F");
 
   // Legal text — centred near the top of the band.
@@ -687,6 +794,7 @@ export const generatePilotOnePager = async (
   const headerImgData = (hCfg.headerImage as string | undefined) ?? opts?.headerImgData ?? null;
   const checkboxImgData = opts?.checkboxImgData ?? null;
   const b = resolveBrand(opts?.brand);
+  const pal = resolvePalette(opts?.brand);
   // Scrub all Dandy-specific copy out of the user-supplied audience content
   // (subtitle, introText, checklist[], features[].title/description) so a
   // non-Dandy tenant sees fully neutralized PDF text.
@@ -695,7 +803,7 @@ export const generatePilotOnePager = async (
   const headerH = (hCfg.height as number | undefined) ?? 280;
   const splitX = w * (((hCfg.splitRatio as number | undefined) ?? 48) / 100);
 
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.rect(0, 0, splitX, headerH, "F");
 
   if (headerImgData) {
@@ -703,14 +811,14 @@ export const generatePilotOnePager = async (
     const croppedHeader = await cropImage(headerImgData, w - splitX, headerH, cropAnchor);
     doc.addImage(croppedHeader, "JPEG", splitX, 0, w - splitX, headerH);
   } else {
-    doc.setFillColor(20, 50, 40);
+    doc.setFillColor(...pal.primaryAlt);
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
   drawBrandLogo(doc, margin, 50, logoPng, 80, 28, b.wordmark);
 
   const logoEndX = margin + 90;
-  doc.setDrawColor(180, 210, 195);
+  doc.setDrawColor(...pal.onPrimaryMuted);
   doc.setLineWidth(0.75);
   doc.line(logoEndX, 50, logoEndX, 78);
 
@@ -738,7 +846,7 @@ export const generatePilotOnePager = async (
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11);
-  doc.setTextColor(200, 215, 210);
+  doc.setTextColor(...pal.onPrimaryMuted2);
   const subLines = doc.splitTextToSize(content.subtitle, splitX - margin - 20);
   doc.text(subLines, margin, 220 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
@@ -749,8 +857,10 @@ export const generatePilotOnePager = async (
   doc.setFont("helvetica", "bold");
   doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 16);
   doc.setTextColor(...textDark);
+  const headlineText = ((bCfg.headlineText as string | undefined) ?? "").trim()
+    || "Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.";
   const headlineLines = doc.splitTextToSize(
-    scrubBrand("Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.", opts?.brand),
+    scrubBrand(headlineText, opts?.brand),
     contentW
   );
   doc.text(headlineLines, w / 2 + offsetX, y, { align: "center", maxWidth: contentW });
@@ -772,7 +882,7 @@ export const generatePilotOnePager = async (
     const leftColW = contentW * 0.42;
     const rightColX = margin + contentW * 0.48;
     const rightColW = contentW * 0.52;
-    const checkGreen: [number, number, number] = [0, 80, 60];
+    const checkGreen: [number, number, number] = pal.checkColor;
     const checkFontSize = (bCfg.checklistFontSize as number | undefined) ?? 9;
     const checkSpacing = (bCfg.checklistSpacing as number | undefined) ?? 10;
     const showDividers = (bCfg.checklistShowDividers as boolean | undefined) ?? false;
@@ -782,7 +892,10 @@ export const generatePilotOnePager = async (
 
     const checkHeadingFontSize = (bCfg.checklistHeadingFontSize as number | undefined) ?? 10;
     doc.setFont("helvetica", "bold"); doc.setFontSize(checkHeadingFontSize); doc.setTextColor(...textDark);
-    doc.text("How to get the most out of this pilot:", margin, y);
+    doc.text(
+      ((bCfg.checklistHeadingText as string | undefined) ?? "").trim() || "How to get the most out of this pilot:",
+      margin, y,
+    );
     let checkY = y + 20;
     content.checklist.forEach((item, idx) => {
       if (checkboxImgData) {
@@ -844,7 +957,7 @@ export const generatePilotOnePager = async (
         y -= 20;
         drawSep(doc, margin, y, contentW, lineColor);
         y += 30;
-        doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...lime);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...pal.accentOnDark);
         doc.text("\u201C", margin, y + 7);
         const quoteText = (bCfg.quoteText as string | undefined) ?? `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
         const quoteFontSize = (bCfg.quoteFontSize as number | undefined) ?? 9.5;
@@ -898,13 +1011,13 @@ export const generatePilotOnePager = async (
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
-    doc.setFillColor(...darkGreen);
+    doc.setFillColor(...pal.primary);
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
     if (footerText) doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 20 : 28), { align: "center" });
     if (customLinkText?.trim() && customLinkUrl?.trim()) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(180, 210, 195);
+      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...pal.onPrimaryMuted);
       doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 38, { url: customLinkUrl });
     }
   }
@@ -968,6 +1081,7 @@ export const generateComparisonOnePager = async (
     : defaultComparisonRows) as Array<{ capability: string; then: string; now: string }>;
   const activeRows = scrubBrandDeep(rawRows, opts?.brand);
   const b = resolveBrand(opts?.brand);
+  const pal = resolvePalette(opts?.brand);
   const rawStats = (opts?.layoutOverrides?.stats?.length
     ? opts.layoutOverrides.stats
     : defaultComparisonStats) as Array<{ value: string; label: string }>;
@@ -979,7 +1093,7 @@ export const generateComparisonOnePager = async (
   const headerH = (hCfg.height as number | undefined) ?? 200;
   const splitX = w * (((hCfg.splitRatio as number | undefined) ?? 55) / 100);
 
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.rect(0, 0, splitX, headerH, "F");
 
   if (headerImgData) {
@@ -987,7 +1101,7 @@ export const generateComparisonOnePager = async (
     const croppedHeader = await cropImage(headerImgData, w - splitX, headerH, cropAnchor);
     doc.addImage(croppedHeader, "JPEG", splitX, 0, w - splitX, headerH);
   } else {
-    doc.setFillColor(20, 50, 40);
+    doc.setFillColor(...pal.primaryAlt);
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
@@ -995,7 +1109,7 @@ export const generateComparisonOnePager = async (
 
   if (prospectLogoData) {
     const logoEndX = margin + 80;
-    doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
+    doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
     doc.line(logoEndX, 22, logoEndX, 46);
     try {
       const pScale = Math.max(0.3, Math.min(3, (hCfg.prospectLogoScale as number | undefined) ?? 1));
@@ -1007,7 +1121,7 @@ export const generateComparisonOnePager = async (
     } catch { }
   } else if (dsoName) {
     const logoEndX = margin + 80;
-    doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
+    doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
     doc.line(logoEndX, 22, logoEndX, 46);
     doc.setFont("helvetica", "italic");
     doc.setFontSize(dsoName.length > 15 ? 11 : 14);
@@ -1021,7 +1135,7 @@ export const generateComparisonOnePager = async (
   doc.setFont("helvetica", "normal"); doc.setFontSize(titleSize); doc.setTextColor(...white);
   doc.text("Stronger Systems.", margin, 90);
   doc.text("Better Outcomes.", margin, 90 + titleLineH);
-  doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(200, 215, 210);
+  doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(...pal.onPrimaryMuted2);
   const subLines = doc.splitTextToSize(`See how ${b.productName} has matured to deliver more consistent clinical performance across practices.`, splitX - margin - 20);
   doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
@@ -1031,12 +1145,12 @@ export const generateComparisonOnePager = async (
   const tableHeaderH = (bCfg.compTableHeaderHeight as number | undefined) ?? 28;
   const tableHeaderFontSize = (bCfg.compTableHeaderFontSize as number | undefined) ?? 8;
 
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.roundedRect(margin, y, contentW, tableHeaderH, 4, 4, "F");
   doc.rect(margin, y + 4, contentW, tableHeaderH - 4, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(tableHeaderFontSize); doc.setTextColor(180, 200, 190);
   doc.text("CAPABILITY", margin + 12, y + tableHeaderH * 0.65);
-  doc.setTextColor(...lime); doc.text(`${b.productName.toUpperCase()} 2022`, margin + col1W + 12, y + tableHeaderH * 0.65);
+  doc.setTextColor(...pal.accentOnDark); doc.text(`${b.productName.toUpperCase()} 2022`, margin + col1W + 12, y + tableHeaderH * 0.65);
   doc.text(`${b.productName.toUpperCase()} TODAY`, margin + col1W + col2W + 12, y + tableHeaderH * 0.65);
   y += tableHeaderH;
 
@@ -1048,7 +1162,7 @@ export const generateComparisonOnePager = async (
     doc.setFillColor(...bgColor);
     if (isLast) { doc.roundedRect(margin, y, contentW, rowH, 4, 4, "F"); doc.rect(margin, y, contentW, rowH - 4, "F"); }
     else { doc.rect(margin, y, contentW, rowH, "F"); }
-    doc.setFont("helvetica", "bold"); doc.setFontSize(tableFontSize); doc.setTextColor(...darkGreen);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(tableFontSize); doc.setTextColor(...pal.primaryOnLight);
     const capLines = doc.splitTextToSize(row.capability, col1W - 24);
     doc.text(capLines, margin + 12, y + rowH * 0.35);
     doc.setFont("helvetica", "normal"); doc.setFontSize(tableFontSize); doc.setTextColor(...subtleText);
@@ -1069,8 +1183,8 @@ export const generateComparisonOnePager = async (
   stats.forEach((stat, i) => {
     const sx = margin + (statW + statGap) * i;
     doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
-    doc.setFillColor(...lime); doc.roundedRect(sx, y, statW, 3, 3, 3, "F"); doc.rect(sx, y + 2, statW, 2, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(statValueSize); doc.setTextColor(...darkGreen);
+    doc.setFillColor(...pal.accent); doc.roundedRect(sx, y, statW, 3, 3, 3, "F"); doc.rect(sx, y + 2, statW, 2, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(statValueSize); doc.setTextColor(...pal.primaryOnLight);
     doc.text(stat.value, sx + statW / 2, y + statH * 0.4, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(statLabelSize); doc.setTextColor(...textMuted);
     const labelLines = doc.splitTextToSize(stat.label, statW - 24);
@@ -1114,12 +1228,12 @@ export const generateComparisonOnePager = async (
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
-    doc.setFillColor(...darkGreen); doc.rect(0, footerY, w, footerH, "F");
+    doc.setFillColor(...pal.primary); doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
     if (footerText) doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 16 : 24), { align: "center" });
     if (customLinkText?.trim() && customLinkUrl?.trim()) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(180, 210, 195);
+      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...pal.onPrimaryMuted);
       doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 28, { url: customLinkUrl });
     }
   }
@@ -1180,6 +1294,7 @@ export const generateNewPartnerOnePager = async (
   const fCfg = opts?.layoutOverrides?.footerCfg ?? {};
 
   const b = resolveBrand(opts?.brand);
+  const pal = resolvePalette(opts?.brand);
   const rawContent = opts?.content ?? {};
   // Scrub any Dandy literals out of caller-supplied content before use.
   const content = scrubBrandDeep(rawContent, opts?.brand);
@@ -1197,7 +1312,7 @@ export const generateNewPartnerOnePager = async (
   const headerH = (hCfg.height as number | undefined) ?? 280;
   const splitX = w * (((hCfg.splitRatio as number | undefined) ?? 55) / 100);
 
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.rect(0, 0, splitX, headerH, "F");
 
   if (headerImgData) {
@@ -1205,7 +1320,7 @@ export const generateNewPartnerOnePager = async (
     const croppedHeader = await cropImage(headerImgData, w - splitX, headerH, cropAnchor);
     doc.addImage(croppedHeader, "JPEG", splitX, 0, w - splitX, headerH);
   } else {
-    doc.setFillColor(20, 50, 40);
+    doc.setFillColor(...pal.primaryAlt);
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
@@ -1218,7 +1333,7 @@ export const generateNewPartnerOnePager = async (
   const logoOffX = (hCfg.partnerLogoOffsetX as number | undefined) ?? 0;
   const logoOffY = (hCfg.partnerLogoOffsetY as number | undefined) ?? 0;
   if (prospectLogoData) {
-    doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
+    doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
     doc.line(logoSepX, 20, logoSepX, 50);
     try {
       const maxW = 70 * logoScale, maxH = 26 * logoScale;
@@ -1229,7 +1344,7 @@ export const generateNewPartnerOnePager = async (
       doc.addImage(prospectLogoData, format, logoSepX + 10 + logoOffX, 35 - lh / 2 + logoOffY, lw, lh);
     } catch { }
   } else if (dsoName) {
-    doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
+    doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
     doc.line(logoSepX, 20, logoSepX, 50);
     doc.setFont("helvetica", "italic"); doc.setFontSize(10); doc.setTextColor(...white);
     doc.text(dsoName, logoSepX + 10 + logoOffX, 38 + logoOffY);
@@ -1237,7 +1352,7 @@ export const generateNewPartnerOnePager = async (
 
   const subtitleFontSize = (hCfg.subtitleFontSize as number | undefined) ?? 12;
   const subtitleOffY = (hCfg.subtitleOffsetY as number | undefined) ?? 0;
-  doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(200, 215, 210);
+  doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(...pal.onPrimaryMuted2);
   doc.text(`${b.productName} & ${dsoName}:`, margin, 65 + subtitleOffY);
   const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
   doc.setFont("helvetica", "bold"); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
@@ -1259,7 +1374,7 @@ export const generateNewPartnerOnePager = async (
   const cardGap = 14;
   const cardW = (contentW - cardGap) / 2;
   const cardH = 90;
-  const cardBorderColor: [number, number, number] = [180, 200, 60];
+  const cardBorderColor: [number, number, number] = pal.accentBorder;
   const cardBorderW = 3;
   const cardOffWhite: [number, number, number] = [240, 240, 236];
 
@@ -1295,7 +1410,7 @@ export const generateNewPartnerOnePager = async (
   }
   y += 2 * (cardH + cardGap) + 28;
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(...darkGreen);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
   doc.text(`See what ${b.productName} doctors are saying:`, margin, y);
   y += 28;
 
@@ -1308,7 +1423,7 @@ export const generateNewPartnerOnePager = async (
   stats.forEach((stat, i) => {
     const sx = margin + (statW + statGap) * i;
     doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(statValueFs); doc.setTextColor(...darkGreen);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(statValueFs); doc.setTextColor(...pal.primaryOnLight);
     doc.text(stat.value, sx + statW / 2, y + 45, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(statDescFs); doc.setTextColor(...textMuted);
     const statDesc = stat.desc;
@@ -1354,9 +1469,10 @@ export const generateROIOnePager = async (
   const logoPng = opts?.logoPng ?? null;
   const headerImgData = (hCfg.headerImage as string | undefined) ?? opts?.headerImgData ?? null;
   const b = resolveBrand(opts?.brand);
+  const pal = resolvePalette(opts?.brand);
 
   const headerH = (hCfg.height as number | undefined) ?? 160;
-  doc.setFillColor(...darkGreen);
+  doc.setFillColor(...pal.primary);
   doc.rect(0, 0, w, headerH, "F");
 
   if (headerImgData) {
@@ -1366,7 +1482,7 @@ export const generateROIOnePager = async (
     const imgH = headerH, imgW = imgH * imgAspect;
     const imgX = w - imgW;
     doc.addImage(headerImgData, format, imgX, 0, imgW, imgH);
-    doc.setFillColor(...darkGreen);
+    doc.setFillColor(...pal.primary);
     doc.rect(0, 0, imgX + imgW * 0.05, headerH, "F");
   }
 
@@ -1381,12 +1497,12 @@ export const generateROIOnePager = async (
   doc.text(dsoName, margin + ampWidth, titleY);
   const subtitleText = (hCfg.subtitleText as string | undefined) ?? "Your custom partnership overview — built for scale, savings & growth";
   const subtitleY = Math.round(headerH * 0.8);
-  doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11); doc.setTextColor(180, 210, 195);
+  doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);
   doc.text(subtitleText, margin, subtitleY);
 
   let y = headerH + 28;
   const metricsH = 70;
-  doc.setFillColor(...midGreen); doc.roundedRect(margin, y, contentW, metricsH, 6, 6, "F");
+  doc.setFillColor(...pal.primaryMid); doc.roundedRect(margin, y, contentW, metricsH, 6, 6, "F");
 
   const practices = numPractices;
   const apptsSavedYear = Math.round(22.5 * practices * 12);
@@ -1406,7 +1522,7 @@ export const generateROIOnePager = async (
   metrics.forEach((m, i) => {
     const cx = margin + colW * i + colW / 2;
     if (i > 0) { doc.setDrawColor(60, 90, 80); doc.setLineWidth(0.5); doc.line(margin + colW * i, y + 16, margin + colW * i, y + metricsH - 16); }
-    doc.setFont("helvetica", "normal"); doc.setFontSize(16); doc.setTextColor(...lime); doc.text(m.value, cx, y + 31, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(16); doc.setTextColor(...pal.accentOnDark); doc.text(m.value, cx, y + 31, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text(m.label, cx, y + 45, { align: "center" });
   });
   y += metricsH + 28;
@@ -1424,9 +1540,9 @@ export const generateROIOnePager = async (
   caseStudies.forEach((cs, i) => {
     const px = margin + (pillarW + gap) * i;
     doc.setFillColor(...offWhite); doc.roundedRect(px, y, pillarW, pillarH, 6, 6, "F");
-    doc.setFillColor(...lime); doc.roundedRect(px, y, pillarW, 3, 3, 3, "F"); doc.rect(px, y + 2, pillarW, 2, "F");
+    doc.setFillColor(...pal.accent); doc.roundedRect(px, y, pillarW, 3, 3, 3, "F"); doc.rect(px, y + 2, pillarW, 2, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...subtleText); doc.text(cs.org.toUpperCase(), px + 16, y + 22);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(26); doc.setTextColor(...darkGreen); doc.text(cs.stat, px + 16, y + 54);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(26); doc.setTextColor(...pal.primaryOnLight); doc.text(cs.stat, px + 16, y + 54);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...subtleText);
     const labelLines = doc.splitTextToSize(cs.statLabel, pillarW - 32); doc.text(labelLines, px + 16, y + 68);
     drawSep(doc, px + 16, y + 86, pillarW - 32, [220, 220, 215]);
@@ -1442,7 +1558,7 @@ export const generateROIOnePager = async (
 
   // Next steps
   doc.setFillColor(...offWhite); doc.roundedRect(margin, y, contentW, 105, 6, 6, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...darkGreen); doc.text("Recommended Next Step: Risk-Free Pilot", margin + 20, y + 24);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...pal.primaryOnLight); doc.text("Recommended Next Step: Risk-Free Pilot", margin + 20, y + 24);
   const pilotItems = [
     "Start with 5–10 locations — no long-term commitment required",
     "Measure remake reduction, chair time recovered, and revenue lift in real time",
@@ -1452,7 +1568,7 @@ export const generateROIOnePager = async (
   let pilotY = y + 44;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9);
   pilotItems.forEach((item) => {
-    doc.setFillColor(...lime); doc.circle(margin + 30, pilotY - 3, 3, "F");
+    doc.setFillColor(...pal.accent); doc.circle(margin + 30, pilotY - 3, 3, "F");
     doc.setTextColor(...textMuted); doc.text(item, margin + 42, pilotY); pilotY += 16;
   });
   y += 105 + 20;
@@ -1460,7 +1576,7 @@ export const generateROIOnePager = async (
   // Quote block fills remaining page height
   const footerH = 36;
   const quoteBlockH = h - footerH - y - 20;
-  doc.setFillColor(...midGreen); doc.roundedRect(margin, y, contentW, quoteBlockH, 6, 6, "F");
+  doc.setFillColor(...pal.primaryMid); doc.roundedRect(margin, y, contentW, quoteBlockH, 6, 6, "F");
   doc.setFont("helvetica", "italic"); doc.setFontSize(9.5);
   const bottomQuote = `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
   const bqLines = doc.splitTextToSize(bottomQuote, contentW - 110);
@@ -1468,14 +1584,14 @@ export const generateROIOnePager = async (
   const attrH2 = 12; const quoteMarkH = 24; const gapBetween = 10;
   const totalContentH = quoteMarkH + quoteTextH + gapBetween + attrH2;
   const contentStartY = y + (quoteBlockH - totalContentH) / 2;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(40); doc.setTextColor(...lime); doc.text("\u201C", margin + 24, contentStartY + quoteMarkH + 19);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(40); doc.setTextColor(...pal.accentOnDark); doc.text("\u201C", margin + 24, contentStartY + quoteMarkH + 19);
   doc.setFont("helvetica", "italic"); doc.setFontSize(9.5); doc.setTextColor(...white); doc.text(bqLines, margin + 50, contentStartY + quoteMarkH);
   const attrY = contentStartY + quoteMarkH + quoteTextH + gapBetween - 11;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...lime); doc.text("Dr. Tania Arthur", margin + 50, attrY);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(180, 210, 195); doc.text("  —  Oasis Modern Dentistry", margin + 50 + doc.getTextWidth("Dr. Tania Arthur "), attrY);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...pal.accentOnDark); doc.text("Dr. Tania Arthur", margin + 50, attrY);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...pal.onPrimaryMuted); doc.text("  —  Oasis Modern Dentistry", margin + 50 + doc.getTextWidth("Dr. Tania Arthur "), attrY);
 
   // Page 1 footer
-  doc.setFillColor(...darkGreen); doc.rect(0, h - footerH, w, footerH, "F");
+  doc.setFillColor(...pal.primary); doc.rect(0, h - footerH, w, footerH, "F");
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", margin, h - footerH + 10, 48, 17); } catch {
       doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
@@ -1485,12 +1601,12 @@ export const generateROIOnePager = async (
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(160, 185, 175);
   if (b.footerUrl) doc.text(b.footerUrl, w / 2, h - footerH + 22, { align: "center" });
-  doc.setTextColor(...lime); doc.text(`Prepared for ${dsoName}  •  Page 1 of 2`, w - margin, h - footerH + 22, { align: "right" });
+  doc.setTextColor(...pal.accentOnDark); doc.text(`Prepared for ${dsoName}  •  Page 1 of 2`, w - margin, h - footerH + 22, { align: "right" });
 
   // PAGE 2
   doc.addPage();
   const p2HeaderH = 80;
-  doc.setFillColor(...darkGreen); doc.rect(0, 0, w, p2HeaderH, "F");
+  doc.setFillColor(...pal.primary); doc.rect(0, 0, w, p2HeaderH, "F");
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", margin, 22, 70, 24); } catch {
       doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...white); doc.text(b.wordmark, margin, 40);
@@ -1501,7 +1617,7 @@ export const generateROIOnePager = async (
   doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.setTextColor(...white); doc.text(`The ${b.productName} Difference & ROI`, margin, 66);
   y = p2HeaderH + 28;
 
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...lime); doc.text(`THE ${b.productName.toUpperCase()} DIFFERENCE`, margin, y); y += 6;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...pal.accentOnDark); doc.text(`THE ${b.productName.toUpperCase()} DIFFERENCE`, margin, y); y += 6;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textMuted); doc.text(`Built for ${b.industryLabel} scale. Designed for provider trust.`, margin, y + 12); y += 28;
 
   const tableRows = scrubBrandDeep([
@@ -1514,9 +1630,9 @@ export const generateROIOnePager = async (
   ], opts?.brand);
 
   const col1W2 = 120; const col2W2 = (contentW - col1W2) / 2; const rowH2 = 36;
-  doc.setFillColor(...darkGreen); doc.roundedRect(margin, y, contentW, 28, 4, 4, "F"); doc.rect(margin, y + 4, contentW, 24, "F");
+  doc.setFillColor(...pal.primary); doc.roundedRect(margin, y, contentW, 28, 4, 4, "F"); doc.rect(margin, y + 4, contentW, 24, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text(`WHAT YOUR ${b.industryLabel.toUpperCase()} NEEDS`, margin + 12, y + 18);
-  doc.setTextColor(...lime); doc.text(b.productName.toUpperCase(), margin + col1W2 + 12, y + 18);
+  doc.setTextColor(...pal.accentOnDark); doc.text(b.productName.toUpperCase(), margin + col1W2 + 12, y + 18);
   doc.setTextColor(180, 200, 190); doc.text("TRADITIONAL LABS", margin + col1W2 + col2W2 + 12, y + 18); y += 28;
 
   tableRows.forEach((row, i) => {
@@ -1524,7 +1640,7 @@ export const generateROIOnePager = async (
     const isLast = i === tableRows.length - 1;
     doc.setFillColor(...bgColor2);
     if (isLast) { doc.roundedRect(margin, y, contentW, rowH2, 4, 4, "F"); doc.rect(margin, y, contentW, rowH2 - 4, "F"); } else { doc.rect(margin, y, contentW, rowH2, "F"); }
-    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...darkGreen); doc.text(row.need, margin + 12, y + 15);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...pal.primaryOnLight); doc.text(row.need, margin + 12, y + 15);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(40, 80, 65);
     const dandyLines = doc.splitTextToSize(row.dandy, col2W2 - 24); doc.text(dandyLines, margin + col1W2 + 12, y + 14);
     doc.setTextColor(...subtleText);
@@ -1534,7 +1650,7 @@ export const generateROIOnePager = async (
   y += 18;
 
   // ROI Breakdown
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...lime); doc.text("ROI BREAKDOWN", margin, y); y += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...pal.accentOnDark); doc.text("ROI BREAKDOWN", margin, y); y += 6;
   const n = practices;
   const apptFreedPerMonth = Math.round(22.5 * n);
   const chairHoursPerMonth = Math.round(11.25 * n * 10) / 10;
@@ -1554,47 +1670,47 @@ export const generateROIOnePager = async (
   const cardGap2 = 14; const cardW2 = (contentW - cardGap2) / 2; const cardH2 = 145;
 
   doc.setFillColor(...offWhite); doc.roundedRect(margin, y, cardW2, cardH2, 6, 6, "F");
-  doc.setFillColor(...lime); doc.roundedRect(margin, y, cardW2, 3, 3, 3, "F"); doc.rect(margin, y + 2, cardW2, 2, "F");
+  doc.setFillColor(...pal.accent); doc.roundedRect(margin, y, cardW2, 3, 3, 3, "F"); doc.rect(margin, y + 2, cardW2, 2, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...subtleText); doc.text("DENTURE WORKFLOW IMPACT", margin + 16, y + 22);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(24); doc.setTextColor(...darkGreen); doc.text(fmtK(dentureProductionPerYear), margin + 16, y + 52);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(24); doc.setTextColor(...pal.primaryOnLight); doc.text(fmtK(dentureProductionPerYear), margin + 16, y + 52);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...subtleText); doc.text("incremental production / year", margin + 16, y + 66);
   drawSep(doc, margin + 16, y + 78, cardW2 - 32, [220, 220, 215]);
   const dentureItems = [`${apptFreedPerMonth.toLocaleString()} appointments freed / month`, `${chairHoursPerMonth} chair hours recovered / month`, "1.5 fewer appointments per case", `${fmtDollar2(dentureProductionPerMonth)} incremental production / month`];
   let dentY = y + 92;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-  dentureItems.forEach((item) => { doc.setFillColor(...lime); doc.circle(margin + 22, dentY - 2.5, 2, "F"); doc.setTextColor(...textMuted); doc.text(item, margin + 30, dentY); dentY += 14; });
+  dentureItems.forEach((item) => { doc.setFillColor(...pal.accent); doc.circle(margin + 22, dentY - 2.5, 2, "F"); doc.setTextColor(...textMuted); doc.text(item, margin + 30, dentY); dentY += 14; });
 
   const rightX = margin + cardW2 + cardGap2;
   doc.setFillColor(...offWhite); doc.roundedRect(rightX, y, cardW2, cardH2, 6, 6, "F");
-  doc.setFillColor(...lime); doc.roundedRect(rightX, y, cardW2, 3, 3, 3, "F"); doc.rect(rightX, y + 2, cardW2, 2, "F");
+  doc.setFillColor(...pal.accent); doc.roundedRect(rightX, y, cardW2, 3, 3, 3, "F"); doc.rect(rightX, y + 2, cardW2, 2, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...subtleText); doc.text("FIXED RESTO REMAKE IMPACT", rightX + 16, y + 22);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(24); doc.setTextColor(...darkGreen); doc.text(fmtK(restoUpsidePerYear), rightX + 16, y + 52);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(24); doc.setTextColor(...pal.primaryOnLight); doc.text(fmtK(restoUpsidePerYear), rightX + 16, y + 52);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...subtleText); doc.text("total financial upside / year", rightX + 16, y + 66);
   drawSep(doc, rightX + 16, y + 78, cardW2 - 32, [220, 220, 215]);
   const restoItems = ["60% fewer remakes with AI Scan Review", `${remakesAvoidedPerMonth} remakes avoided / month`, `${fmtDollar2(labCostsAvoidedPerYear)} lab costs avoided / year`, `${chairHoursRestoPerYear} chair hours recovered / year`];
   let restoY = y + 92;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-  restoItems.forEach((item) => { doc.setFillColor(...lime); doc.circle(rightX + 22, restoY - 2.5, 2, "F"); doc.setTextColor(...textMuted); doc.text(item, rightX + 30, restoY); restoY += 14; });
+  restoItems.forEach((item) => { doc.setFillColor(...pal.accent); doc.circle(rightX + 22, restoY - 2.5, 2, "F"); doc.setTextColor(...textMuted); doc.text(item, rightX + 30, restoY); restoY += 14; });
   y += cardH2 + 20;
 
-  doc.setFillColor(...darkGreen); doc.roundedRect(margin, y, contentW, 58, 6, 6, "F");
+  doc.setFillColor(...pal.primary); doc.roundedRect(margin, y, contentW, 58, 6, 6, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text(`COMBINED ANNUAL UPSIDE (${n} PRACTICES)`, margin + 20, y + 20);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...lime); doc.text(fmtK(combinedTotal), margin + 20, y + 42);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...pal.accentOnDark); doc.text(fmtK(combinedTotal), margin + 20, y + 42);
   const div1X = margin + contentW - 280; doc.setDrawColor(60, 90, 80); doc.setLineWidth(0.5); doc.line(div1X, y + 12, div1X, y + 46);
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text("DENTURE", div1X + 16, y + 20);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.setTextColor(...lime); doc.text(fmtK(dentureProductionPerYear), div1X + 16, y + 42);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.setTextColor(...pal.accentOnDark); doc.text(fmtK(dentureProductionPerYear), div1X + 16, y + 42);
   const div2X = div1X + 140; doc.line(div2X, y + 12, div2X, y + 46);
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190); doc.text("FIXED RESTO REMAKES", div2X + 16, y + 20);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.setTextColor(...lime); doc.text(fmtK(restoUpsidePerYear), div2X + 16, y + 42);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(18); doc.setTextColor(...pal.accentOnDark); doc.text(fmtK(restoUpsidePerYear), div2X + 16, y + 42);
   y += 58 + 16;
 
   doc.setFillColor(...offWhite); doc.roundedRect(margin, y, contentW, 55, 6, 6, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...darkGreen); doc.text("Ready to validate these numbers?", margin + 20, y + 22);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...pal.primaryOnLight); doc.text("Ready to validate these numbers?", margin + 20, y + 22);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
   doc.text(b.footerUrl ? `Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis at ${b.footerUrl}` : "Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis.", margin + 20, y + 38);
 
   // Page 2 footer
-  doc.setFillColor(...darkGreen); doc.rect(0, h - footerH, w, footerH, "F");
+  doc.setFillColor(...pal.primary); doc.rect(0, h - footerH, w, footerH, "F");
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", margin, h - footerH + 10, 48, 17); } catch {
       doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
@@ -1604,7 +1720,7 @@ export const generateROIOnePager = async (
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(160, 185, 175);
   if (b.footerUrl) doc.text(b.footerUrl, w / 2, h - footerH + 22, { align: "center" });
-  doc.setTextColor(...lime); doc.text(`Prepared for ${dsoName}  •  Page 2 of 2`, w - margin, h - footerH + 22, { align: "right" });
+  doc.setTextColor(...pal.accentOnDark); doc.text(`Prepared for ${dsoName}  •  Page 2 of 2`, w - margin, h - footerH + 22, { align: "right" });
 
   return doc;
 };

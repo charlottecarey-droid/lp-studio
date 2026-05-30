@@ -78,7 +78,7 @@ interface BodyConfig {
   featureTitleFontSize: number; featureDescFontSize: number; featureTitleDescSpacing: number; showIntro: boolean;
   contentOffsetX: number; sectionSpacing: number; statValueFontSize: number;
   statDescFontSize: number; bulletOffsetX: number; bulletOffsetY: number;
-  checklistSpacing: number; checklistShowDividers: boolean; checklistFontSize: number; checklistHeadingFontSize: number;
+  checklistSpacing: number; checklistShowDividers: boolean; checklistFontSize: number; checklistHeadingFontSize: number; checklistHeadingText: string;
   dividerOffsetX: number; dividerOffsetY: number; dividerLength: number;
   quoteShow: boolean; quoteText: string; quoteFontSize: number;
   // Comparison-specific
@@ -106,6 +106,7 @@ const defaultBodyConfig: BodyConfig = {
   featureTitleDescSpacing: 14, showIntro: true, contentOffsetX: 0, sectionSpacing: 16,
   statValueFontSize: 30, statDescFontSize: 8, bulletOffsetX: 0, bulletOffsetY: 0,
   checklistSpacing: 10, checklistShowDividers: false, checklistFontSize: 9, checklistHeadingFontSize: 10,
+  checklistHeadingText: "How to get the most out of this pilot:",
   dividerOffsetX: 0, dividerOffsetY: 0, dividerLength: 0,
   quoteShow: true, quoteText: DEFAULT_QUOTE_TEXT, quoteFontSize: 9.5,
   // Comparison-specific defaults (match generator hard-coded values)
@@ -282,6 +283,9 @@ export default function SalesOnePagerEditor() {
     qrFallbackUrl: brandQrFallback || "",
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
+    // Thread brand colors so the editor preview matches the rep's generated PDF.
+    primaryColor: (brand.primaryColor || "").trim(),
+    accentColor: (brand.accentColor || "").trim(),
   };
   const oneAssets = resolveOnePagerAssets(brand);
   // Helper to scrub Dandy literals out of UI strings shown to non-Dandy tenants.
@@ -1126,6 +1130,10 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Bullet Offset Y" value={bodyCfg.bulletOffsetY} min={-80} max={80} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, bulletOffsetY: v }))} />
                     <SliderRow label="Section Spacing" value={bodyCfg.sectionSpacing} min={0} max={60} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, sectionSpacing: v }))} />
                     {audience === "practice-manager" && (<>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Checklist Heading</label>
+                        <textarea value={bodyCfg.checklistHeadingText} rows={2} onChange={e => setBodyCfg(p => ({ ...p, checklistHeadingText: e.target.value }))} className={`mt-1 ${textareaCls}`} placeholder="How to get the most out of this pilot:" />
+                      </div>
                       <SliderRow label="Checklist Heading Size" value={bodyCfg.checklistHeadingFontSize} min={7} max={16} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistHeadingFontSize: v }))} />
                       <SliderRow label="Checklist Item Size" value={bodyCfg.checklistFontSize} min={6} max={16} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistFontSize: v }))} />
                       <SliderRow label="Checklist Spacing" value={bodyCfg.checklistSpacing} min={2} max={30} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistSpacing: v }))} />

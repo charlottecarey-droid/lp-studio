@@ -1647,6 +1647,26 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
                         className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                       />
                     </div>
+                    {/* Char-limit only applies to text-like fields. URL fields
+                        (qr_code/link) and images (logo) aren't free-text, so the
+                        sales rep's textarea + counter never renders for them. */}
+                    {selectedField.type !== "qr_code" && selectedField.type !== "link" && selectedField.type !== "logo" && selectedField.type !== "dandy_logo" && (
+                      <div>
+                        <label className="text-[9px] text-muted-foreground uppercase block mb-1">Max characters (optional)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={2000}
+                          value={selectedField.salesMaxLength ?? ""}
+                          onChange={e => {
+                            const v = e.target.value.trim();
+                            updateField(selectedField.id, { salesMaxLength: v === "" ? undefined : Math.max(1, Math.min(2000, Number(v) || 0)) });
+                          }}
+                          placeholder="120"
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

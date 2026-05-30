@@ -1061,7 +1061,18 @@ export function resolveOnePagerAssets(brand: BrandConfig): OnePagerAssets {
       "practice-manager": withAppBase(dandyFallback(headers.practiceManager, "/one-pager/dandy-dso-enterprise-data.webp")),
     },
     productScreenshot: withAppBase(dandyFallback(sc.onePagerProductScreenshot, "/one-pager/dandy-scanner-transparent.png")),
-    logoUrl: withAppBase(dandyFallback(sc.onePagerLogoUrl, "/dandy-logo-white.svg")),
+    // One-pager header logo. Dandy keeps its bundled white wordmark. For every
+    // other tenant, fall back to the Brand Settings logo when no one-pager-
+    // specific logo is set — preferring the dark-surface variant since the logo
+    // sits on the dark brand band — so brand logos actually appear on one-pagers
+    // instead of the generator drawing a plain text wordmark.
+    logoUrl: withAppBase(
+      isDandy
+        ? dandyFallback(sc.onePagerLogoUrl, "/dandy-logo-white.svg")
+        : ((sc.onePagerLogoUrl ?? "").trim()
+          || (brand.logoUrlDark ?? "").trim()
+          || (brand.logoUrl ?? "").trim()),
+    ),
   };
 }
 

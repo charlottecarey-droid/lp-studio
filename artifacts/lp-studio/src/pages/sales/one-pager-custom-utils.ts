@@ -32,6 +32,10 @@ export function buildCustomTemplateBrandOpts(brand: BrandConfig): CustomTemplate
     brandLogoSvgUrl: brand.logoUrl || "",
     brandWordmark: (brand.brandName || "").trim().toLowerCase(),
     qrFallbackUrl: cta,
+    // Brand-tinted custom-template surfaces (e.g. team-photo circle). Empty for
+    // Dandy (handled above) so Dandy's hard-coded green is preserved.
+    primaryColor: (brand.primaryColor || "").trim(),
+    accentColor: (brand.accentColor || "").trim(),
   };
 }
 

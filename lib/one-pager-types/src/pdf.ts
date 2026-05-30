@@ -90,6 +90,13 @@ export interface CustomTemplatePdfBrandOpts {
   /** Fallback URL encoded into a blank `qr_code` field. When empty, the QR is
    *  skipped entirely — never defaults to a Dandy URL. */
   qrFallbackUrl?: string;
+  /** Tenant brand PRIMARY color (hex). Used for brand-tinted surfaces such as
+   *  the team-photo initials circle. When empty, Dandy's hard-coded green is
+   *  kept so Dandy output is unchanged. */
+  primaryColor?: string;
+  /** Tenant brand ACCENT color (hex). Reserved for accent-tinted custom-template
+   *  surfaces. When empty, Dandy defaults are kept. */
+  accentColor?: string;
 }
 
 /**
@@ -241,7 +248,10 @@ export async function generateCustomTemplatePdf(
         const initials = m.name.split(" ").map(n => n[0] ?? "").join("").toUpperCase().slice(0, 2);
 
         // Photo circle — use a muted dark green for the bg
-        await drawTeamPhoto(doc, m.photoUrl, initials, cardX, cardsY + photoRadius, photoRadius, [30, 80, 60]);
+        const teamPhotoBg: [number, number, number] = (brandOpts.primaryColor || "").trim()
+          ? hexToRgb(brandOpts.primaryColor!.trim())
+          : [30, 80, 60];
+        await drawTeamPhoto(doc, m.photoUrl, initials, cardX, cardsY + photoRadius, photoRadius, teamPhotoBg);
 
         // Name
         doc.setFont(field.fontFamily || "helvetica", "bold");

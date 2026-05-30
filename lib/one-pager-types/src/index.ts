@@ -56,6 +56,10 @@ export interface OverlayField {
   salesLabel?: string;
   /** Optional help text shown under the input in the sales rep's form. */
   salesHelpText?: string;
+  /** Max character count enforced on the sales rep's textarea for text-like
+   *  fields (custom_text/heading/footer). Drives the "N/MAX" counter and the
+   *  input's maxLength. Ignored for URL fields (qr_code/link). */
+  salesMaxLength?: number;
 }
 
 export interface CustomTemplate {
