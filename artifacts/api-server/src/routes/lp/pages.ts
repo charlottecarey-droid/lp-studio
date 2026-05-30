@@ -183,7 +183,10 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
       .select()
       .from(lpPagesTable)
       .where(tagWhere ? and(eq(lpPagesTable.tenantId, tenantId), tagWhere) : eq(lpPagesTable.tenantId, tenantId))
-      .orderBy(lpPagesTable.createdAt);
+      // Order by true last-edited time (most recent first) so the default
+      // server order matches intent even before the client re-sorts. The
+      // client (dashboard + pages gallery) still sorts by updatedAt. (task #490)
+      .orderBy(desc(lpPagesTable.updatedAt));
 
     // For admins: resolve email → display name from app_users
     if (req.authUser?.isAdmin) {

@@ -168,6 +168,12 @@ async function persistResult(pageId: number, result: AssetHealthResult): Promise
     .set({
       assetHealthCheckedAt: new Date(),
       assetHealthResult: result,
+      // This is a background canary write, not a user edit. Explicitly
+      // self-assign updatedAt to its current value so Drizzle's $onUpdate
+      // hook does NOT auto-stamp now() — otherwise every published page's
+      // "last edited" time gets bumped on each scan, scrambling the
+      // dashboard "recent work" + pages-list sort. (task #490)
+      updatedAt: sql`${lpPagesTable.updatedAt}`,
     })
     .where(eq(lpPagesTable.id, pageId));
 }
