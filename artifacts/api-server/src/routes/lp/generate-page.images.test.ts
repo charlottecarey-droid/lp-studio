@@ -160,3 +160,76 @@ describe("validateAndDedupeAIImages", () => {
     expect(blocks[0].props.imageUrl).toBe("");
   });
 });
+
+// ── CLEAR_GAP threshold validation ─────────────────────────────────────────
+// These cases pin the documented rationale for CLEAR_GAP (= 2 × TAG_MATCH_SCORE
+// = 6). A correct-purpose image whose purpose matches scores PURPOSE_MATCH_BOOST
+// (+8); each on-topic single-word content tag adds +4 (a +3 text-match plus a +1
+// word-level bonus). So:
+//   - one topic tag behind the best free alternative → gap 4 (< 6): KEEP. One
+//     extra tag of difference is treated as noise; we don't churn a good pick.
+//   - two topic tags behind → gap 8 (≥ 6): CLEAR. The alternative is decisively
+//     more on-topic, so the model's bare pick is dropped for smart-fill to
+//     replace. CLEAR_GAP=6 sits squarely between these two cases.
+// Headline + page context share the same two tokens so the gap is predictable.
+describe("validateAndDedupeAIImages — CLEAR_GAP threshold", () => {
+  const CTX = "alpha bravo";
+
+  // assigned: purpose (+8) + "alpha" (+4)          = 12
+  // best alt: purpose (+8) + "alpha" (+4) + "bravo" (+4) = 16  → gap 4 < 6
+  it("keeps a pick only one topic-tag behind the best free alternative (gap 4 < 6)", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/assigned", title: "x", tags: ["lp-hero", "alpha"] },
+      { url: "/objects/better", title: "x", tags: ["lp-hero", "alpha", "bravo"] },
+    ];
+    const blocks = [
+      { type: "hero", props: { headline: "alpha bravo", imageUrl: "/objects/assigned" } },
+    ];
+    validateAndDedupeAIImages(blocks, lib, CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("/objects/assigned");
+  });
+
+  // assigned: purpose (+8) + 0 on-topic tags            = 8  ("zzz" never matches)
+  // best alt: purpose (+8) + "alpha" (+4) + "bravo" (+4) = 16  → gap 8 ≥ 6
+  it("clears a bare correct-purpose pick when the alternative is two topic-tags clearer (gap 8 ≥ 6)", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/assigned", title: "x", tags: ["lp-hero", "zzz"] },
+      { url: "/objects/better", title: "x", tags: ["lp-hero", "alpha", "bravo"] },
+    ];
+    const blocks = [
+      { type: "hero", props: { headline: "alpha bravo", imageUrl: "/objects/assigned" } },
+    ];
+    validateAndDedupeAIImages(blocks, lib, CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("");
+  });
+});
+
+// ── Generic industry (no injected vertical keywords) ────────────────────────
+// A generic tenant's only topic signal is its own prompt. Validation must still
+// clear an off-topic pick and keep an on-topic one using prompt words alone.
+describe("validateAndDedupeAIImages — generic industry (prompt-only context)", () => {
+  const GENERIC_LIB: MediaImage[] = [
+    { url: "/objects/coffee-hero", title: "Espresso bar", tags: ["lp-hero", "coffee", "espresso", "cafe"] },
+    { url: "/objects/coffee-hero-2", title: "Roastery", tags: ["lp-hero", "coffee", "roastery"] },
+    { url: "/objects/gym-hero", title: "Weight room", tags: ["lp-hero", "gym", "fitness"] },
+  ];
+  // No industry keywords prepended — this is exactly what pageImageContext is
+  // for a generic tenant (getIndustryImageKeywords("generic") === []).
+  const GENERIC_CTX = "specialty coffee roastery espresso landing page";
+
+  it("clears an off-topic hero using prompt words alone", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Specialty coffee", imageUrl: "/objects/gym-hero" } },
+    ];
+    validateAndDedupeAIImages(blocks, GENERIC_LIB, GENERIC_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("");
+  });
+
+  it("keeps an on-topic hero using prompt words alone", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Specialty coffee", imageUrl: "/objects/coffee-hero" } },
+    ];
+    validateAndDedupeAIImages(blocks, GENERIC_LIB, GENERIC_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("/objects/coffee-hero");
+  });
+});

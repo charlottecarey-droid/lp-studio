@@ -14,7 +14,7 @@ import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
-import { getTenantIndustry } from "../../lib/tenantIndustry";
+import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS } from "@workspace/lp-template-engine";
 
 const router = Router();
@@ -109,6 +109,14 @@ const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract",
  * (text-heavy banners, ad creatives) which should never appear inside landing page blocks.
  */
 const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative"]);
+
+/** Relevance scoring weights — kept as named constants so the validation
+ *  threshold (CLEAR_GAP, below) can be derived from them and stays meaningful
+ *  if the weights ever change.
+ *    PURPOSE_MATCH_BOOST — an image whose purpose tag matches the slot.
+ *    TAG_MATCH_SCORE     — one content tag whose text appears in the context. */
+const PURPOSE_MATCH_BOOST = 8;
+const TAG_MATCH_SCORE = 3;
 
 /** Get the landing-page purpose of an image (first purpose tag found, or "" for unclassified) */
 function getImagePurpose(img: MediaImage): string {
@@ -221,7 +229,7 @@ function scoreImage(
   // Purpose scoring
   if (preferredPurpose) {
     if (imgPurpose === preferredPurpose) {
-      score += 8; // strong boost for matching purpose
+      score += PURPOSE_MATCH_BOOST; // strong boost for matching purpose
     } else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
       // penalise mismatches — especially keep product-detail out of hero slots
       if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
@@ -235,7 +243,7 @@ function scoreImage(
   for (const tag of img.tags) {
     const tagLower = tag.toLowerCase();
     if (SKIP_TAGS.has(tagLower)) continue;
-    if (contextLower.includes(tagLower)) score += 3;
+    if (contextLower.includes(tagLower)) score += TAG_MATCH_SCORE;
     for (const word of tagLower.split(/\s+/)) {
       if (word.length > 3 && contextWords.some(w => w.includes(word) || word.includes(w))) score += 1;
     }
@@ -459,7 +467,23 @@ export function validateAndDedupeAIImages(
   // ── Pass 2: relevance / purpose validation of model-assigned library picks ──
   // Only act on URLs that are real library images; storage-default and data:
   // URLs (not in the catalog) are left untouched.
-  const CLEAR_GAP = 6;
+  //
+  // CLEAR_GAP rationale (validated against the scoring model — see
+  // generate-page.images.test.ts "CLEAR_GAP threshold" cases):
+  //   We only clear an assigned, correct-purpose image when a *free* library
+  //   alternative scores CLEAR_GAP (= 2 × TAG_MATCH_SCORE = 6) or more higher.
+  //   An on-topic content tag contributes TAG_MATCH_SCORE (+3 when its text
+  //   appears in the page context, plus up to +1 more for a word-level hit), so
+  //   a gap of 6 means the alternative is roughly two content-tag matches more
+  //   on-topic than the model's pick. Below that (e.g. a one-tag difference) we
+  //   keep the model's choice rather than churn a perfectly good on-topic pick
+  //   for a marginally-higher-scoring sibling. At/above it the alternative is
+  //   decisively better — e.g. a bare purpose-only hero (score =
+  //   PURPOSE_MATCH_BOOST, no topic tags) loses to a hero that also matches two
+  //   of the page's topic keywords. Deriving the gap from TAG_MATCH_SCORE keeps
+  //   this semantic intact if the weights are ever re-tuned. Wrong-purpose
+  //   picks are handled separately (assignedScore < 0) and cleared regardless.
+  const CLEAR_GAP = 2 * TAG_MATCH_SCORE;
   const used = new Set<string>();
   for (const slot of slots) {
     const url = slot.get();
@@ -2774,7 +2798,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // headline is generic (e.g. a dentures page should bias toward dental shots).
     const industryForImages = await getTenantIndustry(tenantId);
     const pageImageContext = [
-      industryForImages === "dental" ? "dental dentistry dentist clinic teeth" : "",
+      getIndustryImageKeywords(industryForImages).join(" "),
       prompt.trim(),
     ].join(" ").trim().slice(0, 240);
 
