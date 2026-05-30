@@ -1503,6 +1503,10 @@ export default function BrandSettings() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importChecked, setImportChecked] = useState<Record<string, boolean>>({});
+  // Honest-failure flag: the streamed import returned no usable primary/accent
+  // (colors dimension "failed" or color fields absent from the proposed map).
+  // Surfaced in the review UI so we don't present unchanged colors as imported.
+  const [colorImportFailed, setColorImportFailed] = useState(false);
   const [importApplied, setImportApplied] = useState(false);
   const [importSource, setImportSource] = useState<BrandImportSource | null>(null);
   // Streaming URL importer — per-dimension progress + selected logo override.
@@ -1906,6 +1910,7 @@ export default function BrandSettings() {
     setImporting(true);
     setImportResult(null);
     setImportApplied(false);
+    setColorImportFailed(false);
     setImportSelectedLogo(null);
     setImportSelectedLogoDark(null);
     setImportDimensions({
@@ -1985,6 +1990,15 @@ export default function BrandSettings() {
         checked[field] = conf === "high" || conf === "medium";
       }
       setImportChecked(checked);
+
+      // Honest failure: if the extractor returned no usable colors — the colors
+      // dimension failed, or neither primary nor accent came back as a valid
+      // hex — flag the review UI so it tells the user to pick colors rather than
+      // silently presenting the unchanged/default colors as if imported.
+      const isFullHex = (v: unknown) => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
+      const gotPrimary = isFullHex(result.proposed.primaryColor);
+      const gotAccent = isFullHex(result.proposed.accentColor);
+      setColorImportFailed(!gotPrimary && !gotAccent);
     } catch (err) {
       toast({ title: "Import failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
@@ -2083,6 +2097,7 @@ export default function BrandSettings() {
     setImportOpen(false);
     setImportResult(null);
     setImportChecked({});
+    setColorImportFailed(false);
     setImportApplied(false);
     setImportTexts({ colors: "", typography: "", buttons: "", voice: "", products: "", segments: "" });
     setImportUrl("");
@@ -3963,6 +3978,16 @@ export default function BrandSettings() {
 
           {importResult && !importApplied ? (
             <div className="flex flex-col gap-4 py-2">
+              {colorImportFailed && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+                  <span>
+                    We couldn't detect your site's colors automatically — your
+                    current colors are unchanged. Pick your real brand colors in
+                    the Colors section after closing this dialog.
+                  </span>
+                </div>
+              )}
               {importResult.logoAlternates && importResult.logoAlternates.length > 1 && (
                 <div className="rounded-xl border border-border bg-card p-3 space-y-3">
                   <div>
@@ -4068,7 +4093,7 @@ export default function BrandSettings() {
                 </>
               )}
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setImportResult(null); setImportApplied(false); }}>
+                <Button variant="outline" size="sm" onClick={() => { setImportResult(null); setImportApplied(false); setColorImportFailed(false); }}>
                   Back to input
                 </Button>
                 {Object.keys(importResult.proposed).length > 0 && (
