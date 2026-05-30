@@ -162,7 +162,7 @@ function brokenIndexFromRow(value: unknown): Map<string, string> {
   return out;
 }
 
-async function persistResult(pageId: number, result: AssetHealthResult): Promise<void> {
+export async function persistResult(pageId: number, result: AssetHealthResult): Promise<void> {
   await db
     .update(lpPagesTable)
     .set({
