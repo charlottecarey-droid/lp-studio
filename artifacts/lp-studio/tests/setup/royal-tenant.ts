@@ -88,6 +88,18 @@ export interface CreateRoyalTenantOptions {
    * toggle's plan check.
    */
   appUserRole?: string;
+  /**
+   * Optional `brandName` written into the tenant's `lp_brand_settings.config`.
+   * The one-pager client UI gates the two Dandy-coded built-ins
+   * (comparison / agreement-summary) purely on
+   * `brand.brandName.toLowerCase() === "dandy"` — NOT on the tenant slug — so
+   * passing `brandName: "Dandy"` yields a fixture that the picker UI treats as
+   * a Dandy workspace (the gated built-ins appear, PDF generation is enabled)
+   * WITHOUT needing the reserved "dandy"/"dandy-smb" slug. The server
+   * publish/save gate is slug-based instead (see `createDandyOperatorSession`).
+   * Omitted by default → neutral, non-Dandy brand.
+   */
+  brandName?: string;
 }
 
 export async function createRoyalTenant(
@@ -143,11 +155,16 @@ export async function createRoyalTenant(
       [tenantId, userId, roleId, email],
     );
 
+    // The one-pager picker UI keys "is this a Dandy workspace?" off
+    // `brand.brandName`, so merge in the caller's brandName when supplied.
+    const brandConfig = opts.brandName
+      ? { ...NEUTRAL_BRAND_CONFIG, brandName: opts.brandName }
+      : NEUTRAL_BRAND_CONFIG;
     const brandRes = await client.query<{ id: number }>(
       `INSERT INTO lp_brand_settings (tenant_id, config)
        VALUES ($1, $2::jsonb)
        RETURNING id`,
-      [tenantId, JSON.stringify(NEUTRAL_BRAND_CONFIG)],
+      [tenantId, JSON.stringify(brandConfig)],
     );
     const brandSettingsId = brandRes.rows[0].id;
 
@@ -198,6 +215,120 @@ export async function cleanupRoyalTenant(pool: pg.Pool, t: RoyalTenant): Promise
     await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM app_users WHERE id = $1`, [t.userId]);
     await client.query(`DELETE FROM tenants WHERE id = $1`, [t.tenantId]);
+  } finally {
+    client.release();
+  }
+}
+
+export interface DandyOperatorSession {
+  /** lp_sid cookie value for the impersonation session. */
+  sid: string;
+  /** id of the seeded Dandy tenant this session acts as. */
+  tenantId: number;
+  /** "dandy-smb" (preferred) or "dandy". */
+  slug: string;
+}
+
+/**
+ * Create a short-lived admin session that impersonates a *seeded* Dandy
+ * workspace ("dandy-smb" preferred, "dandy" as a fallback) so tests can
+ * exercise the server-side, slug-based Dandy gate on the one-pager
+ * publish/save routes.
+ *
+ * We can't create a NEW Dandy tenant: the gate keys off the reserved
+ * "dandy"/"dandy-smb" slug, which already exists in the database (the seeded
+ * Dandy workspaces) and is unique. So instead we mint an app_sessions row
+ * whose payload points at the existing tenant. The session payload sets
+ * `isAdmin: true` (exempting it from the per-host tenant check in requireAuth)
+ * and `appUserRole: "admin"` (so requireAuth never backfills via app_users —
+ * the synthetic userId is therefore never dereferenced). Only the session row
+ * is created against the real tenant; callers MUST delete any rows they then
+ * write through the gated routes (see `cleanupDandyOnePagerRows`) so the real
+ * Dandy workspace is left untouched.
+ */
+export async function createDandyOperatorSession(pool: pg.Pool): Promise<DandyOperatorSession> {
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query<{ id: number; slug: string }>(
+      `SELECT id, slug FROM tenants
+        WHERE slug IN ('dandy-smb', 'dandy')
+        ORDER BY (slug = 'dandy-smb') DESC
+        LIMIT 1`,
+    );
+    if (!rows.length) {
+      throw new Error(
+        "No seeded Dandy tenant (dandy / dandy-smb) found — the Dandy positive-path gate test can't run",
+      );
+    }
+    const { id: tenantId, slug } = rows[0];
+
+    // Best-effort real user id for the tenant. Not required by the gated
+    // routes (they only read tenantId + permissions), but it keeps the
+    // session payload realistic and avoids a synthetic id.
+    const u = await client.query<{ id: number }>(
+      `SELECT id FROM app_users WHERE tenant_id = $1 ORDER BY id LIMIT 1`,
+      [tenantId],
+    );
+    const userId = u.rows[0]?.id ?? 0;
+
+    const sessionSid = randomBytes(24).toString("base64url");
+    const authUserPayload = {
+      userId,
+      email: "e2e-dandy-gate-probe@example.com",
+      name: "E2E Dandy Gate Probe",
+      avatarUrl: null,
+      tenantId,
+      role: "admin",
+      permissions: FULL_PERMISSIONS,
+      isAdmin: true,
+      appUserRole: "admin",
+      micrositeDomain: null,
+    };
+    const expire = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await client.query(
+      `INSERT INTO app_sessions (sid, sess, expire) VALUES ($1, $2, $3)`,
+      [sessionSid, JSON.stringify(authUserPayload), expire],
+    );
+    return { sid: sessionSid, tenantId, slug };
+  } finally {
+    client.release();
+  }
+}
+
+/** Drop the impersonation session row. */
+export async function cleanupDandyOperatorSession(
+  pool: pg.Pool,
+  s: DandyOperatorSession,
+): Promise<void> {
+  await pool.query(`DELETE FROM app_sessions WHERE sid = $1`, [s.sid]);
+}
+
+/**
+ * Delete one-pager rows written to a real Dandy tenant by the gated
+ * publish/save routes during the positive-path test. `templateIds` are
+ * `sales_one_pager_templates.id`s, `pageIds` are `lp_pages.id`s. Safe to call
+ * with empty arrays. Never touches rows the test didn't create (deletes are
+ * scoped by explicit id AND tenant_id).
+ */
+export async function cleanupDandyOnePagerRows(
+  pool: pg.Pool,
+  tenantId: number,
+  ids: { templateIds?: number[]; pageIds?: number[] },
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    for (const id of ids.templateIds ?? []) {
+      await client.query(
+        `DELETE FROM sales_one_pager_templates WHERE id = $1 AND tenant_id = $2`,
+        [id, tenantId],
+      );
+    }
+    for (const id of ids.pageIds ?? []) {
+      await client.query(
+        `DELETE FROM lp_pages WHERE id = $1 AND tenant_id = $2`,
+        [id, tenantId],
+      );
+    }
   } finally {
     client.release();
   }
