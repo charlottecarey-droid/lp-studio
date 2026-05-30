@@ -33,6 +33,10 @@ import {
   Loader2, CreditCard, Check, ArrowRight, AlertTriangle, ExternalLink,
   Sparkles, ChevronDown, Clock,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import {
@@ -239,7 +243,7 @@ function statusBadgeVariant(status: string): "default" | "secondary" | "destruct
 }
 
 export default function BillingPage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
@@ -249,6 +253,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
+  const [downgradeOpen, setDowngradeOpen] = useState(false);
 
   const isAdmin = !!(user?.isAdmin || user?.permissions?.["settings"]);
 
@@ -366,6 +371,41 @@ export default function BillingPage() {
     }
   }
 
+  // End trial early / explicitly drop to the Free floor. Only meaningful when
+  // there's no live subscription (the backend rejects those → use the portal).
+  async function downgradeToFree(): Promise<void> {
+    if (!isAdmin) { toast({ title: "Workspace admin required", variant: "destructive" }); return; }
+    setActionInFlight("downgrade-free");
+    try {
+      const res = await fetch("/api/billing/downgrade-to-free", { method: "POST", credentials: "include" });
+      if (res.status === 409) {
+        // A live subscription exists — cancellation must run through the portal.
+        toast({ title: "Manage your plan", description: "Opening the billing portal to cancel your subscription…" });
+        setDowngradeOpen(false);
+        await openPortal();
+        return;
+      }
+      const json = (await res.json().catch(() => ({}))) as { plan?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      toast({
+        title: "Switched to Free",
+        description: "Your workspace is now on the Free plan. Upgrade any time to restore Growth features.",
+      });
+      setDowngradeOpen(false);
+      // Refresh the on-page summary AND the global session (drives the trial
+      // banner + plan gates app-wide).
+      await Promise.all([load(), refresh()]);
+    } catch (err) {
+      toast({
+        title: "Couldn't switch to Free",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setActionInFlight(null);
+    }
+  }
+
   const sub = summary?.stripe.subscription ?? null;
   const hasActiveSub = !!sub && !!sub.status && ACTIVE_SUB_STATUSES.has(sub.status);
 
@@ -410,6 +450,9 @@ export default function BillingPage() {
             active={summary.trial.active}
             daysRemaining={summary.trial.daysRemaining}
             expiresAt={summary.trial.expiresAt}
+            canEndTrial={isAdmin && summary.trial.active && !hasActiveSub}
+            ending={actionInFlight === "downgrade-free"}
+            onEndTrial={() => setDowngradeOpen(true)}
           />
         )}
 
@@ -433,6 +476,7 @@ export default function BillingPage() {
             actionInFlight={actionInFlight}
             onCheckout={startCheckout}
             onPortal={(tier) => openPortal(`switch-${tier}`)}
+            onDowngradeToFree={() => setDowngradeOpen(true)}
           />
         )}
 
@@ -445,6 +489,32 @@ export default function BillingPage() {
           />
         )}
       </div>
+
+      <AlertDialog open={downgradeOpen} onOpenChange={setDowngradeOpen}>
+        <AlertDialogContent data-testid="downgrade-free-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {summary?.trial.active ? "End your trial and switch to Free?" : "Switch to the Free plan?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {summary?.trial.active
+                ? "Your Growth trial ends immediately and your workspace drops to the Free plan. You'll lose the Sales Console, unlimited pages, and your other Growth features right away. This can't be undone — but you can upgrade again any time."
+                : "Your workspace moves to the Free plan. You'll keep one published page and form; anything above the Free limits stops working until you upgrade again."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionInFlight === "downgrade-free"}>Keep my plan</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void downgradeToFree(); }}
+              disabled={actionInFlight === "downgrade-free"}
+              data-testid="downgrade-free-confirm"
+            >
+              {actionInFlight === "downgrade-free" && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+              {summary?.trial.active ? "End trial & switch to Free" : "Switch to Free"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
@@ -486,11 +556,14 @@ function CadenceToggle({ cadence, onChange }: { cadence: Cadence; onChange: (c: 
 // There is no "add payment method" action — self-serve trials convert through
 // the Checkout buttons in the plans grid, not a Stripe trial.
 function TrialBanner({
-  active, daysRemaining, expiresAt,
+  active, daysRemaining, expiresAt, canEndTrial, ending, onEndTrial,
 }: {
   active: boolean;
   daysRemaining: number;
   expiresAt: string | null;
+  canEndTrial: boolean;
+  ending: boolean;
+  onEndTrial: () => void;
 }) {
   const endMs = expiresAt ? Date.parse(expiresAt) : null;
   const tone = active
@@ -518,6 +591,18 @@ function TrialBanner({
                   ? `Your trial ends on ${formatDate(endMs)}. Upgrade below any time to keep your Growth features.`
                   : "Upgrade below any time to keep your Growth features."}
               </p>
+              {canEndTrial && (
+                <button
+                  type="button"
+                  onClick={onEndTrial}
+                  disabled={ending}
+                  data-testid="end-trial-cta"
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                >
+                  {ending && <Loader2 className="w-3 h-3 animate-spin" />}
+                  End trial early & switch to Free
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -667,7 +752,7 @@ function planMonthlyDisplay(e: PlanConfigEntry, cadence: Cadence): {
 }
 
 function PlansGrid({
-  summary, cfgMap, cadence, hasActiveSub, isAdmin, actionInFlight, onCheckout, onPortal,
+  summary, cfgMap, cadence, hasActiveSub, isAdmin, actionInFlight, onCheckout, onPortal, onDowngradeToFree,
 }: {
   summary: BillingSummary;
   cfgMap: Record<Plan, PlanConfigEntry>;
@@ -677,6 +762,7 @@ function PlansGrid({
   actionInFlight: string | null;
   onCheckout: (plan: Plan, cadence: Cadence) => void;
   onPortal: (plan: Plan) => void;
+  onDowngradeToFree: () => void;
 }) {
   const currentPlan = summary.plan;
   const currentOrder = cfgMap[currentPlan]?.sortOrder ?? 0;
@@ -712,6 +798,7 @@ function PlansGrid({
             actionInFlight={actionInFlight}
             onCheckout={onCheckout}
             onPortal={onPortal}
+            onDowngradeToFree={onDowngradeToFree}
           />
         ))}
       </div>
@@ -721,7 +808,7 @@ function PlansGrid({
 
 function PlanCard({
   plan, entry, cadence, isCurrent, currentOrder, hasActiveSub, isAdmin,
-  stripeConfigured, actionInFlight, onCheckout, onPortal,
+  stripeConfigured, actionInFlight, onCheckout, onPortal, onDowngradeToFree,
 }: {
   plan: Plan;
   entry: PlanConfigEntry;
@@ -734,6 +821,7 @@ function PlanCard({
   actionInFlight: string | null;
   onCheckout: (plan: Plan, cadence: Cadence) => void;
   onPortal: (plan: Plan) => void;
+  onDowngradeToFree: () => void;
 }) {
   const price = planMonthlyDisplay(entry, cadence);
   const groups = planGroups(plan, entry);
@@ -783,10 +871,19 @@ function PlanCard({
     );
   } else if (plan === "free") {
     // No live subscription and not currently Free: nothing to charge or
-    // cancel — Free is the floor they fall back to. Nothing actionable here.
+    // cancel — but the tenant's EFFECTIVE plan is above Free (an active trial,
+    // or a stored paid plan whose subscription already lapsed), so let an admin
+    // explicitly drop to the Free floor / end the trial early.
     cta = (
-      <Button className="w-full" variant="outline" disabled>
-        Free baseline
+      <Button
+        className="w-full"
+        variant="outline"
+        onClick={onDowngradeToFree}
+        disabled={busy}
+        data-testid="downgrade-to-free"
+      >
+        {actionInFlight === "downgrade-free" ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+        Downgrade to Free
       </Button>
     );
   } else {

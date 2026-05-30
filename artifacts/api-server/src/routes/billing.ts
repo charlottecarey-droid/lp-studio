@@ -25,7 +25,7 @@ import type Stripe from "stripe";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getPriceIdForLookupKey, getStripe, StripeNotConfiguredError } from "../lib/stripeClient";
-import { normalizePlan, getTenantPlan, computeTrialState, type Plan } from "../lib/planFeatures";
+import { normalizePlan, getTenantPlan, computeTrialState, isDandyTenant, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures } from "../lib/planConfig";
 import {
   ALL_LOOKUP_KEYS,
@@ -356,6 +356,81 @@ router.post("/billing/checkout-session", async (req: Request, res: Response): Pr
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: `Failed to create checkout session: ${message}` });
   }
+});
+
+// POST /api/billing/downgrade-to-free
+//
+// Self-serve "end my trial early / drop to Free" action. Bounded on purpose:
+// the ONLY plan it ever writes is the canonical `free` floor, and it refuses
+// any state where a direct write would be wrong.
+//
+// Preconditions:
+//   • Caller is a workspace admin.
+//   • Tenant is NOT a protected enterprise (Dandy) workspace — those always
+//     resolve to enterprise and must never be downgraded.
+//   • Tenant has NO live Stripe subscription. Cancelling a paid subscription
+//     must run through the Stripe Billing Portal so billing actually stops;
+//     flipping `plan='free'` here would revoke entitlements while Stripe kept
+//     charging. We 409 with `use_portal_to_cancel` and point at the portal.
+//
+// Effect (idempotent): floors `plan` at `free`, ends an in-progress trial
+// window immediately (so `effectivePlan` stops lifting the tenant to Growth),
+// and stamps `has_trialed_before` so the consumed trial can't be restarted.
+// Safe to call when the tenant is already Free with no trial — it's a no-op.
+router.post("/billing/downgrade-to-free", async (req: Request, res: Response): Promise<void> => {
+  const user = req.authUser;
+  if (!user?.tenantId) { res.status(401).json({ error: "Not authenticated" }); return; }
+  if (!isTenantAdmin(req)) { res.status(403).json({ error: "Workspace admin required" }); return; }
+
+  const tenant = await loadTenant(user.tenantId);
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  // Protected enterprise (Dandy) — sales-assisted, never downgraded.
+  if (await isDandyTenant(tenant.id)) {
+    res.status(403).json({
+      error: "This workspace is on an enterprise plan and can't be downgraded here. Contact your account manager.",
+      code: "protected_enterprise",
+    });
+    return;
+  }
+
+  // A live subscription must be cancelled through the Stripe portal so billing
+  // stops — a direct plan write would strip features but keep charging.
+  const activeStatuses = new Set(["active", "trialing", "past_due"]);
+  const hasActiveSub =
+    tenant.stripe_subscription_id != null &&
+    activeStatuses.has(tenant.stripe_subscription_status ?? "");
+  if (hasActiveSub) {
+    res.status(409).json({
+      error: "This workspace has a live subscription. Cancel it from Manage billing (Stripe portal) to drop to Free — that also stops billing.",
+      code: "use_portal_to_cancel",
+    });
+    return;
+  }
+
+  // SET expressions evaluate against the pre-update row, so we can branch on
+  // the existing trial columns: close an still-open window to `now()`, leave a
+  // past/absent one untouched, and only stamp `has_trialed_before` when a trial
+  // actually existed (don't burn a never-used trial for a plain Free tenant).
+  await pool.query(
+    `UPDATE tenants
+        SET plan = 'free',
+            trial_expires_at = CASE
+              WHEN trial_expires_at IS NOT NULL AND trial_expires_at > now() THEN now()
+              ELSE trial_expires_at
+            END,
+            has_trialed_before = (
+              has_trialed_before
+              OR trial_started_at IS NOT NULL
+              OR trial_expires_at IS NOT NULL
+            ),
+            updated_at = now()
+      WHERE id = $1`,
+    [tenant.id],
+  );
+
+  logger.info({ tenantId: tenant.id }, "[billing] tenant downgraded to free (end-trial)");
+  res.json({ plan: "free" as Plan, ok: true });
 });
 
 // POST /api/billing/portal-session — opens the Stripe-hosted billing
