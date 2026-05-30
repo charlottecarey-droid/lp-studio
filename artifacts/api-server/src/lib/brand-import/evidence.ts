@@ -313,6 +313,60 @@ function extractCssVarPaletteHints(
   return [...found.entries()].map(([name, value]) => ({ name, value }));
 }
 
+// Reliability fallback: when neither a pixel-sampled screenshot palette nor
+// named CSS custom properties are available (some sites block the screenshot
+// host, or declare brand colors as plain hex/rgb on classes rather than as
+// `--vars`), harvest the most frequently declared colors straight out of the
+// page's stylesheets + inline styles. This keeps the color extractor from
+// hard-failing on sites that genuinely do have colors, just not in the two
+// preferred forms. Near-grey/black/white colors are kept (the extractor needs
+// background/text candidates) but ranked by raw frequency.
+function harvestCssColorHints(
+  $: cheerio.CheerioAPI,
+  stylesheets: FetchedStylesheet[],
+): string[] {
+  const counts = new Map<string, number>();
+  const bump = (hex: string): void => {
+    counts.set(hex, (counts.get(hex) ?? 0) + 1);
+  };
+
+  const normalizeHex = (raw: string): string | null => {
+    const h = raw.replace("#", "");
+    if (h.length === 3) {
+      const e = h.split("").map((c) => c + c).join("");
+      return `#${e.toUpperCase()}`;
+    }
+    if (h.length === 6 || h.length === 8) {
+      return `#${h.slice(0, 6).toUpperCase()}`;
+    }
+    return null;
+  };
+
+  const consume = (css: string): void => {
+    let m: RegExpExecArray | null;
+    const hexRe = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g;
+    while ((m = hexRe.exec(css))) {
+      const n = normalizeHex(m[0]);
+      if (n) bump(n);
+    }
+    const rgbRe = /rgba?\(\s*(\d{1,3})[,\s]+(\d{1,3})[,\s]+(\d{1,3})/g;
+    while ((m = rgbRe.exec(css))) {
+      const [r, g, b] = [+m[1], +m[2], +m[3]];
+      if (r > 255 || g > 255 || b > 255) continue;
+      bump(`#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`.toUpperCase());
+    }
+  };
+
+  $("style").each((_, el) => consume($(el).text() ?? ""));
+  $("[style]").each((_, el) => consume($(el).attr("style") ?? ""));
+  for (const s of stylesheets) consume(s.css);
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([hex]) => hex)
+    .slice(0, 12);
+}
+
 function discoverStylesheetUrls($: cheerio.CheerioAPI, baseUrl: string): string[] {
   const urls: string[] = [];
   $('link[rel~="stylesheet"]').each((_, el) => {
@@ -410,13 +464,23 @@ export async function buildEvidence(
 
   const screenshotUrl = pages.find((p) => p.screenshotUrl)?.screenshotUrl ?? null;
   const screenshotFetch = screenshotUrl ? await fetchScreenshotBuffer(screenshotUrl) : null;
-  const sampledPalette = screenshotFetch ? await samplePaletteFromBuffer(screenshotFetch.buf) : [];
+  let sampledPalette = screenshotFetch ? await samplePaletteFromBuffer(screenshotFetch.buf) : [];
   // Inline as data: URL — OpenAI's fetcher gets blocked/throttled by some
   // firecrawl screenshot hosts; passing the bytes directly avoids that.
   const screenshotDataUrl = screenshotFetch
     ? `data:${screenshotFetch.contentType};base64,${screenshotFetch.buf.toString("base64")}`
     : null;
   const cssVarPaletteHints = $home ? extractCssVarPaletteHints($home, stylesheets) : [];
+
+  // Reliability fallback: only when both preferred color sources came up empty
+  // (no screenshot palette AND no named CSS vars) do we harvest raw declared
+  // colors from CSS/inline styles, so the color extractor has something to
+  // work with instead of hard-failing. We never override a real screenshot
+  // palette with this lower-quality signal.
+  if (!sampledPalette.length && !cssVarPaletteHints.length && $home) {
+    const harvested = harvestCssColorHints($home, stylesheets);
+    if (harvested.length) sampledPalette = harvested;
+  }
 
   return {
     homeUrl,

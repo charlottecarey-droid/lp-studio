@@ -45,17 +45,39 @@ const STEPS = [
   { id: "welcome", label: "All set", icon: PartyPopper },
 ];
 
+// Pick a readable foreground (near-black or white) for text placed on top of
+// `bg`, using WCAG relative luminance. Derived from the element's *own*
+// background so the preview never pairs the two brand colors against each
+// other (which can render unreadably when both are dark or both light).
+function readableOn(bg: string): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(bg.trim());
+  if (!m) return "#FFFFFF";
+  const n = parseInt(m[1], 16);
+  const channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * lin(channels[0]) + 0.7152 * lin(channels[1]) + 0.0722 * lin(channels[2]);
+  return L > 0.5 ? "#0F172A" : "#FFFFFF";
+}
+
 function ColorSwatch({ color, accent }: { color: string; accent: string }) {
+  const onPrimary = readableOn(color);
+  const onAccent = readableOn(accent);
   return (
     <div
       className="rounded-xl overflow-hidden border border-border/60 shadow-sm"
       style={{ background: "#fff" }}
     >
       <div className="px-5 py-4" style={{ background: color }}>
-        <p className="text-xs font-semibold uppercase tracking-wider opacity-60" style={{ color: accent }}>
+        <p
+          className="text-xs font-semibold uppercase tracking-wider"
+          style={{ color: onPrimary, opacity: 0.7 }}
+        >
           Your brand
         </p>
-        <p className="text-lg font-bold mt-0.5" style={{ color: "#fff" }}>
+        <p className="text-lg font-bold mt-0.5" style={{ color: onPrimary }}>
           Welcome to LP Studio
         </p>
       </div>
@@ -63,7 +85,7 @@ function ColorSwatch({ color, accent }: { color: string; accent: string }) {
         <p className="text-xs text-muted-foreground">Live preview</p>
         <span
           className="text-xs font-semibold px-3 py-1 rounded-full"
-          style={{ background: accent, color: color }}
+          style={{ background: accent, color: onAccent }}
         >
           Get started
         </span>
@@ -102,6 +124,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   // richer extracted fields (fonts, voice, messaging, products) are saved too.
   const [importedProposed, setImportedProposed] = useState<Record<string, unknown> | null>(null);
   const [importSourceUrl, setImportSourceUrl] = useState("");
+  // Honest-failure signal for the Colors step: true once an import has run but
+  // the extractor couldn't determine any colors, so the step still shows the
+  // hardcoded navy/indigo defaults. We surface this instead of pretending the
+  // defaults were imported. Reset whenever colors do come through.
+  const [colorImportFailed, setColorImportFailed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -179,12 +206,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         setLogoUrl(pickedLogo);
         setLogoPreview(pickedLogo);
       }
-      if (typeof p.primaryColor === "string" && isFullHex(p.primaryColor)) {
-        setPrimaryColor(p.primaryColor);
-      }
-      if (typeof p.accentColor === "string" && isFullHex(p.accentColor)) {
-        setAccentColor(p.accentColor);
-      }
+      const gotPrimary = typeof p.primaryColor === "string" && isFullHex(p.primaryColor);
+      const gotAccent = typeof p.accentColor === "string" && isFullHex(p.accentColor);
+      if (gotPrimary) setPrimaryColor(p.primaryColor as string);
+      if (gotAccent) setAccentColor(p.accentColor as string);
+      // Honest failure: if the extractor returned no usable colors, flag the
+      // Colors step so it tells the user to pick colors rather than silently
+      // presenting the navy/indigo defaults as if they were imported.
+      setColorImportFailed(!gotPrimary && !gotAccent);
 
       // Keep the full proposed map (minus the UI-only logo picker list) so the
       // richer fields are saved at finish. Pin the chosen logo into it.
@@ -562,6 +591,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <p className="text-sm text-muted-foreground mt-1">These fill your pages automatically. Fine-tune anytime in Brand Settings.</p>
             </div>
 
+            {colorImportFailed && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                <X className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+                <span>
+                  We couldn't detect your site's colors automatically — the
+                  defaults below are just a starting point. Pick your real brand
+                  colors here.
+                </span>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -571,7 +611,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       <input
                         type="color"
                         value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        onChange={(e) => { setPrimaryColor(e.target.value); setColorImportFailed(false); }}
                         className="w-full h-full cursor-pointer border-none p-0"
                         style={{ appearance: "none", WebkitAppearance: "none" } as React.CSSProperties}
                       />
@@ -580,7 +620,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       value={primaryColor}
                       onChange={(e) => {
                         const v = e.target.value;
-                        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setPrimaryColor(v);
+                        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) { setPrimaryColor(v); setColorImportFailed(false); }
                       }}
                       className="font-mono text-sm"
                       maxLength={7}
@@ -596,7 +636,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       <input
                         type="color"
                         value={accentColor}
-                        onChange={(e) => setAccentColor(e.target.value)}
+                        onChange={(e) => { setAccentColor(e.target.value); setColorImportFailed(false); }}
                         className="w-full h-full cursor-pointer border-none p-0"
                         style={{ appearance: "none", WebkitAppearance: "none" } as React.CSSProperties}
                       />
@@ -605,7 +645,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       value={accentColor}
                       onChange={(e) => {
                         const v = e.target.value;
-                        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setAccentColor(v);
+                        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) { setAccentColor(v); setColorImportFailed(false); }
                       }}
                       className="font-mono text-sm"
                       maxLength={7}
