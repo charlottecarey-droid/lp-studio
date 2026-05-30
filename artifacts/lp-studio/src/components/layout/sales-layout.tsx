@@ -230,7 +230,10 @@ export function SalesTopNav() {
   const brandLogoUrl = brand.logoUrl ?? "";
   const brandName = brand.brandName ?? "";
   // One-pager is beta for non-Dandy tenants until they upload branded assets.
-  const isDandy = brandName.trim().toLowerCase() === "dandy";
+  // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
+  // immutable tenant slug), NOT the editable `brandName` — renaming the
+  // workspace to "Dandy" must not change the nav's Dandy-only labels/state.
+  const isDandy = brand.isDandy === true;
   const brandLogoNeedsInvert = useLogoNeedsInversion(brandLogoUrl || null);
   const [location] = useLocation();
   const { hasPerm } = useAuth();

@@ -633,7 +633,10 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   // copy out of generated PDFs for non-Dandy tenants.
   const [brand, setBrand] = useState<BrandConfigT>(DEFAULT_BRAND);
   useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
-  const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
+  // immutable tenant slug), NOT the editable `brandName` — so a non-Dandy
+  // tenant can't get Dandy copy into generated PDFs by renaming the workspace.
+  const isDandy = brand.isDandy === true;
   const brandLabel = (brand.brandName || "").trim();
   const brandSlug = (brand.brandName || "report")
     .replace(/\s+/g, "_")

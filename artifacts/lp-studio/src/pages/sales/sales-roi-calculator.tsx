@@ -98,10 +98,11 @@ const SalesRoiCalculator = () => {
     fetchBrandConfig().then(setBrand).catch(() => {});
   }, []);
   const brandStyleVars = useMemo(() => getBrandStyleVars(brand), [brand]);
-  // Task #342 — de-Dandy the calculator for non-Dandy tenants. Royal/neutral
-  // tenants ship with brandName="" (DEFAULT_BRAND), so any non-empty brand
-  // name that isn't literally "Dandy" should suppress Dandy-only copy.
-  const isDandy = (brand.brandName ?? "").trim().toLowerCase() === "dandy";
+  // Task #342 — de-Dandy the calculator for non-Dandy tenants. Detect Dandy via
+  // the server-authoritative `isDandy` flag (resolved from the immutable tenant
+  // slug), NOT the editable `brandName` — renaming the workspace to "Dandy"
+  // must not pull Dandy-only copy back into the calculator.
+  const isDandy = brand.isDandy === true;
   const brandSlug = (brand.brandName || "report")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
