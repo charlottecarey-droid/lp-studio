@@ -36,6 +36,26 @@ import { LinkedFormStyleProvider } from "@/components/LinkedFormStyleContext";
 import { readLinkedFormStyle } from "@/lib/linked-form-style";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
 
+// Builder pages that contain the one-pager hero are sales one-pagers, not
+// landing pages. They should read like a printed document — a centered,
+// fixed-width "sheet" on a neutral backdrop — instead of stretching full-bleed
+// across wide screens. We avoid `overflow-hidden` here so any block using
+// position:sticky inside the sheet keeps working.
+const ONE_PAGER_BLOCK_TYPES = new Set(["one-pager-hero"]);
+function hasOnePagerBlock(blocks: { type: string }[]): boolean {
+  return blocks.some((b) => ONE_PAGER_BLOCK_TYPES.has(b.type));
+}
+function OnePagerFrame({ active, children }: { active: boolean; children: ReactNode }) {
+  if (!active) return <>{children}</>;
+  return (
+    <div className="bg-muted/40 min-h-screen md:py-10">
+      <div className="mx-auto w-full max-w-[960px] bg-background md:shadow-[0_10px_50px_-15px_rgba(0,0,0,0.25)] md:ring-1 md:ring-border/50">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** Catches render errors in individual blocks so one bad block can't blank the entire page. */
 class BlockErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -782,6 +802,7 @@ export default function LandingPageViewer() {
             </button>
           </div>
         )}
+        <OnePagerFrame active={hasOnePagerBlock(blocks)}>
         {blocks.map((block, i) => {
           const dtrBlock = Object.keys(dtrParams).length > 0
             ? { ...block, props: applyDtr(block.props, dtrParams) }
@@ -798,6 +819,7 @@ export default function LandingPageViewer() {
             </BlockErrorBoundary>
           );
         })}
+        </OnePagerFrame>
         {blocks.length === 0 && (
           <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">
             This page has no blocks yet.
@@ -904,7 +926,9 @@ export default function LandingPageViewer() {
           </div>
         )}
         {blocks.length > 0
-          ? blocks.map((block, i) => {
+          ? (
+            <OnePagerFrame active={hasOnePagerBlock(blocks)}>
+            {blocks.map((block, i) => {
               const dtrBlock = Object.keys(dtrParams).length > 0
                 ? { ...block, props: applyDtr(block.props, dtrParams) }
                 : block;
@@ -919,7 +943,9 @@ export default function LandingPageViewer() {
                   </ScrollReveal>
                 </BlockErrorBoundary>
               );
-            })
+            })}
+            </OnePagerFrame>
+          )
           : (
             <div className="min-h-screen flex flex-col items-center justify-center text-slate-400 text-sm gap-4">
               <div className="text-4xl">🧱</div>
