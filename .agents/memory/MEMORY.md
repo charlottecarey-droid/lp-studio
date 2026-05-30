@@ -22,3 +22,4 @@
 - [Stripe dunning email ordering](stripe-dunning-email-ordering.md) — in invoice.payment_failed, downgrade FIRST, then send dunning email best-effort/bounded/de-duped; never await a hangable send before revoking features.
 - [R2 boot sweeps vs startup probe](r2-boot-sweeps-vs-startup-probe.md) — build-OK-but-promote-failed w/ zero logs = startup-probe starvation; keep R2 sweeps off app.listen path; all S3 clients via buildR2S3Client (200 sockets).
 - [Content Series guest fields](content-series-guest-fields.md) — podcast RSS has no guest field (author=producer); populate via AI prose extraction; hero must source guest from the targeted episode alone.
+- [Block role tags](block-role-tags.md) — semantic tag vocab+defaults live ONLY in lp-template-engine/block-tags.ts; DB overrides via resolveBlockTags; AI guide parses allowed blocks from system-prompt `- "type":` bullets (silently empties if format changes).

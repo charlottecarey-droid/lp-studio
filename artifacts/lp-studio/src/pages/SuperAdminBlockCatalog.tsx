@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
 import { neutralizeLabel } from "@/hooks/use-block-catalog";
+import {
+  BLOCK_ROLE_TAGS,
+  BLOCK_ROLE_TAG_DESCRIPTIONS,
+  sanitizeRoleTags,
+  type BlockRoleTag,
+} from "@workspace/lp-template-engine";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -35,6 +41,7 @@ interface CatalogRow {
   industry: Industry;
   label: string;
   category: string;
+  tags: string[] | null;
   default_props: Record<string, unknown>;
   is_enabled: boolean;
   sort_order: number;
@@ -81,6 +88,7 @@ interface RowFormState {
   industry: Industry;
   label: string;
   category: string;
+  tags: BlockRoleTag[];
   default_props_json: string;
   is_enabled: boolean;
   sort_order: number;
@@ -91,6 +99,7 @@ const EMPTY_FORM: RowFormState = {
   industry: "generic",
   label: "",
   category: "Content",
+  tags: [],
   default_props_json: "{}",
   is_enabled: true,
   sort_order: 0,
@@ -167,6 +176,7 @@ function CatalogRowEditor({
           industry: form.industry,
           label: form.label.trim(),
           category: form.category.trim(),
+          tags: sanitizeRoleTags(form.tags),
           default_props: JSON.parse(form.default_props_json),
           is_enabled: form.is_enabled,
           sort_order: form.sort_order,
@@ -293,6 +303,42 @@ function CatalogRowEditor({
                   onChange={e => setForm({ ...form, sort_order: Number(e.target.value) || 0 })}
                   className="h-8 text-sm"
                 />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Role tags</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {BLOCK_ROLE_TAGS.map((tag) => {
+                    const active = form.tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        title={BLOCK_ROLE_TAG_DESCRIPTIONS[tag]}
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            tags: active
+                              ? form.tags.filter((t) => t !== tag)
+                              : [...form.tags, tag],
+                          })
+                        }
+                        className={
+                          "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                          (active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input bg-background text-muted-foreground hover:bg-accent")
+                        }
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Semantic roles this block fills for this industry — guides the AI page
+                  generator (hero, footer, CTA, social-proof, …). Leave empty to fall back to
+                  the in-code default tags for this block type.
+                </p>
               </div>
               <div className="col-span-2 flex items-center gap-2 py-1">
                 <Switch
@@ -668,6 +714,7 @@ export default function SuperAdminBlockCatalog() {
             // generic tenant actually inherits from the code default.
             label: industry === "generic" ? neutralizeLabel(def.label) : def.label,
             category: def.category,
+            tags: sanitizeRoleTags(def.tags),
             default_props: defaultProps,
             is_enabled: true,
             sort_order: 0,
@@ -736,6 +783,7 @@ export default function SuperAdminBlockCatalog() {
       industry: row.industry,
       label: row.label,
       category: row.category,
+      tags: sanitizeRoleTags(row.tags),
       default_props_json: JSON.stringify(row.default_props ?? {}, null, 2),
       is_enabled: row.is_enabled,
       sort_order: row.sort_order,
@@ -756,6 +804,7 @@ export default function SuperAdminBlockCatalog() {
           industry: row.industry,
           label: row.label,
           category: row.category,
+          tags: sanitizeRoleTags(row.tags),
           default_props: row.default_props ?? {},
           is_enabled: !row.is_enabled,
           sort_order: row.sort_order,

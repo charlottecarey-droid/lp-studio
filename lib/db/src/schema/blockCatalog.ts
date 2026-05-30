@@ -17,6 +17,13 @@ export const blockCatalogTable = pgTable("block_catalog", {
   industry: text("industry").notNull(),
   label: text("label").notNull(),
   category: text("category").notNull(),
+  /**
+   * Per-industry semantic role tags (controlled vocabulary from
+   * @workspace/lp-template-engine). When non-empty, overrides the in-code
+   * DEFAULT_BLOCK_TAGS for this (block_type, industry). NULL/empty = no
+   * override → fall back to code defaults.
+   */
+  tags: text("tags").array(),
   defaultProps: jsonb("default_props").notNull().default({}),
   isEnabled: boolean("is_enabled").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),

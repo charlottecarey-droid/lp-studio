@@ -139,6 +139,7 @@ import type {
   StickyHeaderBlockProps,
 } from "./utility-blocks";
 import type { BlockType, PageBlock } from "./block-variant";
+import { type BlockRoleTag, getDefaultBlockTags } from "@workspace/lp-template-engine";
 
 export interface BlockDefinition {
   type: BlockType;
@@ -146,6 +147,15 @@ export interface BlockDefinition {
   category: BlockCategory;
   defaultProps: () => any;
   thumbnail: () => React.ReactElement;
+  /**
+   * Semantic role tags (controlled vocabulary from
+   * @workspace/lp-template-engine) describing what structural role this block
+   * fills — hero, footer, cta, social-proof, … Code defaults are attached
+   * automatically (see end of this file) from the shared DEFAULT_BLOCK_TAGS
+   * map; superadmins can override them per-industry via the Block Catalog.
+   * Advisory metadata only — does not affect rendering.
+   */
+  tags?: BlockRoleTag[];
   /**
    * Slot-constraint hint: when `false`, this block is excluded from the
    * Insert dialog whenever the user is targeting a nested container slot
@@ -5325,6 +5335,16 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
 ];
+
+// Attach code-default semantic role tags to every registered block from the
+// single shared DEFAULT_BLOCK_TAGS map (in @workspace/lp-template-engine), so
+// the vocabulary lives in exactly one place. An author can still hard-code
+// `tags` on an entry above to override the default for that block.
+for (const def of BLOCK_REGISTRY) {
+  if (!def.tags || def.tags.length === 0) {
+    def.tags = getDefaultBlockTags(def.type);
+  }
+}
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
   return BLOCK_REGISTRY.find(b => b.type === type);

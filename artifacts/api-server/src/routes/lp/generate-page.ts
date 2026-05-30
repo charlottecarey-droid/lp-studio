@@ -1,6 +1,6 @@
 import { Router } from "express";
 import OpenAI from "openai";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { aiGenerationLogTable, lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { createHash } from "node:crypto";
 import { eq, desc, and, or, sql } from "drizzle-orm";
@@ -14,6 +14,8 @@ import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
+import { getTenantIndustry } from "../../lib/tenantIndustry";
+import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS } from "@workspace/lp-template-engine";
 
 const router = Router();
 
@@ -1292,6 +1294,61 @@ function isDsoPrompt(prompt: string): boolean {
   return dsoKeywords.some(kw => lower.includes(kw));
 }
 
+/**
+ * Pull the list of block types a given system prompt advertises to the model.
+ * Every system prompt documents its allowed blocks as markdown bullets in the
+ * form `- "block-type": …`, so we harvest those tokens to know which blocks
+ * are actually selectable for this generation path (GENERAL vs DSO vs DSO
+ * Practices) and tag only those.
+ */
+function extractPromptBlockTypes(systemPrompt: string): string[] {
+  const types: string[] = [];
+  const re = /^\s*-\s*"([a-z0-9-]+)":/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(systemPrompt)) !== null) {
+    if (!types.includes(m[1])) types.push(m[1]);
+  }
+  return types;
+}
+
+/**
+ * Build the semantic role-tag guidance block (task #459). Lists each
+ * selectable block with its resolved role tags (per-industry catalog overrides
+ * layered on the in-code defaults) and the structural rules that turn those
+ * roles into a complete page (one hero, a closing CTA, social-proof, stats, a
+ * footer when available). Returns "" when no tagged blocks are found so the
+ * prompt is unchanged for that path.
+ */
+function buildBlockRoleTagGuide(
+  systemPrompt: string,
+  dbTagsByType: Map<string, unknown>,
+): string {
+  const types = extractPromptBlockTypes(systemPrompt);
+  if (types.length === 0) return "";
+  const lines: string[] = [];
+  for (const t of types) {
+    const tags = resolveBlockTags(t, dbTagsByType.get(t));
+    if (tags.length > 0) lines.push(`- "${t}": ${tags.join(", ")}`);
+  }
+  if (lines.length === 0) return "";
+  const vocab = BLOCK_ROLE_TAGS.map(
+    (t) => `${t} (${BLOCK_ROLE_TAG_DESCRIPTIONS[t]})`,
+  ).join("; ");
+  return [
+    "BLOCK ROLE TAGS — each selectable block is tagged with the structural role(s) it fills. Compose a structurally complete page by role, not just a flat list of blocks.",
+    `Role vocabulary: ${vocab}.`,
+    "Block → roles:",
+    ...lines,
+    "STRUCTURE RULES (use ONLY the block types listed above):",
+    '- Begin the page with exactly ONE block tagged "hero".',
+    '- Always include at least one block tagged "cta", and place a strong closing CTA near the end of the page.',
+    '- Include at least one "social-proof" block and at least one "stats" block to establish credibility (a single block may carry both roles).',
+    '- End the page with a block tagged "footer" whenever one appears in the list above.',
+    '- Add "comparison", "pricing", "faq", or "form" blocks when the topic and goal call for them.',
+    "- Never invent block types or role tags; pick only from the blocks listed above.",
+  ].join("\n");
+}
+
 const SYSTEM_PROMPT = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
 
 DENSITY DOCTRINE (the single most important rule — read first):
@@ -2241,6 +2298,26 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // section per the framing in referenceSection itself.
   if (referenceSection) userPromptParts.push(referenceSection);
   if (visionSection) userPromptParts.push(visionSection);
+  // Semantic role-tag guidance (task #459): tell the model which structural
+  // role each selectable block fills, with per-industry catalog overrides on
+  // top of the in-code defaults, so generated pages reliably include a hero,
+  // closing CTA, social-proof, stats, and a footer. Best-effort: any failure
+  // leaves the prompt unchanged.
+  try {
+    const industry = await getTenantIndustry(tenantId);
+    const catRows = await pool.query(
+      `SELECT block_type, tags FROM block_catalog WHERE industry = $1 AND tags IS NOT NULL`,
+      [industry],
+    );
+    const dbTagsByType = new Map<string, unknown>();
+    for (const row of catRows.rows) {
+      dbTagsByType.set(row.block_type as string, row.tags);
+    }
+    const roleTagSection = buildBlockRoleTagGuide(systemPrompt, dbTagsByType);
+    if (roleTagSection) userPromptParts.push(roleTagSection);
+  } catch (err) {
+    logger.warn({ err: String(err) }, "[generate-page] role-tag guide build skipped");
+  }
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
     useDsoPractices

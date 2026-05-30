@@ -24,6 +24,8 @@
  * `this.<id>`. Existing flat {{field}} templates continue to work unchanged.
  */
 
+export * from "./block-tags";
+
 export type Scalar = string | number | boolean;
 /**
  * A row inside a list field. Each cell is either a scalar or — when the
