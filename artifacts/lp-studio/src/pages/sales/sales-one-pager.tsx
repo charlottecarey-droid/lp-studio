@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
 import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import {
@@ -488,6 +488,11 @@ const SalesOnePager = () => {
   // in the shared generator get replaced with this tenant's branding.
   // For Dandy tenants we pass `undefined` so generators use their Dandy defaults.
   const brandLabel = (brand.brandName || "").trim();
+  // Resolve one-pager color overrides (Brand Settings → Sales Console →
+  // One-pager defaults) so the generated PDF bands/accents track the same
+  // colors as the web one-pager. Falls back to the base brand primary/accent
+  // when no one-pager override is set.
+  const onePagerColors = resolveOnePagerColors(brand);
   const brandContext: BrandContext | undefined = isDandy ? undefined : {
     wordmark: brandLabel.toLowerCase(),
     productName: brandLabel || "Our Lab",
@@ -499,11 +504,11 @@ const SalesOnePager = () => {
     qrFallbackUrl: brandQrFallback || "",
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
-    // Thread the tenant's brand colors so the shared generators derive their
+    // Thread the tenant's one-pager colors so the shared generators derive their
     // dark bands / accents from these instead of Dandy's green/lime. Dandy
     // (brandContext === undefined) keeps its hard-coded palette unchanged.
-    primaryColor: (brand.primaryColor || "").trim(),
-    accentColor: (brand.accentColor || "").trim(),
+    primaryColor: (onePagerColors.primaryColor || "").trim(),
+    accentColor: (onePagerColors.accentColor || "").trim(),
   };
   const oneAssets = resolveOnePagerAssets(brand);
 

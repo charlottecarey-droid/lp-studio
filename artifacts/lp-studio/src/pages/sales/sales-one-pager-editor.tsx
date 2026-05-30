@@ -21,7 +21,7 @@ import {
   type AgreementContact,
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
-import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig } from "@/lib/brand-config";
 import { scrubBrand, isDandyGatedBuiltin, type BrandContext } from "@workspace/one-pager-types";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 
@@ -272,6 +272,9 @@ export default function SalesOnePagerEditor() {
     ? "https://meetdandy.com"
     : (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "");
   const brandLabel = (brand.brandName || "").trim();
+  // Resolve one-pager color overrides so the editor preview matches the
+  // generated PDF and the web one-pager. Falls back to base brand colors.
+  const onePagerColors = resolveOnePagerColors(brand);
   const brandContext: BrandContext | undefined = isDandy ? undefined : {
     wordmark: brandLabel.toLowerCase(),
     productName: brandLabel || "Our Lab",
@@ -283,9 +286,9 @@ export default function SalesOnePagerEditor() {
     qrFallbackUrl: brandQrFallback || "",
     agreementName: `${brandLabel || "Partner"} Practice Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
-    // Thread brand colors so the editor preview matches the rep's generated PDF.
-    primaryColor: (brand.primaryColor || "").trim(),
-    accentColor: (brand.accentColor || "").trim(),
+    // Thread one-pager colors so the editor preview matches the rep's generated PDF.
+    primaryColor: (onePagerColors.primaryColor || "").trim(),
+    accentColor: (onePagerColors.accentColor || "").trim(),
   };
   const oneAssets = resolveOnePagerAssets(brand);
   // Helper to scrub Dandy literals out of UI strings shown to non-Dandy tenants.

@@ -5,6 +5,7 @@ export type { CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf"
 import type { OverlayField, CustomTemplate } from "@workspace/one-pager-types";
 import type { CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf";
 import type { BrandConfig } from "@/lib/brand-config";
+import { resolveOnePagerColors } from "@/lib/brand-config";
 import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 
 const API_BASE = "/api";
@@ -28,14 +29,17 @@ export function buildCustomTemplateBrandOpts(brand: BrandConfig): CustomTemplate
     };
   }
   const cta = brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "";
+  // Honor one-pager color overrides so custom-template surfaces track the same
+  // colors as the web one-pager. Falls back to base brand colors when unset.
+  const onePagerColors = resolveOnePagerColors(brand);
   return {
     brandLogoSvgUrl: brand.logoUrl || "",
     brandWordmark: (brand.brandName || "").trim().toLowerCase(),
     qrFallbackUrl: cta,
     // Brand-tinted custom-template surfaces (e.g. team-photo circle). Empty for
     // Dandy (handled above) so Dandy's hard-coded green is preserved.
-    primaryColor: (brand.primaryColor || "").trim(),
-    accentColor: (brand.accentColor || "").trim(),
+    primaryColor: (onePagerColors.primaryColor || "").trim(),
+    accentColor: (onePagerColors.accentColor || "").trim(),
   };
 }
 

@@ -13,7 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, type BrandConfig as BrandConfigT } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig as BrandConfigT } from "@/lib/brand-config";
 import { scrubBrand, isDandyBrandName, isDandyGatedBuiltin, type BrandContext as BrandContextT } from "@workspace/one-pager-types";
 import {
   generatePilotOnePager,
@@ -2074,6 +2074,11 @@ export default function SalesOnePagerTemplates() {
   const previewQrFallback = previewIsDandy
     ? "https://meetdandy.com"
     : (previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#" ? previewBrand.defaultCtaUrl : "");
+  // Resolve one-pager color overrides so the template-creator previews use the
+  // tenant's one-pager colors (Brand Settings → Sales Console → One-pager
+  // defaults) instead of falling back to Dandy's green/lime. Falls back to the
+  // base brand primary/accent when no one-pager override is set.
+  const previewOnePagerColors = resolveOnePagerColors(previewBrand);
   const previewBrandContext: BrandContextT | undefined = previewIsDandy ? undefined : {
     wordmark: previewBrandLabel.toLowerCase(),
     productName: previewBrandLabel || "Our Lab",
@@ -2085,6 +2090,10 @@ export default function SalesOnePagerTemplates() {
     qrFallbackUrl: previewQrFallback || "",
     agreementName: `${previewBrandLabel || "Partner"} Practice Agreement`,
     agreementUrl: previewBrand.defaultCtaUrl && previewBrand.defaultCtaUrl !== "#" ? previewBrand.defaultCtaUrl : "",
+    // Thread one-pager colors so the template previews/cards render in the
+    // tenant's brand palette rather than Dandy green.
+    primaryColor: (previewOnePagerColors.primaryColor || "").trim(),
+    accentColor: (previewOnePagerColors.accentColor || "").trim(),
   };
   const previewOneAssets = resolveOnePagerAssets(previewBrand);
   // Stable identity so the TemplateEditor live-preview effect (which lists
