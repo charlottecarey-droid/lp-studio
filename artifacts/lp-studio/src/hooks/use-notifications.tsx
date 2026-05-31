@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 const API_BASE = "/api";
 // When the live SSE channel is healthy we only need polling as a slow backstop
@@ -7,6 +9,9 @@ const API_BASE = "/api";
 // When SSE is unavailable we fall back to the original tighter poll.
 const POLL_INTERVAL_MS = 60_000;
 const POLL_INTERVAL_SSE_MS = 5 * 60_000;
+// Collapse a burst of live pushes that land within this window into a single
+// running "N new notifications" toast instead of spawning one per item.
+const TOAST_BURST_MS = 4_000;
 
 export interface NotificationItem {
   id: number;
@@ -31,6 +36,10 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const loadedRef = useRef(false);
+  // Toast throttling state for live pushes.
+  const toastedIdsRef = useRef<Set<number>>(new Set());
+  const lastToastAtRef = useRef(0);
+  const burstCountRef = useRef(0);
 
   const refreshCount = useCallback(async () => {
     if (!isAuthed) return;
@@ -92,6 +101,55 @@ export function useNotifications() {
     }
   }, []);
 
+  // Surface a brief toast for a notification that just arrived over the live
+  // channel. Dedupe by id (a push can race a poll) and collapse a rapid burst
+  // into a single running "N new notifications" toast so we never spam.
+  const notifyLive = useCallback(
+    (item: NotificationItem) => {
+      // Already-read items (e.g. cross-tab echoes) shouldn't nudge.
+      if (item.read) return;
+      if (toastedIdsRef.current.has(item.id)) return;
+      toastedIdsRef.current.add(item.id);
+
+      const now = Date.now();
+      const inBurst = now - lastToastAtRef.current < TOAST_BURST_MS;
+      lastToastAtRef.current = now;
+
+      if (inBurst) {
+        // Collapse the burst into a single running count. The toast list is
+        // capped at 1, so a fresh toast() replaces the prior one in place —
+        // simpler and more reliable than mutating a possibly-stale handle.
+        burstCountRef.current += 1;
+        toast({
+          title: `${burstCountRef.current} new notifications`,
+          description: "Open the bell to review them.",
+        });
+        return;
+      }
+
+      // Start of a fresh (non-burst) window: show this single notification.
+      burstCountRef.current = 1;
+      const action = item.ctaUrl ? (
+        <ToastAction
+          altText={item.ctaLabel ?? "View"}
+          onClick={() => {
+            void markRead([item.id]);
+            window.location.href = item.ctaUrl as string;
+          }}
+        >
+          {item.ctaLabel ?? "View"}
+        </ToastAction>
+      ) : undefined;
+
+      toast({
+        title: item.title ?? "New notification",
+        description: item.body ?? undefined,
+        action,
+      });
+    },
+    [markRead],
+  );
+
   // Merge a notification pushed over the live SSE channel. Dedupe by id so a
   // push that races the next poll/inbox load doesn't double-count the badge.
   const ingestLive = useCallback((item: NotificationItem) => {
@@ -113,6 +171,10 @@ export function useNotifications() {
       setItems([]);
       setUnreadCount(0);
       loadedRef.current = false;
+      // Forget which items we've already toasted so a re-login starts clean.
+      toastedIdsRef.current.clear();
+      lastToastAtRef.current = 0;
+      burstCountRef.current = 0;
       return;
     }
 
@@ -139,7 +201,10 @@ export function useNotifications() {
         es.addEventListener("notification", (ev) => {
           try {
             const item = JSON.parse((ev as MessageEvent).data) as NotificationItem;
-            if (item && typeof item.id === "number") ingestLive(item);
+            if (item && typeof item.id === "number") {
+              ingestLive(item);
+              notifyLive(item);
+            }
           } catch {
             // Malformed push — fall back to a count refresh.
             void refreshCount();
@@ -159,7 +224,7 @@ export function useNotifications() {
       if (pollId !== undefined) window.clearInterval(pollId);
       es?.close();
     };
-  }, [isAuthed, refreshCount, ingestLive]);
+  }, [isAuthed, refreshCount, ingestLive, notifyLive]);
 
   return { items, unreadCount, loading, loadItems, markRead, markAllRead };
 }
