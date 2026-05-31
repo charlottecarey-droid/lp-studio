@@ -360,7 +360,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
           </button>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{config.marketoConfig ? "On" : "Off"}</span>
-            <Switch checked={!!config.marketoConfig} onCheckedChange={toggleMarketo} />
+            <Switch checked={!!config.marketoConfig} onCheckedChange={toggleMarketo} showStateLabel={false} />
           </div>
         </div>
         {showMarketo && (
@@ -399,7 +399,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
           </button>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{config.salesforceConfig ? "On" : "Off"}</span>
-            <Switch checked={!!config.salesforceConfig} onCheckedChange={toggleSalesforce} />
+            <Switch checked={!!config.salesforceConfig} onCheckedChange={toggleSalesforce} showStateLabel={false} />
           </div>
         </div>
         {showSalesforce && (

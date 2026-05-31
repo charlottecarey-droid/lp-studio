@@ -950,7 +950,7 @@ Lead Source:LeadSource`}</pre>
                     <div className="text-sm font-medium">GTM dataLayer push</div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{enabled ? "On" : "Off"}</span>
-                      <Switch checked={enabled} onCheckedChange={v => setGtm({ enabled: v })} />
+                      <Switch checked={enabled} onCheckedChange={v => setGtm({ enabled: v })} showStateLabel={false} />
                     </div>
                   </div>
                   <div className="p-3 space-y-3">
@@ -1001,7 +1001,7 @@ Lead Source:LeadSource`}</pre>
                 </button>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">{local.chiliPiperConfig ? "On" : "Off"}</span>
-                  <Switch checked={!!local.chiliPiperConfig} onCheckedChange={toggleChiliPiper} />
+                  <Switch checked={!!local.chiliPiperConfig} onCheckedChange={toggleChiliPiper} showStateLabel={false} />
                 </div>
               </div>
               {showChiliPiper && (

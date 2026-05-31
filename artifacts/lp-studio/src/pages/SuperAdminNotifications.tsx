@@ -1025,7 +1025,7 @@ function WorkflowEditor({
           </select>
         </div>
         <div className="flex items-end gap-2">
-          <Switch checked={enabled} disabled={locked} onCheckedChange={setEnabled} />
+          <Switch checked={enabled} disabled={locked} onCheckedChange={setEnabled} showStateLabel={false} />
           <span className="text-sm">{enabled ? "Enabled" : "Disabled"}</span>
         </div>
       </div>

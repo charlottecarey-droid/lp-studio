@@ -107,7 +107,7 @@ export function FollowUpEmailSection({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{enabled ? "On" : "Off"}</span>
-          <Switch checked={enabled} onCheckedChange={onEnabledChange} />
+          <Switch checked={enabled} onCheckedChange={onEnabledChange} showStateLabel={false} />
         </div>
       </div>
       {enabled && (
