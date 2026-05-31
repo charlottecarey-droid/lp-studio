@@ -17,6 +17,11 @@ import { z } from "zod/v4";
  *
  * tenantId is NULL for superadmins (they belong to no single tenant).
  * googleId is the `sub` claim from Google OAuth — unique per Google account.
+ * githubId is the numeric GitHub user id (as text) — the stable identity for a
+ * GitHub account (GitHub OAuth has no id_token, so this id is the `sub`
+ * equivalent). Unique per GitHub account; NULL for users who never sign in with
+ * GitHub. GitHub sign-ins are implicitly verified (we only accept a verified
+ * primary email from the GitHub API).
  *
  * passwordHash is NULL for accounts that only ever authenticate via Google /
  * magic link. It is set when a user registers (or sets) an email+password
@@ -31,6 +36,7 @@ export const appUsersTable = pgTable("app_users", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id"),
   googleId: text("google_id").unique(),
+  githubId: text("github_id").unique(),
   email: text("email").notNull().unique(),
   name: text("name").notNull().default(""),
   avatarUrl: text("avatar_url"),

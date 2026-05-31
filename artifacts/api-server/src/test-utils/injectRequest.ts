@@ -28,6 +28,8 @@ export interface InjectResponse {
   /** Parsed response body, or undefined when the body is not valid JSON. */
   json: unknown;
   text: string;
+  /** Response headers set by the handler (lowercased names), e.g. `location`. */
+  headers: Record<string, number | string | string[] | undefined>;
 }
 
 export function inject(app: Express, opts: InjectOptions): Promise<InjectResponse> {
@@ -68,7 +70,7 @@ export function inject(app: Express, opts: InjectOptions): Promise<InjectRespons
       } catch {
         json = undefined;
       }
-      resolve({ status: res.statusCode, json, text });
+      resolve({ status: res.statusCode, json, text, headers: res.getHeaders() });
       return res;
     }) as typeof res.end;
 

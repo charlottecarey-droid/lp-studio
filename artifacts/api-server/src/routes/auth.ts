@@ -536,6 +536,222 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
   }
 });
 
+// ── GitHub OAuth ────────────────────────────────────────────────────────────
+// GitHub has no id_token (unlike Google): we exchange the authorization code for
+// an access token, then read the account + verified emails from the GitHub REST
+// API. The numeric GitHub user id (stored as text) is the stable identity — the
+// `sub` equivalent — persisted in app_users.github_id. GitHub OAuth apps allow
+// only ONE callback host, so a tenant domain that initiated the flow gets the
+// session minted on its own host via the same cross-domain exchange-code handoff
+// the Google flow uses.
+
+function getGithubRedirectUri(requestHost?: string): string {
+  if (process.env.GITHUB_OAUTH_REDIRECT_URI) return process.env.GITHUB_OAUTH_REDIRECT_URI;
+  if (requestHost) {
+    const isLocal = requestHost.startsWith("localhost") || requestHost.startsWith("127.");
+    const protocol = isLocal ? "http" : "https";
+    const host = requestHost.split(":")[0]; // strip port for non-local
+    const port = isLocal ? `:${requestHost.split(":")[1] ?? process.env.PORT ?? 8080}` : "";
+    return `${protocol}://${host}${port}/api/auth/github/callback`;
+  }
+  const domain = process.env.REPLIT_DEV_DOMAIN;
+  if (domain) return `https://${domain}/api/auth/github/callback`;
+  return `http://localhost:${process.env.PORT ?? 8080}/api/auth/github/callback`;
+}
+
+function getGithubOAuthConfig(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.GITHUB_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+// GET /api/auth/github/config — lets the frontend render the "Continue with
+// GitHub" button only when the provider is configured (mirrors the Turnstile
+// config probe). Public + unauthenticated; reveals only a boolean.
+router.get("/auth/github/config", (_req, res): void => {
+  res.json({ enabled: !!getGithubOAuthConfig() });
+});
+
+// GET /api/auth/github — initiates the GitHub OAuth flow.
+router.get("/auth/github", oauthInitLimiter, (req, res): void => {
+  const cfg = getGithubOAuthConfig();
+  if (!cfg) {
+    res.status(503).json({ error: "GitHub OAuth not configured. Set GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET." });
+    return;
+  }
+  const originHost = getRequestHost(req);
+  const redirectUri = getGithubRedirectUri(originHost);
+  // Optional `?next=` — a same-origin relative path to resume after the OAuth
+  // round-trip (mirrors the Google flow). Anything else is dropped.
+  const nextPath = sanitizeNextPath((req.query as { next?: unknown }).next);
+  const state = Buffer.from(JSON.stringify({ host: originHost, redirectUri, next: nextPath })).toString("base64url");
+  const authUrl = new URL("https://github.com/login/oauth/authorize");
+  authUrl.searchParams.set("client_id", cfg.clientId);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("scope", "read:user user:email");
+  authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("allow_signup", "true");
+  res.redirect(authUrl.toString());
+});
+
+// GET /api/auth/github/callback — handles the OAuth callback from GitHub.
+router.get("/auth/github/callback", async (req, res): Promise<void> => {
+  const { code, error: oauthError, state: stateParam } = req.query as { code?: string; error?: string; state?: string };
+  if (oauthError || !code) {
+    res.redirect(`/?error=${encodeURIComponent(oauthError ?? "oauth_failed")}`);
+    return;
+  }
+
+  // Decode origin host + redirect URI + next destination from state.
+  let originHost = "";
+  let stateRedirectUri = "";
+  let nextPath: string | null = null;
+  try {
+    if (stateParam) {
+      const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf8"));
+      originHost = decoded.host ?? "";
+      stateRedirectUri = decoded.redirectUri ?? "";
+      nextPath = sanitizeNextPath(decoded.next);
+    }
+  } catch { /* ignore malformed state */ }
+
+  const cfg = getGithubOAuthConfig();
+  if (!cfg) {
+    res.redirect("/?error=oauth_not_configured");
+    return;
+  }
+  // Use the exact redirect URI that was used when initiating the flow.
+  const redirectUri = stateRedirectUri || getGithubRedirectUri(originHost);
+
+  // Resolve domain context for the origin host (custom domain, microsite
+  // domain, or wildcard tenant subdomain) — same resolver the Google flow uses.
+  let domainMode: "open" | "tenant-locked" = "open";
+  let domainTenantId: number | null = null;
+  if (originHost) {
+    const match = await findTenantByHost(originHost);
+    if (match && match.mode === "tenant-locked") {
+      domainMode = "tenant-locked";
+      domainTenantId = match.tenantId;
+    }
+  }
+
+  try {
+    // 1. Exchange the authorization code for an access token.
+    const tokenResp = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+    const tokenData = (await tokenResp.json().catch(() => ({}))) as { access_token?: string; error?: string };
+    const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      res.redirect("/?error=auth_failed");
+      return;
+    }
+
+    // 2. Read the GitHub account. GitHub requires a User-Agent header.
+    const ghHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "LP-Studio",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    const userResp = await fetch("https://api.github.com/user", { headers: ghHeaders });
+    if (!userResp.ok) {
+      res.redirect("/?error=auth_failed");
+      return;
+    }
+    const ghUser = (await userResp.json()) as {
+      id?: number;
+      login?: string;
+      name?: string | null;
+      avatar_url?: string | null;
+      email?: string | null;
+    };
+    if (!ghUser.id) {
+      res.redirect("/?error=auth_failed");
+      return;
+    }
+    const githubId = String(ghUser.id);
+
+    // 3. Resolve a verified primary email. GitHub omits the email from /user
+    //    when the user keeps it private, so always read /user/emails and pick
+    //    the primary verified address (falling back to any verified one). We
+    //    only ever accept a VERIFIED email so a GitHub login can't be used to
+    //    hijack an unverified account by claiming someone else's address.
+    let email: string | null = null;
+    const emailsResp = await fetch("https://api.github.com/user/emails", { headers: ghHeaders });
+    if (emailsResp.ok) {
+      const emails = (await emailsResp.json().catch(() => [])) as Array<{ email: string; primary: boolean; verified: boolean }>;
+      const primary = emails.find((e) => e.primary && e.verified);
+      const anyVerified = emails.find((e) => e.verified);
+      email = (primary ?? anyVerified)?.email ?? null;
+    }
+    if (!email) {
+      res.redirect("/?error=no_email");
+      return;
+    }
+
+    const name = ghUser.name || ghUser.login || "";
+    const avatarUrl = ghUser.avatar_url ?? null;
+
+    // 4. Upsert the user, linking a GitHub login to an existing account that
+    //    shares the same verified email (mirrors the Google upsert).
+    const upsertResult = await pool.query(
+      `INSERT INTO app_users (github_id, email, name, avatar_url, status, last_login_at)
+       VALUES ($1, $2, $3, $4, 'active', now())
+       ON CONFLICT (email) DO UPDATE SET
+         github_id = COALESCE(EXCLUDED.github_id, app_users.github_id),
+         name = COALESCE(NULLIF(EXCLUDED.name, ''), app_users.name),
+         avatar_url = COALESCE(EXCLUDED.avatar_url, app_users.avatar_url),
+         status = 'active',
+         last_login_at = now(),
+         updated_at = now()
+       RETURNING id, email, name, avatar_url, role, tenant_id`,
+      [githubId, email, name, avatarUrl]
+    );
+    const user = upsertResult.rows[0];
+
+    // Resolve membership + create the session (shared with the Google,
+    // email/password, and magic-link flows so the logic never drifts).
+    const { sid } = await establishSession(res, user, domainMode, domainTenantId);
+
+    // Cross-domain handoff: if the flow started on a tenant host that differs
+    // from our single registered GitHub callback host, mint the session on the
+    // origin host via a short-lived, host-bound exchange code (same mechanism
+    // and security properties as the Google callback).
+    const callbackHost = (() => {
+      try {
+        const uri = process.env.GITHUB_OAUTH_REDIRECT_URI;
+        if (uri) return new URL(uri).hostname;
+      } catch { /* ignore */ }
+      return "";
+    })();
+    const originHostname = originHost.split(":")[0].toLowerCase();
+    if (callbackHost && originHostname && originHostname !== callbackHost) {
+      const exchangeCode = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute expiry
+      await pool.query(
+        `INSERT INTO auth_exchange_codes (code, sid, expires_at, target_host) VALUES ($1, $2, $3, $4)`,
+        [exchangeCode, sid, expiresAt, originHostname]
+      );
+      const nextSuffix = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+      res.redirect(`https://${originHostname}/api/auth/accept?code=${encodeURIComponent(exchangeCode)}${nextSuffix}`);
+    } else {
+      res.redirect(nextPath ?? "/");
+    }
+  } catch (err) {
+    console.error("[auth] GitHub OAuth callback error:", err);
+    res.redirect("/?error=auth_failed");
+  }
+});
+
 // GET /api/auth/accept — cross-domain session handoff via short-lived exchange code
 // Called when the OAuth callback domain differs from the origin domain (e.g. Dandy on meetdandy-lp.com).
 // Uses a short-lived exchange code instead of passing the session token in the URL.

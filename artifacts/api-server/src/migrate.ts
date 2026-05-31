@@ -478,6 +478,36 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the app_users.github_id column ("Sign in with
+    // GitHub"). Same high-water-mark hazard as the self-heals above: on a DB
+    // whose journal was renumbered after it was migrated, drizzle can record
+    // 0057 as applied without its DDL ever running, leaving the column missing.
+    // The GitHub OAuth callback INSERTs/UPSERTs github_id on every sign-in; a
+    // missing column would 500 the callback and break GitHub login entirely.
+    // Re-applying the file here is independent of drizzle's dedup and idempotent
+    // (ADD COLUMN IF NOT EXISTS + CREATE UNIQUE INDEX IF NOT EXISTS), so it adds
+    // the column where missing and is a no-op elsewhere. Fails CLOSED: the
+    // column is feature-critical, so a missing column aborts the release.
+    await runStep("app_users github_id self-heal (0057)", async () => {
+      const githubIdSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0057_app_users_github_id.sql"),
+        "utf8",
+      );
+      await pool.query(githubIdSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'app_users'
+            AND column_name = 'github_id'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "app_users github_id self-heal did not produce the column — aborting release",
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under
