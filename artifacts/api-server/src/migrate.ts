@@ -691,7 +691,16 @@ async function runMigrationsBody(): Promise<void> {
       // (before/after gallery, speaker grids, carousels) and bento tile
       // backgrounds were repopulated in the seed file but never reached
       // the DB because the v19 marker was already present.
-      const SEED_MARKER = "global_templates_seed_v24";
+      // v25: surface the two newest generic flagships — Storefront (DTC)
+      // [global-flagship-storefront-dtc, industry "ecommerce"] and Blog /
+      // Editorial Series [global-flagship-blog-series-editorial, industry
+      // "media"]. They were added to flagshipTemplates.ts after v24 was
+      // recorded, so the marker-gated upsert never inserted them and they
+      // were missing from the marketplace, the builder Template tab, and the
+      // AI "starting point" dropdown. Bumping the marker inserts the two new
+      // rows and refreshes every existing global row non-destructively (the
+      // ON CONFLICT upsert below preserves tenant title edits).
+      const SEED_MARKER = "global_templates_seed_v25";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
