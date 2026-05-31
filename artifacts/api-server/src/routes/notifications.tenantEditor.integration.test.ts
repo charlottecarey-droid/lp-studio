@@ -202,6 +202,29 @@ describe("tenant email-template editor API", () => {
     expect(row.rows[0]).toMatchObject({ scope: "tenant", tenant_id: tenantId });
   });
 
+  it("reads stay in the caller's own tenant even with an X-Tenant-Id override (real cross-tenant assertion)", async () => {
+    // The previous test persisted a tenant-A-scoped override for TEMPLATE_KEY.
+    // A non-superadmin GET that supplies an X-Tenant-Id pointing at a DIFFERENT
+    // tenant must still resolve to tenant A and return tenant A's override body
+    // — proving the header cannot redirect the read to another tenant's data.
+    const res = await injectSid({
+      method: "GET",
+      url: `/api/tenant/notification-templates/${TEMPLATE_KEY}`,
+      sid: ADMIN_SID,
+      headers: { "x-tenant-id": String(tenantId + 1) },
+    });
+    expect(res.status).toBe(200);
+    const tpl = (res.json as { template: Record<string, unknown> }).template;
+    expect(tpl["bodyHtml"]).toBe("<p>Tenant RT {{leadName}} — {{brandName}}</p>");
+
+    // The override row read back belongs to tenant A, never tenantId+1.
+    const row = await pool.query(
+      `SELECT tenant_id FROM notification_templates WHERE tenant_id = $1 AND key = $2`,
+      [tenantId, TEMPLATE_KEY],
+    );
+    expect(row.rows[0]).toMatchObject({ tenant_id: tenantId });
+  });
+
   it("appends a tenant-keyed audit-log row for the PATCH", async () => {
     const r = await pool.query(
       `SELECT 1 FROM email_template_edit_log

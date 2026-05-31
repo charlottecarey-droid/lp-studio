@@ -42,8 +42,10 @@ import {
   updateWorkflow,
   deleteWorkflow,
 } from "../lib/workflowStore";
-import { validateWorkflowDefinition } from "../lib/workflowTypes";
-import { runWorkflowSweep } from "../lib/workflowEngine";
+import { validateWorkflowDefinition, parseAudienceConfig } from "../lib/workflowTypes";
+import { runWorkflowSweep, runWorkflowTick, retryWorkflowSendFailure } from "../lib/workflowEngine";
+import { previewAudience } from "../lib/workflowAudience";
+import { listWorkflowSendFailures } from "../lib/workflowSendFailures";
 import {
   getEmailShell,
   getEmailShellOverrides,
@@ -1221,17 +1223,93 @@ router.delete("/admin/email-workflows/:id", requireSuperadmin, async (req, res):
   }
 });
 
-/** POST /api/admin/email-workflows/sweep — manually run the scheduler sweep once
- * (for testing scheduled/delayed steps without waiting for the boot timer). */
+/** POST /api/admin/email-workflows/sweep — manually run a full scheduler tick
+ * once (scheduled + audience producers, then the engine sweep) so superadmins
+ * can test scheduled/audience/delayed steps without waiting for the boot timer. */
 router.post("/admin/email-workflows/sweep", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
-    const result = await runWorkflowSweep();
+    const result = await runWorkflowTick();
     res.json(result);
   } catch (err) {
     console.error("[notifications] manual sweep error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
+/** POST /api/admin/email-workflow-audience/preview — resolve a scheduled/audience
+ * role filter to a live recipient count + small sample, for the composer UI. */
+router.post("/admin/email-workflow-audience/preview", requireSuperadmin, async (req, res): Promise<void> => {
+  const config = parseAudienceConfig(req.body ?? {});
+  if (!config) {
+    res.status(400).json({ error: "role must be one of: superadmin, admin, member" });
+    return;
+  }
+  try {
+    const preview = await previewAudience(config.role);
+    res.json(preview);
+  } catch (err) {
+    console.error("[notifications] audience preview error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * GET /api/admin/workflow-send-failures — the recipient-failure safety-net queue
+ * (Task #625). Unresolved failures by default; `?resolved=true` for the cleared
+ * history.
+ */
+router.get("/admin/workflow-send-failures", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const resolvedParam = typeof req.query["resolved"] === "string" ? req.query["resolved"] : undefined;
+    const opts =
+      resolvedParam === "true"
+        ? { resolved: true }
+        : resolvedParam === "false"
+          ? { resolved: false }
+          : {};
+    const failures = await listWorkflowSendFailures(opts);
+    res.json({ failures });
+  } catch (err) {
+    console.error("[notifications] workflow send-failures list error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/admin/workflow-send-failures/:id/retry — re-attempt one failed send.
+ * Reuses the original dedupe key, so a recipient who already received the email
+ * is never sent a second copy (the attempt resolves as a deduped no-op).
+ */
+router.post(
+  "/admin/workflow-send-failures/:id/retry",
+  requireSuperadmin,
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+    try {
+      const result = await retryWorkflowSendFailure(id);
+      if (result.outcome === "not_found") {
+        res.status(404).json({ error: "Failure not found" });
+        return;
+      }
+      await writeEditLog({
+        targetType: "workflow",
+        targetKey: `send-failure:${id}`,
+        editorEmail,
+        action: "update",
+        diff: { retry: result.outcome },
+      });
+      res.json(result);
+    } catch (err) {
+      console.error("[notifications] workflow send-failure retry error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Tenant email authoring (Task #588). The tenant-admin mirror of the SuperAdmin

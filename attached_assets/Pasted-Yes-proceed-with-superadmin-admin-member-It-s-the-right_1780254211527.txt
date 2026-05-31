@@ -1,0 +1,22 @@
+Yes, proceed with superadmin / admin / member. It's the right v1 model for three reasons:
+
+It's what the data model actually supports. tenant_roles is dynamic per-tenant with free-text names + an isAdmin boolean, so a fixed cross-tenant owner/admin/editor/viewer enum doesn't exist. The coarse 3-bucket split (superadmin via app_users.tenantId IS NULL, admin via tenant_roles.isAdmin = true, member for everyone else in tenant_members) is the cleanest map onto reality. My prompt's enum was wrong; the agent's reconciliation is right.
+Most audience-filter use cases want exactly these three buckets. "Send to all admins to coordinate a feature rollout" doesn't care whether they're called "owner" or "editor" — just that they have admin access. The isAdmin flag is the structural distinction that matters.
+A finer split would require either (a) flattening tenant_roles.name into a fixed enum across all tenants — which breaks per-tenant role flexibility — or (b) letting operators pick free-text role names in the audience filter UI — which is confusing for cross-tenant filtering (Tenant A's "Editor" role isn't the same as Tenant B's "Editor" role). Neither is right for v1.
+
+If a use case ever emerges that needs "send to everyone with role name X across tenants," that's a role_names?: string[] additive filter dimension later. Not now.
+One small UI labeling note for the agent: in the filter picker, label the options "Superadmin / Workspace admins / Workspace members" rather than just "Superadmin / Admin / Member" — the unqualified "Admin" reads ambiguously to someone who's never set up workspace roles. The explicit "Workspace" prefix removes the ambiguity that "Admin" could mean superadmin.
+
+Other observations on the rest of the plan-back, all positive:
+The agent's finding that buildAuthActionEmailHtml already exists at notifications.ts:172 and is already used by some auth senders is a genuine improvement on my prompt. Fix 1's helper-creation work becomes "route the 4 stragglers (lines ~408, 587, 1065, 1158) through the existing helper." Lower-effort than I scoped, same outcome.
+The schema reconciliation is correct and important. Real tables are email_workflow_triggers / email_workflows / email_workflow_enrollments (migration 0047), not the table names I guessed at. The agent's mapping onto the existing email_workflow_enrollments.dedupe_key with UNIQUE(workflow_id, dedupe_key) is exactly right — reuses the existing index rather than adding a new one.
+The dedupe key formats the agent proposes are cleaner than mine:
+
+Scheduled: ${occurrence_id}:${recipientId}
+Audience: match:${recipientId}
+
+Because workflow_id is already part of the unique constraint scope (UNIQUE(workflow_id, dedupe_key)), there's no need to repeat it inside the key string. Less redundancy. Good catch.
+Sweep ordering proposal — scheduled → audience → existing enrollment/step engine, all in the same 60s tick under the same advisory lock — is correct. Means freshly-enrolled rows get processed the same tick, avoiding a 60s latency on the first send.
+The brand-neutral HTML for the lead notification fallback (the one the agent quoted back) is clean: #f5f1e8 cream background, white card, #1f2937 slate headline, neutral gray field rows, "New lead" instead of "New Lead Submission" (the Dandy-y wording from the original). No #003A30, no #C7E738, no "LP Studio", no "Dandy". Sanity-check passes.
+The task split (#624 audit fixes / #625 safety net / #626 trigger execution, with #626 dependent on #625) is the right ordering. Ship #625 first because it's the load-bearing safety net under #626.
+Go ahead. Confirm the role model with the UI-label tweak ("Workspace admins / Workspace members" instead of just "Admins / Members") and the agent has everything they need to start building.

@@ -589,6 +589,17 @@ const SHELL_KEY = "__shell__";
 
 type TriggerType = "event" | "scheduled" | "audience";
 
+type AudienceRole = "superadmin" | "admin" | "member";
+type ScheduleFrequency = "once" | "daily" | "weekly" | "monthly";
+
+const ROLE_LABELS: Record<AudienceRole, string> = {
+  superadmin: "Superadmin",
+  admin: "Workspace admins",
+  member: "Workspace members",
+};
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 interface Trigger {
   key: string;
   name: string;
@@ -1068,6 +1079,52 @@ function WorkflowEditor({
   );
 }
 
+/** Live recipient-count preview for a scheduled/audience role filter (Task #626). */
+function AudiencePreview({ role }: { role: AudienceRole }) {
+  const [state, setState] = useState<
+    { status: "loading" } | { status: "ready"; count: number; sample: { email: string }[] } | { status: "error" }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading" });
+    apiFetch("/api/admin/email-workflow-audience/preview", {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    })
+      .then((data) => {
+        if (cancelled) return;
+        setState({ status: "ready", count: data.count ?? 0, sample: data.sample ?? [] });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  if (state.status === "loading") {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> Counting {ROLE_LABELS[role]}…
+      </p>
+    );
+  }
+  if (state.status === "error") {
+    return <p className="text-xs text-destructive">Couldn’t load recipient count.</p>;
+  }
+  return (
+    <p className="text-xs text-muted-foreground">
+      <span className="font-semibold text-foreground">{state.count.toLocaleString()}</span>{" "}
+      {ROLE_LABELS[role].toLowerCase()} will receive this
+      {state.sample.length > 0 && (
+        <span className="text-muted-foreground/80"> · e.g. {state.sample.map((s) => s.email).join(", ")}</span>
+      )}
+    </p>
+  );
+}
+
 /** Triggers manager + blank-template creator (compact panels). */
 function TriggersPanel({
   triggers,
@@ -1080,13 +1137,32 @@ function TriggersPanel({
   const [name, setName] = useState("");
   const [triggerType, setTriggerType] = useState<TriggerType>("event");
   const [eventKey, setEventKey] = useState("");
+  const [role, setRole] = useState<AudienceRole>("member");
+  const [frequency, setFrequency] = useState<ScheduleFrequency>("daily");
+  const [time, setTime] = useState("09:00");
+  const [dayOfWeek, setDayOfWeek] = useState(1);
+  const [dayOfMonth, setDayOfMonth] = useState(1);
+  const [date, setDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const buildConfig = (): Record<string, unknown> | undefined => {
+    if (triggerType === "audience") return { role };
+    if (triggerType === "scheduled") {
+      const cfg: Record<string, unknown> = { role, frequency, time };
+      if (frequency === "weekly") cfg.dayOfWeek = dayOfWeek;
+      if (frequency === "monthly") cfg.dayOfMonth = dayOfMonth;
+      if (frequency === "once") cfg.date = date;
+      return cfg;
+    }
+    return undefined;
+  };
 
   const create = async () => {
     setBusy(true);
     setErr(null);
     try {
+      const config = buildConfig();
       await apiFetch("/api/admin/email-workflow-triggers", {
         method: "POST",
         body: JSON.stringify({
@@ -1094,6 +1170,7 @@ function TriggersPanel({
           name: name.trim() || key.trim(),
           triggerType,
           eventKey: triggerType === "event" ? eventKey.trim() : null,
+          ...(config ? { config } : {}),
         }),
       });
       setKey("");
@@ -1183,6 +1260,97 @@ function TriggersPanel({
             />
           )}
         </div>
+
+        {triggerType !== "event" && (
+          <div className="mt-2 space-y-2 rounded-md border bg-background/60 p-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-xs">
+                <span className="text-muted-foreground">Audience</span>
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as AudienceRole)}
+                >
+                  <option value="superadmin">{ROLE_LABELS.superadmin}</option>
+                  <option value="admin">{ROLE_LABELS.admin}</option>
+                  <option value="member">{ROLE_LABELS.member}</option>
+                </select>
+              </label>
+              {triggerType === "scheduled" && (
+                <label className="text-xs">
+                  <span className="text-muted-foreground">Frequency</span>
+                  <select
+                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    value={frequency}
+                    onChange={(e) => setFrequency(e.target.value as ScheduleFrequency)}
+                  >
+                    <option value="once">Once</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </label>
+              )}
+            </div>
+
+            {triggerType === "scheduled" && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="text-xs">
+                  <span className="text-muted-foreground">Time (UTC)</span>
+                  <Input
+                    type="time"
+                    className="mt-1 h-8"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                  />
+                </label>
+                {frequency === "weekly" && (
+                  <label className="text-xs">
+                    <span className="text-muted-foreground">Day of week</span>
+                    <select
+                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      value={dayOfWeek}
+                      onChange={(e) => setDayOfWeek(Number(e.target.value))}
+                    >
+                      {WEEKDAY_LABELS.map((d, i) => (
+                        <option key={d} value={i}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {frequency === "monthly" && (
+                  <label className="text-xs">
+                    <span className="text-muted-foreground">Day of month</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className="mt-1 h-8"
+                      value={dayOfMonth}
+                      onChange={(e) => setDayOfMonth(Number(e.target.value))}
+                    />
+                  </label>
+                )}
+                {frequency === "once" && (
+                  <label className="text-xs">
+                    <span className="text-muted-foreground">Date (UTC)</span>
+                    <Input
+                      type="date"
+                      className="mt-1 h-8"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            <AudiencePreview role={role} />
+          </div>
+        )}
+
         <Button type="button" size="sm" className="mt-2" disabled={busy || !key.trim()} onClick={() => void create()}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Add trigger
         </Button>
@@ -1267,7 +1435,172 @@ type ComposerView =
   | { kind: "workflow"; id: number | null }
   | { kind: "triggers" }
   | { kind: "new-template" }
+  | { kind: "failures" }
   | { kind: "empty" };
+
+type SendFailure = {
+  id: number;
+  workflow_id: number;
+  step_id: string;
+  channel: "email" | "in_app";
+  template_key: string;
+  recipient_email: string | null;
+  recipient_name: string | null;
+  error: string | null;
+  attempt_count: number;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Failed sends queue (Task #625). The recipient-failure safety-net: workflow
+ * steps that failed to deliver to a recipient BEFORE any send are recorded here
+ * so an operator can see and retry them. Retry reuses the original dedupe key,
+ * so a recipient who already received the message is never sent a duplicate (the
+ * attempt resolves as a deduped no-op).
+ */
+function FailedSendsPanel() {
+  const [failures, setFailures] = useState<SendFailure[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [showResolved, setShowResolved] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const data = await apiFetch(
+        `/api/admin/workflow-send-failures?resolved=${showResolved ? "true" : "false"}`,
+      );
+      setFailures((data.failures as SendFailure[]) ?? []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load send failures");
+    } finally {
+      setLoading(false);
+    }
+  }, [showResolved]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const retry = async (id: number) => {
+    setBusyId(id);
+    setMsg(null);
+    try {
+      const r = await apiFetch(`/api/admin/workflow-send-failures/${id}/retry`, {
+        method: "POST",
+      });
+      const outcome = r.outcome as string;
+      setMsg(
+        outcome === "sent"
+          ? "Retry delivered — the recipient has been sent the message."
+          : outcome === "deduped"
+            ? "Already delivered — cleared without sending a duplicate."
+            : "Retry still failed — the failure stays in the queue.",
+      );
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Retry failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Failed sends</h2>
+          <p className="text-xs text-muted-foreground">
+            Workflow messages that couldn&rsquo;t be delivered to a recipient. Retry reuses the
+            original send key, so an already-delivered recipient is never sent a duplicate.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Switch checked={showResolved} onCheckedChange={setShowResolved} />
+            Show resolved
+          </label>
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      {msg && (
+        <div className="mb-3 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">{msg}</div>
+      )}
+      {err && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {err}
+        </div>
+      )}
+
+      {failures.length === 0 && !loading ? (
+        <div className="flex flex-col items-center gap-2 py-12 text-center text-sm text-muted-foreground">
+          <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+          {showResolved ? "No resolved failures." : "No failed sends — every recipient is up to date."}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {failures.map((f) => (
+            <div
+              key={f.id}
+              className="flex items-start justify-between gap-3 rounded-md border bg-background px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    {f.channel === "email" ? "email" : "in-app"}
+                  </Badge>
+                  <span className="font-mono text-xs text-muted-foreground">{f.template_key}</span>
+                  <span className="truncate text-sm font-medium">
+                    {f.recipient_email ?? f.recipient_name ?? "(no recipient)"}
+                  </span>
+                  {f.attempt_count > 1 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {f.attempt_count} attempts
+                    </span>
+                  )}
+                </div>
+                {f.error && (
+                  <p className="mt-0.5 truncate text-xs text-destructive" title={f.error}>
+                    {f.error}
+                  </p>
+                )}
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  workflow #{f.workflow_id} · step {f.step_id} ·{" "}
+                  {new Date(f.created_at).toLocaleString()}
+                  {f.resolved_at && ` · resolved ${new Date(f.resolved_at).toLocaleString()}`}
+                </p>
+              </div>
+              {!f.resolved_at && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={busyId === f.id}
+                  onClick={() => void retry(f.id)}
+                >
+                  {busyId === f.id ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  Retry
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function WorkflowComposer() {
   const [workflows, setWorkflows] = useState<ComposerWorkflow[]>([]);
@@ -1301,7 +1634,10 @@ function WorkflowComposer() {
     setSweepMsg(null);
     try {
       const r = await apiFetch("/api/admin/email-workflows/sweep", { method: "POST" });
-      setSweepMsg(`Sweep ran: claimed ${r.claimed ?? 0}, processed ${r.processed ?? 0}.`);
+      setSweepMsg(
+        `Tick ran: scheduled ${r.scheduled ?? 0}, audience ${r.audience ?? 0}, ` +
+          `claimed ${r.sweep?.claimed ?? 0}, processed ${r.sweep?.processed ?? 0}.`,
+      );
     } catch (e) {
       setSweepMsg(e instanceof Error ? e.message : "Sweep failed");
     }
@@ -1392,6 +1728,15 @@ function WorkflowComposer() {
             >
               <Mail className="h-3.5 w-3.5" /> New template
             </button>
+            <button
+              type="button"
+              onClick={() => setView({ kind: "failures" })}
+              className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
+                view.kind === "failures" ? "bg-primary/10 font-medium text-primary" : "hover:bg-accent"
+              }`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" /> Failed sends
+            </button>
           </div>
         </nav>
 
@@ -1416,6 +1761,8 @@ function WorkflowComposer() {
             <TriggersPanel triggers={triggers} onChanged={() => void load()} />
           ) : view.kind === "new-template" ? (
             <NewTemplatePanel onCreated={() => void load()} />
+          ) : view.kind === "failures" ? (
+            <FailedSendsPanel />
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
               Select a workflow, or create a new one.

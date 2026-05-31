@@ -14,6 +14,11 @@ import {
   type Workflow,
 } from "./workflowStore";
 import type { WorkflowStep } from "./workflowTypes";
+import { produceScheduledEnrollments, produceAudienceEnrollments } from "./workflowProducers";
+import {
+  getWorkflowSendFailure,
+  markWorkflowSendFailureResolved,
+} from "./workflowSendFailures";
 
 /**
  * The workflow engine. Sits ABOVE the single-template dispatcher:
@@ -289,6 +294,9 @@ async function processClaimedEnrollment(snap: EnrollmentRow, preloaded?: Workflo
       context: snap.context,
       dedupeBase: stepDedupeBase(snap.workflow_id, snap.dedupe_key, step.id),
       ...(channels ? { channels } : {}),
+      // Safety-net (Task #625): a transient per-recipient send drop here is
+      // recorded to workflow_send_failures for the superadmin retry queue.
+      failureLedger: { workflowId: snap.workflow_id, stepId: step.id, enrollmentId: snap.id },
     });
   }
 
@@ -374,22 +382,193 @@ export async function runWorkflowSweep(): Promise<{ claimed: number; processed: 
   return { claimed: leased.length, processed };
 }
 
+/**
+ * Manually retry a recorded per-recipient send failure (Task #625).
+ *
+ * Re-runs the original step's dispatch with the SAME stored dedupeBase, so the
+ * rebuilt per-recipient dedupe_key matches the original send exactly. The
+ * existing UNIQUE(dedupe_key, channel) on notification_sends is the guard
+ * against a double-send:
+ *   - "sent"    — the claim was free and the send succeeded → resolve.
+ *   - "deduped" — a delivery already exists for this dedupe_key (the recipient
+ *                 DID receive it; the claim hit the conflict) → resolve, no
+ *                 second copy.
+ *   - "failed"  — still couldn't deliver; the ledger row's attempt_count was
+ *                 bumped by the dispatcher's capture path and it stays unresolved.
+ *
+ * CRITICAL: a dispatch "deduped" outcome is NOT proof of delivery. The original
+ * failure path releases its claim with a best-effort DELETE that is swallowed on
+ * error — so a prior attempt can leave a STALE 'pending' row occupying the
+ * dedupe slot with no email ever sent. A naive resolve-on-deduped would then
+ * silently clear an undelivered failure, defeating the whole safety-net. We
+ * therefore inspect the conflicting notification_sends row: only a row that is
+ * actually 'sent' counts as a delivery; a stale 'pending' claim is released and
+ * the send is retried once. (in_app rows are only ever written 'sent', so they
+ * naturally satisfy the 'sent' check.)
+ */
+export async function retryWorkflowSendFailure(
+  id: number,
+): Promise<{ ok: boolean; outcome: "sent" | "deduped" | "failed" | "not_found" }> {
+  // Serialize all retries of THIS failure row so two concurrent retry clicks can
+  // never both run the stale-claim repair and double-send. A transaction-scoped
+  // advisory lock keyed by the ledger id is held for the whole retry: it is
+  // auto-released on COMMIT/ROLLBACK (no leak risk even on the -pooler endpoint,
+  // unlike a session lock) and — being an advisory lock, not a row lock — it does
+  // NOT block the dispatcher's own writes to notification_sends /
+  // workflow_send_failures on other pooled connections, so there is no deadlock.
+  // By the time a waiting caller acquires the lock the prior holder's tx has
+  // committed, so its resolved_at write is already visible.
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query("BEGIN");
+    await lockClient.query(
+      `SELECT pg_advisory_xact_lock(hashtext('workflow_send_failure_retry'), $1::int)`,
+      [id],
+    );
+    const outcome = await runWorkflowSendFailureRetry(id);
+    await lockClient.query("COMMIT");
+    return outcome;
+  } catch (err) {
+    await lockClient.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    lockClient.release();
+  }
+}
+
+/**
+ * Core retry logic, run while the caller holds the per-row advisory lock so it
+ * executes serially for a given failure id. See `retryWorkflowSendFailure`.
+ */
+async function runWorkflowSendFailureRetry(
+  id: number,
+): Promise<{ ok: boolean; outcome: "sent" | "deduped" | "failed" | "not_found" }> {
+  const row = await getWorkflowSendFailure(id);
+  if (!row) return { ok: false, outcome: "not_found" };
+  if (row.resolved_at) return { ok: true, outcome: "deduped" };
+
+  const dispatch = () =>
+    dispatchNotification({
+      templateKey: row.template_key,
+      tenantId: row.tenant_id,
+      recipients: [
+        { appUserId: row.app_user_id, email: row.recipient_email, name: row.recipient_name },
+      ],
+      context: row.context,
+      dedupeBase: row.dedupe_base,
+      channels: [row.channel],
+      failureLedger: {
+        workflowId: row.workflow_id,
+        stepId: row.step_id,
+        enrollmentId: row.enrollment_id,
+      },
+    });
+
+  const result = await dispatch();
+
+  const delivered = row.channel === "email" ? result.emailsSent : result.inAppCreated;
+  if (delivered > 0) {
+    await markWorkflowSendFailureResolved(id);
+    return { ok: true, outcome: "sent" };
+  }
+
+  // A conflict on the dedupe slot does NOT by itself mean the recipient received
+  // the send — inspect the occupying row before resolving.
+  if (result.deduped > 0) {
+    const existing = await pool.query<{ status: string }>(
+      `SELECT status FROM notification_sends WHERE dedupe_key=$1 AND channel=$2 LIMIT 1`,
+      [row.dedupe_key, row.channel],
+    );
+    const status = existing.rows[0]?.status;
+    // Genuine delivery already on record — resolve without a second copy.
+    if (status === "sent") {
+      await markWorkflowSendFailureResolved(id);
+      return { ok: true, outcome: "deduped" };
+    }
+    // Stale 'pending' claim from a prior failed attempt whose claim-release
+    // DELETE also failed. Release it and retry the send exactly once — this is
+    // the only path that can recover such an orphaned claim, since the dispatcher
+    // sweep is itself blocked by the lingering row. Re-send ONLY if our DELETE
+    // actually removed the stale row; if it removed nothing the slot changed out
+    // from under us, so re-check rather than blindly sending again.
+    if (status === "pending") {
+      const del = await pool.query(
+        `DELETE FROM notification_sends WHERE dedupe_key=$1 AND channel=$2 AND status='pending'`,
+        [row.dedupe_key, row.channel],
+      );
+      if ((del.rowCount ?? 0) > 0) {
+        const retry = await dispatch();
+        const reDelivered = row.channel === "email" ? retry.emailsSent : retry.inAppCreated;
+        if (reDelivered > 0) {
+          await markWorkflowSendFailureResolved(id);
+          return { ok: true, outcome: "sent" };
+        }
+        return { ok: false, outcome: "failed" };
+      }
+      // The stale row was already cleared/replaced — if a real delivery now
+      // occupies the slot, resolve; otherwise leave it for another attempt.
+      const recheck = await pool.query<{ status: string }>(
+        `SELECT status FROM notification_sends WHERE dedupe_key=$1 AND channel=$2 LIMIT 1`,
+        [row.dedupe_key, row.channel],
+      );
+      if (recheck.rows[0]?.status === "sent") {
+        await markWorkflowSendFailureResolved(id);
+        return { ok: true, outcome: "deduped" };
+      }
+      return { ok: false, outcome: "failed" };
+    }
+    // Row vanished between dispatch and lookup (concurrent retry/cleanup) — treat
+    // as not delivered; the ledger row stays unresolved for another attempt.
+    return { ok: false, outcome: "failed" };
+  }
+  return { ok: false, outcome: "failed" };
+}
+
+/**
+ * One full scheduler tick: run the scheduled + audience producers (Task #626) to
+ * mint any due enrollments, THEN run the engine sweep that drives every active
+ * enrollment's next step. Order matters — producing first means an
+ * immediate-first-step (delay 0) enrollment minted this tick is also processed
+ * this tick. Each producer is isolated in its own try/catch so one failing never
+ * starves the others or the engine. Returns counts for logging/tests.
+ */
+export async function runWorkflowTick(now: Date = new Date()): Promise<{
+  scheduled: number;
+  audience: number;
+  sweep: { claimed: number; processed: number };
+}> {
+  let scheduled = 0;
+  let audience = 0;
+  try {
+    scheduled = (await produceScheduledEnrollments(now)).enrolled;
+  } catch (err) {
+    logger.error({ err }, "[workflowEngine] scheduled producer failed");
+  }
+  try {
+    audience = (await produceAudienceEnrollments()).enrolled;
+  } catch (err) {
+    logger.error({ err }, "[workflowEngine] audience producer failed");
+  }
+  const sweep = await runWorkflowSweep();
+  return { scheduled, audience, sweep };
+}
+
 let sweepTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
- * Schedule the sweep OFF the app.listen path: a boot defer (so startup isn't
+ * Schedule the tick OFF the app.listen path: a boot defer (so startup isn't
  * blocked) then a recurring interval. Both timers .unref() so they never keep
  * the process alive. Idempotent — a second call is a no-op.
  */
 export function scheduleWorkflowSweep(): void {
   if (sweepTimer) return;
   const boot = setTimeout(() => {
-    void runWorkflowSweep().catch((err) =>
-      logger.error({ err }, "[workflowEngine] initial sweep failed"),
+    void runWorkflowTick().catch((err) =>
+      logger.error({ err }, "[workflowEngine] initial tick failed"),
     );
     sweepTimer = setInterval(() => {
-      void runWorkflowSweep().catch((err) =>
-        logger.error({ err }, "[workflowEngine] scheduled sweep failed"),
+      void runWorkflowTick().catch((err) =>
+        logger.error({ err }, "[workflowEngine] scheduled tick failed"),
       );
     }, SWEEP_INTERVAL_MS);
     sweepTimer.unref?.();

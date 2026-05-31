@@ -9,6 +9,7 @@ import {
 import { expandEmailVars, renderEmail } from "./emailRender";
 import { resolveEmailShellForEmail } from "./tenantEmailShell";
 import { isOptedOut, makeUnsubscribeToken } from "./notificationPreferences";
+import { recordWorkflowSendFailure, type SendFailureChannel } from "./workflowSendFailures";
 
 /**
  * Channel-aware notification dispatcher.
@@ -48,6 +49,14 @@ export interface DispatchInput {
   dedupeBase: string;
   /** Restrict to a subset of the template's channels (e.g. ['in_app']). */
   channels?: NotificationChannel[];
+  /**
+   * Workflow origin (Task #625). Present only when a workflow STEP drives this
+   * dispatch; when set, a transient per-recipient send failure that would
+   * otherwise be silently dropped is recorded in the workflow_send_failures
+   * ledger so a superadmin can see and retry it. Generic (non-workflow)
+   * callers — e.g. the trial sweep — leave it unset and keep today's behavior.
+   */
+  failureLedger?: { workflowId: number; stepId: string; enrollmentId: number | null };
 }
 
 export interface DispatchResult {
@@ -76,6 +85,40 @@ const STRUCTURAL_PG_ERROR_CODES = new Set(["42P01", "42703"]);
 export function isStructuralDbError(err: unknown): boolean {
   const code = (err as { code?: unknown } | null)?.code;
   return typeof code === "string" && STRUCTURAL_PG_ERROR_CODES.has(code);
+}
+
+/**
+ * Best-effort capture of a transient per-recipient send failure into the
+ * workflow_send_failures ledger (Task #625). No-op unless this dispatch was
+ * driven by a workflow STEP (input.failureLedger set). Never throws — the
+ * underlying record call swallows its own errors so a failing safety-net can't
+ * abort the rest of the send loop.
+ */
+async function captureWorkflowFailure(
+  input: DispatchInput,
+  r: NotificationRecipient,
+  channel: SendFailureChannel,
+  dedupeKey: string,
+  ctx: Record<string, string>,
+  err: unknown,
+): Promise<void> {
+  const origin = input.failureLedger;
+  if (!origin) return;
+  await recordWorkflowSendFailure({
+    workflowId: origin.workflowId,
+    enrollmentId: origin.enrollmentId,
+    stepId: origin.stepId,
+    tenantId: input.tenantId,
+    appUserId: r.appUserId,
+    recipientEmail: r.email,
+    recipientName: r.name ?? null,
+    channel,
+    templateKey: input.templateKey,
+    dedupeBase: input.dedupeBase,
+    dedupeKey,
+    context: ctx,
+    error: err instanceof Error ? err.message : String(err),
+  });
 }
 
 /** Replace `{{key}}` placeholders. Values are coerced to strings. */
@@ -253,6 +296,8 @@ async function dispatchInApp(
     // surfaces it loudly instead of returning a clean result while every
     // notification is silently dropped.
     if (isStructuralDbError(err)) throw err;
+    // Transient drop: record it for retry if this dispatch came from a workflow.
+    await captureWorkflowFailure(input, r, "in_app", dedupeKey, ctx, err);
   }
 }
 
@@ -313,6 +358,9 @@ async function dispatchEmail(
     // Structural schema errors (missing table/column) are a deployment
     // regression — rethrow loudly rather than silently skipping the send.
     if (isStructuralDbError(err)) throw err;
+    // Transient claim blip drops the recipient before any delivery — record it.
+    result.emailsFailed += 1;
+    await captureWorkflowFailure(input, r, "email", dedupeKey, ctx, err);
     return;
   }
 
@@ -370,6 +418,8 @@ async function dispatchEmail(
     } catch (delErr) {
       logger.error({ delErr, claimedId }, "[notificationDispatcher] failed to release email claim");
     }
+    // Durable trace of the dropped send for the superadmin retry queue.
+    await captureWorkflowFailure(input, r, "email", dedupeKey, ctx, err);
   }
 }
 

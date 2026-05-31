@@ -164,20 +164,20 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
 }
 
 /**
- * Shared transactional-email shell for the single-action auth emails
- * (magic link, password reset, email verification). Mirrors the LP Studio
- * brand styling used by the invite template above. Returns the full
- * HTML document.
+ * Single source of truth for the LP Studio–branded transactional email shell:
+ * the dark-green header with the LP wordmark, the white content card, and the
+ * grey footer note. `contentHtml` is injected verbatim into the white content
+ * cell, so callers own their body markup (paragraphs, CTAs, alert panels, …).
+ * `headline` is treated as trusted/pre-escaped HTML (callers escape any
+ * interpolated user data); `footerNote` is plain text and is escaped here.
  */
-function buildAuthActionEmailHtml(opts: {
+function buildLpEmailShell(opts: {
   headline: string;
-  bodyHtml: string;
-  ctaLabel: string;
-  ctaUrl: string;
+  contentHtml: string;
   footerNote: string;
-  expiryNote?: string;
+  maxWidth?: number;
 }): string {
-  const { headline, bodyHtml, ctaLabel, ctaUrl, footerNote, expiryNote } = opts;
+  const { headline, contentHtml, footerNote, maxWidth = 560 } = opts;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -189,7 +189,7 @@ function buildAuthActionEmailHtml(opts: {
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:${maxWidth}px;width:100%">
           <tr>
             <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
               <div style="margin-bottom:20px">
@@ -202,7 +202,37 @@ function buildAuthActionEmailHtml(opts: {
           </tr>
           <tr>
             <td style="background:#ffffff;padding:32px 40px">
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">
+${contentHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">${escapeHtml(footerNote)}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * Auth-action email (magic link / password reset / email verification): a
+ * single body paragraph, a lime CTA button, an optional expiry note, and the
+ * "paste this link" fallback line — rendered inside the shared LP shell.
+ */
+function buildAuthActionEmailHtml(opts: {
+  headline: string;
+  bodyHtml: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  footerNote: string;
+  expiryNote?: string;
+}): string {
+  const { headline, bodyHtml, ctaLabel, ctaUrl, footerNote, expiryNote } = opts;
+  const contentHtml = `              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">
                 ${bodyHtml}
               </p>
               <table cellpadding="0" cellspacing="0" role="presentation">
@@ -218,20 +248,8 @@ function buildAuthActionEmailHtml(opts: {
               ${expiryNote ? `<p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">${escapeHtml(expiryNote)}</p>` : ""}
               <p style="margin:16px 0 0;font-size:12px;color:#b6bcc4;line-height:1.6;word-break:break-all">
                 Or paste this link into your browser: ${escapeHtml(ctaUrl)}
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">${escapeHtml(footerNote)}</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+              </p>`;
+  return buildLpEmailShell({ headline, contentHtml, footerNote, maxWidth: 520 });
 }
 
 async function sendAuthActionEmail(opts: {
@@ -405,31 +423,7 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
   const headline = `An old ${escapeHtml(tenantName)} URL is about to stop working`;
   const dayLabel = daysUntilExpiry === 1 ? "1 day" : `${daysUntilExpiry} days`;
 
-  const fallbackHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px">
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+  const contentHtml = `              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
                 After your workspace was renamed, links to the old URL kept working for 90 days. That window closes in <strong>${dayLabel}</strong> — once it does, anyone visiting the old URL will land on a "workspace not found" page.
               </p>
 
@@ -468,22 +462,12 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
                     </a>
                   </td>
                 </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
-                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+              </table>`;
+  const fallbackHtml = buildLpEmailShell({
+    headline,
+    contentHtml,
+    footerNote: `You're receiving this because you're an admin on ${tenantName}.`,
+  });
 
   const tpl = await renderSystemEmail("slug_redirect_expiry", {
     headline,
@@ -584,31 +568,7 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
     ? `We tried charging ${cardText}${amountText ? ` for ${amountText}` : ""} and the payment didn't go through. This was the final automatic attempt, so your paid plan has now been paused. Update your payment method to restore access.`
     : `We tried charging ${cardText}${amountText ? ` for ${amountText}` : ""} and it was declined. We'll retry automatically, but you can avoid any interruption by updating your payment method now.`;
 
-  const fallbackHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px">
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+  const contentHtml = `              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
                 ${intro}
               </p>
 
@@ -634,22 +594,12 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
 
               <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
                 Once your payment goes through, your plan stays active with no further action needed.
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
-                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+              </p>`;
+  const fallbackHtml = buildLpEmailShell({
+    headline,
+    contentHtml,
+    footerNote: `You're receiving this because you're an admin on ${tenantName}.`,
+  });
 
   const fallbackSubject = finalAttempt
     ? `Your ${tenantName} subscription was paused — payment failed`
@@ -756,7 +706,7 @@ async function retryFetch(url: string, options: RequestInit, maxAttempts = 3): P
 export async function sendEmailNotification(
   recipients: string[],
   lead: LeadPayload,
-  tenantId?: number,
+  tenantId: number,
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey) {
@@ -802,26 +752,30 @@ export async function sendEmailNotification(
   }
 
   if (html == null) {
+    // Brand-neutral last-resort layout (Task #624): when the tenant template
+    // can't render, fall back to a vendor-agnostic email — NO LP Studio or
+    // Dandy colors/wording — so a co-branded tenant never receives an email
+    // stamped with the platform's (or another customer's) brand.
     const fieldRows = Object.entries(lead.fields)
       .filter(([k]) => !k.startsWith("_"))
-      .map(([k, v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap;color:#003A30">${escapeHtml(k)}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(String(v ?? ""))}</td></tr>`)
+      .map(([k, v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #f0ede4;font-weight:600;white-space:nowrap;color:#374151">${escapeHtml(k)}</td><td style="padding:6px 12px;border-bottom:1px solid #f0ede4;color:#4b5563">${escapeHtml(String(v ?? ""))}</td></tr>`)
       .join("");
 
     html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
-<body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px">
-<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)">
-  <div style="background:#003A30;padding:24px 32px">
-    <h1 style="margin:0;color:#C7E738;font-size:20px">New Lead Submission</h1>
-    <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:14px">${escapeHtml(lead.pageTitle)} · ${new Date(lead.submittedAt).toLocaleString()}</p>
+<body style="font-family:system-ui,-apple-system,sans-serif;background:#f5f1e8;margin:0;padding:24px;color:#1f2937">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+  <div style="padding:24px 32px;border-bottom:1px solid #e5e7eb">
+    <h1 style="margin:0;color:#1f2937;font-size:20px;font-weight:700">New lead</h1>
+    <p style="margin:4px 0 0;color:#6b7280;font-size:14px">${escapeHtml(lead.pageTitle)} · ${new Date(lead.submittedAt).toLocaleString()}</p>
   </div>
   <div style="padding:24px 32px">
     <table style="width:100%;border-collapse:collapse;font-size:14px">
       <tbody>${fieldRows}</tbody>
     </table>
-    ${lead.variantName ? `<p style="margin-top:16px;font-size:12px;color:#94a3b8">Variant: ${escapeHtml(lead.variantName)}</p>` : ""}
+    ${lead.variantName ? `<p style="margin-top:16px;font-size:12px;color:#9ca3af">Variant: ${escapeHtml(lead.variantName)}</p>` : ""}
   </div>
 </div>
 </body>
@@ -1049,31 +1003,7 @@ export async function sendCustomDomainActiveEmail(payload: CustomDomainActivePay
   const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
   const headline = `${escapeHtml(hostname)} is live`;
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px">
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+  const contentHtml = `              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
                 Your custom domain <strong>${escapeHtml(hostname)}</strong> is now serving traffic for <strong>${escapeHtml(tenantName)}</strong>. SSL is active and pages published on the new host load over HTTPS.
               </p>
               <table cellpadding="0" cellspacing="0" role="presentation">
@@ -1088,22 +1018,12 @@ export async function sendCustomDomainActiveEmail(payload: CustomDomainActivePay
               </table>
               <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
                 You can detach the domain anytime from Settings → Domain.
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
-                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+              </p>`;
+  const html = buildLpEmailShell({
+    headline,
+    contentHtml,
+    footerNote: `You're receiving this because you're an admin on ${tenantName}.`,
+  });
 
   try {
     await retryFetch("https://api.resend.com/emails", {
@@ -1142,31 +1062,7 @@ export async function sendCustomDomainStuckEmail(payload: CustomDomainStuckPaylo
   const headline = `${escapeHtml(hostname)} still needs DNS setup`;
   const hoursLabel = hoursPending === 1 ? "1 hour" : `${hoursPending} hours`;
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%">
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px">
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+  const contentHtml = `              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
                 You attached <strong>${escapeHtml(hostname)}</strong> to <strong>${escapeHtml(tenantName)}</strong> about ${hoursLabel} ago, but Cloudflare still hasn't seen a valid DNS record for it. Until that's fixed, visitors to the URL won't reach your pages.
               </p>
               <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#374151">
@@ -1198,22 +1094,12 @@ export async function sendCustomDomainStuckEmail(payload: CustomDomainStuckPaylo
               </table>
               <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
                 Once the CNAME propagates, SSL activates automatically and we'll send a follow-up to confirm.
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
-                You're receiving this because you're an admin on ${escapeHtml(tenantName)}.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+              </p>`;
+  const html = buildLpEmailShell({
+    headline,
+    contentHtml,
+    footerNote: `You're receiving this because you're an admin on ${tenantName}.`,
+  });
 
   try {
     await retryFetch("https://api.resend.com/emails", {

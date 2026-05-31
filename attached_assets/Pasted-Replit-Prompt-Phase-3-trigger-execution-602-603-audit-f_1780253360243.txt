@@ -1,0 +1,171 @@
+Replit Prompt — Phase 3 trigger execution (#602 + #603) + audit fixes
+Two distinct chunks of work in one prompt. Do them in this order:
+Part A — audit fixes (plan mode, ~1 hour total). These came out of an independent code review of the last 24h of work. One is a launch blocker, two are pre-launch hardening. Switch to plan mode for these and get OK before coding.
+Part B — Phase 3 follow-ups (#602 + #603, build directly). Product decisions resolved below; proceed with the spec.
+
+Part A — audit fixes (plan mode first)
+Fix 1 — Dandy HTML fallback in sendEmailNotification (LAUNCH BLOCKER)
+The Phase 2 prompt explicitly said to remove the hardcoded Dandy HTML from sendEmailNotification. It was moved behind a gate but not actually removed. Look at artifacts/api-server/src/lib/notifications.ts:792-815 — the #003A30 header + #C7E738 "New Lead Submission" HTML is still there as the fallback when EITHER tenantId is missing OR renderTenantEmail returns null.
+Two failure modes:
+
+The function signature still has tenantId?: number (optional) at line 747. The current caller (routes/lp/leads.ts:388) passes it, but any future caller that omits it gets Dandy HTML.
+A tenant whose tenant_notification_templates row has a blank bodyHtml causes renderTenantEmail to return null → falls through to Dandy HTML.
+
+Fix:
+
+Change tenantId?: number → tenantId: number at notifications.ts:747. Forces every caller to pass it. Currently only one caller exists and it does, so the type change is safe.
+Replace the hardcoded HTML at :792-815 with a brand-neutral hard fallback. Plain dark-grey-on-cream table with the lead fields, no #003A30, no #C7E738, no "LP Studio". Mirror what tenantEmailRender would have produced minus the styled body.
+Add a regression test: simulate renderTenantEmail returning null, assert the rendered HTML bytes contain neither #003A30 nor #C7E738 nor "LP Studio" nor "Dandy" (case-insensitive).
+
+Same pattern applies to the four other hardcoded auth-email HTML fallbacks in notifications.ts (around lines 163, 411, 588, 1053, 1146). They're defensible as code-default last-resort renderers when the DB is unreachable, BUT they're five near-duplicate blobs that will drift. Extract them into one buildAuthActionEmailHtml({ headline, bodyHtml, ctaLabel, ctaUrl, footer }) helper. Same surface, one source of truth.
+Fix 2 — Turnstile prod startup guard (1 line)
+artifacts/api-server/src/lib/turnstile.ts:14 — when TURNSTILE_SECRET_KEY is unset, Turnstile silently fails open and bot protection on the new email/password + magic-link signup paths disappears. Correct dev-friendly behavior, but a foot-gun in production.
+Add a startup check (in server.ts or wherever boot-time validation lives):
+tsif (process.env.NODE_ENV === "production" && !process.env.TURNSTILE_SECRET_KEY) {
+  throw new Error("TURNSTILE_SECRET_KEY required in production");
+}
+Refuse to start in prod without it. One line of code, prevents a silent regression.
+Fix 3 — Auth-route integration tests (highest-priority gap)
+routes/auth.ts got +708 lines for email/password, magic link, password reset, email verify. Zero integration tests on the new endpoints.
+The single highest-priority test is the no-enumeration assertion on /auth/email/register at lines 1727-1737. Currently the response is identical whether the account was created or already existed (returns ok:true either way), which blocks account-existence enumeration. Nothing enforces this invariant — one refactor and an enumeration vulnerability ships quietly.
+Add at minimum:
+
+No-enumeration test: POST /auth/email/register twice with the same email → both calls return identical 200 JSON. No timing-attack difference either (response times should be within a reasonable tolerance).
+Rate-limit test: 6 calls to /auth/password in 15 minutes from the same IP → 6th returns 429. Same for /auth/email/login and /auth/password/reset.
+Turnstile-required test: in test mode with Turnstile mocked to fail closed, POST /auth/email/register returns 400 with the captcha-failure code.
+
+Plus the existing cross-tenant negative test gap from the integration suite — notifications.tenantEditor.integration.test.ts:14-17 documents "structurally impossible" cross-tenant access but doesn't prove it. Add: tenant A's cookie + X-Tenant-Id: <tenantB> header → still resolves to tenant A's data.
+What "plan mode" means for Part A
+Don't start coding the audit fixes immediately. Propose the architecture (one paragraph each per fix, what the changed signature looks like, what the test file looks like) and wait for OK. These are small changes individually but together they touch auth + email + tests, and I want eyes on the proposed shape before code lands.
+
+Part B — Phase 3 follow-ups (#602 + #603)
+Build directly. Product decisions are resolved below.
+#603 first — recipient failure safety-net (well-specified, no product ambiguity)
+Build this independently — it's a clean defensive layer over the existing dispatcher. Guarantee no silent recipient drop when a workflow matches but enrollment/claim fails before any send, without risking a double-send.
+Specifically: when a workflow run's INSERT into notification_sends for the dedupe-claim row fails for a transient reason (DB connection blip, conflict on a race), the recipient currently gets silently skipped. The fix: track these failures in a notification_send_failures table (or a failures_log JSONB column on the workflow run), surface them in a SuperAdmin "Failed sends" view, and provide a manual "retry these" action that re-attempts the claim+send without double-sending the recipients who succeeded.
+Idempotency contract: the retry must use the same dedupe_key per recipient as the original attempt. The existing UNIQUE(dedupe_key, channel) index prevents double-sends; the retry just tries to claim the row that previously failed to insert.
+This piece is ~1-2 days. Ship it before #602 so #602 can rely on the safety net being there.
+#602 — Scheduled + Audience trigger execution
+Product decisions (resolved):
+Scheduled trigger supports both one-time and recurring. Recurring uses preset cadences, not raw cron:
+
+Daily at HH:MM — e.g. every day at 8:00 AM
+Weekly on {day} at HH:MM — e.g. every Monday at 9:00 AM
+Monthly on day-N at HH:MM — e.g. the 1st of every month at 10:00 AM (with end-of-month handling for "31st" on shorter months → falls back to the last day)
+
+Default timezone is UTC for v1. Show the timezone explicitly in the UI ("Sends at 09:00 UTC, which is 04:00 ET / 02:00 MT"). Per-template timezone configuration is a v1.1 addition; UTC keeps the engine predictable.
+Audience trigger supports all four filter dimensions with AND combinator:
+
+Plan tier — multi-select of free | starter | growth | scale | enterprise
+Role — multi-select of tenant role values (owner / admin / editor / viewer, plus superadmin as a synthetic option)
+Specific tenants/workspaces — multi-select picker over the tenants table
+Everyone — explicit option meaning "no filter, the whole platform"
+
+Filter combinator is AND across dimensions. Within a dimension it's OR (multi-select). Example: plan ∈ {growth, scale} AND role ∈ {owner, admin} → growth or scale tenant admins/owners.
+The "how often" behavior (the decision that shapes the schema, UI, and engine producers):
+
+One-time scheduled: everyone in the audience at the scheduled moment gets it once. Resolved at fire time; no backfill, no re-fire.
+Recurring scheduled: each occurrence sends to whoever's in the audience at that moment. Someone who joins next week gets next week's send only. Nobody gets the same occurrence twice (per-occurrence dedupe).
+Audience trigger: each person gets it once, when they FIRST match the filter. Doesn't re-fire if they leave and re-enter the filter, doesn't backfill historical matches at first deploy. This is the standard marketing-automation behavior.
+
+This is the recommended marketing-automation default. If a future use case requires "recurring sends to only brand-new matches" or "audience triggers that re-fire on every match," add it as a re_fire_mode field on the trigger config later — don't bake either alternative into v1.
+Engine producers (the part that doesn't exist yet):
+The data model already has trigger_type IN ('event', 'scheduled', 'audience') and a config JSONB column. Event triggers work. Scheduled and audience need producers that turn config + current state into per-recipient enrollments.
+Two new modules in artifacts/api-server/src/lib/:
+
+audienceResolver.ts — pure function resolveAudience(filter: AudienceFilter, scope: { platform: true } | { tenantId: number }): Promise<Recipient[]>. Builds a Drizzle query against tenants + app_users based on filter dimensions, returns matched recipients. Reusable by both scheduled and audience producers. Has a previewAudienceCount(filter) companion for the UI's "Recipient count preview" before save.
+scheduledTickProducer.ts — runs on the existing 60s sweep. For each active workflow with trigger_type='scheduled':
+
+Compute the next due-time from config.cadence + last_fired_at
+If now() >= next_due_at AND last_occurrence < next_due_at: resolve audience, enroll recipients (one workflow run + per-recipient dedupe keys per occurrence), stamp last_fired_at = now().
+Per-occurrence dedupe: dedupe_key = ${workflow_id}:${recipient_id}:${occurrence_id} where occurrence_id is the ISO-formatted scheduled time (e.g. 2026-06-01T09:00:00Z). UNIQUE constraint on notification_workflow_run_recipients prevents double-enrollment within a single occurrence.
+
+
+audienceTickProducer.ts — runs on the same 60s sweep. For each active workflow with trigger_type='audience':
+
+Resolve audience as of now()
+For each recipient: check if they're already in notification_workflow_run_recipients for this workflow → if not, enroll them. If yes, skip.
+Idempotency: UNIQUE(workflow_id, recipient_id) for audience-type runs ensures one-fire-per-match, ever.
+
+
+
+Both producers run lazy-on-read inside the existing sweep — no new cron infra. Same pg_try_advisory_xact_lock + FOR UPDATE SKIP LOCKED pattern the existing workflowEngine.ts:269+ sweep uses.
+Config schema (on existing config JSONB column, no migration needed):
+ts// Scheduled trigger config
+interface ScheduledConfig {
+  cadence: { type: "one_time"; fire_at: string /* ISO UTC */ }
+         | { type: "daily"; time: string /* "HH:MM" */ }
+         | { type: "weekly"; day: 0 | 1 | 2 | 3 | 4 | 5 | 6; time: string }
+         | { type: "monthly"; day_of_month: number /* 1..31, EOM-clamped */; time: string };
+  audience: AudienceFilter;
+}
+
+// Audience trigger config
+interface AudienceConfig {
+  audience: AudienceFilter;
+}
+
+interface AudienceFilter {
+  scope: "platform" | "tenant_subset";
+  plan?: Plan[];           // multi-select; undefined = no filter on this dim
+  role?: Role[];           // multi-select; undefined = no filter
+  tenant_ids?: number[];   // multi-select when scope === "tenant_subset"
+  // If all dims are undefined → "Everyone" filter (no AND constraints)
+}
+UI (in the existing SuperAdmin notifications + workflows editor):
+
+Trigger-type dropdown already exists; wire the schedule + audience controls when those types are selected.
+Scheduled timing: a tabbed control (One-time / Daily / Weekly / Monthly) with the appropriate date+time picker per tab. Show UTC explicitly + a "Your local time:" hint.
+Audience filter: four collapsible dimension groups (Plan / Role / Tenant subset / Everyone). Multi-select chips for plan and role. Tenant subset uses an existing tenant picker if one exists, otherwise a quick searchable list.
+Recipient count preview — required, not optional. Below the audience filter, show "This will send to N recipients" updated live as filters change. The audit-confirm dialog on save shows the count again ("Send to 1,247 recipients?") so a filter like "Everyone" doesn't surprise anyone. Use the previewAudienceCount from audienceResolver.ts.
+
+Tests required:
+
+Scheduled one-time fires once at the configured time, no double-send.
+Scheduled recurring fires on each occurrence, dedupes per-occurrence.
+Audience trigger fires once per recipient on first match, never re-fires.
+Audience filter combinator: every dim combination produces the expected recipient set.
+"Everyone" filter resolves to all active platform users (not deleted, not deactivated).
+Sweep concurrency: two replicas running the sweep simultaneously don't double-enroll (advisory-lock test).
+Recipient count preview matches actual enrolled count.
+
+Estimated scope: ~1-2 weeks for #602 (the agent's estimate is correct), ~1-2 days for #603.
+Order of work for Part B
+
+Ship #603 first (recipient failure safety-net). It's independent and unambiguous.
+Then #602:
+
+Schema + audience resolver + count preview (foundation)
+Scheduled producer (one-time first, then recurring presets)
+Audience producer
+UI capture for both trigger types
+Tests across all paths
+
+
+
+Don't bundle #602 into one giant commit — split by sub-feature so each is reviewable independently.
+
+Cross-cutting (both parts)
+
+Don't break Phase 1 or Phase 2. Every existing event-trigger path keeps working. Existing tenant-scope sends keep working. Existing dispatcher dedupe keeps working.
+All routes gated. New routes use the existing permission middleware patterns (requireSuperadmin for platform-scope workflow management; requirePermission("settings") for tenant-scope).
+Observability: log each scheduled fire and audience enrollment with { workflow_id, trigger_type, audience_filter_summary, recipient_count, occurrence_id }. Helps spot misconfigured workflows post-launch (e.g. "why did 50,000 emails go out at 9am?").
+Resource limits: cap the per-occurrence recipient count at some safe number (suggest 10,000 for v1). If a workflow's audience resolves to more than the cap, refuse to enroll and surface an error in the workflow run record. Prevents an accidental "Everyone" filter on a large tenant base from blowing through Resend's rate limits.
+
+
+What to expect from the plan-back
+For Part A (audit fixes):
+
+The new helper signature for buildAuthActionEmailHtml and which call sites it replaces
+The brand-neutral fallback HTML for sendEmailNotification (quote it back so I can sanity-check it doesn't have any leftover Dandy colors)
+The test file structure for the auth-route integration tests
+The single-line Turnstile guard placement
+
+For Part B (Phase 3):
+
+Confirmation of the ScheduledConfig / AudienceConfig / AudienceFilter types (quote them back)
+The audienceResolver.ts API surface
+Per-occurrence dedupe key format and the unique index that enforces it
+The sweep ordering: how the new producers slot into the existing 60s tick alongside the event-trigger sweep
+The recipient-count preview SQL query
+Recipient cap behavior on exceedance

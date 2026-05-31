@@ -170,6 +170,48 @@ export async function getEnabledWorkflowsForEvent(eventKey: string): Promise<Wor
   }
 }
 
+export interface WorkflowWithTriggerConfig {
+  workflow: Workflow;
+  triggerConfig: Record<string, unknown>;
+}
+
+/**
+ * Enabled, NON-locked platform workflows whose trigger is of `triggerType`
+ * (scheduled / audience) AND whose trigger is itself enabled. Returns each
+ * workflow alongside its trigger's raw config jsonb (interpreted by the
+ * producers). Resilient: any DB error returns [] so a producer tick degrades to
+ * a no-op rather than throwing inside the shared sweep loop.
+ */
+export async function listEnabledWorkflowsByTriggerType(
+  triggerType: "scheduled" | "audience",
+): Promise<WorkflowWithTriggerConfig[]> {
+  try {
+    const r = await pool.query<WorkflowRow & { trigger_config: Record<string, unknown> }>(
+      `SELECT ${WORKFLOW_COLS.split(",").map((c) => `w.${c.trim()}`).join(", ")},
+              t.config AS trigger_config
+         FROM email_workflows w
+         JOIN email_workflow_triggers t ON t.key = w.trigger_key
+        WHERE w.scope = 'platform'
+          AND w.enabled = true
+          AND w.locked = false
+          AND t.enabled = true
+          AND t.trigger_type = $1
+        ORDER BY w.id`,
+      [triggerType],
+    );
+    return r.rows.map((row) => {
+      const { trigger_config, ...wfRow } = row;
+      return {
+        workflow: toWorkflow(wfRow),
+        triggerConfig: trigger_config ?? {},
+      };
+    });
+  } catch (err) {
+    logger.error({ err, triggerType }, "[workflowStore] listEnabledWorkflowsByTriggerType failed");
+    return [];
+  }
+}
+
 export async function createWorkflow(input: {
   key: string;
   name: string;

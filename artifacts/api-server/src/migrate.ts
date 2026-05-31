@@ -354,6 +354,38 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the workflow_send_failures ledger (Task #625). Same
+    // high-water-mark hazard as the notifications/block_catalog self-heals: on a
+    // DB whose journal was renumbered after it was migrated, drizzle can record
+    // 0051 as applied without its DDL ever running (or skip it entirely when its
+    // `when` collides with an existing high-water mark), leaving the table
+    // missing. recordWorkflowSendFailure swallows its own errors by contract
+    // (the safety-net must never throw out of the send loop), so a missing table
+    // would silently disable the entire safety-net with no signal. Re-applying
+    // the file here is independent of drizzle's dedup. It is safe on every DB:
+    // the file is CREATE TABLE/INDEX IF NOT EXISTS, so it creates the table where
+    // missing and is a no-op everywhere else. The .sql stays the single source of
+    // truth. Fails CLOSED: the table is feature-critical, so any error aborts the
+    // release; the SQL is idempotent so a retry is always safe.
+    await runStep("workflow_send_failures self-heal (0051)", async () => {
+      const sendFailuresSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0051_workflow_send_failures.sql"),
+        "utf8",
+      );
+      await pool.query(sendFailuresSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'workflow_send_failures'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "workflow_send_failures self-heal did not produce the table — aborting release",
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

@@ -54,6 +54,127 @@ export interface WorkflowDefinition {
   steps: WorkflowStep[];
 }
 
+// ─── Scheduled / audience trigger config (Task #626) ─────────────────────────
+//
+// Stored in email_workflow_triggers.config and interpreted by the producers in
+// workflowProducers.ts. Platform scope, UTC v1.
+
+/**
+ * Audience role buckets. These partition the active app_users population:
+ *   - superadmin — app_users.role = 'superadmin' (the canonical Dandy-operator
+ *     flag; NOT the legacy `tenant_id IS NULL` heuristic, which is far broader).
+ *   - admin      — not a superadmin, AND a member of some tenant with an
+ *     is_admin role (tenant_members → tenant_roles.is_admin).
+ *   - member     — everyone else (regular members + users with no membership).
+ */
+export type AudienceRole = "superadmin" | "admin" | "member";
+
+const VALID_AUDIENCE_ROLES: AudienceRole[] = ["superadmin", "admin", "member"];
+
+export interface AudienceFilter {
+  role: AudienceRole;
+  /**
+   * Future-only additive: target specific tenant_roles by name. Accepted and
+   * round-tripped today but NOT yet applied by the v1 resolver — present so the
+   * stored config shape is forward-compatible.
+   */
+  role_names?: string[];
+}
+
+export type ScheduleFrequency = "once" | "daily" | "weekly" | "monthly";
+
+const VALID_FREQUENCIES: ScheduleFrequency[] = ["once", "daily", "weekly", "monthly"];
+
+export interface ScheduledTriggerConfig extends AudienceFilter {
+  frequency: ScheduleFrequency;
+  /** UTC time-of-day, "HH:MM" (24h). */
+  time: string;
+  /** weekly only: 0 (Sun) – 6 (Sat). */
+  dayOfWeek?: number;
+  /** monthly only: 1 – 31 (clamped to the month length at fire time). */
+  dayOfMonth?: number;
+  /** once only: the calendar date "YYYY-MM-DD" (UTC) the single fire lands on. */
+  date?: string;
+}
+
+export type AudienceTriggerConfig = AudienceFilter;
+
+const HHMM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function sanitizeRoleNames(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const names = raw
+    .filter((n): n is string => typeof n === "string")
+    .map((n) => n.trim())
+    .filter(Boolean);
+  return names.length ? Array.from(new Set(names)) : undefined;
+}
+
+function sanitizeRole(raw: unknown): AudienceRole | null {
+  return VALID_AUDIENCE_ROLES.includes(raw as AudienceRole) ? (raw as AudienceRole) : null;
+}
+
+/**
+ * Parse a stored audience-trigger config. Returns null if the role is missing /
+ * invalid — the producer treats that as "nothing to enroll" rather than guessing
+ * an audience (fail-closed: never blast an unintended population).
+ */
+export function parseAudienceConfig(raw: unknown): AudienceTriggerConfig | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const role = sanitizeRole(o.role);
+  if (!role) return null;
+  const roleNames = sanitizeRoleNames(o.role_names);
+  return roleNames ? { role, role_names: roleNames } : { role };
+}
+
+/**
+ * Parse a stored scheduled-trigger config. Returns null on any invalid/missing
+ * required field (role, frequency, well-formed UTC time, and the per-frequency
+ * day/date) so a malformed row never fires against a guessed audience or time.
+ */
+export function parseScheduledConfig(raw: unknown): ScheduledTriggerConfig | null {
+  const audience = parseAudienceConfig(raw);
+  if (!audience) return null;
+  const o = raw as Record<string, unknown>;
+  const frequency = VALID_FREQUENCIES.includes(o.frequency as ScheduleFrequency)
+    ? (o.frequency as ScheduleFrequency)
+    : null;
+  if (!frequency) return null;
+  const time = typeof o.time === "string" && HHMM_RE.test(o.time) ? o.time : null;
+  if (!time) return null;
+  const cfg: ScheduledTriggerConfig = { ...audience, frequency, time };
+  if (frequency === "weekly") {
+    const d = Number(o.dayOfWeek);
+    if (!Number.isInteger(d) || d < 0 || d > 6) return null;
+    cfg.dayOfWeek = d;
+  }
+  if (frequency === "monthly") {
+    const d = Number(o.dayOfMonth);
+    if (!Number.isInteger(d) || d < 1 || d > 31) return null;
+    cfg.dayOfMonth = d;
+  }
+  if (frequency === "once") {
+    const date = typeof o.date === "string" && YMD_RE.test(o.date) ? o.date : null;
+    // Round-trip the components through UTC to reject impossible calendar dates
+    // (e.g. 2026-02-31), which Date.parse() would silently normalise instead of
+    // rejecting — that would let a malformed row fire on an unintended day.
+    if (!date) return null;
+    const [yy, mm, dd] = date.split("-").map((n) => Number(n));
+    const utc = new Date(Date.UTC(yy!, mm! - 1, dd!));
+    if (
+      utc.getUTCFullYear() !== yy ||
+      utc.getUTCMonth() !== mm! - 1 ||
+      utc.getUTCDate() !== dd
+    ) {
+      return null;
+    }
+    cfg.date = date;
+  }
+  return cfg;
+}
+
 const VALID_CHANNELS: NotificationChannel[] = ["email", "in_app"];
 const VALID_CONDITION_TYPES: WorkflowConditionType[] = ["plan", "read", "not_read"];
 

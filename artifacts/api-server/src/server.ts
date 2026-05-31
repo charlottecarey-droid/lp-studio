@@ -24,6 +24,7 @@ import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
 import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
+import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
 import { runAssetsGc } from "./lib/assetsGc";
 import { Sentry } from "./lib/sentry";
@@ -326,6 +327,21 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+// Task #624 — fail-fast in production when bot protection isn't configured.
+// Turnstile gates the public auth endpoints (register / login / password
+// reset); with no secret, verifyTurnstile() reports `configured: false` and
+// waves every request through, silently disabling bot protection on a live
+// deploy. Refuse to boot so the missing secret is caught at deploy time
+// rather than after an abuse incident. No-op outside production — dev/test
+// run keyless on purpose.
+if (process.env.NODE_ENV === "production" && !turnstileConfigured()) {
+  throw new Error(
+    "TURNSTILE_SECRET_KEY is not set on the production deployment. Bot " +
+      "protection on the public auth endpoints (register / login / password " +
+      "reset) would be silently disabled. Set the secret and redeploy.",
+  );
 }
 
 // Bind the port and immediately mark ready — schema setup ran in the
