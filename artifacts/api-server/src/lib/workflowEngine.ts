@@ -1,7 +1,7 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { dispatchNotification, isStructuralDbError } from "./notificationDispatcher";
-import type { NotificationChannel } from "./notificationTemplates";
+import { getNotificationTemplate, type NotificationChannel } from "./notificationTemplates";
 import { getTenantPlan } from "./planFeatures";
 import {
   advanceEnrollment,
@@ -109,14 +109,21 @@ export async function enqueueWorkflowTrigger(input: EnqueueWorkflowTriggerInput)
   if (recipients.length === 0) return;
 
   const workflows = await getEnabledWorkflowsForEvent(input.eventKey);
-  if (workflows.length === 0) {
+  // Fail-safe: a workflow that matches the event but cannot actually send (zero
+  // steps, only branch-control nodes, or every send step points at a template
+  // that no longer exists) must NOT swallow the trigger. Treat such workflows
+  // as "no match" so the caller's code-default hard-fallback still fires.
+  const executable: Workflow[] = [];
+  for (const wf of workflows) {
+    if (await isWorkflowExecutable(wf)) executable.push(wf);
+  }
+  if (executable.length === 0) {
     await runFallback(input);
     return;
   }
 
   const context = normalizeContext(input.context);
-  for (const workflow of workflows) {
-    if (workflow.definition.steps.length === 0) continue;
+  for (const workflow of executable) {
     const firstDelay = workflow.definition.steps[0]!.delayMs;
     for (const r of recipients) {
       const rk = recipientKey(r);
@@ -156,6 +163,21 @@ export async function enqueueWorkflowTrigger(input: EnqueueWorkflowTriggerInput)
       }
     }
   }
+}
+
+/**
+ * A workflow can send only if it has at least one send step (non-empty
+ * templateKey) whose template still resolves (code-owned or DB blank-slate).
+ * An empty definition, a branch-only definition, or one whose every send step
+ * references a deleted template would advance to "completed" without ever
+ * dispatching — so we treat it as non-executable and let the caller's
+ * code-default hard-fallback fire instead.
+ */
+async function isWorkflowExecutable(workflow: Workflow): Promise<boolean> {
+  for (const step of workflow.definition.steps) {
+    if (step.templateKey && (await getNotificationTemplate(step.templateKey))) return true;
+  }
+  return false;
 }
 
 async function runFallback(input: EnqueueWorkflowTriggerInput): Promise<void> {

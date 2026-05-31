@@ -158,6 +158,13 @@ export function validateWorkflowDefinition(
     ids.add(step.id);
     steps.push(step);
   }
+  // Fail-safe: a workflow must be able to send. A definition of zero steps, or
+  // one made up purely of branch-control nodes (every templateKey blank), would
+  // silently swallow the trigger with no email going out. Require at least one
+  // step that actually sends (a non-empty templateKey).
+  if (!steps.some((s) => s.templateKey)) {
+    return { ok: false, error: "a workflow needs at least one step that sends a template" };
+  }
   // Referential integrity: branch / next / condition.stepId must point at real steps.
   for (const step of steps) {
     if (step.branch) {

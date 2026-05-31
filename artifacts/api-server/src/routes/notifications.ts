@@ -756,6 +756,23 @@ router.get("/admin/email-template-log", requireSuperadmin, async (req, res): Pro
 
 const WORKFLOW_KEY_RE = /^[a-z0-9_]{2,64}$/;
 
+/**
+ * Reject a definition whose send steps reference a template that does not exist
+ * (code-owned or DB blank-slate). Without this, an enabled workflow could be
+ * saved that silently no-ops at dispatch time — defeating the hard-fallback
+ * guarantee. Returns the first unknown templateKey, or null when all resolve.
+ */
+async function findUnknownTemplateKey(
+  definition: { steps: { templateKey: string }[] },
+): Promise<string | null> {
+  for (const step of definition.steps) {
+    if (step.templateKey && !(await getNotificationTemplate(step.templateKey))) {
+      return step.templateKey;
+    }
+  }
+  return null;
+}
+
 /** POST /api/admin/notification-templates — create a blank-slate DB-only
  * platform template (no code counterpart). Always `lifecycle`: `system` is
  * reserved for code-owned auth/billing templates and is rejected. */
@@ -958,6 +975,11 @@ router.post("/admin/email-workflows", requireSuperadmin, async (req, res): Promi
   }
   const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
   try {
+    const unknownTpl = await findUnknownTemplateKey(validated.definition);
+    if (unknownTpl) {
+      res.status(400).json({ error: `Unknown template "${unknownTpl}"` });
+      return;
+    }
     const triggers = await listTriggers();
     if (!triggers.some((t) => t.key === triggerKey)) {
       res.status(400).json({ error: "Unknown triggerKey" });
@@ -1008,6 +1030,13 @@ router.patch("/admin/email-workflows/:id", requireSuperadmin, async (req, res): 
   }
   const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
   try {
+    if (updates.definition !== undefined) {
+      const unknownTpl = await findUnknownTemplateKey(updates.definition);
+      if (unknownTpl) {
+        res.status(400).json({ error: `Unknown template "${unknownTpl}"` });
+        return;
+      }
+    }
     if (updates.triggerKey !== undefined) {
       const triggers = await listTriggers();
       if (!triggers.some((t) => t.key === updates.triggerKey)) {

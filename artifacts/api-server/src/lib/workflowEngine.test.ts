@@ -138,6 +138,109 @@ describe("enqueueWorkflowTrigger", () => {
     expect(dispatchMock).not.toHaveBeenCalled();
   });
 
+  it("runs the fallback when a matching workflow has zero steps (broken, can't send)", async () => {
+    if (!hasDb) return;
+    const { eventKey } = await makeWorkflow("empty", []);
+    const fallback = vi.fn(async () => {});
+    await enqueueWorkflowTrigger({
+      eventKey,
+      tenantId: null,
+      recipients: [{ appUserId: null, email: "wf-empty@example.com" }],
+      context: {},
+      dedupeBase: `empty:${SUFFIX}`,
+      fallback,
+    });
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it("runs the fallback when a matching workflow's only send step references an unknown template", async () => {
+    if (!hasDb) return;
+    const { eventKey } = await makeWorkflow("unknowntpl", [
+      step({ id: "s1", templateKey: `__nonexistent_tpl_${SUFFIX}__` }),
+    ]);
+    const fallback = vi.fn(async () => {});
+    await enqueueWorkflowTrigger({
+      eventKey,
+      tenantId: null,
+      recipients: [{ appUserId: null, email: "wf-unknowntpl@example.com" }],
+      context: {},
+      dedupeBase: `unknowntpl:${SUFFIX}`,
+      fallback,
+    });
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it("runs the fallback when a matching workflow is only branch-control nodes (no send step)", async () => {
+    if (!hasDb) return;
+    const { eventKey } = await makeWorkflow("branchonly", [
+      step({
+        id: "s1",
+        templateKey: "",
+        condition: { type: "not_read", stepId: "s1" },
+        branch: { onTrue: null, onFalse: null },
+      }),
+    ]);
+    const fallback = vi.fn(async () => {});
+    await enqueueWorkflowTrigger({
+      eventKey,
+      tenantId: null,
+      recipients: [{ appUserId: null, email: "wf-branchonly@example.com" }],
+      context: {},
+      dedupeBase: `branchonly:${SUFFIX}`,
+      fallback,
+    });
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it("with a mixed match set (one executable + one broken), does NOT fall back and only the executable workflow sends", async () => {
+    if (!hasDb) return;
+    // Two workflows share one trigger/event: one executable, one broken (empty).
+    const eventKey = `wf_test_evt_mixed_${SUFFIX}`;
+    const triggerKey = `wf_test_trg_mixed_${SUFFIX}`;
+    await upsertTrigger({
+      key: triggerKey,
+      name: "test mixed",
+      triggerType: "event",
+      eventKey,
+      enabled: true,
+    });
+    createdTriggerKeys.push(triggerKey);
+    const broken = await createWorkflow({
+      key: `wf_test_wf_mixedbroken_${SUFFIX}`,
+      name: "mixed broken",
+      triggerKey,
+      enabled: true,
+      definition: { steps: [] },
+    });
+    createdWorkflowIds.push(broken.id);
+    const good = await createWorkflow({
+      key: `wf_test_wf_mixedgood_${SUFFIX}`,
+      name: "mixed good",
+      triggerKey,
+      enabled: true,
+      definition: { steps: [step({ id: "s1" })] },
+    });
+    createdWorkflowIds.push(good.id);
+    const email = "wf-mixed@example.com";
+    const dedupeBase = `mixed:${SUFFIX}`;
+    createdDedupeKeys.push(`${dedupeBase}:${emailKey(email)}`);
+    const fallback = vi.fn(async () => {});
+    await enqueueWorkflowTrigger({
+      eventKey,
+      tenantId: null,
+      recipients: [{ appUserId: null, email }],
+      context: {},
+      dedupeBase,
+      fallback,
+    });
+    expect(fallback).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledTimes(1);
+    expect(dispatchMock.mock.calls[0]![0]).toMatchObject({ templateKey: "welcome" });
+  });
+
   it("does NOT run the fallback when a workflow matches (engine owns the send)", async () => {
     if (!hasDb) return;
     const { eventKey } = await makeWorkflow("owns", [step({ id: "s1" })]);
