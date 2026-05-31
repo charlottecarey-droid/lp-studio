@@ -26,6 +26,60 @@ export interface OnePagerColorOverride {
   accentColor?: string;
 }
 
+// ── Remembered per-rep one-pager color override ───────────────────────
+// A rep's last-used per-one-pager color override is remembered in the browser
+// so a co-branded piece doesn't have to be re-entered every session. It is
+// scoped by tenant id so it can NEVER leak across tenants on a shared browser
+// (e.g. an operator impersonating multiple workspaces, or two reps sharing a
+// machine). Reset clears it back to Brand Settings. A null/undefined tenantId
+// (session not yet hydrated) is a no-op so we never read/write an unscoped key.
+function rememberedOverrideKey(tenantId: number): string {
+  return `lp_studio_one_pager_color_override_t${tenantId}`;
+}
+
+export function loadRememberedColorOverride(
+  tenantId: number | null | undefined,
+): OnePagerColorOverride | null {
+  if (tenantId === null || tenantId === undefined) return null;
+  try {
+    const raw = localStorage.getItem(rememberedOverrideKey(tenantId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as OnePagerColorOverride;
+    if (!parsed || typeof parsed !== "object") return null;
+    const primaryColor = (parsed.primaryColor || "").trim();
+    const accentColor = (parsed.accentColor || "").trim();
+    if (!primaryColor && !accentColor) return null;
+    return { primaryColor, accentColor };
+  } catch {
+    return null;
+  }
+}
+
+export function saveRememberedColorOverride(
+  tenantId: number | null | undefined,
+  override: OnePagerColorOverride,
+): void {
+  if (tenantId === null || tenantId === undefined) return;
+  const primaryColor = (override.primaryColor || "").trim();
+  const accentColor = (override.accentColor || "").trim();
+  try {
+    // Empty override → forget it (equivalent to Reset → fall back to Brand Settings).
+    if (!primaryColor && !accentColor) {
+      localStorage.removeItem(rememberedOverrideKey(tenantId));
+      return;
+    }
+    localStorage.setItem(
+      rememberedOverrideKey(tenantId),
+      JSON.stringify({ primaryColor, accentColor }),
+    );
+  } catch {}
+}
+
+export function clearRememberedColorOverride(tenantId: number | null | undefined): void {
+  if (tenantId === null || tenantId === undefined) return;
+  try { localStorage.removeItem(rememberedOverrideKey(tenantId)); } catch {}
+}
+
 // ── Brand context for the custom-template PDF generator ────────────────
 // Resolves the third arg of `generateCustomTemplatePdf` from the tenant's
 // BrandConfig. For protected Dandy tenants (`brand.isDandy === true`) this

@@ -9,7 +9,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
-import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, ONE_PAGER_PRIMARY_OVERRIDE_KEY, ONE_PAGER_ACCENT_OVERRIDE_KEY } from "./one-pager-custom-utils";
+import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, ONE_PAGER_PRIMARY_OVERRIDE_KEY, ONE_PAGER_ACCENT_OVERRIDE_KEY, loadRememberedColorOverride, saveRememberedColorOverride, clearRememberedColorOverride } from "./one-pager-custom-utils";
 import {
   generatePilotOnePager as sharedGeneratePilotOnePager,
   generateComparisonOnePager as sharedGenerateComparisonOnePager,
@@ -645,6 +645,32 @@ const SalesOnePager = () => {
       return next;
     });
   }, [selectedCustomId, customTemplates]);
+
+  // Pre-fill the rep's last-used per-one-pager color override (tenant-scoped,
+  // localStorage). Runs once the session's tenantId is known so a co-branded
+  // piece doesn't have to be re-entered every session. Never clobbers anything
+  // the rep already typed this session; Reset clears it back to Brand Settings.
+  const rememberedOverrideSeeded = useRef(false);
+  useEffect(() => {
+    if (rememberedOverrideSeeded.current) return;
+    const tid = user?.tenantId ?? null;
+    if (tid === null) return;
+    rememberedOverrideSeeded.current = true;
+    const remembered = loadRememberedColorOverride(tid);
+    if (!remembered) return;
+    setCustomFieldValues(prev => {
+      if (
+        prev[ONE_PAGER_PRIMARY_OVERRIDE_KEY] !== undefined ||
+        prev[ONE_PAGER_ACCENT_OVERRIDE_KEY] !== undefined
+      ) {
+        return prev;
+      }
+      const next = { ...prev };
+      if (remembered.primaryColor) next[ONE_PAGER_PRIMARY_OVERRIDE_KEY] = remembered.primaryColor;
+      if (remembered.accentColor) next[ONE_PAGER_ACCENT_OVERRIDE_KEY] = remembered.accentColor;
+      return next;
+    });
+  }, [user?.tenantId]);
 
   const selectedCustomTemplate = selectedCustomId !== null
     ? customTemplates.find(t => t.id === selectedCustomId) ?? null
@@ -1408,7 +1434,16 @@ const SalesOnePager = () => {
               const isHex = (v: string) => /^#?[0-9a-fA-F]{6}$/.test(v.trim());
               const norm = (v: string) => (v.startsWith("#") ? v : `#${v}`);
               const setOverride = (key: string, val: string) =>
-                setCustomFieldValues(p => ({ ...p, [key]: val }));
+                setCustomFieldValues(p => {
+                  const next = { ...p, [key]: val };
+                  // Remember the rep's last-used override (tenant-scoped) so it
+                  // pre-fills next session. Empty values forget it (→ Brand Settings).
+                  saveRememberedColorOverride(user?.tenantId ?? null, {
+                    primaryColor: next[ONE_PAGER_PRIMARY_OVERRIDE_KEY],
+                    accentColor: next[ONE_PAGER_ACCENT_OVERRIDE_KEY],
+                  });
+                  return next;
+                });
               const colorRow = (
                 key: string,
                 label: string,
@@ -1452,12 +1487,17 @@ const SalesOnePager = () => {
                     {hasOverride && (
                       <button
                         type="button"
-                        onClick={() => setCustomFieldValues(p => {
-                          const next = { ...p };
-                          delete next[ONE_PAGER_PRIMARY_OVERRIDE_KEY];
-                          delete next[ONE_PAGER_ACCENT_OVERRIDE_KEY];
-                          return next;
-                        })}
+                        onClick={() => {
+                          // Forget the remembered override so future sessions
+                          // fall back to Brand Settings.
+                          clearRememberedColorOverride(user?.tenantId ?? null);
+                          setCustomFieldValues(p => {
+                            const next = { ...p };
+                            delete next[ONE_PAGER_PRIMARY_OVERRIDE_KEY];
+                            delete next[ONE_PAGER_ACCENT_OVERRIDE_KEY];
+                            return next;
+                          });
+                        }}
                         title="Reset to Brand Settings colors"
                         className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                       >
