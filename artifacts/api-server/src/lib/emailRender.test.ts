@@ -1,164 +1,103 @@
 /**
- * Byte-identical regression test for the unified email render path.
+ * Regression tests for the unified email render pipeline after adopting the
+ * on-brand master shell + self-contained magazine welcome.
  *
- * Phase 1 moved the dispatcher off a hardcoded `renderEmailHtml` frame onto the
- * shared `renderEmail({ shell, bodyHtml, wrapInShell, vars })` pipeline, with
- * the previous markup reproduced via `PLATFORM_DEFAULT_SHELL` +
- * `buildDefaultBodyHtml`. The lifecycle trial emails (trial_day_7/11/13) MUST
- * render byte-for-byte identical to what production sent before the refactor, or
- * the migration that seeded `body_html` has silently changed live emails.
- *
- * This test embeds a verbatim copy of the LEGACY `renderEmailHtml` (lifted from
- * the pre-refactor dispatcher at commit 74665d7be) as the golden generator, and
- * asserts the new pipeline produces the exact same bytes for every trial
- * template across a range of substitution inputs (including HTML-significant
- * characters in the CTA url to exercise escaping).
+ * The pre-refactor "byte-identical to the legacy frame" guarantee is
+ * intentionally retired: the platform shell was deliberately replaced with the
+ * branded master shell, so standard lifecycle emails now render in the new
+ * chrome. These tests instead pin the behavior we rely on:
+ *   - the shell substitutes every slot/var (no leftover `{{tokens}}`),
+ *   - CTA urls stay HTML-escaped,
+ *   - structured templates seed their body from `buildDefaultBodyHtml`,
+ *   - the welcome template is full-custom HTML (no shell chrome),
+ *   - `expandEmailVars` derives the footer / compliance tokens.
  */
 import { describe, it, expect } from "vitest";
 import {
   renderEmail,
   buildDefaultBodyHtml,
+  expandEmailVars,
   DEFAULT_EMAIL_SHELL,
 } from "./emailRender";
 import { NOTIFICATION_TEMPLATES } from "./notificationTemplates";
-
-// --- Legacy golden generator (verbatim copy, do not "clean up") -------------
-
-function legacyEscapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/** Verbatim copy of the pre-refactor dispatcher `render` (plain substitution). */
-function legacyRender(template: string, context: Record<string, string>): string {
-  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key: string) =>
-    Object.prototype.hasOwnProperty.call(context, key) ? context[key] : "",
-  );
-}
-
-/** Verbatim copy of the pre-refactor dispatcher `renderEmailHtml`. */
-function legacyRenderEmailHtml(opts: {
-  headline: string;
-  intro: string;
-  ctaLabel: string;
-  ctaUrl: string | null;
-}): string {
-  const ctaBlock = opts.ctaUrl
-    ? `<table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:8px">
-                <tr>
-                  <td style="background:#C7E738;border-radius:8px">
-                    <a href="${legacyEscapeHtml(opts.ctaUrl)}" target="_blank"
-                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
-                      ${legacyEscapeHtml(opts.ctaLabel)}
-                    </a>
-                  </td>
-                </tr>
-              </table>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${legacyEscapeHtml(opts.headline)}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${legacyEscapeHtml(opts.headline)}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px;border-radius:0 0 12px 12px">
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">
-                ${legacyEscapeHtml(opts.intro)}
-              </p>
-              ${ctaBlock}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 40px;text-align:center">
-              <p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af">
-                You're receiving this because you're an admin of an LP Studio workspace.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
-
-// --- Test cases -------------------------------------------------------------
+import { MAGAZINE_WELCOME_HTML } from "./emailHtmlAssets";
 
 const TRIAL_KEYS = ["trial_day_7", "trial_day_11", "trial_day_13"] as const;
 
-/**
- * Substitution sets exercising the escaping paths the legacy frame applied:
- *   - a plain url,
- *   - a url with `&` and `<`/`"` so escapeHtml has work to do,
- *   - different daysRemaining values (trial_day_11/13 interpolate it).
- */
-const CTX_VARIANTS: Array<Record<string, string>> = [
-  { tenantName: "Acme", daysRemaining: "3", billingUrl: "https://app.lpstudio.ai/billing" },
-  {
-    tenantName: "O'Brien & Co",
-    daysRemaining: "1",
-    billingUrl: 'https://app.lpstudio.ai/billing?ref=a&b="c"<d>',
-  },
-  { tenantName: "Beta", daysRemaining: "7", workspaceUrl: "https://app.lpstudio.ai/ws" },
-];
+/** Realistic, fully-expanded var set for a shell-wrapped render. */
+const baseVars = (over: Record<string, string>): Record<string, string> =>
+  expandEmailVars({
+    tenantName: "Acme",
+    recipientName: "Jordan",
+    recipientEmail: "jordan@acme.com",
+    workspaceUrl: "https://acme.lpstudio.ai",
+    daysRemaining: "3",
+    ...over,
+  });
 
-describe("renderEmail byte-identity vs legacy dispatcher frame", () => {
-  for (const key of TRIAL_KEYS) {
-    const tpl = NOTIFICATION_TEMPLATES[key];
-    it(`renders ${key} byte-identical to the pre-refactor frame`, () => {
-      expect(tpl).toBeTruthy();
-      for (const ctx of CTX_VARIANTS) {
-        // Mirror the dispatcher: headline = rendered inAppTitle; ctaUrl =
-        // billingUrl ?? workspaceUrl; intro/ctaLabel rendered for the legacy
-        // generator (the new body bakes the raw intro/label and interpolates).
-        const headline = legacyRender(tpl.inAppTitle, ctx);
-        const intro = legacyRender(tpl.emailIntro, ctx);
-        const ctaLabel = legacyRender(tpl.emailCtaLabel, ctx);
-        const ctaUrl = ctx["billingUrl"] ?? ctx["workspaceUrl"] ?? null;
-
-        const golden = legacyRenderEmailHtml({ headline, intro, ctaLabel, ctaUrl });
-
-        const actual = renderEmail({
-          shell: DEFAULT_EMAIL_SHELL,
-          bodyHtml: tpl.bodyHtml,
-          wrapInShell: tpl.wrapInShell,
-          vars: { ...ctx, headline, ctaUrl: ctaUrl ?? "" },
-        });
-
-        expect(actual).toBe(golden);
-      }
-    });
-  }
-
-  it("buildDefaultBodyHtml seeds each trial template's bodyHtml", () => {
+describe("renderEmail — branded master shell", () => {
+  it("buildDefaultBodyHtml seeds each structured template's bodyHtml", () => {
     for (const key of TRIAL_KEYS) {
       const tpl = NOTIFICATION_TEMPLATES[key];
       expect(tpl.bodyHtml).toBe(buildDefaultBodyHtml(tpl.emailIntro, tpl.emailCtaLabel));
       expect(tpl.wrapInShell).toBe(true);
+      expect(tpl.bodyMode).toBe("wysiwyg");
     }
+  });
+
+  it("wraps a structured template in the shell with every token resolved", () => {
+    const tpl = NOTIFICATION_TEMPLATES["trial_day_11"];
+    const headline = "Your Acme Growth trial ends in 3 days";
+    const html = renderEmail({
+      shell: DEFAULT_EMAIL_SHELL,
+      bodyHtml: tpl.bodyHtml,
+      wrapInShell: true,
+      vars: baseVars({
+        headline,
+        subject: headline,
+        preheaderText: "3 days left",
+        billingUrl: "https://acme.lpstudio.ai/billing",
+        ctaUrl: "https://acme.lpstudio.ai/billing",
+      }),
+    });
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain(headline); // headline baked into the body card
+    expect(html).toContain("Unsubscribe"); // footer compliance present
+    expect(html).toContain(String(new Date().getUTCFullYear())); // currentYear
+    // Every {{token}} the shell, body, and footer reference must be resolved.
+    expect(html).not.toContain("{{");
+  });
+
+  it("HTML-escapes a CTA url with significant characters", () => {
+    const tpl = NOTIFICATION_TEMPLATES["trial_day_7"];
+    const dirty = 'https://acme.lpstudio.ai/b?x=a&y="z"<q>';
+    const html = renderEmail({
+      shell: DEFAULT_EMAIL_SHELL,
+      bodyHtml: tpl.bodyHtml,
+      wrapInShell: true,
+      vars: baseVars({ headline: "Hi", subject: "Hi", ctaUrl: dirty }),
+    });
+    expect(html).toContain("x=a&amp;y=&quot;z&quot;&lt;q&gt;");
+    expect(html).not.toContain('y="z"<q>');
+  });
+
+  it("welcome is full-custom magazine HTML (no shell chrome)", () => {
+    const tpl = NOTIFICATION_TEMPLATES["welcome"];
+    expect(tpl.wrapInShell).toBe(false);
+    expect(tpl.bodyMode).toBe("html");
+    expect(tpl.bodyHtml).toBe(MAGAZINE_WELCOME_HTML);
+
+    const html = renderEmail({
+      shell: DEFAULT_EMAIL_SHELL,
+      bodyHtml: tpl.bodyHtml,
+      wrapInShell: false,
+      vars: baseVars({ headline: "ignored", ctaUrl: "https://acme.lpstudio.ai" }),
+    });
+    expect(html).toContain("Acme"); // {{tenantName}}
+    expect(html).toContain("Jordan"); // {{recipientName}}
+    expect(html).toContain("jordan@acme.com"); // {{recipientEmail}}
+    // All authored tokens resolved (the magazine uses only the canonical set).
+    expect(html).not.toContain("{{");
   });
 
   it("wrapInShell=false returns the interpolated body verbatim (no chrome)", () => {
@@ -170,5 +109,26 @@ describe("renderEmail byte-identity vs legacy dispatcher frame", () => {
     });
     expect(html).toBe("<p>Hello Acme</p>");
     expect(html).not.toContain("<!DOCTYPE html>");
+  });
+
+  it("expandEmailVars derives footer / compliance tokens", () => {
+    const v = expandEmailVars({ workspaceUrl: "https://acme.lpstudio.ai" });
+    expect(v["unsubscribeUrl"]).toBe("https://acme.lpstudio.ai/settings/notifications");
+    expect(v["currentYear"]).toBe(String(new Date().getUTCFullYear()));
+    expect(v).toHaveProperty("physicalAddress");
+    expect(v["preheaderText"]).toBe("");
+  });
+
+  it("expandEmailVars never overwrites explicit values", () => {
+    const v = expandEmailVars({
+      workspaceUrl: "https://acme.lpstudio.ai",
+      unsubscribeUrl: "https://acme.lpstudio.ai/custom-unsub",
+      physicalAddress: "1 Main St, SF, CA",
+      subject: "Explicit subject",
+      headline: "A headline",
+    });
+    expect(v["unsubscribeUrl"]).toBe("https://acme.lpstudio.ai/custom-unsub");
+    expect(v["physicalAddress"]).toBe("1 Main St, SF, CA");
+    expect(v["subject"]).toBe("Explicit subject");
   });
 });

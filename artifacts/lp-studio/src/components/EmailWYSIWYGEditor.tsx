@@ -13,8 +13,9 @@ import { toast } from "sonner";
 import {
   Bold, Italic, Link as LinkIcon, List, Heading1, Heading2,
   Minus, RemoveFormatting, Globe, Image as ImageIcon, Columns,
-  FileText, Code, AlignLeft, AlignCenter, AlignRight,
+  FileText, Code, AlignLeft, AlignCenter, AlignRight, FolderOpen,
 } from "lucide-react";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 
 /* ── Merge Variable Extension ── */
 const MergeVariable = TiptapNode.create({
@@ -379,6 +380,28 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
       isEmpty: () => editor?.isEmpty ?? true,
     }));
 
+    const [mediaOpen, setMediaOpen] = useState(false);
+
+    const handleMediaSelect = useCallback(
+      (url: string) => {
+        if (!editor) return;
+        const isVideo = /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(url);
+        if (isVideo) {
+          editor
+            .chain()
+            .focus()
+            .insertContent(
+              `<p><a href="${url}" target="_blank" rel="noopener">▶ Watch video</a></p>`,
+            )
+            .run();
+        } else {
+          editor.chain().focus().setImage({ src: url, alt: "" }).run();
+        }
+        setMediaOpen(false);
+      },
+      [editor],
+    );
+
     const insertMergeVar = useCallback(
       (variable: string) => {
         editor
@@ -553,6 +576,16 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
 
               <ImagePopover editor={editor} dandyBannerUrl={dandyBannerUrl} />
 
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setMediaOpen(true)}
+                title="Insert from Media Library"
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <FolderOpen className="w-3.5 h-3.5" /> Media
+              </button>
+
               {showCampaignTools && (
                 <>
                   <button
@@ -645,6 +678,12 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
         ) : (
           <EditorContent editor={editor} />
         )}
+
+        <MediaLibraryDrawer
+          open={mediaOpen}
+          onOpenChange={setMediaOpen}
+          onSelect={handleMediaSelect}
+        />
       </div>
     );
   }

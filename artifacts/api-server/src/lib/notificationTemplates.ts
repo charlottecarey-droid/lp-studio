@@ -4,6 +4,15 @@ import {
   buildSampleVars,
 } from "@workspace/notification-variables";
 import { buildDefaultBodyHtml } from "./emailRender";
+import { MAGAZINE_WELCOME_HTML } from "./emailHtmlAssets";
+import {
+  MAGIC_LINK_BODY_HTML,
+  EMAIL_VERIFICATION_BODY_HTML,
+  PASSWORD_RESET_BODY_HTML,
+  WORKSPACE_INVITE_BODY_HTML,
+  PAYMENT_FAILED_BODY_HTML,
+  SLUG_REDIRECT_EXPIRY_BODY_HTML,
+} from "./systemEmailBodies";
 
 /**
  * Canonical, code-owned registry of notification templates plus a cached
@@ -47,7 +56,11 @@ type BaseTemplateDef = Pick<
   | "key" | "name" | "description" | "category" | "channels"
   | "emailSubject" | "emailIntro" | "emailCtaLabel"
   | "inAppTitle" | "inAppBody" | "enabled"
->;
+> &
+  // Optional body overrides for templates whose email is NOT the structured
+  // intro+CTA frame (e.g. the welcome magazine = full custom HTML), plus an
+  // optional per-template preview sample set for tokens not in the global catalog.
+  Partial<Pick<NotificationTemplateDef, "bodyHtml" | "bodyMode" | "wrapInShell" | "previewData">>;
 
 /**
  * Default copy/channels for every template. Variables use `{{name}}` syntax and
@@ -71,6 +84,13 @@ const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
     inAppTitle: "Welcome to LP Studio 🎉",
     inAppBody:
       "Your {{tenantName}} workspace is ready. Take a tour, invite your team, and publish your first page.",
+    // The welcome email is a self-contained, on-brand magazine layout: the body
+    // IS the entire email (full custom HTML, no shell chrome). Tokens use the
+    // canonical camelCase set ({{tenantName}}, {{recipientName}}, {{workspaceUrl}},
+    // {{ctaUrl}}, {{recipientEmail}}, {{unsubscribeUrl}}).
+    bodyHtml: MAGAZINE_WELCOME_HTML,
+    bodyMode: "html",
+    wrapInShell: false,
     enabled: true,
   },
   trial_day_7: {
@@ -118,6 +138,158 @@ const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
       "Your Growth trial ends tomorrow. Upgrade now to avoid dropping to the Free plan and losing your Growth features.",
     enabled: true,
   },
+
+  // ─── System / transactional & auth emails ──────────────────────────────
+  // Email-only. Each has a code-owned default body (master-shell inner HTML)
+  // AND a HARD code fallback in lib/notifications.ts: if the template row is
+  // disabled, blank, or fails to render, the original hardcoded email sends so
+  // sign-in / billing alerts can never break. The action URL is carried by the
+  // {{ctaUrl}} token (HTML-escaped on substitution).
+  magic_link: {
+    key: "magic_link",
+    name: "Sign-in link (magic link)",
+    description: "Passwordless sign-in link. The link also verifies the email on redemption.",
+    category: "system",
+    channels: ["email"],
+    emailSubject: "Your LP Studio sign-in link",
+    emailIntro: "Your one-time sign-in link for LP Studio.",
+    emailCtaLabel: "Sign in to LP Studio",
+    inAppTitle: "Sign-in link",
+    inAppBody: "A sign-in link was requested for your account.",
+    bodyHtml: MAGIC_LINK_BODY_HTML,
+    bodyMode: "html",
+    wrapInShell: true,
+    previewData: {
+      headline: "Your sign-in link",
+      ctaUrl: "https://app.lpstudio.ai/auth/magic?token=sample",
+      expiryLabel: "15 minutes",
+      recipientEmail: "jordan@acme.com",
+    },
+    enabled: true,
+  },
+  email_verification: {
+    key: "email_verification",
+    name: "Confirm your email",
+    description: "Email-address verification link sent after email+password registration.",
+    category: "system",
+    channels: ["email"],
+    emailSubject: "Confirm your email for LP Studio",
+    emailIntro: "Confirm your email address to finish setting up your LP Studio account.",
+    emailCtaLabel: "Confirm email",
+    inAppTitle: "Confirm your email",
+    inAppBody: "Please confirm your email address.",
+    bodyHtml: EMAIL_VERIFICATION_BODY_HTML,
+    bodyMode: "html",
+    wrapInShell: true,
+    previewData: {
+      headline: "Confirm your email",
+      ctaUrl: "https://app.lpstudio.ai/auth/verify?token=sample",
+      expiryLabel: "24 hours",
+      recipientEmail: "jordan@acme.com",
+    },
+    enabled: true,
+  },
+  password_reset: {
+    key: "password_reset",
+    name: "Reset your password",
+    description: "Forgot-password reset link.",
+    category: "system",
+    channels: ["email"],
+    emailSubject: "Reset your LP Studio password",
+    emailIntro: "Reset the password for your LP Studio account.",
+    emailCtaLabel: "Reset password",
+    inAppTitle: "Reset your password",
+    inAppBody: "A password reset was requested for your account.",
+    bodyHtml: PASSWORD_RESET_BODY_HTML,
+    bodyMode: "html",
+    wrapInShell: true,
+    previewData: {
+      headline: "Reset your password",
+      ctaUrl: "https://app.lpstudio.ai/auth/reset?token=sample",
+      expiryLabel: "1 hour",
+      recipientEmail: "jordan@acme.com",
+    },
+    enabled: true,
+  },
+  workspace_invite: {
+    key: "workspace_invite",
+    name: "Workspace invite",
+    description: "Sent when a teammate is invited to (or added to) a workspace.",
+    category: "system",
+    channels: ["email"],
+    emailSubject: "You've been invited to join {{tenantName}} on LP Studio",
+    emailIntro: "You've been invited to a workspace on LP Studio.",
+    emailCtaLabel: "Accept invite",
+    inAppTitle: "Workspace invite",
+    inAppBody: "You've been invited to join {{tenantName}}.",
+    bodyHtml: WORKSPACE_INVITE_BODY_HTML,
+    bodyMode: "html",
+    wrapInShell: true,
+    previewData: {
+      headline: "You've been invited to join Acme",
+      inviteBody:
+        "Taylor has invited you to join <strong>Acme</strong> on LP Studio as a <strong>Editor</strong>. Create your account to get started.",
+      tenantName: "Acme",
+      roleName: "Editor",
+      ctaLabel: "Create your account",
+      ctaUrl: "https://app.lpstudio.ai/invite/sample",
+      recipientEmail: "jordan@acme.com",
+    },
+    enabled: true,
+  },
+  payment_failed: {
+    key: "payment_failed",
+    name: "Payment failed (dunning)",
+    description: "Sent on every Stripe invoice.payment_failed so admins can fix the card.",
+    category: "system",
+    channels: ["email"],
+    emailSubject: "Payment failed for {{tenantName}} — update your card",
+    emailIntro: "We couldn't process your subscription payment.",
+    emailCtaLabel: "Update payment method",
+    inAppTitle: "Payment failed",
+    inAppBody: "We couldn't process your {{tenantName}} payment.",
+    bodyHtml: PAYMENT_FAILED_BODY_HTML,
+    bodyMode: "html",
+    wrapInShell: true,
+    previewData: {
+      headline: "We couldn't process your Acme payment",
+      dunningIntro:
+        "We tried charging the card ending in 4242 for $49.00 and it was declined. We'll retry automatically, but you can avoid any interruption by updating your payment method now.",
+      alertLabel: "Payment failed · attempt 2",
+      alertText: "$49.00 could not be charged to the card ending in 4242.",
+      tenantName: "Acme",
+      ctaUrl: "https://app.lpstudio.ai/billing",
+      recipientEmail: "jordan@acme.com",
+    },
+    enabled: true,
+  },
+  slug_redirect_expiry: {
+    key: "slug_redirect_expiry",
+    name: "Old URL expiring",
+    description: "Warns admins that a renamed workspace's old redirect URL is about to expire.",
+    category: "system",
+    channels: ["email"],
+    emailSubject: "Heads up: an old {{tenantName}} URL stops working soon",
+    emailIntro: "An old URL for your workspace is about to stop working.",
+    emailCtaLabel: "Open {{tenantName}}",
+    inAppTitle: "Old URL expiring",
+    inAppBody: "An old {{tenantName}} URL is about to stop working.",
+    bodyHtml: SLUG_REDIRECT_EXPIRY_BODY_HTML,
+    bodyMode: "html",
+    wrapInShell: true,
+    previewData: {
+      headline: "An old Acme URL is about to stop working",
+      expiryIntro:
+        "After your workspace was renamed, links to the old URL kept working for 90 days. That window closes in 3 days — once it does, anyone visiting the old URL will land on a \"workspace not found\" page.",
+      oldUrl: "https://old-acme.lpstudio.ai",
+      currentUrl: "https://acme.lpstudio.ai",
+      expiryFormatted: "Fri, 12 Jun 2026 00:00:00 UTC",
+      tenantName: "Acme",
+      ctaUrl: "https://acme.lpstudio.ai",
+      recipientEmail: "jordan@acme.com",
+    },
+    enabled: true,
+  },
 };
 
 // Registry-wide default sample values for live preview / test-send.
@@ -133,10 +305,14 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplateDef> = O
     k,
     {
       ...d,
-      bodyHtml: buildDefaultBodyHtml(d.emailIntro, d.emailCtaLabel),
-      bodyMode: "wysiwyg" as NotificationBodyMode,
-      wrapInShell: true,
-      previewData: DEFAULT_PREVIEW_DATA,
+      bodyHtml: d.bodyHtml ?? buildDefaultBodyHtml(d.emailIntro, d.emailCtaLabel),
+      bodyMode: d.bodyMode ?? ("wysiwyg" as NotificationBodyMode),
+      wrapInShell: d.wrapInShell ?? true,
+      // Per-template overrides (e.g. system-email tokens) layer over the global
+      // catalog samples so previews/test-sends fill every token.
+      previewData: d.previewData
+        ? { ...DEFAULT_PREVIEW_DATA, ...d.previewData }
+        : DEFAULT_PREVIEW_DATA,
     } satisfies NotificationTemplateDef,
   ]),
 );

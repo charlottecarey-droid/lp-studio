@@ -1,6 +1,65 @@
 import { logger } from "./logger";
-import { renderEmail } from "./emailRender";
+import { renderEmail, expandEmailVars } from "./emailRender";
 import { getEmailShell } from "./emailShell";
+import { getNotificationTemplate } from "./notificationTemplates";
+
+/**
+ * Plain-text token substitution for email SUBJECTS (no HTML escaping). Mirrors
+ * the dispatcher's substitution but is local so subjects don't depend on the
+ * HTML-escaping interpolator.
+ */
+function interpolatePlainText(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key: string) =>
+    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : "",
+  );
+}
+
+/**
+ * Render a SYSTEM email (transactional/auth) from its `notification_templates`
+ * registry entry, merged with SuperAdmin overrides. Returns `{ subject, html }`
+ * on success, or `null` when the operator can't be trusted to have produced a
+ * sendable email — in which case the caller MUST fall back to its hardcoded
+ * HTML so sign-in / billing alerts can never break. `null` is returned when the
+ * template is missing, disabled, has a blank body/subject, or rendering throws.
+ *
+ * The action URL is passed in `vars.ctaUrl` and is HTML-escaped on substitution,
+ * so the magic-link / reset / verify URL is preserved verbatim inside the href.
+ */
+async function renderSystemEmail(
+  key: string,
+  vars: Record<string, string>,
+): Promise<{ subject: string; html: string } | null> {
+  try {
+    const tpl = await getNotificationTemplate(key);
+    if (!tpl || !tpl.enabled) return null;
+    const body = (tpl.bodyHtml ?? "").trim();
+    if (!body) return null;
+    const expanded = expandEmailVars(vars);
+    const shell = await getEmailShell();
+    const html = renderEmail({
+      shell,
+      bodyHtml: tpl.bodyHtml,
+      wrapInShell: tpl.wrapInShell,
+      vars: expanded,
+    });
+    if (!html || !html.trim()) return null;
+    const subject = interpolatePlainText(tpl.emailSubject ?? "", expanded).trim();
+    if (!subject) return null;
+    return { subject, html };
+  } catch (err) {
+    logger.error({ err, key }, "system email template render failed — using code fallback");
+    return null;
+  }
+}
+
+/** Best-effort origin of an action URL, for deriving footer/workspace links. */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
+}
 
 export interface InvitePayload {
   inviteeEmail: string;
@@ -29,53 +88,38 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
     ? `${escapeHtml(inviterName)} has invited you to join <strong>${escapeHtml(tenantName)}</strong> on LP Studio as a <strong>${escapeHtml(roleName)}</strong>. Create your account to get started.`
     : `${escapeHtml(inviterName)} has added you to <strong>${escapeHtml(tenantName)}</strong> on LP Studio as a <strong>${escapeHtml(roleName)}</strong>. Sign in to access your workspace.`;
 
-  // Inner body only — the shared shell supplies the head, header (logo +
-  // headline) and footer. The invite intentionally adopts the platform shell.
-  const bodyHtml = `<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
-                ${bodyText}
-              </p>
-
-              <!-- Role badge -->
-              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:28px">
-                <tr>
-                  <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 16px">
-                    <span style="font-size:13px;color:#166534;font-weight:500">Workspace:</span>
-                    <span style="font-size:13px;color:#166534;margin-left:6px">${escapeHtml(tenantName)}</span>
-                    <span style="font-size:13px;color:#9ca3af;margin:0 6px">·</span>
-                    <span style="font-size:13px;color:#166534;font-weight:500">Role:</span>
-                    <span style="font-size:13px;color:#166534;margin-left:6px">${escapeHtml(roleName)}</span>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- CTA button -->
-              <table cellpadding="0" cellspacing="0" role="presentation">
-                <tr>
-                  <td style="background:#C7E738;border-radius:8px">
-                    <a href="${escapeHtml(signInUrl)}" target="_blank"
-                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
-                      ${escapeHtml(actionLabel)} →
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
-                Sign in using the Google account associated with <strong style="color:#6b7280">${escapeHtml(inviteeEmail)}</strong>.
-                If you weren't expecting this invitation, you can safely ignore this email.
-              </p>`;
-
-  const shell = await getEmailShell();
-  const html = renderEmail({
-    shell,
-    bodyHtml,
-    wrapInShell: true,
-    vars: { headline },
+  // Hard fallback: a fully self-contained branded HTML document that does NOT
+  // depend on the editable shell, so a broken/blank shell override can never
+  // break invite delivery. The role + workspace are already named inline in
+  // bodyText, so the standalone fallback omits the separate role badge.
+  const fallbackHtml = buildAuthActionEmailHtml({
+    headline,
+    bodyHtml: bodyText,
+    ctaLabel: actionLabel,
+    ctaUrl: signInUrl,
+    footerNote: `Sign in using the Google account associated with ${inviteeEmail}. If you weren't expecting this invitation, you can safely ignore this email.`,
   });
 
-  const subject = isNewUser
+  const fallbackSubject = isNewUser
     ? `You've been invited to join ${tenantName} on LP Studio`
     : `You now have access to ${tenantName} on LP Studio`;
+
+  // Prefer the editable registry template; the variable sentence and CTA label
+  // ride along as tokens so one template covers both new-account and added-user
+  // cases. Falls back to the hardcoded invite above on any failure.
+  const tpl = await renderSystemEmail("workspace_invite", {
+    headline,
+    inviteBody: bodyText,
+    tenantName,
+    roleName,
+    ctaUrl: signInUrl,
+    ctaLabel: actionLabel,
+    recipientEmail: inviteeEmail,
+    recipientName: inviterName,
+    workspaceUrl: originOf(signInUrl),
+  });
+  const subject = tpl?.subject ?? fallbackSubject;
+  const html = tpl?.html ?? fallbackHtml;
 
   try {
     await retryFetch("https://api.resend.com/emails", {
@@ -214,7 +258,7 @@ export async function sendMagicLinkEmail(payload: {
   expiryLabel: string;
 }): Promise<boolean> {
   const { recipientEmail, magicLinkUrl, expiryLabel } = payload;
-  const html = buildAuthActionEmailHtml({
+  const fallbackHtml = buildAuthActionEmailHtml({
     headline: "Your sign-in link",
     bodyHtml: "Click the button below to sign in to LP Studio. No password needed.",
     ctaLabel: "Sign in to LP Studio",
@@ -222,10 +266,17 @@ export async function sendMagicLinkEmail(payload: {
     expiryNote: `This link expires in ${expiryLabel} and can only be used once. If you didn't request it, you can safely ignore this email.`,
     footerNote: "You're receiving this because someone requested a sign-in link for this email address on LP Studio.",
   });
+  const tpl = await renderSystemEmail("magic_link", {
+    headline: "Your sign-in link",
+    ctaUrl: magicLinkUrl,
+    expiryLabel,
+    recipientEmail,
+    workspaceUrl: originOf(magicLinkUrl),
+  });
   return sendAuthActionEmail({
     to: recipientEmail,
-    subject: "Your LP Studio sign-in link",
-    html,
+    subject: tpl?.subject ?? "Your LP Studio sign-in link",
+    html: tpl?.html ?? fallbackHtml,
     logContext: { recipientEmail },
     logMessage: "magic-link email",
   });
@@ -240,7 +291,7 @@ export async function sendPasswordResetEmail(payload: {
   expiryLabel: string;
 }): Promise<boolean> {
   const { recipientEmail, resetUrl, expiryLabel } = payload;
-  const html = buildAuthActionEmailHtml({
+  const fallbackHtml = buildAuthActionEmailHtml({
     headline: "Reset your password",
     bodyHtml: "We received a request to reset the password for your LP Studio account. Click below to choose a new one.",
     ctaLabel: "Reset password",
@@ -248,10 +299,17 @@ export async function sendPasswordResetEmail(payload: {
     expiryNote: `This link expires in ${expiryLabel} and can only be used once. If you didn't request a reset, you can safely ignore this email — your password won't change.`,
     footerNote: "You're receiving this because a password reset was requested for this email address on LP Studio.",
   });
+  const tpl = await renderSystemEmail("password_reset", {
+    headline: "Reset your password",
+    ctaUrl: resetUrl,
+    expiryLabel,
+    recipientEmail,
+    workspaceUrl: originOf(resetUrl),
+  });
   return sendAuthActionEmail({
     to: recipientEmail,
-    subject: "Reset your LP Studio password",
-    html,
+    subject: tpl?.subject ?? "Reset your LP Studio password",
+    html: tpl?.html ?? fallbackHtml,
     logContext: { recipientEmail },
     logMessage: "password-reset email",
   });
@@ -267,7 +325,7 @@ export async function sendEmailVerificationEmail(payload: {
   expiryLabel: string;
 }): Promise<boolean> {
   const { recipientEmail, verifyUrl, expiryLabel } = payload;
-  const html = buildAuthActionEmailHtml({
+  const fallbackHtml = buildAuthActionEmailHtml({
     headline: "Confirm your email",
     bodyHtml: "Welcome to LP Studio! Please confirm this is your email address to finish setting up your account.",
     ctaLabel: "Confirm email",
@@ -275,10 +333,17 @@ export async function sendEmailVerificationEmail(payload: {
     expiryNote: `This link expires in ${expiryLabel}. If you didn't create an LP Studio account, you can safely ignore this email.`,
     footerNote: "You're receiving this because an LP Studio account was created with this email address.",
   });
+  const tpl = await renderSystemEmail("email_verification", {
+    headline: "Confirm your email",
+    ctaUrl: verifyUrl,
+    expiryLabel,
+    recipientEmail,
+    workspaceUrl: originOf(verifyUrl),
+  });
   return sendAuthActionEmail({
     to: recipientEmail,
-    subject: "Confirm your email for LP Studio",
-    html,
+    subject: tpl?.subject ?? "Confirm your email for LP Studio",
+    html: tpl?.html ?? fallbackHtml,
     logContext: { recipientEmail },
     logMessage: "email-verification email",
   });
@@ -316,7 +381,7 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
   const headline = `An old ${escapeHtml(tenantName)} URL is about to stop working`;
   const dayLabel = daysUntilExpiry === 1 ? "1 day" : `${daysUntilExpiry} days`;
 
-  const html = `<!DOCTYPE html>
+  const fallbackHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -396,6 +461,20 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
 </body>
 </html>`;
 
+  const tpl = await renderSystemEmail("slug_redirect_expiry", {
+    headline,
+    expiryIntro: `After your workspace was renamed, links to the old URL kept working for 90 days. That window closes in ${dayLabel} — once it does, anyone visiting the old URL will land on a "workspace not found" page.`,
+    oldUrl,
+    currentUrl,
+    expiryFormatted,
+    tenantName,
+    ctaUrl: currentUrl,
+    workspaceUrl: originOf(currentUrl),
+    recipientEmail,
+  });
+  const subject = tpl?.subject ?? `Heads up: an old ${tenantName} URL stops working in ${dayLabel}`;
+  const html = tpl?.html ?? fallbackHtml;
+
   try {
     await retryFetch("https://api.resend.com/emails", {
       method: "POST",
@@ -406,7 +485,7 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
       body: JSON.stringify({
         from: fromAddress,
         to: [recipientEmail],
-        subject: `Heads up: an old ${tenantName} URL stops working in ${dayLabel}`,
+        subject,
         html,
       }),
     });
@@ -479,7 +558,7 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
     ? `We tried charging ${cardText}${amountText ? ` for ${amountText}` : ""} and the payment didn't go through. This was the final automatic attempt, so your paid plan has now been paused. Update your payment method to restore access.`
     : `We tried charging ${cardText}${amountText ? ` for ${amountText}` : ""} and it was declined. We'll retry automatically, but you can avoid any interruption by updating your payment method now.`;
 
-  const html = `<!DOCTYPE html>
+  const fallbackHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -546,9 +625,25 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
 </body>
 </html>`;
 
-  const subject = finalAttempt
+  const fallbackSubject = finalAttempt
     ? `Your ${tenantName} subscription was paused — payment failed`
     : `Payment failed for ${tenantName} — update your card`;
+
+  const alertLabel = `Payment failed${attemptCount > 1 ? ` · attempt ${attemptCount}` : ""}`;
+  const alertText = amountText
+    ? `${amountText} could not be charged to ${cardText}.`
+    : `${cardText.charAt(0).toUpperCase()}${cardText.slice(1)} was declined.`;
+  const tpl = await renderSystemEmail("payment_failed", {
+    headline,
+    dunningIntro: intro,
+    alertLabel,
+    alertText,
+    tenantName,
+    ctaUrl: billingUrl,
+    workspaceUrl: originOf(billingUrl),
+  });
+  const subject = tpl?.subject ?? fallbackSubject;
+  const html = tpl?.html ?? fallbackHtml;
 
   try {
     await retryFetch("https://api.resend.com/emails", {

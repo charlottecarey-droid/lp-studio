@@ -20,7 +20,7 @@ import {
   bustEmailShellCache,
   EMAIL_SHELL_ID,
 } from "../lib/emailShell";
-import { renderEmail, DEFAULT_EMAIL_SHELL } from "../lib/emailRender";
+import { renderEmail, expandEmailVars, DEFAULT_EMAIL_SHELL } from "../lib/emailRender";
 import { addStreamClient } from "../lib/notificationStream";
 
 const router: IRouter = Router();
@@ -211,7 +211,7 @@ function buildPreviewVars(overrides?: unknown): Record<string, string> {
       base[k] = String(v);
     }
   }
-  return base;
+  return expandEmailVars(base);
 }
 
 /** Append an audit row. Best-effort: a logging failure must not fail the edit. */

@@ -98,6 +98,41 @@ export const PLATFORM_NOTIFICATION_VARIABLES: readonly VariableDefinition[] = [
     sample: "Your Growth trial ends soon",
     group: "Workspace",
   },
+  {
+    token: "subject",
+    label: "Subject line",
+    description: "The email subject (used in the shell <title>; defaults to the headline).",
+    sample: "Your Growth trial ends soon",
+    group: "Workspace",
+  },
+  {
+    token: "preheaderText",
+    label: "Preheader text",
+    description: "Short inbox preview text shown after the subject in most clients.",
+    sample: "A quick note about your workspace.",
+    group: "Workspace",
+  },
+  {
+    token: "unsubscribeUrl",
+    label: "Unsubscribe URL",
+    description: "Link recipients use to manage email preferences (defaults to workspace settings).",
+    sample: "https://acme.lpstudio.ai/settings/notifications",
+    group: "Links",
+  },
+  {
+    token: "physicalAddress",
+    label: "Mailing address",
+    description: "CAN-SPAM postal address shown in the footer. Set your real address here.",
+    sample: "123 Market St, Suite 400, San Francisco, CA 94103",
+    group: "Compliance",
+  },
+  {
+    token: "currentYear",
+    label: "Current year",
+    description: "The current year, for the footer copyright line (filled automatically).",
+    sample: String(new Date().getUTCFullYear()),
+    group: "Compliance",
+  },
 ];
 
 /**

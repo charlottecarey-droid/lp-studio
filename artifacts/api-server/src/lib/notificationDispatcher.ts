@@ -7,7 +7,7 @@ import {
   type NotificationTemplateDef,
 } from "./notificationTemplates";
 import { getEmailShell } from "./emailShell";
-import { renderEmail } from "./emailRender";
+import { expandEmailVars, renderEmail } from "./emailRender";
 
 /**
  * Channel-aware notification dispatcher.
@@ -262,11 +262,20 @@ async function dispatchEmail(
 
   try {
     const shell = await getEmailShell();
+    const firstName = (r.name ?? "").trim().split(/\s+/)[0] ?? "";
     const html = renderEmail({
       shell,
       bodyHtml: tpl.bodyHtml,
       wrapInShell: tpl.wrapInShell,
-      vars: { ...ctx, headline: content.inAppTitle, ctaUrl: ctaUrl ?? "" },
+      vars: expandEmailVars({
+        ...ctx,
+        recipientName: ctx["recipientName"] ?? firstName,
+        recipientEmail: r.email,
+        headline: content.inAppTitle,
+        subject: content.emailSubject,
+        preheaderText: content.emailIntro,
+        ctaUrl: ctaUrl ?? "",
+      }),
     });
     await sendEmail(r.email, content.emailSubject, html);
     await pool.query(

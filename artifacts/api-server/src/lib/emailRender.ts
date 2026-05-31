@@ -20,6 +20,13 @@
  * (guarded by emailRender.test.ts).
  */
 
+import {
+  MASTER_SHELL_HTML,
+  MASTER_SHELL_LOGO_HTML,
+  MASTER_SHELL_FOOTER_HTML,
+  MASTER_SHELL_HEADER_BG,
+} from "./emailHtmlAssets";
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -85,52 +92,13 @@ export function renderEmail(input: RenderEmailInput): string {
 // Code defaults — reproduce the previous hardcoded dispatcher frame exactly.
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_HEADER_BG = "#003A30";
+export const DEFAULT_HEADER_BG = MASTER_SHELL_HEADER_BG;
 
-export const DEFAULT_LOGO_HTML = `<span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>`;
+export const DEFAULT_LOGO_HTML = MASTER_SHELL_LOGO_HTML;
 
-export const DEFAULT_FOOTER_HTML = `<p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af">
-                You're receiving this because you're an admin of an LP Studio workspace.
-              </p>`;
+export const DEFAULT_FOOTER_HTML = MASTER_SHELL_FOOTER_HTML;
 
-export const PLATFORM_DEFAULT_SHELL = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{headline}}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
-          <tr>
-            <td style="background:{{headerBg}};border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                {{logoHtml}}
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">{{headline}}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px;border-radius:0 0 12px 12px">
-              {{body}}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 40px;text-align:center">
-              {{footerHtml}}
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+export const PLATFORM_DEFAULT_SHELL = MASTER_SHELL_HTML;
 
 /** The code-default shell (used when no DB override exists). */
 export const DEFAULT_EMAIL_SHELL: EmailShell = {
@@ -142,25 +110,62 @@ export const DEFAULT_EMAIL_SHELL: EmailShell = {
 
 /**
  * Build the default free-form body for a structured (subject + intro + CTA)
- * template. The intro and CTA label are inlined (HTML-escaped, exactly like the
- * legacy frame escaped them) so the whole body is editable, while `{{ctaUrl}}`
- * and any tokens inside the intro (e.g. `{{daysRemaining}}`) stay variable.
+ * template, styled for the branded master shell's cream body card.
  *
- * Rendering this with the platform default shell reproduces the previous
- * dispatcher output byte-for-byte (see emailRender.test.ts).
+ * The master shell renders NO headline of its own (its header is just the
+ * wordmark + accent strip), so the body bakes the `{{headline}}` token itself.
+ * The intro and CTA label are inlined (HTML-escaped) so the whole body is
+ * editable, while `{{headline}}`, `{{ctaUrl}}` and any tokens inside the intro
+ * (e.g. `{{daysRemaining}}`) stay variable.
  */
 export function buildDefaultBodyHtml(intro: string, ctaLabel: string): string {
-  return `<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">
+  return `<h1 style="margin:0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.12;font-weight:800;letter-spacing:-0.03em;color:#1A1815;">{{headline}}</h1>
+              <p style="margin:20px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.62;color:#2A2722;">
                 ${escapeHtml(intro)}
               </p>
-              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:8px">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:30px;">
                 <tr>
-                  <td style="background:#C7E738;border-radius:8px">
+                  <td style="background:#1A1815;border-radius:6px;">
                     <a href="{{ctaUrl}}" target="_blank"
-                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
-                      ${escapeHtml(ctaLabel)}
+                       style="display:inline-block;padding:14px 26px;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;letter-spacing:-0.005em;color:#F6F2E9;text-decoration:none;border-radius:6px;">
+                      ${escapeHtml(ctaLabel)} →
                     </a>
                   </td>
                 </tr>
               </table>`;
+}
+
+/**
+ * Default CAN-SPAM postal address baked into the master-shell footer. Empty by
+ * default — operators MUST set their real mailing address (either by editing the
+ * footer HTML in the shell editor or by overriding `physicalAddress` in a
+ * template's preview data). An empty value renders the footer with no address
+ * line rather than a fabricated one.
+ */
+export const DEFAULT_PHYSICAL_ADDRESS = "";
+
+/**
+ * Fill in the derived / compliance email tokens that the branded shell + footer
+ * reference but that callers rarely supply explicitly:
+ *   - `currentYear`     — UTC year, for the footer copyright.
+ *   - `physicalAddress` — CAN-SPAM postal address (default: none).
+ *   - `unsubscribeUrl`  — workspace notification settings, if not provided.
+ *   - `subject`         — falls back to `headline` (the shell `<title>`).
+ *   - `preheaderText`   — inbox preview text; defaults to empty.
+ *
+ * Explicitly-provided values always win. Called on EVERY render path (dispatcher
+ * + superadmin preview/test-send) so what an operator previews matches what
+ * recipients receive.
+ */
+export function expandEmailVars(vars: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = { ...vars };
+  const workspaceUrl = out["workspaceUrl"] ?? "";
+  if (!out["currentYear"]) out["currentYear"] = String(new Date().getUTCFullYear());
+  if (out["physicalAddress"] === undefined) out["physicalAddress"] = DEFAULT_PHYSICAL_ADDRESS;
+  if (!out["unsubscribeUrl"]) {
+    out["unsubscribeUrl"] = workspaceUrl ? `${workspaceUrl}/settings/notifications` : "";
+  }
+  if (!out["subject"] && out["headline"]) out["subject"] = out["headline"];
+  if (out["preheaderText"] === undefined) out["preheaderText"] = "";
+  return out;
 }
