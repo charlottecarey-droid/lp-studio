@@ -241,6 +241,28 @@ describe("superadmin email-template editor API", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 
+  it("rejects a test-send with a malformed recipient override (400)", async () => {
+    const res = await injectSid({
+      method: "POST",
+      url: `/api/admin/notification-templates/${TEMPLATE_KEY}/test-send`,
+      sid: SUPER_SID,
+      body: { to: "not-an-email" },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it.skipIf(HAS_RESEND)("sends a test to a valid recipient override and reports it", async () => {
+    const override = `it-emed-override-${Date.now()}@example.com`;
+    const res = await injectSid({
+      method: "POST",
+      url: `/api/admin/notification-templates/${TEMPLATE_KEY}/test-send`,
+      sid: SUPER_SID,
+      body: { to: override },
+    });
+    expect(res.status).toBe(200);
+    expect((res.json as { sentTo?: string }).sentTo).toBe(override);
+  });
+
   it.skipIf(HAS_RESEND)("rate-limits test-send to the 11th request with 429", async () => {
     let last: InjectResponse | null = null;
     for (let i = 0; i < 11; i++) {

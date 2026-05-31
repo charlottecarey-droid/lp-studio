@@ -159,7 +159,7 @@ function TemplateDetail({
   );
 
   const onTestSend = useCallback(
-    async (v: EmailTemplateValue) => {
+    async (v: EmailTemplateValue, to: string) => {
       await apiFetch(
         `/api/admin/notification-templates/${tpl.key}/test-send`,
         {
@@ -168,6 +168,7 @@ function TemplateDetail({
             bodyHtml: v.bodyHtml,
             wrapInShell: v.wrapInShell,
             emailSubject: v.subject,
+            ...(to ? { to } : {}),
           }),
         },
       );

@@ -26,8 +26,11 @@ interface Props {
   variables: VariableDefinition[];
   /** Render the (unsaved) email to full HTML via the server's real pipeline. */
   renderPreview?: (value: EmailTemplateValue) => Promise<{ html: string; subject?: string }>;
-  /** Send a test email to the signed-in superadmin. */
-  onTestSend?: (value: EmailTemplateValue) => Promise<void>;
+  /**
+   * Send a test email. `to` is an optional recipient override; when blank the
+   * server sends to the signed-in superadmin.
+   */
+  onTestSend?: (value: EmailTemplateValue, to: string) => Promise<void>;
 }
 
 function toInserterItems(vars: VariableDefinition[]): VarInserterItem[] {
@@ -52,6 +55,7 @@ export function EmailTemplateEditor({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentOk, setSentOk] = useState(false);
+  const [testTo, setTestTo] = useState("");
 
   const items = toInserterItems(variables);
   const mergeVars = variables.map((v) => ({ label: v.label, variable: v.token }));
@@ -96,14 +100,14 @@ export function EmailTemplateEditor({
     setError(null);
     setSentOk(false);
     try {
-      await onTestSend(value);
+      await onTestSend(value, testTo.trim());
       setSentOk(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Test send failed");
     } finally {
       setSending(false);
     }
-  }, [onTestSend, value]);
+  }, [onTestSend, value, testTo]);
 
   return (
     <div className="space-y-4">
@@ -221,20 +225,29 @@ export function EmailTemplateEditor({
           </Button>
         )}
         {onTestSend && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => void handleTestSend()}
-            disabled={sending}
-          >
-            {sending ? (
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Send className="mr-1 h-3.5 w-3.5" />
-            )}
-            Send test to me
-          </Button>
+          <>
+            <Input
+              type="email"
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+              className="h-8 w-56 text-sm"
+              placeholder="Send test to… (defaults to you)"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void handleTestSend()}
+              disabled={sending}
+            >
+              {sending ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="mr-1 h-3.5 w-3.5" />
+              )}
+              {testTo.trim() ? "Send test" : "Send test to me"}
+            </Button>
+          </>
         )}
         {sentOk && <span className="text-xs text-emerald-600">Test sent ✓</span>}
         {error && <span className="text-xs text-destructive">{error}</span>}

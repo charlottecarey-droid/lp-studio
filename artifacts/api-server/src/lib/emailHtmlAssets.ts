@@ -476,3 +476,148 @@ export const MAGAZINE_WELCOME_HTML = `<!DOCTYPE html>
 </body>
 </html>
 `;
+
+/**
+ * Self-contained workspace-invite email (cream/indigo magazine layout).
+ * Used as the workspace_invite body in full-custom-HTML mode (wrapInShell = false).
+ * Tokens: {{inviterName}} {{tenantName}} {{roleName}} {{workspaceUrl}}
+ * {{workspaceHost}} {{acceptUrl}} {{recipientEmail}} (+ derived {{physicalAddress}} {{currentYear}}).
+ */
+export const WORKSPACE_INVITE_MAGAZINE_HTML = `<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
+  <title>{{inviterName}} invited you to {{tenantName}} on LP Studio</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body, table, td, p, a, h1, h2, h3 { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; background: #F6F2E9; }
+    img { border: 0; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; display: block; }
+    a { color: inherit; }
+    a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+    .ExternalClass { width: 100%; }
+    .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }
+    @media only screen and (max-width: 740px) {
+      .container { width: 100% !important; max-width: 100% !important; }
+      .px-pad { padding-left: 28px !important; padding-right: 28px !important; }
+      .hero-h1 { font-size: 38px !important; line-height: 1.05 !important; }
+      .invite-card-td { padding: 24px !important; }
+      .stack { display: block !important; width: 100% !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#F6F2E9;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;color:#1A1815;">
+  <div style="display:none;font-size:1px;color:#F6F2E9;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+    {{inviterName}} added you to the {{tenantName}} workspace on LP Studio as {{roleName}}. Accept to get in.
+  </div>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F6F2E9;">
+    <tr><td align="center" style="padding:0;">
+
+      <table role="presentation" class="container" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;background:#4B47E5;line-height:1px;font-size:1px;">
+        <tr><td style="height:4px;line-height:1px;font-size:1px;">&nbsp;</td></tr>
+      </table>
+
+      <table role="presentation" class="container" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;background:#F6F2E9;">
+        <tr>
+          <td class="px-pad" align="center" style="padding:32px 56px 28px 56px;border-bottom:1px solid rgba(26,24,21,0.10);">
+            <a href="https://lpstudio.ai/" style="text-decoration:none;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
+                <td style="font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.05em;color:#4B47E5;line-height:1;vertical-align:bottom;padding:0;">LP</td>
+                <td style="vertical-align:bottom;padding:0 0 6px 4px;line-height:1;"><div style="width:7px;height:7px;border-radius:50%;background:#E26B4F;"></div></td>
+                <td style="font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.20em;color:#1A1815;line-height:1;vertical-align:bottom;padding:0 0 4px 10px;text-transform:uppercase;">Studio</td>
+              </tr></table>
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <table role="presentation" class="container" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;background:#F6F2E9;">
+        <tr><td class="px-pad" style="padding:64px 56px 0 56px;">
+          <span style="display:inline-block;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#4B47E5;padding:6px 12px;background:rgba(75,71,229,0.12);border-radius:999px;">Invitation</span>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:24px 56px 0 56px;">
+          <h1 class="hero-h1" style="margin:0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:48px;line-height:1.0;font-weight:800;letter-spacing:-0.04em;color:#1A1815;">{{inviterName}} added you to {{tenantName}}<span style="color:#E26B4F;">.</span></h1>
+          <p style="margin:24px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.55;color:#2A2722;max-width:520px;">LP Studio is the AI workspace where your team builds on-brand pages, microsites, and outreach in minutes. You've got access to the <strong style="color:#1A1815;font-weight:600;">{{tenantName}}</strong> workspace as a <strong style="color:#1A1815;font-weight:600;">{{roleName}}</strong>.</p>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:36px 56px 0 56px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#FFFFFF;border:1px solid rgba(26,24,21,0.10);border-radius:10px;">
+            <tr><td class="invite-card-td" style="padding:28px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td class="stack" width="50%" valign="top" style="padding-right:16px;padding-bottom:18px;">
+                    <p style="margin:0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:#8B857C;">Workspace</p>
+                    <p style="margin:6px 0 0 0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#1A1815;">{{tenantName}}</p>
+                  </td>
+                  <td class="stack" width="50%" valign="top" style="padding-bottom:18px;">
+                    <p style="margin:0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:#8B857C;">Your role</p>
+                    <p style="margin:6px 0 0 0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#1A1815;">{{roleName}}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="stack" width="50%" valign="top" style="padding-right:16px;padding-top:18px;border-top:1px solid rgba(26,24,21,0.08);">
+                    <p style="margin:0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:#8B857C;">Invited by</p>
+                    <p style="margin:6px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;color:#1A1815;">{{inviterName}}</p>
+                  </td>
+                  <td class="stack" width="50%" valign="top" style="padding-top:18px;border-top:1px solid rgba(26,24,21,0.08);">
+                    <p style="margin:0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:#8B857C;">Workspace URL</p>
+                    <p style="margin:6px 0 0 0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:13px;font-weight:500;color:#4B47E5;word-break:break-all;"><a href="{{workspaceUrl}}" style="color:#4B47E5;text-decoration:none;">{{workspaceHost}}</a></p>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:32px 56px 0 56px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="background:#1A1815;border-radius:6px;"><a href="{{acceptUrl}}" style="display:inline-block;padding:16px 30px;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;letter-spacing:-0.005em;color:#F6F2E9;text-decoration:none;border-radius:6px;">Accept invitation →</a></td>
+          </tr></table>
+          <p style="margin:14px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;color:#8B857C;">Or copy this link: <a href="{{acceptUrl}}" style="color:#5C5853;text-decoration:underline;word-break:break-all;">{{acceptUrl}}</a></p>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:40px 56px 0 56px;">
+          <p style="margin:0 0 10px 0;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:#5C5853;">What happens next</p>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#5C5853;">Sign in at <strong style="color:#1A1815;font-weight:600;"><a href="{{workspaceUrl}}" style="color:#4B47E5;text-decoration:none;">{{workspaceHost}}</a></strong> with {{recipientEmail}}. Bookmark it — that's your workspace going forward.</p>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:32px 56px 0 56px;">
+          <div style="height:1px;background:rgba(26,24,21,0.08);line-height:1px;font-size:1px;margin-bottom:18px;">&nbsp;</div>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#8B857C;">Didn't expect this invitation? You can safely ignore this email — your address won't be added to anything until you click Accept.</p>
+        </td></tr>
+        <tr><td style="padding:0 0 24px 0;"></td></tr>
+      </table>
+
+      <table role="presentation" class="container" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;background:#F6F2E9;">
+        <tr><td class="px-pad" style="padding:48px 56px 0 56px;"><div style="height:1px;background:rgba(26,24,21,0.10);line-height:1px;font-size:1px;">&nbsp;</div></td></tr>
+        <tr><td class="px-pad" style="padding:32px 56px 0 56px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+            <td valign="middle">
+              <a href="https://lpstudio.ai/" style="text-decoration:none;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                  <td style="font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.05em;color:#4B47E5;line-height:1;vertical-align:bottom;padding:0;">LP</td>
+                  <td style="vertical-align:bottom;padding:0 0 4px 3px;line-height:1;"><div style="width:5px;height:5px;border-radius:50%;background:#E26B4F;"></div></td>
+                  <td style="font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.20em;color:#1A1815;line-height:1;vertical-align:bottom;padding:0 0 3px 7px;text-transform:uppercase;">Studio</td>
+                </tr></table>
+              </a>
+            </td>
+            <td align="right" valign="middle"><span style="font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:#5C5853;">The AI revenue workspace</span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:20px 56px 0 56px;">
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#5C5853;"><a href="https://lpstudio.ai/" style="color:#5C5853;text-decoration:none;">lpstudio.ai</a>&nbsp;·&nbsp;<a href="mailto:admin@lpstudio.ai" style="color:#5C5853;text-decoration:none;">admin@lpstudio.ai</a></p>
+        </td></tr>
+        <tr><td class="px-pad" style="padding:24px 56px 48px 56px;">
+          <div style="height:1px;background:rgba(26,24,21,0.08);line-height:1px;font-size:1px;margin-bottom:20px;">&nbsp;</div>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">Delivered to {{recipientEmail}} · This is a one-time invitation email and is not subject to email preferences.<br>LP Studio · {{physicalAddress}}<br>© {{currentYear}} LP Studio. All rights reserved.</p>
+        </td></tr>
+      </table>
+
+    </td></tr>
+  </table>
+</body>
+</html>`;

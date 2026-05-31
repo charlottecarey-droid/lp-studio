@@ -4,12 +4,14 @@ import {
   buildSampleVars,
 } from "@workspace/notification-variables";
 import { buildDefaultBodyHtml } from "./emailRender";
-import { MAGAZINE_WELCOME_HTML } from "./emailHtmlAssets";
+import {
+  MAGAZINE_WELCOME_HTML,
+  WORKSPACE_INVITE_MAGAZINE_HTML,
+} from "./emailHtmlAssets";
 import {
   MAGIC_LINK_BODY_HTML,
   EMAIL_VERIFICATION_BODY_HTML,
   PASSWORD_RESET_BODY_HTML,
-  WORKSPACE_INVITE_BODY_HTML,
   PAYMENT_FAILED_BODY_HTML,
   SLUG_REDIRECT_EXPIRY_BODY_HTML,
 } from "./systemEmailBodies";
@@ -222,17 +224,24 @@ const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
     emailCtaLabel: "Accept invite",
     inAppTitle: "Workspace invite",
     inAppBody: "You've been invited to join {{tenantName}}.",
-    bodyHtml: WORKSPACE_INVITE_BODY_HTML,
+    // Self-contained on-brand magazine layout: the body IS the entire email
+    // (full custom HTML, no shell chrome). Tokens: {{inviterName}} {{tenantName}}
+    // {{roleName}} {{workspaceUrl}} {{workspaceHost}} {{acceptUrl}} {{recipientEmail}}.
+    bodyHtml: WORKSPACE_INVITE_MAGAZINE_HTML,
     bodyMode: "html",
-    wrapInShell: true,
+    wrapInShell: false,
     previewData: {
       headline: "You've been invited to join Acme",
       inviteBody:
         "Taylor has invited you to join <strong>Acme</strong> on LP Studio as a <strong>Editor</strong>. Create your account to get started.",
+      inviterName: "Taylor",
       tenantName: "Acme",
       roleName: "Editor",
       ctaLabel: "Create your account",
       ctaUrl: "https://app.lpstudio.ai/invite/sample",
+      acceptUrl: "https://app.lpstudio.ai/invite/sample",
+      workspaceUrl: "https://acme.lpstudio.ai",
+      workspaceHost: "acme.lpstudio.ai",
       recipientEmail: "jordan@acme.com",
     },
     enabled: true,

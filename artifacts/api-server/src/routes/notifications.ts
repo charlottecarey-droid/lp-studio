@@ -428,7 +428,14 @@ router.post(
     const key = String(req.params.key);
     const b = req.body ?? {};
     const user = (req as Request & { authUser?: AuthUser }).authUser;
-    const to = user?.email;
+    // Optional recipient override; falls back to the requesting superadmin.
+    const requested = typeof b.to === "string" ? b.to.trim() : "";
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requested);
+    if (requested && !isEmail) {
+      res.status(400).json({ error: "Enter a valid email address to send the test to." });
+      return;
+    }
+    const to = requested || user?.email;
     if (!to) {
       res.status(400).json({ error: "Your account has no email address to send to." });
       return;
@@ -449,14 +456,17 @@ router.post(
         vars,
       )}`;
       await sendViaResend(to, subject, html);
+      // Attribute the action to the requesting superadmin (not the recipient,
+      // which may be an override address) so the audit trail stays accurate.
+      const editor = user?.email ?? to;
       await pool.query(
         `UPDATE notification_templates SET last_test_sent_at = now(), last_test_sent_by = $2 WHERE key = $1`,
-        [key, to],
+        [key, editor],
       );
       await writeEditLog({
         targetType: "template",
         targetKey: key,
-        editorEmail: to,
+        editorEmail: editor,
         action: "test_send",
         diff: { sentTo: to },
       });

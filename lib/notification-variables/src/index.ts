@@ -71,6 +71,27 @@ export const PLATFORM_NOTIFICATION_VARIABLES: readonly VariableDefinition[] = [
     group: "Links",
   },
   {
+    token: "workspaceHost",
+    label: "Workspace host",
+    description: "The workspace domain without scheme, for display in copy.",
+    sample: "acme.lpstudio.ai",
+    group: "Links",
+  },
+  {
+    token: "acceptUrl",
+    label: "Accept-invite link",
+    description: "The invitation accept / sign-in link (workspace invite email).",
+    sample: "https://app.lpstudio.ai/invite/sample",
+    group: "Links",
+  },
+  {
+    token: "inviterName",
+    label: "Inviter name",
+    description: "Name of the teammate who sent the workspace invitation.",
+    sample: "Taylor",
+    group: "Recipient",
+  },
+  {
     token: "billingUrl",
     label: "Billing URL",
     description: "Link to the workspace billing / plan page.",

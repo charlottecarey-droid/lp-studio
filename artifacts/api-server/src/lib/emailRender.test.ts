@@ -20,7 +20,7 @@ import {
   DEFAULT_EMAIL_SHELL,
 } from "./emailRender";
 import { NOTIFICATION_TEMPLATES } from "./notificationTemplates";
-import { MAGAZINE_WELCOME_HTML } from "./emailHtmlAssets";
+import { MAGAZINE_WELCOME_HTML, WORKSPACE_INVITE_MAGAZINE_HTML } from "./emailHtmlAssets";
 
 const TRIAL_KEYS = ["trial_day_7", "trial_day_11", "trial_day_13"] as const;
 
@@ -97,6 +97,28 @@ describe("renderEmail — branded master shell", () => {
     expect(html).toContain("Jordan"); // {{recipientName}}
     expect(html).toContain("jordan@acme.com"); // {{recipientEmail}}
     // All authored tokens resolved (the magazine uses only the canonical set).
+    expect(html).not.toContain("{{");
+  });
+
+  it("workspace_invite is full-custom magazine HTML resolving all invite tokens", () => {
+    const tpl = NOTIFICATION_TEMPLATES["workspace_invite"];
+    expect(tpl.wrapInShell).toBe(false);
+    expect(tpl.bodyMode).toBe("html");
+    expect(tpl.bodyHtml).toBe(WORKSPACE_INVITE_MAGAZINE_HTML);
+
+    const html = renderEmail({
+      shell: DEFAULT_EMAIL_SHELL,
+      bodyHtml: tpl.bodyHtml,
+      wrapInShell: false,
+      vars: expandEmailVars({ ...tpl.previewData } as Record<string, string>),
+    });
+    expect(html).toContain("Taylor"); // {{inviterName}}
+    expect(html).toContain("Acme"); // {{tenantName}}
+    expect(html).toContain("Editor"); // {{roleName}}
+    expect(html).toContain("acme.lpstudio.ai"); // {{workspaceHost}}
+    expect(html).toContain("invite/sample"); // {{acceptUrl}}
+    expect(html).toContain("jordan@acme.com"); // {{recipientEmail}}
+    // The footer's {{physicalAddress}} / {{currentYear}} are expandEmailVars-derived.
     expect(html).not.toContain("{{");
   });
 

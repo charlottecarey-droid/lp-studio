@@ -61,6 +61,15 @@ function originOf(url: string): string {
   }
 }
 
+/** Best-effort host (no scheme) of an action URL, for display in email copy. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+}
+
 export interface InvitePayload {
   inviteeEmail: string;
   inviterName: string;
@@ -112,11 +121,14 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
     inviteBody: bodyText,
     tenantName,
     roleName,
+    inviterName,
     ctaUrl: signInUrl,
+    acceptUrl: signInUrl,
     ctaLabel: actionLabel,
     recipientEmail: inviteeEmail,
     recipientName: inviterName,
     workspaceUrl: originOf(signInUrl),
+    workspaceHost: hostOf(signInUrl),
   });
   const subject = tpl?.subject ?? fallbackSubject;
   const html = tpl?.html ?? fallbackHtml;
