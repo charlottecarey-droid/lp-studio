@@ -87,13 +87,19 @@ const VALID_FREQUENCIES: ScheduleFrequency[] = ["once", "daily", "weekly", "mont
 
 export interface ScheduledTriggerConfig extends AudienceFilter {
   frequency: ScheduleFrequency;
-  /** UTC time-of-day, "HH:MM" (24h). */
+  /** Wall-clock time-of-day, "HH:MM" (24h), interpreted in `timezone`. */
   time: string;
+  /**
+   * IANA timezone (e.g. "America/New_York") the schedule's wall-clock time and
+   * calendar boundaries resolve in. Omitted/default = "UTC" (backward compatible
+   * with rows created before timezone support). DST is handled automatically.
+   */
+  timezone?: string;
   /** weekly only: 0 (Sun) – 6 (Sat). */
   dayOfWeek?: number;
   /** monthly only: 1 – 31 (clamped to the month length at fire time). */
   dayOfMonth?: number;
-  /** once only: the calendar date "YYYY-MM-DD" (UTC) the single fire lands on. */
+  /** once only: the calendar date "YYYY-MM-DD" (local to `timezone`) the single fire lands on. */
   date?: string;
 }
 
@@ -101,6 +107,26 @@ export type AudienceTriggerConfig = AudienceFilter;
 
 const HHMM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Validate an IANA timezone name. Missing/empty defaults to "UTC" (backward
+ * compatible). A present-but-unknown zone returns null so a malformed row fails
+ * closed (never silently fires at a guessed time) — consistent with the other
+ * schedule sanitizers.
+ */
+function sanitizeTimezone(raw: unknown): string | null {
+  if (raw == null || raw === "") return "UTC";
+  if (typeof raw !== "string") return null;
+  const tz = raw.trim();
+  if (!tz) return "UTC";
+  try {
+    // Throws RangeError for an unknown/invalid IANA zone.
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
 
 function sanitizeRoleNames(raw: unknown): string[] | undefined {
   if (!Array.isArray(raw)) return undefined;
@@ -144,7 +170,9 @@ export function parseScheduledConfig(raw: unknown): ScheduledTriggerConfig | nul
   if (!frequency) return null;
   const time = typeof o.time === "string" && HHMM_RE.test(o.time) ? o.time : null;
   if (!time) return null;
-  const cfg: ScheduledTriggerConfig = { ...audience, frequency, time };
+  const timezone = sanitizeTimezone(o.timezone);
+  if (!timezone) return null; // present-but-invalid zone → fail closed
+  const cfg: ScheduledTriggerConfig = { ...audience, frequency, time, timezone };
   if (frequency === "weekly") {
     const d = Number(o.dayOfWeek);
     if (!Number.isInteger(d) || d < 0 || d > 6) return null;

@@ -32,11 +32,41 @@ describe("parseAudienceConfig (Task #626)", () => {
 });
 
 describe("parseScheduledConfig (Task #626)", () => {
-  it("accepts a valid daily config", () => {
+  it("accepts a valid daily config and defaults the timezone to UTC", () => {
     expect(parseScheduledConfig({ role: "member", frequency: "daily", time: "09:30" })).toEqual({
       role: "member",
       frequency: "daily",
       time: "09:30",
+      timezone: "UTC",
+    });
+  });
+
+  it("accepts and round-trips a valid IANA timezone", () => {
+    expect(
+      parseScheduledConfig({ role: "member", frequency: "daily", time: "09:00", timezone: "America/New_York" }),
+    ).toEqual({
+      role: "member",
+      frequency: "daily",
+      time: "09:00",
+      timezone: "America/New_York",
+    });
+  });
+
+  it("fails closed on a present-but-invalid timezone", () => {
+    expect(
+      parseScheduledConfig({ role: "member", frequency: "daily", time: "09:00", timezone: "Mars/Phobos" }),
+    ).toBeNull();
+    expect(
+      parseScheduledConfig({ role: "member", frequency: "daily", time: "09:00", timezone: 123 }),
+    ).toBeNull();
+  });
+
+  it("treats an empty timezone string as UTC", () => {
+    expect(parseScheduledConfig({ role: "member", frequency: "daily", time: "09:00", timezone: "" })).toEqual({
+      role: "member",
+      frequency: "daily",
+      time: "09:00",
+      timezone: "UTC",
     });
   });
 
@@ -53,6 +83,7 @@ describe("parseScheduledConfig (Task #626)", () => {
       role: "member",
       frequency: "weekly",
       time: "09:00",
+      timezone: "UTC",
       dayOfWeek: 3,
     });
     expect(parseScheduledConfig({ role: "member", frequency: "monthly", time: "09:00", dayOfMonth: 0 })).toBeNull();
@@ -60,6 +91,7 @@ describe("parseScheduledConfig (Task #626)", () => {
       role: "member",
       frequency: "monthly",
       time: "09:00",
+      timezone: "UTC",
       dayOfMonth: 15,
     });
     expect(parseScheduledConfig({ role: "member", frequency: "once", time: "09:00" })).toBeNull();
@@ -73,12 +105,14 @@ describe("parseScheduledConfig (Task #626)", () => {
       role: "member",
       frequency: "once",
       time: "09:00",
+      timezone: "UTC",
       date: "2024-02-29",
     });
     expect(parseScheduledConfig({ role: "member", frequency: "once", time: "09:00", date: "2026-06-10" })).toEqual({
       role: "member",
       frequency: "once",
       time: "09:00",
+      timezone: "UTC",
       date: "2026-06-10",
     });
   });

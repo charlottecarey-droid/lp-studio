@@ -600,6 +600,41 @@ const ROLE_LABELS: Record<AudienceRole, string> = {
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// The browser's current IANA zone, used as the sensible default for new
+// schedules so an admin's "9:00 daily" lands at 9:00 their local time.
+const DEFAULT_TIMEZONE = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+})();
+
+// Curated common zones plus the browser default. Stored as IANA names; the
+// schedule math on the server resolves the wall-clock time (incl. DST) in this
+// zone. "UTC" stays available for the prior behaviour.
+const TIMEZONE_OPTIONS: string[] = Array.from(
+  new Set([
+    DEFAULT_TIMEZONE,
+    "UTC",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Sao_Paulo",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Moscow",
+    "Asia/Dubai",
+    "Asia/Kolkata",
+    "Asia/Singapore",
+    "Asia/Shanghai",
+    "Asia/Tokyo",
+    "Australia/Sydney",
+  ]),
+);
+
 interface Trigger {
   key: string;
   name: string;
@@ -1163,6 +1198,7 @@ function TriggersPanel({
   const [role, setRole] = useState<AudienceRole>("member");
   const [frequency, setFrequency] = useState<ScheduleFrequency>("daily");
   const [time, setTime] = useState("09:00");
+  const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
   const [dayOfWeek, setDayOfWeek] = useState(1);
   const [dayOfMonth, setDayOfMonth] = useState(1);
   const [date, setDate] = useState("");
@@ -1179,7 +1215,7 @@ function TriggersPanel({
   const buildConfig = (): Record<string, unknown> | undefined => {
     if (triggerType === "audience") return { role };
     if (triggerType === "scheduled") {
-      const cfg: Record<string, unknown> = { role, frequency, time };
+      const cfg: Record<string, unknown> = { role, frequency, time, timezone };
       if (frequency === "weekly") cfg.dayOfWeek = dayOfWeek;
       if (frequency === "monthly") cfg.dayOfMonth = dayOfMonth;
       if (frequency === "once") cfg.date = date;
@@ -1344,13 +1380,27 @@ function TriggersPanel({
             {triggerType === "scheduled" && (
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="text-xs">
-                  <span className="text-muted-foreground">Time (UTC)</span>
+                  <span className="text-muted-foreground">Time</span>
                   <Input
                     type="time"
                     className="mt-1 h-8"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                   />
+                </label>
+                <label className="text-xs">
+                  <span className="text-muted-foreground">Timezone</span>
+                  <select
+                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                  >
+                    {TIMEZONE_OPTIONS.map((tz) => (
+                      <option key={tz} value={tz}>
+                        {tz.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 {frequency === "weekly" && (
                   <label className="text-xs">
@@ -1383,7 +1433,7 @@ function TriggersPanel({
                 )}
                 {frequency === "once" && (
                   <label className="text-xs">
-                    <span className="text-muted-foreground">Date (UTC)</span>
+                    <span className="text-muted-foreground">Date</span>
                     <Input
                       type="date"
                       className="mt-1 h-8"
