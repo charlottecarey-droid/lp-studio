@@ -84,6 +84,21 @@ interface Draft {
   wrapInShell: boolean;
 }
 
+function envelopeOverrides(t: {
+  fromEmail: string | null;
+  replyTo: string | null;
+  preheaderText: string | null;
+}): { short: string; label: string }[] {
+  const out: { short: string; label: string }[] = [];
+  if (t.fromEmail && t.fromEmail.trim())
+    out.push({ short: "From", label: "Custom sender" });
+  if (t.replyTo && t.replyTo.trim())
+    out.push({ short: "Reply", label: "Custom reply-to" });
+  if (t.preheaderText && t.preheaderText.trim())
+    out.push({ short: "Preview", label: "Custom preview text" });
+  return out;
+}
+
 function toDraft(t: Template): Draft {
   return {
     enabled: t.enabled,
@@ -1547,25 +1562,43 @@ export default function SuperAdminNotifications() {
                   {category}
                 </p>
                 <div className="space-y-1">
-                  {items.map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => setSelected(t.key)}
-                      className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
-                        selected === t.key
-                          ? "bg-primary/10 font-medium text-primary"
-                          : "hover:bg-accent"
-                      }`}
-                    >
-                      <span className="truncate">{t.name}</span>
-                      {!t.enabled && (
-                        <span className="shrink-0 text-[9px] text-muted-foreground">
-                          off
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  {items.map((t) => {
+                    const overrides = envelopeOverrides(t);
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setSelected(t.key)}
+                        className={`flex w-full flex-col items-start gap-1 rounded-md px-3 py-1.5 text-left text-sm ${
+                          selected === t.key
+                            ? "bg-primary/10 font-medium text-primary"
+                            : "hover:bg-accent"
+                        }`}
+                      >
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span className="truncate">{t.name}</span>
+                          {!t.enabled && (
+                            <span className="shrink-0 text-[9px] text-muted-foreground">
+                              off
+                            </span>
+                          )}
+                        </div>
+                        {overrides.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {overrides.map((o) => (
+                              <span
+                                key={o.short}
+                                title={o.label}
+                                className="rounded bg-muted px-1 py-0 text-[8px] font-medium uppercase tracking-wide text-muted-foreground"
+                              >
+                                {o.short}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
