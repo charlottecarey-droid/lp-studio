@@ -73,6 +73,8 @@ import type {
   BeforeAfterGalleryBlockProps,
   SpeakerGridBlockProps,
   ContentSeriesBlockProps,
+  BlogSeriesBlockProps,
+  StorefrontBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -263,6 +265,8 @@ export type BlockVariant =
   | { type: "before-after-gallery"; props: BeforeAfterGalleryBlockProps }
   | { type: "speaker-grid"; props: SpeakerGridBlockProps }
   | { type: "content-series"; props: ContentSeriesBlockProps }
+  | { type: "blog-series"; props: BlogSeriesBlockProps }
+  | { type: "storefront"; props: StorefrontBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }

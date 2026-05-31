@@ -127,6 +127,8 @@ import { BlockHoursLocation } from "./BlockHoursLocation";
 import { BlockBeforeAfterGallery } from "./BlockBeforeAfterGallery";
 import { BlockSpeakerGrid } from "./BlockSpeakerGrid";
 import { BlockContentSeries } from "./BlockContentSeries";
+import { BlockBlogSeries } from "./BlockBlogSeries";
+import { BlockStorefront } from "./BlockStorefront";
 import { BlockSection } from "./BlockSection";
 import { BlockColumns } from "./BlockColumns";
 import { BlockGrid } from "./BlockGrid";
@@ -845,6 +847,10 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "content-series":
         return <BlockContentSeries props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "blog-series":
+        return <BlockBlogSeries props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "storefront":
+        return <BlockStorefront props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
       case "product-launch":

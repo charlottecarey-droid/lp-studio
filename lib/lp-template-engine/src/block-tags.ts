@@ -217,6 +217,8 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "product-launch": ["hero", "content"],
   "spatial-tour": ["media", "features"],
   "content-series": ["content", "media"],
+  "blog-series": ["content", "media"],
+  storefront: ["features", "media"],
 
   // ── DSO Microsites ──────────────────────────────────────────────────────────
   "business-case-split": ["content"],

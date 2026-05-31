@@ -338,6 +338,7 @@ function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
   pushScalar("imageUrl", heroScalar ? "lp-hero" : "lp-feature", blockContext);
   pushScalar("backgroundImageUrl", "lp-hero", blockContext);
   pushScalar("heroImageUrl", "lp-hero", blockContext);
+  pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
 
   const pushArrField = (
     arr: unknown,
@@ -368,6 +369,29 @@ function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
   pushArrField(props.items, "image", "product-detail", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
+
+  // blog-series (editorial archive) + storefront (DTC shop) premium full-page blocks
+  pushArrField(props.articles, "imageUrl", "lp-feature", it => `${it.category ?? ""} ${it.title ?? ""} ${it.excerpt ?? ""}`);
+  pushArrField(props.articles, "avatarUrl", "lp-feature", it => `${it.author ?? ""} author portrait`);
+  pushArrField(props.contributors, "avatarUrl", "lp-feature", it => `${it.name ?? ""} ${it.role ?? ""} portrait`);
+  pushArrField(props.collections, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
+  pushArrField(props.products, "imageUrl", "product-detail", it => `${it.name ?? ""} ${it.category ?? ""}`);
+  pushArrField(props.reviews, "avatarUrl", "lp-feature", it => `${it.name ?? ""} customer portrait`);
+
+  // blog-series featuredArticle is a single nested object (imageUrl + avatarUrl)
+  if (props.featuredArticle && typeof props.featuredArticle === "object") {
+    const fa = props.featuredArticle as Record<string, unknown>;
+    (["imageUrl", "avatarUrl"] as const).forEach((key) => {
+      if (typeof fa[key] === "string" && fa[key]) {
+        slots.push({
+          get: () => (fa[key] as string) ?? "",
+          set: (v) => { fa[key] = v; },
+          purpose: "lp-feature",
+          context: `${fa.category ?? ""} ${fa.title ?? ""}`,
+        });
+      }
+    });
+  }
 
   // tiles: legacy/DSO photo tiles use `imageUrl`; bento-showcase image tiles
   // (kind "image") store the URL in `primary`.

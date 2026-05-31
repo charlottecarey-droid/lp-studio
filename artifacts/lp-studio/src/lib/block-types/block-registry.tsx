@@ -75,6 +75,8 @@ import type {
   BeforeAfterGalleryBlockProps,
   SpeakerGridBlockProps,
   ContentSeriesBlockProps,
+  BlogSeriesBlockProps,
+  StorefrontBlockProps,
 } from "./generic-blocks";
 import type {
   SectionBlockProps,
@@ -5320,6 +5322,227 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "blog-series" as const,
+    label: "Blog Series",
+    category: "Events" as BlockCategory,
+    defaultProps: (): BlogSeriesBlockProps => ({
+      wordmark: "The Margin",
+      navLinks: [
+        { label: "The Series", href: "#top" },
+        { label: "Archive", href: "#archive" },
+        { label: "Topics", href: "#topics" },
+        { label: "Contributors", href: "#contributors" },
+      ],
+      navCtaText: "Subscribe",
+      navCtaUrl: "#subscribe",
+      heroEyebrow: "A Series on Attention",
+      heroHeadline: "Writing for people who",
+      heroHeadlineAccent: "still read closely.",
+      heroDeck:
+        "A quarterly editorial series on craft, design, and the technology of attention — long essays, field notes, and the occasional quiet argument, published by the studio behind The Margin.",
+      heroCtaText: "Start reading",
+      heroCtaUrl: "#archive",
+      heroMetaLeft: "Issue 04",
+      heroMetaRight: "12 min read",
+      heroImageUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80",
+      heroCaptionLabel: "In this issue",
+      heroCaptionText: "Six essays · Three contributors",
+      archiveEyebrow: "Latest from the archive",
+      archiveLinkText: "View all 110 essays",
+      archiveLinkUrl: "#",
+      featuredBadge: "Featured Essay",
+      featuredArticle: {
+        category: "Research",
+        title: "The slow web: what we lose when everything loads instantly",
+        excerpt:
+          "Speed became the only metric that mattered. We spent a year studying readers who deliberately chose friction — and found something the analytics never showed us.",
+        author: "Mara Velasquez",
+        avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80",
+        date: "March 4",
+        readTime: "14 min",
+        imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=1200&q=80",
+        href: "#",
+      },
+      articles: [
+        { category: "Design", title: "Designing for the second read", excerpt: "How layout, rhythm, and restraint change what a returning reader notices the next time around.", author: "Jonas Auclair", avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80", date: "Feb 27", readTime: "8 min", imageUrl: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=600&q=80", href: "#" },
+        { category: "Engineering", title: "Building tools that stay out of the way", excerpt: "The quiet discipline of subtraction, and why our best feature this quarter was the one we removed.", author: "Priya Nair", avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80", date: "Feb 21", readTime: "11 min", imageUrl: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=600&q=80", href: "#" },
+        { category: "Craft", title: "Ink, paper, and the case for friction", excerpt: "A short study of why analog rituals keep returning to the most digital teams we know.", author: "Mara Velasquez", avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80", date: "Feb 14", readTime: "6 min", imageUrl: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80", href: "#" },
+        { category: "Culture", title: "The empty room as a design brief", excerpt: "What gallery spaces taught us about negative space, attention, and the courage to leave things out.", author: "Jonas Auclair", avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80", date: "Feb 9", readTime: "9 min", imageUrl: "https://images.unsplash.com/photo-1497032205916-ac775f0649ae?auto=format&fit=crop&w=600&q=80", href: "#" },
+        { category: "Field Notes", title: "Notes from a month without dashboards", excerpt: "We turned off the metrics and ran the studio on intuition. Here is what broke, and what didn't.", author: "Priya Nair", avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80", date: "Feb 2", readTime: "7 min", imageUrl: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80", href: "#" },
+        { category: "Craft", title: "Letterpress lessons for the screen", excerpt: "Constraints of the press, reimagined for typography that has to survive any device.", author: "Mara Velasquez", avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80", date: "Jan 28", readTime: "10 min", imageUrl: "https://images.unsplash.com/photo-1503551723145-6c040742065b?auto=format&fit=crop&w=600&q=80", href: "#" },
+      ],
+      topicsEyebrow: "Browse",
+      topicsHeadline: "Read by topic",
+      topicsDescription: "Every essay is filed under a theme we keep returning to. Pick a thread and follow it.",
+      topics: [
+        { label: "Design", count: 24 },
+        { label: "Engineering", count: 31 },
+        { label: "Culture", count: 18 },
+        { label: "Research", count: 12 },
+        { label: "Craft", count: 9 },
+        { label: "Field Notes", count: 16 },
+      ],
+      contributorsEyebrow: "The contributors",
+      contributors: [
+        { name: "Mara Velasquez", role: "Editor in Chief", bio: "Writes about attention, craft, and the slow web. Previously design editor at a publication you've probably read on a train.", avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80", twitterUrl: "#", linkedinUrl: "#", websiteUrl: "#" },
+        { name: "Jonas Auclair", role: "Design Correspondent", bio: "Studies the spaces between things — typographic, architectural, and otherwise. Believes good layout is an act of generosity.", avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80", twitterUrl: "#", linkedinUrl: "#", websiteUrl: "#" },
+        { name: "Priya Nair", role: "Engineering at Large", bio: "Builds the quiet infrastructure behind the words. Has strong, well-reasoned opinions about footnotes and load times.", avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80", twitterUrl: "#", linkedinUrl: "#", websiteUrl: "#" },
+      ],
+      subscribeEyebrow: "The Margin Letter",
+      subscribeHeadline: "One considered essay,",
+      subscribeHeadlineAccent: "every other Sunday.",
+      subscribeDescription: "Join 38,000 readers who get the full series in their inbox — no tracking pixels, no growth hacks, just the writing.",
+      subscribePlaceholder: "you@example.com",
+      subscribeButtonLabel: "Subscribe free",
+      subscribeDisclaimer: "Unsubscribe in one click. We'll never share your address.",
+      subscribeSubmitUrl: "/api/lp/leads",
+      subscribeSuccessMessage: "You're in. Watch your inbox.",
+      footerTagline: "An editorial series on craft, design, and attention. Published quarterly since 2019.",
+      footerColumns: [
+        { heading: "Read", links: [ { label: "Latest", href: "#" }, { label: "Archive", href: "#archive" }, { label: "Topics", href: "#topics" }, { label: "Issue 04", href: "#" } ] },
+        { heading: "About", links: [ { label: "The Studio", href: "#" }, { label: "Contributors", href: "#contributors" }, { label: "Ethics", href: "#" }, { label: "Contact", href: "#" } ] },
+        { heading: "Follow", links: [ { label: "Newsletter", href: "#subscribe" }, { label: "Twitter", href: "#" }, { label: "LinkedIn", href: "#" }, { label: "RSS", href: "#" } ] },
+      ],
+      footerCopyright: "© 2025 The Margin Editorial. All rights reserved.",
+      footerLegalLinks: [ { label: "Privacy", href: "#" }, { label: "Terms", href: "#" }, { label: "Colophon", href: "#" } ],
+      showNav: true,
+      showHero: true,
+      showArchive: true,
+      showTopics: true,
+      showContributors: true,
+      showSubscribe: true,
+      showFooter: true,
+      theme: { paper: "#f6f3ec", paper2: "#efeae0", ink: "#1c1a16", inkSoft: "#4a463f", muted: "#8b857a", line: "#d9d3c6", accent: "#b5491f", accentSoft: "#cf6a3e", displayFontFamily: "Fraunces", bodyFontFamily: "Inter" },
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f6f3ec" rx="4" />
+        <rect x="10" y="8" width="34" height="6" rx="2" fill="#1c1a16" />
+        <rect x="10" y="20" width="58" height="3" rx="1" fill="#4a463f" opacity="0.7" />
+        <rect x="10" y="26" width="46" height="3" rx="1" fill="#b5491f" />
+        <rect x="10" y="38" width="48" height="24" rx="3" fill="#efeae0" stroke="#d9d3c6" strokeWidth="0.5" />
+        <rect x="14" y="42" width="40" height="11" rx="2" fill="#d9d3c6" />
+        <rect x="14" y="56" width="24" height="2.5" rx="1" fill="#1c1a16" opacity="0.7" />
+        <rect x="66" y="38" width="44" height="24" rx="3" fill="#efeae0" stroke="#d9d3c6" strokeWidth="0.5" />
+        <rect x="70" y="42" width="36" height="11" rx="2" fill="#d9d3c6" />
+        <rect x="70" y="56" width="20" height="2.5" rx="1" fill="#1c1a16" opacity="0.7" />
+      </svg>
+    ),
+  },
+  {
+    type: "storefront" as const,
+    label: "Storefront / Shop",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): StorefrontBlockProps => ({
+      brandName: "Meridian Coffee Co.",
+      showAnnouncement: true,
+      showNav: true,
+      showHero: true,
+      showValueProps: true,
+      showCollections: true,
+      showSocialProof: true,
+      showClosingCta: true,
+      showFooter: true,
+      showNewsletter: true,
+      announcementText: "Free carbon-neutral shipping on orders over $50",
+      announcementSecondaryText: "Roasted to order, shipped within 24 hours",
+      navLinks: [
+        { label: "Shop", href: "#shop" },
+        { label: "Collections", href: "#collections" },
+        { label: "Our Story", href: "#story" },
+        { label: "Reviews", href: "#reviews" },
+      ],
+      navCtaText: "Shop coffee",
+      navCtaUrl: "#shop",
+      cartCount: 3,
+      heroEyebrow: "Flagship Roast",
+      heroTitle: "Midnight Reserve.",
+      heroDescription: "A slow, small-batch dark roast with notes of dark chocolate, fig, and toasted hazelnut. Roasted to order, never sitting on a shelf.",
+      heroRating: 4.9,
+      heroReviewCount: 412,
+      heroPrice: "$22",
+      heroComparePrice: "$26",
+      heroImageUrl: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=1200&q=80",
+      heroVariantLabel: "Grind",
+      heroVariants: [ { label: "Whole bean" }, { label: "Espresso" }, { label: "Pour over" }, { label: "French press" } ],
+      heroAddToCartLabel: "Add to cart",
+      heroAddToCartUrl: "#shop",
+      heroBuyNowLabel: "Buy now",
+      heroBuyNowUrl: "#checkout",
+      heroCardLabel: "Roasted",
+      heroCardValue: "Within 24 hours",
+      heroTrustBadges: [ { icon: "returns", text: "Free 30-day returns" }, { icon: "shield", text: "Secure checkout" }, { icon: "leaf", text: "Ethically sourced" } ],
+      valueProps: [
+        { icon: "leaf", title: "Single-origin", description: "Traceable, ethically sourced beans" },
+        { icon: "coffee", title: "Roasted to order", description: "Never sits on a shelf" },
+        { icon: "truck", title: "Carbon-neutral shipping", description: "Free over $50" },
+        { icon: "returns", title: "Easy returns", description: "30-day happiness guarantee" },
+      ],
+      collections: [
+        { eyebrow: "Subscribe & save", title: "The Coffee Club", description: "Fresh beans on your schedule. Pause or cancel anytime. Save 15% on every bag.", ctaLabel: "Start your subscription", ctaUrl: "#shop", variant: "dark", imageUrl: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&w=800&q=80" },
+        { eyebrow: "Limited release", title: "Ethiopia Yirgacheffe", description: "Bright, floral, and citrus-forward. Only 200 bags roasted this season.", ctaLabel: "Explore collection", ctaUrl: "#shop", variant: "accent", imageUrl: "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=800&q=80" },
+      ],
+      productsEyebrow: "Shop the catalog",
+      productsHeadline: "Featured roasts",
+      productAddToCartLabel: "Add to cart",
+      productFilters: ["All", "Dark", "Medium", "Light", "Decaf", "Bundles"],
+      products: [
+        { name: "Midnight Reserve", category: "Dark roast", price: "$22", comparePrice: "$26", rating: 4.9, reviewCount: 412, tag: "Bestseller", href: "#", imageUrl: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=600&q=80" },
+        { name: "Sunrise Blend", category: "Medium roast", price: "$20", rating: 4.8, reviewCount: 286, href: "#", imageUrl: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80" },
+        { name: "Ethiopia Yirgacheffe", category: "Light roast", price: "$24", rating: 5.0, reviewCount: 134, tag: "New", href: "#", imageUrl: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80" },
+        { name: "Decaf Nightcap", category: "Swiss water decaf", price: "$21", rating: 4.7, reviewCount: 98, href: "#", imageUrl: "https://images.unsplash.com/photo-1521302200778-33500795e128?auto=format&fit=crop&w=600&q=80" },
+      ],
+      pressLogos: ["Bon Appétit", "Sprudge", "Food & Wine", "Eater", "The Kitchn", "Imbibe"],
+      reviewsHeadline: "Loved cup after cup",
+      reviewsSummaryText: "Rated excellent by 11,400+ verified coffee drinkers",
+      reviewsAggregateRating: 4.9,
+      reviews: [
+        { name: "Jordan M.", location: "Portland, OR", quote: "The freshest coffee I've ever had delivered. You can taste the difference when it's roasted to order — Midnight Reserve is unreal.", rating: 5, avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80" },
+        { name: "Priya S.", location: "Austin, TX", quote: "Switched my whole office to the Coffee Club subscription. Shipping is fast, packaging is gorgeous, and the beans are consistently excellent.", rating: 5, avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80" },
+        { name: "Marcus T.", location: "Brooklyn, NY", quote: "The Ethiopia Yirgacheffe is bright and floral without being acidic. Easily my favorite light roast — I re-order every month.", rating: 5, avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80" },
+      ],
+      bundleEyebrow: "Best value",
+      bundleTitle: "The Morning Kit",
+      bundleDescription: "Two of our most-loved roasts plus a handmade stoneware mug. Everything you need for a better morning ritual — bundled and discounted.",
+      bundlePrice: "$48",
+      bundleComparePrice: "$64",
+      bundleSaveLabel: "Save 25%",
+      bundleCtaLabel: "Add bundle to cart",
+      bundleCtaUrl: "#shop",
+      bundleImageUrl: "https://images.unsplash.com/photo-1485808191679-5f86510681a2?auto=format&fit=crop&w=1000&q=80",
+      bundleGuarantees: [ { icon: "shield", text: "100% satisfaction guarantee" }, { icon: "returns", text: "Free returns" } ],
+      footerColumns: [
+        { heading: "Shop", links: [ { label: "All coffee", href: "#shop" }, { label: "Subscriptions", href: "#shop" }, { label: "Bundles", href: "#shop" }, { label: "Gift cards", href: "#shop" } ] },
+        { heading: "Company", links: [ { label: "Our story", href: "#story" }, { label: "Sourcing", href: "#" }, { label: "Sustainability", href: "#" }, { label: "Careers", href: "#" } ] },
+        { heading: "Support", links: [ { label: "Contact", href: "#" }, { label: "Shipping", href: "#" }, { label: "Returns", href: "#" }, { label: "Brew guides", href: "#" } ] },
+      ],
+      footerTagline: "Small-batch coffee, roasted to order and shipped within 24 hours. Better mornings, one cup at a time.",
+      footerCopyright: "© 2025 Meridian Coffee Co. All rights reserved.",
+      paymentIcons: ["VISA", "MC", "AMEX", "PayPal", "GPay"],
+      footerLegalLinks: [ { label: "Privacy", href: "#" }, { label: "Terms", href: "#" } ],
+      newsletterHeading: "Join the club",
+      newsletterSubtext: "Get 10% off your first order + brewing tips.",
+      newsletterPlaceholder: "you@email.com",
+      newsletterButtonLabel: "Subscribe",
+      newsletterSubmitUrl: "/api/lp/leads",
+      newsletterSuccessMessage: "You're in. Watch your inbox.",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f6f3ec" rx="4" />
+        <rect x="0" y="0" width="120" height="6" fill="#b5491f" />
+        <rect x="10" y="12" width="40" height="38" rx="3" fill="#e7e0d4" />
+        <rect x="56" y="14" width="30" height="4" rx="1" fill="#b5491f" />
+        <rect x="56" y="22" width="48" height="3" rx="1" fill="#1c1a16" opacity="0.7" />
+        <rect x="56" y="28" width="44" height="2.5" rx="1" fill="#4a463f" opacity="0.5" />
+        <rect x="56" y="38" width="22" height="9" rx="2" fill="#1c1a16" />
+        <rect x="10" y="56" width="22" height="9" rx="2" fill="#e7e0d4" />
+        <rect x="40" y="56" width="22" height="9" rx="2" fill="#e7e0d4" />
+        <rect x="70" y="56" width="22" height="9" rx="2" fill="#e7e0d4" />
+      </svg>
+    ),
+  },
+  {
     type: "custom-schema",
     label: "Schema-Based Custom Block",
     category: "Grid Pieces",
@@ -5471,6 +5694,8 @@ export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "content-series"): Extract<PageBlock, { type: "content-series" }>;
+export function createBlock(type: "blog-series"): Extract<PageBlock, { type: "blog-series" }>;
+export function createBlock(type: "storefront"): Extract<PageBlock, { type: "storefront" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: "product-launch"): Extract<PageBlock, { type: "product-launch" }>;
 export function createBlock(type: "story-hub"): Extract<PageBlock, { type: "story-hub" }>;
@@ -5614,6 +5839,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "before-after-gallery": return { id, type: "before-after-gallery", props: props as BeforeAfterGalleryBlockProps };
     case "speaker-grid": return { id, type: "speaker-grid", props: props as SpeakerGridBlockProps };
     case "content-series": return { id, type: "content-series", props: props as ContentSeriesBlockProps };
+    case "blog-series": return { id, type: "blog-series", props: props as BlogSeriesBlockProps };
+    case "storefront": return { id, type: "storefront", props: props as StorefrontBlockProps };
     case "section": return { id, type: "section", props: props as SectionBlockProps, children: [] };
     case "columns": return { id, type: "columns", props: props as ColumnsBlockProps, children: [] };
     case "grid": return { id, type: "grid", props: props as GridBlockProps, children: [] };

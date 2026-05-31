@@ -1986,3 +1986,310 @@ export interface IdReservationPassBlockProps extends CtaModalConfig {
   /** Accent color override (defaults to brand citron). */
   accentColor?: string;
 }
+
+/* ------------------------------------------------------------------------- */
+/*  Blog Series block family — premium editorial archive ("The Margin").     */
+/*  Cream/ink palette, terracotta accent, Fraunces + Inter. Models on        */
+/*  content-series; fully prop-driven, manually editable + AI copy-rewrite.   */
+/* ------------------------------------------------------------------------- */
+
+export interface BlogSeriesNavLink {
+  label: string;
+  href: string;
+}
+
+export interface BlogSeriesTopic {
+  label: string;
+  count?: number;
+  href?: string;
+}
+
+export interface BlogSeriesArticle {
+  category?: string;
+  title: string;
+  excerpt?: string;
+  author?: string;
+  avatarUrl?: string;
+  imageUrl?: string;
+  date?: string;
+  readTime?: string;
+  href?: string;
+  hidden?: boolean;
+}
+
+export interface BlogSeriesAuthor {
+  name: string;
+  role?: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  websiteUrl?: string;
+}
+
+export interface BlogSeriesFooterLink {
+  label: string;
+  href?: string;
+}
+
+export interface BlogSeriesFooterColumn {
+  heading: string;
+  links: BlogSeriesFooterLink[];
+}
+
+export interface BlogSeriesTheme {
+  paper?: string;
+  paper2?: string;
+  ink?: string;
+  inkSoft?: string;
+  muted?: string;
+  line?: string;
+  accent?: string;
+  accentSoft?: string;
+  displayFontFamily?: string;
+  bodyFontFamily?: string;
+}
+
+export interface BlogSeriesBlockProps {
+  // Branding / nav
+  wordmark?: string;
+  logoUrl?: string;
+  navLinks?: BlogSeriesNavLink[];
+  navCtaText?: string;
+  navCtaUrl?: string;
+
+  // Hero
+  heroEyebrow?: string;
+  heroHeadline?: string;
+  heroHeadlineAccent?: string; // rendered italic on its own line
+  heroDeck?: string;
+  heroCtaText?: string;
+  heroCtaUrl?: string;
+  heroMetaLeft?: string;
+  heroMetaRight?: string;
+  heroImageUrl?: string;
+  heroCaptionLabel?: string;
+  heroCaptionText?: string;
+
+  // Article archive
+  archiveEyebrow?: string;
+  archiveLinkText?: string;
+  archiveLinkUrl?: string;
+  featuredBadge?: string;
+  featuredArticle?: BlogSeriesArticle;
+  articles?: BlogSeriesArticle[];
+
+  // Topics
+  topicsEyebrow?: string;
+  topicsHeadline?: string;
+  topicsDescription?: string;
+  topics?: BlogSeriesTopic[];
+
+  // Contributors
+  contributorsEyebrow?: string;
+  contributors?: BlogSeriesAuthor[];
+
+  // Subscribe
+  subscribeEyebrow?: string;
+  subscribeHeadline?: string;
+  subscribeHeadlineAccent?: string;
+  subscribeDescription?: string;
+  subscribePlaceholder?: string;
+  subscribeButtonLabel?: string;
+  subscribeDisclaimer?: string;
+  subscribeSubmitUrl?: string;
+  subscribeSuccessMessage?: string;
+
+  // Footer
+  footerTagline?: string;
+  footerColumns?: BlogSeriesFooterColumn[];
+  footerCopyright?: string;
+  footerLegalLinks?: BlogSeriesFooterLink[];
+
+  // Section visibility (default ON via `!== false`)
+  showNav?: boolean;
+  showHero?: boolean;
+  showArchive?: boolean;
+  showTopics?: boolean;
+  showContributors?: boolean;
+  showSubscribe?: boolean;
+  showFooter?: boolean;
+
+  // Theme override
+  theme?: BlogSeriesTheme;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Storefront block family — premium DTC e-commerce ("Meridian Coffee Co"). */
+/*  Terracotta-on-cream, Fraunces + Inter. Models on content-series.         */
+/* ------------------------------------------------------------------------- */
+
+export interface StorefrontTheme {
+  bg?: string;
+  altBg?: string;
+  cardBg?: string;
+  darkBg?: string;
+  fg?: string;
+  headingColor?: string;
+  primary?: string;
+  muted?: string;
+  border?: string;
+  navBg?: string;
+  navBgOpacity?: number;
+  navText?: string;
+  displayFontFamily?: string;
+  bodyFontFamily?: string;
+}
+
+export interface StorefrontNavLink {
+  label: string;
+  href: string;
+}
+
+/** Small icon + text item (hero trust badges, bundle guarantees).
+ *  `icon` is a key into the block's icon map: leaf | returns | truck | coffee | shield | star. */
+export interface StorefrontIconItem {
+  icon?: string;
+  text: string;
+}
+
+/** A selectable hero variant option (e.g. grind type). */
+export interface StorefrontVariant {
+  label: string;
+}
+
+export interface StorefrontValueProp {
+  icon?: string;
+  title: string;
+  description?: string;
+}
+
+export interface StorefrontProduct {
+  imageUrl?: string;
+  name: string;
+  category?: string;
+  price: string;
+  comparePrice?: string;
+  rating?: number;
+  reviewCount?: number;
+  tag?: string;
+  href?: string;
+}
+
+export interface StorefrontCollection {
+  imageUrl?: string;
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  variant?: "dark" | "accent";
+}
+
+export interface StorefrontReview {
+  avatarUrl?: string;
+  name: string;
+  location?: string;
+  quote: string;
+  rating?: number;
+}
+
+export interface StorefrontFooterColumn {
+  heading: string;
+  links: StorefrontNavLink[];
+}
+
+export interface StorefrontBlockProps {
+  brandName?: string;
+  logoUrl?: string;
+
+  // Section visibility — default ON when absent
+  showAnnouncement?: boolean;
+  showNav?: boolean;
+  showHero?: boolean;
+  showValueProps?: boolean;
+  showCollections?: boolean;
+  showSocialProof?: boolean;
+  showClosingCta?: boolean;
+  showFooter?: boolean;
+  showNewsletter?: boolean;
+
+  // Announcement bar
+  announcementText?: string;
+  announcementSecondaryText?: string;
+
+  // Sticky nav
+  navLinks?: StorefrontNavLink[];
+  navCtaText?: string;
+  navCtaUrl?: string;
+  cartCount?: number;
+
+  // Product hero (flagship product)
+  heroEyebrow?: string;
+  heroTitle?: string;
+  heroDescription?: string;
+  heroRating?: number;
+  heroReviewCount?: number;
+  heroPrice?: string;
+  heroComparePrice?: string;
+  heroImageUrl?: string;
+  heroVariantLabel?: string;
+  heroVariants?: StorefrontVariant[];
+  heroAddToCartLabel?: string;
+  heroAddToCartUrl?: string;
+  heroBuyNowLabel?: string;
+  heroBuyNowUrl?: string;
+  heroCardLabel?: string;
+  heroCardValue?: string;
+  heroTrustBadges?: StorefrontIconItem[];
+
+  // Value-props row
+  valueProps?: StorefrontValueProp[];
+
+  // Collection banners
+  collections?: StorefrontCollection[];
+
+  // Product grid
+  products?: StorefrontProduct[];
+  productFilters?: string[];
+  productsEyebrow?: string;
+  productsHeadline?: string;
+  productAddToCartLabel?: string;
+
+  // Social proof
+  pressLogos?: string[];
+  reviews?: StorefrontReview[];
+  reviewsAggregateRating?: number;
+  reviewsSummaryText?: string;
+  reviewsHeadline?: string;
+
+  // Closing CTA / bundle
+  bundleEyebrow?: string;
+  bundleTitle?: string;
+  bundleDescription?: string;
+  bundlePrice?: string;
+  bundleComparePrice?: string;
+  bundleSaveLabel?: string;
+  bundleCtaLabel?: string;
+  bundleCtaUrl?: string;
+  bundleImageUrl?: string;
+  bundleGuarantees?: StorefrontIconItem[];
+
+  // Footer
+  footerColumns?: StorefrontFooterColumn[];
+  footerTagline?: string;
+  footerCopyright?: string;
+  paymentIcons?: string[];
+  footerLegalLinks?: StorefrontNavLink[];
+
+  // Footer newsletter (inline POST to /api/lp/leads)
+  newsletterHeading?: string;
+  newsletterSubtext?: string;
+  newsletterPlaceholder?: string;
+  newsletterButtonLabel?: string;
+  newsletterSubmitUrl?: string;
+  newsletterSuccessMessage?: string;
+
+  // Visual theme overrides
+  theme?: StorefrontTheme;
+}

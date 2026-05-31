@@ -94,6 +94,8 @@ import { HoursLocationPanel } from "./HoursLocationPanel";
 import { BeforeAfterGalleryPanel } from "./BeforeAfterGalleryPanel";
 import { SpeakerGridPanel } from "./SpeakerGridPanel";
 import { ContentSeriesPanel } from "./ContentSeriesPanel";
+import { BlogSeriesPanel } from "./BlogSeriesPanel";
+import { StorefrontPanel } from "./StorefrontPanel";
 import { BusinessCasePanel } from "./BusinessCasePanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
@@ -5723,6 +5725,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "content-series":
         return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
+      case "blog-series":
+        return <BlogSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
+      case "storefront":
+        return <StorefrontPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
       case "business-case-split":
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="split" />;
       case "business-case-centered":
