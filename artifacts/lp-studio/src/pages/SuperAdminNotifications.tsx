@@ -679,6 +679,45 @@ interface Trigger {
   enabled: boolean;
 }
 
+const FREQUENCY_LABELS: Record<ScheduleFrequency, string> = {
+  once: "Once",
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+/**
+ * Human-readable one-line summary of a scheduled trigger's stored config, e.g.
+ * "Daily · 09:00 · America/New_York" or "Weekly · Mon 09:00 · UTC". Returns
+ * null if the config isn't a recognisable schedule (missing frequency/time), so
+ * the caller falls back to just the trigger type.
+ */
+function scheduleSummary(config: Record<string, unknown> | null | undefined): string | null {
+  if (!config || typeof config !== "object") return null;
+  const frequency = config.frequency as ScheduleFrequency | undefined;
+  const time = typeof config.time === "string" ? config.time : "";
+  if (!frequency || !FREQUENCY_LABELS[frequency] || !time) return null;
+  const timezone = typeof config.timezone === "string" && config.timezone ? config.timezone : "UTC";
+
+  let when: string;
+  if (frequency === "weekly") {
+    const dow = Number(config.dayOfWeek);
+    const day = Number.isInteger(dow) && dow >= 0 && dow <= 6 ? WEEKDAY_LABELS[dow] : "";
+    when = day ? `${day} ${time}` : time;
+  } else if (frequency === "monthly") {
+    const dom = Number(config.dayOfMonth);
+    const day = Number.isInteger(dom) && dom >= 1 && dom <= 31 ? `Day ${dom}` : "";
+    when = day ? `${day} ${time}` : time;
+  } else if (frequency === "once") {
+    const date = typeof config.date === "string" && config.date ? config.date : "";
+    when = date ? `${date} ${time}` : time;
+  } else {
+    when = time;
+  }
+
+  return `${FREQUENCY_LABELS[frequency]} · ${when} · ${timezone}`;
+}
+
 type ConditionType = "plan" | "read" | "not_read";
 
 interface WfCondition {
@@ -1363,13 +1402,15 @@ function TriggersPanel({
         </div>
       )}
       <div className="space-y-1.5">
-        {triggers.map((t) => (
+        {triggers.map((t) => {
+          const summary = t.trigger_type === "scheduled" ? scheduleSummary(t.config) : null;
+          return (
           <div key={t.key} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
             <div className="min-w-0">
               <span className="font-medium">{t.name}</span>{" "}
               <code className="text-xs text-muted-foreground">{t.key}</code>
               <span className="ml-2 text-xs text-muted-foreground">
-                {t.trigger_type}
+                {summary ?? t.trigger_type}
                 {t.event_key ? ` · ${t.event_key}` : ""}
               </span>
             </div>
@@ -1390,7 +1431,8 @@ function TriggersPanel({
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="rounded-md border bg-muted/20 p-3">
