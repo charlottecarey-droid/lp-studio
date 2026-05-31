@@ -30,6 +30,7 @@ import {
   type Plan,
 } from "../lib/planFeatures";
 import { getPlanFeaturesMap } from "../lib/planConfig";
+import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
 
 /**
  * Pick the user-facing wildcard base host for building tenant login URLs
@@ -699,7 +700,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     );
 
     // Pull app_users.role (NOT the tenant role!) so the frontend can detect
-    // Dandy super-admins (role='superadmin'). Tenant role lives in sess.role
+    // platform super-admins (role='superadmin'). Tenant role lives in sess.role
     // and is unaffected. Done in /me so existing sessions get the value
     // without forcing every user to re-login.
     let appUserRole: string | null = null;
@@ -707,6 +708,11 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       const ur = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [sess.userId]);
       if (ur.rows.length > 0) appUserRole = ur.rows[0].role ?? null;
     }
+    // Task #641 — flag the bootstrap root superadmin so the SuperAdmin UI can
+    // reveal the root-only "Superadmins" roster management section. Identity is
+    // email-based (ROOT_SUPERADMIN_EMAIL, default admin@lpstudio.ai); only a
+    // superadmin whose email matches is root.
+    const isRootSuperadmin = appUserRole === "superadmin" && isRootSuperadminEmail(sess.email);
 
     // Canonical plan + feature matrix. The raw `tenantPlan` string above
     // is the legacy DB column value ("trial" / "business" / etc.) and is
@@ -723,6 +729,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       onboardingCompleted,
       tenantIndustry,
       appUserRole,
+      isRootSuperadmin,
       requireReviewBeforePublish,
       tenantSlug,
       tenantDomain,
@@ -1013,21 +1020,30 @@ router.post("/auth/password", passwordAuthLimiter, async (req, res): Promise<voi
       [user.id]
     );
 
-    if (!memberResult.rows.length) {
-      res.status(403).json({ error: "No tenant membership found for this account" });
-      return;
-    }
-
-    let tenantId: number;
+    let tenantId: number | null;
     let role: string;
     let permissions: Record<string, boolean>;
     let isAdmin: boolean;
 
-    const m = memberResult.rows[0];
-    tenantId = m.tenant_id;
-    role = m.role_name;
-    permissions = (m.permissions as Record<string, boolean>) ?? {};
-    isAdmin = m.is_admin ?? false;
+    if (memberResult.rows.length) {
+      const m = memberResult.rows[0];
+      tenantId = m.tenant_id;
+      role = m.role_name;
+      permissions = (m.permissions as Record<string, boolean>) ?? {};
+      isAdmin = m.is_admin ?? false;
+    } else {
+      // Task #641 — a superadmin (e.g. the root platform-operator account
+      // admin@lpstudio.ai) belongs to NO tenant. The role check above already
+      // proved this account is a superadmin, so a missing tenant membership is
+      // not an error: issue a tenant-less session. The SuperAdmin surface gates
+      // on appUserRole='superadmin' (re-read server-side by requireSuperadmin),
+      // not on a tenant binding, so an operator can manage the platform without
+      // ever joining a tenant. They impersonate tenants via switch-tenant.
+      tenantId = null;
+      role = "superadmin";
+      permissions = {};
+      isAdmin = false;
+    }
 
     // Look up tenant's microsite domain
     let micrositeDomain: string | null = null;

@@ -799,6 +799,39 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Task #641 — seed the root superadmin platform-operator account. This is
+    // the single bootstrap account (admin@lpstudio.ai by default, overridable
+    // via ROOT_SUPERADMIN_EMAIL) that owns the superadmin roster and can never
+    // be demoted/removed. It belongs to NO tenant (tenant_id stays NULL) — it
+    // is a platform operator, not a tenant member. Idempotent: the INSERT keys
+    // on the unique email and, on conflict, only ensures the role is
+    // 'superadmin' (so a fresh DB ends up with EXACTLY one superadmin, and an
+    // accidental demotion of the root account self-heals on the next boot). We
+    // never null out an existing row's tenant_id on conflict so we don't detach
+    // a pre-existing account; on a fresh insert there is no tenant scope by
+    // construction. Fails CLOSED: this account is the only way into the
+    // superadmin surface on a fresh DB, so a failure here must abort the
+    // release rather than ship a database with no operator access.
+    await runStep("root superadmin seed", async () => {
+      const { getRootSuperadminEmail } = await import("./lib/rootSuperadmin");
+      const rootEmail = getRootSuperadminEmail();
+      await db.execute(sql`
+        INSERT INTO app_users (email, name, role, status, tenant_id)
+        VALUES (${rootEmail}, 'LP Studio Root Admin', 'superadmin', 'active', NULL)
+        ON CONFLICT (email) DO UPDATE SET role = 'superadmin', updated_at = now()
+      `);
+      const { rows } = await pool.query<{ role: string | null }>(
+        `SELECT role FROM app_users WHERE LOWER(email) = LOWER($1)`,
+        [rootEmail],
+      );
+      if (rows[0]?.role !== "superadmin") {
+        throw new Error(
+          `root superadmin seed did not produce a superadmin row for ${rootEmail} — aborting release`,
+        );
+      }
+      logger.info({ rootEmail }, "root superadmin seed applied");
+    });
+
     // Migrations 0019 / 0020 / 0022 (sales tenant scoping, Dandy salesConsole
     // seed, DCA proof-point rephrase) used to live here as inline runStep
     // blocks. They are now applied via drizzleMigrate from the tracked

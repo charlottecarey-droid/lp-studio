@@ -6,7 +6,11 @@ import { z } from "zod/v4";
  * App Users — human accounts that can log in to LP Studio or the DSO admin.
  *
  * Roles:
- *   superadmin — Dandy-internal; can see/manage all tenants
+ *   superadmin — LP Studio platform operator; can see/manage all tenants.
+ *               Not tied to any tenant or brand. The bootstrap "root"
+ *               superadmin (admin@lpstudio.ai, override via
+ *               ROOT_SUPERADMIN_EMAIL) is seeded on every DB and manages the
+ *               superadmin roster.
  *   admin       — tenant admin; full access within their tenant
  *   rep         — sales rep; read access + own lead actions within their tenant
  *   viewer      — read-only within their tenant

@@ -17,9 +17,10 @@ export interface AuthUser {
   isAdmin: boolean;
   /**
    * Global app_users.role — distinct from per-tenant `role`. A value of
-   * "superadmin" identifies a Dandy operator who is allowed to act across
-   * tenants (e.g. via the X-Tenant-Id override on getTenantId). Optional for
-   * backward compatibility with sessions issued before this field existed.
+   * "superadmin" identifies an LP Studio platform operator who is allowed to
+   * act across tenants (e.g. via the X-Tenant-Id override on getTenantId).
+   * Optional for backward compatibility with sessions issued before this field
+   * existed.
    */
   appUserRole?: string | null;
 }

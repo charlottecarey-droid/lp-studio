@@ -14,9 +14,14 @@ export interface AuthUser {
   micrositeDomain?: string | null;
   onboardingCompleted?: boolean;
   tenantIndustry?: "dental" | "generic";
-  // app_users.role — distinct from tenant role above. "superadmin" means a
-  // Dandy employee with cross-tenant publishing/review powers (task #108).
+  // app_users.role — distinct from tenant role above. "superadmin" means an
+  // LP Studio platform operator with cross-tenant publishing/review powers
+  // (task #108).
   appUserRole?: string | null;
+  // Task #641 — true when this account is the bootstrap "root" superadmin
+  // (ROOT_SUPERADMIN_EMAIL, default admin@lpstudio.ai). Only root may see/use
+  // the SuperAdmin "Superadmins" roster-management tab. Set by /auth/me.
+  isRootSuperadmin?: boolean;
   // Task #113 — tenant-wide page-review-workflow toggle. Defaults true on
   // existing tenants (boot backfill) and false on new ones. When false, the
   // Submit-for-Review / Approve / Reject UI is hidden and `pages` perm

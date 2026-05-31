@@ -2,6 +2,8 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
+import { requireRootSuperadmin } from "../middleware/requireRootSuperadmin";
+import { isRootSuperadminEmail, getRootSuperadminEmail } from "../lib/rootSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
 import {
   BROADCAST_ALERT_TYPES,
@@ -2276,6 +2278,162 @@ router.post("/superadmin/switch-tenant", requireSuperadmin, async (req, res): Pr
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Superadmin roster management (Task #641) — ROOT-ONLY.
+//
+// These routes let the single bootstrap "root" superadmin (admin@lpstudio.ai by
+// default, override via ROOT_SUPERADMIN_EMAIL) view, grant, and revoke the
+// superadmin role for other accounts. Every route runs `requireSuperadmin`
+// (proves the caller holds the role) followed by `requireRootSuperadmin`
+// (proves the caller is specifically root), so an ordinary superadmin is
+// rejected with 403 — they can use the rest of the SuperAdmin surface but never
+// see or change the roster. The root account can never be demoted or removed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/admin/superadmin/admins — list every account holding the superadmin
+// role, flagging which one is root.
+router.get(
+  "/superadmin/admins",
+  requireSuperadmin,
+  requireRootSuperadmin,
+  async (_req, res): Promise<void> => {
+    try {
+      const { rows } = await pool.query<{
+        id: number;
+        email: string;
+        name: string | null;
+        last_login_at: Date | null;
+        created_at: Date | null;
+      }>(
+        `SELECT id, email, name, last_login_at, created_at
+           FROM app_users
+          WHERE role = 'superadmin'
+          ORDER BY created_at ASC, id ASC`,
+      );
+      const admins = rows.map((r) => ({
+        id: r.id,
+        email: r.email,
+        name: r.name ?? "",
+        lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : null,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+        isRoot: isRootSuperadminEmail(r.email),
+      }));
+      res.json({ admins, rootEmail: getRootSuperadminEmail() });
+    } catch (err) {
+      console.error("[superadmin] GET /admins error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// POST /api/admin/superadmin/admins — grant the superadmin role to an existing
+// account, identified by email. The target must already exist as an app_users
+// row (there is no invite/onboarding flow in scope here), so unknown emails are
+// rejected with 404 rather than silently creating an account.
+router.post(
+  "/superadmin/admins",
+  requireSuperadmin,
+  requireRootSuperadmin,
+  async (req, res): Promise<void> => {
+    const rawEmail = (req.body as { email?: unknown })?.email;
+    if (typeof rawEmail !== "string" || !rawEmail.trim()) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    const email = rawEmail.trim().toLowerCase();
+    try {
+      const existing = await pool.query<{ id: number; role: string | null }>(
+        `SELECT id, role FROM app_users WHERE LOWER(email) = $1`,
+        [email],
+      );
+      if (!existing.rows.length) {
+        res.status(404).json({
+          error: "No account exists for that email. The user must sign in once before they can be made a superadmin.",
+        });
+        return;
+      }
+      if (existing.rows[0].role === "superadmin") {
+        res.status(409).json({ error: "That account is already a superadmin" });
+        return;
+      }
+      const updated = await pool.query<{
+        id: number;
+        email: string;
+        name: string | null;
+        last_login_at: Date | null;
+        created_at: Date | null;
+      }>(
+        `UPDATE app_users
+            SET role = 'superadmin', updated_at = now()
+          WHERE id = $1
+        RETURNING id, email, name, last_login_at, created_at`,
+        [existing.rows[0].id],
+      );
+      const r = updated.rows[0];
+      console.log(`[superadmin] root ${req.authUser!.email} granted superadmin to ${r.email} (id ${r.id})`);
+      res.status(201).json({
+        admin: {
+          id: r.id,
+          email: r.email,
+          name: r.name ?? "",
+          lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : null,
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+          isRoot: isRootSuperadminEmail(r.email),
+        },
+      });
+    } catch (err) {
+      console.error("[superadmin] POST /admins error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// DELETE /api/admin/superadmin/admins/:id — revoke the superadmin role from an
+// account. The root account can never be demoted (it self-heals on the next
+// boot anyway), so an attempt to remove it is rejected with 403. Revoking sets
+// the role back to the default ('rep'); tenant access is governed by
+// tenant_members, not this column, so the account keeps any tenant memberships.
+router.delete(
+  "/superadmin/admins/:id",
+  requireSuperadmin,
+  requireRootSuperadmin,
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    try {
+      const existing = await pool.query<{ id: number; email: string; role: string | null }>(
+        `SELECT id, email, role FROM app_users WHERE id = $1`,
+        [id],
+      );
+      if (!existing.rows.length) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+      const target = existing.rows[0];
+      if (isRootSuperadminEmail(target.email)) {
+        res.status(403).json({ error: "The root superadmin cannot be removed" });
+        return;
+      }
+      if (target.role !== "superadmin") {
+        res.status(409).json({ error: "That account is not a superadmin" });
+        return;
+      }
+      await pool.query(
+        `UPDATE app_users SET role = 'rep', updated_at = now() WHERE id = $1`,
+        [id],
+      );
+      console.log(`[superadmin] root ${req.authUser!.email} revoked superadmin from ${target.email} (id ${target.id})`);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[superadmin] DELETE /admins/:id error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // ─── POST /api/admin/invite-test ─────────────────────────────────────────────
 // Sends a preview of the invite email to the specified address so admins

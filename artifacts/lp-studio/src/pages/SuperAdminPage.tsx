@@ -27,13 +27,14 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
-  Library, LayoutTemplate, Activity, CreditCard, Bell,
+  Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import SuperAdminNotifications from "./SuperAdminNotifications";
+import SuperAdminSuperadmins from "./SuperAdminSuperadmins";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1118,20 +1119,28 @@ function TenantRow({
 export default function SuperAdminPage() {
   const { user, loading: authLoading } = useAuth();
   const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
+  const isRoot = !!user?.isRootSuperadmin;
 
   const [tenants, setTenants] = useState<Tenant[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans" | "notifications">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans" | "notifications" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#templates") return "templates";
       if (window.location.hash === "#asset-health") return "asset-health";
       if (window.location.hash === "#plans") return "plans";
+      if (window.location.hash === "#notifications") return "notifications";
+      if (window.location.hash === "#superadmins") return "superadmins";
     }
     return "tenants";
   });
+
+  // Non-root users must never land on (or deep-link to) the root-only tab.
+  useEffect(() => {
+    if (tab === "superadmins" && !isRoot) setTab("tenants");
+  }, [tab, isRoot]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1202,8 +1211,9 @@ export default function SuperAdminPage() {
           <ShieldAlert className="w-8 h-8 mx-auto text-destructive" />
           <h1 className="text-xl font-semibold">Access denied</h1>
           <p className="text-sm text-muted-foreground">
-            The superadmin platform is restricted to Dandy operators. Your
-            account ({user.email}) does not have the <code>superadmin</code> role.
+            The superadmin platform is restricted to LP Studio platform
+            operators. Your account ({user.email}) does not have the{" "}
+            <code>superadmin</code> role.
           </p>
         </div>
       </div>
@@ -1292,6 +1302,16 @@ export default function SuperAdminPage() {
           >
             <Bell className="w-3.5 h-3.5" /> Notifications
           </button>
+          {isRoot && (
+            <button
+              onClick={() => setTab("superadmins")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+                tab === "superadmins" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5" /> Superadmins
+            </button>
+          )}
         </div>
 
         {tab === "catalog" ? (
@@ -1304,6 +1324,8 @@ export default function SuperAdminPage() {
           <SuperAdminNotifications />
         ) : tab === "asset-health" ? (
           <SuperAdminAssetHealth />
+        ) : tab === "superadmins" && isRoot ? (
+          <SuperAdminSuperadmins />
         ) : (
         <div className="border rounded-lg overflow-hidden">
           <Table>
