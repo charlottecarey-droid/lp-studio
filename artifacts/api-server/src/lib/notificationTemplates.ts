@@ -386,6 +386,42 @@ function rowToDef(row: TemplateRow, fallback: NotificationTemplateDef): Notifica
   };
 }
 
+/**
+ * Build a standalone def from a DB-only row — a blank-slate platform template
+ * created in the composer with no code counterpart (Task #589).
+ *
+ * Guard: only `lifecycle` is allowed for DB-only rows. `system` is reserved for
+ * the code-owned auth/billing templates (magic link, password reset, …) and
+ * must never be claimed by an operator-created row, or a blank-slate template
+ * could impersonate a locked transactional one.
+ */
+function buildDbOnlyDef(row: TemplateRow): NotificationTemplateDef | null {
+  if (row.category === "system") return null;
+  const emailIntro = row.email_intro ?? "";
+  const emailCtaLabel = row.email_cta_label ?? "";
+  const displayName = row.name ?? row.key;
+  return {
+    key: row.key,
+    name: displayName,
+    description: row.description ?? "",
+    category: "lifecycle",
+    channels: sanitizeChannels(row.channels, ["email"]),
+    emailSubject: row.email_subject ?? "",
+    emailIntro,
+    emailCtaLabel,
+    inAppTitle: row.in_app_title ?? displayName,
+    inAppBody: row.in_app_body ?? "",
+    bodyHtml: row.body_html ?? buildDefaultBodyHtml(emailIntro, emailCtaLabel),
+    bodyMode: row.body_mode === "html" ? "html" : "wysiwyg",
+    wrapInShell: row.wrap_in_shell ?? true,
+    previewData:
+      row.preview_data && typeof row.preview_data === "object" && !Array.isArray(row.preview_data)
+        ? (row.preview_data as Record<string, string>)
+        : DEFAULT_PREVIEW_DATA,
+    enabled: row.enabled,
+  };
+}
+
 async function loadFromDb(): Promise<Record<string, NotificationTemplateDef>> {
   const merged: Record<string, NotificationTemplateDef> = {};
   for (const [k, def] of Object.entries(NOTIFICATION_TEMPLATES)) merged[k] = { ...def };
@@ -401,7 +437,13 @@ async function loadFromDb(): Promise<Record<string, NotificationTemplateDef>> {
     );
     for (const row of r.rows) {
       const fallback = NOTIFICATION_TEMPLATES[row.key];
-      if (!fallback) continue; // ignore rows with no code counterpart
+      if (!fallback) {
+        // DB-only blank-slate template (no code counterpart): surface it as a
+        // standalone def so the composer can dispatch it.
+        const dbOnly = buildDbOnlyDef(row);
+        if (dbOnly) merged[row.key] = dbOnly;
+        continue;
+      }
       merged[row.key] = rowToDef(row, fallback);
     }
   } catch (err) {
@@ -435,10 +477,16 @@ export async function getNotificationTemplate(key: string): Promise<Notification
   return all[key] ?? NOTIFICATION_TEMPLATES[key] ?? null;
 }
 
-/** All templates, for the SuperAdmin management screen. */
+/** All templates, for the SuperAdmin management screen. Code-owned templates
+ * first (in registry order), then DB-only blank-slate templates alphabetically. */
 export async function getNotificationTemplates(): Promise<NotificationTemplateDef[]> {
   const all = await getAll();
-  return TEMPLATE_KEYS.map((k) => all[k]).filter(Boolean);
+  const codeFirst = TEMPLATE_KEYS.map((k) => all[k]).filter(Boolean);
+  const dbOnly = Object.keys(all)
+    .filter((k) => !NOTIFICATION_TEMPLATES[k])
+    .sort()
+    .map((k) => all[k]);
+  return [...codeFirst, ...dbOnly];
 }
 
 /** Bust the cache after a SuperAdmin save so edits go live immediately. */

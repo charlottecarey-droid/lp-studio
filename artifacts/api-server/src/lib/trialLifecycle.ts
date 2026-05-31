@@ -2,6 +2,7 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { dispatchNotification, isStructuralDbError } from "./notificationDispatcher";
+import { enqueueWorkflowTrigger } from "./workflowEngine";
 
 // Trial lifecycle nudges. The 14-day Growth trial gets escalating reminders at
 // day 7 (halfway), day 11 (3 days left), and day 13 (last day). Each milestone
@@ -95,25 +96,40 @@ export async function notifyTrialLifecycle(): Promise<void> {
             : null;
         const billingUrl = workspaceUrl ? `${workspaceUrl}/settings/billing` : null;
 
+        const recipients = admins.map(a => ({ appUserId: a.app_user_id, email: a.email, name: a.name }));
+        const context = {
+          tenantName: t.name,
+          daysRemaining: milestone.remainingDays,
+          workspaceUrl,
+          billingUrl,
+        };
+        const dedupeBase = `${milestone.key}:tenant:${t.id}`;
         try {
-          const r = await dispatchNotification({
-            templateKey: milestone.key,
+          // Routed through the workflow engine (Task #589): each milestone is a
+          // one-step workflow, so operators can extend it (e.g. add a branch or
+          // a follow-up step). `fallback` is the original direct dispatch — run
+          // verbatim when the workflow is disabled/missing, so the nudge is
+          // byte-identical either way. The engine re-throws structural DB errors
+          // (see enqueueWorkflowTrigger), preserving the loud-abort contract.
+          await enqueueWorkflowTrigger({
+            eventKey: milestone.key,
             tenantId: t.id,
-            recipients: admins.map(a => ({ appUserId: a.app_user_id, email: a.email, name: a.name })),
-            context: {
-              tenantName: t.name,
-              daysRemaining: milestone.remainingDays,
-              workspaceUrl,
-              billingUrl,
-            },
-            dedupeBase: `${milestone.key}:tenant:${t.id}`,
+            recipients,
+            context,
+            dedupeBase,
+            fallback: () =>
+              dispatchNotification({
+                templateKey: milestone.key,
+                tenantId: t.id,
+                recipients,
+                context,
+                dedupeBase,
+              }),
           });
-          if (r.inAppCreated || r.emailsSent || r.emailsFailed) {
-            logger.info(
-              { tenantId: t.id, milestone: milestone.key, ...r },
-              "trial lifecycle nudge dispatched",
-            );
-          }
+          logger.info(
+            { tenantId: t.id, milestone: milestone.key },
+            "trial lifecycle nudge enqueued",
+          );
         } catch (err) {
           // A missing notifications table/column would affect every tenant in
           // the sweep — rethrow so the run aborts loudly (the dev sweep

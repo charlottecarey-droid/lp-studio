@@ -22,6 +22,7 @@ import {
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
 import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
+import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
 import { runAssetsGc } from "./lib/assetsGc";
 import { Sentry } from "./lib/sentry";
@@ -393,6 +394,12 @@ const httpServer = app.listen(port, (err) => {
       );
     }, TRIAL_NOTIFY_INTERVAL_MS).unref();
   }, TRIAL_NOTIFY_BOOT_DELAY_MS).unref();
+
+  // Email workflow composer (Task #589) — advances delayed / branching steps of
+  // active enrollments. Self-defers off the cold-start path and runs on an
+  // interval; the sweep holds an xact-scoped advisory lock so multiple instances
+  // don't double-process. Idempotent via the per-step dispatch dedupe.
+  scheduleWorkflowSweep();
 
   // Task #374 — periodic LP asset health check. Samples recent published
   // pages from R2 and alerts (Sentry + log) when a referenced /assets/*

@@ -20,6 +20,7 @@ import {
   invalidateUserTokens,
 } from "../lib/authEmailTokens";
 import { dispatchNotification } from "../lib/notificationDispatcher";
+import { enqueueWorkflowTrigger } from "../lib/workflowEngine";
 import {
   normalizePlan,
   TRIAL_DURATION_DAYS,
@@ -815,20 +816,36 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
           // welcome_email_sent_at claim above guarantees this fan-out runs at
           // most once per tenant — no double welcome email can be sent.
           // Fire-and-forget so the API response isn't blocked on Resend.
-          void dispatchNotification({
-            templateKey: "welcome",
+          // Routed through the workflow engine (Task #589): a one-step "welcome"
+          // workflow (email channel) sends this, so operators can chain
+          // follow-up emails. The `fallback` is the original direct dispatch —
+          // run verbatim if the workflow is disabled/missing/unavailable, so the
+          // welcome email is byte-identical either way. The in-app inbox drop
+          // above stays a direct dispatch (the workflow is email-only).
+          const welcomeRecipients = [{
+            appUserId: typeof sess.userId === "number" ? sess.userId : null,
+            email: sess.email,
+            name: sess.name ?? null,
+          }];
+          const welcomeContext = {
+            tenantName: t.name ?? "your workspace",
+            workspaceUrl,
+          };
+          void enqueueWorkflowTrigger({
+            eventKey: "welcome",
             tenantId: sess.tenantId,
-            recipients: [{
-              appUserId: typeof sess.userId === "number" ? sess.userId : null,
-              email: sess.email,
-              name: sess.name ?? null,
-            }],
-            context: {
-              tenantName: t.name ?? "your workspace",
-              workspaceUrl,
-            },
+            recipients: welcomeRecipients,
+            context: welcomeContext,
             dedupeBase: `welcome:tenant:${sess.tenantId}`,
-            channels: ["email"],
+            fallback: () =>
+              dispatchNotification({
+                templateKey: "welcome",
+                tenantId: sess.tenantId,
+                recipients: welcomeRecipients,
+                context: welcomeContext,
+                dedupeBase: `welcome:tenant:${sess.tenantId}`,
+                channels: ["email"],
+              }),
           }).catch((err) => console.error("[auth] welcome email dispatch failed:", err));
         } else {
           // Couldn't build a canonical URL — release the gate so a future

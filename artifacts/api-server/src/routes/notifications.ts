@@ -33,6 +33,18 @@ import {
   type NotificationChannel,
 } from "../lib/notificationTemplates";
 import {
+  listTriggers,
+  upsertTrigger,
+  deleteTrigger,
+  listWorkflows,
+  getWorkflow,
+  createWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+} from "../lib/workflowStore";
+import { validateWorkflowDefinition } from "../lib/workflowTypes";
+import { runWorkflowSweep } from "../lib/workflowEngine";
+import {
   getEmailShell,
   getEmailShellOverrides,
   bustEmailShellCache,
@@ -368,10 +380,10 @@ function buildPreviewVars(overrides?: unknown): Record<string, string> {
 
 /** Append an audit row. Best-effort: a logging failure must not fail the edit. */
 async function writeEditLog(opts: {
-  targetType: "template" | "shell";
+  targetType: "template" | "shell" | "workflow" | "trigger";
   targetKey: string;
   editorEmail: string | null;
-  action: "update" | "reset" | "test_send";
+  action: "update" | "reset" | "test_send" | "create" | "delete";
   diff: unknown;
 }): Promise<void> {
   try {
@@ -729,6 +741,323 @@ router.get("/admin/email-template-log", requireSuperadmin, async (req, res): Pro
     res.json({ entries: r.rows });
   } catch (err) {
     console.error("[notifications] edit-log list error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// SuperAdmin email-workflow composer (Task #589). Composable layer ABOVE the
+// code-default dispatchNotification: blank-slate templates, triggers, and
+// multi-step workflows. Platform scope only. Every route is requireSuperadmin
+// (mounted before adminRouter, same as the authoring routes above). System and
+// locked rows are protected by the store layer (delete/update guards), so these
+// routes never need to special-case them.
+// ---------------------------------------------------------------------------
+
+const WORKFLOW_KEY_RE = /^[a-z0-9_]{2,64}$/;
+
+/** POST /api/admin/notification-templates — create a blank-slate DB-only
+ * platform template (no code counterpart). Always `lifecycle`: `system` is
+ * reserved for code-owned auth/billing templates and is rejected. */
+router.post("/admin/notification-templates", requireSuperadmin, async (req, res): Promise<void> => {
+  const b = req.body ?? {};
+  const key = typeof b.key === "string" ? b.key.trim().toLowerCase() : "";
+  if (!WORKFLOW_KEY_RE.test(key)) {
+    res.status(400).json({ error: "key must be 2-64 chars: lowercase letters, digits, underscore" });
+    return;
+  }
+  if (NOTIFICATION_TEMPLATES[key]) {
+    res.status(409).json({ error: "A code-owned template already uses that key" });
+    return;
+  }
+  const name = shortStr(b.name) ?? key;
+  let channels: NotificationChannel[] = ["email"];
+  if (Array.isArray(b.channels)) {
+    const filtered = (b.channels as unknown[]).filter((c): c is NotificationChannel =>
+      VALID_CHANNELS.includes(c as NotificationChannel),
+    );
+    if (filtered.length) channels = Array.from(new Set(filtered));
+  }
+  const bodyMode = b.bodyMode === "html" ? "html" : "wysiwyg";
+  const previewData =
+    b.previewData && typeof b.previewData === "object" && !Array.isArray(b.previewData)
+      ? JSON.stringify(b.previewData)
+      : null;
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    const existing = await pool.query(
+      `SELECT 1 FROM notification_templates WHERE key = $1 AND scope = 'platform'`,
+      [key],
+    );
+    if ((existing.rowCount ?? 0) > 0) {
+      res.status(409).json({ error: "A template with that key already exists" });
+      return;
+    }
+    await pool.query(
+      `INSERT INTO notification_templates
+         (key, name, description, category, scope, channels,
+          email_subject, email_intro, email_cta_label, in_app_title, in_app_body,
+          body_html, body_mode, wrap_in_shell, preview_data, enabled, updated_at)
+       VALUES ($1,$2,$3,'lifecycle','platform',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14, now())`,
+      [
+        key,
+        name,
+        shortStr(b.description) ?? "",
+        JSON.stringify(channels),
+        shortStr(b.emailSubject),
+        shortStr(b.emailIntro),
+        shortStr(b.emailCtaLabel),
+        shortStr(b.inAppTitle),
+        shortStr(b.inAppBody),
+        longStr(b.bodyHtml),
+        bodyMode,
+        typeof b.wrapInShell === "boolean" ? b.wrapInShell : true,
+        previewData,
+        typeof b.enabled === "boolean" ? b.enabled : true,
+      ],
+    );
+    bustNotificationTemplateCache();
+    await writeEditLog({ targetType: "template", targetKey: key, editorEmail, action: "create", diff: { name } });
+    const tpl = await getNotificationTemplate(key);
+    res.status(201).json({ template: tpl });
+  } catch (err) {
+    console.error("[notifications] blank-template create error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- Workflow triggers -----------------------------------------------------
+
+/** GET /api/admin/email-workflow-triggers — all triggers (system first). */
+router.get("/admin/email-workflow-triggers", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    res.json({ triggers: await listTriggers() });
+  } catch (err) {
+    console.error("[notifications] trigger list error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** POST /api/admin/email-workflow-triggers — create/update a non-system trigger. */
+router.post("/admin/email-workflow-triggers", requireSuperadmin, async (req, res): Promise<void> => {
+  const b = req.body ?? {};
+  const key = typeof b.key === "string" ? b.key.trim().toLowerCase() : "";
+  if (!WORKFLOW_KEY_RE.test(key)) {
+    res.status(400).json({ error: "key must be 2-64 chars: lowercase letters, digits, underscore" });
+    return;
+  }
+  const triggerType = b.triggerType;
+  if (triggerType !== "event" && triggerType !== "scheduled" && triggerType !== "audience") {
+    res.status(400).json({ error: "triggerType must be event, scheduled, or audience" });
+    return;
+  }
+  const eventKey =
+    triggerType === "event"
+      ? (typeof b.eventKey === "string" && b.eventKey.trim() ? b.eventKey.trim() : null)
+      : null;
+  if (triggerType === "event" && !eventKey) {
+    res.status(400).json({ error: "an event trigger needs an eventKey" });
+    return;
+  }
+  const config =
+    b.config && typeof b.config === "object" && !Array.isArray(b.config)
+      ? (b.config as Record<string, unknown>)
+      : {};
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    const trigger = await upsertTrigger({
+      key,
+      name: shortStr(b.name) ?? key,
+      description: shortStr(b.description) ?? "",
+      triggerType,
+      eventKey,
+      config,
+      enabled: typeof b.enabled === "boolean" ? b.enabled : true,
+      updatedBy: editorEmail,
+    });
+    await writeEditLog({ targetType: "trigger", targetKey: key, editorEmail, action: "update", diff: { triggerType } });
+    res.json({ trigger });
+  } catch (err) {
+    console.error("[notifications] trigger upsert error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** DELETE /api/admin/email-workflow-triggers/:key — non-system only. */
+router.delete("/admin/email-workflow-triggers/:key", requireSuperadmin, async (req, res): Promise<void> => {
+  const key = String(req.params.key);
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    const ok = await deleteTrigger(key);
+    if (!ok) {
+      res.status(404).json({ error: "Trigger not found or is system-protected" });
+      return;
+    }
+    await writeEditLog({ targetType: "trigger", targetKey: key, editorEmail, action: "delete", diff: {} });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[notifications] trigger delete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- Workflows -------------------------------------------------------------
+
+/** GET /api/admin/email-workflows — workflows + triggers + templates for the composer. */
+router.get("/admin/email-workflows", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const [workflows, triggers, templates] = await Promise.all([
+      listWorkflows(),
+      listTriggers(),
+      getNotificationTemplates(),
+    ]);
+    res.json({ workflows, triggers, templates });
+  } catch (err) {
+    console.error("[notifications] workflow list error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** GET /api/admin/email-workflows/:id — one workflow. */
+router.get("/admin/email-workflows/:id", requireSuperadmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  try {
+    const wf = await getWorkflow(id);
+    if (!wf) {
+      res.status(404).json({ error: "Workflow not found" });
+      return;
+    }
+    res.json({ workflow: wf });
+  } catch (err) {
+    console.error("[notifications] workflow get error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** POST /api/admin/email-workflows — create a workflow. */
+router.post("/admin/email-workflows", requireSuperadmin, async (req, res): Promise<void> => {
+  const b = req.body ?? {};
+  const key = typeof b.key === "string" ? b.key.trim().toLowerCase() : "";
+  if (!WORKFLOW_KEY_RE.test(key)) {
+    res.status(400).json({ error: "key must be 2-64 chars: lowercase letters, digits, underscore" });
+    return;
+  }
+  const triggerKey = typeof b.triggerKey === "string" ? b.triggerKey.trim() : "";
+  if (!triggerKey) {
+    res.status(400).json({ error: "triggerKey is required" });
+    return;
+  }
+  const validated = validateWorkflowDefinition(b.definition);
+  if (!validated.ok) {
+    res.status(400).json({ error: validated.error });
+    return;
+  }
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    const triggers = await listTriggers();
+    if (!triggers.some((t) => t.key === triggerKey)) {
+      res.status(400).json({ error: "Unknown triggerKey" });
+      return;
+    }
+    const workflow = await createWorkflow({
+      key,
+      name: shortStr(b.name) ?? key,
+      description: shortStr(b.description) ?? "",
+      triggerKey,
+      enabled: typeof b.enabled === "boolean" ? b.enabled : true,
+      definition: validated.definition,
+      updatedBy: editorEmail,
+    });
+    await writeEditLog({ targetType: "workflow", targetKey: key, editorEmail, action: "create", diff: { triggerKey } });
+    res.status(201).json({ workflow });
+  } catch (err: unknown) {
+    // Unique-key collision surfaces as a 409 rather than a generic 500.
+    if (err && typeof err === "object" && (err as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "A workflow with that key already exists" });
+      return;
+    }
+    console.error("[notifications] workflow create error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** PATCH /api/admin/email-workflows/:id — update a non-locked workflow. */
+router.patch("/admin/email-workflows/:id", requireSuperadmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const b = req.body ?? {};
+  const updates: Parameters<typeof updateWorkflow>[1] = { updatedBy: (req as Request & { authUser?: AuthUser }).authUser?.email ?? null };
+  if (b.name !== undefined) updates.name = shortStr(b.name) ?? "";
+  if (b.description !== undefined) updates.description = shortStr(b.description) ?? "";
+  if (b.triggerKey !== undefined) updates.triggerKey = String(b.triggerKey).trim();
+  if (b.enabled !== undefined) updates.enabled = Boolean(b.enabled);
+  if (b.definition !== undefined) {
+    const validated = validateWorkflowDefinition(b.definition);
+    if (!validated.ok) {
+      res.status(400).json({ error: validated.error });
+      return;
+    }
+    updates.definition = validated.definition;
+  }
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    if (updates.triggerKey !== undefined) {
+      const triggers = await listTriggers();
+      if (!triggers.some((t) => t.key === updates.triggerKey)) {
+        res.status(400).json({ error: "Unknown triggerKey" });
+        return;
+      }
+    }
+    const workflow = await updateWorkflow(id, updates);
+    if (!workflow) {
+      res.status(404).json({ error: "Workflow not found, or it is locked (immutable)" });
+      return;
+    }
+    await writeEditLog({ targetType: "workflow", targetKey: workflow.key, editorEmail, action: "update", diff: { fields: Object.keys(b) } });
+    res.json({ workflow });
+  } catch (err) {
+    console.error("[notifications] workflow patch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** DELETE /api/admin/email-workflows/:id — non-system, non-locked only. */
+router.delete("/admin/email-workflows/:id", requireSuperadmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    const ok = await deleteWorkflow(id);
+    if (!ok) {
+      res.status(404).json({ error: "Workflow not found, or it is system/locked (protected)" });
+      return;
+    }
+    await writeEditLog({ targetType: "workflow", targetKey: String(id), editorEmail, action: "delete", diff: {} });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[notifications] workflow delete error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** POST /api/admin/email-workflows/sweep — manually run the scheduler sweep once
+ * (for testing scheduled/delayed steps without waiting for the boot timer). */
+router.post("/admin/email-workflows/sweep", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const result = await runWorkflowSweep();
+    res.json(result);
+  } catch (err) {
+    console.error("[notifications] manual sweep error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

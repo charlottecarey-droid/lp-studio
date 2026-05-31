@@ -15,6 +15,12 @@ import {
   Eye,
   Layers,
   RotateCcw,
+  Plus,
+  Trash2,
+  GitBranch,
+  Clock,
+  Zap,
+  Play,
 } from "lucide-react";
 import type { VariableDefinition } from "@workspace/notification-variables";
 import {
@@ -539,7 +545,852 @@ function ShellEditor() {
 
 const SHELL_KEY = "__shell__";
 
+// ---------------------------------------------------------------------------
+// Workflow composer (Task #589)
+// ---------------------------------------------------------------------------
+
+type TriggerType = "event" | "scheduled" | "audience";
+
+interface Trigger {
+  key: string;
+  name: string;
+  description: string;
+  trigger_type: TriggerType;
+  event_key: string | null;
+  config: Record<string, unknown>;
+  is_system: boolean;
+  enabled: boolean;
+}
+
+type ConditionType = "plan" | "read" | "not_read";
+
+interface WfCondition {
+  type: ConditionType;
+  plan?: string;
+  stepId?: string;
+}
+
+interface WfBranch {
+  onTrue: string | null;
+  onFalse: string | null;
+}
+
+interface WfStep {
+  id: string;
+  templateKey: string;
+  channels: Channel[] | null;
+  delayMs: number;
+  condition: WfCondition | null;
+  branch: WfBranch | null;
+  next: string | null;
+}
+
+interface ComposerWorkflow {
+  id: number;
+  key: string;
+  name: string;
+  description: string;
+  trigger_key: string;
+  enabled: boolean;
+  definition: { steps: WfStep[] };
+  is_system: boolean;
+  locked: boolean;
+}
+
+const MS_PER_MIN = 60_000;
+
+function blankStep(existing: WfStep[]): WfStep {
+  const ids = new Set(existing.map((s) => s.id));
+  let n = existing.length + 1;
+  let id = `s${n}`;
+  while (ids.has(id)) {
+    n += 1;
+    id = `s${n}`;
+  }
+  return { id, templateKey: "", channels: null, delayMs: 0, condition: null, branch: null, next: null };
+}
+
+/** One step card in the workflow editor. */
+function StepCard({
+  step,
+  index,
+  steps,
+  templates,
+  disabled,
+  onChange,
+  onRemove,
+}: {
+  step: WfStep;
+  index: number;
+  steps: WfStep[];
+  templates: Template[];
+  disabled: boolean;
+  onChange: (next: WfStep) => void;
+  onRemove: () => void;
+}) {
+  const isBranch = step.templateKey === "";
+  const earlierSends = steps.slice(0, index).filter((s) => s.templateKey !== "");
+  const otherIds = steps.filter((s) => s.id !== step.id).map((s) => s.id);
+
+  const set = (patch: Partial<WfStep>) => onChange({ ...step, ...patch });
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-3 text-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 font-medium">
+          {isBranch ? <GitBranch className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
+          Step {index + 1} · <code className="text-xs text-muted-foreground">{step.id}</code>
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-destructive"
+          disabled={disabled}
+          onClick={onRemove}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Step type</Label>
+          <select
+            className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={isBranch ? "branch" : "send"}
+            disabled={disabled}
+            onChange={(e) =>
+              e.target.value === "branch"
+                ? set({
+                    templateKey: "",
+                    condition: step.condition ?? { type: "read", stepId: earlierSends[0]?.id ?? "" },
+                    branch: step.branch ?? { onTrue: null, onFalse: null },
+                  })
+                : set({ templateKey: templates[0]?.key ?? "" })
+            }
+          >
+            <option value="send">Send a template</option>
+            <option value="branch">Branch (no send)</option>
+          </select>
+        </div>
+
+        {!isBranch && (
+          <div>
+            <Label className="text-xs">Template</Label>
+            <select
+              className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              value={step.templateKey}
+              disabled={disabled}
+              onChange={(e) => set({ templateKey: e.target.value })}
+            >
+              <option value="">— pick a template —</option>
+              {templates.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <Label className="text-xs flex items-center gap-1">
+            <Clock className="h-3 w-3" /> Delay before this step (minutes)
+          </Label>
+          <Input
+            type="number"
+            min={0}
+            className="mt-1 h-8"
+            value={Math.round(step.delayMs / MS_PER_MIN)}
+            disabled={disabled}
+            onChange={(e) => set({ delayMs: Math.max(0, Number(e.target.value) || 0) * MS_PER_MIN })}
+          />
+        </div>
+
+        <div>
+          <Label className="text-xs">Condition</Label>
+          <select
+            className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={step.condition?.type ?? "none"}
+            disabled={disabled}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "none") {
+                set({ condition: null, branch: isBranch ? step.branch : null });
+              } else if (v === "plan") {
+                set({ condition: { type: "plan", plan: step.condition?.plan ?? "growth" } });
+              } else {
+                set({
+                  condition: { type: v as ConditionType, stepId: step.condition?.stepId ?? earlierSends[0]?.id ?? "" },
+                });
+              }
+            }}
+          >
+            <option value="none">No condition</option>
+            <option value="plan">Recipient is on plan…</option>
+            <option value="read">Earlier step WAS read</option>
+            <option value="not_read">Earlier step was NOT read</option>
+          </select>
+        </div>
+
+        {step.condition?.type === "plan" && (
+          <div>
+            <Label className="text-xs">Plan</Label>
+            <Input
+              className="mt-1 h-8"
+              placeholder="e.g. growth, free, scale"
+              value={step.condition.plan ?? ""}
+              disabled={disabled}
+              onChange={(e) => set({ condition: { type: "plan", plan: e.target.value } })}
+            />
+          </div>
+        )}
+
+        {(step.condition?.type === "read" || step.condition?.type === "not_read") && (
+          <div>
+            <Label className="text-xs">Which earlier step</Label>
+            <select
+              className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              value={step.condition.stepId ?? ""}
+              disabled={disabled}
+              onChange={(e) =>
+                set({ condition: { type: step.condition!.type, stepId: e.target.value } })
+              }
+            >
+              <option value="">— pick a step —</option>
+              {earlierSends.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.id} ({templates.find((t) => t.key === s.templateKey)?.name ?? s.templateKey})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Routing */}
+      {step.condition ? (
+        <div className="mt-3 rounded-md border border-dashed p-2">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Routing on condition result</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs text-emerald-600">When TRUE →</Label>
+              <select
+                className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                value={step.branch?.onTrue ?? "__end__"}
+                disabled={disabled}
+                onChange={(e) =>
+                  set({
+                    branch: {
+                      onTrue: e.target.value === "__end__" ? null : e.target.value,
+                      onFalse: step.branch?.onFalse ?? null,
+                    },
+                  })
+                }
+              >
+                <option value="__end__">End workflow</option>
+                {otherIds.map((id) => (
+                  <option key={id} value={id}>
+                    Go to {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs text-rose-600">When FALSE →</Label>
+              <select
+                className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                value={step.branch?.onFalse ?? "__end__"}
+                disabled={disabled}
+                onChange={(e) =>
+                  set({
+                    branch: {
+                      onTrue: step.branch?.onTrue ?? null,
+                      onFalse: e.target.value === "__end__" ? null : e.target.value,
+                    },
+                  })
+                }
+              >
+                <option value="__end__">End workflow</option>
+                {otherIds.map((id) => (
+                  <option key={id} value={id}>
+                    Go to {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {!isBranch && (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              This step sends only when the condition is TRUE, then routes as above.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="mt-3">
+          <Label className="text-xs">Next step</Label>
+          <select
+            className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm sm:w-1/2"
+            value={step.next ?? "__seq__"}
+            disabled={disabled}
+            onChange={(e) => set({ next: e.target.value === "__seq__" ? null : e.target.value })}
+          >
+            <option value="__seq__">Continue in order</option>
+            {otherIds.map((id) => (
+              <option key={id} value={id}>
+                Jump to {id}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Editor for a single (new or existing) workflow. */
+function WorkflowEditor({
+  workflow,
+  triggers,
+  templates,
+  onSaved,
+  onDeleted,
+  onCancel,
+}: {
+  workflow: ComposerWorkflow | null;
+  triggers: Trigger[];
+  templates: Template[];
+  onSaved: () => void;
+  onDeleted: () => void;
+  onCancel: () => void;
+}) {
+  const isNew = workflow === null;
+  const locked = workflow?.locked ?? false;
+  const [name, setName] = useState(workflow?.name ?? "");
+  const [key, setKey] = useState(workflow?.key ?? "");
+  const [triggerKey, setTriggerKey] = useState(workflow?.trigger_key ?? triggers[0]?.key ?? "");
+  const [enabled, setEnabled] = useState(workflow?.enabled ?? false);
+  const [steps, setSteps] = useState<WfStep[]>(workflow?.definition.steps ?? []);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const updateStep = (i: number, next: WfStep) =>
+    setSteps((prev) => prev.map((s, idx) => (idx === i ? next : s)));
+  const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
+  const addStep = () => setSteps((prev) => [...prev, { ...blankStep(prev), templateKey: templates[0]?.key ?? "" }]);
+
+  const save = async () => {
+    setSaving(true);
+    setErr(null);
+    try {
+      const body = {
+        name: name.trim(),
+        triggerKey,
+        enabled,
+        definition: { steps },
+      };
+      if (isNew) {
+        await apiFetch("/api/admin/email-workflows", {
+          method: "POST",
+          body: JSON.stringify({ ...body, key: key.trim().toLowerCase() }),
+        });
+      } else {
+        await apiFetch(`/api/admin/email-workflows/${workflow!.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        });
+      }
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save workflow");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!workflow || !window.confirm(`Delete workflow "${workflow.name}"? This cannot be undone.`)) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiFetch(`/api/admin/email-workflows/${workflow.id}`, { method: "DELETE" });
+      onDeleted();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to delete workflow");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">{isNew ? "New workflow" : workflow!.name}</h3>
+        <div className="flex items-center gap-2">
+          {locked && <Badge variant="secondary">Locked</Badge>}
+          {!isNew && workflow!.is_system && <Badge variant="outline">System</Badge>}
+        </div>
+      </div>
+
+      {locked && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          This workflow is locked (auth-critical) and cannot be edited.
+        </p>
+      )}
+
+      {err && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {err}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Name</Label>
+          <Input className="mt-1 h-8" value={name} disabled={locked} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Key</Label>
+          <Input
+            className="mt-1 h-8 font-mono"
+            value={key}
+            placeholder="welcome_series"
+            disabled={!isNew}
+            onChange={(e) => setKey(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Trigger</Label>
+          <select
+            className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={triggerKey}
+            disabled={locked}
+            onChange={(e) => setTriggerKey(e.target.value)}
+          >
+            {triggers.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.name} {t.event_key ? `(${t.event_key})` : `(${t.trigger_type})`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-end gap-2">
+          <Switch checked={enabled} disabled={locked} onCheckedChange={setEnabled} />
+          <span className="text-sm">{enabled ? "Enabled" : "Disabled"}</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <Label className="text-xs font-semibold">Steps ({steps.length})</Label>
+          <Button type="button" variant="outline" size="sm" disabled={locked} onClick={addStep}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Add step
+          </Button>
+        </div>
+        {steps.length === 0 ? (
+          <p className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
+            No steps yet. Add a step to send a template.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {steps.map((s, i) => (
+              <StepCard
+                key={s.id}
+                step={s}
+                index={i}
+                steps={steps}
+                templates={templates}
+                disabled={locked}
+                onChange={(next) => updateStep(i, next)}
+                onRemove={() => removeStep(i)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between border-t pt-3">
+        <div className="flex gap-2">
+          <Button type="button" size="sm" disabled={saving || locked} onClick={() => void save()}>
+            {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
+            Save
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+        {!isNew && !workflow!.is_system && !locked && (
+          <Button type="button" variant="ghost" size="sm" className="text-destructive" disabled={saving} onClick={() => void remove()}>
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Triggers manager + blank-template creator (compact panels). */
+function TriggersPanel({
+  triggers,
+  onChanged,
+}: {
+  triggers: Trigger[];
+  onChanged: () => void;
+}) {
+  const [key, setKey] = useState("");
+  const [name, setName] = useState("");
+  const [triggerType, setTriggerType] = useState<TriggerType>("event");
+  const [eventKey, setEventKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const create = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await apiFetch("/api/admin/email-workflow-triggers", {
+        method: "POST",
+        body: JSON.stringify({
+          key: key.trim().toLowerCase(),
+          name: name.trim() || key.trim(),
+          triggerType,
+          eventKey: triggerType === "event" ? eventKey.trim() : null,
+        }),
+      });
+      setKey("");
+      setName("");
+      setEventKey("");
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save trigger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (k: string) => {
+    if (!window.confirm(`Delete trigger "${k}"?`)) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await apiFetch(`/api/admin/email-workflow-triggers/${encodeURIComponent(k)}`, { method: "DELETE" });
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to delete trigger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-semibold">Triggers</h3>
+      {err && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {err}
+        </div>
+      )}
+      <div className="space-y-1.5">
+        {triggers.map((t) => (
+          <div key={t.key} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+            <div className="min-w-0">
+              <span className="font-medium">{t.name}</span>{" "}
+              <code className="text-xs text-muted-foreground">{t.key}</code>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {t.trigger_type}
+                {t.event_key ? ` · ${t.event_key}` : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {t.is_system ? (
+                <Badge variant="outline">System</Badge>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-destructive"
+                  disabled={busy}
+                  onClick={() => void remove(t.key)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-md border bg-muted/20 p-3">
+        <p className="mb-2 text-xs font-semibold">New trigger</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Input className="h-8 font-mono" placeholder="key" value={key} onChange={(e) => setKey(e.target.value)} />
+          <Input className="h-8" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <select
+            className="rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={triggerType}
+            onChange={(e) => setTriggerType(e.target.value as TriggerType)}
+          >
+            <option value="event">Event</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="audience">Audience</option>
+          </select>
+          {triggerType === "event" && (
+            <Input
+              className="h-8 font-mono"
+              placeholder="event key (e.g. user.signup)"
+              value={eventKey}
+              onChange={(e) => setEventKey(e.target.value)}
+            />
+          )}
+        </div>
+        <Button type="button" size="sm" className="mt-2" disabled={busy || !key.trim()} onClick={() => void create()}>
+          <Plus className="mr-1 h-3.5 w-3.5" /> Add trigger
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Compact blank-slate template creator. */
+function NewTemplatePanel({ onCreated }: { onCreated: () => void }) {
+  const [key, setKey] = useState("");
+  const [name, setName] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const create = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await apiFetch("/api/admin/notification-templates", {
+        method: "POST",
+        body: JSON.stringify({
+          key: key.trim().toLowerCase(),
+          name: name.trim() || key.trim(),
+          emailSubject: emailSubject.trim(),
+          channels: ["email"],
+        }),
+      });
+      setKey("");
+      setName("");
+      setEmailSubject("");
+      setDone(true);
+      onCreated();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to create template");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-semibold">New blank template</h3>
+      <p className="text-xs text-muted-foreground">
+        Creates a blank-slate lifecycle template you can author on the Templates tab and chain into a workflow.
+      </p>
+      {err && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {err}
+        </div>
+      )}
+      {done && !err && (
+        <div className="flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <CheckCircle2 className="h-4 w-4" /> Template created. Find it on the Templates tab.
+        </div>
+      )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Key</Label>
+          <Input className="mt-1 h-8 font-mono" placeholder="reengage_30d" value={key} onChange={(e) => setKey(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Name</Label>
+          <Input className="mt-1 h-8" placeholder="Re-engagement" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="sm:col-span-2">
+          <Label className="text-xs">Email subject</Label>
+          <Input className="mt-1 h-8" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+        </div>
+      </div>
+      <Button type="button" size="sm" disabled={busy || !key.trim()} onClick={() => void create()}>
+        {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+        Create template
+      </Button>
+    </div>
+  );
+}
+
+type ComposerView =
+  | { kind: "workflow"; id: number | null }
+  | { kind: "triggers" }
+  | { kind: "new-template" }
+  | { kind: "empty" };
+
+function WorkflowComposer() {
+  const [workflows, setWorkflows] = useState<ComposerWorkflow[]>([]);
+  const [triggers, setTriggers] = useState<Trigger[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [view, setView] = useState<ComposerView>({ kind: "empty" });
+  const [sweepMsg, setSweepMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const data = await apiFetch("/api/admin/email-workflows");
+      setWorkflows((data.workflows as ComposerWorkflow[]) ?? []);
+      setTriggers((data.triggers as Trigger[]) ?? []);
+      setTemplates((data.templates as Template[]) ?? []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load workflows");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const runSweep = async () => {
+    setSweepMsg(null);
+    try {
+      const r = await apiFetch("/api/admin/email-workflows/sweep", { method: "POST" });
+      setSweepMsg(`Sweep ran: claimed ${r.claimed ?? 0}, processed ${r.processed ?? 0}.`);
+    } catch (e) {
+      setSweepMsg(e instanceof Error ? e.message : "Sweep failed");
+    }
+  };
+
+  const selectedWorkflow =
+    view.kind === "workflow" && view.id !== null
+      ? workflows.find((w) => w.id === view.id) ?? null
+      : null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Workflows</h2>
+          <p className="text-xs text-muted-foreground">
+            Chain templates into multi-step journeys with delays, conditions, and branching.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void runSweep()}>
+            <Play className="mr-1 h-3.5 w-3.5" /> Run sweep
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      {sweepMsg && (
+        <div className="mb-3 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">{sweepMsg}</div>
+      )}
+      {err && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {err}
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+        <nav className="space-y-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full justify-start"
+            onClick={() => setView({ kind: "workflow", id: null })}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" /> New workflow
+          </Button>
+          <div className="space-y-1">
+            {workflows.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => setView({ kind: "workflow", id: w.id })}
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
+                  view.kind === "workflow" && view.id === w.id
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <span className="truncate">{w.name}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  {w.locked && <Badge variant="secondary" className="px-1 py-0 text-[9px]">lock</Badge>}
+                  {!w.enabled && <span className="text-[9px] text-muted-foreground">off</span>}
+                </span>
+              </button>
+            ))}
+            {workflows.length === 0 && !loading && (
+              <p className="px-1 py-2 text-xs text-muted-foreground">No workflows yet.</p>
+            )}
+          </div>
+          <div className="border-t pt-2">
+            <button
+              type="button"
+              onClick={() => setView({ kind: "triggers" })}
+              className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
+                view.kind === "triggers" ? "bg-primary/10 font-medium text-primary" : "hover:bg-accent"
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5" /> Triggers
+            </button>
+            <button
+              type="button"
+              onClick={() => setView({ kind: "new-template" })}
+              className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
+                view.kind === "new-template" ? "bg-primary/10 font-medium text-primary" : "hover:bg-accent"
+              }`}
+            >
+              <Mail className="h-3.5 w-3.5" /> New template
+            </button>
+          </div>
+        </nav>
+
+        <div className="min-w-0 rounded-lg border bg-background p-4">
+          {view.kind === "workflow" ? (
+            <WorkflowEditor
+              key={view.id ?? "new"}
+              workflow={selectedWorkflow}
+              triggers={triggers}
+              templates={templates}
+              onSaved={() => {
+                setView({ kind: "empty" });
+                void load();
+              }}
+              onDeleted={() => {
+                setView({ kind: "empty" });
+                void load();
+              }}
+              onCancel={() => setView({ kind: "empty" })}
+            />
+          ) : view.kind === "triggers" ? (
+            <TriggersPanel triggers={triggers} onChanged={() => void load()} />
+          ) : view.kind === "new-template" ? (
+            <NewTemplatePanel onCreated={() => void load()} />
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Select a workflow, or create a new one.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SuperAdminNotifications() {
+  const [tab, setTab] = useState<"templates" | "workflows">("templates");
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [variables, setVariables] = useState<VariableDefinition[]>([]);
   const [selected, setSelected] = useState<string>(SHELL_KEY);
@@ -584,6 +1435,27 @@ export default function SuperAdminNotifications() {
 
   return (
     <div className="py-4">
+      <div className="mb-4 flex gap-1 border-b">
+        {(["templates", "workflows"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`-mb-px border-b-2 px-3 py-1.5 text-sm capitalize ${
+              tab === t
+                ? "border-primary font-medium text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === "workflows" ? (
+        <WorkflowComposer />
+      ) : (
+        <>
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold">Email & notifications</h2>
@@ -677,6 +1549,8 @@ export default function SuperAdminNotifications() {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
