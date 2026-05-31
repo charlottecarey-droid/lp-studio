@@ -1,7 +1,7 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
-import { dispatchNotification } from "./notificationDispatcher";
+import { dispatchNotification, isStructuralDbError } from "./notificationDispatcher";
 
 // Trial lifecycle nudges. The 14-day Growth trial gets escalating reminders at
 // day 7 (halfway), day 11 (3 days left), and day 13 (last day). Each milestone
@@ -115,6 +115,11 @@ export async function notifyTrialLifecycle(): Promise<void> {
             );
           }
         } catch (err) {
+          // A missing notifications table/column would affect every tenant in
+          // the sweep — rethrow so the run aborts loudly (the dev sweep
+          // endpoint returns 500, the boot path logs a hard failure) instead of
+          // logging the same structural error once per tenant and returning OK.
+          if (isStructuralDbError(err)) throw err;
           logger.error({ err, tenantId: t.id, milestone: milestone.key }, "notifyTrialLifecycle: dispatch failed");
         }
       }

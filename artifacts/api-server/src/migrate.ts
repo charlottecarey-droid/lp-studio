@@ -11,6 +11,7 @@
 // Behavior is otherwise unchanged: the same advisory-lock contract, the same
 // idempotent DDL/seed batch, the same per-step logging. Failure exits non-zero
 // so deploy hooks abort the release.
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { db, pool } from "@workspace/db";
@@ -302,6 +303,56 @@ async function runMigrationsBody(): Promise<void> {
       await drizzleMigrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
     });
     logger.info("Migrations applied successfully");
+
+    // Durable self-heal for the in-app notifications schema. The drizzle
+    // node-postgres migrator only applies a journal entry whose `when` is
+    // GREATER than the max created_at already recorded in
+    // drizzle.__drizzle_migrations. 0041_notifications.sql is journaled with a
+    // `when` that sits BELOW that high-water mark on DBs whose journal was
+    // hand-renumbered AFTER they were migrated, so drizzle skips 0041 forever —
+    // notification_sends / notification_templates silently never get created,
+    // and the dispatcher only logs the resulting insert error (the feature
+    // looks healthy while dropping every notification). Re-applying the file
+    // here is independent of drizzle's high-water-mark dedup and self-heals any
+    // such drifted DB. It is safe on every DB: the file is entirely
+    // CREATE TABLE/INDEX IF NOT EXISTS + INSERT ... ON CONFLICT DO NOTHING, so
+    // it creates the tables where missing and is a no-op everywhere else. The
+    // .sql file stays the single source of truth (read, not duplicated here).
+    //
+    // Unlike the best-effort data backfills below, this step fails CLOSED: it
+    // is table-existence-critical (the whole point of this task is guaranteeing
+    // notification_sends / notification_templates exist), so any error here —
+    // bad path, permission, malformed SQL — must abort the release rather than
+    // ship an api-server that silently drops every notification. The SQL is
+    // idempotent, so a retry on the next deploy is always safe.
+    await runStep("notifications schema self-heal (0041)", async () => {
+      const notificationsSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0041_notifications.sql"),
+        "utf8",
+      );
+      // Use the raw pool with a single string argument so node-postgres runs
+      // this through the SIMPLE query protocol, which allows the file's
+      // multiple statements in one round-trip. db.execute(sql.raw(...)) would
+      // send a params array and force the EXTENDED protocol, which rejects
+      // multi-statement SQL ("cannot insert multiple commands into a prepared
+      // statement").
+      await pool.query(notificationsSql);
+      // Post-step assertion: confirm both tables actually exist now. A silent
+      // no-op (e.g. the file ever stops creating them) would otherwise pass
+      // unnoticed; fail the release loudly instead.
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN ('notification_sends', 'notification_templates')`,
+      );
+      const present = rows[0]?.present ?? 0;
+      if (present < 2) {
+        throw new Error(
+          `notifications schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
+        );
+      }
+    });
 
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.

@@ -53,12 +53,27 @@ export interface DispatchResult {
   templateKey: string;
   skippedDisabled: boolean;
   inAppCreated: number;
+  inAppFailed: number;
   emailsSent: number;
   emailsFailed: number;
   deduped: number;
 }
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+
+// Postgres error codes that signal a STRUCTURAL problem with the schema the
+// dispatcher writes to: the target table (42P01 undefined_table) or a column
+// (42703 undefined_column) does not exist. These mean a broken deployment — e.g.
+// 0041_notifications.sql was silently skipped on a drifted DB — not a transient
+// blip. They must NEVER be swallowed: a missing notification_sends table should
+// fail loudly so the regression is caught, instead of the feature looking
+// healthy while dropping every notification on the floor.
+const STRUCTURAL_PG_ERROR_CODES = new Set(["42P01", "42703"]);
+
+export function isStructuralDbError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" && STRUCTURAL_PG_ERROR_CODES.has(code);
+}
 
 /** Replace `{{key}}` placeholders. Values are coerced to strings. */
 function render(template: string, context: Record<string, string>): string {
@@ -187,7 +202,13 @@ async function dispatchInApp(
       result.deduped += 1;
     }
   } catch (err) {
+    result.inAppFailed += 1;
     logger.error({ err, dedupeKey }, "[notificationDispatcher] in-app insert failed");
+    // A missing notification_sends table/column is a structural regression, not
+    // a transient error — rethrow so the caller (and the trial sweep endpoint)
+    // surfaces it loudly instead of returning a clean result while every
+    // notification is silently dropped.
+    if (isStructuralDbError(err)) throw err;
   }
 }
 
@@ -233,6 +254,9 @@ async function dispatchEmail(
     claimedId = ins.rows[0].id;
   } catch (err) {
     logger.error({ err, dedupeKey }, "[notificationDispatcher] email claim failed");
+    // Structural schema errors (missing table/column) are a deployment
+    // regression — rethrow loudly rather than silently skipping the send.
+    if (isStructuralDbError(err)) throw err;
     return;
   }
 
@@ -267,6 +291,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<Dispat
     templateKey: input.templateKey,
     skippedDisabled: false,
     inAppCreated: 0,
+    inAppFailed: 0,
     emailsSent: 0,
     emailsFailed: 0,
     deduped: 0,

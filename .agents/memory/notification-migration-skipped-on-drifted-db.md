@@ -24,12 +24,21 @@ sweep still returns 200 (the in-app dispatcher catches+logs the insert error).
   just as silently skipped as a missing journal entry.
 
 **How to apply:**
-- To unblock e2e locally, apply the idempotent `0041_notifications.sql`
-  (`CREATE TABLE IF NOT EXISTS ...`) directly to NEON_DATABASE_URL once; the
-  test's own pg pool then finds the table.
-- Suspect this whenever an inbox/notifications query 42P01s on a DB that
-  otherwise has current tables — verify with a real `information_schema.tables`
-  query, not by trusting a 200 from the dispatcher.
-- PRODUCTION may have the same gap if it crossed the high-water mark before 0041
-  was journaled — worth verifying notification_sends exists in prod before
-  trusting the notifications feature there.
+- DURABLE FIX now in place: `migrate.ts` re-applies `0041_notifications.sql`
+  every release via a `runStep` AFTER the drizzle migrate, independent of
+  drizzle's high-water-mark dedup, so any drifted DB self-heals. The file stays
+  the single source of truth (it is read from `MIGRATIONS_FOLDER`, not
+  duplicated). Same pattern fits any other table-existence-critical DDL.
+- This self-heal step fails CLOSED (it does NOT swallow errors like the data
+  backfills around it): after applying the SQL it asserts both tables exist via
+  information_schema and throws otherwise, so a broken self-heal aborts the
+  release instead of shipping an api-server that silently drops notifications.
+- Runtime regression now fails LOUDLY: the dispatcher classifies Postgres 42P01
+  / 42703 as structural (`isStructuralDbError`) and RETHROWS instead of
+  swallowing; the trial sweep rethrows structural errors so
+  `/api/_test/run-trial-sweep` returns 500. Transient insert errors are still
+  tolerated (logged + counted in `DispatchResult.inAppFailed`).
+- PRODUCTION (Neon) was VERIFIED healthy May 2026: both tables exist + all 4
+  seeded template rows present; only the stale Helium dev DB was missing them.
+  Verify with a real `information_schema.tables` query against the right DB
+  (Neon for prod), not by trusting a 200 from the dispatcher.

@@ -156,4 +156,39 @@ describe("dispatchNotification", () => {
     // claim insert + delete-on-fail
     expect(queryMock).toHaveBeenCalledTimes(2);
   });
+
+  it("rethrows a structural DB error (missing table) instead of swallowing it", async () => {
+    getTemplateMock.mockResolvedValue({ ...baseTpl, channels: ["in_app"] });
+    const undefinedTable = Object.assign(
+      new Error('relation "notification_sends" does not exist'),
+      { code: "42P01" },
+    );
+    queryMock.mockRejectedValueOnce(undefinedTable); // in_app insert
+
+    await expect(
+      dispatchNotification({
+        templateKey: "trial_day_7",
+        tenantId: 42,
+        recipients: [{ appUserId: 1, email: "a@b.com" }],
+        dedupeBase: "trial_day_7:tenant:42",
+        channels: ["in_app"],
+      }),
+    ).rejects.toThrow(/notification_sends/);
+  });
+
+  it("swallows a transient in-app insert error and counts it as failed", async () => {
+    getTemplateMock.mockResolvedValue({ ...baseTpl, channels: ["in_app"] });
+    queryMock.mockRejectedValueOnce(new Error("connection terminated")); // in_app insert
+
+    const res = await dispatchNotification({
+      templateKey: "trial_day_7",
+      tenantId: 42,
+      recipients: [{ appUserId: 1, email: "a@b.com" }],
+      dedupeBase: "trial_day_7:tenant:42",
+      channels: ["in_app"],
+    });
+
+    expect(res.inAppCreated).toBe(0);
+    expect(res.inAppFailed).toBe(1);
+  });
 });

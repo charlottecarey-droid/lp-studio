@@ -384,9 +384,13 @@ const httpServer = app.listen(port, (err) => {
   // Trial lifecycle nudges (day 7 / 11 / 13). First run deferred off the
   // cold-start path; then daily. Idempotent via the dispatcher's dedupe.
   setTimeout(() => {
-    void notifyTrialLifecycle();
+    void notifyTrialLifecycle().catch((err) =>
+      logger.error({ err }, "notifyTrialLifecycle failed (boot run)"),
+    );
     setInterval(() => {
-      void notifyTrialLifecycle();
+      void notifyTrialLifecycle().catch((err) =>
+        logger.error({ err }, "notifyTrialLifecycle failed (interval run)"),
+      );
     }, TRIAL_NOTIFY_INTERVAL_MS).unref();
   }, TRIAL_NOTIFY_BOOT_DELAY_MS).unref();
 
