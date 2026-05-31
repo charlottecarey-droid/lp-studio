@@ -20,6 +20,7 @@ import {
   TRIAL_NOTIFY_INTERVAL_MS,
 } from "./lib/trialLifecycle";
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
+import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
 import { runAssetsGc } from "./lib/assetsGc";
@@ -358,6 +359,12 @@ const httpServer = app.listen(port, (err) => {
   // Task #425 — bootstrap stripe-replit-sync (DDL, managed webhook,
   // backfill). Best-effort and gated by STRIPE_ENABLED.
   void initStripe();
+
+  // Cross-instance in-app notification pushes (Postgres LISTEN/NOTIFY). Opens a
+  // dedicated non-pooled listener so a notification created on any replica
+  // reaches a user's open tabs on every replica. Non-blocking and best-effort;
+  // the client poll backstop covers any window the broker is down.
+  initNotificationStreamBroker();
 
   // Periodic cleanup of expired workspace URL redirects (task #136).
   // Runs once at boot and then on a fixed interval. Failures are logged

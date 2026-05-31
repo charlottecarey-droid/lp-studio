@@ -1,20 +1,32 @@
 import type { Response } from "express";
 import { logger } from "./logger";
+import {
+  INSTANCE_ID,
+  publishNotificationEvent,
+  startNotificationBroker,
+} from "./notificationBroker";
 
 /**
- * In-process Server-Sent-Events hub for in-app notifications.
+ * Server-Sent-Events hub for in-app notifications.
  *
  * When an in-app notification row is created (see notificationDispatcher), we
- * push it to any SSE clients the same Node process is currently holding open
- * for that (tenant, user) pair. This surfaces time-sensitive nudges instantly
- * instead of waiting out the bell's polling interval.
+ * push it to any SSE clients currently held open for that (tenant, user) pair.
+ * This surfaces time-sensitive nudges instantly instead of waiting out the
+ * bell's polling interval.
  *
- * IMPORTANT — single-process reach: the registry lives in memory, so a push
- * only reaches clients connected to the SAME instance that ran the dispatch.
- * In a multi-replica deploy a client on instance A won't receive a push for a
- * notification dispatched on instance B. That's intentionally acceptable: the
- * client keeps a slow polling backstop (see use-notifications.ts) which closes
- * the gap within one poll cycle. SSE is the fast path, polling is the floor.
+ * Two delivery paths, one fan-out:
+ *   - LOCAL (fast path): the originating process delivers to its own SSE
+ *     clients in-memory, with zero round-trip.
+ *   - CROSS-INSTANCE: the same event is published to a Postgres LISTEN/NOTIFY
+ *     broker (see notificationBroker). Every OTHER replica receives it and runs
+ *     the same local fan-out, so a tab pinned to instance A gets a push for a
+ *     notification created on instance B in near-real-time. The originating
+ *     instance ignores its own broker echo (matched by INSTANCE_ID) since it
+ *     already delivered locally.
+ *
+ * The client's polling backstop (see use-notifications.ts) remains as the floor
+ * for the rare window when the broker connection is down. SSE is the fast path,
+ * polling is the safety net.
  */
 
 export interface InAppStreamPayload {
@@ -55,15 +67,12 @@ export function addStreamClient(tenantId: number, appUserId: number, res: Respon
 }
 
 /**
- * Push a freshly created in-app notification to every client connected for the
- * given (tenant, user) pair on this process. Best-effort: a write failure just
- * drops that client (its `close` handler will clean it up).
+ * Deliver a notification to every SSE client connected for the given
+ * (tenant, user) pair ON THIS PROCESS. Best-effort: a write failure just drops
+ * that client (its `close` handler will clean it up). This is the shared local
+ * fan-out used by both the originating push and cross-instance broker delivery.
  */
-export function publishInAppNotification(
-  tenantId: number,
-  appUserId: number,
-  payload: InAppStreamPayload,
-): void {
+function deliverLocal(tenantId: number, appUserId: number, payload: InAppStreamPayload): void {
   if (!clients.size) return;
   const data = `event: notification\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const client of clients) {
@@ -75,6 +84,31 @@ export function publishInAppNotification(
       clients.delete(client);
     }
   }
+}
+
+/**
+ * Push a freshly created in-app notification to the given (tenant, user). Runs
+ * the local fan-out immediately (fast path) and publishes the same event to the
+ * cross-instance broker so tabs pinned to other replicas also get it in
+ * near-real-time. Best-effort throughout.
+ */
+export function publishInAppNotification(
+  tenantId: number,
+  appUserId: number,
+  payload: InAppStreamPayload,
+): void {
+  deliverLocal(tenantId, appUserId, payload);
+  // Fan out to other instances. The broker drops our own echo (INSTANCE_ID), so
+  // local clients are never double-delivered.
+  publishNotificationEvent({ originId: INSTANCE_ID, tenantId, appUserId, payload });
+}
+
+/**
+ * Start the cross-instance notification broker, wiring remote pushes to the
+ * local SSE fan-out. Call once on server boot; idempotent and non-blocking.
+ */
+export function initNotificationStreamBroker(): void {
+  startNotificationBroker((msg) => deliverLocal(msg.tenantId, msg.appUserId, msg.payload));
 }
 
 /** Test/observability helper — number of currently connected clients. */
