@@ -21,6 +21,7 @@
 // `stripe.subscriptions` / `stripe.prices` / `stripe.customers` tables for
 // reads; we never INSERT into the `stripe.*` schema (the sync engine owns
 // it).
+import pg from "pg";
 import Stripe from "stripe";
 import { StripeSync, runMigrations as runStripeSyncMigrations } from "stripe-replit-sync";
 import { logger } from "./logger";
@@ -190,13 +191,165 @@ export function getStripeSync(): Promise<StripeSync> {
 }
 
 /**
+ * Final shape of `stripe.accounts` as shipped by the installed
+ * `stripe-replit-sync` version. This is the *net* result of the package's
+ * own migrations applied in order:
+ *   - 0046_sync_status_per_account — CREATE TABLE accounts (raw_data JSONB +
+ *     generated columns + first/last_synced_at/updated_at).
+ *   - 0047_api_key_hashes          — ADD COLUMN api_key_hashes TEXT[] + GIN.
+ *   - 0048_rename_reserved_columns — rename raw_data→_raw_data,
+ *     last_synced_at→_last_synced_at, updated_at→_updated_at, and redefine
+ *     set_updated_at() to write _updated_at. (first_synced_at is NOT renamed.)
+ *   - 0050_rename_id_to_match_stripe_api — drop _id, add `id` as a STORED
+ *     generated column from _raw_data->>'id' and make it the PRIMARY KEY.
+ *
+ * Kept verbatim-equivalent to those files so the generated columns,
+ * constraints and trigger match exactly what the sync engine expects.
+ * Fully idempotent (CREATE OR REPLACE / IF NOT EXISTS / DROP … IF EXISTS) so
+ * it is safe on every boot and on a partially-created table. Foreign keys
+ * back to `accounts` are intentionally omitted — they are integrity-only and
+ * not required by upsertAccount / getAccountId / findOrCreateManagedWebhook,
+ * and re-adding them would risk failing on an already-wired schema.
+ */
+const STRIPE_ACCOUNTS_SELF_HEAL_SQL = `
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+AS $$
+begin
+  new._updated_at = now();
+  return NEW;
+end;
+$$;
+
+CREATE TABLE IF NOT EXISTS "stripe"."accounts" (
+  _raw_data JSONB NOT NULL,
+  first_synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  _last_synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  _updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  business_name TEXT GENERATED ALWAYS AS ((_raw_data->'business_profile'->>'name')::text) STORED,
+  email TEXT GENERATED ALWAYS AS ((_raw_data->>'email')::text) STORED,
+  type TEXT GENERATED ALWAYS AS ((_raw_data->>'type')::text) STORED,
+  charges_enabled BOOLEAN GENERATED ALWAYS AS ((_raw_data->>'charges_enabled')::boolean) STORED,
+  payouts_enabled BOOLEAN GENERATED ALWAYS AS ((_raw_data->>'payouts_enabled')::boolean) STORED,
+  details_submitted BOOLEAN GENERATED ALWAYS AS ((_raw_data->>'details_submitted')::boolean) STORED,
+  country TEXT GENERATED ALWAYS AS ((_raw_data->>'country')::text) STORED,
+  default_currency TEXT GENERATED ALWAYS AS ((_raw_data->>'default_currency')::text) STORED,
+  created INTEGER GENERATED ALWAYS AS ((_raw_data->>'created')::integer) STORED,
+  api_key_hashes TEXT[] DEFAULT '{}',
+  id TEXT GENERATED ALWAYS AS ((_raw_data->>'id')::text) STORED PRIMARY KEY
+);
+
+CREATE INDEX IF NOT EXISTS idx_accounts_business_name
+  ON "stripe"."accounts" (business_name);
+CREATE INDEX IF NOT EXISTS idx_accounts_api_key_hashes
+  ON "stripe"."accounts" USING GIN (api_key_hashes);
+
+DROP TRIGGER IF EXISTS handle_updated_at ON "stripe"."accounts";
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON "stripe"."accounts"
+  FOR EACH ROW
+  EXECUTE PROCEDURE set_updated_at();
+`;
+
+/**
+ * Durable self-heal for `stripe.accounts`. The `stripe-replit-sync` migration
+ * runner dedups by its own high-water mark in `stripe._migrations`: on a DB
+ * whose tracker records `0046`+ as applied while the table is actually absent
+ * (schema drift), re-running the package migrations will NOT recreate it. That
+ * leaves `findOrCreateManagedWebhook` and account sync (`upsertAccount` /
+ * `getAccountId`) failing with `relation "stripe.accounts" does not exist`
+ * (Postgres 42P01) even though boot logs "sync schema migrations applied".
+ *
+ * Same self-heal contract as the notifications (0041) / workflow_send_failures
+ * (0051) steps in `migrate.ts`: idempotent, independent of the package's dedup,
+ * and fails LOUDLY if the table still isn't present afterward. The cheap
+ * existence probe means healthy DBs only pay for one or two SELECTs; only a
+ * drifted DB runs the DDL.
+ *
+ * Crucially, the heal is GATED on the package tracker. Unlike the drizzle
+ * self-heals, `stripe-replit-sync` ALSO tries to create `accounts` (in its
+ * `0046` migration, whose `CREATE TRIGGER handle_updated_at` is NOT idempotent).
+ * If we pre-created the final-shape table on a DB whose tracker has not yet
+ * reached the last accounts migration (`0050_rename_id_to_match_stripe_api`),
+ * the package's next run of `0046`/`0047`/… would collide with our objects and
+ * wedge the migration runner forever. So we only recreate `accounts` when the
+ * tracker shows `0050` applied (i.e. the package believes the final-shape table
+ * exists but it has actually drifted away — the bug this fixes). On any
+ * earlier/fresh tracker state we defer creation to the package's own
+ * migrations and never touch the schema.
+ */
+const ACCOUNTS_FINAL_MIGRATION = "rename_id_to_match_stripe_api"; // 0050
+
+async function ensureStripeAccountsTable(connectionString: string): Promise<void> {
+  const pool = new pg.Pool({ connectionString });
+  try {
+    const before = await pool.query<{ present: boolean }>(
+      `SELECT to_regclass('stripe.accounts') IS NOT NULL AS present`,
+    );
+    if (before.rows[0]?.present) {
+      // Healthy: the package (or a prior heal) already built the table.
+      return;
+    }
+
+    // `accounts` is absent. Only treat this as drift — and recreate the table —
+    // when the package tracker records the final accounts migration as applied.
+    // The tracker table itself may not exist yet on a brand-new DB, so probe it
+    // first (referencing a missing relation directly would fail at plan time).
+    const trackerPresent = await pool.query<{ present: boolean }>(
+      `SELECT to_regclass('stripe._migrations') IS NOT NULL AS present`,
+    );
+    let finalMigrationApplied = false;
+    if (trackerPresent.rows[0]?.present) {
+      const applied = await pool.query<{ applied: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM stripe._migrations WHERE name = $1) AS applied`,
+        [ACCOUNTS_FINAL_MIGRATION],
+      );
+      finalMigrationApplied = applied.rows[0]?.applied ?? false;
+    }
+
+    if (!finalMigrationApplied) {
+      // Fresh or mid-migration DB: the package will create `accounts` itself on
+      // this (or a subsequent) run. Pre-creating it here would collide with the
+      // package's non-idempotent DDL, so leave the schema untouched.
+      logger.info(
+        { src: "stripe-sync" },
+        "[stripe] stripe.accounts absent and package tracker below 0050 — deferring creation to package migrations",
+      );
+      return;
+    }
+
+    logger.warn(
+      { src: "stripe-sync" },
+      "[stripe] stripe.accounts missing despite applied migrations — self-healing schema drift",
+    );
+    // Single string argument → node-postgres uses the SIMPLE query protocol,
+    // which allows the file's multiple statements in one round-trip.
+    await pool.query(STRIPE_ACCOUNTS_SELF_HEAL_SQL);
+
+    const after = await pool.query<{ present: boolean }>(
+      `SELECT to_regclass('stripe.accounts') IS NOT NULL AS present`,
+    );
+    if (!after.rows[0]?.present) {
+      throw new Error(
+        "stripe.accounts self-heal did not produce the table — aborting stripe init",
+      );
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
  * Runs `stripe-replit-sync`'s schema migrations. Idempotent and safe to
  * run on every boot. Creates the `stripe.*` schema and all Stripe entity
- * tables (products, prices, customers, subscriptions, …).
+ * tables (products, prices, customers, subscriptions, …), then self-heals
+ * `stripe.accounts` if it drifted out of existence (see
+ * `ensureStripeAccountsTable`).
  */
 export async function runStripeSyncSchemaMigrations(): Promise<void> {
   const { connectionString } = buildSyncPoolConfig();
   await runStripeSyncMigrations({ databaseUrl: connectionString });
+  await ensureStripeAccountsTable(connectionString);
 }
 
 // ---------- Price resolution ------------------------------------------
