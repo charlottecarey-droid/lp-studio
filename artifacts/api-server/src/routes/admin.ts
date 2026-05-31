@@ -330,6 +330,10 @@ router.get("/superadmin/tenants", requireSuperadmin, async (req, res): Promise<v
         -- round-trip. JSONB extraction returns NULL when the key is missing,
         -- which the frontend treats as the safe-by-default OFF state.
         COALESCE((t.settings->>'aiImageGenOutsideBuilderEnabled')::boolean, false) AS ai_image_gen_outside_builder_enabled,
+        -- Task #665 — surface the reciprocal image-library share link so the
+        -- SuperAdmin UI can show whether (and with which tenant) this workspace
+        -- shares its media catalog, without a second round-trip.
+        t.shares_library_with_tenant_id,
         COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NOT NULL)::int AS member_count,
         COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NULL)::int     AS pending_count,
         COUNT(DISTINCT p.id)::int AS page_count
@@ -1125,6 +1129,100 @@ router.post("/superadmin/tenants/:id/copy-brand", requireSuperadmin, async (req,
   } catch (err) {
     console.error("[superadmin] POST /copy-brand error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/tenants/:id/share-library
+//
+// Set or clear the reciprocal image-library share link between a tenant and a
+// sibling. The media API's resolveLibraryTenantScope only grants cross-tenant
+// access when BOTH rows point at each other, so this endpoint always writes the
+// link on both rows (or clears both) in a single transaction — one-sided links
+// are never created from the UI.
+//
+// Body: { siblingTenantId: number | null }
+//   - number → link target ↔ sibling reciprocally (clearing any stale partners
+//     either tenant was previously linked to, so no dangling one-sided link
+//     remains).
+//   - null   → unlink target from whatever it currently shares with (clearing
+//     both rows).
+router.post("/superadmin/tenants/:id/share-library", requireSuperadmin, async (req, res): Promise<void> => {
+  const targetId = Number(req.params.id);
+  if (!targetId || isNaN(targetId)) {
+    res.status(400).json({ error: "Invalid tenant id" });
+    return;
+  }
+  const raw = (req.body ?? {}).siblingTenantId;
+  // Normalize: null / undefined / "" / "none" all mean "unlink".
+  const siblingId =
+    raw == null || raw === "" || raw === "none" ? null : Number(raw);
+  if (siblingId !== null && (isNaN(siblingId) || siblingId <= 0)) {
+    res.status(400).json({ error: "Invalid siblingTenantId" });
+    return;
+  }
+  if (siblingId !== null && siblingId === targetId) {
+    res.status(400).json({ error: "A tenant cannot share a library with itself" });
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const target = await client.query(
+      `SELECT id, shares_library_with_tenant_id AS sibling FROM tenants WHERE id = $1 FOR UPDATE`,
+      [targetId],
+    );
+    if (!target.rows.length) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Target tenant not found" });
+      return;
+    }
+    if (siblingId === null) {
+      // Unlink: clear the target, whatever row points back at it, AND the row
+      // the target currently references (so even a legacy one-sided link where
+      // the partner never pointed back is fully cleared on both rows).
+      const ids = [targetId];
+      const currentSibling = target.rows[0].sibling;
+      if (currentSibling != null && currentSibling !== targetId) ids.push(currentSibling);
+      await client.query(
+        `UPDATE tenants SET shares_library_with_tenant_id = NULL
+           WHERE id = ANY($1::int[]) OR shares_library_with_tenant_id = $2`,
+        [ids, targetId],
+      );
+      await client.query("COMMIT");
+      res.json({ ok: true, siblingTenantId: null });
+      return;
+    }
+    const sibling = await client.query(`SELECT id FROM tenants WHERE id = $1 FOR UPDATE`, [siblingId]);
+    if (!sibling.rows.length) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Sibling tenant not found" });
+      return;
+    }
+    // Clear both endpoints AND any stale partners that currently point at
+    // either of them, so re-linking never leaves a dangling one-sided link.
+    await client.query(
+      `UPDATE tenants SET shares_library_with_tenant_id = NULL
+         WHERE id IN ($1, $2)
+            OR shares_library_with_tenant_id IN ($1, $2)`,
+      [targetId, siblingId],
+    );
+    // Establish the reciprocal link.
+    await client.query(
+      `UPDATE tenants SET shares_library_with_tenant_id = $2 WHERE id = $1`,
+      [targetId, siblingId],
+    );
+    await client.query(
+      `UPDATE tenants SET shares_library_with_tenant_id = $2 WHERE id = $1`,
+      [siblingId, targetId],
+    );
+    await client.query("COMMIT");
+    res.json({ ok: true, siblingTenantId: siblingId });
+  } catch (err) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+    console.error("[superadmin] POST /share-library error:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 

@@ -88,6 +88,10 @@ interface Tenant {
   // `stripe_subscription_id` but is no longer being billed by Stripe,
   // so a manual plan edit is safe and the warning is just noise.
   stripe_subscription_status?: string | null;
+  // Task #665 — reciprocal image-library share link. When set, this tenant's
+  // media drawer also includes the linked tenant's uploads (and vice versa).
+  // null when the workspace shares with no one.
+  shares_library_with_tenant_id?: number | null;
 }
 
 const STRIPE_LIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
@@ -470,6 +474,10 @@ function TenantRow({
   const [copyingBrand, setCopyingBrand] = useState(false);
   const [brandCopyError, setBrandCopyError] = useState<string | null>(null);
   const [brandCopied, setBrandCopied] = useState(false);
+  // Task #665 — reciprocal image-library share link.
+  const [savingShare, setSavingShare] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareSaved, setShareSaved] = useState(false);
   const [tenantRoles, setTenantRoles] = useState<{ id: number; name: string; is_admin: boolean }[]>([]);
   const [addEmail, setAddEmail] = useState("");
   const [addRoleId, setAddRoleId] = useState<string>("");
@@ -636,6 +644,35 @@ function TenantRow({
       setBrandCopyError(err.message ?? "Failed to copy brand");
     } finally {
       setCopyingBrand(false);
+    }
+  };
+
+  // Task #665 — set or clear the reciprocal image-library share link. Passing
+  // null unlinks; both rows are updated server-side in a single transaction so
+  // the existing reciprocal check in resolveLibraryTenantScope passes.
+  const setLibraryShare = async (siblingTenantId: number | null) => {
+    setSavingShare(true);
+    setShareError(null);
+    setShareSaved(false);
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/share-library`, {
+        method: "POST",
+        body: JSON.stringify({ siblingTenantId }),
+      });
+      setShareSaved(true);
+      setTimeout(() => setShareSaved(false), 2500);
+      // Re-fetch so both this tenant's and the sibling's link state refresh.
+      onUpdate();
+    } catch (err: any) {
+      const rawMsg = err?.message ?? "Failed to update library sharing";
+      try {
+        const parsed = JSON.parse(rawMsg);
+        setShareError(parsed?.error ?? rawMsg);
+      } catch {
+        setShareError(rawMsg);
+      }
+    } finally {
+      setSavingShare(false);
     }
   };
 
@@ -955,6 +992,67 @@ function TenantRow({
                   {brandCopyError && <p className="text-[11px] text-destructive">{brandCopyError}</p>}
                 </div>
                 <p className="text-[11px] text-muted-foreground">Overwrites this workspace's brand settings with a full copy from the selected workspace.</p>
+              </div>
+
+              {/* Task #665 — image library sharing. Reciprocal link: setting A↔B
+                  lets both workspaces see each other's uploaded images in the
+                  media drawer (own uploads + sibling uploads + global starter
+                  set). Single reciprocal pair only. */}
+              <div className="space-y-2 border-t pt-3" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Image library sharing</p>
+                {(() => {
+                  const siblingId = tenant.shares_library_with_tenant_id ?? null;
+                  const sibling = siblingId != null ? tenants.find(t => t.id === siblingId) : null;
+                  return (
+                    <>
+                      {siblingId != null ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs">
+                            Sharing with{" "}
+                            <span className="font-medium">{sibling ? sibling.name : `tenant #${siblingId}`}</span>
+                            {sibling && <span className="text-muted-foreground"> #{sibling.id}</span>}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={savingShare}
+                            onClick={() => setLibraryShare(null)}
+                          >
+                            {savingShare
+                              ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Saving…</>
+                              : "Unlink"}
+                          </Button>
+                          {shareSaved && <span className="text-[11px] text-green-600 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Select
+                            value="none"
+                            onValueChange={(v) => { if (v !== "none") setLibraryShare(Number(v)); }}
+                            disabled={savingShare}
+                          >
+                            <SelectTrigger className="h-7 text-xs w-52"><SelectValue placeholder="Link with…" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">— Choose workspace —</SelectItem>
+                              {tenants.filter(t => t.id !== tenant.id).map(t => (
+                                <SelectItem key={t.id} value={String(t.id)}>
+                                  {t.name} <span className="text-muted-foreground">#{t.id}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {savingShare && <Loader2 className="w-3 h-3 animate-spin" />}
+                          {shareSaved && <span className="text-[11px] text-green-600 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
+                        </div>
+                      )}
+                      {shareError && <p className="text-[11px] text-destructive">{shareError}</p>}
+                      <p className="text-[11px] text-muted-foreground">
+                        Links two sibling workspaces so both see each other's uploaded images in the media drawer. The link is reciprocal and applies to both workspaces at once.
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Delete workspace */}
