@@ -471,6 +471,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
           <BlockHowItWorks
             props={block.props}
             brand={brand}
+            bgColor={block.blockSettings?.bgColor}
             onFieldChange={onBlockChange
               ? (updated: HowItWorksBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}

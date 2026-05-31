@@ -896,9 +896,9 @@ const localServices: GlobalTemplateSeed = {
         beforeLabel: "Before",
         afterLabel: "After",
         pairs: [
-          { beforeSrc: "https://images.unsplash.com/photo-1556909114-44e3e9699e2b?w=1200&q=80", beforeAlt: "Kitchen before", afterSrc: "https://images.unsplash.com/photo-1556912173-3bb406ef7e77?w=1200&q=80", afterAlt: "Kitchen after", caption: "Full kitchen refresh — completed in 4 weeks." },
+          { beforeSrc: "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=1200&q=80", beforeAlt: "Kitchen before", afterSrc: "https://images.unsplash.com/photo-1556912173-3bb406ef7e77?w=1200&q=80", afterAlt: "Kitchen after", caption: "Full kitchen refresh — completed in 4 weeks." },
           { beforeSrc: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=1200&q=80", beforeAlt: "Bath before", afterSrc: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=1200&q=80&sat=-100", afterAlt: "Bath after", caption: "Master bath — heated floors, frameless glass." },
-          { beforeSrc: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=1200&q=80", beforeAlt: "Yard before", afterSrc: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&q=80", afterAlt: "Yard after", caption: "Front yard hardscape and lighting." },
+          { beforeSrc: "https://images.unsplash.com/photo-1623358519330-00f61d89396b?w=1200&q=80", beforeAlt: "Yard before", afterSrc: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&q=80", afterAlt: "Yard after", caption: "Front yard hardscape and lighting." },
         ],
       },
     },
