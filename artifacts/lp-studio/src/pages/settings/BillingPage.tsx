@@ -588,7 +588,7 @@ function TrialBanner({
               </p>
               <p className="text-sm text-muted-foreground">
                 {endMs
-                  ? `Your trial ends on ${formatDate(endMs)}. Upgrade below any time to keep your Growth features.`
+                  ? `Your trial ends on ${formatDate(endMs / 1000)}. Upgrade below any time to keep your Growth features.`
                   : "Upgrade below any time to keep your Growth features."}
               </p>
               {canEndTrial && (
