@@ -2530,6 +2530,49 @@ export default function BrandSettings() {
 
                     <Separator />
 
+                    {/* Website URL + "link logo to website" toggle. When the
+                        toggle is on and a URL is set, the logo in nav, hero and
+                        footer blocks links to the website (opens in a new tab). */}
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Website URL</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Your brand's public homepage. Used as the link target when "Link logo to website URL" is on.
+                      </p>
+                      <Input
+                        value={config.websiteUrl ?? ""}
+                        onChange={(e) => update("websiteUrl", e.target.value)}
+                        placeholder="https://yourbrand.com"
+                      />
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="logoLinkEnabled"
+                        checked={config.logoLinkEnabled === true}
+                        onCheckedChange={(v) => update("logoLinkEnabled", v === true)}
+                      />
+                      <div className="flex flex-col">
+                        <Label htmlFor="logoLinkEnabled" className="text-sm font-medium cursor-pointer">
+                          Link logo to website URL
+                        </Label>
+                        {config.logoLinkEnabled && !(config.websiteUrl ?? "").trim() ? (
+                          <p className="text-xs text-amber-600 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            Set a Website URL above for the logo link to take effect.
+                          </p>
+                        ) : config.logoLinkEnabled ? (
+                          <p className="text-xs text-muted-foreground">
+                            Logo will link to your website URL on published pages (opens in a new tab).
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            When on, the logo in nav, hero, and footer blocks links to your website URL.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
                     {/* Email banner — inserted at the top of templated emails
                         (follow-up emails to form submitters, sales outreach
                         drafts). When blank, the editor + send paths fall back

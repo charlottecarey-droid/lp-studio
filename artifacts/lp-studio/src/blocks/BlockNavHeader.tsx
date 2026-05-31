@@ -3,7 +3,7 @@ import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses } from "@/lib/brand-config";
+import { getButtonClasses, getLogoLinkUrl } from "@/lib/brand-config";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -115,13 +115,23 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId 
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
         <div className="shrink-0">
-          <BrandLogo
-            brand={brand}
-            url={props.logoUrl}
-            tone="onLight"
-            alt={props.logoText || brand.brandName || "Logo"}
-            className="h-8 w-auto"
-          />
+          {(() => {
+            const logo = (
+              <BrandLogo
+                brand={brand}
+                url={props.logoUrl}
+                tone="onLight"
+                alt={props.logoText || brand.brandName || "Logo"}
+                className="h-8 w-auto"
+              />
+            );
+            const logoLink = getLogoLinkUrl(brand);
+            return logoLink ? (
+              <a href={logoLink} target="_blank" rel="noopener noreferrer" className="inline-block">
+                {logo}
+              </a>
+            ) : logo;
+          })()}
         </div>
 
         {(props.navLinks ?? []).length > 0 && (

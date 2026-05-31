@@ -282,6 +282,16 @@ export interface BrandConfig {
   chilipiperUrl?: string;
   logoUrl?: string;
   logoAutoRecolor?: boolean;
+  /** The brand's public website URL (e.g. "https://acme.com"). Used as the
+   *  link target when `logoLinkEnabled` is on, so the logo in nav/hero/footer
+   *  blocks links back to the brand home page. Empty/unset → logo stays
+   *  unlinked even if `logoLinkEnabled` is true. */
+  websiteUrl?: string;
+  /** Opt-in: when true AND `websiteUrl` is set, the brand logo in nav, hero,
+   *  and footer blocks is wrapped in an `<a>` pointing to `websiteUrl`
+   *  (opens in a new tab). Defaults to OFF for existing tenants (standard
+   *  falsy default — read as truthy, not `!== false`). */
+  logoLinkEnabled?: boolean;
   /** Banner image inserted at the top of templated emails (follow-up emails
    *  to form submitters, sales outreach drafts). When empty, the
    *  EmailWYSIWYGEditor + send paths fall back to the built-in Dandy banner.
@@ -540,6 +550,10 @@ export const DEFAULT_BRAND: BrandConfig = {
   // so this neutral default does not affect them.
   logoUrl: "",
   logoAutoRecolor: true,
+  // Logo→website link is opt-in. Off by default so existing tenants see no
+  // behaviour change; tenants enable it in Brand Settings → Logo & Identity.
+  websiteUrl: "",
+  logoLinkEnabled: false,
   emailBannerUrl: "",
   // Strict facts default ON: new tenants get the safer "don't invent
   // numbers" behaviour by default. Existing tenants whose row was
@@ -549,6 +563,19 @@ export const DEFAULT_BRAND: BrandConfig = {
   scrapedStats: [],
   scrapedTestimonials: [],
 };
+
+/**
+ * Resolve the URL the brand logo should link to, or null when it should not
+ * be a link. Returns the trimmed `websiteUrl` only when the tenant has opted
+ * in via `logoLinkEnabled` AND a non-empty URL is configured. Blocks wrap
+ * their `BrandLogo` in an `<a target="_blank" rel="noopener noreferrer">`
+ * when this returns a string.
+ */
+export function getLogoLinkUrl(brand: BrandConfig): string | null {
+  if (!brand.logoLinkEnabled) return null;
+  const url = brand.websiteUrl?.trim();
+  return url ? url : null;
+}
 
 /* ----------------------------------------------------------------------------
  * Brand-driven CSS variables

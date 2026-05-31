@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import type { FooterBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { contrastTextColor, relativeLuminance, pickContrastingColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
+import { contrastTextColor, relativeLuminance, pickContrastingColor, isValidHex, DEFAULT_BRAND, getLogoLinkUrl } from "@/lib/brand-config";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -67,13 +67,23 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
       <div className="max-w-6xl mx-auto px-8 pt-16 pb-10">
         <div className="flex flex-col md:flex-row gap-12 md:gap-16">
           <div className="flex-shrink-0">
-            <BrandLogo
-              brand={brand}
-              tone={isDarkBg ? "onPrimary" : "onLight"}
-              alt={brand.brandName || "Logo"}
-              className="w-40 h-auto"
-              style={{ opacity: 0.9 }}
-            />
+            {(() => {
+              const logo = (
+                <BrandLogo
+                  brand={brand}
+                  tone={isDarkBg ? "onPrimary" : "onLight"}
+                  alt={brand.brandName || "Logo"}
+                  className="w-40 h-auto"
+                  style={{ opacity: 0.9 }}
+                />
+              );
+              const logoLink = getLogoLinkUrl(brand);
+              return logoLink ? (
+                <a href={logoLink} target="_blank" rel="noopener noreferrer" className="inline-block">
+                  {logo}
+                </a>
+              ) : logo;
+            })()}
           </div>
 
           {(props.columns ?? []).length > 0 && (

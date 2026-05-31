@@ -1,6 +1,6 @@
 import { ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, isValidHex, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, isValidHex, DEFAULT_BRAND, getLogoLinkUrl, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
@@ -209,7 +209,15 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
     <div className={cn("w-full font-sans selection:bg-[var(--brand-accent)] selection:text-[var(--brand-primary)]", isDark ? "bg-[var(--brand-primary)] text-white" : "bg-white text-slate-900")} style={bgExtended}>
       <div className="min-h-[70vh] flex flex-col">
         <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
-          <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || "Logo"} className="h-8 w-auto" />
+          {(() => {
+            const logo = <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || "Logo"} className="h-8 w-auto" />;
+            const logoLink = getLogoLinkUrl(brand);
+            return logoLink ? (
+              <a href={logoLink} target="_blank" rel="noopener noreferrer" className="inline-block">
+                {logo}
+              </a>
+            ) : logo;
+          })()}
           <a href={brand.navCtaUrl} target="_blank" rel="noopener noreferrer" className={getButtonClasses(brand)} style={{ backgroundColor: LIME, color: NAV_CTA_TEXT_COLOR }}>
             {brand.navCtaText}
           </a>

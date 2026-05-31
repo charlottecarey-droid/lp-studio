@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickCtaButtonColors, pickOutlineButtonColors, isValidHex, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickCtaButtonColors, pickOutlineButtonColors, isValidHex, DEFAULT_BRAND, getLogoLinkUrl, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -150,16 +150,30 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         }}
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
-          {/* Logo */}
-          <a href={props.logoUrl || "#"} className="shrink-0">
-            <BrandLogo
-              brand={brand}
-              url={props.logoImageUrl}
-              tone="onDark"
-              alt={brand.brandName || "Logo"}
-              className="h-8 w-auto"
-            />
-          </a>
+          {/* Logo — when the brand opts into "link logo to website URL" the
+              brand website link (new tab) takes precedence over the block's
+              own logoUrl for consistency with nav/hero/footer blocks. */}
+          {(() => {
+            const brandLink = getLogoLinkUrl(brand);
+            const logo = (
+              <BrandLogo
+                brand={brand}
+                url={props.logoImageUrl}
+                tone="onDark"
+                alt={brand.brandName || "Logo"}
+                className="h-8 w-auto"
+              />
+            );
+            return brandLink ? (
+              <a href={brandLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                {logo}
+              </a>
+            ) : (
+              <a href={props.logoUrl || "#"} className="shrink-0">
+                {logo}
+              </a>
+            );
+          })()}
 
           {/* Nav links */}
           {props.navLinks && props.navLinks.length > 0 && (
