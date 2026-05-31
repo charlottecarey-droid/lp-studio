@@ -396,7 +396,8 @@ async function loadFromDb(): Promise<Record<string, NotificationTemplateDef>> {
               in_app_title, in_app_body,
               body_html, body_mode, wrap_in_shell, preview_data,
               enabled
-         FROM notification_templates`,
+         FROM notification_templates
+        WHERE scope = 'platform'`,
     );
     for (const row of r.rows) {
       const fallback = NOTIFICATION_TEMPLATES[row.key];

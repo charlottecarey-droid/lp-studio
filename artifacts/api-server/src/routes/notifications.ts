@@ -3,10 +3,28 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { pool } from "@workspace/db";
 import {
   PLATFORM_NOTIFICATION_VARIABLES,
+  TENANT_NOTIFICATION_VARIABLES,
   buildSampleVars,
 } from "@workspace/notification-variables";
-import { requireAuth, getTenantId, type AuthUser } from "../middleware/requireAuth";
+import { requireAuth, getTenantId, requirePermission, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
+import {
+  getTenantNotificationTemplates,
+  getTenantNotificationTemplate,
+  bustTenantNotificationTemplateCache,
+  TENANT_NOTIFICATION_TEMPLATES,
+} from "../lib/tenantNotificationTemplates";
+import {
+  resolveTenantShell,
+  getTenantEmailShellOverrides,
+  bustTenantEmailShellCache,
+} from "../lib/tenantEmailShell";
+import {
+  buildLeadFieldsTable,
+  buildLeadVariantNote,
+  buildCommentCtaBlock,
+  buildReviewCommentBlock,
+} from "../lib/tenantEmailAssets";
 import {
   getNotificationTemplates,
   getNotificationTemplate,
@@ -472,7 +490,7 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
           email_subject, email_intro, email_cta_label, in_app_title, in_app_body,
           body_html, body_mode, wrap_in_shell, preview_data, enabled, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now())
-       ON CONFLICT (key) DO UPDATE SET
+       ON CONFLICT (key) WHERE scope = 'platform' DO UPDATE SET
          channels        = COALESCE($5, notification_templates.channels),
          email_subject   = $6,
          email_intro     = $7,
@@ -714,5 +732,393 @@ router.get("/admin/email-template-log", requireSuperadmin, async (req, res): Pro
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Tenant email authoring (Task #588). The tenant-admin mirror of the SuperAdmin
+// authoring routes above. Every route is gated by requireAuth +
+// requirePermission("settings") and is scoped to the caller's ACTIVE tenant via
+// getTenantId — the tenant is NEVER taken from a request param/body, so a tenant
+// admin can only ever read/write their own templates & shell. A superadmin can
+// act on another tenant only through the audited X-Tenant-Id override that
+// getTenantId already enforces.
+// ---------------------------------------------------------------------------
+
+/** Sample substitution map for tenant preview / test-send, with overrides. */
+function buildTenantPreviewVars(overrides?: unknown): Record<string, string> {
+  const base = buildSampleVars(TENANT_NOTIFICATION_VARIABLES);
+  if (overrides && typeof overrides === "object" && !Array.isArray(overrides)) {
+    for (const [k, v] of Object.entries(overrides as Record<string, unknown>)) {
+      if (v === null || v === undefined) continue;
+      base[k] = String(v);
+    }
+  }
+  return expandEmailVars(base);
+}
+
+/**
+ * Sample raw-slot HTML per tenant template key so a preview/test-send renders
+ * the dynamic markup (field table, CTA, etc.) faithfully instead of leaving a
+ * literal `{{fieldsTable}}` token in the output.
+ */
+function sampleTenantRawSlots(key: string): Record<string, string> {
+  switch (key) {
+    case "lead_notification":
+      return {
+        fieldsTable: buildLeadFieldsTable({
+          Name: "Jordan Avery",
+          Email: "jordan@example.com",
+          Company: "Northwind Labs",
+        }),
+        variantNote: buildLeadVariantNote("Variant A"),
+      };
+    case "comment":
+      return { ctaBlock: buildCommentCtaBlock("https://example.com/page") };
+    case "review_decision":
+      return {
+        commentBlock: buildReviewCommentBlock(
+          "Looks great — just tighten the hero copy and ship it.",
+          "#16a34a",
+        ),
+      };
+    case "form_followup":
+      return {
+        content:
+          "<p style=\"margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.62;color:#2A2722;\">Thanks for reaching out — a member of our team will follow up shortly.</p>",
+      };
+    default:
+      return {};
+  }
+}
+
+// --- Tenant templates ------------------------------------------------------
+
+/** GET /api/tenant/notification-templates — this tenant's templates (defaults + overrides). */
+router.get(
+  "/tenant/notification-templates",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    try {
+      const templates = await getTenantNotificationTemplates(tenantId);
+      const { source } = await resolveTenantShell(tenantId);
+      res.json({ templates, variables: TENANT_NOTIFICATION_VARIABLES, shellSource: source });
+    } catch (err) {
+      console.error("[notifications] tenant template list error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+/** GET /api/tenant/notification-templates/:key — one resolved tenant template. */
+router.get(
+  "/tenant/notification-templates/:key",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const key = String(req.params.key);
+    if (!TENANT_NOTIFICATION_TEMPLATES[key]) {
+      res.status(404).json({ error: "Unknown template" });
+      return;
+    }
+    try {
+      const tpl = await getTenantNotificationTemplate(tenantId, key);
+      res.json({ template: tpl, variables: TENANT_NOTIFICATION_VARIABLES });
+    } catch (err) {
+      console.error("[notifications] tenant template get error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+/**
+ * PATCH /api/tenant/notification-templates/:key — upsert this tenant's override
+ * row (scope='tenant', tenant_id = active tenant). `key`/`name`/`category` are
+ * code-owned; only the authoring fields are accepted.
+ */
+router.patch(
+  "/tenant/notification-templates/:key",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const key = String(req.params.key);
+    const def = TENANT_NOTIFICATION_TEMPLATES[key];
+    if (!def) {
+      res.status(404).json({ error: "Unknown template" });
+      return;
+    }
+    const b = req.body ?? {};
+    const bodyMode = b.bodyMode === "html" ? "html" : b.bodyMode === "wysiwyg" ? "wysiwyg" : null;
+    const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : null;
+    const previewData =
+      b.previewData && typeof b.previewData === "object" && !Array.isArray(b.previewData)
+        ? JSON.stringify(b.previewData)
+        : null;
+    const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+    try {
+      await pool.query(
+        `INSERT INTO notification_templates
+           (key, name, description, category, channels, scope, tenant_id,
+            email_subject, email_intro, email_cta_label, in_app_title, in_app_body,
+            body_html, body_mode, wrap_in_shell, preview_data, enabled, updated_at)
+         VALUES ($1,$2,$3,$4,$5,'tenant',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, now())
+         ON CONFLICT (tenant_id, key) WHERE scope = 'tenant' DO UPDATE SET
+           email_subject   = $7,
+           email_intro     = $8,
+           email_cta_label = $9,
+           in_app_title    = $10,
+           in_app_body     = $11,
+           body_html       = $12,
+           body_mode       = $13,
+           wrap_in_shell   = $14,
+           preview_data    = $15::jsonb,
+           enabled         = $16,
+           updated_at      = now()`,
+        [
+          key,
+          def.name,
+          def.description,
+          def.category,
+          JSON.stringify(def.channels),
+          tenantId,
+          shortStr(b.emailSubject),
+          shortStr(b.emailIntro),
+          shortStr(b.emailCtaLabel),
+          shortStr(b.inAppTitle),
+          shortStr(b.inAppBody),
+          longStr(b.bodyHtml),
+          bodyMode,
+          wrapInShell,
+          previewData,
+          typeof b.enabled === "boolean" ? b.enabled : def.enabled,
+        ],
+      );
+      bustTenantNotificationTemplateCache(tenantId);
+      await writeEditLog({
+        targetType: "template",
+        targetKey: `tenant:${tenantId}:${key}`,
+        editorEmail,
+        action: "update",
+        diff: { fields: Object.keys(b).filter((f) => f !== "key" && f !== "category") },
+      });
+      const templates = await getTenantNotificationTemplates(tenantId);
+      res.json({ templates });
+    } catch (err) {
+      console.error("[notifications] tenant template patch error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+/** POST /api/tenant/notification-templates/:key/preview — render through this tenant's shell. */
+router.post(
+  "/tenant/notification-templates/:key/preview",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const key = String(req.params.key);
+    if (!TENANT_NOTIFICATION_TEMPLATES[key]) {
+      res.status(404).json({ error: "Unknown template" });
+      return;
+    }
+    const b = req.body ?? {};
+    try {
+      const tpl = await getTenantNotificationTemplate(tenantId, key);
+      const { shell } = await resolveTenantShell(tenantId);
+      const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
+      const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
+      const vars = buildTenantPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      const html = renderEmail({
+        shell,
+        bodyHtml,
+        wrapInShell,
+        vars,
+        rawSlots: sampleTenantRawSlots(key),
+      });
+      const subject = substitutePlain(
+        typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
+        vars,
+      );
+      res.json({ html, subject });
+    } catch (err) {
+      console.error("[notifications] tenant template preview error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+/** POST /api/tenant/notification-templates/:key/test-send — send to the requester. Rate-limited. */
+router.post(
+  "/tenant/notification-templates/:key/test-send",
+  requireAuth,
+  requirePermission("settings"),
+  testSendLimiter,
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const key = String(req.params.key);
+    if (!TENANT_NOTIFICATION_TEMPLATES[key]) {
+      res.status(404).json({ error: "Unknown template" });
+      return;
+    }
+    const b = req.body ?? {};
+    const user = (req as Request & { authUser?: AuthUser }).authUser;
+    const requested = typeof b.to === "string" ? b.to.trim() : "";
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requested);
+    if (requested && !isEmail) {
+      res.status(400).json({ error: "Enter a valid email address to send the test to." });
+      return;
+    }
+    const to = requested || user?.email;
+    if (!to) {
+      res.status(400).json({ error: "Your account has no email address to send to." });
+      return;
+    }
+    try {
+      const tpl = await getTenantNotificationTemplate(tenantId, key);
+      const { shell } = await resolveTenantShell(tenantId);
+      const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
+      const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
+      const vars = buildTenantPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      const html = renderEmail({
+        shell,
+        bodyHtml,
+        wrapInShell,
+        vars,
+        rawSlots: sampleTenantRawSlots(key),
+      });
+      const subject = `[Test] ${substitutePlain(
+        typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
+        vars,
+      )}`;
+      await sendViaResend(to, subject, html);
+      // Metadata-only audit: the actor is the tenant admin; the recipient
+      // address (PII) is deliberately NOT recorded in this multi-tenant log.
+      await writeEditLog({
+        targetType: "template",
+        targetKey: `tenant:${tenantId}:${key}`,
+        editorEmail: user?.email ?? null,
+        action: "test_send",
+        diff: { customRecipient: !!requested },
+      });
+      res.json({ ok: true, sentTo: to });
+    } catch (err) {
+      console.error("[notifications] tenant template test-send error:", err);
+      res.status(502).json({ error: "Failed to send test email." });
+    }
+  },
+);
+
+// --- Tenant shell ----------------------------------------------------------
+
+/** GET /api/tenant/email-shell — this tenant's overrides + brand-derived defaults. */
+router.get(
+  "/tenant/email-shell",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    try {
+      const { overrides, derived } = await getTenantEmailShellOverrides(tenantId);
+      res.json({ overrides, defaults: derived });
+    } catch (err) {
+      console.error("[notifications] tenant shell get error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+/**
+ * PATCH /api/tenant/email-shell — upsert this tenant's shell row. A null field
+ * clears that override (falls back to the brand-derived value).
+ */
+router.patch(
+  "/tenant/email-shell",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const b = req.body ?? {};
+    const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+    const has = (f: string): boolean => Object.prototype.hasOwnProperty.call(b, f);
+    try {
+      await pool.query(
+        `INSERT INTO tenant_email_shells (tenant_id, shell_html, logo_html, header_bg, footer_html, updated_at, updated_by)
+         VALUES ($1,$2,$3,$4,$5, now(), $6)
+         ON CONFLICT (tenant_id) DO UPDATE SET
+           shell_html  = $2,
+           logo_html   = $3,
+           header_bg   = $4,
+           footer_html = $5,
+           updated_at  = now(),
+           updated_by  = $6`,
+        [
+          tenantId,
+          longStr(b.shellHtml),
+          longStr(b.logoHtml),
+          shortStr(b.headerBg),
+          longStr(b.footerHtml),
+          editorEmail,
+        ],
+      );
+      bustTenantEmailShellCache(tenantId);
+      await writeEditLog({
+        targetType: "shell",
+        targetKey: `tenant:${tenantId}`,
+        editorEmail,
+        action: "update",
+        diff: { fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml"].filter(has) },
+      });
+      const { overrides, derived } = await getTenantEmailShellOverrides(tenantId);
+      res.json({ overrides, defaults: derived });
+    } catch (err) {
+      console.error("[notifications] tenant shell patch error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+/** POST /api/tenant/email-shell/preview — render a sample email through the (possibly unsaved) shell. */
+router.post(
+  "/tenant/email-shell/preview",
+  requireAuth,
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    const b = req.body ?? {};
+    try {
+      const { derived } = await getTenantEmailShellOverrides(tenantId);
+      const shell = {
+        shellHtml: typeof b.shellHtml === "string" ? b.shellHtml : derived.shellHtml,
+        logoHtml: typeof b.logoHtml === "string" ? b.logoHtml : derived.logoHtml,
+        headerBg: typeof b.headerBg === "string" ? b.headerBg : derived.headerBg,
+        footerHtml: typeof b.footerHtml === "string" ? b.footerHtml : derived.footerHtml,
+      };
+      const sampleTpl = TENANT_NOTIFICATION_TEMPLATES["lead_notification"];
+      const vars = buildTenantPreviewVars();
+      const html = renderEmail({
+        shell,
+        bodyHtml: sampleTpl?.bodyHtml ?? "<p>Sample email body</p>",
+        wrapInShell: true,
+        vars,
+        rawSlots: sampleTenantRawSlots("lead_notification"),
+      });
+      res.json({ html });
+    } catch (err) {
+      console.error("[notifications] tenant shell preview error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 export default router;

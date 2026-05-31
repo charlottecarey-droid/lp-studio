@@ -14,6 +14,7 @@ import {
   Settings,
   Globe,
   Bell,
+  Mail,
   CreditCard,
   LogOut,
   ChevronDown,
@@ -413,6 +414,18 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                       <Link href="/settings/seo" className="font-medium">
                         <Search className="w-4 h-4" />
                         <span>SEO</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {/* Task #588 — tenant email authoring (templates + branded
+                    shell). Admin-ish; gated on the "settings" perm. */}
+                {(hasPerm("settings") || user?.isAdmin) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/email"}>
+                      <Link href="/settings/email" className="font-medium">
+                        <Mail className="w-4 h-4" />
+                        <span>Email templates</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

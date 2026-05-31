@@ -66,6 +66,15 @@ export interface RenderEmailInput {
   wrapInShell: boolean;
   /** Substitution map (escaped on insert). Must include `headline` for the shell. */
   vars: Record<string, string>;
+  /**
+   * Raw (already-trusted, NOT escaped) HTML injected into body `{{slot}}` tokens
+   * AFTER the escaped `vars` interpolation. Used by tenant emails for dynamic
+   * markup the author can't express as a single escaped value (e.g. a lead
+   * field table, a conditional CTA block). Each value MUST already have its own
+   * dynamic parts HTML-escaped by the caller. Platform callers omit this, so
+   * their output is byte-identical to before.
+   */
+  rawSlots?: Record<string, string>;
 }
 
 /**
@@ -78,7 +87,14 @@ export interface RenderEmailInput {
  *   4. Interpolate remaining shell vars (`headline`, `headerBg`) escaped.
  */
 export function renderEmail(input: RenderEmailInput): string {
-  const body = interpolateHtml(input.bodyHtml, input.vars);
+  let body = interpolateHtml(input.bodyHtml, input.vars);
+  if (input.rawSlots) {
+    // Injected last so the raw HTML is never re-interpolated/escaped, and so a
+    // `{{token}}` that survived inside an escaped value can't pull from `vars`.
+    for (const [slot, value] of Object.entries(input.rawSlots)) {
+      body = injectRawSlot(body, slot, value);
+    }
+  }
   if (!input.wrapInShell) return body;
 
   let doc = input.shell.shellHtml;

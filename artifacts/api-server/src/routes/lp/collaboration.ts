@@ -10,6 +10,8 @@ import {
 } from "@workspace/db";
 import { z } from "zod";
 import crypto from "crypto";
+import { renderTenantEmail } from "../../lib/tenantEmailRender";
+import { buildCommentCtaBlock, buildReviewCommentBlock } from "../../lib/tenantEmailAssets";
 
 const router = Router();
 
@@ -17,6 +19,16 @@ const router = Router();
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Origin of a page URL (drives the tenant shell's unsubscribe/footer link). */
+function originOf(url?: string): string {
+  if (!url) return "";
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
 }
 
 async function getTenantUserEmails(tenantId: number): Promise<Array<{ email: string; name: string }>> {
@@ -56,7 +68,33 @@ async function notifyNewComment(pageId: number, authorName: string, message: str
     const users = await getTenantUserEmails(page.tenantId);
     const to = users.map(u => u.email).filter(Boolean);
     if (to.length === 0) return;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+
+    let subject = `💬 New comment on "${page.title}"`;
+    let html: string | null = null;
+
+    // Tenant-scope render (Task #588) with legacy fallback on any failure.
+    try {
+      const rendered = await renderTenantEmail({
+        tenantId: page.tenantId,
+        key: "comment",
+        vars: {
+          pageTitle: page.title,
+          authorName,
+          message,
+          workspaceUrl: originOf(pageUrl),
+        },
+        rawSlots: { ctaBlock: buildCommentCtaBlock(pageUrl) },
+      });
+      if (rendered) {
+        subject = rendered.subject;
+        html = rendered.html;
+      }
+    } catch (err) {
+      console.error("notifyNewComment tenant render failed — using legacy fallback", err);
+    }
+
+    if (html == null) {
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
 <body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px">
 <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)">
   <div style="background:#003A30;padding:20px 28px">
@@ -70,7 +108,8 @@ async function notifyNewComment(pageId: number, authorName: string, message: str
   </div>
 </div>
 </body></html>`;
-    await sendCollaborationEmail(to, `💬 New comment on "${page.title}"`, html);
+    }
+    await sendCollaborationEmail(to, subject, html);
   } catch (err) {
     console.error("notifyNewComment failed", err);
   }
@@ -89,7 +128,33 @@ async function notifyReviewDecision(pageId: number, reviewerName: string, status
     const isApproved = status === "approved";
     const statusLabel = isApproved ? "✅ Approved" : "🔄 Changes Requested";
     const statusColor = isApproved ? "#16a34a" : "#d97706";
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+
+    let subject = `${statusLabel}: "${page.title}"`;
+    let html: string | null = null;
+
+    // Tenant-scope render (Task #588) with legacy fallback on any failure.
+    try {
+      const rendered = await renderTenantEmail({
+        tenantId: page.tenantId,
+        key: "review_decision",
+        vars: {
+          pageTitle: page.title,
+          reviewerName,
+          statusLabel,
+          statusColor,
+        },
+        rawSlots: { commentBlock: buildReviewCommentBlock(decisionComment, statusColor) },
+      });
+      if (rendered) {
+        subject = rendered.subject;
+        html = rendered.html;
+      }
+    } catch (err) {
+      console.error("notifyReviewDecision tenant render failed — using legacy fallback", err);
+    }
+
+    if (html == null) {
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
 <body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px">
 <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)">
   <div style="background:#003A30;padding:20px 28px">
@@ -103,7 +168,8 @@ async function notifyReviewDecision(pageId: number, reviewerName: string, status
   </div>
 </div>
 </body></html>`;
-    await sendCollaborationEmail(to, `${statusLabel}: "${page.title}"`, html);
+    }
+    await sendCollaborationEmail(to, subject, html);
   } catch (err) {
     console.error("notifyReviewDecision failed", err);
   }

@@ -2,6 +2,8 @@ import { logger } from "./logger";
 import { renderEmail, expandEmailVars } from "./emailRender";
 import { getEmailShell } from "./emailShell";
 import { getNotificationTemplate } from "./notificationTemplates";
+import { renderTenantEmail } from "./tenantEmailRender";
+import { buildLeadFieldsTable, buildLeadVariantNote } from "./tenantEmailAssets";
 
 /**
  * Plain-text token substitution for email SUBJECTS (no HTML escaping). Mirrors
@@ -742,6 +744,7 @@ async function retryFetch(url: string, options: RequestInit, maxAttempts = 3): P
 export async function sendEmailNotification(
   recipients: string[],
   lead: LeadPayload,
+  tenantId?: number,
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey) {
@@ -750,12 +753,49 @@ export async function sendEmailNotification(
   }
   if (recipients.length === 0) return;
 
-  const fieldRows = Object.entries(lead.fields)
-    .filter(([k]) => !k.startsWith("_"))
-    .map(([k, v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap;color:#003A30">${escapeHtml(k)}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(String(v ?? ""))}</td></tr>`)
-    .join("");
+  let subject = `New lead: ${lead.pageTitle}`;
+  let html: string | null = null;
 
-  const html = `
+  // Tenant-scope render (Task #588): author-editable template + brand-derived
+  // shell. Falls through to the legacy hardcoded HTML below on any failure so a
+  // lead notification can never be dropped because of a template/shell error.
+  if (tenantId != null) {
+    try {
+      const rendered = await renderTenantEmail({
+        tenantId,
+        key: "lead_notification",
+        vars: {
+          pageTitle: lead.pageTitle,
+          submittedAt: new Date(lead.submittedAt).toLocaleString(),
+        },
+        rawSlots: {
+          fieldsTable: buildLeadFieldsTable(lead.fields),
+          variantNote: buildLeadVariantNote(lead.variantName),
+        },
+      });
+      if (rendered) {
+        subject = rendered.subject;
+        html = rendered.html;
+        logger.info(
+          { leadId: lead.leadId, shellSource: rendered.shellSource },
+          "lead notification rendered via tenant shell",
+        );
+      }
+    } catch (err) {
+      logger.error(
+        { err, leadId: lead.leadId },
+        "tenant lead notification render failed — using legacy fallback",
+      );
+    }
+  }
+
+  if (html == null) {
+    const fieldRows = Object.entries(lead.fields)
+      .filter(([k]) => !k.startsWith("_"))
+      .map(([k, v]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap;color:#003A30">${escapeHtml(k)}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(String(v ?? ""))}</td></tr>`)
+      .join("");
+
+    html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
@@ -774,6 +814,7 @@ export async function sendEmailNotification(
 </div>
 </body>
 </html>`;
+  }
 
   try {
     await retryFetch("https://api.resend.com/emails", {
@@ -785,7 +826,7 @@ export async function sendEmailNotification(
       body: JSON.stringify({
         from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
         to: recipients,
-        subject: `New lead: ${lead.pageTitle}`,
+        subject,
         html,
       }),
     });

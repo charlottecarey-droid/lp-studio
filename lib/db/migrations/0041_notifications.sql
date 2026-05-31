@@ -116,4 +116,4 @@ VALUES
     'Your Growth trial ends tomorrow. Upgrade now to avoid dropping to the Free plan and losing your Growth features.',
     true
   )
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT DO NOTHING;

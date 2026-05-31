@@ -15,6 +15,8 @@ import {
 import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./integrations";
 import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
+import { renderTenantEmail } from "../../lib/tenantEmailRender";
+import { escapeHtml } from "../../lib/emailRender";
 
 const router = Router();
 
@@ -126,13 +128,44 @@ async function sendFollowUpEmailToSubmitter(opts: {
   const html = template.bodyHtml ? substituteMergeVars(template.bodyHtml, vars) : undefined;
   const text = template.bodyText ? substituteMergeVars(template.bodyText, vars) : undefined;
 
+  // Wrap the tenant's authored sales copy in their branded shell (Task #588).
+  // The substituted content is injected verbatim via the `content` raw slot; on
+  // any failure we fall back to the unwrapped content so the email still sends.
+  let finalSubject = subject;
+  let finalHtml: string | undefined = html;
+  const finalText = text;
+  try {
+    const contentHtml =
+      html ??
+      (text
+        ? `<p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.62;color:#2A2722;">${escapeHtml(
+            text,
+          ).replace(/\n/g, "<br>")}</p>`
+        : "");
+    if (contentHtml) {
+      const rendered = await renderTenantEmail({
+        tenantId,
+        key: "form_followup",
+        vars: { pageTitle: opts.pageTitle, recipientEmail: submitterEmail },
+        rawSlots: { content: contentHtml },
+        subjectOverride: subject,
+      });
+      if (rendered) {
+        finalSubject = rendered.subject;
+        finalHtml = rendered.html;
+      }
+    }
+  } catch (err) {
+    console.error("[lead", leadId, "] follow-up tenant render failed — using legacy fallback", err);
+  }
+
   const body: Record<string, unknown> = {
     from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
     to: [submitterEmail],
-    subject,
+    subject: finalSubject,
   };
-  if (html) body.html = html;
-  if (text) body.text = text;
+  if (finalHtml) body.html = finalHtml;
+  if (finalText) body.text = finalText;
 
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -352,7 +385,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       }
 
       if (emailRecipients.length > 0) {
-        await sendEmailNotification(emailRecipients, payload).catch(err =>
+        await sendEmailNotification(emailRecipients, payload, page.tenantId).catch(err =>
           console.error("Email notification error for lead", lead.id, ":", err)
         );
       }

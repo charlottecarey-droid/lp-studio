@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, jsonb, timestamp, serial, integer } from "drizzle-orm/pg-core";
 
 /**
  * Notification templates — one row per platform lifecycle/system message
@@ -15,8 +15,17 @@ import { pgTable, text, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
  * the dispatcher skip the template entirely (no email, no inbox item).
  */
 export const notificationTemplatesTable = pgTable("notification_templates", {
+  // Surrogate primary key (Task #588). Lets multiple tenants each own a row for
+  // the same `key`; uniqueness is enforced by partial indexes (migration 0046):
+  // one platform row per key, one tenant row per (tenant_id, key).
+  id: serial("id").primaryKey(),
+  // Scope dimension (Task #588). 'platform' rows are the shared platform
+  // templates (tenant_id NULL); 'tenant' rows are a single tenant's templates
+  // (tenant_id NOT NULL). Enforced by a CHECK constraint in migration 0046.
+  scope: text("scope").notNull().default("platform"),
+  tenantId: integer("tenant_id"),
   // Stable string key the dispatcher addresses templates by. Never edited.
-  key: text("key").primaryKey(),
+  key: text("key").notNull(),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   // 'lifecycle' (trial nudges, welcome) | 'system' (ops alerts). Display-only.

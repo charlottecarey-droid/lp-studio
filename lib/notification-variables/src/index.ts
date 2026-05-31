@@ -157,6 +157,102 @@ export const PLATFORM_NOTIFICATION_VARIABLES: readonly VariableDefinition[] = [
 ];
 
 /**
+ * Tenant-scoped notification email variables (Task #588 — Phase 2). These are
+ * the tokens a tenant admin can drop into their own tenant-scope templates
+ * (lead notification, new comment, review decision, form follow-up) rendered
+ * through the per-tenant brand-derived shell.
+ *
+ * Distinct from PLATFORM_NOTIFICATION_VARIABLES: tenant templates address a
+ * tenant's own leads/collaborators, never LP Studio billing/trial concepts.
+ */
+export const TENANT_NOTIFICATION_VARIABLES: readonly VariableDefinition[] = [
+  {
+    token: "brandName",
+    label: "Brand name",
+    description: "Your workspace / brand name (used in the email shell + footer).",
+    sample: "Acme Dental",
+    group: "Brand",
+  },
+  {
+    token: "pageTitle",
+    label: "Page title",
+    description: "Title of the landing page the event relates to.",
+    sample: "Spring Implant Promo",
+    group: "Content",
+  },
+  {
+    token: "submittedAt",
+    label: "Submitted at",
+    description: "When the lead was submitted (lead notification).",
+    sample: "May 31, 2026, 2:14 PM",
+    group: "Lead",
+  },
+  {
+    token: "authorName",
+    label: "Comment author",
+    description: "Name of the person who left the comment (new comment email).",
+    sample: "Taylor Reed",
+    group: "Collaboration",
+  },
+  {
+    token: "message",
+    label: "Comment message",
+    description: "Body of the comment that was left (new comment email).",
+    sample: "Can we make the headline punchier?",
+    group: "Collaboration",
+  },
+  {
+    token: "reviewerName",
+    label: "Reviewer name",
+    description: "Name of the reviewer (review decision email).",
+    sample: "Jordan Lee",
+    group: "Collaboration",
+  },
+  {
+    token: "statusLabel",
+    label: "Review status",
+    description: "The review outcome label, e.g. “✅ Approved” (review decision email).",
+    sample: "✅ Approved",
+    group: "Collaboration",
+  },
+  {
+    token: "recipientEmail",
+    label: "Recipient email",
+    description: "Email address the message is sent to.",
+    sample: "jordan@acmedental.com",
+    group: "Recipient",
+  },
+  {
+    token: "workspaceUrl",
+    label: "Workspace URL",
+    description: "Link to your workspace home.",
+    sample: "https://acme.lpstudio.ai",
+    group: "Links",
+  },
+  {
+    token: "unsubscribeUrl",
+    label: "Manage preferences URL",
+    description: "Link recipients use to manage email preferences (defaults to workspace settings).",
+    sample: "https://acme.lpstudio.ai/settings/notifications",
+    group: "Compliance",
+  },
+  {
+    token: "physicalAddress",
+    label: "Mailing address",
+    description: "CAN-SPAM postal address shown in the footer. Set your real address here.",
+    sample: "123 Market St, Suite 400, San Francisco, CA 94103",
+    group: "Compliance",
+  },
+  {
+    token: "currentYear",
+    label: "Current year",
+    description: "The current year, for the footer copyright line (filled automatically).",
+    sample: String(new Date().getUTCFullYear()),
+    group: "Compliance",
+  },
+];
+
+/**
  * Sales campaign variables. Mirrors the tokens the campaign send path
  * substitutes; kept here so the shared variable inserter can serve both the
  * superadmin email editor and the campaign composer from one catalog.

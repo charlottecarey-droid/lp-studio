@@ -53,4 +53,5 @@ export * from "./notificationTemplates";
 export * from "./notificationSends";
 export * from "./notificationPreferences";
 export * from "./emailShellTemplates";
+export * from "./tenantEmailShells";
 export * from "./emailTemplateEditLog";
