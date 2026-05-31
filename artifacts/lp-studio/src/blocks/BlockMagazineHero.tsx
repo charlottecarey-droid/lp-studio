@@ -7,6 +7,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
+import { pickCtaButtonColors } from "@/lib/brand-config";
 
 interface Props {
   props: MagazineHeroBlockProps;
@@ -29,6 +30,9 @@ const ASPECT_CLASS: Record<NonNullable<MagazineHeroBlockProps["imageAspect"]>, s
   landscape: "aspect-[5/4]",
   wide: "aspect-[16/10]",
 };
+
+/** Fixed near-black surface the "cover" layout renders its section on. */
+const COVER_SURFACE = "#0A0A0A";
 
 const WEIGHT: Record<NonNullable<MagazineHeroBlockProps["headlineWeight"]>, number> = {
   light: 300,
@@ -143,7 +147,17 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
     modalShowCompany: props.modalShowCompany,
   };
 
-  const ctas = (
+  // Build the CTA row for a given section surface. On the light "split" /
+  // "stacked" layouts the primary CTA fills with the body `text` color (dark
+  // ink on a light page). On the dark "cover" layout that same `text` default
+  // (`#0A0A0A`) would render a black button on the near-black cover surface, so
+  // resolve a surface-aware fill via `pickCtaButtonColors` and use a legible
+  // secondary link color.
+  const renderCtas = (
+    primaryBg: string,
+    primaryText: string,
+    secondaryText: string,
+  ) => (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2">
       <CtaButton
         ctaAction={primaryAction}
@@ -157,7 +171,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
         // of the modal.
         onClick={primaryAction === "url" ? onCtaClick : undefined}
         className="inline-flex items-center gap-2 px-7 py-3.5 font-medium rounded-full text-sm tracking-wide"
-        style={{ backgroundColor: text, color: bg }}
+        style={{ backgroundColor: primaryBg, color: primaryText }}
         brand={brand}
         pageId={pageId}
         variantId={variantId}
@@ -173,7 +187,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
           chilipiperUrl={props.secondaryChilipiperUrl}
           {...modalCfg}
           className="inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline bg-transparent"
-          style={{ color: text, opacity: 0.85 }}
+          style={{ color: secondaryText, opacity: 0.85 }}
           brand={brand}
           pageId={pageId}
           variantId={variantId}
@@ -185,6 +199,9 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
       )}
     </div>
   );
+
+  // Light layouts: dark ink button on the light page, dark secondary link.
+  const ctas = renderCtas(text, bg, text);
 
   const byline = (props.bylineLabel || props.bylineValue || onFieldChange) ? (
     <div className="text-[10px] uppercase tracking-[0.28em] font-medium" style={{ opacity: 0.55 }}>
@@ -210,8 +227,14 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
 
   if (layout === "cover") {
     const scrim = props.coverScrim ?? 0.55;
+    // The cover surface is near-black; resolve a CTA fill that clears WCAG UI
+    // contrast against it (with a legible label) instead of the dark `text`
+    // ink that the light layouts use. The secondary link sits on the same dark
+    // surface, so render it white.
+    const coverCta = pickCtaButtonColors(brand, COVER_SURFACE);
+    const coverCtas = renderCtas(coverCta.bg, coverCta.text, "#FFFFFF");
     return (
-      <section className="relative overflow-hidden isolate" style={{ backgroundColor: "#0A0A0A", color: "#FFFFFF", fontFamily: bodyFamily }}>
+      <section className="relative overflow-hidden isolate" style={{ backgroundColor: COVER_SURFACE, color: "#FFFFFF", fontFamily: bodyFamily }}>
         <div className="relative w-full min-h-[640px] lg:min-h-[760px]">
           {props.imageUrl ? (
             <InlineImage
@@ -246,7 +269,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
               {subheadline && (
                 <div className="text-white/85">{subheadline}</div>
               )}
-              <div className="text-white">{ctas}</div>
+              <div className="text-white">{coverCtas}</div>
               {byline && <div className="pt-4 text-white/80">{byline}</div>}
             </div>
           </div>

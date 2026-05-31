@@ -208,6 +208,36 @@ describe("Hero/header CTA contrast across styles", () => {
     });
   });
 
+  describe("BlockMagazineHero (dark 'cover' surface #0A0A0A)", () => {
+    // The cover layout paints the section on a fixed near-black surface, yet the
+    // default body `text` ink (`#0A0A0A`) would fill the primary CTA — a black
+    // button on a black section. The block now resolves a surface-aware fill.
+    const COVER_SURFACE = "#0a0a0a";
+    function render(brand: BrandConfig): string {
+      const props = {
+        headline: "An editorial take on dental care",
+        ctaText: "Get started",
+        ctaUrl: "#",
+        ctaAction: "url",
+        layout: "cover",
+        // No image → the scrim still sits over the near-black surface, but the
+        // CTA contrast is measured against the worst-case solid cover surface.
+        imageUrl: "",
+      } as MagazineHeroBlockProps;
+      return renderToStaticMarkup(
+        createElement(BlockMagazineHero, { props, brand, animationsEnabled: false }),
+      );
+    }
+
+    it("keeps the CTA readable for a same-hue brand", () => {
+      expectReadable(filledCtas(render(sameHueBrand()), "button"), COVER_SURFACE);
+    });
+
+    it("keeps the CTA readable for a contrasting brand", () => {
+      expectReadable(filledCtas(render(contrastingBrand()), "button"), COVER_SURFACE);
+    });
+  });
+
   describe("BlockDandyProductHero (split surface = backgroundColor)", () => {
     // This block reads its colors from props (backgroundColor / accentColor)
     // and takes a `block` wrapper rather than a flat `props` + `brand`.
