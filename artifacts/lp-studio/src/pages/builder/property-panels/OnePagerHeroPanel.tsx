@@ -6,6 +6,7 @@ import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { Switch } from "@/components/ui/switch";
 
 const LIME = "var(--brand-accent)";
 
@@ -193,6 +194,17 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
           </div>
           <BrandSwatches className="mt-1.5" current={props.accentColor} onPick={hex => onChange({ ...props, accentColor: hex })} />
           <p className="text-[11px] text-muted-foreground">Used for the tagline and glow accent.</p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-xs">Bold heading</Label>
+            <p className="text-[11px] text-muted-foreground">Turn off for a normal-weight heading.</p>
+          </div>
+          <Switch
+            checked={props.boldHeading !== false}
+            onCheckedChange={v => onChange({ ...props, boldHeading: v })}
+          />
         </div>
       </div>
     </div>

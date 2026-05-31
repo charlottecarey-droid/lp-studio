@@ -850,6 +850,9 @@ export interface OnePagerHeroBlockProps {
   phone?: string;
   accentColor?: string;
   panelVariant?: "solid" | "diagonal" | "mesh";
+  /** When false, the main heading renders in a normal (400) weight instead of
+   *  the default bold (700). Defaults to bold so existing pages are unchanged. */
+  boldHeading?: boolean;
 }
 
 export interface EventPageAgendaDay {

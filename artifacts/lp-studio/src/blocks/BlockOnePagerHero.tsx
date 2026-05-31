@@ -112,6 +112,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
   const primary = brand?.primaryColor || "#003B2D";
   const accent = props.accentColor ?? brand?.accentColor ?? LIME;
   const panelVariant = props.panelVariant ?? "solid";
+  const headingWeight = props.boldHeading === false ? 400 : 700;
   const displayHeadline = headline ?? partnerName;
   const logoUrl = resolveOnePagerAssets(brand).logoUrl;
 
@@ -220,14 +221,14 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
             <h1
               style={{
                 fontFamily: DISPLAY,
-                fontWeight: 700,
+                fontWeight: headingWeight,
                 color: "#fff",
                 lineHeight: 1.1,
                 letterSpacing: "-0.02em",
                 margin: 0,
               }}
             >
-              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ color: "#fff", fontFamily: DISPLAY }} />
+              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ color: "#fff", fontFamily: DISPLAY, fontWeight: headingWeight }} />
             </h1>
 
             {subtitle !== undefined && (
