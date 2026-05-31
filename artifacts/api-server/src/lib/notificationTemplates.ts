@@ -60,9 +60,10 @@ const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
     name: "Welcome",
     description: "Sent when a new workspace finishes onboarding.",
     category: "lifecycle",
-    // Email side of welcome stays on the existing, separately-tested
-    // sendWelcomeEmail; the dispatcher only owns the in-app inbox item.
-    channels: ["in_app"],
+    // The dispatcher owns BOTH channels: the in-app inbox item and the welcome
+    // email, so operators can edit the welcome email subject/intro/CTA from the
+    // SuperAdmin Notifications tab like every other lifecycle template.
+    channels: ["email", "in_app"],
     emailSubject: "Welcome to {{tenantName}} on LP Studio",
     emailIntro:
       "Your workspace is ready. Bookmark your URL — it's how you and your teammates sign back in.",

@@ -8,7 +8,6 @@ import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import {
-  sendWelcomeEmail,
   sendMagicLinkEmail,
   sendPasswordResetEmail,
   sendEmailVerificationEmail,
@@ -794,8 +793,7 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
         const host = getCanonicalTenantHost({ slug: t.slug ?? null, domain: t.domain ?? null });
         // Drop a welcome item into the in-app inbox (best-effort, deduped by
         // user). Runs through the notification system so the new signup sees
-        // something in their bell on first load. The welcome EMAIL stays on
-        // the separately-tested sendWelcomeEmail below.
+        // something in their bell on first load.
         if (typeof sess.userId === "number") {
           void dispatchNotification({
             templateKey: "welcome",
@@ -811,14 +809,27 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
         }
         if (host) {
           const workspaceUrl = `https://${host}`;
+          // Welcome EMAIL now runs through the dispatcher too, so operators can
+          // edit the subject/intro/CTA from the SuperAdmin Notifications tab.
+          // The dispatcher dedupes per (recipient, channel) and the tenant-level
+          // welcome_email_sent_at claim above guarantees this fan-out runs at
+          // most once per tenant — no double welcome email can be sent.
           // Fire-and-forget so the API response isn't blocked on Resend.
-          // Errors are logged inside sendWelcomeEmail.
-          void sendWelcomeEmail({
-            recipientEmail: sess.email,
-            recipientName: sess.name ?? null,
-            tenantName: t.name ?? "your workspace",
-            workspaceUrl,
-          });
+          void dispatchNotification({
+            templateKey: "welcome",
+            tenantId: sess.tenantId,
+            recipients: [{
+              appUserId: typeof sess.userId === "number" ? sess.userId : null,
+              email: sess.email,
+              name: sess.name ?? null,
+            }],
+            context: {
+              tenantName: t.name ?? "your workspace",
+              workspaceUrl,
+            },
+            dedupeBase: `welcome:tenant:${sess.tenantId}`,
+            channels: ["email"],
+          }).catch((err) => console.error("[auth] welcome email dispatch failed:", err));
         } else {
           // Couldn't build a canonical URL — release the gate so a future
           // call (after the tenant gets a slug/domain) can still send it.
