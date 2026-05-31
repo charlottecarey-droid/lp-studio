@@ -3,6 +3,7 @@ import net from "net";
 import { db, lpMediaTable } from "@workspace/db";
 import { ObjectStorageService } from "../objectStorage";
 import { USER_AGENT } from "./types";
+import { logger } from "../logger";
 
 const objectStorage = new ObjectStorageService();
 
@@ -11,7 +12,13 @@ const objectStorage = new ObjectStorageService();
 // 5MB is comfortable headroom that still rejects pathological assets
 // (4k JPEGs, raw PSDs, animated GIFs from blog footers).
 const MAX_BYTES = 5 * 1024 * 1024;
-const FETCH_TIMEOUT_MS = 4_000;
+// Per-asset fetch timeout. Raised from 4s to 10s (task #592): origin-
+// fetched ecommerce CDN images (uncached Shopify/Cloudinary derivatives,
+// signed-URL hero photos) regularly take 4-8s on the first hit, and the
+// old 4s cap was silently dropping them, leaving lp_media empty. The
+// photo fan-out is parallel and capped at MAX_PHOTOS, so the worst-case
+// wall-time cost is a single slow asset (~10s), not N×timeout.
+const FETCH_TIMEOUT_MS = 10_000;
 
 // Max photo assets to mirror. The photography extractor returns up to 8
 // reference URLs; we cap at 6 here to leave budget headroom inside the
@@ -39,6 +46,10 @@ export interface MirrorOutput {
    *  debugging slow / hostile CDNs. */
   attempted: number;
   uploaded: number;
+  /** Per-asset skip reasons (`"<url> -> <reason>"`), surfaced in logs so
+   *  an all-skipped run (lp_media stays empty) is debuggable instead of
+   *  silent. */
+  skips: string[];
 }
 
 function slugify(input: string): string {
@@ -147,8 +158,17 @@ function decodeDataUrl(url: string): FetchedAsset | null {
  * blindly chases Location headers, which would defeat a public-host
  * check on the original URL).
  */
-async function fetchAsset(url: string): Promise<FetchedAsset | null> {
-  if (url.startsWith("data:")) return decodeDataUrl(url);
+/** Discriminated fetch result so callers can log *why* an asset was
+ *  skipped instead of treating every failure as an opaque `null`. */
+type FetchResult =
+  | { ok: true; asset: FetchedAsset }
+  | { ok: false; reason: string };
+
+async function fetchAsset(url: string): Promise<FetchResult> {
+  if (url.startsWith("data:")) {
+    const decoded = decodeDataUrl(url);
+    return decoded ? { ok: true, asset: decoded } : { ok: false, reason: "invalid-data-url" };
+  }
 
   let current = url;
   let originalUrl = url;
@@ -157,10 +177,14 @@ async function fetchAsset(url: string): Promise<FetchedAsset | null> {
     try {
       parsed = new URL(current);
     } catch {
-      return null;
+      return { ok: false, reason: "invalid-url" };
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-    if (!(await isSafePublicHost(parsed.hostname))) return null;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { ok: false, reason: `bad-protocol:${parsed.protocol}` };
+    }
+    if (!(await isSafePublicHost(parsed.hostname))) {
+      return { ok: false, reason: "unsafe-host" };
+    }
 
     let res: Response;
     try {
@@ -169,37 +193,39 @@ async function fetchAsset(url: string): Promise<FetchedAsset | null> {
         redirect: "manual",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
-    } catch {
-      return null;
+    } catch (e) {
+      const aborted = e instanceof Error && e.name === "TimeoutError";
+      return { ok: false, reason: aborted ? `timeout:${FETCH_TIMEOUT_MS}ms` : `fetch-error:${String(e)}` };
     }
 
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
-      if (!loc) return null;
+      if (!loc) return { ok: false, reason: `redirect-no-location:${res.status}` };
       // Resolve relative redirects against the previous hop's URL.
       try {
         current = new URL(loc, current).toString();
       } catch {
-        return null;
+        return { ok: false, reason: "bad-redirect-location" };
       }
       continue;
     }
 
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false, reason: `http-${res.status}` };
     const ct = res.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
     const mimeType = (ct && ct.startsWith("image/")) ? ct : extToMime(current);
-    if (!mimeType) return null;
+    if (!mimeType) return { ok: false, reason: `non-image-content-type:${ct ?? "none"}` };
     const len = res.headers.get("content-length");
-    if (len && Number(len) > MAX_BYTES) return null;
+    if (len && Number(len) > MAX_BYTES) return { ok: false, reason: `too-large:${len}` };
     try {
       const buffer = Buffer.from(await res.arrayBuffer());
-      if (!buffer.length || buffer.length > MAX_BYTES) return null;
-      return { buffer, mimeType, sourceUrl: originalUrl };
+      if (!buffer.length) return { ok: false, reason: "empty-body" };
+      if (buffer.length > MAX_BYTES) return { ok: false, reason: `too-large:${buffer.length}` };
+      return { ok: true, asset: { buffer, mimeType, sourceUrl: originalUrl } };
     } catch {
-      return null;
+      return { ok: false, reason: "body-read-error" };
     }
   }
-  return null;
+  return { ok: false, reason: "too-many-redirects" };
 }
 
 interface UploadOpts {
@@ -261,16 +287,16 @@ function titleFromUrl(url: string, fallback: string): string {
 export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOutput> {
   const brandSlug = slugify(inputs.brandName || "brand-import") || "brand-import";
   const baseTags = ["brand-import", brandSlug];
-  const out: MirrorOutput = { photoUrls: [], attempted: 0, uploaded: 0 };
+  const out: MirrorOutput = { photoUrls: [], attempted: 0, uploaded: 0, skips: [] };
 
   // Logo first — sequential so its failure surfaces in logs before we
   // start the photo fan-out. Logos are small (often <50KB) so the
   // sequential cost is negligible.
   if (inputs.logoUrl) {
     out.attempted++;
-    const asset = await fetchAsset(inputs.logoUrl);
-    if (asset) {
-      const url = await uploadAndRecord(asset, {
+    const fetched = await fetchAsset(inputs.logoUrl);
+    if (fetched.ok) {
+      const url = await uploadAndRecord(fetched.asset, {
         tenantId: inputs.tenantId,
         tags: [...baseTags, "logo"],
         title: `${inputs.brandName || "Brand"} logo`,
@@ -278,7 +304,11 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
       if (url) {
         out.logoUrl = url;
         out.uploaded++;
+      } else {
+        out.skips.push(`${inputs.logoUrl} -> upload-failed`);
       }
+    } else {
+      out.skips.push(`${inputs.logoUrl} -> ${fetched.reason}`);
     }
   }
 
@@ -286,19 +316,28 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
   const photos = (inputs.photoUrls ?? []).slice(0, MAX_PHOTOS);
   out.attempted += photos.length;
   const results = await Promise.all(photos.map(async (sourceUrl, i) => {
-    const asset = await fetchAsset(sourceUrl);
-    if (!asset) return null;
-    return uploadAndRecord(asset, {
+    const fetched = await fetchAsset(sourceUrl);
+    if (!fetched.ok) return { sourceUrl, url: null as string | null, reason: fetched.reason };
+    const url = await uploadAndRecord(fetched.asset, {
       tenantId: inputs.tenantId,
       tags: [...baseTags, "photography"],
       title: titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
     });
+    return { sourceUrl, url, reason: url ? null : "upload-failed" };
   }));
-  for (const url of results) {
-    if (url) {
-      out.photoUrls.push(url);
+  for (const r of results) {
+    if (r.url) {
+      out.photoUrls.push(r.url);
       out.uploaded++;
+    } else {
+      out.skips.push(`${r.sourceUrl} -> ${r.reason ?? "unknown"}`);
     }
+  }
+  if (out.skips.length) {
+    logger.warn(
+      { tenantId: inputs.tenantId, brandName: inputs.brandName, skips: out.skips },
+      "[brand-import] mirrorBrandAssets skipped assets",
+    );
   }
   return out;
 }

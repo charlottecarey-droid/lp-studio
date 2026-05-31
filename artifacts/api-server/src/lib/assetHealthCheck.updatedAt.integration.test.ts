@@ -129,6 +129,7 @@ describe.skipIf(!hasDb)("asset-health persistence vs. updatedAt (task #490)", ()
       brokenAssets: [],
       host: "example.com",
       hadHtml: true,
+      emptySrcImages: 0,
     };
     await persistResult(pageId, result);
 

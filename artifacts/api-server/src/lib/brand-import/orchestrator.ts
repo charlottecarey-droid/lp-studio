@@ -10,6 +10,7 @@ import { extractContent } from "./extractors/content";
 import { extractStructure } from "./extractors/structure";
 import { getCached, putCached } from "./cache";
 import { mirrorBrandAssets } from "./assets-uploader";
+import { logger } from "../logger";
 import type {
   Confidence,
   DimensionName,
@@ -501,17 +502,54 @@ async function applyAssetMirror(payload: OrchestratorPayload, tenantId: number):
   const brandName = typeof proposed["brandName"] === "string" ? proposed["brandName"] as string : "";
   const logoUrl = typeof proposed["logoUrl"] === "string" ? proposed["logoUrl"] as string : undefined;
   const photoProfile = proposed["photographyProfile"] as { referenceImageUrls?: unknown } | undefined;
-  const photoUrls = Array.isArray(photoProfile?.referenceImageUrls)
-    ? (photoProfile!.referenceImageUrls as unknown[]).filter((u): u is string => typeof u === "string")
-    : [];
-  if (!logoUrl && photoUrls.length === 0) return;
+
+  // Collect candidate photo URLs from BOTH the flattened `proposed`
+  // (present only when the photography dimension didn't fail) AND the raw
+  // extractor result (present even when vision classification failed).
+  // Decoupling the mirror from vision success is the whole point of task
+  // #592 — a Shopify homepage whose images vision couldn't classify must
+  // still mirror those images into lp_media.
+  const collectStrings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((u): u is string => typeof u === "string") : [];
+  const resultPhoto = payload.results?.photography?.data as { referenceImageUrls?: unknown } | null | undefined;
+  const photoUrls = Array.from(new Set([
+    ...collectStrings(photoProfile?.referenceImageUrls),
+    ...collectStrings(resultPhoto?.referenceImageUrls),
+  ]));
+
+  if (!logoUrl && photoUrls.length === 0) {
+    logger.warn(
+      { tenantId, brandName, photographyStatus: payload.results?.photography?.status },
+      "[brand-import] asset mirror skipped — no logo and no photography URLs captured",
+    );
+    return;
+  }
   try {
     const result = await mirrorBrandAssets({ tenantId, brandName, logoUrl, photoUrls });
+    logger.info(
+      {
+        tenantId,
+        brandName,
+        attempted: result.attempted,
+        uploaded: result.uploaded,
+        photoCandidates: photoUrls.length,
+        hadLogo: !!logoUrl,
+        photographyStatus: payload.results?.photography?.status,
+      },
+      "[brand-import] asset mirror complete",
+    );
+    if (result.attempted > 0 && result.uploaded === 0) {
+      logger.warn(
+        { tenantId, brandName, attempted: result.attempted, skips: result.skips },
+        "[brand-import] asset mirror uploaded 0 of N assets — all candidate images were skipped",
+      );
+    }
     if (result.logoUrl) proposed["logoUrl"] = result.logoUrl;
     if (result.photoUrls.length > 0 && photoProfile) {
       proposed["photographyProfile"] = { ...photoProfile, referenceImageUrls: result.photoUrls };
     }
-  } catch {
+  } catch (err) {
     // mirror is best-effort — keep external URLs on failure
+    logger.warn({ tenantId, brandName, err: String(err) }, "[brand-import] asset mirror threw");
   }
 }

@@ -49,3 +49,4 @@
 - [Workflow engine hard-fallback](workflow-engine-hard-fallback.md) — a MATCHED-but-non-executable email workflow must still run the code-default fallback; gate on isWorkflowExecutable (template existence) at runtime + save-time.
 - [Tenant email audit metadata-only](tenant-email-audit-pii.md) — tenant test-send audit must NOT store recipient address (unlike platform editor's sentTo); log a flag + actor only.
 - [notification_templates channels stale row](notification-channels-stale-row.md) — channels col = capability+toggle; adding a channel in code never backfills existing rows; stale row hides editor ("handled in code"), fix via data UPDATE.
+- [Brand-import mirror decoupled from vision](brand-import-mirror-decoupled-from-vision.md) — mirror reads referenceImageUrls from raw results too (flatten drops failed dims); vision fails often; empty lp_media → blank img src; lazy attrs need a usable URL, not first-present.

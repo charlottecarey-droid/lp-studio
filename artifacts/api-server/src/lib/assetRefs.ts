@@ -53,6 +53,32 @@ export function extractAssetPaths(html: string): string[] {
   return Array.from(found);
 }
 
+// Match an `<img>` tag whose `src` attribute is empty or whitespace-only
+// (`src=""`, `src=" "`, `src=''`), OR an `<img>` tag that has no `src`
+// attribute at all. Both render as a broken-image glyph in the browser
+// and are the visible symptom of the brand-import bug (task #592). The
+// audit counts these so an all-empty page is flagged instead of passing
+// silently (R2 path-presence only catches /assets/* refs, never a blank
+// src). Tag-name boundary `\b` avoids matching `<images>` etc.
+const IMG_TAG_RE = /<img\b[^>]*>/gi;
+const HAS_NONEMPTY_SRC_RE = /\ssrc\s*=\s*("[^"]*[^"\s][^"]*"|'[^']*[^'\s][^']*'|[^\s"'>]+)/i;
+
+/**
+ * Count `<img>` tags in prerendered HTML that have an empty/whitespace
+ * `src` (or no `src` at all). Used by the scheduled asset-health audit to
+ * surface pages that shipped blank images even when every `/assets/*`
+ * reference resolves in R2.
+ */
+export function countEmptySrcImages(html: string): number {
+  let count = 0;
+  let m: RegExpExecArray | null;
+  IMG_TAG_RE.lastIndex = 0;
+  while ((m = IMG_TAG_RE.exec(html)) !== null) {
+    if (!HAS_NONEMPTY_SRC_RE.test(m[0])) count++;
+  }
+  return count;
+}
+
 export const STUDIO_ASSETS_PREFIX = "_studio-assets/assets/";
 
 export function r2KeyForAsset(basename: string): string {

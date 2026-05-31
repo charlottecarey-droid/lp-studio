@@ -54,7 +54,16 @@ export function InlineImage({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const dragDepthRef = useRef(0);
 
+  // An empty/whitespace src is the visible symptom of the brand-import
+  // bug (task #592): a missing image must NEVER render as `<img src="">`,
+  // which the browser shows as a broken-image glyph and re-requests the
+  // current page URL. In live (published) mode we render nothing; in
+  // builder mode (onUpdate present) we keep the Replace affordance via a
+  // placeholder so the editor can still swap a real image in.
+  const hasSrc = typeof src === "string" && src.trim().length > 0;
+
   if (!onUpdate) {
+    if (!hasSrc) return null;
     return (
       <img src={src} alt={alt} className={className} style={mergedStyle} {...imgProps} />
     );
@@ -120,7 +129,20 @@ export function InlineImage({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <img src={src} alt={alt} className={className} style={mergedStyle} {...imgProps} />
+      {hasSrc ? (
+        <img src={src} alt={alt} className={className} style={mergedStyle} {...imgProps} />
+      ) : (
+        <span
+          className={cn(
+            "flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-muted-foreground/30 bg-muted/40 text-muted-foreground",
+            className,
+          )}
+          style={{ minHeight: 120, lineHeight: 1.2, ...mergedStyle }}
+        >
+          <ImageIcon className="w-6 h-6 opacity-50" />
+          <span className="text-[11px] font-medium">No image — click Replace</span>
+        </span>
+      )}
       {isDraggingFile && (
         <span
           className="absolute inset-0 z-20 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/10 text-xs font-semibold text-primary pointer-events-none"

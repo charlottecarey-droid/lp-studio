@@ -27,7 +27,7 @@ import { db, lpPagesTable } from "@workspace/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getActiveHostsForTenant } from "./tenantHosts";
-import { extractAssetPaths, r2AssetExists } from "./assetRefs";
+import { extractAssetPaths, r2AssetExists, countEmptySrcImages } from "./assetRefs";
 import { buildR2S3Client } from "./r2Storage";
 
 const CONCURRENCY = 8;
@@ -52,6 +52,11 @@ export interface AssetHealthResult {
   host: string;
   /** Whether R2 HTML existed for this page (false → not yet prerendered). */
   hadHtml: boolean;
+  /** Count of `<img>` tags shipped with an empty/whitespace `src` (or no
+   *  src at all) — the brand-import broken-image symptom (task #592).
+   *  R2 path-presence never catches these because a blank src references
+   *  no `/assets/*` object. 0 on a healthy page. */
+  emptySrcImages: number;
 }
 
 function getR2() {
@@ -118,12 +123,13 @@ async function checkOnePage(
   const hosts = await getActiveHostsForTenant(page.tenantId);
   const host = hosts[0] ?? "";
   if (!host) {
-    return { checked: 0, brokenAssets: [], host: "", hadHtml: false };
+    return { checked: 0, brokenAssets: [], host: "", hadHtml: false, emptySrcImages: 0 };
   }
   const html = await readR2Html(cfg.client, cfg.bucket, host, page.slug);
   if (!html) {
-    return { checked: 0, brokenAssets: [], host, hadHtml: false };
+    return { checked: 0, brokenAssets: [], host, hadHtml: false, emptySrcImages: 0 };
   }
+  const emptySrcImages = countEmptySrcImages(html);
   const assets = Array.from(new Set(extractAssetPaths(html)));
   // Per-page HEAD fan-out is also bounded: most pages reference 2-4 assets.
   const presence = await Promise.all(
@@ -141,7 +147,7 @@ async function checkOnePage(
     // newly disappeared (or this is the first ever check), stamp it now.
     broken.push({ path: p.ref, firstSeenBrokenAt: priorBroken.get(p.ref) ?? nowIso });
   }
-  return { checked: assets.length, brokenAssets: broken, host, hadHtml: true };
+  return { checked: assets.length, brokenAssets: broken, host, hadHtml: true, emptySrcImages };
 }
 
 function brokenIndexFromRow(value: unknown): Map<string, string> {
@@ -206,7 +212,9 @@ export function runAssetHealthCheck(): Promise<void> {
       let healthyPages = 0;
       let brokenPages = 0;
       let noHtmlPages = 0;
+      let emptySrcPages = 0;
       const brokenSample: { pageId: number; slug: string; host: string; missing: string[] }[] = [];
+      const emptySrcSample: { pageId: number; slug: string; host: string; emptySrcImages: number }[] = [];
 
       // Fixed-size worker pool over the page list.
       let cursor = 0;
@@ -234,6 +242,21 @@ export function runAssetHealthCheck(): Promise<void> {
                 });
               }
             }
+            // Empty-src images are an orthogonal failure to missing
+            // /assets/* objects — a page can be "healthy" by R2 presence
+            // yet still ship blank <img> tags (task #592). Track + sample
+            // them independently of the broken/healthy bucketing.
+            if (result.hadHtml && result.emptySrcImages > 0) {
+              emptySrcPages++;
+              if (emptySrcSample.length < 10) {
+                emptySrcSample.push({
+                  pageId: page.id,
+                  slug: page.slug,
+                  host: result.host,
+                  emptySrcImages: result.emptySrcImages,
+                });
+              }
+            }
           } catch (err) {
             // Per-page failure shouldn't kill the whole sweep — log and
             // continue. The row simply isn't updated this tick.
@@ -254,20 +277,37 @@ export function runAssetHealthCheck(): Promise<void> {
             healthyPages,
             brokenPages,
             noHtmlPages,
+            emptySrcPages,
             brokenSample,
+            emptySrcSample,
           },
           "assetHealthCheck: published pages reference missing assets — lp-studio deploy may have skipped the R2 asset upload step",
         );
         Sentry.captureMessage("lp_asset_health_broken", {
           level: "error",
           tags: { subsystem: "lp-prerender", outcome: "asset_missing" },
-          extra: { totalPages: pages.length, checkedPages, healthyPages, brokenPages, brokenSample },
+          extra: { totalPages: pages.length, checkedPages, healthyPages, brokenPages, emptySrcPages, brokenSample, emptySrcSample },
         });
       } else {
         logger.info(
-          { totalPages: pages.length, checkedPages, healthyPages, noHtmlPages },
+          { totalPages: pages.length, checkedPages, healthyPages, noHtmlPages, emptySrcPages },
           "assetHealthCheck: ok",
         );
+      }
+      // Empty-src images are a distinct symptom (blank <img> shipped even
+      // though every /assets/* object resolves), so alert on them even
+      // when no R2 asset is missing — otherwise the brand-import broken-
+      // image regression (task #592) would pass the audit silently.
+      if (emptySrcPages > 0) {
+        logger.error(
+          { totalPages: pages.length, checkedPages, emptySrcPages, emptySrcSample },
+          "assetHealthCheck: published pages ship <img> tags with empty src — brand-import image mirroring likely failed",
+        );
+        Sentry.captureMessage("lp_asset_health_empty_src", {
+          level: "error",
+          tags: { subsystem: "lp-prerender", outcome: "empty_src_img" },
+          extra: { totalPages: pages.length, checkedPages, emptySrcPages, emptySrcSample },
+        });
       }
     } catch (err) {
       logger.error({ err }, "assetHealthCheck: probe failed");

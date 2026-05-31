@@ -2812,6 +2812,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Fill in any remaining empty image URLs from the media library
     parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images, pageImageContext);
 
+    // An empty media catalog is the upstream cause of the brand-import
+    // broken-image symptom (task #592): if nothing was mirrored into
+    // lp_media, fillEmptyImages has nothing to substitute and image
+    // blocks ship with empty `src`. Warn loudly so the failure is
+    // diagnosable from logs instead of only surfacing as a blank page.
+    if (tenantId != null && mediaCatalog.images.length === 0) {
+      logger.warn(
+        { tenantId, catalogAll: mediaCatalog.allImages.length },
+        "[generate-page] media catalog has no usable images — image slots will rely on AI fill or ship empty; check brand-import asset mirroring",
+      );
+    }
+
     // Task #234 — when the workspace has the AI-image-gen-outside-builder
     // flag flipped on, attempt to AI-generate any imageUrl slots that the
     // media-library pass left empty (small libraries, or generations where
