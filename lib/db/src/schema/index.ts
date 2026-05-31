@@ -52,6 +52,8 @@ export * from "./planConfig";
 export * from "./trialPhoneVerifications";
 // Audit trail for superadmin trial-phone releases
 export * from "./trialPhoneReleaseLog";
+// Audit trail for superadmin trial-phone lookups
+export * from "./trialPhoneLookupLog";
 
 // General-purpose, system-wide audit trail for sensitive superadmin actions
 export * from "./auditLog";

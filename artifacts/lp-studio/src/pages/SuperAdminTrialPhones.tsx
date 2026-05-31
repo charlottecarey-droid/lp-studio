@@ -43,6 +43,21 @@ interface ReleaseLogRow {
   released_at: string;
 }
 
+// One row per past lookup (append-only audit). The matched-tenant name/slug are
+// a snapshot taken at lookup time so the history stays readable even after the
+// tenant is deleted. Only the SHA-256 hash of the number is ever returned.
+interface LookupLogRow {
+  id: number;
+  phone_hash: string;
+  found: boolean;
+  matched_tenant_id: number | null;
+  matched_tenant_name: string | null;
+  matched_tenant_slug: string | null;
+  actor_user_id: number | null;
+  actor_email: string | null;
+  looked_up_at: string;
+}
+
 function parseError(message: string): string {
   try {
     const parsed = JSON.parse(message) as { error?: string };
@@ -97,6 +112,7 @@ interface LookupResult {
 
 export default function SuperAdminTrialPhones() {
   const [rows, setRows] = useState<TrialPhoneRow[] | null>(null);
+  const [lookups, setLookups] = useState<LookupLogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyHash, setBusyHash] = useState<string | null>(null);
@@ -122,8 +138,12 @@ export default function SuperAdminTrialPhones() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch("/api/admin/superadmin/trial-phones");
+      const [data, lookupLog] = await Promise.all([
+        apiFetch("/api/admin/superadmin/trial-phones"),
+        apiFetch("/api/admin/superadmin/trial-phones/lookup-log"),
+      ]);
       setRows(data ?? []);
+      setLookups(lookupLog ?? []);
     } catch (err) {
       setError(parseError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -549,6 +569,81 @@ export default function SuperAdminTrialPhones() {
             </Button>
           </div>
         )}
+      </div>
+
+      <div className="pt-2">
+        <h3 className="text-base font-semibold flex items-center gap-2">
+          <Search className="w-4 h-4" /> Recent lookups
+        </h3>
+        <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+          Durable, append-only history of past lookups — who checked which hash,
+          whether it had already trialed (and for which workspace, snapshotted so
+          it survives tenant deletion), and when. Makes a release traceable back
+          to the operator who looked it up, and keeps probing reviewable.
+        </p>
+
+        <div className="border rounded-lg overflow-hidden mt-3">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Phone hash</TableHead>
+                <TableHead>Result</TableHead>
+                <TableHead>Looked up by</TableHead>
+                <TableHead>Looked up at</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {lookups === null && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
+              {lookups?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    No lookups yet.
+                  </TableCell>
+                </TableRow>
+              )}
+              {lookups?.map((lk) => (
+                <TableRow key={lk.id}>
+                  <TableCell>
+                    <code className="font-mono text-xs" title={lk.phone_hash}>
+                      {lk.phone_hash.slice(0, 16)}…
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    {lk.found ? (
+                      <span className="text-sm">
+                        Already trialed
+                        {(lk.matched_tenant_name || lk.matched_tenant_id) && (
+                          <span className="text-xs text-muted-foreground ml-1.5">
+                            {lk.matched_tenant_name ?? `#${lk.matched_tenant_id}`}
+                            {lk.matched_tenant_slug && (
+                              <span className="font-mono ml-1">{lk.matched_tenant_slug}</span>
+                            )}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Not found</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {lk.actor_email ?? (
+                      <span className="text-xs text-muted-foreground italic">Unknown</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {fmtDateTime(lk.looked_up_at)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

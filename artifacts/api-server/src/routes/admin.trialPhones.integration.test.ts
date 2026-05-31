@@ -42,6 +42,7 @@ const DIGITS = RUN.replace(/[a-f]/g, (c) => String(c.charCodeAt(0) % 10));
 const RAW_LOOKUP = `+1555${DIGITS}`; // +1 555 + 8 digits = valid E.164
 const HASH_LOOKUP = createHash("sha256").update(RAW_LOOKUP).digest("hex");
 const RAW_UNSEEDED = `+1556${DIGITS}`; // valid, but never inserted
+const HASH_UNSEEDED = createHash("sha256").update(RAW_UNSEEDED).digest("hex");
 
 let app: Express;
 let superId = 0;
@@ -74,6 +75,11 @@ async function insertUser(email: string, role: string): Promise<number> {
 }
 
 async function cleanup(): Promise<void> {
+  await pool
+    .query(`DELETE FROM trial_phone_lookup_log WHERE phone_hash = ANY($1)`, [
+      [HASH_A, HASH_B, HASH_GHOST, HASH_LOOKUP, HASH_UNSEEDED],
+    ])
+    .catch(() => {});
   await pool
     .query(`DELETE FROM trial_phone_release_log WHERE phone_hash = ANY($1)`, [
       [HASH_A, HASH_B, HASH_GHOST, HASH_LOOKUP],
@@ -166,6 +172,27 @@ describe("trial-phones — lookup", () => {
     expect(body.row?.phone_hash).toBe(HASH_LOOKUP);
     expect(body.row?.tenant_id).toBe(tenantId);
     expect(body.row?.tenant_slug).toBe(`trial-phone-it-${RUN}`);
+
+    // The lookup writes a durable, append-only audit row recording who looked up
+    // which hash, that it matched, and the matched-tenant snapshot — so a later
+    // release is traceable back to the operator who looked it up.
+    const { rows: log } = await pool.query<{
+      found: boolean;
+      matched_tenant_id: number | null;
+      matched_tenant_slug: string | null;
+      actor_user_id: number | null;
+      actor_email: string | null;
+    }>(
+      `SELECT found, matched_tenant_id, matched_tenant_slug, actor_user_id, actor_email
+         FROM trial_phone_lookup_log WHERE phone_hash = $1`,
+      [HASH_LOOKUP],
+    );
+    expect(log.length).toBeGreaterThanOrEqual(1);
+    expect(log[0].found).toBe(true);
+    expect(log[0].matched_tenant_id).toBe(tenantId);
+    expect(log[0].matched_tenant_slug).toBe(`trial-phone-it-${RUN}`);
+    expect(log[0].actor_user_id).toBe(superId);
+    expect(log[0].actor_email).toBe(SUPER_EMAIL);
   });
 
   it("normalizes formatting (spaces/dashes/parens) to the same hash", async () => {
@@ -180,13 +207,29 @@ describe("trial-phones — lookup", () => {
     expect(body.found).toBe(true);
   });
 
-  it("reports a valid number that has NOT trialed as not found", async () => {
+  it("reports a valid number that has NOT trialed as not found, auditing the lookup", async () => {
     const res = await asSuper("POST", "/superadmin/trial-phones/lookup", { phone: RAW_UNSEEDED });
     expect(res.status).toBe(200);
     const body = res.json as { phoneHash: string; found: boolean; row: unknown };
     expect(body.found).toBe(false);
     expect(body.row).toBeNull();
     expect(body.phoneHash).toMatch(/^[0-9a-f]{64}$/);
+
+    // Even a "not found" lookup is audited (found=false, no tenant) so probing
+    // is reviewable. Only the hash is stored — never the raw number.
+    const { rows: log } = await pool.query<{
+      found: boolean;
+      matched_tenant_id: number | null;
+      actor_email: string | null;
+    }>(
+      `SELECT found, matched_tenant_id, actor_email
+         FROM trial_phone_lookup_log WHERE phone_hash = $1`,
+      [HASH_UNSEEDED],
+    );
+    expect(log.length).toBeGreaterThanOrEqual(1);
+    expect(log[0].found).toBe(false);
+    expect(log[0].matched_tenant_id).toBeNull();
+    expect(log[0].actor_email).toBe(SUPER_EMAIL);
   });
 
   it("rejects an unparseable number with 400 (no hash leaked)", async () => {
@@ -314,6 +357,27 @@ describe("trial-phones — release history", () => {
 
   it("rejects a non-superadmin with 403", async () => {
     const res = await asRep("GET", "/superadmin/trial-phones/release-log");
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("trial-phones — lookup history", () => {
+  it("lets a superadmin read the recent-lookup history including an audited lookup", async () => {
+    const res = await asSuper("GET", "/superadmin/trial-phones/lookup-log");
+    expect(res.status).toBe(200);
+    const rows = res.json as {
+      phone_hash: string;
+      found: boolean;
+      actor_email: string | null;
+    }[];
+    const entry = rows.find((r) => r.phone_hash === HASH_LOOKUP);
+    expect(entry).toBeTruthy();
+    expect(entry?.found).toBe(true);
+    expect(entry?.actor_email).toBe(SUPER_EMAIL);
+  });
+
+  it("rejects a non-superadmin with 403", async () => {
+    const res = await asRep("GET", "/superadmin/trial-phones/lookup-log");
     expect(res.status).toBe(403);
   });
 });

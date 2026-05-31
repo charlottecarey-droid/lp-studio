@@ -39,6 +39,21 @@ Also: adding a field to the signup request body breaks any spec asserting the
 exact payload with `toEqual` (post-login-workspace-screens captures and deep-
 equals it) — update those assertions in lockstep.
 
+## Superadmin audit logs (lookup + release)
+Two append-only audit tables back the superadmin Trial Phones view:
+`trial_phone_release_log` and `trial_phone_lookup_log`. Both store ONLY the
+SHA-256 `phone_hash` (never the raw number) and SNAPSHOT the tenant name/slug
+(plain cols, no FK) so history survives tenant deletion. Lookups log EVERY
+attempt incl. `found=false` (probing is deterrence-relevant), inserts are
+best-effort (a log failure must never 500 the lookup/release).
+
+**Why a new audit table needs a migrate.ts self-heal:** drizzle's journal
+high-water-mark means a renumbered/drifted DB can mark the migration applied
+without running its DDL → table missing → silent loss of the whole audit trail.
+Every such table gets a paired idempotent `CREATE ... IF NOT EXISTS` self-heal
+step in migrate.ts (fails CLOSED). Adding one = migration SQL + `_journal.json`
+entry + migrate.ts self-heal + drizzle schema file + schema/index export.
+
 ## Atomicity
 Signup redeems the single-use phone-verified token, checks `hasPhoneTrialed`, and
 branches the tenant INSERT (real trial window vs NULL/NULL free floor) all inside

@@ -2604,6 +2604,41 @@ router.get(
   },
 );
 
+// GET /api/admin/superadmin/trial-phones/lookup-log — recent lookup history.
+// Append-only audit of past trial-phone lookups (Task #673) so support can see
+// who probed which number and when — including the lookups that preceded a
+// release, making a release traceable back to the operator who looked it up.
+// Only the SHA-256 hash of the number is ever returned, never the raw number.
+// Newest first, capped to a recent window. Defined BEFORE the :phoneHash DELETE
+// so the literal path is unambiguous.
+router.get(
+  "/superadmin/trial-phones/lookup-log",
+  requireSuperadmin,
+  async (_req, res): Promise<void> => {
+    try {
+      const result = await pool.query(`
+        SELECT
+          id,
+          phone_hash,
+          found,
+          matched_tenant_id,
+          matched_tenant_name,
+          matched_tenant_slug,
+          actor_user_id,
+          actor_email,
+          looked_up_at
+        FROM trial_phone_lookup_log
+        ORDER BY looked_up_at DESC
+        LIMIT 200
+      `);
+      res.json(result.rows);
+    } catch (err) {
+      console.error("[superadmin] GET /trial-phones/lookup-log error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 // POST /api/admin/superadmin/trial-phones/lookup — given a raw phone number,
 // normalize it to E.164 and hash it with the SAME function the gate uses, then
 // report whether that hash already has a trial record (and surface the joined
@@ -2611,6 +2646,9 @@ router.get(
 //
 // The raw number lives only in the request body for the duration of the hash —
 // it is NEVER persisted and NEVER logged (only the resulting hash is returned).
+// Each lookup writes a durable, append-only audit row (who/which hash/whether it
+// matched/the matched-tenant snapshot/when) so a subsequent release is traceable
+// back to the operator who looked it up, and probing itself is reviewable.
 router.post("/superadmin/trial-phones/lookup", requireSuperadmin, async (req, res): Promise<void> => {
   const body = (req.body ?? {}) as { phone?: unknown };
   const e164 = normalizeE164Input(body.phone);
@@ -2622,7 +2660,13 @@ router.post("/superadmin/trial-phones/lookup", requireSuperadmin, async (req, re
   }
   try {
     const phoneHash = hashPhone(e164);
-    const result = await pool.query(
+    const result = await pool.query<{
+      phone_hash: string;
+      tenant_id: number | null;
+      created_at: Date;
+      tenant_name: string | null;
+      tenant_slug: string | null;
+    }>(
       `
       SELECT
         tpn.phone_hash,
@@ -2637,6 +2681,33 @@ router.post("/superadmin/trial-phones/lookup", requireSuperadmin, async (req, re
       [phoneHash],
     );
     const row = result.rows[0] ?? null;
+
+    // Durable audit row — append-only history of lookups so support can review
+    // who probed which hash (and which lookups preceded a release). Best-effort:
+    // a logging failure must never make a successful lookup look like a 500 to
+    // the operator. Only the hash + matched-tenant snapshot are stored, never
+    // the raw number. The table is guaranteed to exist by the 0058 migration +
+    // self-heal.
+    try {
+      await pool.query(
+        `INSERT INTO trial_phone_lookup_log
+           (phone_hash, found, matched_tenant_id, matched_tenant_name,
+            matched_tenant_slug, actor_user_id, actor_email)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          phoneHash,
+          !!row,
+          row?.tenant_id ?? null,
+          row?.tenant_name ?? null,
+          row?.tenant_slug ?? null,
+          req.authUser?.userId ?? null,
+          req.authUser?.email ?? null,
+        ],
+      );
+    } catch (logErr) {
+      console.error("[superadmin] trial-phone.lookup audit-log insert failed:", logErr);
+    }
+
     res.json({ phoneHash, found: !!row, row });
   } catch (err) {
     console.error("[superadmin] POST /trial-phones/lookup error:", err);
