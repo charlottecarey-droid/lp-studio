@@ -53,6 +53,9 @@ export * from "./trialPhoneVerifications";
 // Audit trail for superadmin trial-phone releases
 export * from "./trialPhoneReleaseLog";
 
+// General-purpose, system-wide audit trail for sensitive superadmin actions
+export * from "./auditLog";
+
 // In-app notifications + lifecycle email system
 export * from "./notificationTemplates";
 export * from "./notificationSends";

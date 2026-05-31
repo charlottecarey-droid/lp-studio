@@ -5,6 +5,7 @@ import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { requireRootSuperadmin } from "../middleware/requireRootSuperadmin";
 import { isRootSuperadminEmail, getRootSuperadminEmail } from "../lib/rootSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
+import { writeAuditLog } from "../lib/auditLog";
 import {
   BROADCAST_ALERT_TYPES,
   getBroadcastAlertDef,
@@ -607,6 +608,18 @@ router.patch("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Pro
           at: new Date().toISOString(),
         }),
       );
+      await writeAuditLog({
+        action: "tenant.plan.changed",
+        targetType: "tenant",
+        targetKey: tenantId,
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        metadata: {
+          fromRaw: priorPlan,
+          fromCanonical: normalizePlan(priorPlan),
+          to: nextPlan,
+        },
+      });
     }
     res.json(result.rows[0]);
   } catch (err: any) {
@@ -753,6 +766,14 @@ router.patch("/superadmin/plan-config/:tier", requireSuperadmin, async (req, res
         at: new Date().toISOString(),
       }),
     );
+    await writeAuditLog({
+      action: "plan-config.changed",
+      targetType: "plan_config",
+      targetKey: plan,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: { tier: plan },
+    });
 
     const updated = (await getPlanConfig())[plan];
     res.json(updated);
@@ -2420,9 +2441,9 @@ router.delete("/tenant-slug/redirects/:oldSlug", async (req, res): Promise<void>
       return;
     }
     invalidateTenantHostCache();
-    // Audit trail — kept lightweight (structured console log) since the app
-    // doesn't yet have a dedicated audit_log table. Includes who released the
-    // redirect and which slug was freed so it can be grepped from server logs.
+    // Audit trail — durable row in the shared audit_log (Task #672), plus the
+    // structured console line as a grep-able backstop. Records who released the
+    // redirect and which slug was freed.
     console.info(
       "[admin][audit] tenant-slug-redirect.released",
       JSON.stringify({
@@ -2434,6 +2455,18 @@ router.delete("/tenant-slug/redirects/:oldSlug", async (req, res): Promise<void>
         at: new Date().toISOString(),
       }),
     );
+    await writeAuditLog({
+      action: "tenant-slug-redirect.released",
+      targetType: "tenant_slug_redirect",
+      targetKey: r.rows[0].old_slug,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: {
+        tenantId,
+        oldSlug: r.rows[0].old_slug,
+        originalExpiresAt: r.rows[0].expires_at.toISOString(),
+      },
+    });
     res.json({ ok: true, oldSlug: r.rows[0].old_slug });
   } catch (err) {
     console.error("[admin] DELETE /tenant-slug/redirects error:", err);
@@ -2653,6 +2686,21 @@ router.delete("/superadmin/trial-phones/:phoneHash", requireSuperadmin, async (r
         at: new Date().toISOString(),
       }),
     );
+    // Also record in the shared audit_log (Task #672) so the unified review
+    // surface is complete. The privacy-scoped detail (tenant name/slug
+    // snapshot) stays in the dedicated trial_phone_release_log above; here we
+    // store only the same one-way phone hash that table already keeps.
+    await writeAuditLog({
+      action: "trial-phone.released",
+      targetType: "trial_phone",
+      targetKey: released.phone_hash,
+      actorUserId,
+      actorEmail,
+      metadata: {
+        tenantId: released.tenant_id,
+        originalCreatedAt: released.created_at.toISOString(),
+      },
+    });
     res.json({ ok: true, phoneHash: released.phone_hash });
   } catch (err) {
     console.error("[superadmin] DELETE /trial-phones/:phoneHash error:", err);
@@ -2715,6 +2763,22 @@ router.post("/superadmin/switch-tenant", requireSuperadmin, async (req, res): Pr
       `UPDATE app_sessions SET sess = $1 WHERE sid = $2`,
       [JSON.stringify(newSess), sid]
     );
+
+    // Durable audit row (Task #672) — superadmin tenant impersonation is a
+    // sensitive action; record who switched, from which tenant, into which.
+    // null target = restoring to the superadmin's own original context.
+    await writeAuditLog({
+      action: "superadmin.switch-tenant",
+      targetType: "tenant",
+      targetKey: newTenantId,
+      actorUserId: existing.userId,
+      actorEmail: existing.email,
+      metadata: {
+        fromTenantId: existing.tenantId ?? null,
+        toTenantId: newTenantId,
+        restored: newTenantId === null,
+      },
+    });
 
     res.json({
       userId: existing.userId,
@@ -3137,6 +3201,14 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
         at: new Date().toISOString(),
       }),
     );
+    await writeAuditLog({
+      action: "tenant.customDomain.attached",
+      targetType: "tenant",
+      targetKey: tenantId,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: { hostname: normalized, cloudflareHostnameId: ch.id },
+    });
 
     res.json(await loadCustomDomainState(tenantId));
   } catch (err) {
@@ -3224,6 +3296,18 @@ router.delete("/custom-domain", requirePlanFeature("customDomain"), async (req, 
         at: new Date().toISOString(),
       }),
     );
+    await writeAuditLog({
+      action: "tenant.customDomain.detached",
+      targetType: "tenant",
+      targetKey: tenantId,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: {
+        hostname: prior.microsite_domain,
+        cloudflareHostnameId: prior.cloudflare_hostname_id,
+        cloudflareError: cfError,
+      },
+    });
 
     const state = await loadCustomDomainState(tenantId);
     if (cfError) state.error = `Domain detached, but Cloudflare cleanup reported: ${cfError}`;

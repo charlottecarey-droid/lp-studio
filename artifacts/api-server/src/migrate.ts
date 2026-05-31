@@ -508,6 +508,36 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the shared superadmin audit log (Task #672). Same
+    // high-water-mark hazard as the self-heals above: on a DB whose journal was
+    // renumbered after it was migrated, drizzle can record 0057 as applied
+    // without its DDL ever running, leaving the table missing. Several
+    // superadmin routes best-effort-insert into this table on every sensitive
+    // action; a missing table would silently lose the durable audit trail (the
+    // whole point of this task). Re-applying the file here is independent of
+    // drizzle's dedup and idempotent (CREATE ... IF NOT EXISTS), so it creates
+    // the table where missing and is a no-op elsewhere. Fails CLOSED: the table
+    // is feature-critical, so a missing table aborts the release; the SQL is
+    // idempotent so a retry is always safe.
+    await runStep("audit_log self-heal (0058)", async () => {
+      const auditLogSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0058_audit_log.sql"),
+        "utf8",
+      );
+      await pool.query(auditLogSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'audit_log'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "audit_log self-heal did not produce the table — aborting release",
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under
