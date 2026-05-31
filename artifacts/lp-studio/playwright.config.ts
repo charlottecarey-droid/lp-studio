@@ -70,6 +70,14 @@ export default defineConfig({
         // Page-review workflow (task #108): the spec asserts task creation
         // without hitting the real Asana API.
         ASANA_FAKE_MODE: "1",
+        // Trial phone gate (task #637): the e2e api-server inherits the parent
+        // process env, which now carries the real Twilio secrets. Force them
+        // empty so twilioConfigured() is false and signup keeps its legacy
+        // no-phone trial path — the signup/workspace specs don't (and can't)
+        // drive a real SMS verification.
+        TWILIO_ACCOUNT_SID: "",
+        TWILIO_AUTH_TOKEN: "",
+        TWILIO_VERIFY_SERVICE_SID: "",
       },
     },
     // ── 2. The Vite dev server hosting the lp-studio app. We deliberately

@@ -48,6 +48,9 @@ export * from "./tenantWebhookSecrets";
 // SuperAdmin-configurable plan/pricing tiers
 export * from "./planConfig";
 
+// Trial phone gating (one free trial per SMS-verified phone number)
+export * from "./trialPhoneVerifications";
+
 // In-app notifications + lifecycle email system
 export * from "./notificationTemplates";
 export * from "./notificationSends";

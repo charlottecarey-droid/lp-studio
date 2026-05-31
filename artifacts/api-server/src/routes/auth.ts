@@ -15,6 +15,21 @@ import {
 import { hashPassword, verifyPassword, validatePasswordStrength } from "../lib/password";
 import { verifyTurnstile } from "../lib/turnstile";
 import {
+  twilioConfigured,
+  lookupLineType,
+  isVoipLineType,
+  sendVerificationCode,
+  checkVerificationCode,
+} from "../lib/twilioVerify";
+import {
+  isValidE164,
+  hashPhone,
+  mintPhoneVerifiedToken,
+  redeemPhoneVerifiedToken,
+  hasPhoneTrialed,
+  recordPhoneTrial,
+} from "../lib/phoneVerification";
+import {
   mintEmailToken,
   redeemEmailToken,
   invalidateUserTokens,
@@ -119,6 +134,28 @@ const findWorkspaceLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many lookups. Please try again in a minute." },
+});
+
+// Strict rate limit for the SMS send endpoint: 5 per IP per 15 minutes. Each
+// hit costs a real SMS, so this is as tight as the email-send limiter to blunt
+// SMS-pumping / toll-fraud and verification-spam against a single number.
+const phoneSendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many code requests. Please try again later." },
+});
+
+// Rate limit for the code-check endpoint: 10 per IP per 15 minutes. Twilio
+// Verify enforces its own per-verification attempt cap; this is a coarse outer
+// guard against distributed code-guessing.
+const phoneVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
 });
 
 export const SESSION_COOKIE = "lp_sid";
@@ -1500,11 +1537,16 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       return;
     }
 
-    const { name, slug } = req.body ?? {};
+    const { name, slug, phoneVerifiedToken } = req.body ?? {};
     if (!name || typeof name !== "string" || !slug || typeof slug !== "string") {
       res.status(400).json({ error: "name and slug are required" });
       return;
     }
+
+    // Trial phone gate (Task #637). When Twilio is configured every self-serve
+    // signup must present a phone-verified token; when it isn't, the gate is
+    // skipped and the trial is granted as before (dev/e2e/pre-provisioning).
+    const requirePhone = twilioConfigured();
 
     const slugClean = slug
       .toLowerCase()
@@ -1556,6 +1598,29 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     try {
       await client.query("BEGIN");
 
+      // Redeem the phone-verified token (Task #637) inside the transaction so
+      // the redeem + trial record commit/roll back atomically with the tenant
+      // INSERT. When the gate is on, a missing/invalid/expired/used token blocks
+      // signup. The verified number's hash decides trial-vs-free-floor: a number
+      // that has trialed before gets a workspace on the free floor (no window).
+      let grantTrial = true;
+      let trialPhoneHash: string | null = null;
+      let phoneAlreadyTrialed = false;
+      if (requirePhone) {
+        const redeemed = await redeemPhoneVerifiedToken(client, phoneVerifiedToken, sess.userId);
+        if (!redeemed) {
+          await client.query("ROLLBACK");
+          res.status(400).json({
+            error: "Phone verification is required. Please verify your mobile number to continue.",
+            code: "phone_verification_required",
+          });
+          return;
+        }
+        trialPhoneHash = redeemed.phoneHash;
+        phoneAlreadyTrialed = await hasPhoneTrialed(client, trialPhoneHash);
+        grantTrial = !phoneAlreadyTrialed;
+      }
+
       // Default new tenants to industry='generic' so they immediately resolve
       // to the generic block catalog with no manual settings patch required.
       //
@@ -1568,15 +1633,34 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       // The stored plan is the FREE floor they fall back to after expiry; the
       // trial window (trial_started_at / trial_expires_at) is what grants Growth
       // features meanwhile via effectivePlan(). No card, no tier picker.
-      const tenantResult = await client.query(
-        `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
-         VALUES ($1, $2, 'free', 'active',
-                 '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
-                 now(), now() + make_interval(days => $3))
-         RETURNING id, name, slug`,
-        [name.trim(), slugClean, TRIAL_DURATION_DAYS]
-      );
+      //
+      // Task #637: when the phone has already trialed (`grantTrial` false) the
+      // window columns stay NULL so the tenant lands on the free floor with no
+      // trial — billing/upgrade is unaffected and remains available.
+      const tenantResult = grantTrial
+        ? await client.query(
+            `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
+             VALUES ($1, $2, 'free', 'active',
+                     '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
+                     now(), now() + make_interval(days => $3))
+             RETURNING id, name, slug`,
+            [name.trim(), slugClean, TRIAL_DURATION_DAYS]
+          )
+        : await client.query(
+            `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
+             VALUES ($1, $2, 'free', 'active',
+                     '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
+                     NULL, NULL)
+             RETURNING id, name, slug`,
+            [name.trim(), slugClean]
+          );
       const tenant = tenantResult.rows[0];
+
+      // Record the number as having consumed its one free trial — only when a
+      // trial was actually granted, and atomically with the tenant it unlocked.
+      if (requirePhone && grantTrial && trialPhoneHash) {
+        await recordPhoneTrial(client, trialPhoneHash, tenant.id);
+      }
 
       const adminRoleResult = await client.query(
         `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
@@ -1635,7 +1719,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
         [newSess, expire, sid]
       );
 
-      res.json({ ok: true, tenant });
+      res.json({ ok: true, tenant, trialGranted: grantTrial, phoneAlreadyTrialed });
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
@@ -1711,6 +1795,171 @@ function getDecoyHash(): Promise<string> {
 // challenge widget. The secret key never leaves the server.
 router.get("/auth/turnstile-config", (_req, res): void => {
   res.json({ siteKey: process.env.TURNSTILE_SITE_KEY ?? null });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Trial phone gating (Task #637) — SMS phone verification limiting one free
+// 14-day Growth trial per verified mobile number.
+//
+// Flow: a signed-in user without a workspace (post-login, pre-signup) verifies
+// a mobile phone via Twilio Verify before creating a workspace. send-code looks
+// the number up (rejecting VOIP/landline) and texts a code; verify-code checks
+// it and mints a single-use token; /auth/signup redeems that token and decides
+// trial-vs-free-floor based on whether the number has trialed before.
+//
+// Gating: when Twilio isn't configured (`twilioConfigured()` false) the gate is
+// disabled — signup grants the trial as before so dev/e2e/pre-provisioning keep
+// working — and these endpoints return a clear 503 setup error rather than ever
+// pretending a number was verified.
+
+// Resolve the session for a signed-in user who does NOT yet belong to a
+// workspace (the only state in which phone verification runs). Mirrors the
+// manual cookie+app_sessions read in /auth/signup (requireAuth can't be used
+// because the user has no tenantId yet). Returns null with the response already
+// sent on any failure.
+async function requireTenantlessSession(
+  req: Request,
+  res: Response,
+): Promise<{ sid: string; sess: any } | null> {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) {
+    res.status(401).json({ error: "Not authenticated" });
+    return null;
+  }
+  const sessionResult = await pool.query(
+    `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+    [sid],
+  );
+  if (!sessionResult.rows.length) {
+    res.status(401).json({ error: "Session expired" });
+    return null;
+  }
+  const sess = JSON.parse(sessionResult.rows[0].sess);
+  if (sess.tenantId) {
+    res.status(400).json({ error: "You already belong to a workspace" });
+    return null;
+  }
+  return { sid, sess };
+}
+
+// GET /api/auth/phone/config — tells the frontend whether the workspace-create
+// flow must require SMS phone verification (i.e. whether Twilio is configured).
+router.get("/auth/phone/config", (_req, res): void => {
+  res.json({ required: twilioConfigured() });
+});
+
+// POST /api/auth/phone/send-code — validate the number (reject VOIP/landline
+// via Twilio Lookup) and text an SMS verification code. Turnstile-gated and
+// strictly rate-limited because each call sends a billable SMS.
+router.post("/auth/phone/send-code", phoneSendLimiter, async (req, res): Promise<void> => {
+  try {
+    const session = await requireTenantlessSession(req, res);
+    if (!session) return;
+
+    if (!twilioConfigured()) {
+      res.status(503).json({
+        error: "Phone verification isn't available right now. Please try again later.",
+        code: "phone_not_configured",
+      });
+      return;
+    }
+
+    const body = (req.body ?? {}) as { phone?: unknown; turnstileToken?: unknown };
+    const turnstile = await verifyTurnstile(body.turnstileToken, req.ip);
+    if (!turnstile.ok) {
+      res.status(400).json({ error: "Bot check failed. Please try again." });
+      return;
+    }
+
+    const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
+    if (!rawPhone) {
+      res.status(400).json({ error: "Enter your mobile number.", code: "invalid_phone" });
+      return;
+    }
+
+    const lookup = await lookupLineType(rawPhone);
+    if (!lookup.valid || !lookup.phoneNumber) {
+      res.status(400).json({
+        error: "That doesn't look like a valid phone number. Include your country code (e.g. +1).",
+        code: "invalid_phone",
+      });
+      return;
+    }
+    if (isVoipLineType(lookup.lineType)) {
+      res.status(400).json({
+        error: "That looks like a virtual or VOIP number. Please use a real mobile number.",
+        code: "voip_rejected",
+      });
+      return;
+    }
+
+    const sent = await sendVerificationCode(lookup.phoneNumber);
+    if (!sent.ok) {
+      res.status(502).json({
+        error: "We couldn't send a code to that number. Double-check it and try again.",
+        code: "send_failed",
+      });
+      return;
+    }
+
+    // Return the canonical E.164 so the client echoes it back to verify-code
+    // (the code was sent to this exact form, so the check must use it too).
+    res.json({ ok: true, phone: lookup.phoneNumber });
+  } catch (err) {
+    console.error("[auth] phone send-code error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/phone/verify-code — check the SMS code and, on success, mint a
+// single-use phone-verified token the signup flow redeems. Also reports whether
+// the number has already used its one free trial so the UI can set expectations.
+router.post("/auth/phone/verify-code", phoneVerifyLimiter, async (req, res): Promise<void> => {
+  try {
+    const session = await requireTenantlessSession(req, res);
+    if (!session) return;
+
+    if (!twilioConfigured()) {
+      res.status(503).json({
+        error: "Phone verification isn't available right now. Please try again later.",
+        code: "phone_not_configured",
+      });
+      return;
+    }
+
+    const body = (req.body ?? {}) as { phone?: unknown; code?: unknown };
+    // The client echoes the canonical E.164 returned by send-code. Validate it
+    // strictly so we hash exactly the form the code was sent to.
+    if (!isValidE164(body.phone)) {
+      res.status(400).json({ error: "Enter a valid mobile number.", code: "invalid_phone" });
+      return;
+    }
+    const code = typeof body.code === "string" ? body.code.trim() : "";
+    if (!/^\d{4,10}$/.test(code)) {
+      res.status(400).json({ error: "Enter the code from the text message.", code: "invalid_code" });
+      return;
+    }
+
+    const check = await checkVerificationCode(body.phone, code);
+    if (!check.approved) {
+      res.status(400).json({
+        error: "That code is incorrect or has expired. Request a new one.",
+        code: "code_invalid",
+      });
+      return;
+    }
+
+    const phoneVerifiedToken = await mintPhoneVerifiedToken({
+      userId: session.sess.userId,
+      phoneE164: body.phone,
+    });
+    const alreadyTrialed = await hasPhoneTrialed(pool, hashPhone(body.phone));
+
+    res.json({ ok: true, phoneVerifiedToken, alreadyTrialed });
+  } catch (err) {
+    console.error("[auth] phone verify-code error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // POST /api/auth/email/register — create an email+password account and send a

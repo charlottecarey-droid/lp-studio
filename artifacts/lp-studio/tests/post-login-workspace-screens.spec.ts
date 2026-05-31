@@ -356,6 +356,7 @@ async function setupCreateWorkspaceFlow(
       JSON.parse(route.request().postData() ?? "{}") as {
         name?: string;
         slug?: string;
+        phoneVerifiedToken?: string | null;
       },
     );
     // Only a 2xx flips the user into a created-workspace state — a failure
@@ -399,7 +400,14 @@ test.describe("Post-login AuthGate — submitting the Create-workspace form", ()
     // The create-workspace endpoint was hit exactly once with the entered
     // name + the auto-generated slug.
     await expect.poll(() => signupRequests.length).toBe(1);
-    expect(signupRequests[0]).toEqual({ name: "Acme Corp", slug: "acme-corp" });
+    // phoneVerifiedToken is null here: the e2e api-server runs with Twilio
+    // unset (see playwright.config.ts), so the phone gate is off and the form
+    // submits straight through.
+    expect(signupRequests[0]).toEqual({
+      name: "Acme Corp",
+      slug: "acme-corp",
+      phoneVerifiedToken: null,
+    });
 
     // On success the user is moved forward into the OnboardingWizard, whose
     // first screen is the import step ("Let's build your brand").

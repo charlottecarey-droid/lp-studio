@@ -389,8 +389,8 @@ async function runMigrationsBody(): Promise<void> {
     // Durable self-heal for the tenant_email_shells.physical_address column.
     // Same high-water-mark hazard as the notifications/workflow_send_failures
     // self-heals above: on a drifted DB whose drizzle.__drizzle_migrations max
-    // created_at already sits ABOVE 0052's journal `when`, the node-postgres
-    // migrator records nothing and never runs 0052's DDL, leaving the column
+    // created_at already sits ABOVE 0054's journal `when`, the node-postgres
+    // migrator records nothing and never runs 0054's DDL, leaving the column
     // missing. Every tenant email footer injects {{physicalAddress}} and the
     // shell resolver SELECTs physical_address, so a missing column 500s the
     // whole tenant email-shell editor + breaks sends. Re-applying the file here
@@ -414,6 +414,36 @@ async function runMigrationsBody(): Promise<void> {
       if ((rows[0]?.present ?? 0) < 1) {
         throw new Error(
           "tenant_email_shells physical_address self-heal did not produce the column — aborting release",
+        );
+      }
+    });
+
+    // Durable self-heal for the trial phone-gating tables (Task #637). Same
+    // high-water-mark hazard as the self-heals above: on a DB whose journal was
+    // renumbered after it was migrated, drizzle can record 0055 as applied
+    // without its DDL ever running, leaving the tables missing. Without
+    // trial_phone_numbers the one-trial-per-number gate silently fails open
+    // (every number could re-trial); without trial_phone_tokens signup can't
+    // redeem a verification, blocking all gated signups. Re-applying the file
+    // here is independent of drizzle's dedup and idempotent (CREATE ... IF NOT
+    // EXISTS), so it creates the tables where missing and is a no-op elsewhere.
+    // Fails CLOSED: both tables are feature-critical, so a missing table aborts
+    // the release; the SQL is idempotent so a retry is always safe.
+    await runStep("trial phone-gating self-heal (0055)", async () => {
+      const trialPhoneSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0055_trial_phone_verification.sql"),
+        "utf8",
+      );
+      await pool.query(trialPhoneSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN ('trial_phone_numbers', 'trial_phone_tokens')`,
+      );
+      if ((rows[0]?.present ?? 0) < 2) {
+        throw new Error(
+          `trial phone-gating self-heal did not produce both tables (found ${rows[0]?.present ?? 0}/2) — aborting release`,
         );
       }
     });

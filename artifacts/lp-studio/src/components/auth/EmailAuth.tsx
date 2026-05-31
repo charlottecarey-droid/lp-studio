@@ -47,7 +47,7 @@ function loadTurnstileScript(): Promise<void> {
 // undefined = not yet loaded, null = not configured, string = site key.
 let cachedSiteKey: string | null | undefined = undefined;
 
-function useTurnstileSiteKey(): string | null | undefined {
+export function useTurnstileSiteKey(): string | null | undefined {
   const [siteKey, setSiteKey] = useState<string | null | undefined>(cachedSiteKey);
   useEffect(() => {
     if (cachedSiteKey !== undefined) {
@@ -72,7 +72,7 @@ function useTurnstileSiteKey(): string | null | undefined {
   return siteKey;
 }
 
-function TurnstileWidget({ siteKey, onToken }: { siteKey: string; onToken: (t: string | null) => void }) {
+export function TurnstileWidget({ siteKey, onToken }: { siteKey: string; onToken: (t: string | null) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
 

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ExternalLink, LogOut, Building2, Search, Sparkles, LayoutTemplate, BarChart3, ArrowRight, Loader2 } from "lucide-react";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { EmailAuthForms } from "@/components/auth/EmailAuth";
+import { PhoneVerify } from "@/components/auth/PhoneVerify";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
 const PUBLIC_EXACT = ["/reset-password"];
@@ -662,6 +663,29 @@ function CreateWorkspaceForm({ email, onSuccess }: { email: string; onSuccess: (
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Trial phone gate (Task #637). `phoneRequired` is undefined until the server
+  // tells us whether SMS verification is enabled (Twilio configured). When
+  // required, the user must verify a mobile number before the name/slug step;
+  // the resulting single-use token rides along in the signup request.
+  const [phoneRequired, setPhoneRequired] = useState<boolean | undefined>(undefined);
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
+  const [phoneAlreadyTrialed, setPhoneAlreadyTrialed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/phone/config", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { required: false }))
+      .then((d: { required?: boolean }) => {
+        if (!cancelled) setPhoneRequired(!!d.required);
+      })
+      .catch(() => {
+        if (!cancelled) setPhoneRequired(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!slugEdited && name) {
       setSlug(slugify(name));
@@ -677,19 +701,47 @@ function CreateWorkspaceForm({ email, onSuccess }: { email: string; onSuccess: (
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, slug }),
+        body: JSON.stringify({ name, slug, phoneVerifiedToken: phoneToken }),
       });
       if (res.ok) {
         onSuccess();
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Could not create workspace");
+        // The verification token expired between verify and submit — send the
+        // user back to re-verify rather than showing a dead-end error.
+        if (data.code === "phone_verification_required") {
+          setPhoneToken(null);
+          setError("Your phone verification expired. Please verify again.");
+        } else {
+          setError(data.error ?? "Could not create workspace");
+        }
       }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  // Waiting on the phone-config check — avoid flashing the wrong step.
+  if (phoneRequired === undefined) {
+    return (
+      <div className="w-full max-w-sm flex justify-center py-10">
+        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Phone verification required and not yet completed — show the SMS step first.
+  if (phoneRequired && !phoneToken) {
+    return (
+      <PhoneVerify
+        onVerified={(token, alreadyTrialed) => {
+          setPhoneToken(token);
+          setPhoneAlreadyTrialed(alreadyTrialed);
+        }}
+      />
+    );
   }
 
   return (
@@ -703,6 +755,13 @@ function CreateWorkspaceForm({ email, onSuccess }: { email: string; onSuccess: (
           Signed in as <span className="font-medium text-foreground">{email}</span>
         </p>
       </div>
+
+      {phoneAlreadyTrialed && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This number has already used its free trial. Your workspace will be created on
+          the free plan — you can upgrade anytime.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
