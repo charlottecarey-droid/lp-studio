@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -451,6 +452,7 @@ const OPEN_HIGHLIGHTS = [
 function OpenSignInScreen() {
   const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [finderOpen, setFinderOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
   const isSignup = mode === "signup";
 
   return (
@@ -583,32 +585,51 @@ function OpenSignInScreen() {
 
             {!isSignup && (
               <div className="border-t border-border/60 pt-5">
-                {finderOpen ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground">Find your company's login page</p>
+                <AnimatePresence initial={false} mode="wait">
+                  {finderOpen ? (
+                    <motion.div
+                      key="finder"
+                      initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                      animate={reduceMotion ? undefined : { height: "auto", opacity: 1 }}
+                      exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+                      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">Find your company's login page</p>
+                          <button
+                            type="button"
+                            onClick={() => setFinderOpen(false)}
+                            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <WorkspaceFinder bare autoFocus />
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.p
+                      key="link"
+                      initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                      animate={reduceMotion ? undefined : { height: "auto", opacity: 1 }}
+                      exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+                      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ overflow: "hidden" }}
+                      className="text-center text-xs text-muted-foreground"
+                    >
+                      Already have a workspace?{" "}
                       <button
                         type="button"
-                        onClick={() => setFinderOpen(false)}
-                        className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                        onClick={() => setFinderOpen(true)}
+                        className="font-medium text-primary hover:underline"
                       >
-                        Cancel
+                        Find your company's login page
                       </button>
-                    </div>
-                    <WorkspaceFinder bare autoFocus />
-                  </div>
-                ) : (
-                  <p className="text-center text-xs text-muted-foreground">
-                    Already have a workspace?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setFinderOpen(true)}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      Find your company's login page
-                    </button>
-                  </p>
-                )}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </div>

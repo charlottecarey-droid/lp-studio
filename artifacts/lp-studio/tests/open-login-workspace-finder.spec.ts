@@ -101,6 +101,18 @@ async function stubLoggedOut(page: Page, domainContext: object): Promise<void> {
 // switch links do not), so this selector isolates the toggle unambiguously.
 const toggle = (page: Page) => page.locator("button[aria-pressed]");
 
+// The workspace finder now lives on the Log in tab, tucked behind a quiet
+// "Find your company's login page" link that reveals it with an open/close
+// animation. Reaching the finder input therefore takes two steps: switch to
+// the Log in tab, then click the reveal link. (Playwright auto-waits for the
+// reveal animation to settle before the finder input becomes actionable.)
+async function openFinder(page: Page): Promise<void> {
+  await toggle(page).filter({ hasText: "Log in" }).click();
+  await page
+    .getByRole("button", { name: "Find your company's login page" })
+    .click();
+}
+
 test.afterAll(async () => {
   await pool.end().catch(() => undefined);
 });
@@ -121,9 +133,17 @@ test.describe("Open-domain login shell — AuthGate rendering", () => {
     ).toBeVisible({ timeout: 30_000 });
     await expect(toggle(page).filter({ hasText: "Sign up" })).toBeVisible();
     await expect(toggle(page).filter({ hasText: "Log in" })).toBeVisible();
-    await expect(page.getByText("Already have a workspace?")).toBeVisible();
+    await expect(page.getByText("Already have an account?")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Continue with Google" }),
+    ).toBeVisible();
+
+    // The workspace finder is reachable from the open screen: switching to the
+    // Log in tab surfaces the quiet "Find your company's login page" reveal link.
+    await toggle(page).filter({ hasText: "Log in" }).click();
+    await expect(page.getByText("Already have a workspace?")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Find your company's login page" }),
     ).toBeVisible();
 
     await ctx.close();
@@ -254,6 +274,7 @@ test.describe("Workspace finder — open sign-in screen", () => {
       }),
     );
     await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+    await openFinder(page);
 
     const input = page.getByLabel("Company name or workspace");
     await expect(input).toBeVisible({ timeout: 30_000 });
@@ -274,6 +295,7 @@ test.describe("Workspace finder — open sign-in screen", () => {
     const page = await ctx.newPage();
     await stubLoggedOut(page, OPEN_CTX);
     await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+    await openFinder(page);
 
     const input = page.getByLabel("Company name or workspace");
     await expect(input).toBeVisible({ timeout: 30_000 });
@@ -302,6 +324,7 @@ test.describe("Workspace finder — open sign-in screen", () => {
     const page = await ctx.newPage();
     await stubLoggedOut(page, OPEN_CTX);
     await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+    await openFinder(page);
 
     const input = page.getByLabel("Company name or workspace");
     await expect(input).toBeVisible({ timeout: 30_000 });
@@ -337,6 +360,7 @@ test.describe("Workspace finder — open sign-in screen", () => {
       }),
     );
     await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
+    await openFinder(page);
 
     const input = page.getByLabel("Company name or workspace");
     await expect(input).toBeVisible({ timeout: 30_000 });
