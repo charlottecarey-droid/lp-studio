@@ -37,6 +37,10 @@ export const broadcastAlertRecipientsTable = pgTable("broadcast_alert_recipients
   memberUserIds: jsonb("member_user_ids").notNull().default([]),
   // JSON array of raw email addresses (string[]).
   extraEmails: jsonb("extra_emails").notNull().default([]),
+  // JSON array of dynamic group tokens (Task #623). Self-updating audiences that
+  // resolve to the CURRENT roster at send time: "all_admins", "all_members",
+  // "page_author" (page_author only applies to page-scoped collaboration alerts).
+  groups: jsonb("groups").notNull().default([]),
   // Audit: the app_user who last saved this config (best-effort, nullable).
   updatedBy: integer("updated_by"),
   updatedAt: timestamp("updated_at", { withTimezone: true })

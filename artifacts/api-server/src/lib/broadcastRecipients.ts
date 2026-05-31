@@ -84,6 +84,55 @@ export function getBroadcastAlertDef(type: string): BroadcastAlertTypeDef | null
   return ALERT_BY_TYPE.get(type) ?? null;
 }
 
+/**
+ * Dynamic recipient GROUPS (Task #623). Unlike the explicit member ids / extra
+ * emails, a group resolves to the CURRENT roster at SEND time, so adding or
+ * removing a teammate later automatically changes who is alerted with no re-edit
+ * of the config:
+ *
+ *   - all_admins  → every accepted workspace admin (mirrors `legacyAdmins`).
+ *   - all_members → every workspace member with an email (mirrors
+ *                   `legacyAllMembers`).
+ *   - page_author → the creator/submitter of the SPECIFIC page that triggered a
+ *                   page-scoped collaboration alert. Only meaningful for the
+ *                   collaboration alert types; a no-op (resolves to nobody) for
+ *                   account/billing types, which have no page context.
+ */
+export const BROADCAST_GROUP_TOKENS = [
+  "all_admins",
+  "all_members",
+  "page_author",
+] as const;
+export type BroadcastGroupToken = (typeof BROADCAST_GROUP_TOKENS)[number];
+
+const GROUP_TOKEN_SET = new Set<string>(BROADCAST_GROUP_TOKENS);
+
+/**
+ * Which group tokens apply to a given alert type. Every alert supports
+ * all_admins / all_members; page_author is additionally offered ONLY for
+ * page-scoped collaboration alerts (New comment, Review decision).
+ */
+export function getApplicableGroupTokens(
+  def: BroadcastAlertTypeDef,
+): BroadcastGroupToken[] {
+  const tokens: BroadcastGroupToken[] = ["all_admins", "all_members"];
+  if (def.category === "collaboration") tokens.push("page_author");
+  return tokens;
+}
+
+/** Identity of the page that triggered a page-scoped alert (Task #623). */
+export interface PageAuthorContext {
+  /** app_users.id of the page's submitter (review) — preferred. */
+  userId?: number | null;
+  /** Page creator email (e.g. lp_pages.created_by) — fallback. */
+  email?: string | null;
+}
+
+export interface ResolveBroadcastOptions {
+  /** Page author identity so the `page_author` group can resolve. */
+  pageAuthor?: PageAuthorContext;
+}
+
 export interface ResolvedRecipient {
   /** In-app inbox target. Null for extra emails with no workspace account. */
   appUserId: number | null;
@@ -169,6 +218,77 @@ async function legacyDefault(
 }
 
 /**
+ * Resolve the `page_author` group to the single person who created/submitted the
+ * page that triggered this alert. Prefers the submitter's app_users.id (review
+ * decisions), falling back to the page's `created_by` email (comments). Returns
+ * [] when there is no page context or the author can't be matched. Tenant-scoped
+ * so a stale id can never leak a recipient from another workspace.
+ */
+async function resolvePageAuthor(
+  tenantId: number,
+  pageAuthor: PageAuthorContext | undefined,
+): Promise<ResolvedRecipient[]> {
+  if (!pageAuthor) return [];
+
+  if (pageAuthor.userId && Number.isInteger(pageAuthor.userId) && pageAuthor.userId > 0) {
+    const { rows } = await pool.query<{ id: number; email: string; name: string | null }>(
+      `SELECT id, email, name
+         FROM app_users
+        WHERE id = $1 AND tenant_id = $2
+          AND email IS NOT NULL AND email <> ''`,
+      [pageAuthor.userId, tenantId],
+    );
+    if (rows[0]) {
+      return [{ appUserId: rows[0].id, email: rows[0].email, name: rows[0].name }];
+    }
+  }
+
+  const email = (pageAuthor.email ?? "").trim();
+  if (email) {
+    // Match the email to a workspace account where possible so the in-app inbox
+    // item is delivered too; otherwise send to the bare address.
+    const { rows } = await pool.query<{ id: number; email: string; name: string | null }>(
+      `SELECT id, email, name
+         FROM app_users
+        WHERE lower(email) = lower($1) AND tenant_id = $2
+          AND email IS NOT NULL AND email <> ''`,
+      [email, tenantId],
+    );
+    if (rows[0]) {
+      return [{ appUserId: rows[0].id, email: rows[0].email, name: rows[0].name }];
+    }
+    return [{ appUserId: null, email, name: null }];
+  }
+  return [];
+}
+
+/**
+ * Expand the saved group tokens into concrete recipients using the CURRENT
+ * roster. Tokens not applicable to this alert type (e.g. `page_author` on an
+ * account/billing alert) are silently ignored.
+ */
+async function resolveGroups(
+  def: BroadcastAlertTypeDef,
+  tenantId: number,
+  groups: string[],
+  pageAuthor: PageAuthorContext | undefined,
+): Promise<ResolvedRecipient[]> {
+  const applicable = new Set<string>(getApplicableGroupTokens(def));
+  const out: ResolvedRecipient[] = [];
+  for (const token of new Set(groups)) {
+    if (!applicable.has(token)) continue; // unknown / not-applicable → no-op
+    if (token === "all_admins") {
+      out.push(...(await legacyAdmins(tenantId)));
+    } else if (token === "all_members") {
+      out.push(...(await legacyAllMembers(tenantId)));
+    } else if (token === "page_author") {
+      out.push(...(await resolvePageAuthor(tenantId, pageAuthor)));
+    }
+  }
+  return out;
+}
+
+/**
  * Resolve the recipient list for a tenant's broadcast alert. See file header for
  * the configured / unconfigured / fail-open contract. Throws only for an unknown
  * alert type (a programming error — keys are code-owned).
@@ -176,14 +296,17 @@ async function legacyDefault(
 export async function resolveBroadcastRecipients(
   tenantId: number,
   alertType: string,
+  opts?: ResolveBroadcastOptions,
 ): Promise<ResolvedRecipient[]> {
   const def = ALERT_BY_TYPE.get(alertType);
   if (!def) throw new Error(`Unknown broadcast alert type: ${alertType}`);
 
-  let config: { member_user_ids: unknown; extra_emails: unknown } | null = null;
+  let config:
+    | { member_user_ids: unknown; extra_emails: unknown; groups: unknown }
+    | null = null;
   try {
-    const r = await pool.query<{ member_user_ids: unknown; extra_emails: unknown }>(
-      `SELECT member_user_ids, extra_emails
+    const r = await pool.query<{ member_user_ids: unknown; extra_emails: unknown; groups: unknown }>(
+      `SELECT member_user_ids, extra_emails, groups
          FROM broadcast_alert_recipients
         WHERE tenant_id = $1 AND alert_type = $2`,
       [tenantId, alertType],
@@ -203,6 +326,7 @@ export async function resolveBroadcastRecipients(
 
   const memberIds = toNumberArray(config.member_user_ids);
   const extraEmails = toStringArray(config.extra_emails);
+  const groups = toStringArray(config.groups).filter((g) => GROUP_TOKEN_SET.has(g));
 
   const resolved: ResolvedRecipient[] = [];
   if (memberIds.length) {
@@ -229,6 +353,19 @@ export async function resolveBroadcastRecipients(
   }
   for (const e of extraEmails) {
     resolved.push({ appUserId: null, email: e, name: null });
+  }
+
+  // Expand dynamic groups against the CURRENT roster and union them in.
+  if (groups.length) {
+    try {
+      resolved.push(...(await resolveGroups(def, tenantId, groups, opts?.pageAuthor)));
+    } catch (err) {
+      logger.error(
+        { err, tenantId, alertType },
+        "[broadcastRecipients] group resolution failed — using legacy default audience",
+      );
+      return legacyDefault(def, tenantId);
+    }
   }
 
   const deduped = dedupeByEmail(resolved);

@@ -3,7 +3,12 @@ import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
-import { BROADCAST_ALERT_TYPES, getBroadcastAlertDef } from "../lib/broadcastRecipients";
+import {
+  BROADCAST_ALERT_TYPES,
+  getBroadcastAlertDef,
+  getApplicableGroupTokens,
+  BROADCAST_GROUP_TOKENS,
+} from "../lib/broadcastRecipients";
 import { PLANS, normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
 import { capUpgradeBody, featureUpgradeBody } from "../lib/planGate";
@@ -1741,15 +1746,21 @@ router.get("/broadcast-recipients", async (req, res): Promise<void> => {
         ORDER BY au.name NULLS LAST, au.email`,
       [tenantId],
     );
-    const configResult = await pool.query<{ alert_type: string; member_user_ids: unknown; extra_emails: unknown }>(
-      `SELECT alert_type, member_user_ids, extra_emails
+    const configResult = await pool.query<{ alert_type: string; member_user_ids: unknown; extra_emails: unknown; groups: unknown }>(
+      `SELECT alert_type, member_user_ids, extra_emails, groups
          FROM broadcast_alert_recipients
         WHERE tenant_id = $1`,
       [tenantId],
     );
     const configByType = new Map(configResult.rows.map((r) => [r.alert_type, r]));
+    const groupTokenSet = new Set<string>(BROADCAST_GROUP_TOKENS);
     const alerts = BROADCAST_ALERT_TYPES.map((def) => {
       const cfg = configByType.get(def.type);
+      // Which group toggles apply to THIS alert type (all alerts: admins/members;
+      // collaboration page alerts also: page author).
+      const applicableGroups = getApplicableGroupTokens(def);
+      const applicableSet = new Set<string>(applicableGroups);
+      const savedGroups = cfg && Array.isArray(cfg.groups) ? cfg.groups : [];
       return {
         type: def.type,
         category: def.category,
@@ -1758,6 +1769,11 @@ router.get("/broadcast-recipients", async (req, res): Promise<void> => {
         configured: !!cfg,
         memberUserIds: cfg ? (Array.isArray(cfg.member_user_ids) ? cfg.member_user_ids : []) : [],
         extraEmails: cfg ? (Array.isArray(cfg.extra_emails) ? cfg.extra_emails : []) : [],
+        // Only surface saved tokens that are still valid + applicable to this type.
+        groups: savedGroups.filter(
+          (g): g is string => typeof g === "string" && groupTokenSet.has(g) && applicableSet.has(g),
+        ),
+        applicableGroups,
       };
     });
     res.json({
@@ -1788,11 +1804,12 @@ router.put("/broadcast-recipients/:alertType", async (req, res): Promise<void> =
     return;
   }
   const alertType = req.params.alertType;
-  if (!getBroadcastAlertDef(alertType)) {
+  const alertDef = getBroadcastAlertDef(alertType);
+  if (!alertDef) {
     res.status(400).json({ error: "Unknown alert type" });
     return;
   }
-  const body = req.body as { memberUserIds?: unknown; extraEmails?: unknown } | undefined;
+  const body = req.body as { memberUserIds?: unknown; extraEmails?: unknown; groups?: unknown } | undefined;
 
   // Normalize member ids → positive integers, deduped.
   const rawIds = Array.isArray(body?.memberUserIds) ? body!.memberUserIds : [];
@@ -1818,6 +1835,27 @@ router.put("/broadcast-recipients/:alertType", async (req, res): Promise<void> =
   }
   const extraEmails = Array.from(emailSet);
 
+  // Normalize + validate dynamic group tokens (Task #623). Reject unknown
+  // tokens; silently drop tokens that don't apply to this alert type (e.g.
+  // page_author on a non-page account/billing alert).
+  const applicableGroups = new Set<string>(getApplicableGroupTokens(alertDef));
+  const knownGroups = new Set<string>(BROADCAST_GROUP_TOKENS);
+  const rawGroups = Array.isArray(body?.groups) ? body!.groups : [];
+  const groupSet = new Set<string>();
+  for (const x of rawGroups) {
+    if (typeof x !== "string") {
+      res.status(400).json({ error: `Invalid group token: ${String(x)}` });
+      return;
+    }
+    if (!knownGroups.has(x)) {
+      res.status(400).json({ error: `Unknown group token: ${x}` });
+      return;
+    }
+    if (!applicableGroups.has(x)) continue; // not applicable to this alert → ignore
+    groupSet.add(x);
+  }
+  const groups = Array.from(groupSet);
+
   try {
     // Validate every selected member id belongs to this tenant's roster.
     if (memberIds.length) {
@@ -1839,16 +1877,17 @@ router.put("/broadcast-recipients/:alertType", async (req, res): Promise<void> =
     }
     await pool.query(
       `INSERT INTO broadcast_alert_recipients
-         (tenant_id, alert_type, member_user_ids, extra_emails, updated_by, updated_at)
-       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, now())
+         (tenant_id, alert_type, member_user_ids, extra_emails, groups, updated_by, updated_at)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, now())
        ON CONFLICT (tenant_id, alert_type)
        DO UPDATE SET member_user_ids = EXCLUDED.member_user_ids,
                      extra_emails    = EXCLUDED.extra_emails,
+                     groups          = EXCLUDED.groups,
                      updated_by      = EXCLUDED.updated_by,
                      updated_at      = now()`,
-      [tenantId, alertType, JSON.stringify(memberIds), JSON.stringify(extraEmails), req.authUser?.userId ?? null],
+      [tenantId, alertType, JSON.stringify(memberIds), JSON.stringify(extraEmails), JSON.stringify(groups), req.authUser?.userId ?? null],
     );
-    res.json({ ok: true, alertType, memberUserIds: memberIds, extraEmails });
+    res.json({ ok: true, alertType, memberUserIds: memberIds, extraEmails, groups });
   } catch (err) {
     console.error("[admin] PUT /broadcast-recipients error:", err);
     res.status(500).json({ error: "Server error" });

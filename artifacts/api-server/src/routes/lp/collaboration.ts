@@ -54,13 +54,22 @@ async function sendCollaborationEmail(to: string[], subject: string, html: strin
 async function notifyNewComment(pageId: number, authorName: string, message: string, pageUrl?: string) {
   try {
     const [page] = await db
-      .select({ id: lpPagesTable.id, title: lpPagesTable.title, tenantId: lpPagesTable.tenantId })
+      .select({
+        id: lpPagesTable.id,
+        title: lpPagesTable.title,
+        tenantId: lpPagesTable.tenantId,
+        createdBy: lpPagesTable.createdBy,
+      })
       .from(lpPagesTable)
       .where(eq(lpPagesTable.id, pageId));
     if (!page?.tenantId) return;
     // Task #614 — recipients are now per-tenant configurable. Unconfigured =
     // legacy default (all workspace members).
-    const recipients = await resolveBroadcastRecipients(page.tenantId, "comment");
+    // Task #623 — pass the page author so the `page_author` group resolves. For a
+    // comment, the page's creator is the relevant author (createdBy = email).
+    const recipients = await resolveBroadcastRecipients(page.tenantId, "comment", {
+      pageAuthor: { email: page.createdBy },
+    });
     const to = recipients.map(r => r.email).filter(Boolean);
     if (to.length === 0) return;
 
@@ -113,13 +122,24 @@ async function notifyNewComment(pageId: number, authorName: string, message: str
 async function notifyReviewDecision(pageId: number, reviewerName: string, status: string, decisionComment?: string | null) {
   try {
     const [page] = await db
-      .select({ id: lpPagesTable.id, title: lpPagesTable.title, tenantId: lpPagesTable.tenantId })
+      .select({
+        id: lpPagesTable.id,
+        title: lpPagesTable.title,
+        tenantId: lpPagesTable.tenantId,
+        createdBy: lpPagesTable.createdBy,
+        submittedByUserId: lpPagesTable.submittedByUserId,
+      })
       .from(lpPagesTable)
       .where(eq(lpPagesTable.id, pageId));
     if (!page?.tenantId) return;
     // Task #614 — recipients are now per-tenant configurable. Unconfigured =
     // legacy default (all workspace members).
-    const recipients = await resolveBroadcastRecipients(page.tenantId, "review_decision");
+    // Task #623 — pass the page author so the `page_author` group resolves. For a
+    // review decision the submitter is the author (submittedByUserId), falling
+    // back to the page creator's email when no submitter is recorded.
+    const recipients = await resolveBroadcastRecipients(page.tenantId, "review_decision", {
+      pageAuthor: { userId: page.submittedByUserId, email: page.createdBy },
+    });
     const to = recipients.map(r => r.email).filter(Boolean);
     if (to.length === 0) return;
     const isApproved = status === "approved";

@@ -24,6 +24,8 @@ interface MemberRow {
   isAdmin: boolean;
 }
 
+type GroupToken = "all_admins" | "all_members" | "page_author";
+
 interface AlertConfig {
   type: string;
   category: AlertCategory;
@@ -32,7 +34,24 @@ interface AlertConfig {
   configured: boolean;
   memberUserIds: number[];
   extraEmails: string[];
+  groups: GroupToken[];
+  applicableGroups: GroupToken[];
 }
+
+const GROUP_META: Record<GroupToken, { label: string; hint: string }> = {
+  all_admins: {
+    label: "All admins",
+    hint: "Every current workspace admin — updates automatically as admins change.",
+  },
+  all_members: {
+    label: "All members",
+    hint: "Every current workspace member — updates automatically as the team changes.",
+  },
+  page_author: {
+    label: "Page author",
+    hint: "The person who created or submitted the specific page this alert is about.",
+  },
+};
 
 interface RecipientsPayload {
   members: MemberRow[];
@@ -67,6 +86,7 @@ function AlertCard({
   const { toast } = useToast();
   const [memberIds, setMemberIds] = useState<Set<number>>(new Set(alert.memberUserIds));
   const [extraEmails, setExtraEmails] = useState<string[]>(alert.extraEmails);
+  const [groups, setGroups] = useState<Set<GroupToken>>(new Set(alert.groups));
   const [emailDraft, setEmailDraft] = useState("");
   const [emailErr, setEmailErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -76,7 +96,8 @@ function AlertCard({
   useEffect(() => {
     setMemberIds(new Set(alert.memberUserIds));
     setExtraEmails(alert.extraEmails);
-  }, [alert.memberUserIds, alert.extraEmails]);
+    setGroups(new Set(alert.groups));
+  }, [alert.memberUserIds, alert.extraEmails, alert.groups]);
 
   const isDefault = !alert.configured;
 
@@ -85,6 +106,15 @@ function AlertCard({
       const next = new Set(prev);
       if (on) next.add(id);
       else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleGroup(token: GroupToken, on: boolean) {
+    setGroups((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(token);
+      else next.delete(token);
       return next;
     });
   }
@@ -122,6 +152,7 @@ function AlertCard({
           body: JSON.stringify({
             memberUserIds: Array.from(memberIds),
             extraEmails,
+            groups: Array.from(groups),
           }),
         },
       );
@@ -133,6 +164,7 @@ function AlertCard({
         configured: true,
         memberUserIds: json.memberUserIds ?? Array.from(memberIds),
         extraEmails: json.extraEmails ?? extraEmails,
+        groups: json.groups ?? Array.from(groups),
       });
       toast({ title: `Recipients saved for "${alert.name}"` });
     } catch (err) {
@@ -163,8 +195,9 @@ function AlertCard({
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
       setMemberIds(new Set());
       setExtraEmails([]);
+      setGroups(new Set());
       setSavedAt(Date.now());
-      onSaved({ ...alert, configured: false, memberUserIds: [], extraEmails: [] });
+      onSaved({ ...alert, configured: false, memberUserIds: [], extraEmails: [], groups: [] });
       toast({ title: `Reset "${alert.name}" to the default audience` });
     } catch (err) {
       toast({
@@ -202,6 +235,50 @@ function AlertCard({
               {CATEGORY_META[alert.category].defaultHint}
             </p>
           </div>
+
+          {alert.applicableGroups.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                Quick-pick groups
+              </p>
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Groups update themselves as the team changes — pick one and you
+                won't have to re-edit this list later.
+              </p>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {alert.applicableGroups.map((token) => {
+                  const checked = groups.has(token);
+                  return (
+                    <label
+                      key={token}
+                      className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs cursor-pointer ${
+                        checked ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent"
+                      } ${!canManage ? "opacity-60 cursor-not-allowed" : ""}`}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        disabled={!canManage}
+                        onCheckedChange={(v) => toggleGroup(token, v === true)}
+                        data-testid={`recip-${alert.type}-group-${token}`}
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="font-medium flex items-center gap-1.5">
+                          {GROUP_META[token].label}
+                          {checked && (
+                            <Badge className="text-[8px] shrink-0">on</Badge>
+                          )}
+                        </span>
+                        <span className="block text-muted-foreground mt-0.5 leading-snug">
+                          {GROUP_META[token].hint}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -380,9 +457,12 @@ export function AlertRecipientsContent() {
       <div>
         <h2 className="text-base font-semibold">Alert recipients</h2>
         <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-          Choose who receives each workspace alert email. Leave an alert on its
-          default to keep sending to the whole audience. Selected workspace
-          members always get the alert at their current address.
+          Choose who receives each workspace alert email. Pick a self-updating
+          group (like All admins), select individual members, add extra
+          addresses — or combine them. Groups always resolve to the current team
+          at send time, so you won't need to re-edit a list when people join or
+          leave. Leave an alert on its default to keep sending to the whole
+          audience.
         </p>
       </div>
 
