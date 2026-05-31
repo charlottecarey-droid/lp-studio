@@ -248,7 +248,7 @@ const _contrast = (a: RGB, c: RGB): number => {
 const _darken = ([r, g, b]: RGB, f: number): RGB => [Math.round(r * f), Math.round(g * f), Math.round(b * f)];
 const _lighten = ([r, g, b]: RGB, f: number): RGB => [Math.round(r + (255 - r) * f), Math.round(g + (255 - g) * f), Math.round(b + (255 - b) * f)];
 
-interface BrandPalette {
+export interface BrandPalette {
   primary: RGB;          // dark brand band fill (was darkGreen)
   primaryMid: RGB;       // lighter panel fill (was midGreen)
   primaryDeep: RGB;      // deepest vignette band (was [0,48,38])
@@ -262,7 +262,7 @@ interface BrandPalette {
   checkColor: RGB;       // checkmark stroke on light bg (was [0,80,60])
 }
 
-const DANDY_PALETTE: BrandPalette = {
+export const DANDY_PALETTE: BrandPalette = {
   primary: darkGreen,
   primaryMid: midGreen,
   primaryDeep: [0, 48, 38],
@@ -276,7 +276,7 @@ const DANDY_PALETTE: BrandPalette = {
   checkColor: [0, 80, 60],
 };
 
-function resolvePalette(b?: BrandContext): BrandPalette {
+export function resolvePalette(b?: BrandContext): BrandPalette {
   const primaryHex = (b?.primaryColor ?? "").trim();
   const accentHex = (b?.accentColor ?? "").trim();
   // No brand colors → exact Dandy palette (byte-identical legacy output).
