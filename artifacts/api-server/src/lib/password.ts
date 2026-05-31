@@ -51,12 +51,39 @@ export async function verifyPassword(password: string, stored: string | null | u
 }
 
 /**
- * Minimum password policy shared by register + reset. Kept deliberately simple
- * (length-based, OWASP-aligned) — length is the dominant strength factor.
+ * Safe, common set of special characters accepted by the password policy.
+ * Kept deliberately conservative so the requirement follows best practice
+ * without odd/ambiguous symbols.
+ */
+export const PASSWORD_SPECIAL_CHARS = "!@#$%^&*()-_=+[]{};:,.?";
+
+export const PASSWORD_MIN_LENGTH = 12;
+
+/**
+ * Single human-readable description of the full policy, reused for the error
+ * message so the client and server stay consistent.
+ */
+export const PASSWORD_REQUIREMENT_MESSAGE =
+  "Password must be at least 12 characters and include at least one uppercase letter, one number, and one special character.";
+
+const SPECIAL_CHAR_REGEX = /[!@#$%^&*()\-_=+[\]{};:,.?]/;
+
+/**
+ * Minimum password policy shared by register + reset. Enforces length plus
+ * character-class diversity (uppercase, digit, special). Only applied when a
+ * password is created or reset — login verification is untouched so existing
+ * accounts keep their current passwords.
  */
 export function validatePasswordStrength(password: unknown): { ok: true } | { ok: false; error: string } {
   if (typeof password !== "string") return { ok: false, error: "Password is required" };
-  if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters" };
   if (password.length > 200) return { ok: false, error: "Password is too long" };
+  if (
+    password.length < PASSWORD_MIN_LENGTH ||
+    !/[A-Z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !SPECIAL_CHAR_REGEX.test(password)
+  ) {
+    return { ok: false, error: PASSWORD_REQUIREMENT_MESSAGE };
+  }
   return { ok: true };
 }

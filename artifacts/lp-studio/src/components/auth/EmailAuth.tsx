@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getUnmetPasswordRequirements } from "@/lib/password-policy";
 
 /**
  * Email + password and passwordless (magic-link) auth forms, plus the optional
@@ -126,6 +127,7 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
   const [needsVerification, setNeedsVerification] = useState(false);
 
   const isSignup = mode === "signup";
+  const unmetPasswordRequirements = getUnmetPasswordRequirements(password);
 
   // Reset transient UI state whenever the parent toggles signup/signin.
   useEffect(() => {
@@ -276,7 +278,6 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
               id="auth-name"
               type="text"
               autoComplete="name"
-              placeholder="Your name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -289,7 +290,6 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
             id="auth-email"
             type="email"
             autoComplete="email"
-            placeholder="you@company.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -314,11 +314,15 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
               id="auth-password"
               type="password"
               autoComplete={isSignup ? "new-password" : "current-password"}
-              placeholder={isSignup ? "At least 8 characters" : "Your password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {isSignup && password.length > 0 && unmetPasswordRequirements.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Password needs {unmetPasswordRequirements.map((r) => r.label).join(", ")}.
+              </p>
+            )}
           </div>
         )}
 

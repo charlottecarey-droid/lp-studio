@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getUnmetPasswordRequirements } from "@/lib/password-policy";
 
 /**
  * Public password-reset page at /reset-password?token=...
@@ -19,6 +20,8 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  const unmetPasswordRequirements = getUnmetPasswordRequirements(password);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,12 +81,16 @@ export default function ResetPasswordPage() {
                   id="new-password"
                   type="password"
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoFocus
                 />
+                {password.length > 0 && unmetPasswordRequirements.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Password needs {unmetPasswordRequirements.map((r) => r.label).join(", ")}.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -92,7 +99,6 @@ export default function ResetPasswordPage() {
                   id="confirm-password"
                   type="password"
                   autoComplete="new-password"
-                  placeholder="Re-enter your password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   required
