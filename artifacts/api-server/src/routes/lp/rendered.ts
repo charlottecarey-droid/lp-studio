@@ -18,6 +18,7 @@ import { Router } from "express";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { readPublishedHtml, deletePublishedHtml } from "../../lib/publishedHtmlStorage";
+import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
 import { db, lpPagesTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
@@ -47,7 +48,11 @@ router.get("/lp/rendered/:slug", async (req, res): Promise<void> => {
     // page indefinitely. Fail-closed here makes the DB row the source of
     // truth on every read.
     const [row] = await db
-      .select({ status: lpPagesTable.status })
+      .select({
+        status: lpPagesTable.status,
+        allowIndexing: lpPagesTable.allowIndexing,
+        allowFollowing: lpPagesTable.allowFollowing,
+      })
       .from(lpPagesTable)
       .where(and(eq(lpPagesTable.tenantId, tenantMatch.tenantId), eq(lpPagesTable.slug, slug)));
     if (!row || row.status !== "published") {
@@ -75,6 +80,15 @@ router.get("/lp/rendered/:slug", async (req, res): Promise<void> => {
     // Marker header so curl debug + edge logs make it obvious the response
     // came from the prerendered store (vs SPA fallback).
     res.set("X-LP-Source", "prerendered");
+    // Task #547 — mirror the prerendered HTML's robots <meta> as an
+    // X-Robots-Tag header so this debug/origin path matches what the CF
+    // worker emits off R2. null = fully allowed → no header.
+    const robots = await resolveRobotsContentForPage({
+      allowIndexing: row.allowIndexing ?? null,
+      allowFollowing: row.allowFollowing ?? null,
+      tenantId: tenantMatch.tenantId,
+    });
+    if (robots) res.set("X-Robots-Tag", robots);
     if (file.updatedAt) res.set("Last-Modified", file.updatedAt.toUTCString());
     res.send(file.html);
   } catch (err) {

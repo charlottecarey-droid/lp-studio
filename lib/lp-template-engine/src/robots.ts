@@ -81,3 +81,46 @@ export function robotsMetaContent(resolved: {
   if (!resolved.following) parts.push("nofollow");
   return parts.length > 0 ? parts.join(",") : null;
 }
+
+export interface TenantRobotsDefaultsInput {
+  /**
+   * True when this tenant is EXCLUDED from the default-noindex policy — i.e.
+   * an explicitly allowlisted enterprise/white-label tenant (Dandy). Excluded
+   * tenants keep their stored `tenants.settings.seo` behaviour unchanged.
+   */
+  isExcludedFromDefaultNoindex: boolean;
+  /** Raw `tenants.settings.seo.allowIndexing` — may be absent/unknown. */
+  seoAllowIndexing?: unknown;
+  /** Raw `tenants.settings.seo.allowFollowing` — may be absent/unknown. */
+  seoAllowFollowing?: unknown;
+}
+
+/**
+ * Resolve the tenant-level robots defaults under the task #547 policy:
+ * EVERY tenant landing page is noindex by default, regardless of the stored
+ * `settings.seo`, EXCEPT explicitly excluded tenants (Dandy) which keep their
+ * stored behaviour. The single opt-in path for a non-excluded tenant is the
+ * per-page `allow_indexing === true` override, which `resolveRobotsMeta`
+ * applies downstream (a page override always beats this tenant default).
+ *
+ * Following is orthogonal to search visibility, so it stays at the stored
+ * default (`!== false`, i.e. allow) for everyone — noindex is the lever this
+ * policy pulls, not nofollow.
+ */
+export function resolveTenantRobotsDefaults(input: TenantRobotsDefaultsInput): {
+  tenantAllowIndexing: boolean;
+  tenantAllowFollowing: boolean;
+} {
+  const seoIndexAllowed = input.seoAllowIndexing !== false;
+  const seoFollowAllowed = input.seoAllowFollowing !== false;
+  if (input.isExcludedFromDefaultNoindex) {
+    return {
+      tenantAllowIndexing: seoIndexAllowed,
+      tenantAllowFollowing: seoFollowAllowed,
+    };
+  }
+  return {
+    tenantAllowIndexing: false,
+    tenantAllowFollowing: seoFollowAllowed,
+  };
+}

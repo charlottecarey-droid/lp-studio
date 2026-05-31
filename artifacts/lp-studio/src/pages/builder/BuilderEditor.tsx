@@ -3079,11 +3079,11 @@ export default function BuilderEditor() {
                   )}
                 </div>
 
-                {/* Search engine visibility (task #494) */}
+                {/* Search engine visibility (task #494, #547) */}
                 <div className="border-t border-border pt-4">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Search Engine Visibility</p>
                   <p className="text-[10px] text-muted-foreground mb-3 leading-relaxed">
-                    Control whether search engines &amp; AI crawlers index this page and follow its links. &ldquo;Use company default&rdquo; inherits your workspace SEO setting.
+                    Published pages are <span className="font-medium text-foreground">hidden from search engines &amp; AI crawlers by default</span> so they only reach the people you share the link with. Choose &ldquo;Allow indexing&rdquo; below to opt this page in. &ldquo;Use company default&rdquo; keeps the hidden default.
                   </p>
                   <div className="space-y-3">
                     <div>

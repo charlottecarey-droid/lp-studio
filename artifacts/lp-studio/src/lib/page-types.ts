@@ -20,6 +20,13 @@ export interface BuilderPageResponse {
    * which never writes a redundant index,follow).
    */
   robots?: string | null;
+  /**
+   * Task #547 — visible provenance line shown on published microsites:
+   * "Sent by [tenantName] for [accountName]" (falls back to "Sent by
+   * [tenantName]" when accountName is null). Absent/null for the Dandy tenant
+   * (excluded) or when the lookup degraded — the viewer then renders nothing.
+   */
+  provenance?: { tenantName: string; accountName: string | null } | null;
   accountNameApollo?: string;
   /**
    * Page-record variables (lp_pages.pageVariables jsonb). Includes the

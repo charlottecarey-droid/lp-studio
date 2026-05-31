@@ -114,6 +114,12 @@ async function fromR2(env, host, slug) {
   });
   if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
   if (obj.uploaded) headers.set("Last-Modified", obj.uploaded.toUTCString());
+  // Task #547 — mirror the prerendered HTML's robots <meta> as an
+  // X-Robots-Tag response header. api-server stamps the resolved directive
+  // ("noindex", etc.) into the object's customMetadata at upload time; absent
+  // means fully allowed, so we emit no header (never a redundant index,follow).
+  const xRobots = obj.customMetadata && obj.customMetadata["x-robots"];
+  if (xRobots) headers.set("X-Robots-Tag", xRobots);
   return new Response(obj.body, { status: 200, headers });
 }
 

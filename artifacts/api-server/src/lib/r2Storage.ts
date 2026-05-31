@@ -154,7 +154,7 @@ export async function uploadPublishedHtmlToR2(
   host: string,
   slug: string,
   html: string,
-  meta?: { tenantId?: number },
+  meta?: { tenantId?: number; robots?: string | null },
 ): Promise<void> {
   const cfg = getR2Config();
   if (!cfg) {
@@ -167,8 +167,13 @@ export async function uploadPublishedHtmlToR2(
       Body: Buffer.from(html, "utf8"),
       ContentType: "text/html; charset=utf-8",
       // Human-auditing metadata (`wrangler r2 object info`). Not access control.
+      // `x-robots` (task #547) IS load-bearing: the CF worker reads it from
+      // the object's customMetadata and emits it as the `X-Robots-Tag` response
+      // header so the prerendered HTML carries the noindex directive in BOTH
+      // the <meta> tag and the header. Omitted when fully allowed (no header).
       Metadata: {
         ...(meta?.tenantId !== undefined ? { "tenant-id": String(meta.tenantId) } : {}),
+        ...(meta?.robots ? { "x-robots": meta.robots } : {}),
         host: normalizeHostForKey(host),
         "rendered-at": new Date().toISOString(),
       },

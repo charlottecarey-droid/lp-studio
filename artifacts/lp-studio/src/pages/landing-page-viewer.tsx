@@ -59,6 +59,46 @@ function OnePagerFrame({ active, bg, children }: { active: boolean; bg?: string;
   );
 }
 
+/**
+ * Task #547 — small, unobtrusive provenance footer rendered on every published
+ * microsite: "Sent by [Tenant] for [Target Account]" (falls back to "Sent by
+ * [Tenant]" with no account). Signals to crawlers + human reviewers that the
+ * page is legitimate personalized B2B outreach, not brand impersonation.
+ *
+ * Rendered inside the SPA so the prerendered R2 snapshot captures it too —
+ * keeping the live and prerendered paths in sync without a separate injection.
+ * Brand-styled via the page's `--brand-*` CSS vars so it never clashes.
+ * Server omits `provenance` for the Dandy tenant, so this renders nothing there.
+ */
+function ProvenanceBanner({
+  provenance,
+}: {
+  provenance?: { tenantName: string; accountName: string | null } | null;
+}) {
+  if (!provenance?.tenantName) return null;
+  return (
+    <div
+      data-lp-provenance="1"
+      className="w-full border-t border-black/10 bg-[var(--brand-surface,#f8fafc)] px-4 py-3 text-center text-[11px] leading-relaxed text-black/55"
+    >
+      <span>
+        Sent by{" "}
+        <span className="font-semibold text-[var(--brand-primary,inherit)]">
+          {provenance.tenantName}
+        </span>
+        {provenance.accountName ? (
+          <>
+            {" "}for{" "}
+            <span className="font-semibold text-[var(--brand-primary,inherit)]">
+              {provenance.accountName}
+            </span>
+          </>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 /** Catches render errors in individual blocks so one bad block can't blank the entire page. */
 class BlockErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -858,6 +898,7 @@ export default function LandingPageViewer() {
             This page has no blocks yet.
           </div>
         )}
+        <ProvenanceBanner provenance={builderPage.provenance} />
         {chilipiperUrl && (
           <ChiliPiperModal
             url={chilipiperUrl}

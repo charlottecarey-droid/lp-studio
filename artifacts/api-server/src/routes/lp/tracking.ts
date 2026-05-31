@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { db, pool, tenantsTable } from "@workspace/db";
+import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
-import { resolveRobotsMeta, robotsMetaContent } from "@workspace/lp-template-engine";
+import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
+import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
@@ -27,42 +28,52 @@ async function resolveTenantIdFromRequest(req: Request): Promise<number | null> 
 }
 
 /**
- * Task #494 — resolve the final `<meta name="robots">` content for a page so
- * the SPA viewer (landing-page-viewer) emits the SAME directive as the
- * prerendered static HTML written by triggerPublishedRender. Returns null
- * when the page is fully allowed (no tag — never a redundant index,follow).
- * Fails OPEN (allow → null) on any DB error: a transient lookup failure must
- * never make the in-app preview disagree by silently showing noindex.
+ * Task #547 — resolve the visible provenance line for a published microsite:
+ * "Sent by [Tenant Name] for [Target Account]" (falls back to "Sent by
+ * [Tenant Name]" when no target account is associated). The Dandy tenant is
+ * excluded entirely (gated by slug) — its white-label pages are left untouched.
+ *
+ * Returns null when no provenance should be shown (Dandy, or tenant lookup
+ * failure). Failures are non-fatal: provenance is a legitimacy signal, not a
+ * security control, so we degrade silently rather than block the page.
  */
-async function resolveRobotsContent(page: {
-  allowIndexing: boolean | null;
-  allowFollowing: boolean | null;
+async function resolveProvenance(page: {
+  accountId: number | null;
   tenantId: number;
-}): Promise<string | null> {
-  let tenantAllowIndexing = true;
-  let tenantAllowFollowing = true;
+}): Promise<{ tenantName: string; accountName: string | null } | null> {
   try {
     const [tenantRow] = await db
-      .select({ settings: tenantsTable.settings })
+      .select({ slug: tenantsTable.slug, name: tenantsTable.name })
       .from(tenantsTable)
       .where(eq(tenantsTable.id, page.tenantId));
-    const seo = (tenantRow?.settings as { seo?: { allowIndexing?: unknown; allowFollowing?: unknown } } | null)?.seo;
-    tenantAllowIndexing = seo?.allowIndexing !== false;
-    tenantAllowFollowing = seo?.allowFollowing !== false;
+    if (!tenantRow) return null;
+    if (isProtectedEnterpriseSlug(tenantRow.slug)) return null;
+
+    let accountName: string | null = null;
+    if (page.accountId != null) {
+      // Tenant-scoped lookup — never resolve another tenant's account name.
+      const [account] = await db
+        .select({
+          name: salesAccountsTable.name,
+          displayName: salesAccountsTable.displayName,
+        })
+        .from(salesAccountsTable)
+        .where(
+          and(
+            eq(salesAccountsTable.id, page.accountId),
+            eq(salesAccountsTable.tenantId, page.tenantId),
+          ),
+        );
+      accountName = account?.displayName || account?.name || null;
+    }
+    return { tenantName: tenantRow.name, accountName };
   } catch (err) {
-    console.warn("[tracking] tenant SEO defaults lookup failed; failing OPEN (allow)", {
-      pageId: (page as { id?: number }).id, tenantId: page.tenantId, err,
+    console.warn("[tracking] provenance lookup failed; omitting", {
+      tenantId: page.tenantId,
+      err,
     });
     return null;
   }
-  return robotsMetaContent(
-    resolveRobotsMeta({
-      pageAllowIndexing: page.allowIndexing ?? null,
-      pageAllowFollowing: page.allowFollowing ?? null,
-      tenantAllowIndexing,
-      tenantAllowFollowing,
-    }),
-  );
 }
 
 /** Extract UTM parameters from the request query string */
@@ -263,6 +274,8 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
       metaDescription: lpPagesTable.metaDescription,
       ogImage: lpPagesTable.ogImage,
       status: lpPagesTable.status,
+      allowIndexing: lpPagesTable.allowIndexing,
+      allowFollowing: lpPagesTable.allowFollowing,
     }).from(lpPagesTable)
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, slug)))
       .limit(1);
@@ -273,6 +286,17 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
       res.status(404).send("Not found");
       return;
     }
+
+    // Task #547 — bot-facing HTML must carry the SAME robots directive as the
+    // SPA/prerender paths: noindex by default for non-Dandy tenants. Emit both
+    // the <meta> tag AND the X-Robots-Tag header so crawlers that only read the
+    // header (and never parse the body) still honour it.
+    const robots = await resolveRobotsContentForPage({
+      allowIndexing: page.allowIndexing,
+      allowFollowing: page.allowFollowing,
+      tenantId,
+    });
+    if (robots) res.set("X-Robots-Tag", robots);
 
     // Tenant-aware fallback chain: explicit metaTitle → page title → tenant
     // name. Never fall back to Dandy-specific copy on non-Dandy tenants.
@@ -292,6 +316,7 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
 <head>
   <meta charset="UTF-8" />
   <title>${escapeHtml(pageTitle)}</title>
+  ${robots ? `<meta name="robots" content="${escapeHtml(robots)}" />` : ""}
   <meta name="description" content="${escapeHtml(pageDesc)}" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
@@ -436,9 +461,13 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         res.set("Cache-Control", "no-store");
       }
 
-      // Task #494 — resolved robots directive so the SPA viewer matches the
-      // prerendered static HTML. null = fully allowed (viewer emits no tag).
-      const robots = await resolveRobotsContent(builderPage);
+      // Task #494/#547 — resolved robots directive so the SPA viewer matches
+      // the prerendered static HTML. null = fully allowed (viewer emits no tag).
+      const robots = await resolveRobotsContentForPage(builderPage);
+
+      // Task #547 — provenance line ("Sent by [Tenant] for [Account]"), shown
+      // on the published microsite. Excludes Dandy. null = render nothing.
+      const provenance = await resolveProvenance(builderPage);
 
       res.json({
         pageType: "builder",
@@ -454,6 +483,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         metaDescription: builderPage.metaDescription || "",
         ogImage: builderPage.ogImage || "",
         robots,
+        provenance,
         accountNameApollo,
         pageVariables: (builderPage.pageVariables && typeof builderPage.pageVariables === "object" && !Array.isArray(builderPage.pageVariables))
           ? builderPage.pageVariables as Record<string, string>
@@ -709,9 +739,12 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
   } catch (err) {
     console.warn("hydrateCustomSchemaBlocks failed for preview page", page.id, ":", err);
   }
-  // Task #494 — resolved robots directive so the in-builder preview matches
-  // the published page. null = fully allowed (viewer emits no tag).
-  const robots = await resolveRobotsContent(page);
+  // Task #494/#547 — resolved robots directive so the in-builder preview
+  // matches the published page. null = fully allowed (viewer emits no tag).
+  const robots = await resolveRobotsContentForPage(page);
+  // Task #547 — provenance line in preview so the editor sees what visitors
+  // see. Excludes Dandy. null = render nothing.
+  const provenance = await resolveProvenance(page);
   res.json({
     pageType: "builder",
     id: page.id,
@@ -726,6 +759,7 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     metaDescription: page.metaDescription || "",
     ogImage: page.ogImage || "",
     robots,
+    provenance,
     accountNameApollo: "",
     pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
       ? page.pageVariables as Record<string, string>

@@ -44,7 +44,8 @@
 import * as Sentry from "@sentry/node";
 import { db, lpPagesTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { resolveRobotsMeta } from "@workspace/lp-template-engine";
+import { resolveRobotsMeta, robotsMetaContent, resolveTenantRobotsDefaults } from "@workspace/lp-template-engine";
+import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { findTenantByHost, getActiveHostsForTenant } from "./tenantHosts";
 import { prerenderLpPage, PrerenderPageMissingError } from "./prerenderLpPage";
 import { injectPageMeta } from "./injectPageMeta";
@@ -126,25 +127,35 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     return outcome;
   }
 
-  // Task #494 — resolve the tenant's SEO robots defaults from
-  // tenants.settings.seo. Read `!== false` so any tenant the boot backfill
-  // hasn't touched (or a row missing the key) defaults to ALLOW, preserving
-  // today's no-robots-tag behaviour. New tenants are seeded false/false at
-  // creation (admin.ts), so their pages noindex by default. Fail-open to
-  // allow if the lookup throws — a transient DB error must never silently
-  // deindex a tenant's whole site.
-  let tenantAllowIndexing = true;
+  // Task #547 — resolve the tenant's robots defaults under the default-noindex
+  // policy: EVERY tenant landing page is noindex by default EXCEPT the Dandy
+  // tenant (gated server-side by slug via isProtectedEnterpriseSlug, never by
+  // brand name), which keeps its stored tenants.settings.seo behaviour. A
+  // per-page allow_indexing=true override is the single opt-in path and always
+  // wins downstream in resolveRobotsMeta.
+  //
+  // Fail CLOSED to noindex on lookup error (deviation from #494's fail-open):
+  // this is an anti-phishing control, so a transient DB hiccup must never leak
+  // an indexable page onto the shared apex domain. An explicitly opted-in page
+  // (page.allowIndexing === true) still stays indexable on failure because the
+  // page override beats the tenant default — only inherit pages go noindex.
+  let tenantAllowIndexing = false;
   let tenantAllowFollowing = true;
   try {
     const [tenantRow] = await db
-      .select({ settings: tenantsTable.settings })
+      .select({ slug: tenantsTable.slug, settings: tenantsTable.settings })
       .from(tenantsTable)
       .where(eq(tenantsTable.id, page.tenantId));
     const seo = (tenantRow?.settings as { seo?: { allowIndexing?: unknown; allowFollowing?: unknown } } | null)?.seo;
-    tenantAllowIndexing = seo?.allowIndexing !== false;
-    tenantAllowFollowing = seo?.allowFollowing !== false;
+    const defaults = resolveTenantRobotsDefaults({
+      isExcludedFromDefaultNoindex: isProtectedEnterpriseSlug(tenantRow?.slug),
+      seoAllowIndexing: seo?.allowIndexing,
+      seoAllowFollowing: seo?.allowFollowing,
+    });
+    tenantAllowIndexing = defaults.tenantAllowIndexing;
+    tenantAllowFollowing = defaults.tenantAllowFollowing;
   } catch (seoErr) {
-    console.warn("[triggerPublishedRender] tenant SEO defaults lookup failed; failing OPEN (allow)", {
+    console.warn("[triggerPublishedRender] tenant SEO defaults lookup failed; failing CLOSED (noindex)", {
       pageId: page.id, tenantId: page.tenantId, err: seoErr,
     });
   }
@@ -462,6 +473,12 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
     following_source: resolvedRobots.followingSource,
   });
 
+  // Task #547 — the robots directive string (e.g. "noindex") stored in R2
+  // object metadata so the CF worker can emit an X-Robots-Tag header on the
+  // prerendered HTML it serves. null = fully allowed (no header, mirrors the
+  // omitted <meta> tag). Host-independent — same value for every host.
+  const robotsHeaderValue = robotsMetaContent(resolvedRobots);
+
   const buildHtmlForHost = (host: string): string =>
     injectPageMeta(html, {
       title: page.title,
@@ -491,6 +508,7 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
       try {
         await uploadPublishedHtmlToR2(host, page.slug, buildHtmlForHost(host), {
           tenantId: page.tenantId,
+          robots: robotsHeaderValue,
         });
       } catch (err) {
         failedHost = host;
