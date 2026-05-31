@@ -477,6 +477,13 @@ export interface AgreementSummaryContent {
   subheadlineOffsetX?: number;     // default 0
   subheadlineOffsetY?: number;     // default 0
   /**
+   * Vertical nudge (in pt) for the section block. The rows are laid out at
+   * their natural height and centered between the header and footer band;
+   * this offset shifts that centered block up (negative) or down (positive).
+   * Neutral default 0 → block stays centered (clamped to a sane range).
+   */
+  sectionsOffsetY?: number;        // default 0
+  /**
    * Maximum width of the headline/subheadline as a percent of the page
    * width (clamped 30–90). Lowering this forces the text to wrap sooner so
    * it doesn't overlap the scanner image on the right. Default: 58.
@@ -539,6 +546,7 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   headlineOffsetY: 0,
   subheadlineOffsetX: 0,
   subheadlineOffsetY: 0,
+  sectionsOffsetY: 0,
   headlineMaxWidthPct: 58,
   logoWidth: 78,
   showSectionDividers: true,
@@ -686,12 +694,11 @@ export const generateAgreementSummaryOnePager = async (
     Math.max(baseFooterH, footerTextH + contactsBlockH + 22),
   );
 
-  // ── Section rows (single column, 8 rows) ────────────────────────────
+  // ── Section rows (single column) ────────────────────────────────────
   const rowsTop = headerH + 28;
   const rowsBottom = h - dynamicFooterH - 12;
   const rowsAvailableH = rowsBottom - rowsTop;
   const rowCount = sections.length;
-  const rowH = rowsAvailableH / rowCount;
 
   // Two-column layout inside each row: label LEFT (fixed width), body RIGHT.
   // Smaller label column + smaller body font so the longer descriptions
@@ -704,46 +711,84 @@ export const generateAgreementSummaryOnePager = async (
   // User-tunable section font sizes (clamped to keep the row layout sane).
   const labelPt = clamp(content.sectionLabelFontSize ?? 15, 9, 22);
   const bodyPtPref = clamp(content.sectionBodyFontSize ?? 9.5, 7, 14);
+  const labelLineHBase = labelPt * 1.13;
+  const bodyLineHPref = bodyPtPref * 1.21;
 
-  sections.forEach((section, i) => {
-    const ry = rowsTop + i * rowH;
+  // Pre-measure each row's natural content height (max of the label block vs
+  // the body block) at the user's preferred sizes. The whole group is then
+  // centered between the header and footer at its natural height — rather than
+  // stretching every row to fill all available space, which left uneven gaps
+  // (especially once the final divider is dropped).
+  const ROW_GAP = 16; // even vertical gap between rows at natural spacing
+  const measured = sections.map((section) => {
+    doc.setFont(headingFont, headingStyle);
+    doc.setFontSize(labelPt);
+    const labelLines = doc.splitTextToSize(section.label || "", labelColW);
+    const labelBlockH = labelLines.length * labelLineHBase;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(bodyPtPref);
+    const bodyLines = doc.splitTextToSize(section.body || "", bodyW);
+    const bodyBlockH = bodyLines.length * bodyLineHPref;
+    return { labelLines, bodyLines, contentH: Math.max(labelBlockH, bodyBlockH) };
+  });
+  const naturalTotalH =
+    measured.reduce((sum, m) => sum + m.contentH, 0) + ROW_GAP * Math.max(0, rowCount - 1);
+
+  // When the natural layout fits, center the block and honor the vertical
+  // offset. When it would overflow (very long bodies), fall back to the legacy
+  // stretch-to-fill so rows never paint underneath the footer.
+  const fits = naturalTotalH <= rowsAvailableH;
+  const sectionsOffsetY = clamp(content.sectionsOffsetY ?? 0, -200, 200);
+  const blockTop = fits
+    ? rowsTop + (rowsAvailableH - naturalTotalH) / 2 + sectionsOffsetY
+    : rowsTop;
+  const stretchRowH = rowsAvailableH / rowCount;
+
+  let cursorY = blockTop;
+  measured.forEach((m, i) => {
+    const section = sections[i];
+    const rowH = fits ? m.contentH : stretchRowH;
+    const ry = cursorY;
     const rowMidY = ry + rowH / 2;
 
     // Label (heading font, dark)
     doc.setFont(headingFont, headingStyle);
     doc.setFontSize(labelPt);
     doc.setTextColor(...textDark);
-    const labelLines = doc.splitTextToSize(section.label || "", labelColW);
-    const labelLineH = labelPt * 1.13;
-    const labelBlockH = labelLines.length * labelLineH;
+    const labelBlockH = m.labelLines.length * labelLineHBase;
     const labelStartY = rowMidY - labelBlockH / 2 + labelPt * 0.8;
-    doc.text(labelLines, labelX, labelStartY);
+    doc.text(m.labelLines, labelX, labelStartY);
 
-    // Body (sans-serif, smaller, dark gray). Auto-fit: shrink by 1pt if the
-    // text would overflow the row at the user's preferred size.
+    // Body (sans-serif, smaller, dark gray). In the natural path the row is
+    // sized to the content; the auto-fit shrink only applies to the stretch
+    // fallback, where a long body could overflow the fixed row height.
     doc.setFont("helvetica", "normal");
     doc.setTextColor(60, 70, 65);
-    const bodyLineH = bodyPtPref * 1.21;
-    const maxLines = Math.max(2, Math.floor((rowH - 12) / bodyLineH));
-
+    const maxLines = fits
+      ? m.bodyLines.length
+      : Math.max(2, Math.floor((rowH - 12) / bodyLineHPref));
     let fontPt = bodyPtPref;
-    doc.setFontSize(fontPt);
-    let bodyLines = doc.splitTextToSize(section.body || "", bodyW);
-    if (bodyLines.length > maxLines) {
+    let bodyLines = m.bodyLines;
+    if (!fits && bodyLines.length > maxLines) {
       fontPt = Math.max(7, bodyPtPref - 1);
       doc.setFontSize(fontPt);
       bodyLines = doc.splitTextToSize(section.body || "", bodyW);
+    } else {
+      doc.setFontSize(fontPt);
     }
     const lineH = fontPt * 1.21;
     const bodyBlockH = bodyLines.length * lineH;
     const bodyStartY = rowMidY - bodyBlockH / 2 + (fontPt - 0.5);
     doc.text(bodyLines.slice(0, maxLines), bodyX, bodyStartY, { lineHeightFactor: 1.22 });
 
-    // Thin horizontal separator at the bottom of each row (toggleable).
-    if (content.showSectionDividers !== false) {
-      const sepY = ry + rowH - 0.5;
+    // Thin horizontal separator BETWEEN rows — always dropped below the LAST
+    // row so the section block ends cleanly above the footer.
+    if (content.showSectionDividers !== false && i < rowCount - 1) {
+      const sepY = fits ? ry + rowH + ROW_GAP / 2 : ry + rowH - 0.5;
       drawSep(doc, margin, sepY, w - margin * 2, [220, 224, 220]);
     }
+
+    cursorY += rowH + (fits ? ROW_GAP : 0);
   });
 
   // ── Footer band ──────────────────────────────────────────────────────
@@ -913,6 +958,15 @@ export const generatePilotOnePager = async (
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   registerBrandFonts(doc, opts?.brand);
+  // Brand heading font: registerBrandFonts only registers the "Bagoss" face
+  // when the brand supplies a resolvable heading font, so its presence in the
+  // font list signals a usable brand heading. Match the Agreement Summary:
+  // render true headings in that face, falling back to the built-in helvetica
+  // (preserving the original weight) for brands with no heading font (e.g. Dandy).
+  const hasBrandHeading = !!(doc.getFontList?.() ?? {})["Bagoss"];
+  const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
+  const headingStyle = (builtin: "normal" | "bold"): string =>
+    hasBrandHeading ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -971,7 +1025,7 @@ export const generatePilotOnePager = async (
     doc.text(dsoName, logoEndX + 12, 70);
   }
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont(headingFont, headingStyle("normal"));
   doc.setFontSize(dsoName.length > 15 ? 22 : ((hCfg.titleFontSize as number | undefined) ?? 28));
   doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize(`${b.productName} x ${dsoName}\n90-Day Pilot`, splitX - margin - 20);
@@ -987,7 +1041,7 @@ export const generatePilotOnePager = async (
   const offsetX = (bCfg.contentOffsetX as number | undefined) ?? 0;
   const sectionGap = (bCfg.sectionSpacing as number | undefined) ?? 16;
 
-  doc.setFont("helvetica", "bold");
+  doc.setFont(headingFont, headingStyle("bold"));
   doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 16);
   doc.setTextColor(...textDark);
   const headlineText = ((bCfg.headlineText as string | undefined) ?? "").trim()
@@ -1024,7 +1078,7 @@ export const generatePilotOnePager = async (
     const divOffY = (bCfg.dividerOffsetY as number | undefined) ?? 0;
 
     const checkHeadingFontSize = (bCfg.checklistHeadingFontSize as number | undefined) ?? 10;
-    doc.setFont("helvetica", "bold"); doc.setFontSize(checkHeadingFontSize); doc.setTextColor(...textDark);
+    doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(checkHeadingFontSize); doc.setTextColor(...textDark);
     doc.text(
       ((bCfg.checklistHeadingText as string | undefined) ?? "").trim() || "How to get the most out of this pilot:",
       margin, y,
@@ -1053,7 +1107,7 @@ export const generatePilotOnePager = async (
     });
     let featY = y;
     content.features.forEach((feat, idx) => {
-      doc.setFont("helvetica", "bold"); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
+      doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
       doc.text(feat.title, rightColX + 28, featY);
       doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.featureDescFontSize as number | undefined) ?? 8.5); doc.setTextColor(...textMuted);
       const descLines = doc.splitTextToSize(feat.description, rightColW - 40);
@@ -1076,7 +1130,7 @@ export const generatePilotOnePager = async (
         const feat = features[idx];
         const fx = margin + col * colW + offsetX + bx;
         const fy = y + row * rowH;
-        doc.setFont("helvetica", "bold"); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
+        doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
         doc.text(feat.title, fx, fy);
         doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.featureDescFontSize as number | undefined) ?? 8.5); doc.setTextColor(...textMuted);
         const descLines = doc.splitTextToSize(feat.description, colW - 32);
@@ -1112,7 +1166,7 @@ export const generatePilotOnePager = async (
   if (showTeam && filteredContacts.length > 0) {
     drawSep(doc, margin, y, contentW, lineColor);
     y += 29;
-    doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
+    doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
     doc.text("Your dedicated team", w / 2, y, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
     doc.text("Meet your contacts for training, clinical support, and pilot check-ins.", w / 2, y + 15, { align: "center" });
@@ -1201,6 +1255,15 @@ export const generateComparisonOnePager = async (
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   registerBrandFonts(doc, opts?.brand);
+  // Brand heading font: registerBrandFonts only registers the "Bagoss" face
+  // when the brand supplies a resolvable heading font, so its presence in the
+  // font list signals a usable brand heading. Match the Agreement Summary:
+  // render true headings in that face, falling back to the built-in helvetica
+  // (preserving the original weight) for brands with no heading font (e.g. Dandy).
+  const hasBrandHeading = !!(doc.getFontList?.() ?? {})["Bagoss"];
+  const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
+  const headingStyle = (builtin: "normal" | "bold"): string =>
+    hasBrandHeading ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1266,7 +1329,7 @@ export const generateComparisonOnePager = async (
   const titleSize = (hCfg.titleFontSize as number | undefined) ?? 20;
   const titleLineSpacing = (hCfg.titleLineSpacing as number | undefined) ?? 1.32;
   const titleLineH = Math.round(titleSize * titleLineSpacing);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(titleSize); doc.setTextColor(...white);
+  doc.setFont(headingFont, headingStyle("normal")); doc.setFontSize(titleSize); doc.setTextColor(...white);
   doc.text("Stronger Systems.", margin, 90);
   doc.text("Better Outcomes.", margin, 90 + titleLineH);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(...pal.onPrimaryMuted2);
@@ -1330,7 +1393,7 @@ export const generateComparisonOnePager = async (
   const filteredContacts = teamContacts.filter(c => c.name.trim());
   if (showTeam && filteredContacts.length > 0) {
     drawSep(doc, margin, y, contentW, lineColor); y += 29;
-    doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
+    doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
     doc.text("Your dedicated team", w / 2, y, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
     doc.text("Meet your contacts for training, clinical support, and check-ins.", w / 2, y + 15, { align: "center" });
@@ -1419,6 +1482,15 @@ export const generateNewPartnerOnePager = async (
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   registerBrandFonts(doc, opts?.brand);
+  // Brand heading font: registerBrandFonts only registers the "Bagoss" face
+  // when the brand supplies a resolvable heading font, so its presence in the
+  // font list signals a usable brand heading. Match the Agreement Summary:
+  // render true headings in that face, falling back to the built-in helvetica
+  // (preserving the original weight) for brands with no heading font (e.g. Dandy).
+  const hasBrandHeading = !!(doc.getFontList?.() ?? {})["Bagoss"];
+  const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
+  const headingStyle = (builtin: "normal" | "bold"): string =>
+    hasBrandHeading ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1490,13 +1562,13 @@ export const generateNewPartnerOnePager = async (
   doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(...pal.onPrimaryMuted2);
   doc.text(`${b.productName} & ${dsoName}:`, margin, 65 + subtitleOffY);
   const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
+  doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
   doc.text(titleLines, margin, 65 + subtitleOffY + subtitleFontSize + 14);
 
   let y = headerH + 40;
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 18); doc.setTextColor(...textDark);
+  doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 18); doc.setTextColor(...textDark);
   const headlineLines = doc.splitTextToSize(headline, contentW);
   doc.text(headlineLines, margin, y);
   y += headlineLines.length * 22 + 14;
@@ -1524,7 +1596,7 @@ export const generateNewPartnerOnePager = async (
       const featTitleFs = (bCfg.featureTitleFontSize as number | undefined) ?? 11;
       const featDescFs = (bCfg.featureDescFontSize as number | undefined) ?? 9;
       if (idx === 3) {
-        doc.setFont("helvetica", "bold"); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
+        doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
         doc.text("Learn more about the", cx + 16, cy + 28);
         doc.text(`${b.productName} experience`, cx + 16, cy + 28 + featTitleFs + 4);
         try {
@@ -1533,7 +1605,7 @@ export const generateNewPartnerOnePager = async (
           doc.addImage(qrDataUrl, "PNG", cx + cardW - 72, cy + 14, 58, 58);
         } catch { }
       } else if (feat) {
-        doc.setFont("helvetica", "bold"); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
+        doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
         doc.text(feat.title, cx + 16, cy + 28);
         if (feat.desc) {
           doc.setFont("helvetica", "normal"); doc.setFontSize(featDescFs); doc.setTextColor(...textMuted);
@@ -1545,7 +1617,7 @@ export const generateNewPartnerOnePager = async (
   }
   y += 2 * (cardH + cardGap) + 28;
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
+  doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
   doc.text(`See what ${b.productName} doctors are saying:`, margin, y);
   y += 28;
 
@@ -1594,6 +1666,15 @@ export const generateROIOnePager = async (
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   registerBrandFonts(doc, opts?.brand);
+  // Brand heading font: registerBrandFonts only registers the "Bagoss" face
+  // when the brand supplies a resolvable heading font, so its presence in the
+  // font list signals a usable brand heading. Match the Agreement Summary:
+  // render true headings in that face, falling back to the built-in helvetica
+  // (preserving the original weight) for brands with no heading font (e.g. Dandy).
+  const hasBrandHeading = !!(doc.getFontList?.() ?? {})["Bagoss"];
+  const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
+  const headingStyle = (builtin: "normal" | "bold"): string =>
+    hasBrandHeading ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1627,7 +1708,7 @@ export const generateROIOnePager = async (
   const defaultNameSize = dsoName.length > 15 ? 16 : 22;
   const roiNameSize = (hCfg.titleFontSize as number | undefined) ?? defaultNameSize;
   const titleY = Math.round(headerH * 0.575);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(roiNameSize); doc.setTextColor(...white);
+  doc.setFont(headingFont, headingStyle("normal")); doc.setFontSize(roiNameSize); doc.setTextColor(...white);
   doc.text("& ", margin, titleY);
   const ampWidth = doc.getTextWidth("& ");
   doc.text(dsoName, margin + ampWidth, titleY);
@@ -1694,7 +1775,7 @@ export const generateROIOnePager = async (
 
   // Next steps
   doc.setFillColor(...offWhite); doc.roundedRect(margin, y, contentW, 105, 6, 6, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...pal.primaryOnLight); doc.text("Recommended Next Step: Risk-Free Pilot", margin + 20, y + 24);
+  doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(12); doc.setTextColor(...pal.primaryOnLight); doc.text("Recommended Next Step: Risk-Free Pilot", margin + 20, y + 24);
   const pilotItems = [
     "Start with 5–10 locations — no long-term commitment required",
     "Measure remake reduction, chair time recovered, and revenue lift in real time",
@@ -1750,7 +1831,7 @@ export const generateROIOnePager = async (
   } else {
     doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(...white); doc.text(b.wordmark, margin, 40);
   }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(15); doc.setTextColor(...white); doc.text(`The ${b.productName} Difference & ROI`, margin, 66);
+  doc.setFont(headingFont, headingStyle("normal")); doc.setFontSize(15); doc.setTextColor(...white); doc.text(`The ${b.productName} Difference & ROI`, margin, 66);
   y = p2HeaderH + 28;
 
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...pal.accentOnDark); doc.text(`THE ${b.productName.toUpperCase()} DIFFERENCE`, margin, y); y += 6;
@@ -1841,7 +1922,7 @@ export const generateROIOnePager = async (
   y += 58 + 16;
 
   doc.setFillColor(...offWhite); doc.roundedRect(margin, y, contentW, 55, 6, 6, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...pal.primaryOnLight); doc.text("Ready to validate these numbers?", margin + 20, y + 22);
+  doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(11); doc.setTextColor(...pal.primaryOnLight); doc.text("Ready to validate these numbers?", margin + 20, y + 22);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
   doc.text(b.footerUrl ? `Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis at ${b.footerUrl}` : "Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis.", margin + 20, y + 38);
 

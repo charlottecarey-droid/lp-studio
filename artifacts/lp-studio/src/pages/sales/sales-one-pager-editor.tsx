@@ -401,6 +401,10 @@ export default function SalesOnePagerEditor() {
   const [agreementSubheadlineOffsetY, setAgreementSubheadlineOffsetY] = useState<number>(
     defaultAgreementSummaryContent.subheadlineOffsetY ?? 0
   );
+  // Vertical nudge for the auto-centered section block (pt; neutral default 0).
+  const [agreementSectionsOffsetY, setAgreementSectionsOffsetY] = useState<number>(
+    defaultAgreementSummaryContent.sectionsOffsetY ?? 0
+  );
   const [agreementHeadlineMaxWidthPct, setAgreementHeadlineMaxWidthPct] = useState<number>(
     defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58
   );
@@ -534,6 +538,7 @@ export default function SalesOnePagerEditor() {
       setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
+      setAgreementSectionsOffsetY(defaultAgreementSummaryContent.sectionsOffsetY ?? 0);
       setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
       setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
@@ -559,6 +564,7 @@ export default function SalesOnePagerEditor() {
         if (typeof saved.headlineOffsetY === "number") setAgreementHeadlineOffsetY(saved.headlineOffsetY);
         if (typeof saved.subheadlineOffsetX === "number") setAgreementSubheadlineOffsetX(saved.subheadlineOffsetX);
         if (typeof saved.subheadlineOffsetY === "number") setAgreementSubheadlineOffsetY(saved.subheadlineOffsetY);
+        if (typeof saved.sectionsOffsetY === "number") setAgreementSectionsOffsetY(saved.sectionsOffsetY);
         if (typeof saved.headlineMaxWidthPct === "number") setAgreementHeadlineMaxWidthPct(saved.headlineMaxWidthPct);
         if (typeof saved.logoWidth === "number") setAgreementLogoWidth(saved.logoWidth);
         if (typeof saved.showSectionDividers === "boolean") setAgreementShowDividers(saved.showSectionDividers);
@@ -699,6 +705,7 @@ export default function SalesOnePagerEditor() {
             headlineOffsetY: agreementHeadlineOffsetY,
             subheadlineOffsetX: agreementSubheadlineOffsetX,
             subheadlineOffsetY: agreementSubheadlineOffsetY,
+            sectionsOffsetY: agreementSectionsOffsetY,
             headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
             logoWidth: agreementLogoWidth,
             showSectionDividers: agreementShowDividers,
@@ -734,6 +741,7 @@ export default function SalesOnePagerEditor() {
     agreementHeaderHeight, agreementFooterHeight,
     agreementHeadlineOffsetX, agreementHeadlineOffsetY,
     agreementSubheadlineOffsetX, agreementSubheadlineOffsetY,
+    agreementSectionsOffsetY,
     agreementHeadlineMaxWidthPct, agreementLogoWidth,
     agreementShowDividers,
     agreementFooterLinkText, agreementFooterLinkUrl,
@@ -796,6 +804,7 @@ export default function SalesOnePagerEditor() {
           headlineOffsetY: agreementHeadlineOffsetY,
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
+          sectionsOffsetY: agreementSectionsOffsetY,
           headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
           logoWidth: agreementLogoWidth,
           showSectionDividers: agreementShowDividers,
@@ -839,6 +848,7 @@ export default function SalesOnePagerEditor() {
       setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
+      setAgreementSectionsOffsetY(defaultAgreementSummaryContent.sectionsOffsetY ?? 0);
       setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
       setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
@@ -883,6 +893,7 @@ export default function SalesOnePagerEditor() {
           headlineOffsetY: agreementHeadlineOffsetY,
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
+          sectionsOffsetY: agreementSectionsOffsetY,
           headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
           logoWidth: agreementLogoWidth,
           showSectionDividers: agreementShowDividers,
@@ -1500,6 +1511,15 @@ export default function SalesOnePagerEditor() {
                       min={7} max={14} step={0.5} unit="pt"
                       onChange={v => setAgreementSectionBodyFontSize(v)}
                     />
+                    <SliderRow
+                      label="Section Vertical Position"
+                      value={agreementSectionsOffsetY}
+                      min={-150} max={150} step={2} unit="pt"
+                      onChange={v => setAgreementSectionsOffsetY(v)}
+                    />
+                    <p className="text-[10px] text-muted-foreground -mt-2 leading-snug">
+                      Nudges the auto-centered section block up or down between the header and footer. 0 keeps it centered.
+                    </p>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
