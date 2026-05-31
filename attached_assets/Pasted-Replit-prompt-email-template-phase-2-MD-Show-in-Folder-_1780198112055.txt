@@ -1,0 +1,322 @@
+Replit prompt email template phase 2 · MDShow in FolderReplit Prompt — Phase 2 Email Template Authoring (Tenant-Scope)
+Phase 1 (a16ab7841 "Make all platform emails on-brand and fully editable in SuperAdmin") shipped clean — six system templates moved into the dispatcher with hard code fallbacks, EmailWYSIWYGEditor working, master shell editable in SuperAdmin, render path consolidated. That work is the foundation.
+Phase 2 extends the same authoring experience to tenant admins, for the emails their product sends to their visitors and prospects. Specifically: the lead notification email at notifications.ts:730 (currently has hardcoded Dandy-green-and-lime branding that goes to every tenant), the form-submitter follow-up email (already template-driven but its branded shell is hardcoded), and any other tenant-product emails identified during the audit gate.
+Different security boundary than Phase 1: tenant admins author their own tenant-scope templates only, can't see or edit platform-scope templates, can't edit other tenants' templates. Superadmin can override or assist for support.
+Critical: do not break Phase 1. The platform-scope authoring that just shipped is working and time-sensitive (it's load-bearing for trial nudges, invites, magic links). Phase 2 adds scope as a new dimension; it does not replace any existing path.
+
+What's there to build on (Phase 1 reference)
+These exist and should be reused, not duplicated:
+
+notification_templates table — extend with two new columns, don't replace
+notificationDispatcher.ts + dispatchNotification() — extend resolver to handle scope, don't fork
+notificationTemplates.ts code registry + cached DB accessor — same pattern for tenant templates
+renderSystemEmail(key, vars) in notifications.ts — pattern to reuse for renderTenantEmail(tenantId, key, vars)
+emailRender.ts with expandEmailVars, master shell, magazine-welcome defaults — extend with tenant-shell layer
+EmailWYSIWYGEditor.tsx with Tiptap + Media Library button — reuse as-is, just pass different variable registry
+SuperAdminNotifications.tsx — reuse the editor surface in a new tenant-side settings page
+routes/notifications.ts preview/test-send/admin-templates routes — pattern for tenant-side equivalents
+buildPreviewVars + categories + bodyMode + wrapInShell — all extend cleanly to tenant scope
+
+
+Tenant emails already in the codebase
+The audit gate must confirm this list, but as of investigation these are the production tenant-side email sites:
+
+Lead notification (sendEmailNotification at notifications.ts:730) — sent to the tenant's configured email recipients when a form is submitted on one of their landing pages. Currently has hardcoded Dandy branding (#003A30 green header, #C7E738 lime accent, "New Lead Submission" heading). Every non-Dandy tenant gets emails styled as Dandy.
+Form-submitter follow-up email — triggered via sendFollowUpToSubmitter flag in lead processing (leads.ts:355 region). Already template-driven (tenant configures followUpTemplateId and a body with merge variables) but the branded HTML wrapper around it is presumably hardcoded somewhere — confirm during audit.
+Comment + review-decision notifications (per commit 154b450d9 "Add email notifications for comments and review decisions") — confirm during audit which paths exist and whether they're hardcoded.
+Domain TLS status emails (079e002c4 "Custom domain TLS status email notifications") — these MIGHT be tenant-scope (notifying tenant about their domain status), but might be platform-scope ops alerts. Confirm during audit.
+Campaign emails via sales console (campaign-pages.ts) — already operator-authored via the existing campaign editor. Out of scope for Phase 2 — those are a separate authoring surface that tenants already control. Don't try to merge.
+
+
+The prompt
+
+Task: Extend the email template system to tenant-scope (Phase 2)
+Context
+The Phase 1 work (a16ab7841 "Make all platform emails on-brand and fully editable in SuperAdmin") shipped successfully — six system templates moved into the dispatcher, master shell editable, WYSIWYG editor with Media Library wired up. That covers LP Studio's platform-scope emails (welcome, magic_link, password_reset, workspace_invite, payment_failed, email_verification, slug_redirect_expiry, trial day_7/11/13/expired).
+What's still hardcoded is the tenant-side: emails the tenant's product sends to their visitors and prospects. Most visibly, the lead notification email at artifacts/api-server/src/lib/notifications.ts:730 (sendEmailNotification) has Dandy-green-and-lime hardcoded HTML that goes to every tenant. Non-Dandy tenants get emails about their leads that look like they came from Dandy.
+Phase 2 extends the same authoring system Phase 1 built — but tenant admins are the authors, the variable registry is product-context (form fields, microsite content, visitor data), and each tenant has their own branded shell wrapping their emails.
+Before writing any code, please:
+
+Re-read the Phase 1 work so the extension stays consistent:
+
+notification_templates table schema (lib/db/migrations/0041_notifications.sql plus any follow-up migrations)
+notificationDispatcher.ts (dispatchNotification, sendEmail, dedupe via UNIQUE index, claim-row pattern)
+notificationTemplates.ts (code registry + cached DB accessor + resilience contract)
+notifications.ts (renderSystemEmail, sendInviteEmail, sendEmailNotification at line 730 — the legacy hardcoded lead email)
+systemEmailBodies.ts (the 6 system templates' code defaults)
+emailRender.ts (expandEmailVars, master shell + magazine-welcome defaults)
+EmailWYSIWYGEditor.tsx (Tiptap setup, Media Library button)
+SuperAdminNotifications.tsx (the template editor UI)
+routes/notifications.ts (preview/test-send/admin-templates routes)
+
+Quote back the shape of dispatchNotification's template lookup, the master shell render path, and the SuperAdmin UI's editor surface. The Phase 2 work mirrors all three, scoped to tenants.
+Inventory tenant-product email sites. Grep the codebase for every place a tenant's product sends an email to a non-tenant-user audience. Confirmed candidates:
+
+notifications.ts:730 sendEmailNotification — lead notification to tenant recipients (Dandy-branded HTML)
+leads.ts:355 region sendFollowUpToSubmitter — form-submitter follow-up template
+Comment/review notifications from commit 154b450d9 (find the send sites)
+Domain TLS status emails from 079e002c4 (confirm whether tenant-scope or platform-scope ops)
+Any other resend.com/emails-direct sends in the tenant product path
+
+Quote each send site's current HTML/template, what triggers it, what variables it interpolates, and who the recipient is. We need this inventory before deciding which templates to seed in Phase 2.
+Confirm the permission model for "tenant admin can edit tenant-scope templates":
+
+Read requirePermission middleware patterns to find which permission key gates tenant brand/settings editing today.
+Most likely manage_tenant_settings or tenant_admin — quote the actual constant.
+Tenant admins should have edit access to their own tenant-scope templates only. Tenant editors/viewers/sales-reps should NOT.
+Superadmin (the existing requireSuperadmin check from Phase 1) can edit any tenant's templates for support.
+
+
+Confirm where the tenant settings page lives. From Phase 1 we know SuperAdmin's notifications tab is at SuperAdminNotifications.tsx. The tenant equivalent should live alongside the other tenant settings pages — probably artifacts/lp-studio/src/pages/settings/EmailTemplatesPage.tsx as a sibling to Brand Settings, Domain, Billing. Confirm the exact directory + how the existing settings nav registers pages.
+Propose the architecture per the spec below. Wait for OK before implementing.
+
+
+Step 1 — Schema additions: scope + tenant_id
+Add two columns to notification_templates:
+sqlALTER TABLE notification_templates
+  ADD COLUMN scope TEXT NOT NULL DEFAULT 'platform'
+    CHECK (scope IN ('platform', 'tenant')),
+  ADD COLUMN tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Platform-scope rows have tenant_id NULL. Tenant-scope rows MUST have tenant_id set.
+ALTER TABLE notification_templates
+  ADD CONSTRAINT notification_templates_scope_tenant_check
+  CHECK (
+    (scope = 'platform' AND tenant_id IS NULL) OR
+    (scope = 'tenant' AND tenant_id IS NOT NULL)
+  );
+
+-- Key uniqueness changes — was unique on (key) alone, now unique on (scope, tenant_id, key):
+--   - Platform-scope: (scope='platform', tenant_id=NULL, key='welcome') unique
+--   - Tenant-scope:   (scope='tenant', tenant_id=42, key='lead_notification') unique
+DROP INDEX IF EXISTS notification_templates_pkey;
+ALTER TABLE notification_templates DROP CONSTRAINT IF EXISTS notification_templates_pkey;
+ALTER TABLE notification_templates ADD PRIMARY KEY (scope, tenant_id, key);
+-- (Or: keep `id` as PK and add UNIQUE(scope, tenant_id, key) — whichever matches existing convention. Check the migration journal for the current PK shape.)
+Existing Phase 1 rows all get scope='platform' automatically via the DEFAULT. No data migration needed beyond the ALTER.
+Add a tenant master shell table — separate from notification_templates because the shell is per-tenant and stored as a single row per tenant:
+sqlCREATE TABLE IF NOT EXISTS tenant_email_shells (
+  tenant_id INTEGER PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  shell_html TEXT NOT NULL,
+  logo_url TEXT,
+  header_bg_color TEXT NOT NULL DEFAULT '#F6F2E9',
+  header_text_color TEXT NOT NULL DEFAULT '#1A1815',
+  footer_html TEXT NOT NULL DEFAULT '',
+  reply_to_email TEXT,
+  physical_address TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by INTEGER REFERENCES app_users(id)
+);
+Each tenant has ONE shell. If the row doesn't exist (tenant hasn't configured it), the renderer falls back to a default tenant shell derived from the tenant's existing brand config (logo, primary color, etc.) — which is the right zero-config experience.
+
+Step 2 — Code registry: tenant templates
+Create artifacts/api-server/src/lib/tenantEmailTemplates.ts mirroring the structure of notificationTemplates.ts from Phase 1:
+tsexport interface TenantTemplateDef {
+  key: string;
+  name: string;
+  description: string;
+  category: "transactional" | "marketing" | "system";
+  channels: NotificationChannel[];
+  emailSubject: string;
+  emailBody: string;        // HTML body (between shell head + footer)
+  bodyMode: "wysiwyg" | "html";
+  previewData: Record<string, unknown>;  // sample vars for preview/test-send
+  enabled: boolean;
+}
+
+export const TENANT_EMAIL_TEMPLATES: Record<string, TenantTemplateDef> = {
+  lead_notification: { ... },   // replaces the hardcoded HTML at notifications.ts:730
+  form_followup: { ... },        // replaces wherever the follow-up shell lives
+  // Plus any others identified during the audit gate
+};
+Each template's emailBody is a self-contained HTML fragment — same as the Phase 1 systemEmailBodies.ts pattern. The dispatcher wraps this in the resolved tenant shell (or platform fallback shell) at render time.
+Hard code fallback rule: every tenant template has a working code default. If the DB is unreachable, if the tenant's override row is corrupt, if the tenant shell is missing — the email STILL sends correctly using the code default + a sensible neutral shell. This is the same resilience contract Phase 1 uses for auth emails; do not break it for tenant emails.
+
+Step 3 — Resolver: scope-aware template lookup
+Extend dispatchNotification to accept a scope + optional tenantId parameter, OR create a wrapper dispatchTenantNotification that calls into the same core path with scope='tenant'.
+Resolution order for a tenant-scope send:
+
+DB lookup: notification_templates WHERE scope='tenant' AND tenant_id=$1 AND key=$2 AND enabled=true
+If missing OR disabled: code default from TENANT_EMAIL_TEMPLATES[key]
+If code default missing: log loudly, throw (this should never happen in production — every tenant template MUST have a code default per the contract above)
+
+Resolution order for the SHELL:
+
+DB lookup: tenant_email_shells WHERE tenant_id=$1
+If missing: derive a default tenant shell from lp_brand_settings.config (logo, primary color, etc.)
+If brand config missing: fall back to LP Studio's platform shell from emailRender.ts
+
+The render path becomes:
+tsexport async function renderTenantEmail(
+  tenantId: number,
+  key: string,
+  vars: Record<string, unknown>
+): Promise<{ subject: string; html: string; text: string }> {
+  const tpl = await getTenantTemplate(tenantId, key);          // DB override or code default
+  const shell = await getTenantShell(tenantId);                // DB override or brand-derived or platform fallback
+  const expanded = expandTenantEmailVars(vars, tenantId);       // tenant variable registry
+  const html = renderInShell(shell, tpl.emailBody, expanded);
+  const text = interpolatePlainText(tpl.emailBody, expanded);
+  const subject = interpolateString(tpl.emailSubject, expanded);
+  return { subject, html, text };
+}
+Same shape as renderSystemEmail from Phase 1, just scoped to tenant.
+
+Step 4 — Migrate sendEmailNotification (lead notification) into the dispatcher
+The biggest win: notifications.ts:730 currently builds Dandy-branded HTML inline. Replace with:
+tsexport async function sendEmailNotification(
+  tenantId: number,
+  recipients: string[],
+  lead: LeadPayload,
+): Promise<void> {
+  if (recipients.length === 0) return;
+  const { subject, html, text } = await renderTenantEmail(tenantId, "lead_notification", {
+    pageTitle: lead.pageTitle,
+    submittedAt: lead.submittedAt,
+    leadFields: lead.fields,       // table of form field values
+    variantName: lead.variantName,
+    leadId: lead.leadId,
+    pageUrl: lead.pageUrl,
+  });
+  await sendEmail(recipients, subject, html, text);
+}
+Update the call site at leads.ts:355 to pass tenantId. The old function signature breaks — that's intentional, the new signature is required because lead notifications are now tenant-scope.
+Critical for migration: seed the lead_notification code default in tenantEmailTemplates.ts with HTML that's brand-driven (uses tenant logo + colors from the resolved shell) but functionally equivalent to the old hardcoded version. Dandy's tenant doesn't need to override the template — the brand-derived default shell + the neutral code template body will produce a lead notification that's still on-brand for Dandy because Dandy's brand IS dark-green-and-lime. Non-Dandy tenants get their own colors automatically.
+
+Step 5 — Tenant Settings → Email templates page
+Add a new tenant settings page at artifacts/lp-studio/src/pages/settings/EmailTemplatesPage.tsx. Mirror the structure of the existing settings pages (Brand, Domain, Billing). Register it in the settings nav.
+The page has two sections:
+A. Master shell editor — lets the tenant admin edit their tenant master shell:
+
+Logo URL (file picker via existing Media Library)
+Header background color (color picker)
+Header text color (color picker)
+Footer HTML (textarea, optional override of the default)
+Reply-to email (text input, validated)
+Physical address (text input, for CAN-SPAM compliance on their tenant emails)
+Live preview iframe rendering the shell with a sample template body
+"Reset to brand-derived defaults" button — restores the shell to the auto-derived version from lp_brand_settings.config
+
+B. Template list + editor — shows the tenant-scope templates:
+
+List view: lead_notification, form_followup, and any others from the audit gate
+Each template has an enabled toggle, last-edited timestamp, channels badges
+Clicking a template opens the same editor surface SuperAdmin uses for platform templates — EmailWYSIWYGEditor with the tenant variable registry passed in
+Preview pane shows the rendered email using the tenant's resolved shell + the draft body + preview vars
+Test-send button — sends to the signed-in admin's email so they can verify in their inbox before saving
+
+Reuse the SuperAdmin editor surface. Extract NotificationTemplateEditor (or whatever it's called in SuperAdminNotifications.tsx) into a shared component if it isn't already, with props for scope, variableRegistry, and onSave. Both SuperAdmin's platform-scope editor AND the new tenant-scope editor use the same component.
+
+Step 6 — Tenant variable registry
+Tenant emails have different variables than platform emails. Build a tenant variable definition file at artifacts/api-server/src/lib/tenantEmailVariables.ts:
+tsexport const TENANT_EMAIL_VARIABLES: VariableDefinition[] = [
+  // Tenant brand context (auto-resolved)
+  { key: "tenantName", label: "Tenant name", sample: "Acme Co" },
+  { key: "tenantLogoUrl", label: "Tenant logo URL", sample: "https://..." },
+  { key: "tenantPrimaryColor", label: "Brand primary color", sample: "#4B47E5" },
+  { key: "tenantWebsiteUrl", label: "Tenant website URL", sample: "https://acme.co" },
+
+  // Recipient context (per-send)
+  { key: "recipientEmail", label: "Recipient email", sample: "lead@example.com" },
+
+  // Lead-specific (for lead_notification + form_followup)
+  { key: "leadFields", label: "Form fields submitted (as table)", sample: "<table>...</table>", type: "html" },
+  { key: "pageTitle", label: "Page that was submitted", sample: "Pricing pilot" },
+  { key: "pageUrl", label: "Page URL", sample: "https://acme.co/pricing-pilot" },
+  { key: "submittedAt", label: "Submission time", sample: "2026-05-31 14:23 UTC" },
+  { key: "variantName", label: "A/B variant (if any)", sample: "Variant B" },
+
+  // Microsite-specific (if microsite-shared template exists)
+  { key: "micrositeTitle", label: "Microsite title", sample: "Pilot for Acme Corp" },
+  { key: "micrositeUrl", label: "Microsite URL", sample: "https://acme.lpstudio.ai/p/acme-corp" },
+  { key: "senderName", label: "Rep who shared", sample: "Charlotte Carey" },
+
+  // Compliance + footer (auto-resolved from tenant shell)
+  { key: "tenantPhysicalAddress", label: "Tenant mailing address", sample: "55 5th Ave, NYC" },
+  { key: "unsubscribeUrl", label: "Unsubscribe URL", sample: "https://acme.lpstudio.ai/unsubscribe/..." },
+  { key: "currentYear", label: "Current year", sample: "2026" },
+];
+Pass this registry to EmailWYSIWYGEditor when rendering the tenant-side editor. The Tiptap variable-pill picker shows tenant variables, not platform variables.
+
+Step 7 — Permission gates (security boundary)
+Three new routes in artifacts/api-server/src/routes/tenant-email-templates.ts (or wherever tenant settings routes live):
+GET    /api/tenant/email-shell                              → fetch tenant's shell
+PATCH  /api/tenant/email-shell                              → update tenant's shell
+POST   /api/tenant/email-shell/preview                      → preview shell + sample template
+
+GET    /api/tenant/email-templates                          → list tenant's templates (scoped to tenant)
+GET    /api/tenant/email-templates/:key                      → fetch one
+PATCH  /api/tenant/email-templates/:key                      → update subject, body, bodyMode, enabled, previewData
+POST   /api/tenant/email-templates/:key/preview              → render using draft values + tenant shell
+POST   /api/tenant/email-templates/:key/test-send            → send one email to signed-in admin's email
+All routes gated by requirePermission("manage_tenant_settings") (or whichever permission constant the audit identifies). getTenantId(req) is the implicit tenant scope — tenant admin can only ever read/write their own tenant's templates. The route handlers ALWAYS use getTenantId(req) as the tenant_id, never accept a tenant_id param — no cross-tenant access.
+Plus the existing SuperAdmin routes get extended:
+GET    /api/superadmin/email-templates?scope=tenant&tenantId=42  → SuperAdmin can see any tenant's templates
+PATCH  /api/superadmin/email-templates/:scope/:tenantId/:key      → SuperAdmin can override
+Gated by requireSuperadmin, takes explicit scope + tenantId params. For support cases when a tenant needs help fixing their template.
+
+Step 8 — Test-send rate limit + audit log
+Same as Phase 1 — 10 test-sends per hour per user. Audit log every template edit with { scope, tenant_id, key, user_id, before, after, edited_at }.
+
+Cross-cutting (Phase 2)
+
+Backward compat for Dandy: Dandy's lead notification email today renders dark-green + lime. After this migration, Dandy's tenant gets a code default lead_notification template + its brand-derived shell. The shell's auto-derive logic should produce dark-green + lime for Dandy because that's the configured brand color. Diff a Dandy lead notification email pre- vs post-migration — should be visually equivalent.
+Backward compat for other existing tenants: Their lead notifications today look Dandy-branded. After this migration, they look like their OWN brand. That's the intended improvement, not a regression — but flag in the migration changelog so existing tenants know their lead emails will change appearance on the next form submission.
+No new template creation in v1. Phase 2 ships with seeded code-default templates (lead_notification, form_followup, etc.). Tenant admins can EDIT them but can't create entirely new templates. Phase 3 lifts that.
+No new triggers in v1. Same as Phase 1 — the triggers are wired in code; templates can be edited but new triggers require a code change.
+No tenant-side multi-step workflows. Same as Phase 1 — that's Phase 3.
+Observability: log every tenant email send with { scope, tenant_id, template_key, recipient_count, used_shell_source: "tenant_db" | "tenant_brand_derived" | "platform_fallback" }. Helps spot tenants who haven't configured their shell.
+
+
+Test plan (Phase 2)
+
+Migration safety: existing platform-scope templates from Phase 1 keep working unchanged after the ALTER. Diff a welcome email pre/post migration — byte-identical.
+Tenant lead notification, no overrides: non-Dandy tenant submits a form, gets a lead notification rendered with their tenant's brand-derived shell + the code default lead_notification body. Verify the email contains tenant's logo, tenant's primary color, NO Dandy strings.
+Tenant lead notification, with tenant overrides: tenant admin edits the lead_notification template's subject + body, saves, submits a test form — the lead notification uses the override. Old subject doesn't appear.
+Tenant shell override: tenant admin uploads custom logo + sets coral header color in the shell editor, saves. Next email send wraps the template body in the customized shell.
+Tenant test-send: tenant admin clicks Test send on the lead_notification template, gets an email at their own address that matches the preview exactly.
+Permission gate — tenant scope: tenant editor (non-admin) hits the email templates settings page → "you need admin access" message. Tenant admin from Tenant A hits PATCH /api/tenant/email-templates/lead_notification with cookies for Tenant B → 403 (cross-tenant blocked by getTenantId(req)).
+Permission gate — superadmin: superadmin can fetch and patch any tenant's templates via the superadmin routes. Tenant admin cannot use the superadmin routes (403).
+Hard-fallback regression: simulate DB unreachable (kill the pool), trigger a form submission → lead notification still sends via code-default template + neutral shell. Lead capture path never blocks.
+Audit log: every shell + template edit writes a row with before/after snapshots (metadata only, not body content — preserve privacy).
+Test-send rate limit: spam test-send 12 times in one hour → 11th and 12th return 429.
+
+
+Quality bar (when to ship)
+
+All 10 test cases pass.
+The hardcoded sendEmailNotification HTML at notifications.ts:730 is removed. Lead notifications now render via renderTenantEmail.
+Dandy's lead notification email is visually identical pre/post migration (brand-derived shell produces dark-green + lime for Dandy).
+Non-Dandy tenants who haven't configured their shell still get a usable, on-brand lead notification rendered from lp_brand_settings.config.
+Tenant admin can edit their lead_notification subject + body end-to-end without a code change.
+Tenant admin can edit their master shell (logo, colors, footer) end-to-end without a code change.
+Cross-tenant access is blocked at the API layer (getTenantId(req) only, never accept tenant_id params on tenant routes).
+SuperAdmin can still see/edit any tenant's templates for support.
+The EmailWYSIWYGEditor component is reused from Phase 1 (not duplicated) — same component, different variable registry passed in.
+The renderTenantEmail pipeline has a hard code fallback at every layer (template, shell, variables) so a misconfigured tenant can never block a send.
+
+Don't ship if: existing Phase 1 platform emails (welcome, invite, magic_link, etc.) are visibly different post-migration. Don't ship if cross-tenant access is possible via any API path. Don't ship if Dandy's lead notification email changes appearance vs current production. Don't ship if a tenant with NO overrides AND no brand config breaks the send path.
+
+
+Why this is the right scope
+1. Reuse the Phase 1 components — don't fork. The EmailWYSIWYGEditor, the dispatchNotification, the render pipeline, the SuperAdmin editor surface — all designed to be scope-aware. Phase 2 adds a scope column and a tenant-side UI route; everything else extends. This is the cheap version of the work.
+2. Brand-derived defaults so zero-config tenants look right immediately. Most tenants won't configure their email shell explicitly — they'll just expect their lead notifications to look like their brand. By deriving the default shell from lp_brand_settings.config (logo, primary color, etc.) at render time, tenants get correct-looking emails without ever touching the shell editor. Configuration is for tenants who want to override the defaults, not for the basic case.
+3. The lead notification email is the highest-leverage migration. Every non-Dandy tenant currently sends Dandy-branded lead notifications when a form is submitted on their landing page. That's the visible Dandy-leak issue we've been chasing across the one-pager + microsite work, now showing up in transactional emails. Phase 2 fixing this single email arguably matters more than building the editor — the editor is the long-term capability, but the migration is the immediate cleanup.
+What this prompt explicitly doesn't do
+
+Doesn't replace the existing sales campaign system — campaigns are tenant-authored outbound to prospects, already editable, separate concern.
+Doesn't add new template-type creation from UI. Tenants edit what's seeded; they can't author entirely new templates. Phase 3 lifts this.
+Doesn't add new triggers from UI. Triggers are wired in code; tenants can disable templates but not create new triggers.
+Doesn't add multi-step workflows. That's Phase 3 — extends the campaign scheduler pattern.
+Doesn't change how notification_sends (the in-app inbox + send log) is structured. Same table, same dispatcher pipeline.
+Doesn't bring tenant emails into the welcome-issue magazine style. Tenant emails should look like THE TENANT, not like LP Studio. The magazine framing stays scoped to LP Studio's onboarding emails.
+
+What to expect from Replit's plan-back
+
+Confirmation of the tenant-product email inventory (Step 2 of audit gate) — which sites get migrated, which stay out of scope.
+Schema migration with idempotent CHECK constraint additions, no destructive changes.
+The single renderTenantEmail(tenantId, key, vars) helper signature + which existing call sites get refactored.
+Brand-derived default shell logic (which lp_brand_settings.config fields map to which shell properties).
+Permission constant used for tenant settings (manage_tenant_settings or equivalent).
+Confirmation that EmailWYSIWYGEditor is extracted/reused, not duplicated.
+Test-fixture plan for the cross-tenant access tests (need 2 tenants, each with a different brand config).
