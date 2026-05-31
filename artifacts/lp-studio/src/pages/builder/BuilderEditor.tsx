@@ -2109,12 +2109,26 @@ export default function BuilderEditor() {
   useKeyboardShortcuts(builderShortcuts);
 
   const [showOutreachBanner, setShowOutreachBanner] = useState(false);
+  // Task #553 — post-publish "X values were scrubbed" summary for regular
+  // (non-microsite) pages. The one-time amber strict-mismatch banner is easy
+  // to miss or dismiss, and regular pages don't get the green outreach banner,
+  // so without this an editor can publish without ever approving real stats
+  // Strict Facts Mode removed. Shown only when scrubbed values are still
+  // unapproved at publish time.
+  const [showScrubbedSummary, setShowScrubbedSummary] = useState(false);
 
   // A page is a microsite when it's tied to a sales account (the microsite
   // builder tags it with `pageVariables.salesAccountId`). The post-publish
   // outreach banner only makes sense for those — regular published pages
   // have no contacts to send tracked links to.
   const isMicrosite = Boolean(pageVariables.salesAccountId);
+
+  // Scrubbed values the editor hasn't yet pushed into the approved pool. Used
+  // to decide whether the post-publish review nudge is worth showing.
+  const unapprovedScrubbedCount = strictMismatches.reduce(
+    (n, _m, i) => (quoteSaved[i] === true ? n : n + 1),
+    0,
+  );
 
   // Task #552 — append a scrubbed value to the brand's approved pool. We add
   // it as an approved claim on the first product line (creating a neutral
@@ -2167,9 +2181,14 @@ export default function BuilderEditor() {
       setTimeout(() => setSaveSuccess(false), 2000);
       // Show outreach banner after publishing (not unpublishing), but only
       // for microsites — regular pages have no sales contacts to send
-      // tracked links to.
-      if (newStatus === "published" && isMicrosite) {
-        setShowOutreachBanner(true);
+      // tracked links to. Regular pages instead get the scrubbed-values
+      // review nudge so editors don't ship a page with unapproved stats.
+      if (newStatus === "published") {
+        if (isMicrosite) {
+          setShowOutreachBanner(true);
+        } else if (unapprovedScrubbedCount > 0) {
+          setShowScrubbedSummary(true);
+        }
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update status");
@@ -2224,9 +2243,12 @@ export default function BuilderEditor() {
       }
       setStatus("published");
       markSaved({ status: "published" });
-      // Outreach banner is microsite-only (see handlePublish).
+      // Outreach banner is microsite-only (see handlePublish); regular pages
+      // get the scrubbed-values review nudge instead.
       if (isMicrosite) {
         setShowOutreachBanner(true);
+      } else if (unapprovedScrubbedCount > 0) {
+        setShowScrubbedSummary(true);
       }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -2640,6 +2662,43 @@ export default function BuilderEditor() {
           <button
             onClick={() => setShowOutreachBanner(false)}
             className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-emerald-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Task #553 — post-publish scrubbed-values review nudge for regular
+          (non-microsite) pages. Mirrors the microsite outreach banner so a
+          regular page editor who missed the one-time amber banner still gets a
+          clear, discoverable prompt to approve real stats Strict Facts Mode
+          removed. */}
+      {showScrubbedSummary && unapprovedScrubbedCount > 0 && (
+        <div className="relative mx-4 mt-2 flex items-center gap-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-5 py-3.5 animate-in slide-in-from-top-2">
+          <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              {unapprovedScrubbedCount === 1
+                ? "Page published — but 1 value was scrubbed by Strict Facts Mode"
+                : `Page published — but ${unapprovedScrubbedCount} values were scrubbed by Strict Facts Mode`}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              Review the removed numbers and approve any real stats so they appear next time.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRemovedQuotesOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors shrink-0"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Review removed quotes
+          </button>
+          <button
+            onClick={() => setShowScrubbedSummary(false)}
+            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-amber-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
           >
             ×
           </button>
