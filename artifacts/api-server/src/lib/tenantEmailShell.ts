@@ -41,10 +41,47 @@ function safeHexColor(value: string | undefined, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Public host that serves tenant brand assets (`/api/storage/...`) to email
+ * clients. Uploaded brand logos are stored as root-relative serve paths, but an
+ * email `<img>` src MUST be absolute (relative paths render broken in every mail
+ * client), so we resolve them against this host. The storage serve route allows
+ * anonymous reads and the app host always proxies `/api/storage`, so this is the
+ * canonical place an email recipient can fetch the logo from.
+ *
+ * Mirrors the env precedence the rest of the app uses for its public host
+ * (`triggerPublishedRender`): explicit public host → dev domain → prod default.
+ */
+function emailAssetHost(): string {
+  return (
+    (process.env.LP_STUDIO_PUBLIC_HOST || "").trim().toLowerCase() ||
+    (process.env.REPLIT_DEV_DOMAIN || "").trim().toLowerCase() ||
+    "app.lpstudio.ai"
+  );
+}
+
+/**
+ * Normalize a stored logo URL to an absolute, email-safe `http(s)` URL, mirroring
+ * `injectPageMeta`'s `toAbsoluteUrl`: pass through already-absolute URLs, fix
+ * protocol-relative (`//host/...`), and resolve root-relative (`/uploads/...`)
+ * or bare relative paths against the app's public host. Returns "" for genuinely
+ * empty or unusable values so the caller falls back to the brand-name text.
+ */
+function toAbsoluteLogoUrl(raw: string): string {
+  const url = (raw || "").trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("//")) return `https:${url}`;
+  const host = emailAssetHost();
+  const abs = url.startsWith("/") ? `https://${host}${url}` : `https://${host}/${url}`;
+  // Guard: only emit an <img> for a value we resolved to a real http(s) URL.
+  return /^https?:\/\//i.test(abs) ? abs : "";
+}
+
 function buildBrandLogoHtml(brand: TenantBrandForEmail): string {
   const name = (brand.brandName ?? "").trim();
-  const logoUrl = (brand.logoUrl ?? "").trim();
-  if (/^https?:\/\//i.test(logoUrl)) {
+  const logoUrl = toAbsoluteLogoUrl(brand.logoUrl ?? "");
+  if (logoUrl) {
     return `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(
       name,
     )}" height="40" style="height:40px;max-height:48px;width:auto;margin:0 auto;display:block;border:0;">`;
