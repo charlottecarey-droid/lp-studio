@@ -57,6 +57,7 @@ import {
 } from "./r2Storage";
 import { verifyAssetsForHtml } from "./assetPresenceCheck";
 import { getTenantPlanFeatures } from "./planFeatures";
+import { applyProvenanceFooterForHost } from "./provenanceFooter";
 
 export interface TriggerPublishedRenderOpts {
   pageId: number;
@@ -141,11 +142,16 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   // page override beats the tenant default — only inherit pages go noindex.
   let tenantAllowIndexing = false;
   let tenantAllowFollowing = true;
+  // Task #635 — the tenant slug also drives the per-host provenance-footer
+  // decision below (shared-subdomain matching + Dandy exclusion). Captured
+  // here so we reuse the same row we already fetched for robots defaults.
+  let tenantSlug: string | null = null;
   try {
     const [tenantRow] = await db
       .select({ slug: tenantsTable.slug, settings: tenantsTable.settings })
       .from(tenantsTable)
       .where(eq(tenantsTable.id, page.tenantId));
+    tenantSlug = tenantRow?.slug ?? null;
     const seo = (tenantRow?.settings as { seo?: { allowIndexing?: unknown; allowFollowing?: unknown } } | null)?.seo;
     const defaults = resolveTenantRobotsDefaults({
       isExcludedFromDefaultNoindex: isProtectedEnterpriseSlug(tenantRow?.slug),
@@ -479,8 +485,14 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   // omitted <meta> tag). Host-independent — same value for every host.
   const robotsHeaderValue = robotsMetaContent(resolvedRobots);
 
-  const buildHtmlForHost = (host: string): string =>
-    injectPageMeta(html, {
+  // Task #635 — the prerender bakes the snapshot in its MAXIMAL footer state
+  // (provenance gated on the tenant's shared subdomain). Here we strip the
+  // `[data-lp-provenance]` band per host so each stored variant matches the
+  // live rule for the host it is served on: shown on the shared subdomain of
+  // an eligible microsite, hidden on the tenant's own custom domain (and for
+  // Dandy). Stripping is a no-op when the band isn't present.
+  const buildHtmlForHost = (host: string): string => {
+    const withMeta = injectPageMeta(html, {
       title: page.title,
       metaTitle: page.metaTitle,
       metaDescription: page.metaDescription,
@@ -494,6 +506,12 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
       tenantAllowIndexing,
       tenantAllowFollowing,
     });
+    return applyProvenanceFooterForHost(withMeta, {
+      accountId: page.accountId ?? null,
+      tenantSlug,
+      host,
+    });
+  };
 
   // ── R2 write (awaited, visitor-facing, looped per host) ──────────────
   // We loop sequentially so that a transient R2 failure on host N stops

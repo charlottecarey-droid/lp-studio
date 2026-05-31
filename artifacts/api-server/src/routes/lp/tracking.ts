@@ -131,6 +131,34 @@ async function resolveCanonicalPublishedHost(tenantId: number): Promise<string |
   }
 }
 
+/**
+ * Task #635 — the host the provenance gate should evaluate for the PRERENDER
+ * snapshot specifically. Unlike the in-builder editor preview (which mirrors
+ * what a visitor sees on the canonical published host), the static snapshot is
+ * rendered ONCE and then copied to one R2 object per host the tenant owns. For
+ * a tenant with BOTH a custom domain AND the shared subdomain, baking against
+ * the canonical (custom) host would hide the footer on the shared-domain
+ * snapshot too, where the live rule says it must appear.
+ *
+ * So the prerender bakes the snapshot in its MAXIMAL footer state by gating
+ * provenance on the tenant's shared subdomain (`<slug>.<wildcard base>`) — the
+ * one host where an eligible microsite shows the footer. triggerPublishedRender
+ * then strips the band per host for any host that must not show it. Returns the
+ * first active wildcard-subdomain host, or null when the tenant has none.
+ */
+async function resolveSharedPublishedHost(tenantId: number): Promise<string | null> {
+  try {
+    const hosts = await getActiveHostsForTenant(tenantId);
+    return hosts.find((h) => extractWildcardSlug(h) !== null) ?? null;
+  } catch (err) {
+    console.warn("[tracking] shared host lookup failed; omitting provenance", {
+      tenantId,
+      err,
+    });
+    return null;
+  }
+}
+
 /** Extract UTM parameters from the request query string */
 function extractUtm(req: Request): {
   utmSource: string | null;
@@ -798,14 +826,23 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
   // Task #494/#547 — resolved robots directive so the in-builder preview
   // matches the published page. null = fully allowed (viewer emits no tag).
   const robots = await resolveRobotsContentForPage(page);
-  // Task #547/#633 — provenance line in preview so the editor (and the
+  // Task #547/#633/#635 — provenance line in preview so the editor (and the
   // prerender snapshot, which also renders through this route) sees what
-  // visitors on the published page see. Gated on the tenant's canonical
-  // published host, not the admin / fixed render host. null = render nothing.
-  const provenance = await resolveProvenance(
-    page,
-    await resolveCanonicalPublishedHost(page.tenantId),
-  );
+  // visitors on the published page see.
+  //
+  // Editor preview: gated on the tenant's canonical published host (what a
+  // visitor on the primary host sees), not the admin / fixed render host.
+  //
+  // Prerender snapshot (`?prerender=1`): gated on the tenant's SHARED subdomain
+  // so the band is baked in its maximal state; triggerPublishedRender then
+  // strips it per host for hosts that must not show it (task #635). This fixes
+  // the shared-domain snapshot of a tenant that ALSO has a custom domain.
+  // null = render nothing.
+  const isPrerender = req.query.prerender === "1";
+  const provenanceHost = isPrerender
+    ? await resolveSharedPublishedHost(page.tenantId)
+    : await resolveCanonicalPublishedHost(page.tenantId);
+  const provenance = await resolveProvenance(page, provenanceHost);
   res.json({
     pageType: "builder",
     id: page.id,
