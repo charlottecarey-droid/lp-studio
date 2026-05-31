@@ -3,6 +3,7 @@ import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { sendInviteEmail } from "../lib/notifications";
+import { BROADCAST_ALERT_TYPES, getBroadcastAlertDef } from "../lib/broadcastRecipients";
 import { PLANS, normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
 import { capUpgradeBody, featureUpgradeBody } from "../lib/planGate";
@@ -1701,6 +1702,184 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
     } satisfies TenantSettingsPayload);
   } catch (err) {
     console.error("[admin] PATCH /tenant-settings error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Broadcast alert recipients (task #614) ──────────────────────────────────
+// Per-tenant, per-alert-type recipient targeting for "broadcast" emails (the
+// ones that historically went to a fixed workspace audience — all members for
+// collaboration, all admins for account/billing). A config row's PRESENCE = the
+// alert is configured; absence = the legacy default audience (see
+// resolveBroadcastRecipients). Both routes are gated on the `settings`
+// permission with a server-side re-check (client gating is convenience only).
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// GET /api/admin/broadcast-recipients — returns the workspace member roster,
+// the per-alert config rows, and the alert-type catalog (with categories +
+// labels) so the UI can render the editor without hardcoding alert metadata.
+router.get("/broadcast-recipients", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  try {
+    const membersResult = await pool.query<{ user_id: number; email: string; name: string | null; is_admin: boolean }>(
+      `SELECT au.id AS user_id,
+              COALESCE(au.email, tm.email) AS email,
+              au.name AS name,
+              tr.is_admin AS is_admin
+         FROM tenant_members tm
+         JOIN tenant_roles tr ON tr.id = tm.role_id
+         JOIN app_users au ON au.id = tm.user_id
+        WHERE tm.tenant_id = $1
+          AND tm.accepted_at IS NOT NULL
+          AND COALESCE(au.email, tm.email) IS NOT NULL
+        ORDER BY au.name NULLS LAST, au.email`,
+      [tenantId],
+    );
+    const configResult = await pool.query<{ alert_type: string; member_user_ids: unknown; extra_emails: unknown }>(
+      `SELECT alert_type, member_user_ids, extra_emails
+         FROM broadcast_alert_recipients
+        WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    const configByType = new Map(configResult.rows.map((r) => [r.alert_type, r]));
+    const alerts = BROADCAST_ALERT_TYPES.map((def) => {
+      const cfg = configByType.get(def.type);
+      return {
+        type: def.type,
+        category: def.category,
+        name: def.name,
+        description: def.description,
+        configured: !!cfg,
+        memberUserIds: cfg ? (Array.isArray(cfg.member_user_ids) ? cfg.member_user_ids : []) : [],
+        extraEmails: cfg ? (Array.isArray(cfg.extra_emails) ? cfg.extra_emails : []) : [],
+      };
+    });
+    res.json({
+      members: membersResult.rows.map((m) => ({
+        userId: m.user_id,
+        email: m.email,
+        name: m.name,
+        isAdmin: m.is_admin,
+      })),
+      alerts,
+    });
+  } catch (err) {
+    console.error("[admin] GET /broadcast-recipients error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PUT /api/admin/broadcast-recipients/:alertType — upsert the config row for one
+// alert type. An empty {memberUserIds:[], extraEmails:[]} is a VALID configured
+// state (collaboration → nobody; account/billing → fails open to admins at send
+// time). Member ids are validated against the tenant roster; extra emails are
+// validated + lowercased + deduped.
+router.put("/broadcast-recipients/:alertType", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const alertType = req.params.alertType;
+  if (!getBroadcastAlertDef(alertType)) {
+    res.status(400).json({ error: "Unknown alert type" });
+    return;
+  }
+  const body = req.body as { memberUserIds?: unknown; extraEmails?: unknown } | undefined;
+
+  // Normalize member ids → positive integers, deduped.
+  const rawIds = Array.isArray(body?.memberUserIds) ? body!.memberUserIds : [];
+  const memberIdSet = new Set<number>();
+  for (const x of rawIds) {
+    const n = typeof x === "number" ? x : Number(x);
+    if (Number.isInteger(n) && n > 0) memberIdSet.add(n);
+  }
+  const memberIds = Array.from(memberIdSet);
+
+  // Normalize extra emails → trimmed, lowercased, validated, deduped.
+  const rawEmails = Array.isArray(body?.extraEmails) ? body!.extraEmails : [];
+  const emailSet = new Set<string>();
+  for (const x of rawEmails) {
+    if (typeof x !== "string") continue;
+    const e = x.trim().toLowerCase();
+    if (!e) continue;
+    if (!EMAIL_RE.test(e)) {
+      res.status(400).json({ error: `Invalid email: ${x}` });
+      return;
+    }
+    emailSet.add(e);
+  }
+  const extraEmails = Array.from(emailSet);
+
+  try {
+    // Validate every selected member id belongs to this tenant's roster.
+    if (memberIds.length) {
+      const check = await pool.query<{ id: number }>(
+        `SELECT au.id
+           FROM tenant_members tm
+           JOIN app_users au ON au.id = tm.user_id
+          WHERE tm.tenant_id = $1
+            AND au.id = ANY($2::int[])
+            AND tm.accepted_at IS NOT NULL`,
+        [tenantId, memberIds],
+      );
+      const valid = new Set(check.rows.map((r) => r.id));
+      const unknown = memberIds.filter((id) => !valid.has(id));
+      if (unknown.length) {
+        res.status(400).json({ error: `Unknown member id(s): ${unknown.join(", ")}` });
+        return;
+      }
+    }
+    await pool.query(
+      `INSERT INTO broadcast_alert_recipients
+         (tenant_id, alert_type, member_user_ids, extra_emails, updated_by, updated_at)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, now())
+       ON CONFLICT (tenant_id, alert_type)
+       DO UPDATE SET member_user_ids = EXCLUDED.member_user_ids,
+                     extra_emails    = EXCLUDED.extra_emails,
+                     updated_by      = EXCLUDED.updated_by,
+                     updated_at      = now()`,
+      [tenantId, alertType, JSON.stringify(memberIds), JSON.stringify(extraEmails), req.authUser?.userId ?? null],
+    );
+    res.json({ ok: true, alertType, memberUserIds: memberIds, extraEmails });
+  } catch (err) {
+    console.error("[admin] PUT /broadcast-recipients error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/broadcast-recipients/:alertType — remove the config row so
+// the alert reverts to its LEGACY DEFAULT audience (collaboration → every
+// member; account/billing → every admin). This is distinct from saving an empty
+// config: an empty row is "send to nobody / fail-open to admins", whereas no row
+// is "use the default audience". The UI's "Reset to default" action calls this.
+router.delete("/broadcast-recipients/:alertType", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const alertType = req.params.alertType;
+  if (!getBroadcastAlertDef(alertType)) {
+    res.status(400).json({ error: "Unknown alert type" });
+    return;
+  }
+  try {
+    await pool.query(
+      `DELETE FROM broadcast_alert_recipients WHERE tenant_id = $1 AND alert_type = $2`,
+      [tenantId, alertType],
+    );
+    res.json({ ok: true, alertType });
+  } catch (err) {
+    console.error("[admin] DELETE /broadcast-recipients error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

@@ -35,7 +35,7 @@ function statusLabel(state: CustomDomainState): { text: string; tone: "ok" | "wa
   return { text: `Pending — ${state.sslStatus ?? state.status}`, tone: "warn" };
 }
 
-function DomainContent() {
+export function DomainContent() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.isAdmin ?? false;

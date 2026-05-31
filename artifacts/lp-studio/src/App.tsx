@@ -150,11 +150,10 @@ const ProgrammaticPages = lazy(() => import("@/pages/programmatic-pages"));
 // Settings pages
 const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
 const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
-const GeneralPage = lazy(() => import("@/pages/settings/GeneralPage"));
-const DomainPage = lazy(() => import("@/pages/settings/DomainPage"));
-const SeoPage = lazy(() => import("@/pages/settings/SeoPage"));
-const NotificationsPage = lazy(() => import("@/pages/settings/NotificationsPage"));
-const EmailPage = lazy(() => import("@/pages/settings/EmailPage"));
+// Task #614 — the per-surface settings pages are now consolidated into a single
+// tabbed Settings hub. SettingsPage statically imports each section's *Content
+// component and renders the right tab based on the URL.
+const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
 const BillingPage = lazy(() => import("@/pages/settings/BillingPage"));
 
 // Superadmin (no auth gate)
@@ -294,17 +293,20 @@ function AppRouter() {
         <Route path="/forms-and-leads">{() => <PermRoute perm="forms_leads" fallback="/"><FormsAndLeads /></PermRoute>}</Route>
         <Route path="/blocks">{() => <PermRoute perm="blocks" fallback="/"><BlocksSettings /></PermRoute>}</Route>
 
-        {/* Settings Routes */}
-        <Route path="/settings/general">{() => <PermRoute perm="settings" fallback="/"><GeneralPage /></PermRoute>}</Route>
-        <Route path="/settings/domain">{() => <PermRoute perm="settings" fallback="/"><DomainPage /></PermRoute>}</Route>
-        <Route path="/settings/seo">{() => <PermRoute perm="settings" fallback="/"><SeoPage /></PermRoute>}</Route>
-        {/* Task #587 — personal email preferences. Open to ANY authenticated
-            workspace member: each user manages their OWN lifecycle-email
-            opt-outs, so it is not gated on the admin-ish "settings" perm. */}
-        <Route path="/settings/notifications" component={NotificationsPage} />
-        {/* Task #588 — tenant email authoring (templates + branded shell). Gated
-            on the admin-ish "settings" perm; the API re-checks on the server. */}
-        <Route path="/settings/email">{() => <PermRoute perm="settings" fallback="/"><EmailPage /></PermRoute>}</Route>
+        {/* Settings Routes — Task #614 consolidated tabbed hub. SettingsPage is
+            open to any authenticated member; it gates the admin-only tabs
+            (General/Domain/SEO + Email Templates/Alert recipients) on the
+            "settings" perm client-side and the API re-checks every admin
+            endpoint on the server. The personal Email Preferences tab stays
+            open to all members. Old per-surface URLs deep-link to the right
+            tab so existing bookmarks keep working. */}
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/settings/general" component={SettingsPage} />
+        <Route path="/settings/domain" component={SettingsPage} />
+        <Route path="/settings/seo" component={SettingsPage} />
+        <Route path="/settings/notifications" component={SettingsPage} />
+        <Route path="/settings/email/recipients" component={SettingsPage} />
+        <Route path="/settings/email" component={SettingsPage} />
         {/* Task #425 — self-serve billing settings. Open to ANY
             authenticated workspace member in read-only mode so teammates
             can see what plan they're on and the renewal date. The

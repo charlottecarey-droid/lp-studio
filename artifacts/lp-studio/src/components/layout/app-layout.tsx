@@ -12,9 +12,6 @@ import {
   Users,
   Shield,
   Settings,
-  Globe,
-  Bell,
-  Mail,
   CreditCard,
   LogOut,
   ChevronDown,
@@ -377,59 +374,30 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {(hasPerm("settings") || user?.isAdmin) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/settings/general"}>
-                      <Link href="/settings/general" className="font-medium">
-                        <Settings className="w-4 h-4" />
-                        <span>General</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {(hasPerm("settings") || user?.isAdmin) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/settings/domain"}>
-                      <Link href="/settings/domain" className="font-medium">
-                        <Globe className="w-4 h-4" />
-                        <span>Domain</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* Task #587 — personal email preferences. Shown to every
-                    authenticated member (not perm-gated): each user manages
-                    their own lifecycle-email opt-outs. */}
+                {/* Task #614 — the separate General/Domain/SEO/Email-templates/
+                    Email-preferences items are consolidated into a single
+                    tabbed Settings hub. Shown to every authenticated member:
+                    admins get all tabs, non-admins land on their personal
+                    Email preferences. The hub gates admin tabs client-side and
+                    the API re-checks on the server. */}
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/settings/notifications"}>
-                    <Link href="/settings/notifications" className="font-medium">
-                      <Bell className="w-4 h-4" />
-                      <span>Email preferences</span>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      location === "/settings" ||
+                      location.startsWith("/settings/general") ||
+                      location.startsWith("/settings/domain") ||
+                      location.startsWith("/settings/seo") ||
+                      location.startsWith("/settings/email") ||
+                      location.startsWith("/settings/notifications")
+                    }
+                  >
+                    <Link href="/settings" className="font-medium">
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {(hasPerm("settings") || user?.isAdmin) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/settings/seo"}>
-                      <Link href="/settings/seo" className="font-medium">
-                        <Search className="w-4 h-4" />
-                        <span>SEO</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* Task #588 — tenant email authoring (templates + branded
-                    shell). Admin-ish; gated on the "settings" perm. */}
-                {(hasPerm("settings") || user?.isAdmin) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/settings/email"}>
-                      <Link href="/settings/email" className="font-medium">
-                        <Mail className="w-4 h-4" />
-                        <span>Email templates</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
                 {/* Task #425 — Billing settings is discoverable to ALL
                     authenticated workspace members. Non-admins see a
                     read-only view (current plan, renewal date, payment

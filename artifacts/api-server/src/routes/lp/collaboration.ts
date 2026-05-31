@@ -12,6 +12,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { buildCommentCtaBlock, buildReviewCommentBlock } from "../../lib/tenantEmailAssets";
+import { resolveBroadcastRecipients } from "../../lib/broadcastRecipients";
 
 const router = Router();
 
@@ -29,14 +30,6 @@ function originOf(url?: string): string {
   } catch {
     return "";
   }
-}
-
-async function getTenantUserEmails(tenantId: number): Promise<Array<{ email: string; name: string }>> {
-  const { rows } = await pool.query<{ email: string; name: string }>(
-    `SELECT email, name FROM app_users WHERE tenant_id = $1 AND email IS NOT NULL`,
-    [tenantId]
-  );
-  return rows;
 }
 
 async function sendCollaborationEmail(to: string[], subject: string, html: string): Promise<void> {
@@ -65,8 +58,10 @@ async function notifyNewComment(pageId: number, authorName: string, message: str
       .from(lpPagesTable)
       .where(eq(lpPagesTable.id, pageId));
     if (!page?.tenantId) return;
-    const users = await getTenantUserEmails(page.tenantId);
-    const to = users.map(u => u.email).filter(Boolean);
+    // Task #614 — recipients are now per-tenant configurable. Unconfigured =
+    // legacy default (all workspace members).
+    const recipients = await resolveBroadcastRecipients(page.tenantId, "comment");
+    const to = recipients.map(r => r.email).filter(Boolean);
     if (to.length === 0) return;
 
     let subject = `💬 New comment on "${page.title}"`;
@@ -122,8 +117,10 @@ async function notifyReviewDecision(pageId: number, reviewerName: string, status
       .from(lpPagesTable)
       .where(eq(lpPagesTable.id, pageId));
     if (!page?.tenantId) return;
-    const users = await getTenantUserEmails(page.tenantId);
-    const to = users.map(u => u.email).filter(Boolean);
+    // Task #614 — recipients are now per-tenant configurable. Unconfigured =
+    // legacy default (all workspace members).
+    const recipients = await resolveBroadcastRecipients(page.tenantId, "review_decision");
+    const to = recipients.map(r => r.email).filter(Boolean);
     if (to.length === 0) return;
     const isApproved = status === "approved";
     const statusLabel = isApproved ? "✅ Approved" : "🔄 Changes Requested";

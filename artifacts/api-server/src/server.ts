@@ -14,6 +14,7 @@ import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
+import { resolveBroadcastRecipients } from "./lib/broadcastRecipients";
 import {
   notifyTrialLifecycle,
   TRIAL_NOTIFY_BOOT_DELAY_MS,
@@ -249,19 +250,12 @@ async function notifyExpiringSlugRedirects(): Promise<void> {
     if (!rows.length) return;
 
     for (const row of rows) {
+      // Task #614 — recipients are per-tenant configurable. Unconfigured =
+      // legacy default (all admins); a configured-but-empty config fails open to
+      // all admins (handled inside resolveBroadcastRecipients).
       let admins: AdminRecipientRow[];
       try {
-        const adminResult = await pool.query<AdminRecipientRow>(
-          `SELECT DISTINCT lower(tm.email) AS email
-             FROM tenant_members tm
-             JOIN tenant_roles tr ON tr.id = tm.role_id
-            WHERE tm.tenant_id = $1
-              AND tr.is_admin = true
-              AND tm.accepted_at IS NOT NULL
-              AND tm.email IS NOT NULL AND tm.email <> ''`,
-          [row.tenant_id],
-        );
-        admins = adminResult.rows;
+        admins = await resolveBroadcastRecipients(row.tenant_id, "slug_redirect_expiry");
       } catch (err) {
         logger.error({ err, oldSlug: row.old_slug, tenantId: row.tenant_id }, "notifyExpiringSlugRedirects: admin lookup failed");
         continue;

@@ -13,7 +13,7 @@ interface TenantSeoPayload {
   seoAllowFollowing: boolean;
 }
 
-function SeoContent() {
+export function SeoContent() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);

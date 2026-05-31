@@ -27,6 +27,7 @@ import { getStripe, getStripeSync, getWebhookSecret, StripeNotConfiguredError } 
 import { normalizePlan, CLOSE_TRIAL_ON_FREE_SQL, type Plan } from "../lib/planFeatures";
 import { planForLookupKey, cadenceForLookupKey, isSelfServePaidPlan } from "../lib/stripePlanMapping";
 import { sendPaymentFailedEmail } from "../lib/notifications";
+import { resolveBroadcastRecipients } from "../lib/broadcastRecipients";
 import { logger } from "../lib/logger";
 import type Stripe from "stripe";
 
@@ -61,18 +62,11 @@ async function loadDunningRecipients(
   const tenant = tRes.rows[0];
   if (!tenant) return null;
 
-  const aRes = await pool.query<{ email: string }>(
-    `SELECT lower(tm.email) AS email
-       FROM tenant_members tm
-       JOIN tenant_roles tr ON tr.id = tm.role_id
-      WHERE tm.tenant_id = $1
-        AND tr.is_admin = true
-        AND tm.accepted_at IS NOT NULL
-        AND tm.email IS NOT NULL AND tm.email <> ''
-      ORDER BY tm.accepted_at ASC`,
-    [tenantId],
-  );
-  const emails = Array.from(new Set(aRes.rows.map((r) => r.email).filter(Boolean)));
+  // Task #614 — recipients are per-tenant configurable. Unconfigured = legacy
+  // default (all admins); a configured-but-empty config fails open to all admins
+  // (handled inside resolveBroadcastRecipients).
+  const recipients = await resolveBroadcastRecipients(tenantId, "payment_failed");
+  const emails = Array.from(new Set(recipients.map((r) => r.email).filter(Boolean)));
 
   // Deep-link to the tenant's own host when we have one; otherwise fall back
   // to the canonical app host (mirrors customDomainPoller's settings link).

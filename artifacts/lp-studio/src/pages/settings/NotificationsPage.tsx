@@ -16,7 +16,7 @@ interface PreferencesPayload {
   optedOut: string[];
 }
 
-function NotificationsContent() {
+export function NotificationsContent() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<PrefTemplate[]>([]);

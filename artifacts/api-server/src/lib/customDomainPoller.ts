@@ -48,6 +48,7 @@ import {
   sendCustomDomainActiveEmail,
   sendCustomDomainStuckEmail,
 } from "./notifications";
+import { resolveBroadcastRecipients } from "./broadcastRecipients";
 
 export const CUSTOM_DOMAIN_POLL_INTERVAL_MS = 2 * 60 * 1000;          // 2 minutes
 export const CUSTOM_DOMAIN_STUCK_THRESHOLD_HOURS = 24;
@@ -67,8 +68,6 @@ type TenantRow = {
   custom_domain_notified_active_at: Date | null;
   custom_domain_notified_stuck_at: Date | null;
 };
-
-type AdminRow = { email: string };
 
 /**
  * Derive a coarse status bucket from a CF Custom Hostname payload.
@@ -120,17 +119,11 @@ export function shouldFireStuckEmail(args: {
 
 async function loadAdminEmails(tenantId: number): Promise<string[]> {
   try {
-    const result = await pool.query<AdminRow>(
-      `SELECT DISTINCT lower(tm.email) AS email
-         FROM tenant_members tm
-         JOIN tenant_roles tr ON tr.id = tm.role_id
-        WHERE tm.tenant_id = $1
-          AND tr.is_admin = true
-          AND tm.accepted_at IS NOT NULL
-          AND tm.email IS NOT NULL AND tm.email <> ''`,
-      [tenantId],
-    );
-    return result.rows.map((r) => r.email);
+    // Task #614 — recipients are per-tenant configurable. Unconfigured = legacy
+    // default (all admins); a configured-but-empty config fails open to all
+    // admins (handled inside resolveBroadcastRecipients).
+    const recipients = await resolveBroadcastRecipients(tenantId, "custom_domain_status");
+    return recipients.map((r) => r.email).filter(Boolean);
   } catch (err) {
     logger.error({ err, tenantId }, "customDomainPoller: admin lookup failed");
     return [];

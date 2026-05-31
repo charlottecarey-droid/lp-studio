@@ -367,7 +367,7 @@ function ActiveRedirectsCard() {
   );
 }
 
-function GeneralContent() {
+export function GeneralContent() {
   const { user, refresh } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);

@@ -3,6 +3,7 @@ import { logger } from "./logger";
 import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 import { dispatchNotification, isStructuralDbError } from "./notificationDispatcher";
 import { enqueueWorkflowTrigger } from "./workflowEngine";
+import { resolveBroadcastRecipients } from "./broadcastRecipients";
 
 // Trial lifecycle nudges. The 14-day Growth trial gets escalating reminders at
 // day 7 (halfway), day 11 (3 days left), and day 13 (last day). Each milestone
@@ -27,8 +28,6 @@ type TrialTenantRow = {
   domain: string | null;
   trial_expires_at: Date;
 };
-type TrialAdminRow = { app_user_id: number | null; email: string | null; name: string | null };
-
 // In-process guard against overlapping sweeps (boot + interval, or a slow run
 // still going when the next tick fires). The dispatcher is idempotent anyway,
 // but this avoids redundant DB/Resend work.
@@ -67,27 +66,18 @@ export async function notifyTrialLifecycle(): Promise<void> {
       if (!tenants.length) continue;
 
       for (const t of tenants) {
-        let admins: TrialAdminRow[];
+        // Task #614 — recipients are per-tenant configurable. Unconfigured =
+        // legacy default (all admins); a configured-but-empty config fails open
+        // to all admins (handled inside resolveBroadcastRecipients). appUserId is
+        // preserved for the in-app inbox.
+        let recipients: Awaited<ReturnType<typeof resolveBroadcastRecipients>>;
         try {
-          const adminResult = await pool.query<TrialAdminRow>(
-            `SELECT DISTINCT tm.user_id AS app_user_id,
-                    lower(COALESCE(au.email, tm.email)) AS email,
-                    au.name AS name
-               FROM tenant_members tm
-               JOIN tenant_roles tr ON tr.id = tm.role_id
-               LEFT JOIN app_users au ON au.id = tm.user_id
-              WHERE tm.tenant_id = $1
-                AND tr.is_admin = true
-                AND tm.accepted_at IS NOT NULL
-                AND (au.email IS NOT NULL OR (tm.email IS NOT NULL AND tm.email <> ''))`,
-            [t.id],
-          );
-          admins = adminResult.rows;
+          recipients = await resolveBroadcastRecipients(t.id, "trial_expiry");
         } catch (err) {
           logger.error({ err, tenantId: t.id, milestone: milestone.key }, "notifyTrialLifecycle: admin lookup failed");
           continue;
         }
-        if (!admins.length) continue;
+        if (!recipients.length) continue;
 
         const workspaceUrl = t.domain
           ? `https://${t.domain.toLowerCase()}`
@@ -96,7 +86,6 @@ export async function notifyTrialLifecycle(): Promise<void> {
             : null;
         const billingUrl = workspaceUrl ? `${workspaceUrl}/settings/billing` : null;
 
-        const recipients = admins.map(a => ({ appUserId: a.app_user_id, email: a.email, name: a.name }));
         const context = {
           tenantName: t.name,
           daysRemaining: milestone.remainingDays,

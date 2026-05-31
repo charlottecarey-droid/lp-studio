@@ -469,7 +469,7 @@ function ShellEditor() {
 
 const SHELL_KEY = "__shell__";
 
-export default function EmailPage() {
+export function EmailTemplatesContent() {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [variables, setVariables] = useState<VariableDefinition[]>([]);
   const [verifiedDomains, setVerifiedDomains] = useState<VerifiedSendingDomains | undefined>();
@@ -625,3 +625,5 @@ export default function EmailPage() {
     </div>
   );
 }
+
+export default EmailTemplatesContent;
