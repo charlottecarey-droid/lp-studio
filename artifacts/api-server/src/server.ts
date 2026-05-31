@@ -27,6 +27,7 @@ import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
 import { runAssetsGc } from "./lib/assetsGc";
+import { runSnapshotReconcile } from "./lib/snapshotReconcile";
 import { Sentry } from "./lib/sentry";
 import { setReady } from "./lib/readiness";
 import { getStripeSync, hasExplicitStripeEnv, runStripeSyncSchemaMigrations, WEBHOOK_EVENTS } from "./lib/stripeClient";
@@ -180,6 +181,15 @@ const LP_ASSETS_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // synchronized R2 burst right after readiness.
 const LP_ASSET_HEALTH_BOOT_DELAY_MS = 60 * 1000;
 const LP_ASSETS_GC_BOOT_DELAY_MS = 120 * 1000;
+// Task #708 — post-deploy snapshot reconcile. Re-bakes published-page R2
+// snapshots whose stamped render-version is behind CURRENT_RENDER_VERSION,
+// so a rendering fix self-heals across already-published pages. The boot
+// run IS the deploy signal (a deploy that bumped the version makes the
+// fleet stale); the daily interval is a backstop. Deferred well off the
+// cold-start path and staggered after the GC sweep so its detection HEADs
+// + serial Playwright re-bakes never compete with the startup probe.
+const LP_SNAPSHOT_RECONCILE_BOOT_DELAY_MS = 180 * 1000;
+const LP_SNAPSHOT_RECONCILE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Task #152 — warn admins ~7 days before an old workspace URL stops working.
 // Run on a daily cadence so a row created at any time of day still gets at
 // least one scan inside the warning window before it expires.
@@ -484,6 +494,21 @@ const httpServer = app.listen(port, (err) => {
   setInterval(() => {
     void runAssetsGc();
   }, LP_ASSETS_GC_INTERVAL_MS).unref();
+
+  // Task #708 — post-deploy snapshot reconcile. Re-bakes any published
+  // page whose R2 snapshot's stamped render-version is behind
+  // CURRENT_RENDER_VERSION (or unstamped, i.e. baked before this
+  // mechanism), so a rendering fix self-heals across the fleet without a
+  // manual backfill. Detection is cheap HEADs; re-baking is serial
+  // Playwright work guarded by a cross-instance advisory lock (see the
+  // reconcile module). First run deferred off the cold-start path and
+  // staggered after the GC sweep; daily interval is a backstop.
+  setTimeout(() => {
+    void runSnapshotReconcile();
+  }, LP_SNAPSHOT_RECONCILE_BOOT_DELAY_MS).unref();
+  setInterval(() => {
+    void runSnapshotReconcile();
+  }, LP_SNAPSHOT_RECONCILE_INTERVAL_MS).unref();
 
   // Task #190 — emit a periodic Sentry "heartbeat" event in production so
   // the project always has a known signal. The matching Sentry alert

@@ -58,6 +58,7 @@ import {
 import { verifyAssetsForHtml } from "./assetPresenceCheck";
 import { getTenantPlanFeatures } from "./planFeatures";
 import { applyProvenanceFooterForHost } from "./provenanceFooter";
+import { CURRENT_RENDER_VERSION } from "./renderVersion";
 
 export interface TriggerPublishedRenderOpts {
   pageId: number;
@@ -527,6 +528,10 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
         await uploadPublishedHtmlToR2(host, page.slug, buildHtmlForHost(host), {
           tenantId: page.tenantId,
           robots: robotsHeaderValue,
+          // Task #708 — stamp the render-schema version so the post-deploy
+          // reconcile can tell whether this snapshot reflects the current
+          // rendering code or is stale and needs re-baking.
+          renderVersion: CURRENT_RENDER_VERSION,
         });
       } catch (err) {
         failedHost = host;

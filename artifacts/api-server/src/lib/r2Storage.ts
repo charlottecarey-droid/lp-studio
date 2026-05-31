@@ -41,6 +41,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { Agent as HttpsAgent } from "node:https";
+import { RENDER_VERSION_META_KEY } from "./renderVersion";
 
 /**
  * Build an R2-targeted S3 client with a raised socket pool.
@@ -154,7 +155,7 @@ export async function uploadPublishedHtmlToR2(
   host: string,
   slug: string,
   html: string,
-  meta?: { tenantId?: number; robots?: string | null },
+  meta?: { tenantId?: number; robots?: string | null; renderVersion?: string },
 ): Promise<void> {
   const cfg = getR2Config();
   if (!cfg) {
@@ -171,14 +172,57 @@ export async function uploadPublishedHtmlToR2(
       // the object's customMetadata and emits it as the `X-Robots-Tag` response
       // header so the prerendered HTML carries the noindex directive in BOTH
       // the <meta> tag and the header. Omitted when fully allowed (no header).
+      //
+      // `render-version` (task #708) records which lp-studio render-schema
+      // version baked this snapshot, so the post-deploy reconcile
+      // (snapshotReconcile.ts) can detect snapshots left behind by a
+      // rendering fix and re-bake them — without re-rendering to inspect
+      // the HTML. Read back via `getPublishedHtmlMetaFromR2`.
       Metadata: {
         ...(meta?.tenantId !== undefined ? { "tenant-id": String(meta.tenantId) } : {}),
         ...(meta?.robots ? { "x-robots": meta.robots } : {}),
+        ...(meta?.renderVersion ? { [RENDER_VERSION_META_KEY]: meta.renderVersion } : {}),
         host: normalizeHostForKey(host),
         "rendered-at": new Date().toISOString(),
       },
     }),
   );
+}
+
+/**
+ * HEAD an R2 snapshot and return its auditing metadata without downloading
+ * the body. Returns null when the object doesn't exist (404). Throws on
+ * transient failures so callers can distinguish "definitely absent" from
+ * "couldn't tell."
+ *
+ * Used by the post-deploy snapshot reconcile (task #708) to read each
+ * snapshot's stored `render-version` cheaply. S3/R2 lowercases user
+ * metadata keys on read, so we look up `RENDER_VERSION_META_KEY` (already
+ * lowercase) directly.
+ */
+export async function getPublishedHtmlMetaFromR2(
+  host: string,
+  slug: string,
+): Promise<{ renderVersion: string | null; lastModified: Date | null } | null> {
+  const cfg = getR2Config();
+  if (!cfg) return null;
+  try {
+    const out = await cfg.client.send(
+      new HeadObjectCommand({ Bucket: cfg.bucket, Key: r2KeyFor(host, slug) }),
+    );
+    const md = out.Metadata ?? {};
+    return {
+      renderVersion: md[RENDER_VERSION_META_KEY] ?? null,
+      lastModified: out.LastModified ?? null,
+    };
+  } catch (err) {
+    if (err instanceof NotFound) return null;
+    if (err && typeof err === "object" && "name" in err) {
+      const n = (err as { name: string }).name;
+      if (n === "NotFound" || n === "NoSuchKey") return null;
+    }
+    throw err;
+  }
 }
 
 /**
