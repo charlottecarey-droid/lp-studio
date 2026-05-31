@@ -5,6 +5,7 @@ import {
   escapeHtml,
   type EmailShell,
 } from "./emailRender";
+import { getEmailShell } from "./emailShell";
 
 /**
  * Resolve the SHELL a tenant's notification emails render into (Task #588).
@@ -273,4 +274,76 @@ export function bustTenantEmailShellCache(tenantId?: number): void {
     cache.delete(tenantId);
   }
   generation += 1;
+}
+
+/**
+ * Branding policy for account / lifecycle / system emails (Task #615).
+ *
+ * Task #588/#612 already render each workspace's own logo in the *notification*
+ * emails (lead, comment, review decision, form follow-up). This set decides
+ * which of the remaining account/lifecycle/system emails may *also* carry the
+ * tenant's brand-derived shell (logo + accent + footer) instead of the platform
+ * LP Studio chrome.
+ *
+ * INCLUDED — account/lifecycle emails about the recipient's own workspace, where
+ * co-branding with their logo is appropriate and they're shell-wrapped (so the
+ * brand-derived shell mechanism actually reaches them):
+ *   - trial_day_7 / trial_day_11 / trial_day_13  (Growth trial nudges)
+ *   - slug_redirect_expiry                        (their old workspace URL expiring)
+ *   - payment_failed                              (their workspace subscription dunning)
+ *
+ * EXCLUDED — kept LP Studio-branded on purpose:
+ *   - magic_link / password_reset / email_verification — auth/trust emails. A
+ *     consistent, recognizable LP Studio identity aids anti-phishing trust and
+ *     deliverability; these intentionally never co-brand.
+ *   - welcome / workspace_invite — these are full-custom magazine layouts
+ *     (`wrapInShell: false`) written in LP Studio's editorial voice ("Issue 01
+ *     of LP Studio", LP Studio testimonials). They aren't shell-based, so the
+ *     brand-derived shell can't reach them, and co-branding them would be
+ *     incoherent with their content.
+ *
+ * In all cases the message is still SENT from the verified LP Studio sender
+ * domain — only the visual shell co-brands — so deliverability is unaffected.
+ */
+export const TENANT_BRANDABLE_EMAIL_KEYS: ReadonlySet<string> = new Set([
+  "trial_day_7",
+  "trial_day_11",
+  "trial_day_13",
+  "slug_redirect_expiry",
+  "payment_failed",
+]);
+
+/** True when an account/lifecycle/system email key may carry tenant branding. */
+export function isTenantBrandableEmail(key: string): boolean {
+  return TENANT_BRANDABLE_EMAIL_KEYS.has(key);
+}
+
+/**
+ * Pick the SHELL an account/lifecycle/system email renders into.
+ *
+ * Returns the tenant's brand-derived shell (with absolute-URL-normalized logo)
+ * only when ALL of the following hold:
+ *   - the email is shell-wrapped (`wrapInShell`) — a full-custom body ignores
+ *     the shell entirely, so swapping it would be a no-op;
+ *   - a `tenantId` is known for the send; and
+ *   - the key is on the brandable allowlist above.
+ *
+ * Otherwise it returns the platform LP Studio shell. The tenant resolver itself
+ * already falls back to the platform default on any DB error, so this never
+ * breaks a send.
+ */
+export async function resolveEmailShellForEmail(opts: {
+  key: string;
+  tenantId: number | null | undefined;
+  wrapInShell: boolean;
+}): Promise<{ shell: EmailShell; source: TenantShellSource }> {
+  if (
+    opts.wrapInShell &&
+    opts.tenantId != null &&
+    isTenantBrandableEmail(opts.key)
+  ) {
+    return resolveTenantShell(opts.tenantId);
+  }
+  const shell = await getEmailShell();
+  return { shell, source: "platform" };
 }

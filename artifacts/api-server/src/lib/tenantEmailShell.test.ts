@@ -10,7 +10,11 @@
  * so a relative path must be normalized to an absolute URL first.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { buildBrandDerivedShell } from "./tenantEmailShell";
+import {
+  buildBrandDerivedShell,
+  TENANT_BRANDABLE_EMAIL_KEYS,
+  isTenantBrandableEmail,
+} from "./tenantEmailShell";
 import {
   TENANT_TEMPLATE_KEYS,
   TENANT_NOTIFICATION_TEMPLATES,
@@ -119,5 +123,40 @@ describe("tenant notification templates route through the brand-derived shell", 
       expect(tpl, `missing code default for ${key}`).toBeTruthy();
       expect(tpl.wrapInShell, `${key} must wrap in the shell`).toBe(true);
     }
+  });
+});
+
+describe("account/lifecycle email branding policy (Task #615)", () => {
+  it("brands exactly the lifecycle/account keys that are shell-wrapped and about the recipient's own workspace", () => {
+    expect([...TENANT_BRANDABLE_EMAIL_KEYS].sort()).toEqual(
+      [
+        "payment_failed",
+        "slug_redirect_expiry",
+        "trial_day_11",
+        "trial_day_13",
+        "trial_day_7",
+      ].sort(),
+    );
+  });
+
+  it("never brands auth/trust or full-custom magazine emails", () => {
+    for (const key of [
+      "magic_link",
+      "password_reset",
+      "email_verification",
+      "welcome",
+      "workspace_invite",
+    ]) {
+      expect(isTenantBrandableEmail(key), `${key} must stay LP Studio`).toBe(
+        false,
+      );
+    }
+  });
+
+  it("isTenantBrandableEmail agrees with the allowlist", () => {
+    expect(isTenantBrandableEmail("payment_failed")).toBe(true);
+    expect(isTenantBrandableEmail("trial_day_7")).toBe(true);
+    expect(isTenantBrandableEmail("slug_redirect_expiry")).toBe(true);
+    expect(isTenantBrandableEmail("unknown_key")).toBe(false);
   });
 });

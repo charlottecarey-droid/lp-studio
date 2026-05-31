@@ -397,6 +397,7 @@ async function handleInvoicePaymentFailed(
       await Promise.race([
         sendPaymentFailedEmail({
           recipientEmails: contacts.emails,
+          tenantId: tenant.id,
           tenantName: contacts.tenantName,
           billingUrl: contacts.billingUrl,
           attemptCount: inv.attempt_count ?? 1,

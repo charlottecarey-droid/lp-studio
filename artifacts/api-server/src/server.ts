@@ -293,6 +293,7 @@ async function notifyExpiringSlugRedirects(): Promise<void> {
       const results = await Promise.all(admins.map(a =>
         sendSlugRedirectExpiryWarning({
           recipientEmail: a.email,
+          tenantId: row.tenant_id,
           tenantName: row.tenant_name,
           oldUrl,
           currentUrl,

@@ -6,8 +6,8 @@ import {
   type NotificationChannel,
   type NotificationTemplateDef,
 } from "./notificationTemplates";
-import { getEmailShell } from "./emailShell";
 import { expandEmailVars, renderEmail } from "./emailRender";
+import { resolveEmailShellForEmail } from "./tenantEmailShell";
 import { isOptedOut, makeUnsubscribeToken } from "./notificationPreferences";
 
 /**
@@ -317,7 +317,15 @@ async function dispatchEmail(
   }
 
   try {
-    const shell = await getEmailShell();
+    // Brandable account/lifecycle emails (trial nudges, slug-expiry) co-brand
+    // with the tenant's own logo via the brand-derived shell; everything else
+    // (and any non-brandable key) renders in the platform LP Studio shell.
+    // Resolves to the platform shell on any DB error, so a send never breaks.
+    const { shell, source: shellSource } = await resolveEmailShellForEmail({
+      key: input.templateKey,
+      tenantId: input.tenantId,
+      wrapInShell: tpl.wrapInShell,
+    });
     const firstName = (r.name ?? "").trim().split(/\s+/)[0] ?? "";
     const unsubscribeUrl = buildLifecycleUnsubUrl(tpl, input, r, ctx);
     // Inbox preview text: per-template override (token-substituted) wins;
@@ -349,6 +357,10 @@ async function dispatchEmail(
       [claimedId],
     );
     result.emailsSent += 1;
+    logger.info(
+      { templateKey: input.templateKey, tenantId: input.tenantId, shellSource },
+      "[notificationDispatcher] lifecycle email sent",
+    );
   } catch (err) {
     // Delete the claim so a later sweep can retry this recipient/milestone.
     result.emailsFailed += 1;

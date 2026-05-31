@@ -1,8 +1,8 @@
 import { logger } from "./logger";
 import { renderEmail, expandEmailVars } from "./emailRender";
-import { getEmailShell } from "./emailShell";
 import { getNotificationTemplate } from "./notificationTemplates";
 import { renderTenantEmail } from "./tenantEmailRender";
+import { resolveEmailShellForEmail } from "./tenantEmailShell";
 import { buildLeadFieldsTable, buildLeadVariantNote } from "./tenantEmailAssets";
 
 /**
@@ -30,6 +30,7 @@ function interpolatePlainText(tpl: string, vars: Record<string, string>): string
 async function renderSystemEmail(
   key: string,
   vars: Record<string, string>,
+  tenantId?: number | null,
 ): Promise<{ subject: string; html: string } | null> {
   try {
     const tpl = await getNotificationTemplate(key);
@@ -37,7 +38,14 @@ async function renderSystemEmail(
     const body = (tpl.bodyHtml ?? "").trim();
     if (!body) return null;
     const expanded = expandEmailVars(vars);
-    const shell = await getEmailShell();
+    // Brandable account emails (payment_failed, slug_redirect_expiry) co-brand
+    // with the tenant's own logo when a tenantId is supplied; auth/trust emails
+    // (magic link, reset, verify, invite) pass no tenantId and stay LP Studio.
+    const { shell } = await resolveEmailShellForEmail({
+      key,
+      tenantId,
+      wrapInShell: tpl.wrapInShell,
+    });
     const html = renderEmail({
       shell,
       bodyHtml: tpl.bodyHtml,
@@ -365,6 +373,8 @@ export async function sendEmailVerificationEmail(payload: {
 
 export interface SlugRedirectExpiryPayload {
   recipientEmail: string;
+  /** Tenant whose brand-derived shell co-brands the email (Task #615). */
+  tenantId?: number;
   tenantName: string;
   oldUrl: string;
   currentUrl: string;
@@ -485,7 +495,7 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
     ctaUrl: currentUrl,
     workspaceUrl: originOf(currentUrl),
     recipientEmail,
-  });
+  }, payload.tenantId);
   const subject = tpl?.subject ?? `Heads up: an old ${tenantName} URL stops working in ${dayLabel}`;
   const html = tpl?.html ?? fallbackHtml;
 
@@ -514,6 +524,8 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
 export interface PaymentFailedPayload {
   /** Every accepted workspace admin gets the same email. */
   recipientEmails: string[];
+  /** Tenant whose brand-derived shell co-brands the email (Task #615). */
+  tenantId?: number;
   tenantName: string;
   /** Link to the in-app Billing page where the card can be updated. */
   billingUrl: string;
@@ -655,7 +667,7 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
     tenantName,
     ctaUrl: billingUrl,
     workspaceUrl: originOf(billingUrl),
-  });
+  }, payload.tenantId);
   const subject = tpl?.subject ?? fallbackSubject;
   const html = tpl?.html ?? fallbackHtml;
 
