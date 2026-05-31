@@ -43,6 +43,37 @@ export {
 export type { Plan, PlanFeatures, PlanLimits, PlanConfigEntry, TrialState } from "@workspace/plan-config";
 
 /**
+ * SQL `SET` fragment that closes an in-progress trial window when a tenant is
+ * dropped to the Free floor.
+ *
+ * Every path that writes `plan = 'free'` (the in-app "downgrade to Free"
+ * button, the Stripe cancel/unpaid subscription webhook, and the dunning
+ * final-attempt downgrade) MUST include this fragment. Otherwise an open
+ * `trial_expires_at` keeps `effectivePlan()` lifting the stored Free floor
+ * back up to the Growth trial tier — so a just-downgraded tenant would still
+ * resolve to Growth and keep reaching the Sales Console and every other gated
+ * feature until the trial date naturally passes.
+ *
+ * The CASE expressions evaluate against the pre-update row, so this:
+ *   • closes a still-open window to `now()` (a past/absent one is untouched), and
+ *   • stamps `has_trialed_before` only when a trial actually existed (so a plain
+ *     Free tenant doesn't burn a never-used trial).
+ *
+ * It references only existing columns + `now()`, so it adds no query params and
+ * is safe to splice into any `UPDATE tenants SET …` next to the `plan` write.
+ */
+export const CLOSE_TRIAL_ON_FREE_SQL = `
+            trial_expires_at = CASE
+              WHEN trial_expires_at IS NOT NULL AND trial_expires_at > now() THEN now()
+              ELSE trial_expires_at
+            END,
+            has_trialed_before = (
+              has_trialed_before
+              OR trial_started_at IS NOT NULL
+              OR trial_expires_at IS NOT NULL
+            )`;
+
+/**
  * Look up a tenant's EFFECTIVE plan — the single chokepoint every server-side
  * plan-gate funnels through. Returns "free" for an unknown or missing tenant
  * (the safest default, least access). Callers that need the raw stored value

@@ -24,7 +24,7 @@
 import type { Request, Response } from "express";
 import { pool } from "@workspace/db";
 import { getStripe, getStripeSync, getWebhookSecret, StripeNotConfiguredError } from "../lib/stripeClient";
-import { normalizePlan, type Plan } from "../lib/planFeatures";
+import { normalizePlan, CLOSE_TRIAL_ON_FREE_SQL, type Plan } from "../lib/planFeatures";
 import { planForLookupKey, cadenceForLookupKey, isSelfServePaidPlan } from "../lib/stripePlanMapping";
 import { sendPaymentFailedEmail } from "../lib/notifications";
 import { logger } from "../lib/logger";
@@ -219,6 +219,12 @@ async function applyPlanFromSubscription(
   const priorPlan = tenant.plan;
   const priorSubId = tenant.stripe_subscription_id;
 
+  // When the subscription resolves to the Free floor (cancel / unpaid / past
+  // grace), also close any still-open trial window. Otherwise `effectivePlan`
+  // would keep lifting the tenant back to the Growth trial tier and they'd
+  // retain Sales Console + every gated feature despite the downgrade.
+  const closeTrial = nextPlan === "free";
+
   await pool.query(
     `UPDATE tenants
         SET plan                          = $1,
@@ -232,7 +238,7 @@ async function applyPlanFromSubscription(
             stripe_unit_amount            = $9,
             stripe_currency               = $10,
             stripe_payment_brand          = $11,
-            stripe_payment_last4          = $12,
+            stripe_payment_last4          = $12,${closeTrial ? `\n            ${CLOSE_TRIAL_ON_FREE_SQL.trim()},` : ""}
             updated_at                    = now()
       WHERE id = $13`,
     [
@@ -351,6 +357,7 @@ async function handleInvoicePaymentFailed(
         `UPDATE tenants
             SET plan                       = 'free',
                 stripe_subscription_status = 'unpaid',
+                ${CLOSE_TRIAL_ON_FREE_SQL.trim()},
                 updated_at                 = now()
           WHERE id = $1`,
         [tenant.id],

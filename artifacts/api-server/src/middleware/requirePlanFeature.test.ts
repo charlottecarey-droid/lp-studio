@@ -5,7 +5,7 @@ import { inject } from "../test-utils/injectRequest";
 // Mock the DB-backed plan lookup BEFORE importing the middleware so the
 // middleware picks up the stubbed implementation. The test drives the
 // per-tenant plan via this mock.
-const planByTenant = new Map<number, "starter" | "growth" | "enterprise">();
+const planByTenant = new Map<number, "free" | "starter" | "growth" | "enterprise">();
 vi.mock("../lib/planFeatures", async () => {
   const actual = await vi.importActual<typeof import("../lib/planFeatures")>(
     "../lib/planFeatures",
@@ -70,6 +70,7 @@ function buildHarness(): { app: Express } {
 const STARTER_TENANT = 1001;
 const GROWTH_TENANT = 1002;
 const ENTERPRISE_TENANT = 1003;
+const FREE_TENANT = 1004;
 
 function authUser(overrides: Partial<AuthUser>): string {
   const u: AuthUser = {
@@ -91,6 +92,7 @@ let app: Express;
 
 beforeEach(() => {
   planByTenant.clear();
+  planByTenant.set(FREE_TENANT, "free");
   planByTenant.set(STARTER_TENANT, "starter");
   planByTenant.set(GROWTH_TENANT, "growth");
   planByTenant.set(ENTERPRISE_TENANT, "enterprise");
@@ -113,6 +115,22 @@ describe("requirePlanFeature — /sales gate", () => {
       currentUsage: null,
       cap: null,
       currentPlan: "starter",
+      minimumPlanWithFeature: "growth",
+      upgradeUrl: "/settings/billing",
+    });
+  });
+
+  it("returns 402 plan_upgrade_required for a free (downgraded) tenant", async () => {
+    // A tenant that downgraded to free — via the in-app button, a Stripe
+    // cancel/unpaid webhook, or trial expiry — must be denied the Sales
+    // Console exactly like a starter tenant, with growth as the minimum tier.
+    const res = await get("/sales/dashboard", { "x-test-auth-user": authUser({ tenantId: FREE_TENANT }) });
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      error: "plan_upgrade_required",
+      gate: "salesConsole",
+      currentPlan: "free",
       minimumPlanWithFeature: "growth",
       upgradeUrl: "/settings/billing",
     });

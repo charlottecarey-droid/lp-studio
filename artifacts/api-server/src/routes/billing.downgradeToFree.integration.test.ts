@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { inject } from "../test-utils/injectRequest";
+import { getTenantPlan, getTenantPlanFeatures } from "../lib/planFeatures";
 import billingRouter from "./billing";
 
 let app: Express;
@@ -130,6 +131,17 @@ describe("POST /billing/downgrade-to-free", () => {
     // Window was open → closed to <= now.
     expect(row.trial_expires_at).not.toBeNull();
     expect(new Date(row.trial_expires_at as Date).getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+
+    // The live entitlement accessors must now resolve to FREE — closing the
+    // trial window is what stops `effectivePlan` from lifting the tenant back
+    // to the Growth trial tier. Without it the tenant would keep reaching the
+    // Sales Console despite the downgrade.
+    expect(await getTenantPlan(tenantId)).toBe("free");
+    const { plan, features } = await getTenantPlanFeatures(tenantId);
+    expect(plan).toBe("free");
+    expect(features.salesConsole).toBe(false);
+    expect(features.customDomain).toBe(false);
+    expect(features.aiImageGen).toBe(false);
   });
 
   it("is idempotent / a no-op for a plain Free tenant with no trial", async () => {

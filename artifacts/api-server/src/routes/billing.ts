@@ -25,7 +25,7 @@ import type Stripe from "stripe";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { getPriceIdForLookupKey, getStripe, StripeNotConfiguredError } from "../lib/stripeClient";
-import { normalizePlan, getTenantPlan, computeTrialState, isDandyTenant, type Plan } from "../lib/planFeatures";
+import { normalizePlan, getTenantPlan, computeTrialState, isDandyTenant, CLOSE_TRIAL_ON_FREE_SQL, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures } from "../lib/planConfig";
 import {
   ALL_LOOKUP_KEYS,
@@ -415,15 +415,7 @@ router.post("/billing/downgrade-to-free", async (req: Request, res: Response): P
   await pool.query(
     `UPDATE tenants
         SET plan = 'free',
-            trial_expires_at = CASE
-              WHEN trial_expires_at IS NOT NULL AND trial_expires_at > now() THEN now()
-              ELSE trial_expires_at
-            END,
-            has_trialed_before = (
-              has_trialed_before
-              OR trial_started_at IS NOT NULL
-              OR trial_expires_at IS NOT NULL
-            ),
+            ${CLOSE_TRIAL_ON_FREE_SQL.trim()},
             updated_at = now()
       WHERE id = $1`,
     [tenant.id],
