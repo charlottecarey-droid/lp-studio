@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NotificationTemplateDef } from "./notificationTemplates";
+// Real (un-mocked) helper — the dispatcher renders the structured intro+CTA
+// frame through this, so the welcome editability tests build their override body
+// the exact same way an operator's edits would be rendered.
+import { buildDefaultBodyHtml } from "./emailRender";
 
 // Drive the dispatcher's DB writes and the template it resolves. The pool is
 // mocked so each INSERT's RETURNING result decides created-vs-deduped, and the
@@ -190,5 +194,130 @@ describe("dispatchNotification", () => {
 
     expect(res.inAppCreated).toBe(0);
     expect(res.inAppFailed).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Welcome email editability — proves an operator's SuperAdmin edits to the
+// welcome template's subject/intro/CTA actually flow into the message Resend
+// sends, instead of a hardcoded copy. The dispatcher is the merge point: it
+// renders whatever `getNotificationTemplate("welcome")` resolves (code default
+// OR DB override), so feeding it a default vs. an edited template and reading
+// back the Resend payload exercises the full edit→send path.
+// ---------------------------------------------------------------------------
+
+// The REAL welcome registry entry (bypasses the module mock above) — its
+// subject/body/channels are the actual production copy, so the default-path
+// test asserts against the shipped template, not a fixture.
+const { NOTIFICATION_TEMPLATES: REAL_TEMPLATES } = await vi.importActual<
+  typeof import("./notificationTemplates")
+>("./notificationTemplates");
+const WELCOME_TPL = REAL_TEMPLATES["welcome"]!;
+
+/** Parse the JSON body of the most recent (Resend) fetch call. */
+function lastSentEmail(): { from: string; to: string; subject: string; html: string } {
+  const f = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+  const call = f.mock.calls.at(-1);
+  const init = call?.[1] as RequestInit | undefined;
+  return JSON.parse(String(init?.body ?? "{}"));
+}
+
+describe("welcome email editability", () => {
+  const WORKSPACE_URL = "https://acme.lpstudio.ai";
+
+  it("sends the welcome email using the resolved template subject and links the CTA to the workspace URL", async () => {
+    getTemplateMock.mockResolvedValue(WELCOME_TPL);
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 50 }] }); // email claim
+    queryMock.mockResolvedValueOnce({ rows: [] }); // mark sent
+
+    const res = await dispatchNotification({
+      templateKey: "welcome",
+      tenantId: 7,
+      recipients: [{ appUserId: 1, email: "jordan@acme.com", name: "Jordan Lee" }],
+      context: { tenantName: "Acme", workspaceUrl: WORKSPACE_URL },
+      dedupeBase: "welcome:tenant:7",
+      channels: ["email"],
+    });
+
+    expect(res.emailsSent).toBe(1);
+
+    const sent = lastSentEmail();
+    // Subject is rendered from the template's emailSubject ({{tenantName}} filled).
+    expect(sent.subject).toBe("Welcome to Acme on LP Studio");
+    // The body's primary CTA points at the workspace URL passed in context.
+    expect(sent.html).toContain(`href="${WORKSPACE_URL}"`);
+    // Sanity: the welcome magazine body actually rendered (not an empty frame).
+    expect(sent.html).toContain("Open your workspace");
+  });
+
+  it("renders an operator's DB-edited subject/intro/CTA, not the code default copy", async () => {
+    const editedSubject = "Your {{tenantName}} workspace is live";
+    const editedIntro = "An operator wrote this welcome intro for {{tenantName}}.";
+    const editedCtaLabel = "Enter {{tenantName}}";
+    // Simulate the DB override the SuperAdmin Notifications tab would persist:
+    // the resolved template carries the edited copy and a structured body that
+    // bakes the intro + CTA (rendered exactly as production does).
+    const editedWelcome: NotificationTemplateDef = {
+      ...WELCOME_TPL,
+      emailSubject: editedSubject,
+      emailIntro: editedIntro,
+      emailCtaLabel: editedCtaLabel,
+      bodyHtml: buildDefaultBodyHtml(editedIntro, editedCtaLabel),
+      bodyMode: "wysiwyg",
+      wrapInShell: true,
+    };
+    getTemplateMock.mockResolvedValue(editedWelcome);
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 51 }] }); // email claim
+    queryMock.mockResolvedValueOnce({ rows: [] }); // mark sent
+
+    const res = await dispatchNotification({
+      templateKey: "welcome",
+      tenantId: 7,
+      recipients: [{ appUserId: 1, email: "jordan@acme.com", name: "Jordan Lee" }],
+      context: { tenantName: "Acme", workspaceUrl: WORKSPACE_URL },
+      dedupeBase: "welcome:tenant:7",
+      channels: ["email"],
+    });
+
+    expect(res.emailsSent).toBe(1);
+
+    const sent = lastSentEmail();
+    // The operator's edited subject/intro/CTA flow through verbatim (tokens filled).
+    expect(sent.subject).toBe("Your Acme workspace is live");
+    expect(sent.html).toContain("An operator wrote this welcome intro for Acme.");
+    expect(sent.html).toContain("Enter Acme");
+    // The CTA still links to the workspace URL from context.
+    expect(sent.html).toContain(`href="${WORKSPACE_URL}"`);
+    // The code-default welcome copy is gone — the email is NOT the hardcoded one.
+    expect(sent.subject).not.toBe(WELCOME_TPL.emailSubject);
+    expect(sent.html).not.toContain("Open your workspace");
+  });
+
+  it("falls back to the workspace URL for the CTA when no billing URL is supplied", async () => {
+    // The default structured frame's CTA uses {{ctaUrl}}, which the dispatcher
+    // resolves as billingUrl ?? workspaceUrl. With no billingUrl in context the
+    // workspace URL must win so the welcome CTA never renders an empty href.
+    const editedWelcome: NotificationTemplateDef = {
+      ...WELCOME_TPL,
+      bodyHtml: buildDefaultBodyHtml("Welcome aboard.", "Open my workspace"),
+      bodyMode: "wysiwyg",
+      wrapInShell: true,
+    };
+    getTemplateMock.mockResolvedValue(editedWelcome);
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 52 }] }); // email claim
+    queryMock.mockResolvedValueOnce({ rows: [] }); // mark sent
+
+    await dispatchNotification({
+      templateKey: "welcome",
+      tenantId: 7,
+      recipients: [{ appUserId: 1, email: "jordan@acme.com", name: "Jordan Lee" }],
+      context: { tenantName: "Acme", workspaceUrl: WORKSPACE_URL },
+      dedupeBase: "welcome:tenant:7",
+      channels: ["email"],
+    });
+
+    const sent = lastSentEmail();
+    expect(sent.html).toContain(`href="${WORKSPACE_URL}"`);
+    expect(sent.html).not.toContain('href=""');
   });
 });
