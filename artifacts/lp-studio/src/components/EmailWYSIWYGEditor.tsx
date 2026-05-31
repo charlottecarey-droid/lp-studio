@@ -692,4 +692,4 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
 
 EmailWYSIWYGEditor.displayName = "EmailWYSIWYGEditor";
 
-export { EmailWYSIWYGEditor, toEmailHTML, fromEmailHTML };
+export { EmailWYSIWYGEditor, toEmailHTML, fromEmailHTML, MergeVariable };
