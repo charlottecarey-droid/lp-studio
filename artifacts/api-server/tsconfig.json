@@ -21,6 +21,9 @@
     },
     {
       "path": "../../lib/one-pager-types"
+    },
+    {
+      "path": "../../lib/notification-variables"
     }
   ]
 }

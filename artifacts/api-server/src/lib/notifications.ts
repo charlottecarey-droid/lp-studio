@@ -1,4 +1,6 @@
 import { logger } from "./logger";
+import { renderEmail } from "./emailRender";
+import { getEmailShell } from "./emailShell";
 
 export interface InvitePayload {
   inviteeEmail: string;
@@ -21,41 +23,15 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
 
   const actionLabel = isNewUser ? "Create your account" : "Sign in to accept";
   const headline = isNewUser
-    ? `You've been invited to join ${escapeHtml(tenantName)}`
-    : `You now have access to ${escapeHtml(tenantName)}`;
+    ? `You've been invited to join ${tenantName}`
+    : `You now have access to ${tenantName}`;
   const bodyText = isNewUser
     ? `${escapeHtml(inviterName)} has invited you to join <strong>${escapeHtml(tenantName)}</strong> on LP Studio as a <strong>${escapeHtml(roleName)}</strong>. Create your account to get started.`
     : `${escapeHtml(inviterName)} has added you to <strong>${escapeHtml(tenantName)}</strong> on LP Studio as a <strong>${escapeHtml(roleName)}</strong>. Sign in to access your workspace.`;
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
-
-          <!-- Header -->
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
-            </td>
-          </tr>
-
-          <!-- Body -->
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px">
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+  // Inner body only — the shared shell supplies the head, header (logo +
+  // headline) and footer. The invite intentionally adopts the platform shell.
+  const bodyHtml = `<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
                 ${bodyText}
               </p>
 
@@ -87,27 +63,15 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
               <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
                 Sign in using the Google account associated with <strong style="color:#6b7280">${escapeHtml(inviteeEmail)}</strong>.
                 If you weren't expecting this invitation, you can safely ignore this email.
-              </p>
-            </td>
-          </tr>
+              </p>`;
 
-          <!-- Footer -->
-          <tr>
-            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
-              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
-                You're receiving this because an admin at ${escapeHtml(tenantName)} added your email address.
-                &nbsp;·&nbsp;
-                <a href="${escapeHtml(signInUrl)}" style="color:#6b7280;text-decoration:underline">LP Studio</a>
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  const shell = await getEmailShell();
+  const html = renderEmail({
+    shell,
+    bodyHtml,
+    wrapInShell: true,
+    vars: { headline },
+  });
 
   const subject = isNewUser
     ? `You've been invited to join ${tenantName} on LP Studio`

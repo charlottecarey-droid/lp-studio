@@ -6,6 +6,8 @@ import {
   type NotificationChannel,
   type NotificationTemplateDef,
 } from "./notificationTemplates";
+import { getEmailShell } from "./emailShell";
+import { renderEmail } from "./emailRender";
 
 /**
  * Channel-aware notification dispatcher.
@@ -58,15 +60,6 @@ export interface DispatchResult {
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /** Replace `{{key}}` placeholders. Values are coerced to strings. */
 function render(template: string, context: Record<string, string>): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, key: string) =>
@@ -88,75 +81,6 @@ function recipientKey(r: NotificationRecipient): string | null {
   if (r.appUserId != null) return `u${r.appUserId}`;
   if (r.email) return `e:${r.email.trim().toLowerCase()}`;
   return null;
-}
-
-/**
- * Branded email wrapper, mirroring the LP Studio house style used by the other
- * Resend templates in `notifications.ts` (#003A30 header, #C7E738 CTA). The
- * intro paragraph and CTA are the operator-editable pieces; this frame is not.
- */
-function renderEmailHtml(opts: {
-  headline: string;
-  intro: string;
-  ctaLabel: string;
-  ctaUrl: string | null;
-}): string {
-  const ctaBlock = opts.ctaUrl
-    ? `<table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:8px">
-                <tr>
-                  <td style="background:#C7E738;border-radius:8px">
-                    <a href="${escapeHtml(opts.ctaUrl)}" target="_blank"
-                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
-                      ${escapeHtml(opts.ctaLabel)}
-                    </a>
-                  </td>
-                </tr>
-              </table>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(opts.headline)}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
-          <tr>
-            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
-              <div style="margin-bottom:20px">
-                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
-                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
-                </span>
-              </div>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${escapeHtml(opts.headline)}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:32px 40px;border-radius:0 0 12px 12px">
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">
-                ${escapeHtml(opts.intro)}
-              </p>
-              ${ctaBlock}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 40px;text-align:center">
-              <p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af">
-                You're receiving this because you're an admin of an LP Studio workspace.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
 }
 
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
@@ -269,6 +193,7 @@ async function dispatchInApp(
 
 async function dispatchEmail(
   input: DispatchInput,
+  tpl: NotificationTemplateDef,
   r: NotificationRecipient,
   rk: string,
   content: RenderedContent,
@@ -312,11 +237,12 @@ async function dispatchEmail(
   }
 
   try {
-    const html = renderEmailHtml({
-      headline: content.inAppTitle,
-      intro: content.emailIntro,
-      ctaLabel: content.emailCtaLabel,
-      ctaUrl,
+    const shell = await getEmailShell();
+    const html = renderEmail({
+      shell,
+      bodyHtml: tpl.bodyHtml,
+      wrapInShell: tpl.wrapInShell,
+      vars: { ...ctx, headline: content.inAppTitle, ctaUrl: ctaUrl ?? "" },
     });
     await sendEmail(r.email, content.emailSubject, html);
     await pool.query(
@@ -367,7 +293,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<Dispat
       if (channel === "in_app") {
         await dispatchInApp(input, r, rk, content, ctx, result);
       } else if (channel === "email") {
-        await dispatchEmail(input, r, rk, content, ctx, result);
+        await dispatchEmail(input, tpl, r, rk, content, ctx, result);
       }
     }
   }

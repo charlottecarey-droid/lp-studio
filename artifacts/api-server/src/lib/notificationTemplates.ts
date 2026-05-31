@@ -1,4 +1,9 @@
 import { pool } from "@workspace/db";
+import {
+  PLATFORM_NOTIFICATION_VARIABLES,
+  buildSampleVars,
+} from "@workspace/notification-variables";
+import { buildDefaultBodyHtml } from "./emailRender";
 
 /**
  * Canonical, code-owned registry of notification templates plus a cached
@@ -12,6 +17,7 @@ import { pool } from "@workspace/db";
  */
 
 export type NotificationChannel = "email" | "in_app";
+export type NotificationBodyMode = "wysiwyg" | "html";
 
 export interface NotificationTemplateDef {
   key: string;
@@ -24,15 +30,31 @@ export interface NotificationTemplateDef {
   emailCtaLabel: string;
   inAppTitle: string;
   inAppBody: string;
+  // Free-form email body (Phase 1). Default is built from emailIntro/emailCtaLabel
+  // so unedited templates render byte-identically to the legacy frame.
+  bodyHtml: string;
+  bodyMode: NotificationBodyMode;
+  // false = body_html is the entire email (no branded shell).
+  wrapInShell: boolean;
+  // Sample variable values for live preview / test-send.
+  previewData: Record<string, string>;
   enabled: boolean;
 }
+
+/** The structured (code-owned) fields; the free-form body fields are derived. */
+type BaseTemplateDef = Pick<
+  NotificationTemplateDef,
+  | "key" | "name" | "description" | "category" | "channels"
+  | "emailSubject" | "emailIntro" | "emailCtaLabel"
+  | "inAppTitle" | "inAppBody" | "enabled"
+>;
 
 /**
  * Default copy/channels for every template. Variables use `{{name}}` syntax and
  * are substituted by the dispatcher from its `context` map. Supported vars:
- *   tenantName, daysRemaining, workspaceUrl, billingUrl
+ *   tenantName, daysRemaining, workspaceUrl, billingUrl, ctaUrl
  */
-export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplateDef> = {
+const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
   welcome: {
     key: "welcome",
     name: "Welcome",
@@ -97,6 +119,27 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplateDef> = {
   },
 };
 
+// Registry-wide default sample values for live preview / test-send.
+const DEFAULT_PREVIEW_DATA: Record<string, string> = buildSampleVars(PLATFORM_NOTIFICATION_VARIABLES);
+
+/**
+ * The full code-owned registry: structured fields plus the derived free-form
+ * defaults. `bodyHtml` is built from the intro/CTA so an UNEDITED template
+ * renders byte-identically to the legacy hardcoded frame.
+ */
+export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplateDef> = Object.fromEntries(
+  Object.entries(BASE_TEMPLATES).map(([k, d]) => [
+    k,
+    {
+      ...d,
+      bodyHtml: buildDefaultBodyHtml(d.emailIntro, d.emailCtaLabel),
+      bodyMode: "wysiwyg" as NotificationBodyMode,
+      wrapInShell: true,
+      previewData: DEFAULT_PREVIEW_DATA,
+    } satisfies NotificationTemplateDef,
+  ]),
+);
+
 export const TEMPLATE_KEYS = Object.keys(NOTIFICATION_TEMPLATES);
 
 interface TemplateRow {
@@ -110,6 +153,10 @@ interface TemplateRow {
   email_cta_label: string | null;
   in_app_title: string | null;
   in_app_body: string | null;
+  body_html: string | null;
+  body_mode: string | null;
+  wrap_in_shell: boolean | null;
+  preview_data: Record<string, string> | null;
   enabled: boolean;
 }
 
@@ -138,6 +185,13 @@ function rowToDef(row: TemplateRow, fallback: NotificationTemplateDef): Notifica
     emailCtaLabel: row.email_cta_label ?? fallback.emailCtaLabel,
     inAppTitle: row.in_app_title ?? fallback.inAppTitle,
     inAppBody: row.in_app_body ?? fallback.inAppBody,
+    bodyHtml: row.body_html ?? fallback.bodyHtml,
+    bodyMode: row.body_mode === "html" ? "html" : row.body_mode === "wysiwyg" ? "wysiwyg" : fallback.bodyMode,
+    wrapInShell: row.wrap_in_shell ?? fallback.wrapInShell,
+    previewData:
+      row.preview_data && typeof row.preview_data === "object" && !Array.isArray(row.preview_data)
+        ? (row.preview_data as Record<string, string>)
+        : fallback.previewData,
     enabled: row.enabled,
   };
 }
@@ -149,7 +203,9 @@ async function loadFromDb(): Promise<Record<string, NotificationTemplateDef>> {
     const r = await pool.query<TemplateRow>(
       `SELECT key, name, description, category, channels,
               email_subject, email_intro, email_cta_label,
-              in_app_title, in_app_body, enabled
+              in_app_title, in_app_body,
+              body_html, body_mode, wrap_in_shell, preview_data,
+              enabled
          FROM notification_templates`,
     );
     for (const row of r.rows) {

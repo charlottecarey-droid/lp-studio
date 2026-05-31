@@ -32,6 +32,18 @@ export const notificationTemplatesTable = pgTable("notification_templates", {
   // In-app channel — inbox title + body. null = use the code default.
   inAppTitle: text("in_app_title"),
   inAppBody: text("in_app_body"),
+  // Free-form email body (Phase 1). The full inner HTML of the branded shell's
+  // body card. null = use the code default body (built from email_intro/cta).
+  bodyHtml: text("body_html"),
+  // Which editor mode the author last used: 'wysiwyg' | 'html'. null = default.
+  bodyMode: text("body_mode"),
+  // When false, body_html IS the whole email (no shell). null = default (true).
+  wrapInShell: boolean("wrap_in_shell"),
+  // Sample variable values for live preview / test-send. null = registry samples.
+  previewData: jsonb("preview_data"),
+  // Operational metadata for the editor's test-send.
+  lastTestSentAt: timestamp("last_test_sent_at", { withTimezone: true }),
+  lastTestSentBy: text("last_test_sent_by"),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

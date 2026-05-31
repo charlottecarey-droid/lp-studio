@@ -20,6 +20,9 @@
     },
     {
       "path": "./lib/plan-config"
+    },
+    {
+      "path": "./lib/notification-variables"
     }
   ]
 }
