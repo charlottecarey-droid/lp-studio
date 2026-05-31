@@ -22,13 +22,39 @@
  * That cleanly proves "rejected unless the state is valid" without mocking the
  * providers, and lets us assert the nonce was consumed (single-use).
  */
-import { describe, it, expect, beforeAll, afterEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from "vitest";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import crypto from "node:crypto";
 import { pool } from "@workspace/db";
 import { inject } from "../test-utils/injectRequest";
 import { mintOAuthState } from "../lib/oauthState";
+
+// Google's callback exchanges the code and verifies the id_token through
+// google-auth-library's OAuth2Client (not `fetch`). Stub the class so the
+// success-path test below can drive a deterministic payload through the real
+// handler without any network. The mutable holder is `vi.hoisted` so the
+// (hoisted) `vi.mock` factory can read the per-test payload. The state-gate
+// tests never reach this code (providers unset → handler short-circuits before
+// instantiating the client), so the stub is inert for them.
+const googleMock = vi.hoisted(() => ({
+  payload: null as Record<string, unknown> | null,
+}));
+
+vi.mock("google-auth-library", () => ({
+  OAuth2Client: class {
+    generateAuthUrl(): string {
+      return "https://accounts.google.com/o/oauth2/v2/auth";
+    }
+    async getToken(): Promise<{ tokens: { id_token: string } }> {
+      return { tokens: { id_token: "fake-id-token" } };
+    }
+    setCredentials(): void {}
+    async verifyIdToken(): Promise<{ getPayload: () => Record<string, unknown> | null }> {
+      return { getPayload: () => googleMock.payload };
+    }
+  },
+}));
 
 const authRouter = (await import("./auth")).default;
 
@@ -202,5 +228,202 @@ describe("OAuth initiation persists an opaque single-use nonce", () => {
     // The state param is the opaque server-stored nonce, not a decodable blob.
     expect(await stateExists(state!)).toBe(true);
     seededStates.push(state!);
+  });
+});
+
+/**
+ * Success path — what the state-gate tests deliberately stop short of.
+ *
+ * The gate suite above falls through to `oauth_not_configured` to stay
+ * hermetic, so it never exercises the rest of a successful callback: token
+ * exchange, the user upsert, membership resolution, and the session-cookie +
+ * `app_sessions` write. A regression there (broken upsert, missing session
+ * write, dropped cookie) would slip past every test above.
+ *
+ * These two cases drive a VALID nonce all the way through with the providers
+ * stubbed instead of unset:
+ *   - GitHub uses `fetch`, so we override `global.fetch` to return the token /
+ *     account / verified-email responses.
+ *   - Google uses google-auth-library's OAuth2Client, stubbed at module load
+ *     above (token exchange + verifyIdToken).
+ *
+ * Both flows run on a redirect URI whose host equals the origin host (the
+ * minted state's host), so the callback takes the same-domain branch and sets
+ * the `lp_sid` cookie directly on the response (no cross-domain exchange code).
+ * The origin host (TEST_HOST) matches no tenant, so membership resolution
+ * lands in the "open host / no membership" branch (tenantId null) — enough to
+ * prove the upsert + session write run end to end. We assert the cookie is set,
+ * the `app_users` row carries the provider identity, the `app_sessions` row
+ * references that user, and the nonce was consumed.
+ */
+describe("OAuth callback success path (downstream of the state gate)", () => {
+  let originalFetch: typeof globalThis.fetch;
+  const createdUserIds: number[] = [];
+  const createdSids: string[] = [];
+
+  beforeAll(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    googleMock.payload = null;
+  });
+
+  afterAll(async () => {
+    if (createdSids.length > 0) {
+      await pool.query(`DELETE FROM app_sessions WHERE sid = ANY($1)`, [createdSids]);
+    }
+    if (createdUserIds.length > 0) {
+      await pool.query(
+        `DELETE FROM app_sessions WHERE (sess::jsonb->>'userId')::int = ANY($1)`,
+        [createdUserIds],
+      );
+      await pool.query(`DELETE FROM app_users WHERE id = ANY($1)`, [createdUserIds]);
+    }
+  });
+
+  function jsonResponse(body: unknown): Response {
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => body,
+    } as unknown as Response;
+  }
+
+  // Route the GitHub callback's three REST calls (token exchange, /user,
+  // /user/emails) to canned responses; throw on anything unexpected so a
+  // stray network call can't pass silently.
+  function installGithubFetchMock(opts: {
+    githubId: string;
+    email: string;
+    name: string;
+    avatarUrl: string;
+  }): void {
+    globalThis.fetch = (async (input: unknown): Promise<Response> => {
+      const url = typeof input === "string" ? input : String(input);
+      if (url === "https://github.com/login/oauth/access_token") {
+        return jsonResponse({ access_token: "gho_fake_access_token" });
+      }
+      if (url === "https://api.github.com/user") {
+        return jsonResponse({
+          id: Number(opts.githubId),
+          login: "ghtest",
+          name: opts.name,
+          avatar_url: opts.avatarUrl,
+        });
+      }
+      if (url === "https://api.github.com/user/emails") {
+        return jsonResponse([{ email: opts.email, primary: true, verified: true }]);
+      }
+      throw new Error(`Unexpected fetch in GitHub OAuth success test: ${url}`);
+    }) as unknown as typeof globalThis.fetch;
+  }
+
+  function sidFromSetCookie(
+    setCookie: number | string | string[] | undefined,
+  ): string | undefined {
+    const cookieStr = Array.isArray(setCookie) ? setCookie.join("\n") : String(setCookie ?? "");
+    return /lp_sid=([^;]+)/.exec(cookieStr)?.[1];
+  }
+
+  it("GitHub: a VALID state completes token exchange, upserts the user, and sets a session", async () => {
+    const email = `gh-${crypto.randomUUID()}@oauth-it.example.test`;
+    const githubId = String(2_000_000_000 + Math.floor(Math.random() * 1_000_000_000));
+
+    process.env.GITHUB_OAUTH_CLIENT_ID = "test-client-id";
+    process.env.GITHUB_OAUTH_CLIENT_SECRET = "test-client-secret";
+    process.env.GITHUB_OAUTH_REDIRECT_URI = `https://${TEST_HOST}/api/auth/github/callback`;
+
+    installGithubFetchMock({
+      githubId,
+      email,
+      name: "GH Test User",
+      avatarUrl: "https://avatars.example/gh.png",
+    });
+
+    const state = await seedValidState("github");
+    const res = await inject(app, {
+      method: "GET",
+      url: `/api/auth/github/callback?code=fake-code&state=${state}`,
+    });
+
+    // Same-domain branch → lands on root with no error param (not a rejection).
+    expect(res.status).toBe(302);
+    expect(errorOf(res.headers["location"] as string)).toBeNull();
+    expect(res.headers["location"]).toBe("/");
+
+    // A session cookie was issued.
+    const sid = sidFromSetCookie(res.headers["set-cookie"]);
+    expect(sid).toBeTruthy();
+    createdSids.push(sid!);
+
+    // The user row was created/updated with the GitHub identity.
+    const userRow = await pool.query(
+      `SELECT id, github_id, email, name FROM app_users WHERE email = $1`,
+      [email],
+    );
+    expect(userRow.rows.length).toBe(1);
+    expect(userRow.rows[0].github_id).toBe(githubId);
+    expect(userRow.rows[0].name).toBe("GH Test User");
+    createdUserIds.push(userRow.rows[0].id);
+
+    // The session row exists for the cookie's sid and points at that user.
+    const sessRow = await pool.query(`SELECT sess FROM app_sessions WHERE sid = $1`, [sid]);
+    expect(sessRow.rows.length).toBe(1);
+    expect((JSON.parse(sessRow.rows[0].sess) as { userId: number }).userId).toBe(
+      userRow.rows[0].id,
+    );
+
+    // The nonce was consumed (single-use).
+    expect(await stateExists(state)).toBe(false);
+  });
+
+  it("Google: a VALID state verifies the id_token, upserts the user, and sets a session", async () => {
+    const email = `goog-${crypto.randomUUID()}@oauth-it.example.test`;
+    const googleId = `google-sub-${crypto.randomUUID()}`;
+
+    process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
+    process.env.GOOGLE_REDIRECT_URI = `https://${TEST_HOST}/api/auth/google/callback`;
+
+    googleMock.payload = {
+      sub: googleId,
+      email,
+      name: "Goog Test User",
+      picture: "https://avatars.example/goog.png",
+    };
+
+    const state = await seedValidState("google");
+    const res = await inject(app, {
+      method: "GET",
+      url: `/api/auth/google/callback?code=fake-code&state=${state}`,
+    });
+
+    expect(res.status).toBe(302);
+    expect(errorOf(res.headers["location"] as string)).toBeNull();
+    expect(res.headers["location"]).toBe("/");
+
+    const sid = sidFromSetCookie(res.headers["set-cookie"]);
+    expect(sid).toBeTruthy();
+    createdSids.push(sid!);
+
+    const userRow = await pool.query(
+      `SELECT id, google_id, email, name FROM app_users WHERE email = $1`,
+      [email],
+    );
+    expect(userRow.rows.length).toBe(1);
+    expect(userRow.rows[0].google_id).toBe(googleId);
+    expect(userRow.rows[0].name).toBe("Goog Test User");
+    createdUserIds.push(userRow.rows[0].id);
+
+    const sessRow = await pool.query(`SELECT sess FROM app_sessions WHERE sid = $1`, [sid]);
+    expect(sessRow.rows.length).toBe(1);
+    expect((JSON.parse(sessRow.rows[0].sess) as { userId: number }).userId).toBe(
+      userRow.rows[0].id,
+    );
+
+    expect(await stateExists(state)).toBe(false);
   });
 });
