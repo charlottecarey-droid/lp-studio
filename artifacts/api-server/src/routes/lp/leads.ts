@@ -160,7 +160,7 @@ async function sendFollowUpEmailToSubmitter(opts: {
   }
 
   const body: Record<string, unknown> = {
-    from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
+    from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
     to: [submitterEmail],
     subject: finalSubject,
   };
