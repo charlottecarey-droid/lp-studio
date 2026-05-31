@@ -3,7 +3,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getHeadingWeightClass, getHeadingLetterSpacingClass, contrastTextColor } from "@/lib/brand-config";
+import { getHeadingWeightClass, getHeadingLetterSpacingClass, contrastTextColor, pickContrastingColor, isValidHex } from "@/lib/brand-config";
 import type { ParallaxImageHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -73,7 +73,14 @@ export function BlockParallaxImageHero({
   const ctaStyle = props.ctaStyle ?? "link";
   const submitMode = props.submitMode ?? "navigate";
   const ctaButtonBg = props.ctaButtonColor || accentColor;
-  const ctaButtonText = props.ctaButtonTextColor || contrastTextColor(ctaButtonBg);
+  // Derive the pill label via the gamma-correct contrast picker rather than
+  // the simple-luminance `contrastTextColor`, which can mispick white on a
+  // mid-tone fill (e.g. a blue accent) where black is the legible choice.
+  const ctaButtonText =
+    props.ctaButtonTextColor ||
+    (isValidHex(ctaButtonBg)
+      ? pickContrastingColor(undefined, ctaButtonBg, [contrastTextColor(ctaButtonBg)], 4.5)
+      : contrastTextColor(ctaButtonBg));
   const textColor = props.textColor || "#FFFFFF";
   const overlayColor = props.overlayColor || "#000000";
   const overlayAlpha = Math.max(0, Math.min(100, props.overlayOpacity ?? 35)) / 100;

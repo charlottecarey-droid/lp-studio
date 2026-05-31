@@ -1,6 +1,6 @@
 import { ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, isValidHex, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
@@ -31,18 +31,32 @@ interface Props {
 export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, contentPaddingX, childrenSlot }: Props) {
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
-  // Contrast guard: if the author-picked CTA text color is too close to the
-  // button background (the classic "blue-on-blue" Zoom-style failure), fall
-  // back to brand primary, then to a guaranteed-legible black/white. Same
-  // for the small nav CTA in the top right.
+  const isFullWidth = props.buttonWidth === "full";
+  const isDark = isDarkBg(props.backgroundStyle);
+  // The hero CTA sits on the section surface: brand primary on dark
+  // backgrounds, white on light ones. Guard the accent-colored fill so it
+  // can't collapse onto a same-hue surface (the classic "blue-on-blue"
+  // Zoom-style failure), preferring the author/accent color and only falling
+  // back to primary, then a guaranteed-legible black/white, when it doesn't
+  // clear the WCAG UI-contrast bar.
+  const heroSurface = isDark
+    ? (isValidHex(FOREST) ? FOREST : DEFAULT_BRAND.primaryColor)
+    : "#ffffff";
+  const CTA_BG_COLOR = pickContrastingColor(
+    LIME,
+    heroSurface,
+    [brand.accentColor, FOREST, "#000000", "#ffffff"],
+    3.0,
+  );
+  // Keep the CTA label legible on whatever fill we land on; fall back to
+  // brand primary, then to black/white. Same idea for the small nav CTA in
+  // the top right (which sits on its own nav background).
   const CTA_TEXT_COLOR = pickContrastingColor(
     props.ctaTextColor || FOREST,
-    LIME,
+    CTA_BG_COLOR,
     [FOREST, "#ffffff", "#000000"],
   );
   const NAV_CTA_TEXT_COLOR = pickContrastingColor(FOREST, LIME, ["#ffffff", "#000000"]);
-  const isFullWidth = props.buttonWidth === "full";
-  const isDark = isDarkBg(props.backgroundStyle);
   const bgExtended = ["black", "gradient", "muted", "light-gray"].includes(props.backgroundStyle ?? "")
     ? getBgStyle(props.backgroundStyle)
     : undefined;
@@ -172,7 +186,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             modalShowCompany={props.modalShowCompany}
             onClick={onCtaClick}
             className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
-            style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
+            style={{ backgroundColor: CTA_BG_COLOR, color: CTA_TEXT_COLOR }}
             brand={brand}
             source="hero-cta"
             animationsEnabled={animationsEnabled}

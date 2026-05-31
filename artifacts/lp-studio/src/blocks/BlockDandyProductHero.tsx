@@ -6,6 +6,7 @@ import { useBrandConfig } from "@/components/BrandSwatches";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
 import { CtaButton } from "@/components/CtaButton";
+import { pickContrastingColor, isValidHex, contrastTextColor } from "@/lib/brand-config";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
 const BODY = BRAND_BODY_FONT;
@@ -48,9 +49,6 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
 
   const variant = p.variant ?? "split";
   const inputStyle = p.inputStyle ?? "rounded";
-  const buttonColor = p.buttonColor || p.buttonHoverColor || accent;
-  const buttonHoverColor = p.buttonHoverColor || p.buttonColor || accent;
-  const buttonTextColor = p.buttonTextColor || bg;
   const leftFr = p.leftColumnFr ?? 1.05;
   const rightFr = p.rightColumnFr ?? 1;
   const cardColor = p.cardColor || "#e8e6df";
@@ -61,6 +59,22 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const textColor = variant === "card" ? cardTextColor : baseTextColor;
   // Section background depends on variant.
   const sectionBg = variant === "split" ? bg : imageBgColor;
+
+  // Guard the CTA fill against the section it sits on. When both the section
+  // bg and the preferred button color are AI/tenant-chosen hexes (not the
+  // brand CSS-var fallback), resolve the fill + label with a WCAG contrast
+  // guard so an accent-colored button can't collapse onto a same-hue
+  // (e.g. accent ≈ primary) section. When either is still a CSS var we can't
+  // measure it, so the existing var-based colors are left untouched.
+  const rawButtonColor = p.buttonColor || p.buttonHoverColor || accent;
+  const canGuardCta = isValidHex(sectionBg) && isValidHex(rawButtonColor);
+  const buttonColor = canGuardCta
+    ? pickContrastingColor(rawButtonColor, sectionBg, [accent, bg, "#000000", "#ffffff"], 3.0)
+    : rawButtonColor;
+  const buttonHoverColor = p.buttonHoverColor || p.buttonColor || buttonColor;
+  const buttonTextColor = canGuardCta
+    ? pickContrastingColor(p.buttonTextColor, buttonColor, [contrastTextColor(buttonColor)], 4.5)
+    : (p.buttonTextColor || bg);
 
   const isPill = inputStyle === "rounded";
   const inputRadius = isPill ? "9999px" : "6px";

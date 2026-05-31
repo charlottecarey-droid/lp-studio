@@ -37,3 +37,4 @@
 - [Running long e2e via workflow](running-long-e2e-via-workflow.md) — bash 120s cap + reaped detached procs mean long Playwright specs must run in a temporary console workflow; poll getWorkflowStatus.
 - [notification_sends missing on drifted DB](notification-migration-skipped-on-drifted-db.md) — 0041 journaled below the dev branch's drizzle high-water mark = silently skipped; table absent though api sweep still 200s; apply DDL manually; check prod.
 - [Tenant LP default-noindex](tenant-lp-default-noindex.md) — all tenant LPs noindex by default (Dandy slug-excepted), fail CLOSED; emit via robots <meta> + X-Robots-Tag in BOTH R2 prerender (x-robots customMetadata, both CF workers) AND live paths.
+- [contrastTextColor mispick](contrast-text-color-mispick.md) — contrastTextColor uses non-gamma luminance + 0.55 cutoff, mispicks white on mid-tone fills; CTA labels must use pickContrastingColor(…,4.5).
