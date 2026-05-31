@@ -34,6 +34,7 @@ import {
   redeemEmailToken,
   invalidateUserTokens,
 } from "../lib/authEmailTokens";
+import { mintOAuthState, redeemOAuthState } from "../lib/oauthState";
 import { dispatchNotification } from "../lib/notificationDispatcher";
 import { enqueueWorkflowTrigger } from "../lib/workflowEngine";
 import {
@@ -393,7 +394,7 @@ async function establishSession(
 }
 
 // GET /api/auth/google — initiates Google OAuth flow
-router.get("/auth/google", oauthInitLimiter, (req, res): void => {
+router.get("/auth/google", oauthInitLimiter, async (req, res): Promise<void> => {
   // Determine the host the request came from (custom domain, wildcard tenant
   // subdomain via Cloudflare Worker, or dev domain).
   const originHost = getRequestHost(req);
@@ -409,9 +410,19 @@ router.get("/auth/google", oauthInitLimiter, (req, res): void => {
   // page" lands back on `/pages?new=ai&prompt=…` rather than the workspace
   // root. Anything that isn't a same-origin relative path is dropped.
   const nextPath = sanitizeNextPath((req.query as { next?: unknown }).next);
-  // Embed origin host + redirect URI + next path in state so the callback can
-  // replicate the exact redirect URI and resume the destination handoff.
-  const state = Buffer.from(JSON.stringify({ host: originHost, redirectUri, next: nextPath })).toString("base64url");
+  // Mint a cryptographically-strong, server-stored, single-use state nonce and
+  // stash the origin host + redirect URI + next path against it. The callback
+  // redeems the nonce BEFORE token exchange, defeating login CSRF (an attacker
+  // can't forge or replay a nonce we never minted). Only the opaque nonce ever
+  // travels to the provider, so the flow context can't be tampered with either.
+  let state: string;
+  try {
+    state = await mintOAuthState("google", { host: originHost, redirectUri, next: nextPath });
+  } catch (err) {
+    console.error("[auth] failed to mint Google OAuth state:", err);
+    res.status(503).json({ error: "Login temporarily unavailable. Please try again." });
+    return;
+  }
   const url = client.generateAuthUrl({
     access_type: "online",
     scope: ["openid", "email", "profile"],
@@ -429,18 +440,19 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  // Decode origin host + redirect URI + next destination from state
-  let originHost = "";
-  let stateRedirectUri = "";
-  let nextPath: string | null = null;
-  try {
-    if (stateParam) {
-      const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf8"));
-      originHost = decoded.host ?? "";
-      stateRedirectUri = decoded.redirectUri ?? "";
-      nextPath = sanitizeNextPath(decoded.next);
-    }
-  } catch { /* ignore malformed state */ }
+  // Verify the `state` against the server-stored single-use nonce BEFORE any
+  // token exchange or session creation. This binds the callback to a flow WE
+  // initiated, defeating login CSRF — an attacker can't forge a nonce we never
+  // minted, and a captured nonce can't be replayed (redemption is atomic and
+  // single-use). A missing / forged / replayed / expired nonce fails closed.
+  const stateData = await redeemOAuthState(stateParam, "google");
+  if (!stateData) {
+    res.redirect("/?error=invalid_state");
+    return;
+  }
+  const originHost = stateData.host;
+  const stateRedirectUri = stateData.redirectUri;
+  const nextPath: string | null = sanitizeNextPath(stateData.next);
 
   // Use the same redirect URI that was used when initiating the flow
   const callbackClient = getOAuthClient(stateRedirectUri || getRedirectUri(originHost));
@@ -574,7 +586,7 @@ router.get("/auth/github/config", (_req, res): void => {
 });
 
 // GET /api/auth/github — initiates the GitHub OAuth flow.
-router.get("/auth/github", oauthInitLimiter, (req, res): void => {
+router.get("/auth/github", oauthInitLimiter, async (req, res): Promise<void> => {
   const cfg = getGithubOAuthConfig();
   if (!cfg) {
     res.status(503).json({ error: "GitHub OAuth not configured. Set GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET." });
@@ -585,7 +597,17 @@ router.get("/auth/github", oauthInitLimiter, (req, res): void => {
   // Optional `?next=` — a same-origin relative path to resume after the OAuth
   // round-trip (mirrors the Google flow). Anything else is dropped.
   const nextPath = sanitizeNextPath((req.query as { next?: unknown }).next);
-  const state = Buffer.from(JSON.stringify({ host: originHost, redirectUri, next: nextPath })).toString("base64url");
+  // Mint a server-stored single-use state nonce (same login-CSRF defense as the
+  // Google flow). Only the opaque nonce travels to GitHub; the callback redeems
+  // it before token exchange and reads the flow context from our DB.
+  let state: string;
+  try {
+    state = await mintOAuthState("github", { host: originHost, redirectUri, next: nextPath });
+  } catch (err) {
+    console.error("[auth] failed to mint GitHub OAuth state:", err);
+    res.status(503).json({ error: "Login temporarily unavailable. Please try again." });
+    return;
+  }
   const authUrl = new URL("https://github.com/login/oauth/authorize");
   authUrl.searchParams.set("client_id", cfg.clientId);
   authUrl.searchParams.set("redirect_uri", redirectUri);
@@ -603,18 +625,17 @@ router.get("/auth/github/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  // Decode origin host + redirect URI + next destination from state.
-  let originHost = "";
-  let stateRedirectUri = "";
-  let nextPath: string | null = null;
-  try {
-    if (stateParam) {
-      const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf8"));
-      originHost = decoded.host ?? "";
-      stateRedirectUri = decoded.redirectUri ?? "";
-      nextPath = sanitizeNextPath(decoded.next);
-    }
-  } catch { /* ignore malformed state */ }
+  // Verify the `state` against the server-stored single-use nonce BEFORE any
+  // token exchange or session creation (same login-CSRF defense as the Google
+  // callback). A missing / forged / replayed / expired nonce fails closed.
+  const stateData = await redeemOAuthState(stateParam, "github");
+  if (!stateData) {
+    res.redirect("/?error=invalid_state");
+    return;
+  }
+  const originHost = stateData.host;
+  const stateRedirectUri = stateData.redirectUri;
+  const nextPath: string | null = sanitizeNextPath(stateData.next);
 
   const cfg = getGithubOAuthConfig();
   if (!cfg) {

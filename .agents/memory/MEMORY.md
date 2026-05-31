@@ -64,3 +64,4 @@
 - [Stripe accounts self-heal gating](stripe-accounts-selfheal-gating.md) — stripe.accounts boot heal must be GATED on tracker (0050 applied) unlike drizzle self-heals; pre-creating it wedges the package's non-idempotent 0046+ migrations.
 - [Turnstile secret-presence gating](turnstile-secret-presence-gating.md) — global secret enables Turnstile in dev+e2e too; prod boot guard fails publish at startup probe; needs paired SITE key + `TURNSTILE_SECRET_KEY:""` in playwright.config.
 - [Trial phone gate](trial-phone-gate.md) — one-trial-per-SMS-phone gate is fail-safe-OFF on twilioConfigured() (dev/e2e keep legacy signup); client echo of canonical E.164 is safe (Twilio Verify gates it).
+- [OAuth login-CSRF state nonce](oauth-login-state-csrf.md) — both OAuth callbacks redeem a server-stored single-use nonce (oauth_login_states) before token exchange; test the gate hermetically via the oauth_not_configured fall-through.

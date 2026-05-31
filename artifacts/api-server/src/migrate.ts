@@ -568,6 +568,37 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the oauth_login_states table (OAuth login-CSRF
+    // hardening). Same high-water-mark hazard as the self-heals above: on a DB
+    // whose journal was renumbered after it was migrated, drizzle can record
+    // 0060 as applied without its DDL ever running, leaving the table missing.
+    // Both OAuth callbacks redeem a single-use state nonce from this table
+    // BEFORE token exchange; a missing table would throw on every redeem and
+    // break ALL Google + GitHub logins (fail closed, as designed). Re-applying
+    // the file here is independent of drizzle's dedup and idempotent
+    // (CREATE TABLE/INDEX IF NOT EXISTS), so it creates the table where missing
+    // and is a no-op elsewhere. Fails CLOSED: the table is auth-critical, so a
+    // missing table aborts the release; the SQL is idempotent so a retry is
+    // always safe.
+    await runStep("oauth_login_states self-heal (0060)", async () => {
+      const oauthStatesSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0060_oauth_login_states.sql"),
+        "utf8",
+      );
+      await pool.query(oauthStatesSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'oauth_login_states'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "oauth_login_states self-heal did not produce the table — aborting release",
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under
