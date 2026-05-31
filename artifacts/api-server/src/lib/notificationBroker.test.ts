@@ -19,9 +19,9 @@ var clients: FakeClient[] = [];
 vi.mock("pg", async () => {
   const { EventEmitter: EE } = await import("node:events");
   class FakeClientImpl extends EE {
-    connectMock = vi.fn(async () => {});
-    queryMock = vi.fn(async () => ({ rows: [] }));
-    endMock = vi.fn(async () => {});
+    connectMock = vi.fn(async (..._a: unknown[]) => {});
+    queryMock = vi.fn(async (..._a: unknown[]) => ({ rows: [] }));
+    endMock = vi.fn(async (..._a: unknown[]) => {});
     constructor(public opts: unknown) {
       super();
       clients.push(this as unknown as FakeClient);
@@ -33,7 +33,7 @@ vi.mock("pg", async () => {
   return { default: { Client: FakeClientImpl } };
 });
 
-const poolQueryMock = vi.fn(async () => ({ rows: [] }));
+const poolQueryMock = vi.fn(async (..._a: unknown[]) => ({ rows: [] }));
 vi.mock("@workspace/db", () => ({
   pool: { query: (...a: unknown[]) => poolQueryMock(...a) },
 }));
