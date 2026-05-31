@@ -34,6 +34,7 @@ import {
   getZoneName,
 } from "../lib/cloudflare";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
+import { hashPhone, normalizeE164Input } from "../lib/phoneVerification";
 import { invalidateDomainContextForTenant } from "./auth";
 import dns from "dns/promises";
 import https from "https";
@@ -2531,6 +2532,46 @@ router.get(
     }
   },
 );
+
+// POST /api/admin/superadmin/trial-phones/lookup — given a raw phone number,
+// normalize it to E.164 and hash it with the SAME function the gate uses, then
+// report whether that hash already has a trial record (and surface the joined
+// row so the UI can highlight/release it without the operator hashing by hand).
+//
+// The raw number lives only in the request body for the duration of the hash —
+// it is NEVER persisted and NEVER logged (only the resulting hash is returned).
+router.post("/superadmin/trial-phones/lookup", requireSuperadmin, async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as { phone?: unknown };
+  const e164 = normalizeE164Input(body.phone);
+  if (!e164) {
+    res.status(400).json({
+      error: "Enter a full phone number in international format, e.g. +15551234567.",
+    });
+    return;
+  }
+  try {
+    const phoneHash = hashPhone(e164);
+    const result = await pool.query(
+      `
+      SELECT
+        tpn.phone_hash,
+        tpn.tenant_id,
+        tpn.created_at,
+        t.name AS tenant_name,
+        t.slug AS tenant_slug
+      FROM trial_phone_numbers tpn
+      LEFT JOIN tenants t ON t.id = tpn.tenant_id
+      WHERE tpn.phone_hash = $1
+    `,
+      [phoneHash],
+    );
+    const row = result.rows[0] ?? null;
+    res.json({ phoneHash, found: !!row, row });
+  } catch (err) {
+    console.error("[superadmin] POST /trial-phones/lookup error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 // DELETE /api/admin/superadmin/trial-phones/:phoneHash — release a gated phone
 // so that number can start a fresh trial. The phoneHash is the table's primary

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -8,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { History, Loader2, RefreshCw, Smartphone } from "lucide-react";
+import { History, Loader2, RefreshCw, Search, Smartphone } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -82,12 +83,31 @@ function fmtDateTime(iso: string | null): string {
   });
 }
 
+// Result of a phone lookup. `row` is the matching trial record (when `found`),
+// or null when the (valid, normalized) number has never used a trial. The raw
+// number the operator typed is never echoed back — only the resulting hash.
+interface LookupResult {
+  phoneHash: string;
+  found: boolean;
+  row: TrialPhoneRow | null;
+}
+
 export default function SuperAdminTrialPhones() {
   const [rows, setRows] = useState<TrialPhoneRow[] | null>(null);
   const [releases, setReleases] = useState<ReleaseLogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyHash, setBusyHash] = useState<string | null>(null);
+
+  // Lookup box state. `phoneInput` is kept only in component memory so the raw
+  // number never lands in a URL/query (and thus never in access logs).
+  const [phoneInput, setPhoneInput] = useState("");
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<LookupResult | null>(null);
+  // Hash of the most recent match, so the matching table row can be highlighted.
+  const [highlightHash, setHighlightHash] = useState<string | null>(null);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +130,35 @@ export default function SuperAdminTrialPhones() {
     load();
   }, [load]);
 
+  // Scroll the highlighted row into view once a match is found.
+  useEffect(() => {
+    if (highlightHash && highlightRowRef.current) {
+      highlightRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightHash, rows]);
+
+  const handleLookup = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const phone = phoneInput.trim();
+    if (!phone) return;
+    setLookupBusy(true);
+    setLookupError(null);
+    setLookup(null);
+    setHighlightHash(null);
+    try {
+      const data = (await apiFetch("/api/admin/superadmin/trial-phones/lookup", {
+        method: "POST",
+        body: JSON.stringify({ phone }),
+      })) as LookupResult;
+      setLookup(data);
+      setHighlightHash(data.found ? data.phoneHash : null);
+    } catch (err) {
+      setLookupError(parseError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setLookupBusy(false);
+    }
+  };
+
   const handleRelease = async (row: TrialPhoneRow) => {
     if (
       !window.confirm(
@@ -125,6 +174,11 @@ export default function SuperAdminTrialPhones() {
       await apiFetch(`/api/admin/superadmin/trial-phones/${row.phone_hash}`, {
         method: "DELETE",
       });
+      // Clear any lookup result pointing at the just-released record.
+      if (lookup?.phoneHash === row.phone_hash) {
+        setLookup(null);
+        setHighlightHash(null);
+      }
       await load();
     } catch (err) {
       setError(parseError(err instanceof Error ? err.message : String(err)));
@@ -153,6 +207,86 @@ export default function SuperAdminTrialPhones() {
         </Button>
       </div>
 
+      <form
+        onSubmit={handleLookup}
+        className="rounded-lg border bg-muted/30 p-3 space-y-2"
+      >
+        <label htmlFor="trial-phone-lookup" className="text-sm font-medium">
+          Check a phone number
+        </label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            id="trial-phone-lookup"
+            value={phoneInput}
+            onChange={(e) => setPhoneInput(e.target.value)}
+            placeholder="+15551234567"
+            autoComplete="off"
+            className="sm:max-w-xs font-mono"
+          />
+          <Button type="submit" size="sm" disabled={lookupBusy || !phoneInput.trim()}>
+            {lookupBusy ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Search className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Look up
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Enter the full number including country code (e.g. +1 for the US). The
+          number is hashed exactly like the trial gate and discarded — it is
+          never stored or logged.
+        </p>
+        {lookupError && <p className="text-sm text-destructive">{lookupError}</p>}
+        {lookup && (
+          <div
+            className={`rounded-md border p-3 text-sm ${
+              lookup.found
+                ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                : "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
+            }`}
+          >
+            {lookup.found && lookup.row ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-medium">
+                    This number has already used a free trial.
+                  </span>{" "}
+                  {lookup.row.tenant_id === null ? (
+                    <span className="italic">Tenant deleted.</span>
+                  ) : (
+                    <span>
+                      Workspace: {lookup.row.tenant_name ?? `#${lookup.row.tenant_id}`}
+                      {lookup.row.tenant_slug && (
+                        <span className="font-mono ml-1">{lookup.row.tenant_slug}</span>
+                      )}
+                      {" · "}Trialed on {fmtDate(lookup.row.created_at)}.
+                    </span>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={busyHash === lookup.row.phone_hash}
+                  onClick={() => handleRelease(lookup.row!)}
+                >
+                  {busyHash === lookup.row.phone_hash ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    "Release"
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <span className="font-medium">
+                This number has not used a free trial.
+              </span>
+            )}
+          </div>
+        )}
+      </form>
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="border rounded-lg overflow-hidden">
@@ -180,8 +314,14 @@ export default function SuperAdminTrialPhones() {
                 </TableCell>
               </TableRow>
             )}
-            {rows?.map((row) => (
-              <TableRow key={row.phone_hash}>
+            {rows?.map((row) => {
+              const isHighlighted = highlightHash === row.phone_hash;
+              return (
+              <TableRow
+                key={row.phone_hash}
+                ref={isHighlighted ? highlightRowRef : undefined}
+                className={isHighlighted ? "bg-amber-100/70 dark:bg-amber-950/40" : undefined}
+              >
                 <TableCell>
                   <code className="font-mono text-xs" title={row.phone_hash}>
                     {row.phone_hash.slice(0, 16)}…
@@ -222,7 +362,8 @@ export default function SuperAdminTrialPhones() {
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </div>

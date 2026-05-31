@@ -35,6 +35,14 @@ const HASH_A = createHash("sha256").update(`+1555000${RUN}1`).digest("hex");
 const HASH_B = createHash("sha256").update(`+1555000${RUN}2`).digest("hex");
 const HASH_GHOST = createHash("sha256").update(`+1555000${RUN}9`).digest("hex");
 
+// Lookup tests normalize a raw operator-typed number, so the fixtures must be
+// DIGIT-only valid E.164 (RUN is hex and may contain a–f). Map each RUN char to
+// a digit to get a stable, unique 8-digit suffix.
+const DIGITS = RUN.replace(/[a-f]/g, (c) => String(c.charCodeAt(0) % 10));
+const RAW_LOOKUP = `+1555${DIGITS}`; // +1 555 + 8 digits = valid E.164
+const HASH_LOOKUP = createHash("sha256").update(RAW_LOOKUP).digest("hex");
+const RAW_UNSEEDED = `+1556${DIGITS}`; // valid, but never inserted
+
 let app: Express;
 let superId = 0;
 let repId = 0;
@@ -67,10 +75,14 @@ async function insertUser(email: string, role: string): Promise<number> {
 
 async function cleanup(): Promise<void> {
   await pool
-    .query(`DELETE FROM trial_phone_release_log WHERE phone_hash = ANY($1)`, [[HASH_A, HASH_B, HASH_GHOST]])
+    .query(`DELETE FROM trial_phone_release_log WHERE phone_hash = ANY($1)`, [
+      [HASH_A, HASH_B, HASH_GHOST, HASH_LOOKUP],
+    ])
     .catch(() => {});
   await pool
-    .query(`DELETE FROM trial_phone_numbers WHERE phone_hash = ANY($1)`, [[HASH_A, HASH_B, HASH_GHOST]])
+    .query(`DELETE FROM trial_phone_numbers WHERE phone_hash = ANY($1)`, [
+      [HASH_A, HASH_B, HASH_GHOST, HASH_LOOKUP],
+    ])
     .catch(() => {});
   await pool.query(`DELETE FROM app_sessions WHERE sid = ANY($1)`, [[SUPER_SID, REP_SID]]).catch(() => {});
   await pool.query(`DELETE FROM app_users WHERE email = ANY($1)`, [[SUPER_EMAIL, REP_EMAIL]]).catch(() => {});
@@ -90,8 +102,8 @@ beforeAll(async () => {
   tenantId = trows[0].id;
 
   await pool.query(
-    `INSERT INTO trial_phone_numbers (phone_hash, tenant_id) VALUES ($1, $2), ($3, $2)`,
-    [HASH_A, tenantId, HASH_B],
+    `INSERT INTO trial_phone_numbers (phone_hash, tenant_id) VALUES ($1, $2), ($3, $2), ($4, $2)`,
+    [HASH_A, tenantId, HASH_B, HASH_LOOKUP],
   );
 
   await pool.query(
@@ -136,6 +148,55 @@ describe("trial-phones — list", () => {
 
   it("rejects a non-superadmin with 403", async () => {
     const res = await asRep("GET", "/superadmin/trial-phones");
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("trial-phones — lookup", () => {
+  it("reports a number that has trialed, joined to its tenant, and matches the seeded hash", async () => {
+    const res = await asSuper("POST", "/superadmin/trial-phones/lookup", { phone: RAW_LOOKUP });
+    expect(res.status).toBe(200);
+    const body = res.json as {
+      phoneHash: string;
+      found: boolean;
+      row: { phone_hash: string; tenant_id: number | null; tenant_slug: string | null } | null;
+    };
+    expect(body.phoneHash).toBe(HASH_LOOKUP);
+    expect(body.found).toBe(true);
+    expect(body.row?.phone_hash).toBe(HASH_LOOKUP);
+    expect(body.row?.tenant_id).toBe(tenantId);
+    expect(body.row?.tenant_slug).toBe(`trial-phone-it-${RUN}`);
+  });
+
+  it("normalizes formatting (spaces/dashes/parens) to the same hash", async () => {
+    // Same digits as RAW_LOOKUP, just visually formatted — must still match.
+    const formatted = `${RAW_LOOKUP.slice(0, 2)} (${RAW_LOOKUP.slice(2, 5)}) ${RAW_LOOKUP.slice(
+      5,
+    )}`.replace(/(\d{4})$/, "-$1");
+    const res = await asSuper("POST", "/superadmin/trial-phones/lookup", { phone: ` ${formatted} ` });
+    expect(res.status).toBe(200);
+    const body = res.json as { phoneHash: string; found: boolean };
+    expect(body.phoneHash).toBe(HASH_LOOKUP);
+    expect(body.found).toBe(true);
+  });
+
+  it("reports a valid number that has NOT trialed as not found", async () => {
+    const res = await asSuper("POST", "/superadmin/trial-phones/lookup", { phone: RAW_UNSEEDED });
+    expect(res.status).toBe(200);
+    const body = res.json as { phoneHash: string; found: boolean; row: unknown };
+    expect(body.found).toBe(false);
+    expect(body.row).toBeNull();
+    expect(body.phoneHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("rejects an unparseable number with 400 (no hash leaked)", async () => {
+    const res = await asSuper("POST", "/superadmin/trial-phones/lookup", { phone: "not a phone" });
+    expect(res.status).toBe(400);
+    expect((res.json as { phoneHash?: string }).phoneHash).toBeUndefined();
+  });
+
+  it("rejects a non-superadmin with 403", async () => {
+    const res = await asRep("POST", "/superadmin/trial-phones/lookup", { phone: RAW_LOOKUP });
     expect(res.status).toBe(403);
   });
 });

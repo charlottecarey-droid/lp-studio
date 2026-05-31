@@ -38,6 +38,25 @@ export function isValidE164(value: unknown): value is string {
 }
 
 /**
+ * Best-effort normalization of an operator-typed phone number to the strict
+ * E.164 form the gate hashes, for the superadmin lookup box only. Strips common
+ * formatting (spaces, dashes, dots, parentheses) and accepts a `00` IDD prefix
+ * in place of `+`. Returns the E.164 string when the cleaned value is valid,
+ * else null.
+ *
+ * The signup gate canonicalizes via Twilio Lookup (which can infer a country
+ * code from a national number); here the operator already knows the full number
+ * and includes the country code, so a Twilio round-trip per lookup is avoided.
+ * The raw input is used only transiently to produce a hash — never persisted.
+ */
+export function normalizeE164Input(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let s = raw.trim().replace(/[\s().\-]/g, "");
+  if (s.startsWith("00")) s = "+" + s.slice(2);
+  return isValidE164(s) ? s : null;
+}
+
+/**
  * Mint a single-use, short-lived token proving `userId` controls `phoneE164`.
  * Returns the raw token (the only place it ever exists in cleartext); only its
  * hash is stored. Any earlier un-redeemed token for the user is invalidated so
