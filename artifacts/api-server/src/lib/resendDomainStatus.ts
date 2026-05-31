@@ -139,4 +139,130 @@ export async function getResendDomainStatus(
 /** Test helper — clear the in-memory cache. */
 export function _clearResendDomainStatusCache(): void {
   cache.clear();
+  verifiedListCache = null;
+}
+
+// ---------------------------------------------------------------------------
+// Verified sending-domain allowlist (Task #597)
+//
+// The email-template editor lets operators/tenants pick a custom "from" address
+// per template. A from-address whose domain isn't verified for sending in
+// Resend silently fails (or gets spoof-rejected). These helpers fetch the
+// account's verified domains once (cached globally — the Resend domain list is
+// account-wide, not per tenant) so both the save-time guard and the editor's
+// live warning can check a typed address against the allowed set.
+// ---------------------------------------------------------------------------
+
+const VERIFIED_LIST_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface VerifiedListCache {
+  value: { domains: string[]; available: boolean };
+  expiresAt: number;
+}
+let verifiedListCache: VerifiedListCache | null = null;
+
+/**
+ * The set of verified sending domains in the Resend account. `available` is
+ * false when we couldn't determine the list (no RESEND_API_KEY, or the API
+ * errored) — callers MUST treat that as "can't verify" and fail open rather
+ * than block, so a missing key in dev never wedges template saves.
+ */
+export async function listVerifiedSendingDomains(
+  opts: { force?: boolean } = {},
+): Promise<{ domains: string[]; available: boolean }> {
+  if (!opts.force && verifiedListCache && verifiedListCache.expiresAt > Date.now()) {
+    return verifiedListCache.value;
+  }
+
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    const value = { domains: [] as string[], available: false };
+    // Short TTL so a key added later is picked up quickly.
+    verifiedListCache = { value, expiresAt: Date.now() + 30_000 };
+    return value;
+  }
+
+  try {
+    const resp = await fetch("https://api.resend.com/domains", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!resp.ok) {
+      const value = { domains: [] as string[], available: false };
+      verifiedListCache = { value, expiresAt: Date.now() + 30_000 };
+      return value;
+    }
+    const body = (await resp.json()) as { data?: Array<{ name?: string; status?: string }> };
+    const list = Array.isArray(body?.data) ? body.data : [];
+    const domains = list
+      .filter((d) => normalizeStatus(d?.status) === "verified")
+      .map((d) => (d?.name ?? "").trim().toLowerCase())
+      .filter((n) => n.length > 0);
+    const value = { domains: Array.from(new Set(domains)), available: true };
+    verifiedListCache = { value, expiresAt: Date.now() + VERIFIED_LIST_TTL_MS };
+    return value;
+  } catch (err) {
+    console.error("listVerifiedSendingDomains error:", err);
+    const value = { domains: [] as string[], available: false };
+    verifiedListCache = { value, expiresAt: Date.now() + 30_000 };
+    return value;
+  }
+}
+
+/**
+ * Extract the lowercase domain from a "from"/"reply-to" value, accepting either
+ * a bare address (`a@b.com`) or display-name form (`Acme <a@b.com>`). Returns
+ * null when the value contains no plausible address.
+ */
+export function extractAddressDomain(rawFrom: string): string | null {
+  const angle = rawFrom.match(/<([^>]+)>\s*$/);
+  const addr = (angle ? angle[1] : rawFrom).trim();
+  const m = addr.match(/^[^\s@]+@([^\s@]+\.[^\s@]+)$/);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** Domain of the platform default sender — always allowed (it's what we send from). */
+function defaultSenderDomain(): string | null {
+  const def = process.env["RESEND_FROM_EMAIL"] || "LP Studio <noreply@lpstudio.ai>";
+  return extractAddressDomain(def);
+}
+
+/**
+ * The domains an operator may use in a custom from-address: every verified
+ * Resend domain plus the platform default's domain. `available` mirrors
+ * listVerifiedSendingDomains — false means "couldn't determine".
+ */
+export async function getAllowedSenderDomains(
+  opts: { force?: boolean } = {},
+): Promise<{ domains: string[]; available: boolean }> {
+  const { domains, available } = await listVerifiedSendingDomains(opts);
+  const set = new Set(domains);
+  const def = defaultSenderDomain();
+  if (def) set.add(def);
+  return { domains: Array.from(set), available };
+}
+
+export interface SenderDomainCheck {
+  /** true = allowed to save (verified / default domain, OR undeterminable). */
+  allowed: boolean;
+  /** extracted lowercase domain, or null when the value has no address. */
+  domain: string | null;
+  /** whether the verified list could be fetched (false = couldn't determine). */
+  available: boolean;
+  /** the allowed domains, to surface in messaging. */
+  allowedDomains: string[];
+}
+
+/**
+ * Check a custom from-address against the verified sending-domain allowlist.
+ * Fails OPEN when the list is undeterminable (no key / API down) or the value
+ * has no parseable domain (format validation handles the latter elsewhere).
+ */
+export async function checkSenderDomain(rawFrom: string): Promise<SenderDomainCheck> {
+  const domain = extractAddressDomain(rawFrom);
+  const { domains, available } = await getAllowedSenderDomains();
+  if (!available || !domain) {
+    return { allowed: true, domain, available, allowedDomains: domains };
+  }
+  return { allowed: domains.includes(domain), domain, available, allowedDomains: domains };
 }

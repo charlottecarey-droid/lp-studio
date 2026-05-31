@@ -16,6 +16,7 @@ import type { VariableDefinition } from "@workspace/notification-variables";
 import {
   EmailTemplateEditor,
   type EmailTemplateValue,
+  type VerifiedSendingDomains,
 } from "@/components/EmailTemplateEditor";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -80,10 +81,12 @@ function toDraft(t: Template): Draft {
 function TemplateDetail({
   tpl,
   variables,
+  verifiedDomains,
   onSaved,
 }: {
   tpl: Template;
   variables: VariableDefinition[];
+  verifiedDomains?: VerifiedSendingDomains;
   onSaved: (templates: Template[]) => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(tpl));
@@ -203,6 +206,7 @@ function TemplateDetail({
           variables={variables}
           renderPreview={renderPreview}
           onTestSend={onTestSend}
+          verifiedDomains={verifiedDomains}
         />
       </div>
 
@@ -468,6 +472,7 @@ const SHELL_KEY = "__shell__";
 export default function EmailPage() {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [variables, setVariables] = useState<VariableDefinition[]>([]);
+  const [verifiedDomains, setVerifiedDomains] = useState<VerifiedSendingDomains | undefined>();
   const [selected, setSelected] = useState<string>(SHELL_KEY);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -495,6 +500,22 @@ export default function EmailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Verified sending domains for the from-address warning. Best-effort: a
+  // failure just leaves the warning suppressed (the save guard still enforces).
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/tenant/sending-domains")
+      .then((d) => {
+        if (!cancelled) setVerifiedDomains(d as VerifiedSendingDomains);
+      })
+      .catch(() => {
+        /* ignore — warning stays suppressed */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Template[]>();
@@ -590,6 +611,7 @@ export default function EmailPage() {
                 key={selectedTpl.key}
                 tpl={selectedTpl}
                 variables={variables}
+                verifiedDomains={verifiedDomains}
                 onSaved={setTemplates}
               />
             ) : (

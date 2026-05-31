@@ -60,6 +60,11 @@ import {
   lifecycleEmailTemplateKeys,
 } from "../lib/notificationPreferences";
 import { getRequestHost } from "../lib/requestHost";
+import {
+  checkSenderDomain,
+  getAllowedSenderDomains,
+  type SenderDomainCheck,
+} from "../lib/resendDomainStatus";
 
 const router: IRouter = Router();
 
@@ -390,6 +395,23 @@ function envelopeOrNull(
 }
 
 /**
+ * Build the human-readable error shown when a custom from-address uses a domain
+ * that isn't a verified sending domain. Lists the allowed domains so the user
+ * knows what they can pick (or to leave the field blank for the default).
+ */
+function senderDomainError(check: SenderDomainCheck): string {
+  const allowed = check.allowedDomains.length
+    ? check.allowedDomains.join(", ")
+    : "none are verified yet";
+  return (
+    `The sender domain "${check.domain}" isn't a verified sending domain, so ` +
+    `emails from it would fail to deliver or be rejected. Use an address on a ` +
+    `verified domain (${allowed}), or leave the sender blank to use the ` +
+    `platform default. Add and verify the domain in Resend to send from it.`
+  );
+}
+
+/**
  * Resolve the inbox preheader (preview text) for a render. An operator override
  * wins; otherwise it falls back to the template's intro (today's behavior), with
  * `{{token}}` substitution applied so the preview matches delivery.
@@ -499,6 +521,23 @@ router.get("/admin/notification-templates", requireSuperadmin, async (_req, res)
   }
 });
 
+/**
+ * GET /api/admin/sending-domains — the verified sending domains a custom
+ * from-address may use. The editor renders these as the allowed set and warns
+ * live when a typed domain isn't among them. `available: false` means the list
+ * couldn't be determined (no Resend key / API down) — the editor then suppresses
+ * the warning and the save guard fails open.
+ */
+router.get("/admin/sending-domains", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const { domains, available } = await getAllowedSenderDomains();
+    res.json({ domains, available });
+  } catch (err) {
+    console.error("[notifications] admin sending-domains error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 /** GET /api/admin/notification-templates/:key — one resolved template. */
 router.get("/admin/notification-templates/:key", requireSuperadmin, async (req, res): Promise<void> => {
   const key = String(req.params.key);
@@ -556,6 +595,15 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
   if ("error" in fromRes) {
     res.status(400).json({ error: fromRes.error });
     return;
+  }
+  // A custom from-address must use a verified sending domain or real sends fail
+  // silently. Fails open when the verified list can't be determined.
+  if (fromRes.value) {
+    const domainCheck = await checkSenderDomain(fromRes.value);
+    if (!domainCheck.allowed) {
+      res.status(400).json({ error: senderDomainError(domainCheck), code: "unverified_sender_domain" });
+      return;
+    }
   }
   const replyRes = envelopeOrNull(b.replyTo, "reply-to address");
   if ("error" in replyRes) {
@@ -1255,6 +1303,26 @@ router.get(
   },
 );
 
+/**
+ * GET /api/tenant/sending-domains — verified sending domains a tenant's custom
+ * from-address may use (account-wide verified domains + the platform default).
+ * Mirrors the admin route; powers the editor's live warning and allowed-set hint.
+ */
+router.get(
+  "/tenant/sending-domains",
+  requireAuth,
+  requirePermission("settings"),
+  async (_req, res): Promise<void> => {
+    try {
+      const { domains, available } = await getAllowedSenderDomains();
+      res.json({ domains, available });
+    } catch (err) {
+      console.error("[notifications] tenant sending-domains error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 /** GET /api/tenant/notification-templates/:key — one resolved tenant template. */
 router.get(
   "/tenant/notification-templates/:key",
@@ -1309,6 +1377,15 @@ router.patch(
     if ("error" in fromRes) {
       res.status(400).json({ error: fromRes.error });
       return;
+    }
+    // A custom from-address must use a verified sending domain or real sends
+    // fail silently. Fails open when the verified list can't be determined.
+    if (fromRes.value) {
+      const domainCheck = await checkSenderDomain(fromRes.value);
+      if (!domainCheck.allowed) {
+        res.status(400).json({ error: senderDomainError(domainCheck), code: "unverified_sender_domain" });
+        return;
+      }
     }
     const replyRes = envelopeOrNull(b.replyTo, "reply-to address");
     if ("error" in replyRes) {

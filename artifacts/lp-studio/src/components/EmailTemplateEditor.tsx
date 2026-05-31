@@ -25,6 +25,16 @@ export interface EmailTemplateValue {
   preheaderText: string;
 }
 
+/**
+ * Verified sending domains a custom from-address may use. `available: false`
+ * means the list couldn't be determined (no Resend key / API down) — the editor
+ * then suppresses the warning so a dev environment isn't nagged.
+ */
+export interface VerifiedSendingDomains {
+  domains: string[];
+  available: boolean;
+}
+
 interface Props {
   value: EmailTemplateValue;
   onChange: (patch: Partial<EmailTemplateValue>) => void;
@@ -36,6 +46,22 @@ interface Props {
    * server sends to the signed-in superadmin.
    */
   onTestSend?: (value: EmailTemplateValue, to: string) => Promise<void>;
+  /**
+   * Allowed sending domains for the from-address. When provided and available,
+   * the editor lists them and warns live if the typed domain isn't verified.
+   */
+  verifiedDomains?: VerifiedSendingDomains;
+}
+
+/**
+ * Extract the lowercase domain from a from-address (`a@b.com` or `Name <a@b.com>`).
+ * Mirrors the server's parser so the live warning matches the save-time guard.
+ */
+function fromAddressDomain(raw: string): string | null {
+  const angle = raw.match(/<([^>]+)>\s*$/);
+  const addr = (angle ? angle[1] : raw).trim();
+  const m = addr.match(/^[^\s@]+@([^\s@]+\.[^\s@]+)$/);
+  return m ? m[1].toLowerCase() : null;
 }
 
 function toInserterItems(vars: VariableDefinition[]): VarInserterItem[] {
@@ -52,6 +78,7 @@ export function EmailTemplateEditor({
   variables,
   renderPreview,
   onTestSend,
+  verifiedDomains,
 }: Props) {
   const wysiwygRef = useRef<EmailEditorHandle>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
@@ -64,6 +91,17 @@ export function EmailTemplateEditor({
 
   const items = toInserterItems(variables);
   const mergeVars = variables.map((v) => ({ label: v.label, variable: v.token }));
+
+  // Live sender-domain check. Only warn when we have a known verified list and
+  // the typed from-address resolves to a domain that isn't in it. A blank
+  // from-address (uses the platform default) never warns.
+  const allowedDomains = verifiedDomains?.domains ?? [];
+  const domainListKnown = verifiedDomains?.available === true && allowedDomains.length > 0;
+  const typedDomain = value.fromEmail.trim() ? fromAddressDomain(value.fromEmail) : null;
+  const unverifiedDomain =
+    domainListKnown && typedDomain !== null && !allowedDomains.includes(typedDomain)
+      ? typedDomain
+      : null;
 
   const insertIntoSubject = useCallback(
     (token: string) => {
@@ -158,13 +196,24 @@ export function EmailTemplateEditor({
           <Input
             value={value.fromEmail}
             onChange={(e) => onChange({ fromEmail: e.target.value })}
-            className="h-8 text-sm"
+            className={`h-8 text-sm ${unverifiedDomain ? "border-amber-400 focus-visible:ring-amber-400" : ""}`}
             placeholder="Defaults to the platform sender"
           />
           <p className="mt-1 text-[10px] text-muted-foreground">
             e.g. <code>Acme Team &lt;hello@acme.com&gt;</code> or{" "}
             <code>hello@acme.com</code>. Leave blank for the default.
           </p>
+          {unverifiedDomain ? (
+            <p className="mt-1 text-[10px] text-amber-700 dark:text-amber-400">
+              <strong>{unverifiedDomain}</strong> isn't a verified sending domain
+              — emails from it will fail to deliver or be rejected. Use one of:{" "}
+              {allowedDomains.join(", ")}, or leave blank for the default.
+            </p>
+          ) : domainListKnown ? (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Verified sending domains: {allowedDomains.join(", ")}.
+            </p>
+          ) : null}
         </div>
         <div>
           <Label className="mb-1 block text-[11px]">Reply-to</Label>
