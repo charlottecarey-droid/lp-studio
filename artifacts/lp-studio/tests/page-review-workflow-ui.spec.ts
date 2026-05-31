@@ -22,7 +22,7 @@
 // permission map exactly match the API spec — there is one source of truth
 // for what an "editor" or "Content Manager" persona means in tests.
 
-import { test, expect, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type BrowserContext, type Page } from "./setup/pw";
 import pg from "pg";
 import {
   createReviewWorkflowTenant,

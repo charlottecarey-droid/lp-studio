@@ -14,7 +14,7 @@
 // All four user identities (admin / Content Manager / editor / superadmin)
 // are seeded via the new helper in setup/review-workflow-tenant.ts.
 
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "./setup/pw";
 import pg from "pg";
 import {
   createReviewWorkflowTenant,

@@ -28,7 +28,7 @@
  *   - GET /api/auth/me              (superadmin session pointed at a
  *                                    DIFFERENT tenant — the regression case)
  */
-import { test, expect, request } from "@playwright/test";
+import { test, expect, request } from "./setup/pw";
 import pg from "pg";
 import { randomBytes } from "node:crypto";
 import {

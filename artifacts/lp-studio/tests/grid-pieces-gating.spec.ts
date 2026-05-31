@@ -23,7 +23,7 @@
 // 403'd from grid-piece authoring even though they can publish ordinary
 // pages. That's the regression this spec locks in.
 
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "./setup/pw";
 import { newAuthedContext } from "./setup/csrf";
 import pg from "pg";
 import {

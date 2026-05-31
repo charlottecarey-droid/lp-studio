@@ -33,7 +33,7 @@
 // assertions then validate the *attribution contract* end-to-end.
 
 import pg from "pg";
-import { test, expect, request } from "@playwright/test";
+import { test, expect, request } from "./setup/pw";
 import {
   createRoyalTenant,
   cleanupRoyalTenant,

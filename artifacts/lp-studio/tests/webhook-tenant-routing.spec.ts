@@ -19,7 +19,7 @@
 
 import pg from "pg";
 import { randomBytes } from "node:crypto";
-import { test, expect, request as pwRequest } from "@playwright/test";
+import { test, expect, request as pwRequest } from "./setup/pw";
 import { assertApiHealthy } from "./setup/api-health";
 
 const { Pool } = pg;

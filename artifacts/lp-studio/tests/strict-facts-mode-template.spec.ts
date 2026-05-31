@@ -7,7 +7,7 @@
 // the same approved/unapproved + STRICT FACTS MODE behaviour.
 
 import pg from "pg";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./setup/pw";
 import { newAuthedContext } from "./setup/csrf";
 import {
   createRoyalTenant,

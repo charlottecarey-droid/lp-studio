@@ -11,7 +11,7 @@
 // Setup mirrors the #108 spec — same helper, but the `requireReviewBeforePublish`
 // option is forced to false so we exercise the new code paths.
 
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "./setup/pw";
 import { newAuthedContext } from "./setup/csrf";
 import pg from "pg";
 import { randomBytes } from "node:crypto";

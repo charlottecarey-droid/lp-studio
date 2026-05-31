@@ -26,7 +26,7 @@
 // CP URLs ever leaked across tenants, that spec would catch it.
 
 import pg from "pg";
-import { test, expect, request } from "@playwright/test";
+import { test, expect, request } from "./setup/pw";
 import {
   createRoyalTenant,
   cleanupRoyalTenant,

@@ -28,7 +28,7 @@
  *    (where AuthGate lives) is reached via `/?preview=app` (see App.tsx
  *    isMarketingHost()).
  */
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./setup/pw";
 
 const PORT = Number(process.env.E2E_PORT ?? "4318");
 const APP = `http://127.0.0.1:${PORT}`;

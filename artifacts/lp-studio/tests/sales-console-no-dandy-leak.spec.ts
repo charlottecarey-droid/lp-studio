@@ -29,7 +29,7 @@
 // after the Dandy/DSO copy in those screens was removed.
 
 import pg from "pg";
-import { test, expect, type Page, type BrowserContext } from "@playwright/test";
+import { test, expect, type Page, type BrowserContext } from "./setup/pw";
 import {
   createRoyalTenant,
   cleanupRoyalTenant,

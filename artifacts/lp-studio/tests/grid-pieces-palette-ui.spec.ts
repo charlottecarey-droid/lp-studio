@@ -11,7 +11,7 @@
 // refactor renames it, this test should fail loudly so the audit story
 // stays accurate.
 
-import { test, expect, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type BrowserContext, type Page } from "./setup/pw";
 import pg from "pg";
 import {
   createReviewWorkflowTenant,

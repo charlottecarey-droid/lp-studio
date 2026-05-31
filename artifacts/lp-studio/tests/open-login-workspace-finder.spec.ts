@@ -31,7 +31,7 @@
  *  - In dev the bare `/` renders the marketing site, so the SaaS shell (where
  *    AuthGate lives) is reached via `/?preview=app` (see App.tsx isMarketingHost).
  */
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./setup/pw";
 import pg from "pg";
 import { randomBytes } from "node:crypto";
 import {

@@ -10,7 +10,7 @@
  *   3. State-changing requests carrying both the `lp_csrf` cookie and a
  *      matching `X-CSRF-Token` header succeed.
  */
-import { test, expect, request, type BrowserContext } from "@playwright/test";
+import { test, expect, request, type BrowserContext } from "./setup/pw";
 import pg from "pg";
 import {
   createRoyalTenant,

@@ -36,7 +36,7 @@
 //   it completes well before the 2s timeout cap (~1500ms vs ~3500ms).
 
 import pg from "pg";
-import { test, expect, request } from "@playwright/test";
+import { test, expect, request } from "./setup/pw";
 import {
   createRoyalTenant,
   cleanupRoyalTenant,

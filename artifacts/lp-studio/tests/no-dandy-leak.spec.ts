@@ -4,7 +4,7 @@
 // per-block_type so they're actionable.
 
 import { createRequire } from "node:module";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./setup/pw";
 import type { GenericSeedRow } from "../src/pages/generic-catalog-fixture";
 
 const requireCjs = createRequire(import.meta.url);

@@ -23,7 +23,7 @@
 // and breaking the second test's host-by-domain resolution.
 
 import pg from "pg";
-import { test, expect, type Page, type BrowserContext } from "@playwright/test";
+import { test, expect, type Page, type BrowserContext } from "./setup/pw";
 import {
   createRoyalTenant,
   cleanupRoyalTenant,

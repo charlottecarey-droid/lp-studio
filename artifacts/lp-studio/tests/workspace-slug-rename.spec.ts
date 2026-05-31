@@ -21,7 +21,7 @@
 
 import { randomBytes } from "node:crypto";
 import pg from "pg";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./setup/pw";
 import {
   createRoyalTenant,
   cleanupRoyalTenant,
