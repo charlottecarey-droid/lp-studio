@@ -53,7 +53,6 @@ channel = "stable-25_05"
 
 [userenv.shared]
 RESEND_FROM_EMAIL = "LP Studio <noreply@lpstudio.ai>"
-GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
 TURNSTILE_SITE_KEY = "0x4AAAAAADboov6vgE0UvZpL"
@@ -61,6 +60,7 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADboov6vgE0UvZpL"
 [userenv.production]
 PUBLIC_API_BASE_URL = "https://app.lpstudio.ai"
 GITHUB_OAUTH_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/github/callback"
+GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 
 [[ports]]
 localPort = 8080
