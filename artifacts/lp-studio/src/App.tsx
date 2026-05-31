@@ -247,6 +247,16 @@ function PermRoute({
   return <>{children}</>;
 }
 
+// Billing doesn't apply to enterprise tenants (sales-assisted, no self-serve
+// Stripe plan), so hide the page entirely and bounce direct/deep links away.
+// `planTier` already resolves Dandy and any explicit enterprise plan to
+// "enterprise" on the server, so this covers both.
+function BillingRoute() {
+  const { user } = useAuth();
+  if (user?.planTier === "enterprise") return <Redirect to="/settings/general" />;
+  return <BillingPage />;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -292,7 +302,7 @@ function AppRouter() {
             BillingPage gates the Upgrade and "Manage billing" actions on
             workspace-admin (`isAdmin`) at render time, and the API
             re-checks on the server. */}
-        <Route path="/settings/billing"><BillingPage /></Route>
+        <Route path="/settings/billing"><BillingRoute /></Route>
         <Route path="/settings/team">{() => <PermRoute perm="team" fallback="/"><TeamPage /></PermRoute>}</Route>
         <Route path="/settings/roles">{() => <PermRoute perm="roles" fallback="/"><RolesPage /></PermRoute>}</Route>
 

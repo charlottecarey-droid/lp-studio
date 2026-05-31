@@ -412,15 +412,19 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     buttons on `isAdmin` internally, and the API
                     re-checks on the server. Hiding the nav item for
                     teammates made the page effectively undiscoverable
-                    (Phase 3 review feedback). */}
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/settings/billing"}>
-                    <Link href="/settings/billing" className="font-medium">
-                      <CreditCard className="w-4 h-4" />
-                      <span>Billing</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                    (Phase 3 review feedback). Enterprise tenants are
+                    sales-assisted with no self-serve plan, so Billing
+                    doesn't apply to them — hide it entirely. */}
+                {user?.planTier !== "enterprise" && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/billing"}>
+                      <Link href="/settings/billing" className="font-medium">
+                        <CreditCard className="w-4 h-4" />
+                        <span>Billing</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {(hasPerm("team") || user?.isAdmin) && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/settings/team"}>
