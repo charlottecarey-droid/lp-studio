@@ -277,3 +277,62 @@ describe("superadmin email-template editor API", () => {
     expect((last?.json as { code?: string })?.code).toBe("rate_limited");
   });
 });
+
+// Phase 3: DB-only blank-slate templates (created via POST, no code counterpart)
+// must be editable through the SAME PATCH route the editor uses. A prior bug
+// hard-gated PATCH on the code registry, returning 404 for these keys and making
+// freshly created templates unsaveable.
+describe("superadmin blank-slate (DB-only) template editing", () => {
+  const DB_ONLY_KEY = `it_blank_${Date.now()}`;
+
+  afterAll(async () => {
+    await pool.query(`DELETE FROM notification_templates WHERE key = $1`, [DB_ONLY_KEY]).catch(() => {});
+  });
+
+  it("creates, lists, PATCH-edits and re-fetches a DB-only template", async () => {
+    // 1. Create a blank-slate template (DB-only, no code counterpart).
+    const created = await injectSid({
+      method: "POST",
+      url: "/api/admin/notification-templates",
+      sid: SUPER_SID,
+      body: { key: DB_ONLY_KEY, name: "IT Blank", channels: ["email"] },
+    });
+    expect(created.status).toBe(201);
+
+    // 2. It surfaces in the management list.
+    const list = await injectSid({ method: "GET", url: "/api/admin/notification-templates", sid: SUPER_SID });
+    expect(list.status).toBe(200);
+    const keys = (list.json as { templates: Array<{ key: string }> }).templates.map((t) => t.key);
+    expect(keys).toContain(DB_ONLY_KEY);
+
+    // 3. PATCH editable fields — including adding a channel a code template could
+    //    not invent — must succeed (not 404) and persist.
+    const patch = await injectSid({
+      method: "PATCH",
+      url: `/api/admin/notification-templates/${DB_ONLY_KEY}`,
+      sid: SUPER_SID,
+      body: {
+        bodyHtml: "<p>Blank-slate body {{tenantName}}</p>",
+        bodyMode: "html",
+        wrapInShell: false,
+        channels: ["email", "in_app"],
+        previewData: { tenantName: "BlankCo" },
+      },
+    });
+    expect(patch.status).toBe(200);
+
+    // 4. Re-fetch confirms the round-trip persisted.
+    const get = await injectSid({
+      method: "GET",
+      url: `/api/admin/notification-templates/${DB_ONLY_KEY}`,
+      sid: SUPER_SID,
+    });
+    expect(get.status).toBe(200);
+    const tpl = (get.json as { template: Record<string, unknown> }).template;
+    expect(tpl["bodyHtml"]).toBe("<p>Blank-slate body {{tenantName}}</p>");
+    expect(tpl["bodyMode"]).toBe("html");
+    expect(tpl["wrapInShell"]).toBe(false);
+    expect(tpl["channels"]).toEqual(["email", "in_app"]);
+    expect((tpl["previewData"] as Record<string, string>)["tenantName"]).toBe("BlankCo");
+  });
+});

@@ -560,16 +560,23 @@ router.get("/admin/notification-templates/:key", requireSuperadmin, async (req, 
  */
 router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req, res): Promise<void> => {
   const key = String(req.params.key);
-  const def = NOTIFICATION_TEMPLATES[key];
+  // Resolve the template so DB-only blank-slate templates (created via
+  // POST /admin/notification-templates, no code counterpart) are editable too —
+  // gating only on the code registry would 404 them and make them unsaveable in
+  // the editor. `codeDef` stays the pure code def (or undefined for DB-only) so
+  // the declared-channel subset rule below applies to code-owned templates only.
+  const codeDef = NOTIFICATION_TEMPLATES[key];
+  const def = codeDef ?? (await getNotificationTemplate(key));
   if (!def) {
     res.status(404).json({ error: "Unknown template" });
     return;
   }
   const b = req.body ?? {};
 
-  // Validate channels if provided: subset of valid channels AND of the code
-  // template's declared channels (can't invent an email channel for an
-  // in-app-only template like welcome).
+  // Validate channels if provided: always a subset of the valid channels. For a
+  // code-owned template, also restrict to its declared channels (can't invent an
+  // email channel for an in-app-only template like welcome). DB-only templates
+  // have no code-declared subset, so any valid channel (email / in_app) is OK.
   let channels: NotificationChannel[] | undefined;
   if (b.channels !== undefined) {
     if (!Array.isArray(b.channels)) {
@@ -579,7 +586,8 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
     const filtered = (b.channels as unknown[]).filter((c): c is NotificationChannel =>
       VALID_CHANNELS.includes(c as NotificationChannel),
     );
-    channels = Array.from(new Set<NotificationChannel>(filtered)).filter((c) => def.channels.includes(c));
+    const unique = Array.from(new Set<NotificationChannel>(filtered));
+    channels = codeDef ? unique.filter((c) => codeDef.channels.includes(c)) : unique;
   }
 
   const bodyMode =
