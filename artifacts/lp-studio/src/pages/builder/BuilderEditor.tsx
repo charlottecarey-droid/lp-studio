@@ -32,7 +32,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
 import { consumeCritiqueAnnotations, type CritiqueAnnotation } from "@/lib/critiqueAnnotations";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
@@ -1058,6 +1058,14 @@ export default function BuilderEditor() {
   // on first mount and shown as a dismissable banner pointing at Brand Settings.
   const [strictMismatches, setStrictMismatches] = useState<StrictMismatch[]>([]);
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
+  // Task #552 — "See removed quotes" review modal. Lets editors push the
+  // values Strict Facts Mode scrubbed into the brand's approved pool without
+  // leaving the builder. Per-row edit drafts + save/saved state are keyed by
+  // the mismatch's index in `strictMismatches`.
+  const [removedQuotesOpen, setRemovedQuotesOpen] = useState(false);
+  const [quoteDrafts, setQuoteDrafts] = useState<Record<number, string>>({});
+  const [quoteSaving, setQuoteSaving] = useState<Record<number, boolean>>({});
+  const [quoteSaved, setQuoteSaved] = useState<Record<number, boolean>>({});
   const [critiqueAnnotations, setCritiqueAnnotations] = useState<CritiqueAnnotation[]>([]);
   const [critiqueBannerDismissed, setCritiqueBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -2102,6 +2110,47 @@ export default function BuilderEditor() {
 
   const [showOutreachBanner, setShowOutreachBanner] = useState(false);
 
+  // A page is a microsite when it's tied to a sales account (the microsite
+  // builder tags it with `pageVariables.salesAccountId`). The post-publish
+  // outreach banner only makes sense for those — regular published pages
+  // have no contacts to send tracked links to.
+  const isMicrosite = Boolean(pageVariables.salesAccountId);
+
+  // Task #552 — append a scrubbed value to the brand's approved pool. We add
+  // it as an approved claim on the first product line (creating a neutral
+  // "General" product line if the brand has none) — the strict-mode stat
+  // sanitizer's approved pool includes approved claim text, so adding it here
+  // is enough for the AI to reuse the number next time. Mirrors the
+  // brand-settings save path (`saveBrandConfig` PUTs the whole config).
+  const addRemovedQuoteToBrand = async (index: number) => {
+    const value = (quoteDrafts[index] ?? strictMismatches[index]?.value ?? "").trim();
+    if (!value || quoteSaving[index] || quoteSaved[index]) return;
+    setQuoteSaving((s) => ({ ...s, [index]: true }));
+    try {
+      const productLines = Array.isArray(brand.productLines) ? brand.productLines.map((pl) => ({ ...pl })) : [];
+      if (productLines.length === 0) {
+        productLines.push({ name: "General", description: "", valueProps: [], claims: [], keywords: [] });
+      }
+      productLines[0] = {
+        ...productLines[0],
+        claims: [...(productLines[0].claims ?? []), { text: value, approvedForAi: true }],
+      };
+      const next: BrandConfig = { ...brand, productLines };
+      await saveBrandConfig(next);
+      setBrand(next);
+      setQuoteSaved((s) => ({ ...s, [index]: true }));
+      toast({ title: "Added to Brand Settings", description: "The AI can use this next time." });
+    } catch (err) {
+      toast({
+        title: "Couldn't save",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setQuoteSaving((s) => ({ ...s, [index]: false }));
+    }
+  };
+
   const handlePublish = async () => {
     const isPublished = status === "published";
     const confirmMsg = isPublished
@@ -2116,8 +2165,10 @@ export default function BuilderEditor() {
       markSaved({ status: newStatus });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      // Show outreach banner after publishing (not unpublishing)
-      if (newStatus === "published") {
+      // Show outreach banner after publishing (not unpublishing), but only
+      // for microsites — regular pages have no sales contacts to send
+      // tracked links to.
+      if (newStatus === "published" && isMicrosite) {
         setShowOutreachBanner(true);
       }
     } catch (err) {
@@ -2173,7 +2224,10 @@ export default function BuilderEditor() {
       }
       setStatus("published");
       markSaved({ status: "published" });
-      setShowOutreachBanner(true);
+      // Outreach banner is microsite-only (see handlePublish).
+      if (isMicrosite) {
+        setShowOutreachBanner(true);
+      }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
@@ -2429,12 +2483,21 @@ export default function BuilderEditor() {
                 {strictMismatches.length > 3 ? ` and ${strictMismatches.length - 3} more` : ""}
               </span>
             </p>
-            <Link
-              href="/brand"
-              className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
-            >
-              Open Brand Settings →
-            </Link>
+            <div className="flex items-center gap-3 mt-1.5">
+              <button
+                type="button"
+                onClick={() => setRemovedQuotesOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
+              >
+                See removed quotes
+              </button>
+              <Link
+                href="/brand"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
+              >
+                Open Brand Settings →
+              </Link>
+            </div>
           </div>
           <button
             type="button"
@@ -2446,6 +2509,78 @@ export default function BuilderEditor() {
           </button>
         </div>
       )}
+
+      {/* Task #552 — "See removed quotes" review modal. Lists every value
+          Strict Facts Mode scrubbed so editors can edit it and push it into
+          the brand's approved pool without leaving the builder. */}
+      <Dialog open={removedQuotesOpen} onOpenChange={setRemovedQuotesOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Removed quotes &amp; stats</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Strict Facts Mode replaced these unapproved values with a placeholder. Edit any value
+            and add it to your approved pool so the AI can use it next time.
+          </p>
+          <div className="max-h-[55vh] overflow-y-auto -mx-1 px-1 space-y-3 mt-1">
+            {strictMismatches.map((m, i) => {
+              const saved = quoteSaved[i] === true;
+              const saving = quoteSaving[i] === true;
+              const draft = quoteDrafts[i] ?? m.value;
+              const context = [m.blockType, m.fieldPath].filter(Boolean).join(" · ");
+              return (
+                <div key={i} className="rounded-lg border border-border p-3">
+                  {context && (
+                    <p className="text-[11px] text-muted-foreground mb-1.5 truncate" title={context}>
+                      {context}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={draft}
+                      disabled={saved || saving}
+                      onChange={(e) => setQuoteDrafts((d) => ({ ...d, [i]: e.target.value }))}
+                      className="h-9 text-sm flex-1"
+                    />
+                    {saved ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 shrink-0 px-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Added
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={saving || !(quoteDrafts[i] ?? m.value).trim()}
+                        onClick={() => addRemovedQuoteToBrand(i)}
+                        className="shrink-0"
+                      >
+                        {saving ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            Add to Brand Settings
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Link
+              href="/brand"
+              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Open Brand Settings →
+            </Link>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Workstream C — two-pass critique banner. Surfaces when the most
           recent AI generation rewrote the copy of one or more low-quality

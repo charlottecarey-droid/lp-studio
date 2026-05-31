@@ -92,7 +92,9 @@ const STRICT_FACTS_INSTRUCTION =
   "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
   "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
   "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
-  "or proof point that is not provided, write the placeholder \u2014 add a stat in Brand Settings \u2014 instead.";
+  "or number that is not provided, write \"XXm\"; if it would require a case " +
+  "study or quote that is not provided, write \"X quote\". Write nothing else " +
+  "in those slots.";
 
 // ── Media library helpers ────────────────────────────────────────────────
 
@@ -1183,7 +1185,7 @@ async function fetchApprovedCaseStudies(
  *  pool with a literal placeholder. This is a belt-and-suspenders enforcement
  *  layer on top of the prompt instruction so that, even if the model
  *  hallucinates, no unapproved numbers ship in the page. */
-const STAT_PLACEHOLDER = "\u2014 add a stat in Brand Settings";
+const STAT_PLACEHOLDER = "XXm";
 
 function buildApprovedStatSet(
   brand: BrandConfig,
@@ -1340,7 +1342,7 @@ function logStrictMismatches(
 /** Task #253 — placeholder used when strict mode has no approved case-study
  *  to substitute, so end-users immediately see what's missing instead of
  *  shipping a hallucinated story. */
-const CASE_STUDY_PLACEHOLDER = "\u2014 add an approved case study in the Content Library";
+const CASE_STUDY_PLACEHOLDER = "X quote";
 
 type ApprovedCaseStudy = { title: string; categories: string; url: string };
 
@@ -1808,7 +1810,7 @@ function buildProofPointsSection(points: ProofPoint[], strict: boolean): string 
   const usable = strict ? points.filter((p) => p.approved_for_ai) : points;
   if (usable.length === 0) {
     return strict
-      ? "APPROVED PROOF POINTS: (none) — for any stat slot in this page, use the literal placeholder \"\u2014 add a stat in Brand Settings\" instead of inventing numbers."
+      ? "APPROVED PROOF POINTS: (none) — for any stat slot in this page, use the literal placeholder \"XXm\" instead of inventing numbers."
       : "";
   }
   const lines = usable.map((p) => {
@@ -1880,7 +1882,7 @@ function buildSegmentSection(
     );
   } else if (opts.strict) {
     parts.push(
-      "APPROVED SEGMENT STATS: (none) — for any stat slot in this page, use the literal placeholder \"\u2014 add a stat in Brand Settings\" instead of inventing numbers.",
+      "APPROVED SEGMENT STATS: (none) — for any stat slot in this page, use the literal placeholder \"XXm\" instead of inventing numbers.",
     );
   }
   return parts.join("\n");
@@ -2147,7 +2149,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${
             caseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
           }`
-        : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"\u2014 add a case study in Brand Settings\" instead of inventing one.")
+        : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"X quote\" instead of inventing one.")
     : (caseStudies.length > 0
         ? `CASE STUDIES (real customer stories you may reference by name):\n${
             caseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
