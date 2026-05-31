@@ -2429,12 +2429,12 @@ export default function AssembleScene() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 mb-3">
-                        {[TEXT, LIME, "#5fa9ff", "#ff8e6e", "#1A1815"].map((c) => {
+                        {[TEXT, LIME, "#5fa9ff", "#ff8e6e", "#1A1815"].map((c, i) => {
                           const isLime = c === LIME;
                           const isSelected = swatchClicked ? isLime : c === TEXT;
                           return (
                             <div
-                              key={c}
+                              key={`${c}-${i}`}
                               className="relative"
                               style={{
                                 width: 30,
