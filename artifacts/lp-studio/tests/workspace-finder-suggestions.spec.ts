@@ -148,8 +148,11 @@ test.describe("Workspace finder — typo suggestions (task #519)", () => {
     await page.getByRole("button", { name: "Find" }).click();
 
     // The "Did you mean" list renders with the correct workspace name + host.
+    // The finder is an ARIA combobox: the list is role="listbox" and each entry
+    // is an <a role="option"> (the explicit role overrides the anchor's implicit
+    // "link" role), so the suggestion is queried by the "option" role.
     await expect(page.getByText("Did you mean:")).toBeVisible({ timeout: 15_000 });
-    const suggestion = page.getByRole("link", { name: new RegExp(tenantName, "i") });
+    const suggestion = page.getByRole("option", { name: new RegExp(tenantName, "i") });
     await expect(suggestion).toBeVisible();
     await expect(suggestion).toContainText(tenantName);
     await expect(suggestion).toContainText(targetHost);
