@@ -1451,7 +1451,8 @@ interface TenantSettingsPayload {
    * Microsite root redirect — where the public-facing microsite host
    * (e.g. partners.<tenant>.com or <slug>.lpstudio.ai) sends visitors who
    * land on `/`. When null/empty the PartnerHome holding page falls back
-   * to the legacy hardcoded destination.
+   * to the tenant's own website (BrandConfig.websiteUrl); it never routes
+   * to Dandy unless Dandy is the tenant.
    */
   rootRedirectUrl: string | null;
   /** Short URL aliases served by the public microsite shell. */

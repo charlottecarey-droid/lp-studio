@@ -1337,7 +1337,7 @@ export default function AssembleScene() {
               className="text-[11px] uppercase"
               style={{ letterSpacing: "0.18em", color: MUTED, fontWeight: 500 }}
             >
-              The revenue workspace · Now in private beta
+              The revenue workspace · Beta
             </span>
           </div>
 

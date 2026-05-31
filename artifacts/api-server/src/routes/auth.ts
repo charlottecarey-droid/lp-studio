@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
-import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable } from "@workspace/db";
+import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable, lpBrandSettingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
@@ -1156,6 +1156,12 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     // resolve short vanity URLs without a second client roundtrip.
     let rootRedirectUrl: string | null = null;
     let vanityLinks: Array<{ slug: string; targetUrl: string }> = [];
+    // Tenant's own marketing website (BrandConfig.websiteUrl). Used as the
+    // default root-redirect target for the microsite root when the tenant
+    // hasn't configured an explicit rootRedirectUrl — so non-Dandy tenants
+    // bounce to their OWN site instead of Dandy's homepage. Dandy's seeded
+    // websiteUrl is meetdandy.com, so Dandy tenants keep their old behaviour.
+    let tenantWebsiteUrl: string | null = null;
     if (match) {
       try {
         const settingsRow = await db
@@ -1179,6 +1185,19 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
       } catch {
         // Best-effort — fall back to no extras if the read fails.
       }
+      try {
+        const brandRow = await db
+          .select({ config: lpBrandSettingsTable.config })
+          .from(lpBrandSettingsTable)
+          .where(eq(lpBrandSettingsTable.tenantId, match.tenantId))
+          .limit(1);
+        const cfg = (brandRow[0]?.config ?? {}) as Record<string, unknown>;
+        if (typeof cfg.websiteUrl === "string" && cfg.websiteUrl.trim()) {
+          tenantWebsiteUrl = cfg.websiteUrl.trim();
+        }
+      } catch {
+        // Best-effort — leave null if the brand-config read fails.
+      }
     }
     const data = match
       ? {
@@ -1189,11 +1208,12 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
           micrositeDomain: match.micrositeDomain,
           redirectToHost,
           rootRedirectUrl,
+          tenantWebsiteUrl,
           vanityLinks,
         }
       : extractWildcardSlug(domain) !== null
-        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, vanityLinks: [] }
-        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, vanityLinks: [] };
+        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, tenantWebsiteUrl: null, vanityLinks: [] }
+        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null, redirectToHost: null, rootRedirectUrl: null, tenantWebsiteUrl: null, vanityLinks: [] };
 
     domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
     // `private` + short max-age: response now carries per-tenant settings

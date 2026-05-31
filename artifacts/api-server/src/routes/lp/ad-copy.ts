@@ -140,9 +140,9 @@ const STRICT_FACTS_INSTRUCTION =
   "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
   "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
   "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
-  "or number that is not provided, write \"XXm\"; if it would require a case " +
-  "study or quote that is not provided, write \"X quote\". Write nothing else " +
-  "in those slots.";
+  "or number that is not provided, write \"X\"; if it would require a case " +
+  "study or quote that is not provided, write \"Add a quote in brand settings\". " +
+  "Write nothing else in those slots.";
 
 function getClaimText(c: string | { text?: string } | null | undefined): string {
   if (!c) return "";

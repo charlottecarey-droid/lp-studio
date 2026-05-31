@@ -86,10 +86,16 @@ export interface DomainContext {
   redirectToHost?: string | null;
   /**
    * Per-tenant microsite root redirect — where PartnerHome (rendered at
-   * `/` on the microsite host) sends visitors. Falls back to a hardcoded
-   * Dandy URL when null so legacy tenants keep their old behaviour.
+   * `/` on the microsite host) sends visitors. When null, PartnerHome
+   * falls back to `tenantWebsiteUrl` (the tenant's own site) so no tenant
+   * ever bounces to Dandy's homepage unless Dandy is the tenant.
    */
   rootRedirectUrl?: string | null;
+  /**
+   * The tenant's own marketing website (BrandConfig.websiteUrl). Used as
+   * the default root-redirect target when `rootRedirectUrl` is unset.
+   */
+  tenantWebsiteUrl?: string | null;
   /**
    * Per-tenant short URL aliases. The microsite `/:slug` route checks
    * this list before falling through to LandingPageViewer so vanity

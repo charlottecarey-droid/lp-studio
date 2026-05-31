@@ -1044,9 +1044,9 @@ export const STRICT_FACTS_INSTRUCTION =
   "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
   "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
   "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
-  "or number that is not provided, write \"XXm\"; if it would require a case " +
-  "study or quote that is not provided, write \"X quote\". Write nothing else " +
-  "in those slots.";
+  "or number that is not provided, write \"X\"; if it would require a case " +
+  "study or quote that is not provided, write \"Add a quote in brand settings\". " +
+  "Write nothing else in those slots.";
 
 export function isValidHex(v: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(v);
