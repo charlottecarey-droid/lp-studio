@@ -2498,6 +2498,40 @@ router.get("/superadmin/trial-phones", requireSuperadmin, async (_req, res): Pro
   }
 });
 
+// GET /api/admin/superadmin/trial-phones/release-log — recent release history.
+// Append-only audit of past trial-phone releases (Task #669) so support can see
+// who released what and when, even after the source row + tenant are gone. Only
+// the SHA-256 hash of the number is ever returned, never the raw number. Newest
+// first, capped to a recent window. Defined BEFORE the :phoneHash DELETE so the
+// literal path is unambiguous (DELETE has no GET on the param anyway).
+router.get(
+  "/superadmin/trial-phones/release-log",
+  requireSuperadmin,
+  async (_req, res): Promise<void> => {
+    try {
+      const result = await pool.query(`
+        SELECT
+          id,
+          phone_hash,
+          prior_tenant_id,
+          prior_tenant_name,
+          prior_tenant_slug,
+          original_created_at,
+          actor_user_id,
+          actor_email,
+          released_at
+        FROM trial_phone_release_log
+        ORDER BY released_at DESC
+        LIMIT 200
+      `);
+      res.json(result.rows);
+    } catch (err) {
+      console.error("[superadmin] GET /trial-phones/release-log error:", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 // DELETE /api/admin/superadmin/trial-phones/:phoneHash — release a gated phone
 // so that number can start a fresh trial. The phoneHash is the table's primary
 // key (SHA-256 hex). Audited via the same lightweight structured-console-log
@@ -2512,28 +2546,73 @@ router.delete("/superadmin/trial-phones/:phoneHash", requireSuperadmin, async (r
     return;
   }
   try {
-    const r = await pool.query<{ phone_hash: string; tenant_id: number | null; created_at: Date }>(
-      `DELETE FROM trial_phone_numbers
-        WHERE phone_hash = $1
-        RETURNING phone_hash, tenant_id, created_at`,
+    // Delete the gate row and capture a snapshot of the tenant it had unlocked
+    // (name/slug) in one round-trip via a CTE — the tenant may be deleted later,
+    // so snapshotting keeps the durable audit row readable/searchable.
+    const r = await pool.query<{
+      phone_hash: string;
+      tenant_id: number | null;
+      created_at: Date;
+      tenant_name: string | null;
+      tenant_slug: string | null;
+    }>(
+      `WITH deleted AS (
+         DELETE FROM trial_phone_numbers
+          WHERE phone_hash = $1
+          RETURNING phone_hash, tenant_id, created_at
+       )
+       SELECT d.phone_hash, d.tenant_id, d.created_at,
+              t.name AS tenant_name, t.slug AS tenant_slug
+         FROM deleted d
+         LEFT JOIN tenants t ON t.id = d.tenant_id`,
       [phoneHash],
     );
     if (!r.rows.length) {
       res.status(404).json({ error: "Trial phone record not found" });
       return;
     }
+    const released = r.rows[0];
+    const actorUserId = req.authUser?.userId ?? null;
+    const actorEmail = req.authUser?.email ?? null;
+
+    // Durable audit row — append-only history of releases so support can review
+    // (and reverse-by-context) past releases in the UI even after the source
+    // row + tenant are gone. Best-effort: a logging failure must never make a
+    // successful release look like a 500 to the operator (the structured
+    // console-log line below is the backstop). The table is guaranteed to exist
+    // by the 0056 migration + self-heal.
+    try {
+      await pool.query(
+        `INSERT INTO trial_phone_release_log
+           (phone_hash, prior_tenant_id, prior_tenant_name, prior_tenant_slug,
+            original_created_at, actor_user_id, actor_email)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          released.phone_hash,
+          released.tenant_id,
+          released.tenant_name,
+          released.tenant_slug,
+          released.created_at,
+          actorUserId,
+          actorEmail,
+        ],
+      );
+    } catch (logErr) {
+      console.error("[superadmin] trial-phone.released audit-log insert failed:", logErr);
+    }
+
     console.info(
       "[admin][audit] trial-phone.released",
       JSON.stringify({
-        phoneHash: r.rows[0].phone_hash,
-        tenantId: r.rows[0].tenant_id,
-        originalCreatedAt: r.rows[0].created_at.toISOString(),
-        actorUserId: req.authUser?.userId ?? null,
-        actorEmail: req.authUser?.email ?? null,
+        phoneHash: released.phone_hash,
+        tenantId: released.tenant_id,
+        originalCreatedAt: released.created_at.toISOString(),
+        actorUserId,
+        actorEmail,
         at: new Date().toISOString(),
       }),
     );
-    res.json({ ok: true, phoneHash: r.rows[0].phone_hash });
+    res.json({ ok: true, phoneHash: released.phone_hash });
   } catch (err) {
     console.error("[superadmin] DELETE /trial-phones/:phoneHash error:", err);
     res.status(500).json({ error: "Server error" });

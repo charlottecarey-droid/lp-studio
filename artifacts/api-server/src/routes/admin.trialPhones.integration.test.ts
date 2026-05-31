@@ -67,6 +67,9 @@ async function insertUser(email: string, role: string): Promise<number> {
 
 async function cleanup(): Promise<void> {
   await pool
+    .query(`DELETE FROM trial_phone_release_log WHERE phone_hash = ANY($1)`, [[HASH_A, HASH_B, HASH_GHOST]])
+    .catch(() => {});
+  await pool
     .query(`DELETE FROM trial_phone_numbers WHERE phone_hash = ANY($1)`, [[HASH_A, HASH_B, HASH_GHOST]])
     .catch(() => {});
   await pool.query(`DELETE FROM app_sessions WHERE sid = ANY($1)`, [[SUPER_SID, REP_SID]]).catch(() => {});
@@ -155,10 +158,45 @@ describe("trial-phones — release", () => {
     expect(rows.length).toBe(1);
   });
 
-  it("releases a record so the number can trial again", async () => {
+  it("releases a record so the number can trial again, writing a durable audit row", async () => {
     const res = await asSuper("DELETE", `/superadmin/trial-phones/${HASH_A}`);
     expect(res.status).toBe(200);
     const { rows } = await pool.query(`SELECT 1 FROM trial_phone_numbers WHERE phone_hash = $1`, [HASH_A]);
     expect(rows.length).toBe(0);
+
+    // A durable, append-only audit row records who/when/which + the prior-tenant
+    // snapshot (so it survives later tenant deletion).
+    const { rows: log } = await pool.query<{
+      phone_hash: string;
+      prior_tenant_id: number | null;
+      prior_tenant_slug: string | null;
+      actor_user_id: number | null;
+      actor_email: string | null;
+    }>(
+      `SELECT phone_hash, prior_tenant_id, prior_tenant_slug, actor_user_id, actor_email
+         FROM trial_phone_release_log WHERE phone_hash = $1`,
+      [HASH_A],
+    );
+    expect(log.length).toBe(1);
+    expect(log[0].prior_tenant_id).toBe(tenantId);
+    expect(log[0].prior_tenant_slug).toBe(`trial-phone-it-${RUN}`);
+    expect(log[0].actor_user_id).toBe(superId);
+    expect(log[0].actor_email).toBe(SUPER_EMAIL);
+  });
+});
+
+describe("trial-phones — release history", () => {
+  it("lets a superadmin read the recent-release history including the just-released row", async () => {
+    const res = await asSuper("GET", "/superadmin/trial-phones/release-log");
+    expect(res.status).toBe(200);
+    const rows = res.json as { phone_hash: string; actor_email: string | null }[];
+    const entry = rows.find((r) => r.phone_hash === HASH_A);
+    expect(entry).toBeTruthy();
+    expect(entry?.actor_email).toBe(SUPER_EMAIL);
+  });
+
+  it("rejects a non-superadmin with 403", async () => {
+    const res = await asRep("GET", "/superadmin/trial-phones/release-log");
+    expect(res.status).toBe(403);
   });
 });

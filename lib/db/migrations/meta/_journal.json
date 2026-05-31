@@ -57,6 +57,7 @@
     { "idx": 52, "version": "7", "when": 1750600000000, "tag": "0052_broadcast_alert_recipient_groups",  "breakpoints": false },
     { "idx": 53, "version": "7", "when": 1750700000000, "tag": "0053_broadcast_recipient_groups",        "breakpoints": false },
     { "idx": 54, "version": "7", "when": 1750800000000, "tag": "0054_tenant_email_shells_physical_address", "breakpoints": false },
-    { "idx": 55, "version": "7", "when": 1750900000000, "tag": "0055_trial_phone_verification",          "breakpoints": false }
+    { "idx": 55, "version": "7", "when": 1750900000000, "tag": "0055_trial_phone_verification",          "breakpoints": false },
+    { "idx": 56, "version": "7", "when": 1751000000000, "tag": "0056_trial_phone_release_log",           "breakpoints": false }
   ]
 }

@@ -50,6 +50,8 @@ export * from "./planConfig";
 
 // Trial phone gating (one free trial per SMS-verified phone number)
 export * from "./trialPhoneVerifications";
+// Audit trail for superadmin trial-phone releases
+export * from "./trialPhoneReleaseLog";
 
 // In-app notifications + lifecycle email system
 export * from "./notificationTemplates";

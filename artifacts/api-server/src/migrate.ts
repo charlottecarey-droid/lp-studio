@@ -448,6 +448,36 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the trial-phone release audit log (Task #669). Same
+    // high-water-mark hazard as the self-heals above: on a DB whose journal was
+    // renumbered after it was migrated, drizzle can record 0056 as applied
+    // without its DDL ever running, leaving the table missing. The DELETE
+    // /superadmin/trial-phones route best-effort-inserts into this table on
+    // every release; a missing table would silently lose the durable audit
+    // trail (the whole point of this task). Re-applying the file here is
+    // independent of drizzle's dedup and idempotent (CREATE ... IF NOT EXISTS),
+    // so it creates the table where missing and is a no-op elsewhere. Fails
+    // CLOSED: the table is feature-critical, so a missing table aborts the
+    // release; the SQL is idempotent so a retry is always safe.
+    await runStep("trial_phone_release_log self-heal (0056)", async () => {
+      const releaseLogSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0056_trial_phone_release_log.sql"),
+        "utf8",
+      );
+      await pool.query(releaseLogSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'trial_phone_release_log'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "trial_phone_release_log self-heal did not produce the table — aborting release",
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

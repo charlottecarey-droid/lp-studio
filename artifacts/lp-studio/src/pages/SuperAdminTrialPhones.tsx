@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, RefreshCw, Smartphone } from "lucide-react";
+import { History, Loader2, RefreshCw, Smartphone } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +22,21 @@ interface TrialPhoneRow {
   tenant_name: string | null;
   tenant_slug: string | null;
   created_at: string;
+}
+
+// One row per past release (append-only audit). Prior-tenant name/slug are a
+// snapshot taken at release time so the history stays readable even after the
+// tenant is deleted. Only the SHA-256 hash of the number is ever returned.
+interface ReleaseLogRow {
+  id: number;
+  phone_hash: string;
+  prior_tenant_id: number | null;
+  prior_tenant_name: string | null;
+  prior_tenant_slug: string | null;
+  original_created_at: string | null;
+  actor_user_id: number | null;
+  actor_email: string | null;
+  released_at: string;
 }
 
 function parseError(message: string): string {
@@ -56,8 +71,20 @@ function fmtDate(iso: string | null): string {
   });
 }
 
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function SuperAdminTrialPhones() {
   const [rows, setRows] = useState<TrialPhoneRow[] | null>(null);
+  const [releases, setReleases] = useState<ReleaseLogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyHash, setBusyHash] = useState<string | null>(null);
@@ -66,8 +93,12 @@ export default function SuperAdminTrialPhones() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch("/api/admin/superadmin/trial-phones");
+      const [data, log] = await Promise.all([
+        apiFetch("/api/admin/superadmin/trial-phones"),
+        apiFetch("/api/admin/superadmin/trial-phones/release-log"),
+      ]);
       setRows(data ?? []);
+      setReleases(log ?? []);
     } catch (err) {
       setError(parseError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -194,6 +225,80 @@ export default function SuperAdminTrialPhones() {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="pt-2">
+        <h3 className="text-base font-semibold flex items-center gap-2">
+          <History className="w-4 h-4" /> Recent releases
+        </h3>
+        <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+          Durable, append-only history of past releases — who released which
+          hash, the workspace it had trialed for (snapshotted, so it survives
+          tenant deletion), and when. Kept as an audit trail even after the
+          record itself is gone.
+        </p>
+
+        <div className="border rounded-lg overflow-hidden mt-3">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Phone hash</TableHead>
+                <TableHead>Prior workspace</TableHead>
+                <TableHead>Released by</TableHead>
+                <TableHead>Released at</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {releases === null && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
+              {releases?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    No releases yet.
+                  </TableCell>
+                </TableRow>
+              )}
+              {releases?.map((rel) => (
+                <TableRow key={rel.id}>
+                  <TableCell>
+                    <code className="font-mono text-xs" title={rel.phone_hash}>
+                      {rel.phone_hash.slice(0, 16)}…
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    {rel.prior_tenant_id === null && !rel.prior_tenant_name ? (
+                      <span className="text-xs text-muted-foreground italic">
+                        No workspace
+                      </span>
+                    ) : (
+                      <span className="text-sm">
+                        {rel.prior_tenant_name ?? `#${rel.prior_tenant_id}`}
+                        {rel.prior_tenant_slug && (
+                          <span className="text-xs text-muted-foreground ml-1.5 font-mono">
+                            {rel.prior_tenant_slug}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {rel.actor_email ?? (
+                      <span className="text-xs text-muted-foreground italic">Unknown</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {fmtDateTime(rel.released_at)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
