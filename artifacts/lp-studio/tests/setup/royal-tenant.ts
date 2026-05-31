@@ -102,6 +102,15 @@ export interface CreateRoyalTenantOptions {
    * Omitted by default → neutral, non-Dandy brand.
    */
   brandName?: string;
+  /**
+   * Optional value written to `tenants.trial_expires_at`. The trial-lifecycle
+   * sweep (notifyTrialLifecycle) only matches active tenants on the `free`
+   * plan whose trial expires inside a milestone's 1-day window, so the trial
+   * nudge spec passes a Date a few days out together with `plan: "free"` to
+   * land the tenant in the day-7 / day-11 / day-13 window. Omitted by default
+   * (NULL) → never matched by the sweep, matching every pre-trial account.
+   */
+  trialExpiresAt?: Date;
 }
 
 export async function createRoyalTenant(
@@ -114,6 +123,7 @@ export async function createRoyalTenant(
   const domain = opts.domain ?? "localhost";
   const plan = opts.plan ?? "growth";
   const appUserRole = opts.appUserRole ?? "admin";
+  const trialExpiresAt = opts.trialExpiresAt ?? null;
   const sessionSid = randomBytes(24).toString("base64url");
 
   const client = await pool.connect();
@@ -125,10 +135,10 @@ export async function createRoyalTenant(
     // `onboarding_completed_at` is set so AuthGate doesn't redirect the test
     // session into the new-tenant brand-setup wizard (see AuthGate.tsx).
     const tenantRes = await client.query<{ id: number }>(
-      `INSERT INTO tenants (name, slug, domain, plan, status, settings, onboarding_completed_at)
-       VALUES ($1, $2, $3, $4, 'active', '{"industry":"generic"}'::jsonb, now())
+      `INSERT INTO tenants (name, slug, domain, plan, status, settings, onboarding_completed_at, trial_expires_at)
+       VALUES ($1, $2, $3, $4, 'active', '{"industry":"generic"}'::jsonb, now(), $5)
        RETURNING id`,
-      [`Royal Test Tenant ${suffix}`, slug, domain, plan],
+      [`Royal Test Tenant ${suffix}`, slug, domain, plan, trialExpiresAt],
     );
     const tenantId = tenantRes.rows[0].id;
 

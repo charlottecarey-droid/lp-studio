@@ -14,7 +14,11 @@ import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
-import { dispatchNotification } from "./lib/notificationDispatcher";
+import {
+  notifyTrialLifecycle,
+  TRIAL_NOTIFY_BOOT_DELAY_MS,
+  TRIAL_NOTIFY_INTERVAL_MS,
+} from "./lib/trialLifecycle";
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -178,21 +182,6 @@ const LP_ASSETS_GC_BOOT_DELAY_MS = 120 * 1000;
 const SLUG_REDIRECT_NOTIFY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SLUG_REDIRECT_NOTIFY_LEAD_DAYS = 7;
 
-// Trial lifecycle nudges. The 14-day Growth trial gets escalating reminders at
-// day 7 (halfway), day 11 (3 days left), and day 13 (last day). Each milestone
-// fires inside a 1-day window keyed off trial_expires_at; the dispatcher's
-// dedupe keeps it to one delivery per admin per milestone even if a daily run
-// is missed (and a later milestone still covers them). Daily cadence so a trial
-// that crosses a window boundary at any time of day is caught.
-const TRIAL_NOTIFY_INTERVAL_MS = 24 * 60 * 60 * 1000;
-// Defer the first trial sweep off the cold-start path (DB fan-out + Resend),
-// same rationale as the asset sweeps below.
-const TRIAL_NOTIFY_BOOT_DELAY_MS = 90 * 1000;
-const TRIAL_MILESTONES: { key: string; remainingDays: number }[] = [
-  { key: "trial_day_7", remainingDays: 7 },
-  { key: "trial_day_11", remainingDays: 3 },
-  { key: "trial_day_13", remainingDays: 1 },
-];
 
 async function cleanupExpiredSlugRedirects(): Promise<void> {
   try {
@@ -333,110 +322,6 @@ async function notifyExpiringSlugRedirects(): Promise<void> {
     }
   })().finally(() => { slugRedirectNotifyInflight = null; });
   return slugRedirectNotifyInflight;
-}
-
-type TrialTenantRow = {
-  id: number;
-  name: string;
-  slug: string;
-  domain: string | null;
-  trial_expires_at: Date;
-};
-type TrialAdminRow = { app_user_id: number | null; email: string | null; name: string | null };
-
-// In-process guard against overlapping sweeps (boot + interval, or a slow run
-// still going when the next tick fires). The dispatcher is idempotent anyway,
-// but this avoids redundant DB/Resend work.
-let trialNotifyInflight: Promise<void> | null = null;
-
-// Trial lifecycle nudges (going-forward-only). For each milestone we select
-// active, still-on-free tenants whose trial expires inside that milestone's
-// 1-day window, look up their admins (with app_user_id for the in-app inbox),
-// and hand them to the dispatcher. Tenants who upgraded (plan != 'free') or
-// never had a trial (trial_expires_at IS NULL — i.e. all pre-trial-system
-// accounts) are never matched, so existing accounts stay untouched.
-async function notifyTrialLifecycle(): Promise<void> {
-  if (trialNotifyInflight) return trialNotifyInflight;
-  trialNotifyInflight = (async () => {
-    const baseHost = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
-
-    for (const milestone of TRIAL_MILESTONES) {
-      let tenants: TrialTenantRow[];
-      try {
-        // Window for milestone with R days remaining: expires in (R-1, R] days.
-        const result = await pool.query<TrialTenantRow>(
-          `SELECT id, name, slug, domain, trial_expires_at
-             FROM tenants
-            WHERE status = 'active'
-              AND plan = 'free'
-              AND trial_expires_at IS NOT NULL
-              AND trial_expires_at >  now() + (($1 - 1) || ' days')::interval
-              AND trial_expires_at <= now() + ($1 || ' days')::interval`,
-          [String(milestone.remainingDays)],
-        );
-        tenants = result.rows;
-      } catch (err) {
-        logger.error({ err, milestone: milestone.key }, "notifyTrialLifecycle: tenant query failed (non-fatal)");
-        continue;
-      }
-      if (!tenants.length) continue;
-
-      for (const t of tenants) {
-        let admins: TrialAdminRow[];
-        try {
-          const adminResult = await pool.query<TrialAdminRow>(
-            `SELECT DISTINCT tm.user_id AS app_user_id,
-                    lower(COALESCE(au.email, tm.email)) AS email,
-                    au.name AS name
-               FROM tenant_members tm
-               JOIN tenant_roles tr ON tr.id = tm.role_id
-               LEFT JOIN app_users au ON au.id = tm.user_id
-              WHERE tm.tenant_id = $1
-                AND tr.is_admin = true
-                AND tm.accepted_at IS NOT NULL
-                AND (au.email IS NOT NULL OR (tm.email IS NOT NULL AND tm.email <> ''))`,
-            [t.id],
-          );
-          admins = adminResult.rows;
-        } catch (err) {
-          logger.error({ err, tenantId: t.id, milestone: milestone.key }, "notifyTrialLifecycle: admin lookup failed");
-          continue;
-        }
-        if (!admins.length) continue;
-
-        const workspaceUrl = t.domain
-          ? `https://${t.domain.toLowerCase()}`
-          : baseHost
-            ? `https://${t.slug.toLowerCase()}.${baseHost}`
-            : null;
-        const billingUrl = workspaceUrl ? `${workspaceUrl}/settings/billing` : null;
-
-        try {
-          const r = await dispatchNotification({
-            templateKey: milestone.key,
-            tenantId: t.id,
-            recipients: admins.map(a => ({ appUserId: a.app_user_id, email: a.email, name: a.name })),
-            context: {
-              tenantName: t.name,
-              daysRemaining: milestone.remainingDays,
-              workspaceUrl,
-              billingUrl,
-            },
-            dedupeBase: `${milestone.key}:tenant:${t.id}`,
-          });
-          if (r.inAppCreated || r.emailsSent || r.emailsFailed) {
-            logger.info(
-              { tenantId: t.id, milestone: milestone.key, ...r },
-              "trial lifecycle nudge dispatched",
-            );
-          }
-        } catch (err) {
-          logger.error({ err, tenantId: t.id, milestone: milestone.key }, "notifyTrialLifecycle: dispatch failed");
-        }
-      }
-    }
-  })().finally(() => { trialNotifyInflight = null; });
-  return trialNotifyInflight;
 }
 
 const rawPort = process.env["PORT"] ?? "3001";

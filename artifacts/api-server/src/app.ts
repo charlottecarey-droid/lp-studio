@@ -212,6 +212,22 @@ if (process.env.NODE_ENV !== "production") {
     res.json({ ok: true });
   });
 
+  // Dev-only fixture used by e2e/trial-nudges-inbox.spec.ts (task #539). Runs
+  // the trial lifecycle sweep on demand (it normally only fires 90s after boot
+  // and then daily) so the spec can seed a free-plan tenant inside a milestone
+  // window and assert the inbox rows the sweep creates. Hard-gated on
+  // NODE_ENV !== "production".
+  app.post("/api/_test/run-trial-sweep", async (_req, res) => {
+    try {
+      const { notifyTrialLifecycle } = await import("./lib/trialLifecycle");
+      await notifyTrialLifecycle();
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err }, "[_test/run-trial-sweep] failed");
+      res.status(500).json({ error: "Sweep failed" });
+    }
+  });
+
   // Dev-only fixture used by e2e/tenant-image-acl.spec.ts (task #226).
   // Uploads a tiny PNG buffer to object storage tagged with the supplied
   // tenant id. Returned URL is the same `/api/storage/objects/uploads/<id>`
