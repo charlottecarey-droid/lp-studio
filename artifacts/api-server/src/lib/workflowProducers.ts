@@ -7,7 +7,7 @@ import {
   type AudienceRecipient,
 } from "./workflowAudience";
 import { dueOccurrenceId } from "./workflowSchedule";
-import { parseAudienceConfig, parseScheduledConfig, type AudienceRole } from "./workflowTypes";
+import { parseAudienceConfig, parseScheduledConfig, type AudienceFilter } from "./workflowTypes";
 
 export { AUDIENCE_CAP };
 
@@ -35,8 +35,14 @@ export { AUDIENCE_CAP };
  */
 
 /** Audience-filter summary string for the observability log line. */
-function audienceSummary(role: AudienceRole): string {
-  return `role=${role}`;
+function audienceSummary(filter: AudienceFilter): string {
+  const parts = [`role=${filter.role}`];
+  if (filter.plan) parts.push(`plan=${filter.plan}`);
+  if (filter.tenantId != null) parts.push(`tenant=${filter.tenantId}`);
+  if (filter.role_names && filter.role_names.length > 0) {
+    parts.push(`roles=${filter.role_names.join("|")}`);
+  }
+  return parts.join(" ");
 }
 
 function buildContext(r: AudienceRecipient): Record<string, string> {
@@ -87,14 +93,14 @@ export async function produceScheduledEnrollments(
     if (workflow.definition.steps.length === 0) continue;
     const occurrenceId = dueOccurrenceId(config, now);
     if (!occurrenceId) continue; // not due in the current period
-    const recipientCount = await countAudience(config.role);
+    const recipientCount = await countAudience(config);
     if (recipientCount > AUDIENCE_CAP) {
       // Over the safety cap → REFUSE the whole occurrence (no partial blast).
       logger.error(
         {
           workflowId: workflow.id,
           triggerType: "scheduled",
-          audience: audienceSummary(config.role),
+          audience: audienceSummary(config),
           recipientCount,
           cap: AUDIENCE_CAP,
           occurrenceId,
@@ -103,14 +109,14 @@ export async function produceScheduledEnrollments(
       );
       continue;
     }
-    const recipients = await listAudienceRecipients(config.role, AUDIENCE_CAP);
+    const recipients = await listAudienceRecipients(config, AUDIENCE_CAP);
     const created = await enrollAudience(workflow, recipients, (r) => `${occurrenceId}:u${r.appUserId}`);
     enrolled += created;
     logger.info(
       {
         workflowId: workflow.id,
         triggerType: "scheduled",
-        audience: audienceSummary(config.role),
+        audience: audienceSummary(config),
         recipientCount,
         enrolled: created,
         occurrenceId,
@@ -128,14 +134,14 @@ export async function produceAudienceEnrollments(): Promise<{ enrolled: number }
     const config = parseAudienceConfig(triggerConfig);
     if (!config) continue; // no/invalid role → fail closed
     if (workflow.definition.steps.length === 0) continue;
-    const recipientCount = await countAudience(config.role);
+    const recipientCount = await countAudience(config);
     if (recipientCount > AUDIENCE_CAP) {
       // Over the safety cap → REFUSE the whole audience (no partial blast).
       logger.error(
         {
           workflowId: workflow.id,
           triggerType: "audience",
-          audience: audienceSummary(config.role),
+          audience: audienceSummary(config),
           recipientCount,
           cap: AUDIENCE_CAP,
           occurrenceId: "match",
@@ -144,14 +150,14 @@ export async function produceAudienceEnrollments(): Promise<{ enrolled: number }
       );
       continue;
     }
-    const recipients = await listAudienceRecipients(config.role, AUDIENCE_CAP);
+    const recipients = await listAudienceRecipients(config, AUDIENCE_CAP);
     const created = await enrollAudience(workflow, recipients, (r) => `match:u${r.appUserId}`);
     enrolled += created;
     logger.info(
       {
         workflowId: workflow.id,
         triggerType: "audience",
-        audience: audienceSummary(config.role),
+        audience: audienceSummary(config),
         recipientCount,
         enrolled: created,
         occurrenceId: "match",

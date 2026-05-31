@@ -9,6 +9,7 @@ import { parseAudienceConfig, parseScheduledConfig } from "./workflowTypes";
 
 describe("parseAudienceConfig (Task #626)", () => {
   it("accepts each valid role", () => {
+    expect(parseAudienceConfig({ role: "everyone" })).toEqual({ role: "everyone" });
     expect(parseAudienceConfig({ role: "superadmin" })).toEqual({ role: "superadmin" });
     expect(parseAudienceConfig({ role: "admin" })).toEqual({ role: "admin" });
     expect(parseAudienceConfig({ role: "member" })).toEqual({ role: "member" });
@@ -28,6 +29,34 @@ describe("parseAudienceConfig (Task #626)", () => {
     });
     expect(parseAudienceConfig({ role: "member", role_names: "Editor" })).toEqual({ role: "member" });
     expect(parseAudienceConfig({ role: "member", role_names: [] })).toEqual({ role: "member" });
+  });
+
+  it("keeps a valid plan filter and drops an unknown tier", () => {
+    expect(parseAudienceConfig({ role: "everyone", plan: "growth" })).toEqual({ role: "everyone", plan: "growth" });
+    expect(parseAudienceConfig({ role: "member", plan: "platinum" })).toEqual({ role: "member" });
+  });
+
+  it("keeps a valid tenantId and drops a non-positive/garbage id", () => {
+    expect(parseAudienceConfig({ role: "admin", tenantId: 42 })).toEqual({ role: "admin", tenantId: 42 });
+    expect(parseAudienceConfig({ role: "admin", tenantId: 0 })).toEqual({ role: "admin" });
+    expect(parseAudienceConfig({ role: "admin", tenantId: -3 })).toEqual({ role: "admin" });
+    expect(parseAudienceConfig({ role: "admin", tenantId: "x" })).toEqual({ role: "admin" });
+  });
+
+  it("composes every dimension on top of the base role, dropping only the invalid ones", () => {
+    expect(
+      parseAudienceConfig({
+        role: "everyone",
+        plan: "scale",
+        tenantId: 7,
+        role_names: ["Owner", "junk", "Owner"],
+      }),
+    ).toEqual({ role: "everyone", plan: "scale", tenantId: 7, role_names: ["Owner", "junk"] });
+    // An invalid sub-dimension is dropped without failing the whole config.
+    expect(parseAudienceConfig({ role: "member", plan: "bogus", tenantId: 9 })).toEqual({
+      role: "member",
+      tenantId: 9,
+    });
   });
 });
 

@@ -589,14 +589,47 @@ const SHELL_KEY = "__shell__";
 
 type TriggerType = "event" | "scheduled" | "audience";
 
-type AudienceRole = "superadmin" | "admin" | "member";
+type AudienceRole = "everyone" | "superadmin" | "admin" | "member";
 type ScheduleFrequency = "once" | "daily" | "weekly" | "monthly";
+type Plan = "free" | "starter" | "growth" | "scale" | "enterprise";
 
 const ROLE_LABELS: Record<AudienceRole, string> = {
+  everyone: "Everyone",
   superadmin: "Superadmin",
   admin: "Workspace admins",
   member: "Workspace members",
 };
+
+const PLAN_LABELS: Record<Plan, string> = {
+  free: "Free",
+  starter: "Starter",
+  growth: "Growth",
+  scale: "Scale",
+  enterprise: "Enterprise",
+};
+
+/** The full audience filter the composer builds + previews. */
+interface AudienceFilterState {
+  role: AudienceRole;
+  plan: Plan | "";
+  tenantId: number | "";
+  roleNames: string[];
+}
+
+interface AudienceOptions {
+  plans: Plan[];
+  tenants: { id: number; name: string; slug: string }[];
+  roleNames: string[];
+}
+
+/** Build the wire config (omitting empty narrowing dimensions). */
+function audienceFilterToConfig(f: AudienceFilterState): Record<string, unknown> {
+  const cfg: Record<string, unknown> = { role: f.role };
+  if (f.plan) cfg.plan = f.plan;
+  if (f.tenantId !== "") cfg.tenantId = f.tenantId;
+  if (f.roleNames.length > 0) cfg.role_names = f.roleNames;
+  return cfg;
+}
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -1114,12 +1147,28 @@ function WorkflowEditor({
   );
 }
 
-/** Live recipient-count preview for a scheduled/audience role filter (Task #626). */
+/** A short human description of the audience a filter targets. */
+function describeAudience(filter: AudienceFilterState, options: AudienceOptions | null): string {
+  const parts: string[] = [ROLE_LABELS[filter.role].toLowerCase()];
+  if (filter.plan) parts.push(`on ${PLAN_LABELS[filter.plan]}`);
+  if (filter.tenantId !== "") {
+    const t = options?.tenants.find((x) => x.id === filter.tenantId);
+    parts.push(`in ${t ? t.name : `workspace #${filter.tenantId}`}`);
+  }
+  if (filter.roleNames.length > 0) {
+    parts.push(`with role ${filter.roleNames.join(" / ")}`);
+  }
+  return parts.join(" ");
+}
+
+/** Live recipient-count preview for a scheduled/audience filter (Task #626, #661). */
 function AudiencePreview({
-  role,
+  filter,
+  options,
   onCount,
 }: {
-  role: AudienceRole;
+  filter: AudienceFilterState;
+  options: AudienceOptions | null;
   onCount?: (count: number, overCap: boolean) => void;
 }) {
   const [state, setState] = useState<
@@ -1128,12 +1177,15 @@ function AudiencePreview({
     | { status: "error" }
   >({ status: "loading" });
 
+  const who = describeAudience(filter, options);
+  const body = JSON.stringify(audienceFilterToConfig(filter));
+
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
     apiFetch("/api/admin/email-workflow-audience/preview", {
       method: "POST",
-      body: JSON.stringify({ role }),
+      body,
     })
       .then((data) => {
         if (cancelled) return;
@@ -1148,12 +1200,12 @@ function AudiencePreview({
     return () => {
       cancelled = true;
     };
-  }, [role, onCount]);
+  }, [body, onCount]);
 
   if (state.status === "loading") {
     return (
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" /> Counting {ROLE_LABELS[role]}…
+        <Loader2 className="h-3 w-3 animate-spin" /> Counting {who}…
       </p>
     );
   }
@@ -1165,17 +1217,16 @@ function AudiencePreview({
       <p className="flex items-start gap-1.5 text-xs text-destructive">
         <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
         <span>
-          <span className="font-semibold">{state.count.toLocaleString()}</span> {ROLE_LABELS[role].toLowerCase()} exceed
-          the {state.cap.toLocaleString()} per-run cap — this trigger won’t enroll anyone until the audience is back under
-          the cap.
+          <span className="font-semibold">{state.count.toLocaleString()}</span> {who} exceed the{" "}
+          {state.cap.toLocaleString()} per-run cap — this trigger won’t enroll anyone until the audience is back under the
+          cap.
         </span>
       </p>
     );
   }
   return (
     <p className="text-xs text-muted-foreground">
-      <span className="font-semibold text-foreground">{state.count.toLocaleString()}</span>{" "}
-      {ROLE_LABELS[role].toLowerCase()} will receive this
+      <span className="font-semibold text-foreground">{state.count.toLocaleString()}</span> {who} will receive this
       {state.sample.length > 0 && (
         <span className="text-muted-foreground/80"> · e.g. {state.sample.map((s) => s.email).join(", ")}</span>
       )}
@@ -1196,6 +1247,10 @@ function TriggersPanel({
   const [triggerType, setTriggerType] = useState<TriggerType>("event");
   const [eventKey, setEventKey] = useState("");
   const [role, setRole] = useState<AudienceRole>("member");
+  const [plan, setPlan] = useState<Plan | "">("");
+  const [tenantId, setTenantId] = useState<number | "">("");
+  const [roleNames, setRoleNames] = useState<string[]>([]);
+  const [options, setOptions] = useState<AudienceOptions | null>(null);
   const [frequency, setFrequency] = useState<ScheduleFrequency>("daily");
   const [time, setTime] = useState("09:00");
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
@@ -1212,10 +1267,27 @@ function TriggersPanel({
     lastPreview.current = { count, overCap };
   }, []);
 
+  // Picker data (plans / workspaces / role names) for the audience composer.
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/admin/email-workflow-audience/options")
+      .then((data) => {
+        if (!cancelled) setOptions(data as AudienceOptions);
+      })
+      .catch(() => {
+        /* options are optional — composer still works with role only */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filter: AudienceFilterState = { role, plan, tenantId, roleNames };
+
   const buildConfig = (): Record<string, unknown> | undefined => {
-    if (triggerType === "audience") return { role };
+    if (triggerType === "audience") return audienceFilterToConfig(filter);
     if (triggerType === "scheduled") {
-      const cfg: Record<string, unknown> = { role, frequency, time, timezone };
+      const cfg: Record<string, unknown> = { ...audienceFilterToConfig(filter), frequency, time, timezone };
       if (frequency === "weekly") cfg.dayOfWeek = dayOfWeek;
       if (frequency === "monthly") cfg.dayOfMonth = dayOfMonth;
       if (frequency === "once") cfg.date = date;
@@ -1243,7 +1315,7 @@ function TriggersPanel({
       // Repeat the live recipient count back as a save confirmation.
       if (triggerType !== "event") {
         const { count, overCap } = lastPreview.current;
-        const who = `${count.toLocaleString()} ${ROLE_LABELS[role].toLowerCase()}`;
+        const who = `${count.toLocaleString()} ${describeAudience(filter, options)}`;
         setSaved(
           overCap
             ? `Trigger saved, but ${who} exceed the per-run cap — it won’t enroll anyone until the audience is back under the cap.`
@@ -1355,6 +1427,7 @@ function TriggersPanel({
                   value={role}
                   onChange={(e) => setRole(e.target.value as AudienceRole)}
                 >
+                  <option value="everyone">{ROLE_LABELS.everyone}</option>
                   <option value="superadmin">{ROLE_LABELS.superadmin}</option>
                   <option value="admin">{ROLE_LABELS.admin}</option>
                   <option value="member">{ROLE_LABELS.member}</option>
@@ -1445,7 +1518,71 @@ function TriggersPanel({
               </div>
             )}
 
-            <AudiencePreview role={role} onCount={handleCount} />
+            {/* Optional narrowing: plan tier, workspace, and specific role names.
+                Each is AND-composed on top of the base audience above. */}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-xs">
+                <span className="text-muted-foreground">Plan (optional)</span>
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                  value={plan}
+                  onChange={(e) => setPlan(e.target.value as Plan | "")}
+                >
+                  <option value="">Any plan</option>
+                  {(options?.plans ?? []).map((p) => (
+                    <option key={p} value={p}>
+                      {PLAN_LABELS[p] ?? p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs">
+                <span className="text-muted-foreground">Workspace (optional)</span>
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                  value={tenantId === "" ? "" : String(tenantId)}
+                  onChange={(e) => setTenantId(e.target.value === "" ? "" : Number(e.target.value))}
+                >
+                  <option value="">Any workspace</option>
+                  {(options?.tenants ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {(options?.roleNames.length ?? 0) > 0 && (
+              <label className="text-xs">
+                <span className="text-muted-foreground">Specific role names (optional)</span>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {options!.roleNames.map((rn) => {
+                    const active = roleNames.includes(rn);
+                    return (
+                      <button
+                        key={rn}
+                        type="button"
+                        onClick={() =>
+                          setRoleNames((prev) =>
+                            prev.includes(rn) ? prev.filter((x) => x !== rn) : [...prev, rn],
+                          )
+                        }
+                        className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input bg-background hover:bg-muted"
+                        }`}
+                      >
+                        {rn}
+                      </button>
+                    );
+                  })}
+                </div>
+              </label>
+            )}
+
+            <AudiencePreview filter={filter} options={options} onCount={handleCount} />
           </div>
         )}
 

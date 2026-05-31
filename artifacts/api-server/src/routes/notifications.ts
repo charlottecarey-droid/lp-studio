@@ -45,6 +45,7 @@ import {
 import { validateWorkflowDefinition, parseAudienceConfig } from "../lib/workflowTypes";
 import { runWorkflowSweep, runWorkflowTick, retryWorkflowSendFailure } from "../lib/workflowEngine";
 import { previewAudience } from "../lib/workflowAudience";
+import { PLANS } from "@workspace/plan-config";
 import { listWorkflowSendFailures } from "../lib/workflowSendFailures";
 import {
   getEmailShell,
@@ -1241,14 +1242,41 @@ router.post("/admin/email-workflows/sweep", requireSuperadmin, async (_req, res)
 router.post("/admin/email-workflow-audience/preview", requireSuperadmin, async (req, res): Promise<void> => {
   const config = parseAudienceConfig(req.body ?? {});
   if (!config) {
-    res.status(400).json({ error: "role must be one of: superadmin, admin, member" });
+    res.status(400).json({ error: "role must be one of: everyone, superadmin, admin, member" });
     return;
   }
   try {
-    const preview = await previewAudience(config.role);
+    const preview = await previewAudience(config);
     res.json(preview);
   } catch (err) {
     console.error("[notifications] audience preview error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * GET /api/admin/email-workflow-audience/options — picker data for the audience
+ * composer: the canonical plan tiers, every workspace (id/name/slug), and the
+ * distinct tenant-role names that exist across all workspaces (so admins can
+ * target by plan, by workspace, or by specific role names).
+ */
+router.get("/admin/email-workflow-audience/options", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const [tenants, roleNames] = await Promise.all([
+      pool.query<{ id: number; name: string; slug: string }>(
+        `SELECT id, name, slug FROM tenants ORDER BY name ASC`,
+      ),
+      pool.query<{ name: string }>(
+        `SELECT DISTINCT name FROM tenant_roles ORDER BY name ASC`,
+      ),
+    ]);
+    res.json({
+      plans: PLANS,
+      tenants: tenants.rows,
+      roleNames: roleNames.rows.map((r) => r.name),
+    });
+  } catch (err) {
+    console.error("[notifications] audience options error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

@@ -1,4 +1,5 @@
 import type { NotificationChannel } from "./notificationTemplates";
+import { PLANS, type Plan } from "@workspace/plan-config";
 
 /**
  * Shared types + sanitizers for the email workflow composer (Task #589).
@@ -61,23 +62,37 @@ export interface WorkflowDefinition {
 
 /**
  * Audience role buckets. These partition the active app_users population:
+ *   - everyone   — every deliverable active user (no role narrowing).
  *   - superadmin — app_users.role = 'superadmin' (the canonical Dandy-operator
  *     flag; NOT the legacy `tenant_id IS NULL` heuristic, which is far broader).
  *   - admin      — not a superadmin, AND a member of some tenant with an
  *     is_admin role (tenant_members → tenant_roles.is_admin).
  *   - member     — everyone else (regular members + users with no membership).
  */
-export type AudienceRole = "superadmin" | "admin" | "member";
+export type AudienceRole = "everyone" | "superadmin" | "admin" | "member";
 
-const VALID_AUDIENCE_ROLES: AudienceRole[] = ["superadmin", "admin", "member"];
+const VALID_AUDIENCE_ROLES: AudienceRole[] = ["everyone", "superadmin", "admin", "member"];
 
+/**
+ * An audience filter. `role` is the coarse population bucket (required); the
+ * remaining fields are optional AND-narrowing dimensions. All present
+ * dimensions must match for a user to be in the audience:
+ *   - plan       — the user's tenant must currently resolve to this EFFECTIVE
+ *     plan (trial windows + the Dandy enterprise guard are honoured, exactly
+ *     like the "plan" workflow condition).
+ *   - tenantId   — the user's home tenant (app_users.tenant_id) must equal this
+ *     single workspace.
+ *   - role_names — the user must be a member via a tenant_role whose name
+ *     matches one of these (case-insensitive). Lets admins target owner /
+ *     editor / viewer (or any custom role) by name.
+ */
 export interface AudienceFilter {
   role: AudienceRole;
-  /**
-   * Future-only additive: target specific tenant_roles by name. Accepted and
-   * round-tripped today but NOT yet applied by the v1 resolver — present so the
-   * stored config shape is forward-compatible.
-   */
+  /** Narrow to users whose tenant's EFFECTIVE plan equals this. */
+  plan?: Plan;
+  /** Narrow to a single workspace/tenant by id (app_users.tenant_id). */
+  tenantId?: number;
+  /** Narrow to users who are members via a tenant role whose name matches (case-insensitive). */
   role_names?: string[];
 }
 
@@ -141,18 +156,38 @@ function sanitizeRole(raw: unknown): AudienceRole | null {
   return VALID_AUDIENCE_ROLES.includes(raw as AudienceRole) ? (raw as AudienceRole) : null;
 }
 
+function sanitizePlan(raw: unknown): Plan | undefined {
+  return typeof raw === "string" && (PLANS as readonly string[]).includes(raw)
+    ? (raw as Plan)
+    : undefined;
+}
+
+function sanitizeTenantId(raw: unknown): number | undefined {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
 /**
  * Parse a stored audience-trigger config. Returns null if the role is missing /
  * invalid — the producer treats that as "nothing to enroll" rather than guessing
- * an audience (fail-closed: never blast an unintended population).
+ * an audience (fail-closed: never blast an unintended population). The optional
+ * plan / tenantId / role_names dimensions are sanitized independently; an
+ * invalid value for any of them is simply dropped (the filter just doesn't
+ * narrow on that dimension) rather than failing the whole config.
  */
 export function parseAudienceConfig(raw: unknown): AudienceTriggerConfig | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const role = sanitizeRole(o.role);
   if (!role) return null;
+  const cfg: AudienceTriggerConfig = { role };
+  const plan = sanitizePlan(o.plan);
+  if (plan) cfg.plan = plan;
+  const tenantId = sanitizeTenantId(o.tenantId);
+  if (tenantId) cfg.tenantId = tenantId;
   const roleNames = sanitizeRoleNames(o.role_names);
-  return roleNames ? { role, role_names: roleNames } : { role };
+  if (roleNames) cfg.role_names = roleNames;
+  return cfg;
 }
 
 /**

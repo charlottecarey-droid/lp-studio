@@ -150,9 +150,9 @@ describe("audience role resolver (Task #626)", () => {
     // the inactive superadmin lands in none. We re-run with a delta check by
     // deleting the membership rows would be invasive, so we assert the seeded
     // users' presence via targeted membership queries on the resolver SQL shape.
-    const superCount = await countAudience("superadmin");
-    const adminCount = await countAudience("admin");
-    const memberCount = await countAudience("member");
+    const superCount = await countAudience({ role: "superadmin" });
+    const adminCount = await countAudience({ role: "admin" });
+    const memberCount = await countAudience({ role: "member" });
     expect(superCount).toBeGreaterThanOrEqual(1); // at least uSuper
     expect(adminCount).toBeGreaterThanOrEqual(1); // at least uAdmin
     expect(memberCount).toBeGreaterThanOrEqual(1); // at least uMember
