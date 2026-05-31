@@ -10,6 +10,22 @@ import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 
 const API_BASE = "/api";
 
+// ── Per-one-pager brand color override ─────────────────────────────────
+// Sales reps can override the tenant's Brand Settings colors for a single
+// one-pager (e.g. a co-branded piece) WITHOUT changing global Brand Settings.
+// The override is stashed in the custom-template `customFieldValues` record
+// under these reserved keys (the `__` prefix can never collide with a real
+// template field id). Empty / absent → fall back to Brand Settings, then to
+// the Dandy palette.
+export const ONE_PAGER_PRIMARY_OVERRIDE_KEY = "__brandPrimaryOverride";
+export const ONE_PAGER_ACCENT_OVERRIDE_KEY = "__brandAccentOverride";
+
+/** A per-one-pager color override resolved from the sales form. */
+export interface OnePagerColorOverride {
+  primaryColor?: string;
+  accentColor?: string;
+}
+
 // ── Brand context for the custom-template PDF generator ────────────────
 // Resolves the third arg of `generateCustomTemplatePdf` from the tenant's
 // BrandConfig. For protected Dandy tenants (`brand.isDandy === true`) this
@@ -20,12 +36,27 @@ const API_BASE = "/api";
 // nothing) so no Dandy asset can ever leak. Detection uses the
 // server-authoritative `isDandy` flag (resolved from the immutable slug),
 // never the spoofable `brandName`.
-export function buildCustomTemplateBrandOpts(brand: BrandConfig): CustomTemplatePdfBrandOpts {
+//
+// `override` is an optional per-one-pager color override (from the sales
+// form). When a color is provided it wins over Brand Settings; when empty it
+// falls back to Brand Settings (non-Dandy) or stays empty (Dandy → hard-coded
+// green). Contrast-safe derivation downstream is unchanged.
+export function buildCustomTemplateBrandOpts(
+  brand: BrandConfig,
+  override?: OnePagerColorOverride,
+): CustomTemplatePdfBrandOpts {
+  const overridePrimary = (override?.primaryColor || "").trim();
+  const overrideAccent = (override?.accentColor || "").trim();
   if (brand.isDandy === true) {
     return {
       brandLogoSvgUrl: dandyLogoWhiteUrl,
       brandWordmark: "dandy",
       qrFallbackUrl: "https://meetdandy.com",
+      // Dandy keeps its hard-coded green UNLESS the rep explicitly overrides
+      // it for this one-pager. Empty override → empty here → Dandy palette
+      // preserved (byte-identical output).
+      primaryColor: overridePrimary,
+      accentColor: overrideAccent,
     };
   }
   const cta = brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "";
@@ -36,10 +67,11 @@ export function buildCustomTemplateBrandOpts(brand: BrandConfig): CustomTemplate
     brandLogoSvgUrl: brand.logoUrl || "",
     brandWordmark: (brand.brandName || "").trim().toLowerCase(),
     qrFallbackUrl: cta,
-    // Brand-tinted custom-template surfaces (e.g. team-photo circle). Empty for
-    // Dandy (handled above) so Dandy's hard-coded green is preserved.
-    primaryColor: (onePagerColors.primaryColor || "").trim(),
-    accentColor: (onePagerColors.accentColor || "").trim(),
+    // Brand-tinted custom-template surfaces (e.g. team-photo circle). Override
+    // wins, then the resolved one-pager colors (Brand Settings + one-pager
+    // overrides), then empty (→ Dandy default green).
+    primaryColor: overridePrimary || (onePagerColors.primaryColor || "").trim(),
+    accentColor: overrideAccent || (onePagerColors.accentColor || "").trim(),
   };
 }
 

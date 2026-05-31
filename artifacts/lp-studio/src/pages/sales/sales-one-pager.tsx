@@ -9,7 +9,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
-import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
+import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, ONE_PAGER_PRIMARY_OVERRIDE_KEY, ONE_PAGER_ACCENT_OVERRIDE_KEY } from "./one-pager-custom-utils";
 import {
   generatePilotOnePager as sharedGeneratePilotOnePager,
   generateComparisonOnePager as sharedGenerateComparisonOnePager,
@@ -859,14 +859,36 @@ const SalesOnePager = () => {
     if (template !== "agreement-summary" && !dsoName.trim()) return;
     setGenerating(true);
     try {
+      // ── Per-one-pager brand color override ──────────────────────────────
+      // Reps can swap the tenant's Brand Settings colors for THIS one-pager
+      // only (e.g. a co-branded piece). Empty → fall back to Brand Settings,
+      // then to the Dandy palette. The override values are stashed in
+      // customFieldValues under reserved keys.
+      const overridePrimary = (customFieldValues[ONE_PAGER_PRIMARY_OVERRIDE_KEY] || "").trim();
+      const overrideAccent = (customFieldValues[ONE_PAGER_ACCENT_OVERRIDE_KEY] || "").trim();
+      const colorOverride = { primaryColor: overridePrimary, accentColor: overrideAccent };
+      const hasColorOverride = !!(overridePrimary || overrideAccent);
       let doc;
       // Resolve the tenant's exact brand fonts (best-effort) so the generated
       // PDF embeds them. Dandy (brandContext === undefined) keeps its built-in
       // Bagoss/helvetica faces; resolveBrandPdfFonts never throws and returns
       // undefined when nothing is resolvable, so the generators fall back.
-      const brandContextWithFonts: BrandContext | undefined = brandContext
-        ? { ...brandContext, fonts: await resolveBrandPdfFonts(brand) }
-        : undefined;
+      const brandFonts = brandContext ? await resolveBrandPdfFonts(brand) : undefined;
+      // Effective context for the built-in generators: apply the per-one-pager
+      // override on top of the font-resolved Brand Settings base. When no
+      // override is set this equals the plain font-resolved context, so Dandy
+      // (brandContext === undefined) stays undefined and its palette/output is
+      // byte-identical.
+      const effectiveBrandContext: BrandContext | undefined = hasColorOverride
+        ? {
+            ...(brandContext ?? {}),
+            ...(brandFonts ? { fonts: brandFonts } : {}),
+            primaryColor: overridePrimary || ((brandContext?.primaryColor || "").trim()),
+            accentColor: overrideAccent || ((brandContext?.accentColor || "").trim()),
+          }
+        : brandContext
+          ? { ...brandContext, fonts: brandFonts }
+          : undefined;
       // Check if a custom template is selected
       if (selectedCustomId !== null) {
         const ct = customTemplates.find(t => t.id === selectedCustomId);
@@ -874,12 +896,15 @@ const SalesOnePager = () => {
           // Build values: per-field-id from auto-rendered inputs PLUS
           // legacy generic keys (dso_name/phone/qr_url) so templates that
           // haven't flagged any fields editableBySales still pick up the
-          // form's DSO Name + (when shown) phone/link inputs.
+          // form's DSO Name + (when shown) phone/link inputs. Strip the
+          // reserved color-override keys so they never leak into resolveValue.
           const values: Record<string, string> = { ...customFieldValues };
+          delete values[ONE_PAGER_PRIMARY_OVERRIDE_KEY];
+          delete values[ONE_PAGER_ACCENT_OVERRIDE_KEY];
           values.dso_name = values.dso_name || dsoName.trim();
           values.phone = values.phone || phoneNumber;
           values.qr_url = values.qr_url || customLinkUrl;
-          doc = await generateCustomTemplatePdf(ct, values, buildCustomTemplateBrandOpts(brand));
+          doc = await generateCustomTemplatePdf(ct, values, buildCustomTemplateBrandOpts(brand, colorOverride));
           const dsoLabel = (values.dso_name || dsoName.trim() || ct.name).replace(/\s+/g, "_");
           doc.save(`${ct.name.replace(/\s+/g, "_")}_${dsoLabel}.pdf`);
         }
@@ -896,25 +921,25 @@ const SalesOnePager = () => {
             }
           }
         } catch { /* use local editedContent */ }
-        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
+        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
       } else if (template === "comparison") {
-        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
+        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${isDandy ? "Dandy_Evolution" : `${brandSlug}_Before_After`}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       } else if (template === "new-partner") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
       } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +
         // admin-saved layout on mount), so any number/price/text edits made
         // here flow into the generated PDF.
-        doc = await generateAgreementSummaryOnePager(agreementContent, brandContextWithFonts, oneAssets);
+        doc = await generateAgreementSummaryOnePager(agreementContent, effectiveBrandContext, oneAssets);
         doc.save(isDandy ? "Summary_of_Dandy_Agreement.pdf" : `Summary_of_${brandSlug}_Agreement.pdf`);
       } else {
-        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, brandContextWithFonts, oneAssets);
+        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       }
 
@@ -1367,6 +1392,90 @@ const SalesOnePager = () => {
                 </p>
               </div>
             )}
+
+            {/* Per-one-pager brand color override. Reps can swap the tenant's
+                Brand Settings colors for THIS one-pager only (e.g. a co-branded
+                piece) without touching global Brand Settings. Empty → falls back
+                to Brand Settings, then the Dandy palette. Stored in
+                customFieldValues under reserved keys and threaded into every
+                generator via handleGenerate. */}
+            {(() => {
+              const overridePrimary = customFieldValues[ONE_PAGER_PRIMARY_OVERRIDE_KEY] ?? "";
+              const overrideAccent = customFieldValues[ONE_PAGER_ACCENT_OVERRIDE_KEY] ?? "";
+              const hasOverride = !!(overridePrimary.trim() || overrideAccent.trim());
+              const brandPrimary = (brand.primaryColor || "").trim() || "#0F172A";
+              const brandAccent = (brand.accentColor || "").trim() || "#3B82F6";
+              const isHex = (v: string) => /^#?[0-9a-fA-F]{6}$/.test(v.trim());
+              const norm = (v: string) => (v.startsWith("#") ? v : `#${v}`);
+              const setOverride = (key: string, val: string) =>
+                setCustomFieldValues(p => ({ ...p, [key]: val }));
+              const colorRow = (
+                key: string,
+                label: string,
+                value: string,
+                fallbackSwatch: string,
+              ) => {
+                const swatch = isHex(value) ? norm(value) : fallbackSwatch;
+                return (
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                      {label}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={swatch}
+                        onChange={(e) => setOverride(key, e.target.value)}
+                        className="h-9 w-10 shrink-0 rounded border border-border cursor-pointer bg-transparent p-0.5"
+                        aria-label={`${label} swatch`}
+                      />
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => setOverride(key, e.target.value)}
+                        placeholder={`Brand default (${fallbackSwatch})`}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                    </div>
+                  </div>
+                );
+              };
+              return (
+                <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
+                        Brand colors — this one-pager only
+                      </span>
+                    </div>
+                    {hasOverride && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomFieldValues(p => {
+                          const next = { ...p };
+                          delete next[ONE_PAGER_PRIMARY_OVERRIDE_KEY];
+                          delete next[ONE_PAGER_ACCENT_OVERRIDE_KEY];
+                          return next;
+                        })}
+                        title="Reset to Brand Settings colors"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {colorRow(ONE_PAGER_PRIMARY_OVERRIDE_KEY, "Primary color", overridePrimary, brandPrimary)}
+                    {colorRow(ONE_PAGER_ACCENT_OVERRIDE_KEY, "Accent color", overrideAccent, brandAccent)}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Leave blank to use your Brand Settings. Overrides apply to this PDF only and don't change your saved Brand Settings. Text and badge colors auto-adjust for contrast.
+                  </p>
+                </div>
+              );
+            })()}
 
             {(template === "pilot" || template === "comparison" || template === "new-partner" || template === "partner2") && (
               <div>
