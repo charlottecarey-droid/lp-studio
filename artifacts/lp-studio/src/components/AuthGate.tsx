@@ -212,7 +212,7 @@ function parseFinderSuggestions(data: unknown, typed: string): WorkspaceSuggesti
     : [];
 }
 
-function WorkspaceFinder() {
+function WorkspaceFinder({ bare = false, autoFocus = false }: { bare?: boolean; autoFocus?: boolean }) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -362,12 +362,16 @@ function WorkspaceFinder() {
   const hasSuggestions = suggestions.length > 0;
 
   return (
-    <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-4">
-      <p className="text-sm font-medium text-foreground">Already have a workspace?</p>
-      <p className="text-xs text-muted-foreground mt-0.5">
-        Find your company's login page.
-      </p>
-      <form onSubmit={handleSubmit} className="mt-3 flex items-center gap-2">
+    <div className={bare ? "" : "rounded-xl border border-border/70 bg-muted/30 px-4 py-4"}>
+      {!bare && (
+        <>
+          <p className="text-sm font-medium text-foreground">Already have a workspace?</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Find your company's login page.
+          </p>
+        </>
+      )}
+      <form onSubmit={handleSubmit} className={`flex items-center gap-2 ${bare ? "" : "mt-3"}`}>
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -385,6 +389,7 @@ function WorkspaceFinder() {
               activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
             }
             autoComplete="off"
+            autoFocus={autoFocus}
           />
         </div>
         <Button type="submit" variant="outline" className="h-10 shrink-0 gap-1.5 bg-white" disabled={loading || !query.trim()}>
@@ -445,6 +450,7 @@ const OPEN_HIGHLIGHTS = [
 
 function OpenSignInScreen() {
   const [mode, setMode] = useState<"signup" | "signin">("signup");
+  const [finderOpen, setFinderOpen] = useState(false);
   const isSignup = mode === "signup";
 
   return (
@@ -535,11 +541,11 @@ function OpenSignInScreen() {
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-white shadow-[0_24px_60px_-24px_rgba(88,28,135,0.25)] px-7 py-8 space-y-6">
-            <div>
+            <div className="text-center">
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                 {isSignup ? "Create your workspace" : "Welcome back"}
               </h1>
-              <p className="text-sm text-muted-foreground mt-1.5">
+              <p className="text-sm text-muted-foreground mt-2 mx-auto max-w-xs">
                 {isSignup
                   ? "Start building landing pages in minutes — it's free to get started."
                   : "Log in to your LP Studio workspace to keep building."}
@@ -575,7 +581,36 @@ function OpenSignInScreen() {
               )}
             </p>
 
-            <WorkspaceFinder />
+            {!isSignup && (
+              <div className="border-t border-border/60 pt-5">
+                {finderOpen ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-foreground">Find your company's login page</p>
+                      <button
+                        type="button"
+                        onClick={() => setFinderOpen(false)}
+                        className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <WorkspaceFinder bare autoFocus />
+                  </div>
+                ) : (
+                  <p className="text-center text-xs text-muted-foreground">
+                    Already have a workspace?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setFinderOpen(true)}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Find your company's login page
+                    </button>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <p className="text-center text-xs text-muted-foreground">
