@@ -45,3 +45,4 @@
 - [Cross-instance notification broker](notification-cross-instance-broker.md) — SSE pushes fan out via LISTEN/NOTIFY; NOTIFY ok on pooler, LISTEN needs non-pooled (strip `-pooler`); INSTANCE_ID skips own echo.
 - [drizzle multi-statement = extended protocol fail](drizzle-multistatement-extended-protocol.md) — run a whole .sql file via raw `pool.query(string)` (simple protocol); `db.execute(sql.raw(...))` sends params → extended → "cannot insert multiple commands".
 - [e2e concurrent-run flake](e2e-concurrent-run-flake.md) — lp-studio e2e "browser/page closed" + api-server dist clobber are env flakes from running alongside dev workflows; clean isolated run = 108/108; trust test-results/.last-run.json not /tmp snapshots.
+- [jsPDF fill-color encoding](jspdf-fill-color-encoding.md) — PDF byte color guards: fills=2-decimal `rg`, text=3-decimal; hardcode brand RGB literals, not DANDY_PALETTE-derived.
