@@ -192,7 +192,7 @@ function DomainContent() {
               </div>
               <div className="flex-1 min-w-0 space-y-3">
                 <div>
-                  <h2 className="text-sm font-semibold">Microsite domain</h2>
+                  <h2 className="text-sm font-semibold">Landing pages domain</h2>
                   <p className="text-xs text-muted-foreground mt-1 max-w-prose">
                     The hostname that visitors see when viewing your published landing pages.
                   </p>

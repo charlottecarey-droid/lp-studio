@@ -87,7 +87,7 @@ export function MicrositeLinksCard() {
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         toast({
-          title: "Couldn't save microsite links",
+          title: "Couldn't save vanity links",
           description: err?.error ?? `HTTP ${r.status}`,
           variant: "destructive",
         });
@@ -99,10 +99,10 @@ export function MicrositeLinksCard() {
       };
       setRootRedirectUrl(data.rootRedirectUrl ?? "");
       setLinks(Array.isArray(data.vanityLinks) ? data.vanityLinks : []);
-      toast({ title: "Microsite links saved" });
+      toast({ title: "Vanity links saved" });
     } catch (err) {
       toast({
-        title: "Couldn't save microsite links",
+        title: "Couldn't save vanity links",
         description: err instanceof Error ? err.message : "Network error",
         variant: "destructive",
       });
@@ -115,10 +115,10 @@ export function MicrositeLinksCard() {
     <Card className="p-6 space-y-5">
       <div>
         <h3 className="text-base font-semibold flex items-center gap-2">
-          <Globe className="w-4 h-4 text-primary" /> Microsite Links
+          <Globe className="w-4 h-4 text-primary" /> Vanity links
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Controls what the public microsite host (your custom domain, or the <span className="font-mono">.lpstudio.ai</span> subdomain) does with the root URL, plus any short vanity links you want to publish.
+          Controls what the public landing pages host (your custom domain, or the <span className="font-mono">.lpstudio.ai</span> subdomain) does with the root URL, plus any short vanity links you want to publish.
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export function MicrositeLinksCard() {
           disabled={loading}
         />
         <p className="text-xs text-muted-foreground">
-          Visitors who land on the microsite root (<span className="font-mono">/</span>) are sent here. Leave blank to use the default Dandy landing page.
+          Visitors who land on the site root (<span className="font-mono">/</span>) are sent here. Leave blank to use the default Dandy landing page.
         </p>
       </div>
 
@@ -190,7 +190,7 @@ export function MicrositeLinksCard() {
       <div className="flex justify-end pt-2 border-t border-border">
         <Button onClick={handleSave} disabled={saving || loading} className="gap-2">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save microsite links
+          Save vanity links
         </Button>
       </div>
     </Card>
