@@ -41,14 +41,15 @@ const MergeVariable = TiptapNode.create({
   },
 
   renderHTML({ HTMLAttributes }) {
+    const variable = HTMLAttributes["data-merge-variable"] ?? "";
     return [
       "span",
       {
-        "data-merge-variable": HTMLAttributes.variable,
+        "data-merge-variable": variable,
         style:
           "background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:4px;font-size:13px;font-family:monospace;user-select:all;",
       },
-      `{{${HTMLAttributes.variable ?? ""}}}`,
+      `{{${variable}}}`,
     ];
   },
 });
@@ -649,7 +650,7 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
 
         {!htmlMode && (
           /* Merge variable buttons */
-          <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/10">
+          <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/10">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide mr-1">
               Merge:
             </span>
