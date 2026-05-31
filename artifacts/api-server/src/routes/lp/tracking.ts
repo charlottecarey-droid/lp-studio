@@ -10,7 +10,7 @@ import type { LpVariant } from "@workspace/db";
 import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 import { revealAccountName } from "../../lib/apollo-reveal";
-import { findTenantByHost } from "../../lib/tenantHosts";
+import { findTenantByHost, getActiveHostsForTenant, extractWildcardSlug } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { SESSION_COOKIE, type AuthUser } from "../../middleware/requireAuth";
 import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
@@ -28,20 +28,43 @@ async function resolveTenantIdFromRequest(req: Request): Promise<number | null> 
 }
 
 /**
- * Task #547 — resolve the visible provenance line for a published microsite:
- * "Sent by [Tenant Name] for [Target Account]" (falls back to "Sent by
- * [Tenant Name]" when no target account is associated). The Dandy tenant is
- * excluded entirely (gated by slug) — its white-label pages are left untouched.
+ * Task #547/#633 — resolve the visible provenance line for a published
+ * microsite: "Sent by [Tenant Name] for [Target Account]".
  *
- * Returns null when no provenance should be shown (Dandy, or tenant lookup
- * failure). Failures are non-fatal: provenance is a legitimacy signal, not a
- * security control, so we degrade silently rather than block the page.
+ * The footer is a "you're still on our shared domain" signal. Task #633
+ * domain-gates it (no longer plan-gated): it renders ONLY when ALL of the
+ * following hold —
+ *   1. The page is a personalized microsite, i.e. it is linked to a target
+ *      account (`accountId` present). Regular landing pages never show it.
+ *   2. The page is being served on the tenant's default shared host
+ *      (`<slug>.lpstudio.ai`), NOT on the tenant's own custom domain. This is
+ *      decided from the `activeHost` at render time via the same wildcard-
+ *      subdomain matching used everywhere else — no stored plan / domain-status
+ *      flag is consulted.
+ *
+ * The existing Dandy slug exclusion stays as a safety net (host-based gating
+ * already hides it anyway, since Dandy pages serve on their own custom domain).
+ *
+ * `activeHost` is the request host on the live page path, and the tenant's
+ * canonical published host on the preview/prerender path (so the editor preview
+ * and the static R2 snapshot reflect what visitors on the published host see,
+ * not the admin / fixed render host).
+ *
+ * Returns null when no provenance should be shown. Failures are non-fatal:
+ * provenance is a legitimacy signal, not a security control, so we degrade
+ * silently rather than block the page.
  */
-async function resolveProvenance(page: {
-  accountId: number | null;
-  tenantId: number;
-}): Promise<{ tenantName: string; accountName: string | null } | null> {
+async function resolveProvenance(
+  page: {
+    accountId: number | null;
+    tenantId: number;
+  },
+  activeHost: string | null,
+): Promise<{ tenantName: string; accountName: string | null } | null> {
   try {
+    // (1) Regular landing pages (no target account) never show the footer.
+    if (page.accountId == null) return null;
+
     const [tenantRow] = await db
       .select({ slug: tenantsTable.slug, name: tenantsTable.name })
       .from(tenantsTable)
@@ -49,27 +72,59 @@ async function resolveProvenance(page: {
     if (!tenantRow) return null;
     if (isProtectedEnterpriseSlug(tenantRow.slug)) return null;
 
-    let accountName: string | null = null;
-    if (page.accountId != null) {
-      // Tenant-scoped lookup — never resolve another tenant's account name.
-      const [account] = await db
-        .select({
-          name: salesAccountsTable.name,
-          displayName: salesAccountsTable.displayName,
-        })
-        .from(salesAccountsTable)
-        .where(
-          and(
-            eq(salesAccountsTable.id, page.accountId),
-            eq(salesAccountsTable.tenantId, page.tenantId),
-          ),
-        );
-      accountName = account?.displayName || account?.name || null;
+    // (2) Domain gate — only on the default shared host `<slug>.lpstudio.ai`.
+    // extractWildcardSlug returns the subdomain only for the wildcard base
+    // hosts we control; any custom domain yields null (→ no footer).
+    const wildcardSlug = activeHost ? extractWildcardSlug(activeHost) : null;
+    if (wildcardSlug === null || wildcardSlug !== tenantRow.slug.toLowerCase()) {
+      return null;
     }
+
+    // Tenant-scoped lookup — never resolve another tenant's account name.
+    const [account] = await db
+      .select({
+        name: salesAccountsTable.name,
+        displayName: salesAccountsTable.displayName,
+      })
+      .from(salesAccountsTable)
+      .where(
+        and(
+          eq(salesAccountsTable.id, page.accountId),
+          eq(salesAccountsTable.tenantId, page.tenantId),
+        ),
+      );
+    const accountName = account?.displayName || account?.name || null;
+
     return { tenantName: tenantRow.name, accountName };
   } catch (err) {
     console.warn("[tracking] provenance lookup failed; omitting", {
       tenantId: page.tenantId,
+      err,
+    });
+    return null;
+  }
+}
+
+/**
+ * Task #633 — the host the provenance gate should evaluate for the
+ * preview/prerender path. The in-builder preview is served on the admin host
+ * and the prerender snapshot is rendered against a single fixed render host
+ * (LP_STUDIO_RENDER_BASE_URL), neither of which is the page's published host.
+ * Both must instead reflect the tenant's canonical published host so the
+ * footer matches what a visitor sees on the live published page.
+ *
+ * getActiveHostsForTenant returns the tenant's hosts in priority order
+ * (custom domain → microsite domain → `<slug>.<wildcard base>`), so [0] is the
+ * canonical published host: a custom domain when the tenant has one (→ footer
+ * hidden), otherwise the shared `<slug>.lpstudio.ai` subdomain (→ footer shown).
+ */
+async function resolveCanonicalPublishedHost(tenantId: number): Promise<string | null> {
+  try {
+    const hosts = await getActiveHostsForTenant(tenantId);
+    return hosts[0] ?? null;
+  } catch (err) {
+    console.warn("[tracking] canonical host lookup failed; omitting provenance", {
+      tenantId,
       err,
     });
     return null;
@@ -465,9 +520,10 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       // the prerendered static HTML. null = fully allowed (viewer emits no tag).
       const robots = await resolveRobotsContentForPage(builderPage);
 
-      // Task #547 — provenance line ("Sent by [Tenant] for [Account]"), shown
-      // on the published microsite. Excludes Dandy. null = render nothing.
-      const provenance = await resolveProvenance(builderPage);
+      // Task #547/#633 — provenance line ("Sent by [Tenant] for [Account]"),
+      // shown only on a personalized microsite served on the default shared
+      // host. Gated on the live visitor's request host. null = render nothing.
+      const provenance = await resolveProvenance(builderPage, getRequestHost(req));
 
       res.json({
         pageType: "builder",
@@ -742,9 +798,14 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
   // Task #494/#547 — resolved robots directive so the in-builder preview
   // matches the published page. null = fully allowed (viewer emits no tag).
   const robots = await resolveRobotsContentForPage(page);
-  // Task #547 — provenance line in preview so the editor sees what visitors
-  // see. Excludes Dandy. null = render nothing.
-  const provenance = await resolveProvenance(page);
+  // Task #547/#633 — provenance line in preview so the editor (and the
+  // prerender snapshot, which also renders through this route) sees what
+  // visitors on the published page see. Gated on the tenant's canonical
+  // published host, not the admin / fixed render host. null = render nothing.
+  const provenance = await resolveProvenance(
+    page,
+    await resolveCanonicalPublishedHost(page.tenantId),
+  );
   res.json({
     pageType: "builder",
     id: page.id,
