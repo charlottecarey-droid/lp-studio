@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
 import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import {
@@ -860,6 +860,13 @@ const SalesOnePager = () => {
     setGenerating(true);
     try {
       let doc;
+      // Resolve the tenant's exact brand fonts (best-effort) so the generated
+      // PDF embeds them. Dandy (brandContext === undefined) keeps its built-in
+      // Bagoss/helvetica faces; resolveBrandPdfFonts never throws and returns
+      // undefined when nothing is resolvable, so the generators fall back.
+      const brandContextWithFonts: BrandContext | undefined = brandContext
+        ? { ...brandContext, fonts: await resolveBrandPdfFonts(brand) }
+        : undefined;
       // Check if a custom template is selected
       if (selectedCustomId !== null) {
         const ct = customTemplates.find(t => t.id === selectedCustomId);
@@ -889,25 +896,25 @@ const SalesOnePager = () => {
             }
           }
         } catch { /* use local editedContent */ }
-        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, oneAssets);
+        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
       } else if (template === "comparison") {
-        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContext, oneAssets);
+        doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
         doc.save(`${isDandy ? "Dandy_Evolution" : `${brandSlug}_Before_After`}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       } else if (template === "new-partner") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
       } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContext, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, brandContextWithFonts, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +
         // admin-saved layout on mount), so any number/price/text edits made
         // here flow into the generated PDF.
-        doc = await generateAgreementSummaryOnePager(agreementContent, brandContext, oneAssets);
+        doc = await generateAgreementSummaryOnePager(agreementContent, brandContextWithFonts, oneAssets);
         doc.save(isDandy ? "Summary_of_Dandy_Agreement.pdf" : `Summary_of_${brandSlug}_Agreement.pdf`);
       } else {
-        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, brandContext, oneAssets);
+        doc = await generateROIOnePager(dsoName.trim(), numPractices, undefined, brandContextWithFonts, oneAssets);
         doc.save(`${brandSlug}_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       }
 

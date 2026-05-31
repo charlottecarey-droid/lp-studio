@@ -32,4 +32,5 @@
 - [mockup-sandbox generated file untracked](mockup-sandbox-generated-file.md) — src/.generated/mockup-components.ts is gitignored (regenerated on dev start); never re-add, it conflicts every rebase.
 - [Pooler advisory-lock leak](pooler-advisory-lock-leak.md) — session pg_try_advisory_lock leaks on Neon -pooler; customDomainPoller integration tests flake (0 sends); clear orphan via pg_terminate_backend; prefer pg_advisory_xact_lock.
 - [Email auth token host-binding](auth-email-token-host-binding.md) — every email-token redeem route (verify/magic-link/reset) must re-check `redeemed.targetHost` vs current host; redeemEmailToken enforces single-use/purpose/TTL only.
+- [PDF brand-font embedding](pdf-brand-font-embedding.md) — jsPDF addFont swallows bad bytes (crashes next getTextWidth) so magic-byte-validate first; Google v1 /css + curl UA returns full-charset TTF (no unicode-range subsetting).
 - [Trial plan write-path landmine](trial-plan-write-paths.md) — NO production path may store tenants.plan='trial' (read-normalizes to growth = indefinite free Growth); trials are date-window only; defaults+create+PATCH must be canonical; guardrail test enforces.

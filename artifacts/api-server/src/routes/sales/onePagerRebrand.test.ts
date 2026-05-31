@@ -2,16 +2,15 @@
  * Unit test for non-Dandy ("Royal") one-pager PDF rebranding.
  *
  * This is the mirror of dandyGatedTemplates.integration.test.ts. That test
- * proves the *Dandy* path (gated built-ins are reachable, and the server blocks
- * non-Dandy tenants from cloning them). This test proves the rebranding path:
- * when a one-pager IS produced for a non-Dandy tenant, every Dandy token in the
- * copy must be scrubbed out and replaced with the tenant's brand.
+ * proves the server no longer blocks any built-in (the Dandy gate is retired).
+ * This test proves the rebranding path: when a one-pager IS produced for a
+ * non-Dandy tenant, every Dandy token in the copy must be scrubbed out and
+ * replaced with the tenant's brand.
  *
  * Why call the shared generators directly instead of driving the UI:
- *   - The Agreement Summary built-in is Dandy-gated (see DANDY_GATED_BUILTIN_IDS),
- *     so a Royal tenant can never reach it through the client picker. The PDF
- *     generator in @workspace/one-pager-types is therefore the only boundary
- *     where its rebranding can be exercised — there is no UI path to assert.
+ *   - The Agreement Summary headline renders in the embedded Bagoss font and is
+ *     not recoverable from the PDF bytes, so it is asserted on the scrubbed
+ *     content object directly while the rest is checked at the PDF level.
  *   - The generators are the single source of brand scrubbing (scrubBrandDeep)
  *     for every caller (client wrapper + server route), so a brand-leak
  *     regression shows up here first.
@@ -90,9 +89,9 @@ function expectHasDandyTokens(text: string): void {
   expect(found, "Dandy-brand control render should contain Dandy tokens").toBe(true);
 }
 
-describe("non-Dandy one-pager rebranding — Agreement Summary (Dandy-gated built-in)", () => {
-  it("is a gated built-in (reachable only via the generator, never the UI, for a non-Dandy tenant)", () => {
-    expect(DANDY_GATED_BUILTIN_IDS).toContain("agreement-summary");
+describe("non-Dandy one-pager rebranding — Agreement Summary (now un-gated built-in)", () => {
+  it("is no longer a gated built-in (available to every tenant via the picker)", () => {
+    expect(DANDY_GATED_BUILTIN_IDS).not.toContain("agreement-summary");
   });
 
   it("scrubs every Dandy token from the content and injects the tenant brand", () => {
@@ -186,13 +185,13 @@ describe("non-Dandy one-pager rebranding — 90-Day Pilot (non-gated built-in)",
   });
 });
 
-describe("non-Dandy one-pager rebranding — Comparison (Dandy-gated built-in)", () => {
-  // Comparison is Dandy-gated, so a Royal tenant can only reach it through the
-  // generator (never the picker). The default rows/stats carry "Dandy
-  // diagnostic scans"; the header bands render the brand name uppercased
-  // ("DANDY 2022" / "DANDY TODAY"). All helvetica → fully PDF-recoverable.
-  it("is a gated built-in (reachable only via the generator for a non-Dandy tenant)", () => {
-    expect(DANDY_GATED_BUILTIN_IDS).toContain("comparison");
+describe("non-Dandy one-pager rebranding — Comparison (now un-gated built-in)", () => {
+  // Comparison is now available to every tenant. The default rows/stats carry
+  // "Dandy diagnostic scans"; the header bands render the brand name uppercased
+  // ("DANDY 2022" / "DANDY TODAY"). All helvetica → fully PDF-recoverable, so a
+  // non-Dandy (Royal) render must be fully scrubbed.
+  it("is no longer a gated built-in (available to every tenant via the picker)", () => {
+    expect(DANDY_GATED_BUILTIN_IDS).not.toContain("comparison");
   });
 
   it("scrubs every Dandy token from the default rows and stats and injects the tenant brand", () => {

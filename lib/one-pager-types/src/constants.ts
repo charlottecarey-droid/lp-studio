@@ -7,11 +7,21 @@ export const DELETED_BUILTINS_KEY = "deleted_builtin_templates";
 
 /**
  * Built-in one-pager templates that are too Dandy-coded to neutralize via
- * copy scrubbing alone. They are hidden from the template picker for
- * non-Dandy tenants and rejected on the server publish/save paths when
- * requested explicitly. (Deferred: rewriting them to be brand-agnostic.)
+ * copy scrubbing alone, and so are hidden from the template picker for
+ * non-Dandy tenants and rejected on the server publish/save paths.
+ *
+ * This list is now EMPTY: the former entries ("comparison" / "Evolution" and
+ * "agreement-summary") were rewritten to be brand-agnostic — they derive their
+ * palette from the tenant's one-pager colors (resolvePalette), route all copy
+ * through scrubBrandDeep, and render a neutral/tenant header image instead of
+ * the bundled Dandy scanner (resolveOnePagerAssets). Both are now available to
+ * every tenant alongside the other built-ins.
+ *
+ * The gating mechanism (the helpers below + the server-route checks) is kept
+ * intact but dormant so a future template can be gated again by re-adding its
+ * id here, without re-threading every call site.
  */
-export const DANDY_GATED_BUILTIN_IDS = ["comparison", "agreement-summary"] as const;
+export const DANDY_GATED_BUILTIN_IDS = [] as const satisfies readonly string[];
 export type DandyGatedBuiltinId = (typeof DANDY_GATED_BUILTIN_IDS)[number];
 
 /** True when the given built-in id is gated to Dandy-only tenants. */

@@ -1,0 +1,327 @@
+Replit Prompt — Full Email Template + Workflow Authoring
+The shipped lifecycle notifications system (74665d7be) gave us the rails — notification_templates + notification_sends, dispatcher, in-app inbox, Resend send path, day 7/11/13 sweep — but the templates themselves are code-registered and the branded HTML shell is hardcoded in artifacts/api-server/src/lib/notifications.ts. Charlotte's ask: every email fully authorable from superadmin (subject + body + branded shell), with WYSIWYG and full-HTML modes, two scopes (LP Studio platform emails + tenant product emails), and let new templates + triggers + workflows be created without code.
+This is meaningful expansion — roughly 2-3 weeks of work properly done. Phasing into three increments so something usable ships in the first few days, then progressively unlocks. Reuse heavily from the existing sales campaign editor and scheduler (sales-campaign-detail.tsx, CampaignVarInserter.tsx, sales_email_campaigns table) — both the rich editor component and the scheduler state machine are already battle-tested in production for tenant-side sales outreach. The lifecycle authoring system extends those patterns rather than rebuilding them.
+
+Architectural anchor: reuse the campaign scheduler pattern
+The sales_email_campaigns table already implements the right state machine for scheduled email delivery:
+
+status enum: draft | scheduled | sending | sent | paused
+scheduledAt timestamp column
+Audience resolution via metadata + tenant-scoped query builder
+Template attached via templateId foreign key
+Send route at POST /campaigns/:id/send handles audience expansion + per-recipient delivery
+
+Phase 3 of this plan extends that pattern (multi-step sequences, conditional branching, platform-scope) rather than building a parallel workflow engine. Phase 1 decisions should not accidentally diverge from this trajectory. Specifically: the same state machine values, the same scheduledAt column shape, and the same campaign-detail UI layout (audience pane + template editor + schedule controls) should appear in the new lifecycle authoring surface.
+
+What's shipped vs what's missing
+Shipped in v1 (74665d7be):
+
+notification_templates table with seeded rows (welcome, trial day 7/11/13, expired, upgrade confirmation)
+notification_sends log table
+notificationDispatcher.ts with per-recipient×channel dedupe, claim/release-on-fail
+notificationTemplates.ts code registry + cached DB accessor
+In-app NotificationBell in header, inbox routes
+SuperAdminNotifications tab — basic list view + patch subject/body
+Daily sweep cron, in-app welcome on onboarding
+
+Still hardcoded / missing:
+
+Branded HTML shell in notifications.ts is a string literal — every email uses the same Dandy-green-on-cream header forever; superadmin can't edit it
+Body HTML for seeded templates is in code; admin patch in v1 is a textarea, not a real editor
+No WYSIWYG editor — only raw textarea
+No way to create NEW templates from the UI (have to edit notificationTemplates.ts and deploy)
+No way to create NEW triggers — trigger types are an enum baked into the dispatcher
+No tenant-scope at all — every email is platform-scope (LP Studio → tenants); tenants can't edit the shell/templates for their own product emails (form notifications, outreach, microsite shares)
+No multi-step workflows — every template is a single fire, no "if no response in 3 days, send follow-up" capability
+Variable interpolation is per-template ad-hoc, no formal registry
+
+
+Phasing
+Phase 1 (pre-launch, ~3-5 days): Make existing templates fully editable end-to-end.
+
+WYSIWYG editor (reuse the campaign editor component)
+Full HTML mode toggle
+Variable inserter (reuse CampaignVarInserter)
+Live preview pane
+Edit subject + body + active toggle for every existing template
+Branded shell becomes editable (one global shell record, not per-template)
+Test send button (send to your own email for verification)
+
+Phase 2 (post-launch v1.1, ~1 week): Tenant-scope master shell + tenant product email editor.
+
+Add scope: "platform" | "tenant" to templates + shell
+Tenant admins get their own settings page to edit THEIR product emails (form-submission notifications, microsite-shared, etc.)
+Tenant master shell — branded wrapper for every email sent FROM their product to their visitors/prospects
+Per-tenant template overrides for the tenant-product emails
+
+Phase 3 (post-launch v1.2, ~5-7 days — DOWN from ~1-2 weeks because of campaign-scheduler reuse): Workflow composer + new template/trigger creation.
+
+New tables notification_workflows + notification_workflow_steps modeled on the campaign state machine
+Superadmin UI reuses the campaign-detail layout (audience pane + step list + schedule controls), swapped variable set and audience source
+New step types: send_template (default), wait (delay N hours/days), branch (if/else on condition), wait_for_event ("if read_at is set on the prior step within 24h, fork")
+Audience resolution behind an abstraction (audienceProvider: "sales_crm" | "platform_users") so the same UI shape works for both campaign and lifecycle audiences
+Worker stays lazy-on-read (no cron) — same pattern as the trial expiry resolver and the daily sweep already in 74665d7be's server.ts
+
+Each phase ships independently and is usable on its own.
+
+The prompt (Phase 1 — pre-launch scope)
+
+Task: Make lifecycle email templates fully editable from superadmin
+Context
+The lifecycle notifications system shipped in 74665d7be works — emails fire, in-app inbox renders, dedupe works, day 7/11/13 sweep runs daily. But the templates themselves are barely editable: superadmin can patch subject and body via textarea, but the branded HTML shell is hardcoded in artifacts/api-server/src/lib/notifications.ts, the body editing is plaintext not WYSIWYG, and there's no way to preview before saving.
+Charlotte wants every email fully authorable: WYSIWYG + raw-HTML modes, variable insertion, live preview, test-send-to-self button, and a separate editor for the branded shell that wraps every email. Reuse the sales campaign email template editor heavily — it's already a working WYSIWYG editor with variable pills and preview.
+Architectural note for the longer arc: Phase 3 (post-launch) will extend the sales_email_campaigns scheduler pattern (status state machine, scheduledAt column, campaign-detail UI layout) to build multi-step lifecycle workflows. Phase 1 decisions should not diverge from this trajectory — when in doubt about a state field name or a UI layout choice, mirror what the campaign system does.
+Before writing any code, please:
+
+Read the existing campaign email editor in artifacts/lp-studio/src/pages/sales/sales-campaign-detail.tsx and artifacts/lp-studio/src/components/CampaignVarInserter.tsx. Quote the component shape — what props it takes, what events it emits, what editor library it uses (Quill? Tiptap? Slate? Lexical? plain contenteditable?). The lifecycle template editor should reuse this component, not parallel it.
+Read the existing campaign scheduler shape in lib/db/src/schema/salesEmails.ts (the sales_email_campaigns table) and artifacts/api-server/src/routes/sales/campaigns.ts. Quote the status enum values, the scheduledAt column, and the POST /campaigns/:id/send handler. The new lifecycle workflow tables in Phase 3 will mirror this state machine; Phase 1 doesn't change anything here but the architecture should be consistent.
+Read the existing notification template system in artifacts/api-server/src/lib/notificationTemplates.ts (code registry + DB accessor) and artifacts/api-server/src/lib/notificationDispatcher.ts (send pipeline). Quote the template shape — what fields exist today on the row, what the rendered HTML path looks like (where the branded shell wraps the body, how variables get interpolated).
+Read the hardcoded branded shell in artifacts/api-server/src/lib/notifications.ts (the sendInviteEmail HTML literal at line ~40). This becomes the seed value for the new email_shell_templates.platform_default row. Note every variable already in use ({{headline}}, {{bodyText}}, {{actionLabel}}, {{signInUrl}}, etc.) so the editor's variable registry covers them.
+Read the current SuperAdminNotifications tab in lp-studio (find via grep for "SuperAdminNotifications"). Quote the current edit UI so the new editor slots in as a clean replacement.
+Confirm the test-send-to-self path. Find where sendInviteEmail is currently called from a development/test trigger (probably nowhere — needs a new test-send endpoint). The editor's "Send test email" button needs an API to call that sends ONE email to the signed-in superadmin's email address, using the current draft (unsaved) values.
+Propose the architecture per the spec below. Wait for my OK before implementing.
+
+
+Step 1 — Schema: add email shell template
+sqlCREATE TABLE email_shell_templates (
+  id SERIAL PRIMARY KEY,
+  scope TEXT NOT NULL CHECK (scope IN ('platform', 'tenant')),
+  tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  shell_html TEXT NOT NULL,
+  inline_css TEXT NOT NULL DEFAULT '',
+  header_logo_url TEXT,
+  header_bg_color TEXT,
+  header_text_color TEXT,
+  footer_html TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by INTEGER,
+  CHECK ((scope = 'platform' AND tenant_id IS NULL) OR (scope = 'tenant' AND tenant_id IS NOT NULL))
+);
+
+CREATE UNIQUE INDEX email_shell_templates_platform_singleton
+  ON email_shell_templates (scope) WHERE scope = 'platform';
+CREATE UNIQUE INDEX email_shell_templates_per_tenant
+  ON email_shell_templates (tenant_id) WHERE scope = 'tenant';
+One platform-scope row (the singleton — LP Studio's master shell). Tenant rows added in Phase 2, not Phase 1 — but the schema accommodates them now so we don't migrate twice.
+Seed the platform shell from the current hardcoded HTML in notifications.ts so output is byte-identical pre/post migration.
+
+Step 2 — Schema: extend notification_templates for editor metadata
+Add columns to notification_templates:
+sqlALTER TABLE notification_templates
+  ADD COLUMN body_mode TEXT NOT NULL DEFAULT 'wysiwyg' CHECK (body_mode IN ('wysiwyg', 'html')),
+  ADD COLUMN preview_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN last_test_sent_at TIMESTAMPTZ,
+  ADD COLUMN last_test_sent_by INTEGER;
+body_mode lets the editor remember which mode the author last used. preview_data is the JSON object of sample variable values the author saves so the preview always renders sensibly.
+
+Step 3 — Backend: editor API + test-send endpoint
+New routes in artifacts/api-server/src/routes/superadmin/email-editor.ts (or wherever superadmin routes live):
+GET    /api/superadmin/email-shell                              → fetch platform shell
+PATCH  /api/superadmin/email-shell                              → update platform shell
+POST   /api/superadmin/email-shell/preview                      → render shell with sample data, return HTML
+
+GET    /api/superadmin/notification-templates                    → list all templates
+GET    /api/superadmin/notification-templates/:key                → fetch one
+PATCH  /api/superadmin/notification-templates/:key                → update subject, body_html, body_text, body_mode, preview_data, active
+POST   /api/superadmin/notification-templates/:key/preview        → render template within shell using preview_data, return HTML
+POST   /api/superadmin/notification-templates/:key/test-send      → send ONE email to req.user.email using current draft values
+All gated by requireSuperadmin middleware (use the canonical superadmin role check, not a new one). Test-send rate-limited (10/hour per user) so a runaway editor session can't blast Resend quota.
+The render path: renderEmail(shell, template, variables) is a pure function — takes the shell HTML, interpolates {{subject}} / {{body_html}} into it, applies inline_css, returns the final HTML. Reused by the preview endpoint, the test-send endpoint, AND the production dispatcher. Single render path — no chance of "preview looked fine but production sent something different."
+Refactor the current sendInviteEmail in notifications.ts to use this renderEmail helper. The current hardcoded HTML literal becomes the seeded shell template content.
+
+Step 4 — UI: reuse the campaign editor component
+The sales campaign editor in sales-campaign-detail.tsx is the reuse target. Extract the email editor surface into a shared component:
+artifacts/lp-studio/src/components/EmailTemplateEditor.tsx
+  props: {
+    value: { subject, body_html, body_text, body_mode },
+    onChange: (next) => void,
+    variables: VariableDefinition[],       // for the variable inserter pills
+    onTestSend?: () => void,               // shows button when provided
+    onPreview?: () => Promise<string>,     // returns rendered HTML for preview pane
+  }
+The component handles:
+
+Subject input (single line, supports variable pills)
+Mode toggle: WYSIWYG ↔ Full HTML (warn on lossy conversions — switching from HTML to WYSIWYG may strip unsupported markup)
+Body editor (reuse whatever rich editor the campaign editor uses; the component already has variable pill insertion)
+Variable picker (reuse CampaignVarInserter with a different variable set passed in)
+Live preview pane (iframe, sandboxed, rendered from onPreview() — calls the backend /preview endpoint so what you see is what production will send)
+Test send button (when onTestSend is provided)
+
+Use this component in:
+
+Lifecycle template editor (the new superadmin notifications tab) — variables = LP Studio platform variables ({{user_first_name}}, {{tenant_name}}, {{trial_days_remaining}}, etc.)
+Existing sales campaign editor — variables = sales-prospect variables ({{contact_first_name}}, {{company}}, etc.)
+
+Different variable sets, same editor.
+
+Step 5 — UI: superadmin email shell editor
+New page or tab: /superadmin/email-shell
+
+Left side: form for the structural pieces — header logo URL upload, header background color picker, header text color picker, footer HTML textarea
+Right side: live preview iframe rendering a sample email using the current draft shell
+Save button persists to email_shell_templates where scope='platform'
+"Restore default" button reverts to the seeded value (the original hardcoded HTML from notifications.ts)
+Test send button — sends a sample email using the current draft shell + the welcome template body to the signed-in superadmin
+
+The shell HTML itself is editable in raw HTML mode only (no WYSIWYG — too easy to break the layout). The reusable pieces (logo, colors, footer) get nice form inputs so the common case doesn't require touching HTML.
+
+Step 6 — UI: superadmin notification template editor (replace current minimal one)
+Replace the current SuperAdminNotifications tab implementation with:
+
+List view: all templates, columns for key, channels (in_app/email/both badges), trigger type, active toggle, last edited, last test sent
+Detail view: clicking a template opens an editor pane with:
+
+Metadata header: key, channels, trigger type (read-only for Phase 1; editable in Phase 3), active toggle
+EmailTemplateEditor component (Step 4) wired with LP Studio platform variables and the test-send endpoint
+Save and Cancel buttons
+"Send test to myself" button (uses test-send endpoint)
+Sample preview data editor (small JSON textarea where superadmin can set what {{trial_days_remaining}} etc. resolve to in preview)
+
+
+
+Keep the list view in a sidebar; show the detail view on the right (two-column layout). Matches how the existing sales campaign editor lays out.
+
+Step 7 — Variable registry
+Define the platform variable set in lib/notification-variables/src/platform.ts (or wherever shared types live):
+tsexport const PLATFORM_NOTIFICATION_VARIABLES: VariableDefinition[] = [
+  { key: "user_first_name", label: "User's first name", sample: "Charlotte", required: false },
+  { key: "user_email", label: "User's email", sample: "charlotte@example.com", required: false },
+  { key: "tenant_name", label: "Tenant name", sample: "Acme Co", required: true },
+  { key: "workspace_url", label: "Tenant workspace URL", sample: "https://acme.lpstudio.ai", required: false },
+  { key: "trial_days_remaining", label: "Days remaining in trial", sample: "7", required: false, type: "number" },
+  { key: "trial_end_date", label: "Trial end date (formatted)", sample: "June 12, 2026", required: false, type: "date" },
+  { key: "current_plan", label: "Current plan", sample: "Growth", required: false },
+  { key: "pages_count", label: "Pages created", sample: "5", required: false, type: "number" },
+  { key: "microsites_count", label: "Microsites created", sample: "3", required: false, type: "number" },
+  { key: "primary_cta_url", label: "Primary CTA URL (usually billing)", sample: "https://app.lpstudio.ai/settings/billing", required: false },
+  { key: "downgrade_cta_url", label: "Downgrade CTA URL", sample: "https://app.lpstudio.ai/settings/billing#downgrade", required: false },
+  { key: "support_email", label: "Support email", sample: "support@lpstudio.ai", required: false },
+];
+The dispatcher resolves these for each send (already has the tenant/user context). The editor's variable inserter shows them as a dropdown of pills.
+
+Cross-cutting (Phase 1)
+
+Backward compat: every existing lifecycle template renders identically pre/post migration. The seeded shell is byte-identical to the current hardcoded HTML. Existing seeded templates' body content stays the same. Production sends after this commit should be visually identical to before.
+No tenant-scope yet: all editing is platform-scope. Tenant editor + tenant product emails are Phase 2.
+No new template creation: existing templates can be edited; new template creation requires a code change (Phase 3 lifts this).
+No new trigger creation: existing triggers are wired; new triggers require a code change (Phase 3 lifts this).
+No multi-step workflows: single-fire only (Phase 3 lifts this).
+Audit log: every edit to a template or the shell writes a row to a new email_template_edit_log table with { template_key | "shell", user_id, before, after, edited_at }. Critical for "who broke the welcome email" debugging.
+Test send rate limit: 10/hour per superadmin via Redis or a small DB-backed counter. Prevents accidental Resend quota blow-through.
+Preview iframe sandboxing: <iframe sandbox="allow-same-origin"> — no scripts execute, no top-frame navigation. Email previews are HTML strings from the backend; never trust them as live JS.
+
+
+Test plan (Phase 1)
+
+Backward compat regression: seeded shell + welcome template render byte-identical to current production send. Diff the raw HTML bytes between pre- and post-migration sends to your own email.
+WYSIWYG round-trip: edit a template body in WYSIWYG → save → reload editor → body re-renders identically. Switch to HTML mode → switch back → body re-renders identically.
+Variable insertion: insert {{trial_days_remaining}} via the picker → preview renders "7" (the sample value) → test send to self renders the actual computed value for your tenant.
+Shell preview: edit header background color → save → next email sent uses the new color. Test by sending welcome to a fresh test tenant after the shell edit.
+Test send rate limit: spam the test-send button 12 times → 11th + 12th return 429.
+Permissions: non-superadmin user hits PATCH /api/superadmin/notification-templates/:key → 403. Non-superadmin user loads the email-shell editor UI → "you must be a superadmin" message, no editor renders.
+Audit log: edit a template → row appears in email_template_edit_log with before/after snapshots.
+
+
+Quality bar (Phase 1)
+
+All test plan items pass.
+The 8 existing seeded templates can be edited end-to-end (subject + body + active toggle) without code changes.
+The branded shell can be edited end-to-end without code changes.
+Test-send-to-self works for every existing template.
+WYSIWYG and HTML modes both work; switching between them is non-lossy for round-trippable HTML.
+Variable pills insert correctly into both subject and body.
+Live preview matches production output (single render path).
+Pre-existing dispatcher behavior unchanged — same triggers fire, same dedupe, same channel routing.
+Non-superadmin users cannot access editor UI or API.
+
+
+
+Why Phase 1 first
+Charlotte's frustration is the v1 shipped without the editor she expected. Phase 1 is the smallest change that delivers the editor — about 3-5 days of focused work. Once it lands, she can iterate on her own email copy in production without engineering, which removes the immediate pain point.
+Phase 2 (tenant-scope) and Phase 3 (workflow composer + new template/trigger creation) are bigger projects that benefit from real launch traffic feedback before being built. Don't build a workflow composer for use cases you haven't seen yet.
+
+Phase 2 preview (post-launch, ~1 week)
+After Phase 1 lands, add the tenant scope:
+
+Tenants get their own email-shell editor in tenant settings (their product's branded wrapper — used for form submission emails, microsite shares, outreach drafts that go FROM their product TO their visitors/prospects)
+Tenant-scope template editor for the tenant's product email surface (form-submission notification, form-submitter confirmation, microsite-shared, etc.) — these are templates the dispatcher already fires today but with hardcoded HTML
+Permission gate: tenant admins edit their own tenant-scope templates; superadmin can override or assist
+EmailTemplateEditor component reused with TENANT variable set (different variables than platform — {{form_field_X}}, {{microsite_title}}, {{visitor_email}}, etc.)
+
+
+Phase 3 preview (post-launch v1.2, ~5-7 days via campaign-scheduler reuse)
+Extend the campaign scheduler pattern rather than build a parallel workflow engine. The sales_email_campaigns table already implements the right shape — same status state machine, same scheduledAt pattern, same audience-pane + template-pane + schedule-pane UI layout. The new lifecycle workflow tables hang off this proven foundation.
+Schema additions:
+sqlCREATE TABLE notification_workflows (
+  id SERIAL PRIMARY KEY,
+  scope TEXT NOT NULL CHECK (scope IN ('platform', 'tenant')),
+  tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  -- Same state machine as sales_email_campaigns.status
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'sent', 'paused')),
+  trigger_type TEXT NOT NULL,  -- 'event', 'scheduled', 'audience_query'
+  trigger_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  audience_filter JSONB NOT NULL DEFAULT '{}'::jsonb,
+  audience_provider TEXT NOT NULL CHECK (audience_provider IN ('platform_users', 'sales_crm')),
+  -- For scheduled triggers; same column shape as sales_email_campaigns.scheduledAt
+  scheduled_at TIMESTAMPTZ,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE notification_workflow_steps (
+  id SERIAL PRIMARY KEY,
+  workflow_id INTEGER NOT NULL REFERENCES notification_workflows(id) ON DELETE CASCADE,
+  step_index INTEGER NOT NULL,  -- order within the workflow
+  step_type TEXT NOT NULL CHECK (step_type IN ('send_template', 'wait', 'branch', 'wait_for_event')),
+  -- For send_template: { template_key, channel_override? }
+  -- For wait: { duration_hours }
+  -- For branch: { condition: { var, op, value }, true_step_index, false_step_index }
+  -- For wait_for_event: { event: 'read' | 'click', within_hours, on_event_step_index, on_timeout_step_index }
+  step_config JSONB NOT NULL,
+  UNIQUE (workflow_id, step_index)
+);
+
+CREATE TABLE notification_workflow_runs (
+  id SERIAL PRIMARY KEY,
+  workflow_id INTEGER NOT NULL REFERENCES notification_workflows(id),
+  recipient_user_id INTEGER,
+  recipient_tenant_id INTEGER,
+  current_step_index INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
+  next_check_at TIMESTAMPTZ,  -- when the lazy-on-read scheduler should re-evaluate
+  context JSONB NOT NULL DEFAULT '{}'::jsonb,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+UI: extend the campaign-detail layout for lifecycle workflows. The campaign editor is a three-pane shape — audience picker (left) + template editor (center) + schedule controls (right). Lifecycle workflow editor uses the same shape with one substitution: the template-editor pane becomes a step list with drag-to-reorder, and each step opens a sub-editor (template editor for send_template, duration picker for wait, condition builder for branch).
+Audience provider abstraction. The existing campaign audience picker hardcodes queries against sales_contacts + sales_accounts. To reuse the UI layout for lifecycle workflows (where the audience is platform users + tenants), introduce a thin audienceProvider abstraction so the same picker UI can resolve either data source. Phase 3 work:
+tsinterface AudienceProvider {
+  key: "platform_users" | "sales_crm";
+  filterSchema: AudienceFilterSchema;  // declarative filter UI shape
+  resolveAudience(filter: JSONValue, scope: { tenantId?: number }): Promise<Recipient[]>;
+}
+platform_users resolves against tenants + users + trial state (LP Studio's own customers). sales_crm resolves against sales_contacts + sales_accounts (the tenant's prospects). Same UI, different data source.
+Worker pattern: lazy-on-read, same as the trial expiry resolver in 74665d7be's server.ts. Every page load (or every dispatcher tick) iterates notification_workflow_runs WHERE next_check_at <= now() AND status = 'running', advances each one through its step machine, persists the next checkpoint. No cron job. Single source of truth for state is the database.
+Open-ended template/trigger creation: the existing notification_templates table accepts arbitrary trigger_type + trigger_config already. Phase 3 just adds UI to create new rows from superadmin (button: "New template" → editor opens with blank slate). The trigger composer is a small visual form: pick trigger type (event / scheduled / audience query) → fill in config based on selection → save. No new schema needed; just UI on top of the existing column shape.
+Migration of existing single-fire templates: each existing template becomes a trivial one-step workflow in the new system. The dispatcher's daily sweep continues to work; it just calls into the workflow runner instead of the single-template send path. Workflow runs with one send_template step are functionally identical to the v1 single-fire dispatcher.
+
+What this prompt explicitly doesn't do
+
+Doesn't replace the existing sales campaign system (separate concern — tenant outbound to prospects, different security boundary). Phase 3 EXTENDS the campaign pattern; it doesn't subsume the campaign system.
+Doesn't replace the in-app NotificationBell rendering (still consumes the same notification_sends rows, just with editable templates upstream)
+Doesn't migrate the existing seeded templates' content (they stay as-is; the editor lets you change them after migration)
+Doesn't change the dispatcher's send pipeline (Resend integration, dedupe, claim/release — all unchanged)
+Doesn't add a marketplace of community-authored email templates (out of scope; nobody needs this yet)
+
+What to expect from Replit's plan-back
+
+Identification of the rich editor library the campaign editor uses (Quill / Tiptap / Slate / etc.) — Phase 1 reuses it; if it's plain contenteditable, propose upgrading to a real editor first
+Confirmation that EmailTemplateEditor can be extracted as a shared component without breaking the existing campaign editor surface
+Schema migration plan with idempotency (additive, no destructive changes to existing tables)
+The single renderEmail helper signature + which existing call sites get refactored to use it
+Variable registry shape + where it lives (probably lib/notification-variables/ as a new package)
+Confirmation that the campaign scheduler's status enum + scheduledAt column will be the model for Phase 3's notification_workflows — Phase 1 doesn't change these but the architecture stays consistent

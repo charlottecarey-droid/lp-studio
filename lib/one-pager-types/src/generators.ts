@@ -27,6 +27,72 @@ function ensureBagoss(doc: jsPDF): boolean {
   }
 }
 
+// True only when the base64 decodes to bytes whose signature is a real
+// SFNT/OpenType font (TrueType 0x00010000, 'OTTO', 'true', or 'ttcf'). jsPDF's
+// addFont does NOT throw on malformed bytes — it logs via its PubSub and leaves
+// the face registered but metric-less, which crashes the next getTextWidth().
+// So we must reject non-font bytes up front; a failed check just keeps the
+// built-in face for that style (the per-style fallback).
+function isEmbeddableFont(b64?: string): b64 is string {
+  if (!b64) return false;
+  try {
+    const head = b64.replace(/\s/g, "").slice(0, 16);
+    const bin =
+      typeof atob === "function"
+        ? atob(head)
+        : Buffer.from(head, "base64").toString("binary");
+    if (bin.length < 4) return false;
+    const sig = bin.slice(0, 4);
+    const c0 = sig.charCodeAt(0);
+    return (
+      (c0 === 0x00 && sig.charCodeAt(1) === 0x01 && sig.charCodeAt(2) === 0x00 && sig.charCodeAt(3) === 0x00) ||
+      sig === "OTTO" ||
+      sig === "true" ||
+      sig === "ttcf"
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Override one jsPDF font face (by built-in name + style) with embedded base64
+// TTF bytes. Only styles actually supplied are overridden, so a missing
+// italic/bold keeps the built-in face. Any malformed/non-font base64 is swallowed
+// per-face — embedding a brand font must never block PDF generation.
+function overrideFontFace(doc: jsPDF, name: string, faces?: EmbeddedFontFaces): void {
+  if (!faces) return;
+  const reg = (style: string, b64?: string) => {
+    if (!isEmbeddableFont(b64)) return;
+    try {
+      const file = `${name}-brand-${style}.ttf`;
+      doc.addFileToVFS(file, b64);
+      doc.addFont(file, name, style);
+    } catch {
+      /* leave the built-in face in place for this style */
+    }
+  };
+  reg("normal", faces.normal);
+  reg("bold", faces.bold);
+  reg("italic", faces.italic);
+  reg("bolditalic", faces.bolditalic);
+}
+
+// Register the tenant's embedded brand fonts onto a doc by overriding jsPDF's
+// built-in faces: BODY font → "helvetica" (the bulk of one-pager text), DISPLAY
+// font → "Bagoss" (headlines). No-op when the brand carries no embedded fonts,
+// so Dandy and tenants without resolvable Google fonts keep the built-ins.
+function registerBrandFonts(doc: jsPDF, brand?: BrandContext): void {
+  const fonts = brand?.fonts;
+  if (!fonts) return;
+  overrideFontFace(doc, "helvetica", fonts.body);
+  if (fonts.heading) {
+    // Ensure the "Bagoss" name exists, then override its faces with the brand
+    // display font so headlines (which select the "Bagoss" face) render in it.
+    ensureBagoss(doc);
+    overrideFontFace(doc, "Bagoss", fonts.heading);
+  }
+}
+
 function drawSep(doc: jsPDF, x: number, y: number, len: number, color: [number, number, number]) {
   doc.setDrawColor(...color);
   doc.setLineWidth(0.5);
@@ -68,6 +134,32 @@ async function cropImage(
   });
 }
 
+// ── Embedded brand fonts ───────────────────────────────────────────────
+// jsPDF can only embed TrueType/OpenType bytes. The client resolves a brand
+// font's faces to base64 TTF (via the /sales/brand-font resolver) and passes
+// them here so the generators can override jsPDF's built-in faces with the
+// tenant's actual brand font. Any style that isn't supplied falls back to the
+// built-in face, so a partial embed degrades gracefully.
+export interface EmbeddedFontFaces {
+  /** Family name (informational; jsPDF overrides key off the built-in name). */
+  family: string;
+  /** base64 TTF for the regular (400, upright) face. */
+  normal?: string;
+  /** base64 TTF for the bold (700, upright) face. */
+  bold?: string;
+  /** base64 TTF for the italic (400, italic) face. */
+  italic?: string;
+  /** base64 TTF for the bold-italic (700, italic) face. */
+  bolditalic?: string;
+}
+
+export interface BrandPdfFonts {
+  /** Brand BODY font — overrides the built-in "helvetica" used for body copy. */
+  body?: EmbeddedFontFaces;
+  /** Brand DISPLAY font — overrides the "Bagoss" face used for headlines. */
+  heading?: EmbeddedFontFaces;
+}
+
 // ── Brand context ──────────────────────────────────────────────────────
 // Per-tenant overrides for everything that used to be hard-coded "Dandy".
 // All fields are optional; resolveBrand() merges with Dandy defaults so the
@@ -96,9 +188,14 @@ export interface BrandContext {
   /** Tenant brand ACCENT color (hex). When supplied, replaces Dandy's lime for
    *  accent fills, pills, and on-dark highlight text. Empty/absent → Dandy. */
   accentColor?: string;
+  /** Embedded brand fonts (base64 TTF). When present, the generators override
+   *  jsPDF's built-in "helvetica" (body) and "Bagoss" (display) faces with the
+   *  tenant's actual brand fonts. Not part of resolveBrand() defaults — read
+   *  directly off the raw brand in registerBrandFonts(). */
+  fonts?: BrandPdfFonts;
 }
 
-export const DEFAULT_BRAND_CONTEXT: Required<BrandContext> = {
+export const DEFAULT_BRAND_CONTEXT: Required<Omit<BrandContext, "fonts">> = {
   wordmark: "dandy",
   productName: "Dandy",
   industryLabel: "DSO",
@@ -111,7 +208,7 @@ export const DEFAULT_BRAND_CONTEXT: Required<BrandContext> = {
   accentColor: "",
 };
 
-function resolveBrand(b?: BrandContext): Required<BrandContext> {
+function resolveBrand(b?: BrandContext): Required<Omit<BrandContext, "fonts">> {
   if (!b) return DEFAULT_BRAND_CONTEXT;
   return {
     wordmark: b.wordmark ?? DEFAULT_BRAND_CONTEXT.wordmark,
@@ -426,6 +523,7 @@ export const generateAgreementSummaryOnePager = async (
   // non-Dandy tenant gets fully neutralized PDF text.
   const content = scrubBrandDeep(rawContent, opts?.brand);
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  registerBrandFonts(doc, opts?.brand);
   const w = doc.internal.pageSize.getWidth();   // 612pt
   const h = doc.internal.pageSize.getHeight();  // 792pt
   const margin = 48;
@@ -780,6 +878,7 @@ export const generatePilotOnePager = async (
   opts?: PilotOpts,
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  registerBrandFonts(doc, opts?.brand);
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1067,6 +1166,7 @@ export const generateComparisonOnePager = async (
   opts?: ComparisonOpts,
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  registerBrandFonts(doc, opts?.brand);
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1284,6 +1384,7 @@ export const generateNewPartnerOnePager = async (
   opts?: NewPartnerOpts,
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  registerBrandFonts(doc, opts?.brand);
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1458,6 +1559,7 @@ export const generateROIOnePager = async (
   opts?: ROIOpts,
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  registerBrandFonts(doc, opts?.brand);
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;

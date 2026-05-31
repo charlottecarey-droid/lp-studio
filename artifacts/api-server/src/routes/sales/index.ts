@@ -20,6 +20,7 @@ import onePagerTemplatesRouter from "./one-pager-templates";
 import webOnePagerRouter from "./web-one-pager";
 import resendWebhookRouter from "./resend-webhook";
 import brandContextRouter from "./brand-context";
+import brandFontRouter from "./brand-font";
 import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 
 const router = Router();
@@ -32,6 +33,13 @@ const router = Router();
 // is gated. MUST be mounted BEFORE the requirePlanFeature line below so
 // Express matches /sales/templates/* before the gate runs.
 router.use(templatesRouter);
+
+// Brand-font resolver for PDF one-pagers. One-pagers are available on every
+// plan (the Dandy-only built-in gate was retired), so this proxy must stay
+// open to all plans too — mount it BEFORE the salesConsole plan gate. It reads
+// no tenant data (pure Google Fonts → TTF proxy) and is auth-gated by the
+// global /sales guard.
+router.use(brandFontRouter);
 
 // Everything below this line is gated to plans that include the
 // Sales Console. Mount order matters: gate middleware applies only to

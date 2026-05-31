@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
-import { toFontFamilyValue } from "./font-catalog";
+import { toFontFamilyValue, cleanFamilyName } from "./font-catalog";
 import type { BackgroundPresetLabels } from "./bg-styles";
 import type { FormStyling } from "./form-styling";
+import type { BrandPdfFonts, EmbeddedFontFaces } from "@workspace/one-pager-types/generators";
 
 export type { BackgroundPresetLabels };
 
@@ -1114,6 +1115,55 @@ export function resolveOnePagerColors(brand: BrandConfig): BrandConfig {
     cardBackground: pick(sc.onePagerCardColor, brand.cardBackground),
     pageBackground: pick(sc.onePagerBackgroundColor, brand.pageBackground),
   };
+}
+
+// Fetch one font family's embeddable TTF faces from the server-side resolver.
+// Returns null on any failure or when the family isn't resolvable, so callers
+// fall back to jsPDF's built-in faces. Never throws.
+async function fetchBrandFontFaces(family: string): Promise<EmbeddedFontFaces | null> {
+  try {
+    const res = await fetch(
+      `${BASE}/api/sales/brand-font?family=${encodeURIComponent(family)}`,
+      { credentials: "include" },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { family?: string; faces?: Partial<Record<string, string>> };
+    const faces = data.faces ?? {};
+    if (!faces.normal && !faces.bold && !faces.italic && !faces.bolditalic) return null;
+    return {
+      family,
+      normal: faces.normal,
+      bold: faces.bold,
+      italic: faces.italic,
+      bolditalic: faces.bolditalic,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Resolve the tenant's DISPLAY (heading) and BODY fonts to embeddable base64
+// TTF faces so the shared PDF generators can embed the exact brand fonts. The
+// web one-pager already gets fonts via CSS; only client-side PDF generation
+// needs this. Best-effort: any font that can't be resolved is simply omitted
+// and the generator falls back to its built-in face. Never throws.
+export async function resolveBrandPdfFonts(brand: BrandConfig): Promise<BrandPdfFonts | undefined> {
+  const heading = cleanFamilyName(brand.displayFont);
+  const body = cleanFamilyName(brand.bodyFont);
+  const families = Array.from(new Set([heading, body].filter((f): f is string => !!f)));
+  if (families.length === 0) return undefined;
+
+  const resolved = await Promise.all(
+    families.map(async (f) => [f, await fetchBrandFontFaces(f)] as const),
+  );
+  const byFamily = new Map(resolved);
+
+  const out: BrandPdfFonts = {};
+  const headingFaces = heading ? byFamily.get(heading) : null;
+  const bodyFaces = body ? byFamily.get(body) : null;
+  if (headingFaces) out.heading = headingFaces;
+  if (bodyFaces) out.body = bodyFaces;
+  return out.heading || out.body ? out : undefined;
 }
 
 export async function fetchBrandConfig(slug?: string | null): Promise<BrandConfig> {
