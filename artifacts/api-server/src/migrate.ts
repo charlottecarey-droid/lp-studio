@@ -882,11 +882,22 @@ async function runMigrationsBody(): Promise<void> {
         VALUES (${rootEmail}, 'LP Studio Root Admin', 'superadmin', 'active', NULL)
         ON CONFLICT (email) DO UPDATE SET role = 'superadmin', updated_at = now()
       `);
-      const { rows } = await pool.query<{ role: string | null }>(
-        `SELECT role FROM app_users WHERE LOWER(email) = LOWER($1)`,
+      // Verify the invariant we actually care about: a superadmin row exists
+      // for this email. We must NOT read an arbitrary row via `rows[0]` — a
+      // case-variant collision (e.g. a tenant user who signed up as
+      // "Admin@lpstudio.ai" with role 'user') makes a bare
+      // `WHERE LOWER(email)=LOWER($1)` return multiple rows in nondeterministic
+      // order, which would intermittently abort an otherwise-healthy release.
+      // Filtering on role = 'superadmin' + EXISTS keys on the row the INSERT
+      // above actually upserts, independent of unrelated collision rows.
+      const { rows } = await pool.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM app_users
+           WHERE LOWER(email) = LOWER($1) AND role = 'superadmin'
+         ) AS exists`,
         [rootEmail],
       );
-      if (rows[0]?.role !== "superadmin") {
+      if (!rows[0]?.exists) {
         throw new Error(
           `root superadmin seed did not produce a superadmin row for ${rootEmail} — aborting release`,
         );
