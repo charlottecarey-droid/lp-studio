@@ -344,6 +344,30 @@ if (process.env.NODE_ENV === "production" && !turnstileConfigured()) {
   );
 }
 
+// Task #681 — fail-fast in production when GitHub OAuth is enabled but the
+// callback URI isn't pinned. A GitHub OAuth app allows only ONE registered
+// callback host, yet LP Studio serves auth across many hosts (app.lpstudio.ai
+// + tenant domains). Without GITHUB_OAUTH_REDIRECT_URI, getGithubRedirectUri()
+// derives the callback from the per-request host, so any flow started on a
+// tenant domain sends GitHub a redirect_uri that doesn't match the registered
+// one and the handoff fails. Refuse to boot so the misconfiguration is caught
+// at deploy time. Only enforced when the provider is configured — deploys
+// without GitHub login set up are unaffected; no-op outside production.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.GITHUB_OAUTH_CLIENT_ID &&
+  process.env.GITHUB_OAUTH_CLIENT_SECRET &&
+  !process.env.GITHUB_OAUTH_REDIRECT_URI
+) {
+  throw new Error(
+    "GITHUB_OAUTH_REDIRECT_URI is not set on the production deployment while " +
+      "GitHub OAuth is configured. Pin it to the registered prod callback " +
+      "(https://app.lpstudio.ai/api/auth/github/callback) so the cross-domain " +
+      "handoff uses a fixed URI; otherwise tenant-host logins send GitHub a " +
+      "redirect_uri that won't match the OAuth app. Set the var and redeploy.",
+  );
+}
+
 // Bind the port and immediately mark ready — schema setup ran in the
 // dedicated `pnpm migrate` step before this process started (see
 // `src/migrate.ts` and the production build hook in
