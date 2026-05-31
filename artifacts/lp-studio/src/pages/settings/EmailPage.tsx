@@ -41,6 +41,9 @@ interface Template {
   description: string;
   category: string;
   emailSubject: string;
+  fromEmail: string | null;
+  replyTo: string | null;
+  preheaderText: string | null;
   bodyHtml: string;
   bodyMode: BodyMode;
   wrapInShell: boolean;
@@ -50,6 +53,9 @@ interface Template {
 
 interface Draft {
   emailSubject: string;
+  fromEmail: string;
+  replyTo: string;
+  preheaderText: string;
   bodyHtml: string;
   bodyMode: BodyMode;
   wrapInShell: boolean;
@@ -58,6 +64,9 @@ interface Draft {
 function toDraft(t: Template): Draft {
   return {
     emailSubject: t.emailSubject ?? "",
+    fromEmail: t.fromEmail ?? "",
+    replyTo: t.replyTo ?? "",
+    preheaderText: t.preheaderText ?? "",
     bodyHtml: t.bodyHtml ?? "",
     bodyMode: t.bodyMode ?? "wysiwyg",
     wrapInShell: t.wrapInShell ?? true,
@@ -93,6 +102,9 @@ function TemplateDetail({
     bodyHtml: draft.bodyHtml,
     bodyMode: draft.bodyMode,
     wrapInShell: draft.wrapInShell,
+    fromEmail: draft.fromEmail,
+    replyTo: draft.replyTo,
+    preheaderText: draft.preheaderText,
   };
 
   const onEmailChange = (patch: Partial<EmailTemplateValue>) =>
@@ -102,6 +114,9 @@ function TemplateDetail({
       bodyHtml: patch.bodyHtml ?? d.bodyHtml,
       bodyMode: patch.bodyMode ?? d.bodyMode,
       wrapInShell: patch.wrapInShell ?? d.wrapInShell,
+      fromEmail: patch.fromEmail ?? d.fromEmail,
+      replyTo: patch.replyTo ?? d.replyTo,
+      preheaderText: patch.preheaderText ?? d.preheaderText,
     }));
 
   const renderPreview = useCallback(
@@ -114,6 +129,7 @@ function TemplateDetail({
             bodyHtml: v.bodyHtml,
             wrapInShell: v.wrapInShell,
             emailSubject: v.subject,
+            preheaderText: v.preheaderText,
           }),
         },
       );
@@ -132,6 +148,9 @@ function TemplateDetail({
             bodyHtml: v.bodyHtml,
             wrapInShell: v.wrapInShell,
             emailSubject: v.subject,
+            fromEmail: v.fromEmail,
+            replyTo: v.replyTo,
+            preheaderText: v.preheaderText,
             ...(to ? { to } : {}),
           }),
         },

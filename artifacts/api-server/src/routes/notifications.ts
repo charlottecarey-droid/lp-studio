@@ -359,6 +359,51 @@ const shortStr = (v: unknown): string | null =>
 const longStr = (v: unknown): string | null =>
   v === undefined || v === null ? null : String(v).slice(0, LONG_MAX);
 
+/**
+ * Validate an operator-supplied "from" / "reply-to" value. Accepts either a
+ * bare address (`a@b.com`) or a display-name form (`Acme <a@b.com>`). Returns
+ * the extracted address, or null when the string contains no plausible address.
+ */
+function extractEmailAddress(v: string): string | null {
+  const angle = v.match(/<([^>]+)>\s*$/);
+  const addr = (angle ? angle[1] : v).trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr) ? addr : null;
+}
+
+/**
+ * Resolve an envelope override field (from_email / reply_to) from a request
+ * body. A blank/absent value clears the override (null = use default); a present
+ * value must look like a real email or the caller gets a 400. Returns
+ * `{ value }` on success or `{ error }` for an invalid address.
+ */
+function envelopeOrNull(
+  raw: unknown,
+  label: string,
+): { value: string | null } | { error: string } {
+  if (raw === undefined || raw === null) return { value: null };
+  const s = String(raw).trim();
+  if (!s) return { value: null };
+  if (!extractEmailAddress(s)) {
+    return { error: `Enter a valid ${label} (an email address, optionally as "Name <email>").` };
+  }
+  return { value: s.slice(0, SHORT_MAX) };
+}
+
+/**
+ * Resolve the inbox preheader (preview text) for a render. An operator override
+ * wins; otherwise it falls back to the template's intro (today's behavior), with
+ * `{{token}}` substitution applied so the preview matches delivery.
+ */
+function resolvePreheader(
+  rawOverride: unknown,
+  tpl: { emailIntro: string },
+  vars: Record<string, string>,
+): string {
+  const override =
+    typeof rawOverride === "string" && rawOverride.trim() ? rawOverride : null;
+  return substitutePlain(override ?? tpl.emailIntro ?? "", vars);
+}
+
 /** Plain `{{key}}` substitution (NOT escaped) — for subject lines / logging. */
 function substitutePlain(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k: string) =>
@@ -414,14 +459,27 @@ const testSendLimiter = rateLimit({
   },
 });
 
-async function sendViaResend(to: string, subject: string, html: string): Promise<void> {
+async function sendViaResend(
+  to: string,
+  subject: string,
+  html: string,
+  envelope?: { from?: string | null; replyTo?: string | null },
+): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey) throw new Error("RESEND_API_KEY not configured");
-  const from = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  // Operator-configured sender wins; otherwise the env default (today's behavior).
+  const from =
+    (envelope?.from && envelope.from.trim()) ||
+    process.env["RESEND_FROM_EMAIL"] ||
+    "LP Studio <noreply@lpstudio.ai>";
+  const payload: Record<string, unknown> = { from, to, subject, html };
+  if (envelope?.replyTo && envelope.replyTo.trim()) {
+    payload["reply_to"] = envelope.replyTo.trim();
+  }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to, subject, html }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     throw new Error(`Resend ${res.status}: ${await res.text().catch(() => "")}`);
@@ -493,27 +551,44 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
       ? JSON.stringify(b.previewData)
       : null;
 
+  // Envelope overrides: blank = clear (use default), invalid = 400.
+  const fromRes = envelopeOrNull(b.fromEmail, "sender / from address");
+  if ("error" in fromRes) {
+    res.status(400).json({ error: fromRes.error });
+    return;
+  }
+  const replyRes = envelopeOrNull(b.replyTo, "reply-to address");
+  if ("error" in replyRes) {
+    res.status(400).json({ error: replyRes.error });
+    return;
+  }
+  const preheaderText = shortStr(b.preheaderText);
+
   const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
 
   try {
     await pool.query(
       `INSERT INTO notification_templates
          (key, name, description, category, channels,
-          email_subject, email_intro, email_cta_label, in_app_title, in_app_body,
+          email_subject, email_intro, email_cta_label,
+          from_email, reply_to, preheader_text, in_app_title, in_app_body,
           body_html, body_mode, wrap_in_shell, preview_data, enabled, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now())
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18, now())
        ON CONFLICT (key) WHERE scope = 'platform' DO UPDATE SET
          channels        = COALESCE($5, notification_templates.channels),
          email_subject   = $6,
          email_intro     = $7,
          email_cta_label = $8,
-         in_app_title    = $9,
-         in_app_body     = $10,
-         body_html       = $11,
-         body_mode       = $12,
-         wrap_in_shell   = $13,
-         preview_data    = $14::jsonb,
-         enabled         = $15,
+         from_email      = $9,
+         reply_to        = $10,
+         preheader_text  = $11,
+         in_app_title    = $12,
+         in_app_body     = $13,
+         body_html       = $14,
+         body_mode       = $15,
+         wrap_in_shell   = $16,
+         preview_data    = $17::jsonb,
+         enabled         = $18,
          updated_at      = now()`,
       [
         key,
@@ -524,6 +599,9 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
         shortStr(b.emailSubject),
         shortStr(b.emailIntro),
         shortStr(b.emailCtaLabel),
+        fromRes.value,
+        replyRes.value,
+        preheaderText,
         shortStr(b.inAppTitle),
         shortStr(b.inAppBody),
         longStr(b.bodyHtml),
@@ -568,6 +646,7 @@ router.post("/admin/notification-templates/:key/preview", requireSuperadmin, asy
     const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
     const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
     const vars = buildPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+    vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
     const html = renderEmail({ shell, bodyHtml, wrapInShell, vars });
     const subject = substitutePlain(
       typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
@@ -614,12 +693,19 @@ router.post(
       const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
       const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
       const vars = buildPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
       const html = renderEmail({ shell, bodyHtml, wrapInShell, vars });
       const subject = `[Test] ${substitutePlain(
         typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
         vars,
       )}`;
-      await sendViaResend(to, subject, html);
+      // Honor the (possibly unsaved) envelope overrides from the editor so the
+      // test reflects exactly what delivery will look like; blank → env default.
+      const fromOverride =
+        typeof b.fromEmail === "string" && b.fromEmail.trim() ? b.fromEmail.trim() : tpl.fromEmail;
+      const replyOverride =
+        typeof b.replyTo === "string" && b.replyTo.trim() ? b.replyTo.trim() : tpl.replyTo;
+      await sendViaResend(to, subject, html, { from: fromOverride, replyTo: replyOverride });
       // Attribute the action to the requesting superadmin (not the recipient,
       // which may be an override address) so the audit trail stays accurate.
       const editor = user?.email ?? to;
@@ -1217,25 +1303,43 @@ router.patch(
       b.previewData && typeof b.previewData === "object" && !Array.isArray(b.previewData)
         ? JSON.stringify(b.previewData)
         : null;
+
+    // Envelope overrides: blank = clear (use default), invalid = 400.
+    const fromRes = envelopeOrNull(b.fromEmail, "sender / from address");
+    if ("error" in fromRes) {
+      res.status(400).json({ error: fromRes.error });
+      return;
+    }
+    const replyRes = envelopeOrNull(b.replyTo, "reply-to address");
+    if ("error" in replyRes) {
+      res.status(400).json({ error: replyRes.error });
+      return;
+    }
+    const preheaderText = shortStr(b.preheaderText);
+
     const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
     try {
       await pool.query(
         `INSERT INTO notification_templates
            (key, name, description, category, channels, scope, tenant_id,
-            email_subject, email_intro, email_cta_label, in_app_title, in_app_body,
+            email_subject, email_intro, email_cta_label,
+            from_email, reply_to, preheader_text, in_app_title, in_app_body,
             body_html, body_mode, wrap_in_shell, preview_data, enabled, updated_at)
-         VALUES ($1,$2,$3,$4,$5,'tenant',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, now())
+         VALUES ($1,$2,$3,$4,$5,'tenant',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, now())
          ON CONFLICT (tenant_id, key) WHERE scope = 'tenant' DO UPDATE SET
            email_subject   = $7,
            email_intro     = $8,
            email_cta_label = $9,
-           in_app_title    = $10,
-           in_app_body     = $11,
-           body_html       = $12,
-           body_mode       = $13,
-           wrap_in_shell   = $14,
-           preview_data    = $15::jsonb,
-           enabled         = $16,
+           from_email      = $10,
+           reply_to        = $11,
+           preheader_text  = $12,
+           in_app_title    = $13,
+           in_app_body     = $14,
+           body_html       = $15,
+           body_mode       = $16,
+           wrap_in_shell   = $17,
+           preview_data    = $18::jsonb,
+           enabled         = $19,
            updated_at      = now()`,
         [
           key,
@@ -1247,6 +1351,9 @@ router.patch(
           shortStr(b.emailSubject),
           shortStr(b.emailIntro),
           shortStr(b.emailCtaLabel),
+          fromRes.value,
+          replyRes.value,
+          preheaderText,
           shortStr(b.inAppTitle),
           shortStr(b.inAppBody),
           longStr(b.bodyHtml),
@@ -1293,6 +1400,7 @@ router.post(
       const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
       const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
       const vars = buildTenantPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
       const html = renderEmail({
         shell,
         bodyHtml,
@@ -1345,6 +1453,7 @@ router.post(
       const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
       const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
       const vars = buildTenantPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
       const html = renderEmail({
         shell,
         bodyHtml,
@@ -1356,7 +1465,13 @@ router.post(
         typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
         vars,
       )}`;
-      await sendViaResend(to, subject, html);
+      // Honor the (possibly unsaved) envelope overrides so the test reflects
+      // exactly what delivery will look like; blank → env default.
+      const fromOverride =
+        typeof b.fromEmail === "string" && b.fromEmail.trim() ? b.fromEmail.trim() : tpl.fromEmail;
+      const replyOverride =
+        typeof b.replyTo === "string" && b.replyTo.trim() ? b.replyTo.trim() : tpl.replyTo;
+      await sendViaResend(to, subject, html, { from: fromOverride, replyTo: replyOverride });
       // Metadata-only audit: the actor is the tenant admin; the recipient
       // address (PII) is deliberately NOT recorded in this multi-tenant log.
       await writeEditLog({

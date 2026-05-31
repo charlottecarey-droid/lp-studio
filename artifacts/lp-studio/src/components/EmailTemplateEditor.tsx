@@ -18,6 +18,11 @@ export interface EmailTemplateValue {
   bodyHtml: string;
   bodyMode: EmailBodyMode;
   wrapInShell: boolean;
+  // Optional envelope overrides. Blank = use the platform default (env from
+  // address, no reply-to, preview text derived from the email's intro).
+  fromEmail: string;
+  replyTo: string;
+  preheaderText: string;
 }
 
 interface Props {
@@ -129,6 +134,50 @@ export function EmailTemplateEditor({
           className="h-8 text-sm"
           placeholder="Email subject line"
         />
+      </div>
+
+      {/* Preview text (preheader) */}
+      <div>
+        <Label className="mb-1 block text-[11px]">Preview text</Label>
+        <Input
+          value={value.preheaderText}
+          onChange={(e) => onChange({ preheaderText: e.target.value })}
+          className="h-8 text-sm"
+          placeholder="Inbox preview snippet (defaults to the email's intro)"
+        />
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          The short summary shown after the subject in most inboxes. Leave blank
+          to use the email's opening line.
+        </p>
+      </div>
+
+      {/* Sender / reply-to overrides */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="mb-1 block text-[11px]">Sender name / from address</Label>
+          <Input
+            value={value.fromEmail}
+            onChange={(e) => onChange({ fromEmail: e.target.value })}
+            className="h-8 text-sm"
+            placeholder="Defaults to the platform sender"
+          />
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            e.g. <code>Acme Team &lt;hello@acme.com&gt;</code> or{" "}
+            <code>hello@acme.com</code>. Leave blank for the default.
+          </p>
+        </div>
+        <div>
+          <Label className="mb-1 block text-[11px]">Reply-to</Label>
+          <Input
+            value={value.replyTo}
+            onChange={(e) => onChange({ replyTo: e.target.value })}
+            className="h-8 text-sm"
+            placeholder="No reply-to by default"
+          />
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Where replies are routed. Leave blank for none.
+          </p>
+        </div>
       </div>
 
       {/* Body mode + shell toggle */}

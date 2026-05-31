@@ -55,6 +55,9 @@ interface Template {
   emailSubject: string;
   emailIntro: string;
   emailCtaLabel: string;
+  fromEmail: string | null;
+  replyTo: string | null;
+  preheaderText: string | null;
   inAppTitle: string;
   inAppBody: string;
   bodyHtml: string;
@@ -70,6 +73,9 @@ interface Draft {
   emailSubject: string;
   emailIntro: string;
   emailCtaLabel: string;
+  fromEmail: string;
+  replyTo: string;
+  preheaderText: string;
   inAppTitle: string;
   inAppBody: string;
   bodyHtml: string;
@@ -84,6 +90,9 @@ function toDraft(t: Template): Draft {
     emailSubject: t.emailSubject ?? "",
     emailIntro: t.emailIntro ?? "",
     emailCtaLabel: t.emailCtaLabel ?? "",
+    fromEmail: t.fromEmail ?? "",
+    replyTo: t.replyTo ?? "",
+    preheaderText: t.preheaderText ?? "",
     inAppTitle: t.inAppTitle ?? "",
     inAppBody: t.inAppBody ?? "",
     bodyHtml: t.bodyHtml ?? "",
@@ -135,6 +144,9 @@ function TemplateDetail({
     bodyHtml: draft.bodyHtml,
     bodyMode: draft.bodyMode,
     wrapInShell: draft.wrapInShell,
+    fromEmail: draft.fromEmail,
+    replyTo: draft.replyTo,
+    preheaderText: draft.preheaderText,
   };
 
   const onEmailChange = (patch: Partial<EmailTemplateValue>) =>
@@ -144,6 +156,9 @@ function TemplateDetail({
       bodyHtml: patch.bodyHtml ?? d.bodyHtml,
       bodyMode: patch.bodyMode ?? d.bodyMode,
       wrapInShell: patch.wrapInShell ?? d.wrapInShell,
+      fromEmail: patch.fromEmail ?? d.fromEmail,
+      replyTo: patch.replyTo ?? d.replyTo,
+      preheaderText: patch.preheaderText ?? d.preheaderText,
     }));
 
   const renderPreview = useCallback(
@@ -156,6 +171,7 @@ function TemplateDetail({
             bodyHtml: v.bodyHtml,
             wrapInShell: v.wrapInShell,
             emailSubject: v.subject,
+            preheaderText: v.preheaderText,
           }),
         },
       );
@@ -174,6 +190,9 @@ function TemplateDetail({
             bodyHtml: v.bodyHtml,
             wrapInShell: v.wrapInShell,
             emailSubject: v.subject,
+            fromEmail: v.fromEmail,
+            replyTo: v.replyTo,
+            preheaderText: v.preheaderText,
             ...(to ? { to } : {}),
           }),
         },

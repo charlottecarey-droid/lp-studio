@@ -38,6 +38,13 @@ export const notificationTemplatesTable = pgTable("notification_templates", {
   emailSubject: text("email_subject"),
   emailIntro: text("email_intro"),
   emailCtaLabel: text("email_cta_label"),
+  // Email envelope overrides (Task #590). null = use the env/code default:
+  //   fromEmail      → RESEND_FROM_EMAIL (sender display name / from address)
+  //   replyTo        → no Reply-To header
+  //   preheaderText  → inbox preview text, derived from the intro
+  fromEmail: text("from_email"),
+  replyTo: text("reply_to"),
+  preheaderText: text("preheader_text"),
   // In-app channel — inbox title + body. null = use the code default.
   inAppTitle: text("in_app_title"),
   inAppBody: text("in_app_body"),

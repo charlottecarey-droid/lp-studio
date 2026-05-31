@@ -39,6 +39,11 @@ export interface NotificationTemplateDef {
   emailSubject: string;
   emailIntro: string;
   emailCtaLabel: string;
+  // Email envelope overrides (Task #590). null = use the env/code default
+  // (RESEND_FROM_EMAIL, no reply-to, preheader derived from the intro).
+  fromEmail: string | null;
+  replyTo: string | null;
+  preheaderText: string | null;
   inAppTitle: string;
   inAppBody: string;
   // Free-form email body (Phase 1). Default is built from emailIntro/emailCtaLabel
@@ -318,6 +323,11 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplateDef> = O
     k,
     {
       ...d,
+      // Envelope overrides default to null = today's behavior (env from, no
+      // reply-to, intro-derived preheader). Operators set them per-template.
+      fromEmail: null,
+      replyTo: null,
+      preheaderText: null,
       bodyHtml: d.bodyHtml ?? buildDefaultBodyHtml(d.emailIntro, d.emailCtaLabel),
       bodyMode: d.bodyMode ?? ("wysiwyg" as NotificationBodyMode),
       wrapInShell: d.wrapInShell ?? true,
@@ -341,6 +351,9 @@ interface TemplateRow {
   email_subject: string | null;
   email_intro: string | null;
   email_cta_label: string | null;
+  from_email: string | null;
+  reply_to: string | null;
+  preheader_text: string | null;
   in_app_title: string | null;
   in_app_body: string | null;
   body_html: string | null;
@@ -373,6 +386,9 @@ function rowToDef(row: TemplateRow, fallback: NotificationTemplateDef): Notifica
     emailSubject: row.email_subject ?? fallback.emailSubject,
     emailIntro: row.email_intro ?? fallback.emailIntro,
     emailCtaLabel: row.email_cta_label ?? fallback.emailCtaLabel,
+    fromEmail: row.from_email ?? fallback.fromEmail,
+    replyTo: row.reply_to ?? fallback.replyTo,
+    preheaderText: row.preheader_text ?? fallback.preheaderText,
     inAppTitle: row.in_app_title ?? fallback.inAppTitle,
     inAppBody: row.in_app_body ?? fallback.inAppBody,
     bodyHtml: row.body_html ?? fallback.bodyHtml,
@@ -429,6 +445,7 @@ async function loadFromDb(): Promise<Record<string, NotificationTemplateDef>> {
     const r = await pool.query<TemplateRow>(
       `SELECT key, name, description, category, channels,
               email_subject, email_intro, email_cta_label,
+              from_email, reply_to, preheader_text,
               in_app_title, in_app_body,
               body_html, body_mode, wrap_in_shell, preview_data,
               enabled

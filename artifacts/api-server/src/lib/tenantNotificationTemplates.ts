@@ -93,6 +93,11 @@ export const TENANT_NOTIFICATION_TEMPLATES: Record<string, NotificationTemplateD
         emailSubject: d.emailSubject,
         emailIntro: "",
         emailCtaLabel: "",
+        // Envelope overrides default to null = today's behavior (env from, no
+        // reply-to, intro-derived preheader). Tenants set them per-template.
+        fromEmail: null,
+        replyTo: null,
+        preheaderText: null,
         inAppTitle: "",
         inAppBody: "",
         bodyHtml: d.bodyHtml,
@@ -109,6 +114,9 @@ interface TenantTemplateRow {
   name: string | null;
   description: string | null;
   email_subject: string | null;
+  from_email: string | null;
+  reply_to: string | null;
+  preheader_text: string | null;
   body_html: string | null;
   body_mode: string | null;
   wrap_in_shell: boolean | null;
@@ -125,6 +133,9 @@ function rowToDef(
     name: row.name ?? fallback.name,
     description: row.description ?? fallback.description,
     emailSubject: row.email_subject ?? fallback.emailSubject,
+    fromEmail: row.from_email ?? fallback.fromEmail,
+    replyTo: row.reply_to ?? fallback.replyTo,
+    preheaderText: row.preheader_text ?? fallback.preheaderText,
     bodyHtml: row.body_html ?? fallback.bodyHtml,
     bodyMode:
       row.body_mode === "html"
@@ -160,6 +171,7 @@ async function loadFromDb(
   try {
     const r = await pool.query<TenantTemplateRow>(
       `SELECT key, name, description, email_subject,
+              from_email, reply_to, preheader_text,
               body_html, body_mode, wrap_in_shell, preview_data, enabled
          FROM notification_templates
         WHERE scope = 'tenant' AND tenant_id = $1`,

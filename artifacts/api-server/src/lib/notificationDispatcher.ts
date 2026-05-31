@@ -101,13 +101,26 @@ function recipientKey(r: NotificationRecipient): string | null {
   return null;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  envelope?: { from?: string | null; replyTo?: string | null },
+): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey) {
     logger.warn("[notificationDispatcher] RESEND_API_KEY not set — skipping email");
     throw new Error("RESEND_API_KEY not configured");
   }
-  const from = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  // Per-template sender override wins; otherwise the env default (today's behavior).
+  const from =
+    (envelope?.from && envelope.from.trim()) ||
+    process.env["RESEND_FROM_EMAIL"] ||
+    "LP Studio <noreply@lpstudio.ai>";
+  const payload: Record<string, unknown> = { from, to, subject, html };
+  if (envelope?.replyTo && envelope.replyTo.trim()) {
+    payload["reply_to"] = envelope.replyTo.trim();
+  }
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -117,7 +130,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ from, to, subject, html }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) return;
       // 4xx (except 429) are not retryable.
@@ -307,6 +320,9 @@ async function dispatchEmail(
     const shell = await getEmailShell();
     const firstName = (r.name ?? "").trim().split(/\s+/)[0] ?? "";
     const unsubscribeUrl = buildLifecycleUnsubUrl(tpl, input, r, ctx);
+    // Inbox preview text: per-template override (token-substituted) wins;
+    // otherwise the intro paragraph, matching today's behavior.
+    const preheaderText = tpl.preheaderText ? render(tpl.preheaderText, ctx) : content.emailIntro;
     const html = renderEmail({
       shell,
       bodyHtml: tpl.bodyHtml,
@@ -317,14 +333,17 @@ async function dispatchEmail(
         recipientEmail: r.email,
         headline: content.inAppTitle,
         subject: content.emailSubject,
-        preheaderText: content.emailIntro,
+        preheaderText,
         ctaUrl: ctaUrl ?? "",
         // Tokenized one-click link for lifecycle emails; falls back to the
         // generic settings-page link in expandEmailVars when null.
         ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
       }),
     });
-    await sendEmail(r.email, content.emailSubject, html);
+    await sendEmail(r.email, content.emailSubject, html, {
+      from: tpl.fromEmail,
+      replyTo: tpl.replyTo,
+    });
     await pool.query(
       `UPDATE notification_sends SET status='sent', sent_at=now() WHERE id=$1`,
       [claimedId],
