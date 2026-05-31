@@ -50,6 +50,14 @@ function rolePredicate(role: AudienceRole): string {
 
 const DELIVERABLE = `u.status = 'active' AND u.email IS NOT NULL AND u.email <> ''`;
 
+/**
+ * Max recipients enrolled per workflow per tick. A configuration whose LIVE
+ * audience exceeds this is refused outright (no enrollment) rather than
+ * partially blasting the first N — see the producers. Lives here so both the
+ * producers and the preview endpoint share one source of truth.
+ */
+export const AUDIENCE_CAP = 10_000;
+
 /** Count of deliverable users in the given role bucket. */
 export async function countAudience(role: AudienceRole): Promise<number> {
   const r = await pool.query<{ n: number }>(
@@ -83,14 +91,28 @@ export async function listAudienceRecipients(
   }));
 }
 
-/** A small preview sample for the admin UI (count + first few addresses). */
+/**
+ * A small preview sample for the admin UI (count + first few addresses). Also
+ * reports the per-tick cap and whether the live audience exceeds it, so the
+ * composer can warn that the configuration would be refused at enrollment time.
+ */
 export async function previewAudience(
   role: AudienceRole,
   sampleSize = 8,
-): Promise<{ count: number; sample: { email: string; name: string | null }[] }> {
+): Promise<{
+  count: number;
+  sample: { email: string; name: string | null }[];
+  cap: number;
+  overCap: boolean;
+}> {
   const [count, recipients] = await Promise.all([
     countAudience(role),
     listAudienceRecipients(role, sampleSize),
   ]);
-  return { count, sample: recipients.map((r) => ({ email: r.email, name: r.name })) };
+  return {
+    count,
+    sample: recipients.map((r) => ({ email: r.email, name: r.name })),
+    cap: AUDIENCE_CAP,
+    overCap: count > AUDIENCE_CAP,
+  };
 }

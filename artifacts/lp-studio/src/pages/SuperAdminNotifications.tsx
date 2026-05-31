@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1080,9 +1080,17 @@ function WorkflowEditor({
 }
 
 /** Live recipient-count preview for a scheduled/audience role filter (Task #626). */
-function AudiencePreview({ role }: { role: AudienceRole }) {
+function AudiencePreview({
+  role,
+  onCount,
+}: {
+  role: AudienceRole;
+  onCount?: (count: number, overCap: boolean) => void;
+}) {
   const [state, setState] = useState<
-    { status: "loading" } | { status: "ready"; count: number; sample: { email: string }[] } | { status: "error" }
+    | { status: "loading" }
+    | { status: "ready"; count: number; sample: { email: string }[]; cap: number; overCap: boolean }
+    | { status: "error" }
   >({ status: "loading" });
 
   useEffect(() => {
@@ -1094,7 +1102,10 @@ function AudiencePreview({ role }: { role: AudienceRole }) {
     })
       .then((data) => {
         if (cancelled) return;
-        setState({ status: "ready", count: data.count ?? 0, sample: data.sample ?? [] });
+        const count = data.count ?? 0;
+        const overCap = Boolean(data.overCap);
+        setState({ status: "ready", count, sample: data.sample ?? [], cap: data.cap ?? 0, overCap });
+        onCount?.(count, overCap);
       })
       .catch(() => {
         if (!cancelled) setState({ status: "error" });
@@ -1102,7 +1113,7 @@ function AudiencePreview({ role }: { role: AudienceRole }) {
     return () => {
       cancelled = true;
     };
-  }, [role]);
+  }, [role, onCount]);
 
   if (state.status === "loading") {
     return (
@@ -1113,6 +1124,18 @@ function AudiencePreview({ role }: { role: AudienceRole }) {
   }
   if (state.status === "error") {
     return <p className="text-xs text-destructive">Couldn’t load recipient count.</p>;
+  }
+  if (state.overCap) {
+    return (
+      <p className="flex items-start gap-1.5 text-xs text-destructive">
+        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+        <span>
+          <span className="font-semibold">{state.count.toLocaleString()}</span> {ROLE_LABELS[role].toLowerCase()} exceed
+          the {state.cap.toLocaleString()} per-run cap — this trigger won’t enroll anyone until the audience is back under
+          the cap.
+        </span>
+      </p>
+    );
   }
   return (
     <p className="text-xs text-muted-foreground">
@@ -1145,6 +1168,13 @@ function TriggersPanel({
   const [date, setDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  // Latest live recipient count from the preview, so the save confirmation can
+  // repeat it back ("Saved — N members will receive this").
+  const lastPreview = useRef<{ count: number; overCap: boolean }>({ count: 0, overCap: false });
+  const handleCount = useCallback((count: number, overCap: boolean) => {
+    lastPreview.current = { count, overCap };
+  }, []);
 
   const buildConfig = (): Record<string, unknown> | undefined => {
     if (triggerType === "audience") return { role };
@@ -1161,6 +1191,7 @@ function TriggersPanel({
   const create = async () => {
     setBusy(true);
     setErr(null);
+    setSaved(null);
     try {
       const config = buildConfig();
       await apiFetch("/api/admin/email-workflow-triggers", {
@@ -1173,6 +1204,18 @@ function TriggersPanel({
           ...(config ? { config } : {}),
         }),
       });
+      // Repeat the live recipient count back as a save confirmation.
+      if (triggerType !== "event") {
+        const { count, overCap } = lastPreview.current;
+        const who = `${count.toLocaleString()} ${ROLE_LABELS[role].toLowerCase()}`;
+        setSaved(
+          overCap
+            ? `Trigger saved, but ${who} exceed the per-run cap — it won’t enroll anyone until the audience is back under the cap.`
+            : `Trigger saved — ${who} will receive this each time it runs.`,
+        );
+      } else {
+        setSaved("Trigger saved.");
+      }
       setKey("");
       setName("");
       setEventKey("");
@@ -1204,6 +1247,11 @@ function TriggersPanel({
       {err && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4" /> {err}
+        </div>
+      )}
+      {saved && (
+        <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4" /> {saved}
         </div>
       )}
       <div className="space-y-1.5">
@@ -1347,7 +1395,7 @@ function TriggersPanel({
               </div>
             )}
 
-            <AudiencePreview role={role} />
+            <AudiencePreview role={role} onCount={handleCount} />
           </div>
         )}
 
