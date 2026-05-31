@@ -2465,6 +2465,82 @@ router.get("/superadmin/my-tenants", requireSuperadmin, async (_req, res): Promi
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Trial phone gate admin (Task #643)
+//
+// The SMS trial gate (`trial_phone_numbers`) stores ONE row per phone that has
+// consumed its free Growth trial — only the SHA-256 hash of the normalized
+// E.164 number is persisted, never the raw number. Support occasionally needs
+// to view these and release a specific record (e.g. a legitimate user who
+// changed numbers, or a leftover test number) so that phone can trial again.
+//
+// GET /api/admin/superadmin/trial-phones — list every gated phone (hashed),
+// joined to the tenant it unlocked its trial for (nullable: the tenant may
+// have been deleted, which SET NULLs the link while preserving the "trialed"
+// fact). Newest first.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/superadmin/trial-phones", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        tpn.phone_hash,
+        tpn.tenant_id,
+        tpn.created_at,
+        t.name AS tenant_name,
+        t.slug AS tenant_slug
+      FROM trial_phone_numbers tpn
+      LEFT JOIN tenants t ON t.id = tpn.tenant_id
+      ORDER BY tpn.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[superadmin] GET /trial-phones error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/superadmin/trial-phones/:phoneHash — release a gated phone
+// so that number can start a fresh trial. The phoneHash is the table's primary
+// key (SHA-256 hex). Audited via the same lightweight structured-console-log
+// pattern used for tenant-slug-redirect.released (no dedicated audit_log table
+// yet) so the who/when/which can be grepped from server logs.
+router.delete("/superadmin/trial-phones/:phoneHash", requireSuperadmin, async (req, res): Promise<void> => {
+  const phoneHash = String(req.params.phoneHash ?? "").trim().toLowerCase();
+  // SHA-256 hex is exactly 64 lowercase hex chars — validate before hitting the
+  // DB so a malformed path can't be used to probe.
+  if (!/^[0-9a-f]{64}$/.test(phoneHash)) {
+    res.status(400).json({ error: "Invalid phone hash" });
+    return;
+  }
+  try {
+    const r = await pool.query<{ phone_hash: string; tenant_id: number | null; created_at: Date }>(
+      `DELETE FROM trial_phone_numbers
+        WHERE phone_hash = $1
+        RETURNING phone_hash, tenant_id, created_at`,
+      [phoneHash],
+    );
+    if (!r.rows.length) {
+      res.status(404).json({ error: "Trial phone record not found" });
+      return;
+    }
+    console.info(
+      "[admin][audit] trial-phone.released",
+      JSON.stringify({
+        phoneHash: r.rows[0].phone_hash,
+        tenantId: r.rows[0].tenant_id,
+        originalCreatedAt: r.rows[0].created_at.toISOString(),
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        at: new Date().toISOString(),
+      }),
+    );
+    res.json({ ok: true, phoneHash: r.rows[0].phone_hash });
+  } catch (err) {
+    console.error("[superadmin] DELETE /trial-phones/:phoneHash error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/admin/superadmin/switch-tenant
 // Superadmin only (requireAuth + isAdmin check). Updates the session's tenantId
 // in the database so the caller's subsequent API calls run in the new tenant's

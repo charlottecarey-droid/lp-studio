@@ -27,7 +27,7 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
-  Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound,
+  Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
@@ -35,6 +35,7 @@ import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import SuperAdminNotifications from "./SuperAdminNotifications";
 import SuperAdminSuperadmins from "./SuperAdminSuperadmins";
+import SuperAdminTrialPhones from "./SuperAdminTrialPhones";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1125,13 +1126,14 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans" | "notifications" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans" | "notifications" | "trial-phones" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#templates") return "templates";
       if (window.location.hash === "#asset-health") return "asset-health";
       if (window.location.hash === "#plans") return "plans";
       if (window.location.hash === "#notifications") return "notifications";
+      if (window.location.hash === "#trial-phones") return "trial-phones";
       if (window.location.hash === "#superadmins") return "superadmins";
     }
     return "tenants";
@@ -1302,6 +1304,14 @@ export default function SuperAdminPage() {
           >
             <Bell className="w-3.5 h-3.5" /> Notifications
           </button>
+          <button
+            onClick={() => setTab("trial-phones")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "trial-phones" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" /> Trial Phones
+          </button>
           {isRoot && (
             <button
               onClick={() => setTab("superadmins")}
@@ -1322,6 +1332,8 @@ export default function SuperAdminPage() {
           <SuperAdminPlanConfig />
         ) : tab === "notifications" ? (
           <SuperAdminNotifications />
+        ) : tab === "trial-phones" ? (
+          <SuperAdminTrialPhones />
         ) : tab === "asset-health" ? (
           <SuperAdminAssetHealth />
         ) : tab === "superadmins" && isRoot ? (
