@@ -246,6 +246,13 @@ async function legacyDefault(
  * decisions), falling back to the page's `created_by` email (comments). Returns
  * [] when there is no page context or the author can't be matched. Tenant-scoped
  * so a stale id can never leak a recipient from another workspace.
+ *
+ * The email fallback is doubly guarded for tenant isolation: an address is only
+ * echoed as a bare recipient when it is NOT a known workspace account in any
+ * OTHER tenant. An email that belongs to a DIFFERENT workspace's account
+ * resolves to nobody — we must never deliver one workspace's alert to another
+ * workspace's user. Genuinely external addresses (no account anywhere) are still
+ * echoed so an external page creator can be alerted.
  */
 async function resolvePageAuthor(
   tenantId: number,
@@ -280,6 +287,19 @@ async function resolvePageAuthor(
     if (rows[0]) {
       return [{ appUserId: rows[0].id, email: rows[0].email, name: rows[0].name }];
     }
+    // The email is not an account in THIS tenant. Before echoing it as a bare
+    // recipient, make sure it isn't a known account in another workspace — a
+    // cross-tenant page author (e.g. a stale page reference) must resolve to
+    // nobody, never deliver this workspace's alert to another workspace's user.
+    const other = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM app_users
+          WHERE lower(email) = lower($1) AND tenant_id <> $2
+            AND email IS NOT NULL AND email <> ''
+       ) AS exists`,
+      [email, tenantId],
+    );
+    if (other.rows[0]?.exists) return [];
     return [{ appUserId: null, email, name: null }];
   }
   return [];

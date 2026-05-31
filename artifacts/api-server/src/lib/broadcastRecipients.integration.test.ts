@@ -51,26 +51,43 @@ let memberCId: number;
 let authorDId: number;
 let pageId: number;
 
+// A SECOND, fully independent workspace (Task #660). Its admins/members/page
+// must NEVER appear in tenant A's resolved audience and vice-versa — the
+// resolver's group + page_author lookups are tenant-scoped, and this second
+// tenant is the live witness that proves it.
+const SLUG_2 = `it-broadcast2-${SUFFIX}`;
+const admin2Email = `admin2-${SUFFIX}@example.com`;
+const member2Email = `member2-${SUFFIX}@example.com`;
+const author2Email = `author2-${SUFFIX}@example.com`;
+
+let tenant2Id: number;
+let admin2RoleId: number;
+let member2RoleId: number;
+let admin2Id: number;
+let member2Id: number;
+let author2Id: number;
+let page2Id: number;
+
 let app: Express;
 
 function emailsOf(rows: { email: string }[]): string[] {
   return rows.map((r) => r.email.toLowerCase()).sort();
 }
 
-async function insertUser(email: string): Promise<number> {
+async function insertUser(tid: number, email: string): Promise<number> {
   const r = await pool.query<{ id: number }>(
     `INSERT INTO app_users (tenant_id, email, name, role, status)
      VALUES ($1, $2, $3, 'rep', 'active') RETURNING id`,
-    [tenantId, email, email.split("@")[0]],
+    [tid, email, email.split("@")[0]],
   );
   return r.rows[0].id;
 }
 
-async function addMember(userId: number, roleId: number): Promise<void> {
+async function addMember(tid: number, userId: number, roleId: number): Promise<void> {
   await pool.query(
     `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
      VALUES ($1, $2, $3, NULL, now())`,
-    [tenantId, userId, roleId],
+    [tid, userId, roleId],
   );
 }
 
@@ -78,6 +95,7 @@ async function addMember(userId: number, roleId: number): Promise<void> {
 async function setConfig(
   alertType: string,
   cfg: { memberUserIds?: number[]; extraEmails?: string[]; groups?: string[] },
+  tid: number = tenantId,
 ): Promise<void> {
   await pool.query(
     `INSERT INTO broadcast_alert_recipients (tenant_id, alert_type, member_user_ids, extra_emails, groups)
@@ -87,7 +105,7 @@ async function setConfig(
                    extra_emails    = EXCLUDED.extra_emails,
                    groups          = EXCLUDED.groups`,
     [
-      tenantId,
+      tid,
       alertType,
       JSON.stringify(cfg.memberUserIds ?? []),
       JSON.stringify(cfg.extraEmails ?? []),
@@ -96,9 +114,9 @@ async function setConfig(
   );
 }
 
-async function clearConfig(alertType: string): Promise<void> {
+async function clearConfig(alertType: string, tid: number = tenantId): Promise<void> {
   await pool.query(`DELETE FROM broadcast_alert_recipients WHERE tenant_id = $1 AND alert_type = $2`, [
-    tenantId,
+    tid,
     alertType,
   ]);
 }
@@ -112,15 +130,19 @@ function injectAdmin(opts: { method: string; url: string; body?: unknown }): Pro
   });
 }
 
+async function cleanupTenant(tid: number | undefined): Promise<void> {
+  if (!tid) return;
+  await pool.query(`DELETE FROM broadcast_alert_recipients WHERE tenant_id = $1`, [tid]).catch(() => {});
+  await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [tid]).catch(() => {});
+  await pool.query(`DELETE FROM tenant_members WHERE tenant_id = $1`, [tid]).catch(() => {});
+  await pool.query(`DELETE FROM tenant_roles WHERE tenant_id = $1`, [tid]).catch(() => {});
+  await pool.query(`DELETE FROM app_users WHERE tenant_id = $1`, [tid]).catch(() => {});
+  await pool.query(`DELETE FROM tenants WHERE id = $1`, [tid]).catch(() => {});
+}
+
 async function cleanup(): Promise<void> {
-  if (tenantId) {
-    await pool.query(`DELETE FROM broadcast_alert_recipients WHERE tenant_id = $1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM tenant_members WHERE tenant_id = $1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM tenant_roles WHERE tenant_id = $1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM app_users WHERE tenant_id = $1`, [tenantId]).catch(() => {});
-    await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]).catch(() => {});
-  }
+  await cleanupTenant(tenantId);
+  await cleanupTenant(tenant2Id);
   await pool.query(`DELETE FROM app_sessions WHERE sid = $1`, [ADMIN_SID]).catch(() => {});
 }
 
@@ -146,15 +168,15 @@ beforeAll(async () => {
   );
   memberRoleId = memberRole.rows[0].id;
 
-  adminAId = await insertUser(adminAEmail);
-  adminBId = await insertUser(adminBEmail);
-  memberCId = await insertUser(memberCEmail);
-  authorDId = await insertUser(authorDEmail);
+  adminAId = await insertUser(tenantId, adminAEmail);
+  adminBId = await insertUser(tenantId, adminBEmail);
+  memberCId = await insertUser(tenantId, memberCEmail);
+  authorDId = await insertUser(tenantId, authorDEmail);
 
-  await addMember(adminAId, adminRoleId);
-  await addMember(adminBId, adminRoleId);
-  await addMember(memberCId, memberRoleId);
-  await addMember(authorDId, memberRoleId);
+  await addMember(tenantId, adminAId, adminRoleId);
+  await addMember(tenantId, adminBId, adminRoleId);
+  await addMember(tenantId, memberCId, memberRoleId);
+  await addMember(tenantId, authorDId, memberRoleId);
 
   const page = await pool.query<{ id: number }>(
     `INSERT INTO lp_pages (tenant_id, title, slug, created_by, submitted_by_user_id)
@@ -162,6 +184,44 @@ beforeAll(async () => {
     [tenantId, `page-${SUFFIX}`, authorDEmail, authorDId],
   );
   pageId = page.rows[0].id;
+
+  // ── SECOND tenant (Task #660): its own admins/members/page, entirely
+  //    independent of tenant A. Used to prove cross-tenant isolation.
+  const t2 = await pool.query<{ id: number }>(
+    `INSERT INTO tenants (name, slug, status, settings)
+     VALUES ('IT Broadcast Tenant 2', $1, 'active', '{"industry":"generic"}'::jsonb)
+     RETURNING id`,
+    [SLUG_2],
+  );
+  tenant2Id = t2.rows[0].id;
+
+  const adminRole2 = await pool.query<{ id: number }>(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin)
+     VALUES ($1, 'Admin', '{}'::jsonb, true) RETURNING id`,
+    [tenant2Id],
+  );
+  admin2RoleId = adminRole2.rows[0].id;
+  const memberRole2 = await pool.query<{ id: number }>(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin)
+     VALUES ($1, 'Member', '{}'::jsonb, false) RETURNING id`,
+    [tenant2Id],
+  );
+  member2RoleId = memberRole2.rows[0].id;
+
+  admin2Id = await insertUser(tenant2Id, admin2Email);
+  member2Id = await insertUser(tenant2Id, member2Email);
+  author2Id = await insertUser(tenant2Id, author2Email);
+
+  await addMember(tenant2Id, admin2Id, admin2RoleId);
+  await addMember(tenant2Id, member2Id, member2RoleId);
+  await addMember(tenant2Id, author2Id, member2RoleId);
+
+  const page2 = await pool.query<{ id: number }>(
+    `INSERT INTO lp_pages (tenant_id, title, slug, created_by, submitted_by_user_id)
+     VALUES ($1, 'Broadcast IT Page 2', $2, $3, $4) RETURNING id`,
+    [tenant2Id, `page2-${SUFFIX}`, author2Email, author2Id],
+  );
+  page2Id = page2.rows[0].id;
 
   // Admin session for the PUT save-route assertions. isAdmin=true satisfies the
   // route's `settings` gate and skips host enforcement in requireAuth.
@@ -309,6 +369,118 @@ describe("resolveBroadcastRecipients — unconfigured legacy defaults", () => {
     await clearConfig("payment_failed");
     const got = await resolveBroadcastRecipients(tenantId, "payment_failed");
     expect(emailsOf(got)).toEqual([adminAEmail, adminBEmail].sort());
+  });
+});
+
+describe("resolveBroadcastRecipients — cross-tenant isolation (Task #660)", () => {
+  // Every group + page_author lookup is tenant-scoped. Tenant B is a live second
+  // workspace with its own admins/members/page; tenant A's resolved audience must
+  // never include any of B's recipients and vice-versa. A future query change
+  // that drops a `tenant_id = $1` predicate would leak across workspaces — these
+  // tests are the guard that catches it.
+  const tenantBEmails = new Set([admin2Email, member2Email, author2Email].map((e) => e.toLowerCase()));
+
+  function leakedFromB(rows: { email: string }[]): string[] {
+    return emailsOf(rows).filter((e) => tenantBEmails.has(e));
+  }
+
+  it("all_admins for tenant A never includes tenant B's admin", async () => {
+    await setConfig("comment", { groups: ["all_admins"] }, tenantId);
+    const got = await resolveBroadcastRecipients(tenantId, "comment");
+    expect(emailsOf(got)).toEqual([adminAEmail, adminBEmail].sort());
+    expect(leakedFromB(got)).toEqual([]);
+  });
+
+  it("all_admins for tenant B never includes tenant A's admins", async () => {
+    await setConfig("comment", { groups: ["all_admins"] }, tenant2Id);
+    const got = await resolveBroadcastRecipients(tenant2Id, "comment");
+    expect(emailsOf(got)).toEqual([admin2Email].sort());
+    const tenantAEmails = [adminAEmail, adminBEmail, memberCEmail, authorDEmail].map((e) => e.toLowerCase());
+    expect(emailsOf(got).filter((e) => tenantAEmails.includes(e))).toEqual([]);
+  });
+
+  it("all_members for tenant A never includes tenant B's members", async () => {
+    await setConfig("comment", { groups: ["all_members"] }, tenantId);
+    const got = await resolveBroadcastRecipients(tenantId, "comment");
+    expect(emailsOf(got)).toEqual([adminAEmail, adminBEmail, memberCEmail, authorDEmail].sort());
+    expect(leakedFromB(got)).toEqual([]);
+  });
+
+  it("all_members for tenant B never includes tenant A's members", async () => {
+    await setConfig("comment", { groups: ["all_members"] }, tenant2Id);
+    const got = await resolveBroadcastRecipients(tenant2Id, "comment");
+    expect(emailsOf(got)).toEqual([admin2Email, member2Email, author2Email].sort());
+    const tenantAEmails = [adminAEmail, adminBEmail, memberCEmail, authorDEmail].map((e) => e.toLowerCase());
+    expect(emailsOf(got).filter((e) => tenantAEmails.includes(e))).toEqual([]);
+  });
+
+  it("page_author with a stale userId from tenant B resolves to nobody for tenant A", async () => {
+    // A page-author id that exists ONLY in tenant B must never match under tenant
+    // A. With no email fallback this resolves to nobody (collaboration alert has
+    // no fail-open), so the alert reaches no one rather than B's author.
+    await setConfig("review_decision", { groups: ["page_author"] }, tenantId);
+    const got = await resolveBroadcastRecipients(tenantId, "review_decision", {
+      pageAuthor: { userId: author2Id },
+    });
+    expect(got).toEqual([]);
+  });
+
+  it("page_author email belonging to a tenant B account resolves to nobody under tenant A", async () => {
+    // An address that maps to a workspace ACCOUNT only in tenant B must resolve
+    // to NOBODY under tenant A — never the matched account AND never a bare
+    // echo, so tenant A's alert is not delivered to tenant B's user.
+    await setConfig("comment", { groups: ["page_author"] }, tenantId);
+    const got = await resolveBroadcastRecipients(tenantId, "comment", {
+      pageAuthor: { email: author2Email },
+    });
+    expect(got).toEqual([]);
+  });
+
+  it("page_author with both a userId AND email from tenant B resolves to nobody under tenant A", async () => {
+    // The realistic stale-page shape (review submission carries both id + email).
+    // Neither tenant-scoped lookup may match B's account, and the cross-tenant
+    // email is not echoed — the alert reaches no one.
+    await setConfig("review_decision", { groups: ["page_author"] }, tenantId);
+    const got = await resolveBroadcastRecipients(tenantId, "review_decision", {
+      pageAuthor: { userId: author2Id, email: author2Email },
+    });
+    expect(got).toEqual([]);
+  });
+
+  it("page_author with a tenant A identity resolves to nobody under tenant B (reciprocal)", async () => {
+    // Symmetry: tenant A's author (id + email) must not leak into tenant B's
+    // audience either.
+    await setConfig("review_decision", { groups: ["page_author"] }, tenant2Id);
+    const got = await resolveBroadcastRecipients(tenant2Id, "review_decision", {
+      pageAuthor: { userId: authorDId, email: authorDEmail },
+    });
+    expect(got).toEqual([]);
+  });
+
+  it("page_author resolves the author within the SAME tenant (B's author under tenant B)", async () => {
+    // Sanity-check the mirror: the exact same identity DOES resolve when the
+    // resolving tenant owns the account — proving the isolation above is the
+    // tenant scope, not a blanket failure to match.
+    await setConfig("review_decision", { groups: ["page_author"] }, tenant2Id);
+    const got = await resolveBroadcastRecipients(tenant2Id, "review_decision", {
+      pageAuthor: { userId: author2Id, email: author2Email },
+    });
+    expect(emailsOf(got)).toEqual([author2Email]);
+    expect(got[0]?.appUserId).toBe(author2Id);
+  });
+
+  it("page_author with a genuinely external email (no account in ANY tenant) is still echoed", async () => {
+    // Contract guard for the isolation fix: an address that belongs to NO
+    // workspace account anywhere is a legitimate external page creator and must
+    // still be alerted as a bare recipient (appUserId === null) — the
+    // cross-tenant suppression only applies to other tenants' accounts.
+    const externalEmail = `external-${SUFFIX}@example.com`;
+    await setConfig("comment", { groups: ["page_author"] }, tenantId);
+    const got = await resolveBroadcastRecipients(tenantId, "comment", {
+      pageAuthor: { email: externalEmail },
+    });
+    expect(emailsOf(got)).toEqual([externalEmail]);
+    expect(got[0]?.appUserId).toBeNull();
   });
 });
 
