@@ -311,7 +311,7 @@ export const NO_REVEAL = new Set<string>([
   "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
-  "content-series",
+  "content-series", "blog-series", "storefront",
   // Inside Dandy blocks: own their own scroll-driven internals (sticky cinema
   // pillars, scroll-progress letter reveal, parallax showcase) and the hero's
   // own entrance animation. Wrapping them in a transformed motion.div breaks
