@@ -56,3 +56,4 @@ export * from "./emailShellTemplates";
 export * from "./tenantEmailShells";
 export * from "./emailTemplateEditLog";
 export * from "./broadcastAlertRecipients";
+export * from "./broadcastRecipientGroups";

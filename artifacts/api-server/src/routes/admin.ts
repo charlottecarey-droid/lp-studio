@@ -10,6 +10,8 @@ import {
   getBroadcastAlertDef,
   getApplicableGroupTokens,
   BROADCAST_GROUP_TOKENS,
+  makeCustomGroupToken,
+  parseCustomGroupToken,
 } from "../lib/broadcastRecipients";
 import { PLANS, normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
@@ -1754,12 +1756,34 @@ router.get("/broadcast-recipients", async (req, res): Promise<void> => {
         WHERE tenant_id = $1`,
       [tenantId],
     );
+    // Custom groups (Task #629) — the tenant's reusable admin-defined groups.
+    // They apply to every alert type and are surfaced separately so the UI can
+    // render them as quick-pick toggles alongside the built-in groups.
+    const customGroupsResult = await pool.query<{
+      id: number; label: string; member_user_ids: unknown; extra_emails: unknown;
+    }>(
+      `SELECT id, label, member_user_ids, extra_emails
+         FROM broadcast_recipient_groups
+        WHERE tenant_id = $1
+        ORDER BY lower(label)`,
+      [tenantId],
+    );
+    const customGroups = customGroupsResult.rows.map((g) => ({
+      id: g.id,
+      token: makeCustomGroupToken(g.id),
+      label: g.label,
+      memberUserIds: Array.isArray(g.member_user_ids) ? g.member_user_ids : [],
+      extraEmails: Array.isArray(g.extra_emails) ? g.extra_emails : [],
+    }));
+    const validCustomTokens = new Set<string>(customGroups.map((g) => g.token));
+
     const configByType = new Map(configResult.rows.map((r) => [r.alert_type, r]));
     const groupTokenSet = new Set<string>(BROADCAST_GROUP_TOKENS);
     const alerts = BROADCAST_ALERT_TYPES.map((def) => {
       const cfg = configByType.get(def.type);
-      // Which group toggles apply to THIS alert type (all alerts: admins/members;
-      // collaboration page alerts also: page author).
+      // Which built-in group toggles apply to THIS alert type (all alerts:
+      // admins/members; collaboration page alerts also: page author). Custom
+      // groups apply to every alert type and are surfaced via `customGroups`.
       const applicableGroups = getApplicableGroupTokens(def);
       const applicableSet = new Set<string>(applicableGroups);
       const savedGroups = cfg && Array.isArray(cfg.groups) ? cfg.groups : [];
@@ -1771,9 +1795,12 @@ router.get("/broadcast-recipients", async (req, res): Promise<void> => {
         configured: !!cfg,
         memberUserIds: cfg ? (Array.isArray(cfg.member_user_ids) ? cfg.member_user_ids : []) : [],
         extraEmails: cfg ? (Array.isArray(cfg.extra_emails) ? cfg.extra_emails : []) : [],
-        // Only surface saved tokens that are still valid + applicable to this type.
+        // Only surface saved tokens that are still valid: built-in tokens
+        // applicable to this type, plus custom tokens whose group still exists.
         groups: savedGroups.filter(
-          (g): g is string => typeof g === "string" && groupTokenSet.has(g) && applicableSet.has(g),
+          (g): g is string =>
+            typeof g === "string" &&
+            ((groupTokenSet.has(g) && applicableSet.has(g)) || validCustomTokens.has(g)),
         ),
         applicableGroups,
       };
@@ -1786,6 +1813,7 @@ router.get("/broadcast-recipients", async (req, res): Promise<void> => {
         isAdmin: m.is_admin,
       })),
       alerts,
+      customGroups,
     });
   } catch (err) {
     console.error("[admin] GET /broadcast-recipients error:", err);
@@ -1838,16 +1866,24 @@ router.put("/broadcast-recipients/:alertType", async (req, res): Promise<void> =
   const extraEmails = Array.from(emailSet);
 
   // Normalize + validate dynamic group tokens (Task #623). Reject unknown
-  // tokens; silently drop tokens that don't apply to this alert type (e.g.
-  // page_author on a non-page account/billing alert).
+  // tokens; silently drop built-in tokens that don't apply to this alert type
+  // (e.g. page_author on a non-page account/billing alert). Custom-group tokens
+  // (custom:<id>, Task #629) apply to every alert type and are validated below
+  // against the tenant's group catalog.
   const applicableGroups = new Set<string>(getApplicableGroupTokens(alertDef));
   const knownGroups = new Set<string>(BROADCAST_GROUP_TOKENS);
   const rawGroups = Array.isArray(body?.groups) ? body!.groups : [];
   const groupSet = new Set<string>();
+  const customGroupIds = new Set<number>();
   for (const x of rawGroups) {
     if (typeof x !== "string") {
       res.status(400).json({ error: `Invalid group token: ${String(x)}` });
       return;
+    }
+    const customId = parseCustomGroupToken(x);
+    if (customId !== null) {
+      customGroupIds.add(customId);
+      continue; // validated against the tenant's catalog below
     }
     if (!knownGroups.has(x)) {
       res.status(400).json({ error: `Unknown group token: ${x}` });
@@ -1856,9 +1892,27 @@ router.put("/broadcast-recipients/:alertType", async (req, res): Promise<void> =
     if (!applicableGroups.has(x)) continue; // not applicable to this alert → ignore
     groupSet.add(x);
   }
-  const groups = Array.from(groupSet);
 
   try {
+    // Validate every custom-group token references a group in THIS tenant so a
+    // stale / cross-tenant id can never be persisted.
+    if (customGroupIds.size) {
+      const ids = Array.from(customGroupIds);
+      const groupCheck = await pool.query<{ id: number }>(
+        `SELECT id FROM broadcast_recipient_groups
+          WHERE tenant_id = $1 AND id = ANY($2::int[])`,
+        [tenantId, ids],
+      );
+      const validGroups = new Set(groupCheck.rows.map((r) => r.id));
+      const unknownGroups = ids.filter((id) => !validGroups.has(id));
+      if (unknownGroups.length) {
+        res.status(400).json({ error: `Unknown custom group id(s): ${unknownGroups.join(", ")}` });
+        return;
+      }
+      for (const id of validGroups) groupSet.add(makeCustomGroupToken(id));
+    }
+    const groups = Array.from(groupSet);
+
     // Validate every selected member id belongs to this tenant's roster.
     if (memberIds.length) {
       const check = await pool.query<{ id: number }>(
@@ -1922,6 +1976,210 @@ router.delete("/broadcast-recipients/:alertType", async (req, res): Promise<void
   } catch (err) {
     console.error("[admin] DELETE /broadcast-recipients error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Custom recipient groups (task #629) ─────────────────────────────────────
+// Admin-defined, reusable named groups (a label + a set of members + extra
+// emails) that can be quick-picked on any alert and resolve to their CURRENT
+// membership at send time (see resolveBroadcastRecipients). Gated on the
+// `settings` permission with the same server-side re-check as the routes above.
+
+const MAX_CUSTOM_GROUP_LABEL = 80;
+
+// Shared body normalizer for create/update: validates + normalizes the label,
+// member ids (positive ints, deduped), and extra emails (trimmed, lowercased,
+// validated, deduped). Returns a 400-style error string on failure, else the
+// normalized values. Member ids are roster-validated by the caller.
+function normalizeCustomGroupBody(
+  body: { label?: unknown; memberUserIds?: unknown; extraEmails?: unknown } | undefined,
+): { error: string } | { label: string; memberIds: number[]; extraEmails: string[] } {
+  const label = typeof body?.label === "string" ? body.label.trim() : "";
+  if (!label) return { error: "A group name is required." };
+  if (label.length > MAX_CUSTOM_GROUP_LABEL) {
+    return { error: `Group name must be ${MAX_CUSTOM_GROUP_LABEL} characters or fewer.` };
+  }
+
+  const rawIds = Array.isArray(body?.memberUserIds) ? body!.memberUserIds : [];
+  const idSet = new Set<number>();
+  for (const x of rawIds) {
+    const n = typeof x === "number" ? x : Number(x);
+    if (Number.isInteger(n) && n > 0) idSet.add(n);
+  }
+
+  const rawEmails = Array.isArray(body?.extraEmails) ? body!.extraEmails : [];
+  const emailSet = new Set<string>();
+  for (const x of rawEmails) {
+    if (typeof x !== "string") continue;
+    const e = x.trim().toLowerCase();
+    if (!e) continue;
+    if (!EMAIL_RE.test(e)) return { error: `Invalid email: ${x}` };
+    emailSet.add(e);
+  }
+
+  return { label, memberIds: Array.from(idSet), extraEmails: Array.from(emailSet) };
+}
+
+// Validate that every member id belongs to this tenant's accepted roster.
+// Returns the list of unknown ids (empty = all valid).
+async function findUnknownMemberIds(tenantId: number, memberIds: number[]): Promise<number[]> {
+  if (!memberIds.length) return [];
+  const check = await pool.query<{ id: number }>(
+    `SELECT au.id
+       FROM tenant_members tm
+       JOIN app_users au ON au.id = tm.user_id
+      WHERE tm.tenant_id = $1
+        AND au.id = ANY($2::int[])
+        AND tm.accepted_at IS NOT NULL`,
+    [tenantId, memberIds],
+  );
+  const valid = new Set(check.rows.map((r) => r.id));
+  return memberIds.filter((id) => !valid.has(id));
+}
+
+// POST /api/admin/recipient-groups — create a custom group.
+router.post("/recipient-groups", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const normalized = normalizeCustomGroupBody(req.body);
+  if ("error" in normalized) { res.status(400).json({ error: normalized.error }); return; }
+  try {
+    const unknown = await findUnknownMemberIds(tenantId, normalized.memberIds);
+    if (unknown.length) {
+      res.status(400).json({ error: `Unknown member id(s): ${unknown.join(", ")}` });
+      return;
+    }
+    const result = await pool.query<{ id: number }>(
+      `INSERT INTO broadcast_recipient_groups
+         (tenant_id, label, member_user_ids, extra_emails, created_by, updated_by)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $5)
+       RETURNING id`,
+      [
+        tenantId,
+        normalized.label,
+        JSON.stringify(normalized.memberIds),
+        JSON.stringify(normalized.extraEmails),
+        req.authUser?.userId ?? null,
+      ],
+    );
+    const id = result.rows[0]!.id;
+    res.json({
+      ok: true,
+      id,
+      token: makeCustomGroupToken(id),
+      label: normalized.label,
+      memberUserIds: normalized.memberIds,
+      extraEmails: normalized.extraEmails,
+    });
+  } catch (err: unknown) {
+    // Unique-violation on (tenant_id, lower(label)) → friendly 409.
+    if (typeof err === "object" && err && (err as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "A group with that name already exists." });
+      return;
+    }
+    console.error("[admin] POST /recipient-groups error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PUT /api/admin/recipient-groups/:id — update a custom group's label / members.
+router.put("/recipient-groups/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "Invalid group id" }); return; }
+  const normalized = normalizeCustomGroupBody(req.body);
+  if ("error" in normalized) { res.status(400).json({ error: normalized.error }); return; }
+  try {
+    const unknown = await findUnknownMemberIds(tenantId, normalized.memberIds);
+    if (unknown.length) {
+      res.status(400).json({ error: `Unknown member id(s): ${unknown.join(", ")}` });
+      return;
+    }
+    const result = await pool.query<{ id: number }>(
+      `UPDATE broadcast_recipient_groups
+          SET label = $3, member_user_ids = $4::jsonb, extra_emails = $5::jsonb,
+              updated_by = $6, updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING id`,
+      [
+        tenantId,
+        id,
+        normalized.label,
+        JSON.stringify(normalized.memberIds),
+        JSON.stringify(normalized.extraEmails),
+        req.authUser?.userId ?? null,
+      ],
+    );
+    if (!result.rows.length) { res.status(404).json({ error: "Group not found" }); return; }
+    res.json({
+      ok: true,
+      id,
+      token: makeCustomGroupToken(id),
+      label: normalized.label,
+      memberUserIds: normalized.memberIds,
+      extraEmails: normalized.extraEmails,
+    });
+  } catch (err: unknown) {
+    if (typeof err === "object" && err && (err as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "A group with that name already exists." });
+      return;
+    }
+    console.error("[admin] PUT /recipient-groups error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/recipient-groups/:id — delete a custom group AND strip its
+// `custom:<id>` token from every alert config that referenced it, so deleting a
+// group cleanly removes it from any alert with no dangling reference left behind.
+router.delete("/recipient-groups/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "Invalid group id" }); return; }
+  const token = makeCustomGroupToken(id);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const del = await client.query<{ id: number }>(
+      `DELETE FROM broadcast_recipient_groups WHERE tenant_id = $1 AND id = $2 RETURNING id`,
+      [tenantId, id],
+    );
+    if (!del.rows.length) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+    // Strip the token from every alert config's `groups` array (jsonb minus text).
+    await client.query(
+      `UPDATE broadcast_alert_recipients
+          SET groups = COALESCE(groups, '[]'::jsonb) - $2,
+              updated_at = now()
+        WHERE tenant_id = $1
+          AND groups ? $2`,
+      [tenantId, token],
+    );
+    await client.query("COMMIT");
+    res.json({ ok: true, id });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    console.error("[admin] DELETE /recipient-groups error:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 

@@ -108,9 +108,32 @@ export type BroadcastGroupToken = (typeof BROADCAST_GROUP_TOKENS)[number];
 const GROUP_TOKEN_SET = new Set<string>(BROADCAST_GROUP_TOKENS);
 
 /**
+ * Admin-defined CUSTOM recipient groups (Task #629) are referenced from a
+ * saved `groups` array by the token `custom:<id>`, where <id> is a
+ * `broadcast_recipient_groups.id`. Unlike the built-in tokens, custom groups
+ * apply to EVERY alert type. These helpers are the single source of truth for
+ * the token format so the resolver, the routes, and the UI agree.
+ */
+export const CUSTOM_GROUP_TOKEN_PREFIX = "custom:";
+
+export function makeCustomGroupToken(id: number): string {
+  return `${CUSTOM_GROUP_TOKEN_PREFIX}${id}`;
+}
+
+/** Parse a `custom:<id>` token to its numeric group id, or null if not one. */
+export function parseCustomGroupToken(token: string): number | null {
+  if (!token.startsWith(CUSTOM_GROUP_TOKEN_PREFIX)) return null;
+  const raw = token.slice(CUSTOM_GROUP_TOKEN_PREFIX.length);
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/**
  * Which group tokens apply to a given alert type. Every alert supports
  * all_admins / all_members; page_author is additionally offered ONLY for
- * page-scoped collaboration alerts (New comment, Review decision).
+ * page-scoped collaboration alerts (New comment, Review decision). Custom
+ * groups (Task #629) apply to every alert type and are NOT included here —
+ * they're resolved separately and surfaced from the tenant's group catalog.
  */
 export function getApplicableGroupTokens(
   def: BroadcastAlertTypeDef,
@@ -263,9 +286,52 @@ async function resolvePageAuthor(
 }
 
 /**
+ * Resolve a single admin-defined CUSTOM group (Task #629) to its CURRENT
+ * recipients: the group's member ids mapped to their current emails (tenant
+ * scoped so a stale id can't leak across workspaces) plus the group's extra
+ * emails. A token whose group no longer exists resolves to nobody, so deleting
+ * a group is always safe even if a stale reference lingers somewhere.
+ */
+async function resolveCustomGroup(
+  tenantId: number,
+  groupId: number,
+): Promise<ResolvedRecipient[]> {
+  const grp = await pool.query<{ member_user_ids: unknown; extra_emails: unknown }>(
+    `SELECT member_user_ids, extra_emails
+       FROM broadcast_recipient_groups
+      WHERE tenant_id = $1 AND id = $2`,
+    [tenantId, groupId],
+  );
+  const row = grp.rows[0];
+  if (!row) return []; // group deleted → no-op (token is stale)
+
+  const out: ResolvedRecipient[] = [];
+  const memberIds = toNumberArray(row.member_user_ids);
+  if (memberIds.length) {
+    const r = await pool.query<{ app_user_id: number; email: string; name: string | null }>(
+      `SELECT au.id AS app_user_id, au.email AS email, au.name AS name
+         FROM tenant_members tm
+         JOIN app_users au ON au.id = tm.user_id
+        WHERE tm.tenant_id = $1
+          AND au.id = ANY($2::int[])
+          AND au.email IS NOT NULL AND au.email <> ''`,
+      [tenantId, memberIds],
+    );
+    for (const m of r.rows) {
+      out.push({ appUserId: m.app_user_id, email: m.email, name: m.name });
+    }
+  }
+  for (const e of toStringArray(row.extra_emails)) {
+    out.push({ appUserId: null, email: e, name: null });
+  }
+  return out;
+}
+
+/**
  * Expand the saved group tokens into concrete recipients using the CURRENT
- * roster. Tokens not applicable to this alert type (e.g. `page_author` on an
- * account/billing alert) are silently ignored.
+ * roster. Built-in tokens not applicable to this alert type (e.g. `page_author`
+ * on an account/billing alert) are silently ignored; custom groups
+ * (`custom:<id>`, Task #629) apply to every alert type.
  */
 async function resolveGroups(
   def: BroadcastAlertTypeDef,
@@ -276,6 +342,11 @@ async function resolveGroups(
   const applicable = new Set<string>(getApplicableGroupTokens(def));
   const out: ResolvedRecipient[] = [];
   for (const token of new Set(groups)) {
+    const customId = parseCustomGroupToken(token);
+    if (customId !== null) {
+      out.push(...(await resolveCustomGroup(tenantId, customId)));
+      continue;
+    }
     if (!applicable.has(token)) continue; // unknown / not-applicable → no-op
     if (token === "all_admins") {
       out.push(...(await legacyAdmins(tenantId)));
@@ -326,7 +397,11 @@ export async function resolveBroadcastRecipients(
 
   const memberIds = toNumberArray(config.member_user_ids);
   const extraEmails = toStringArray(config.extra_emails);
-  const groups = toStringArray(config.groups).filter((g) => GROUP_TOKEN_SET.has(g));
+  // Keep built-in tokens and custom-group tokens (custom:<id>, Task #629);
+  // drop anything else (legacy / unknown).
+  const groups = toStringArray(config.groups).filter(
+    (g) => GROUP_TOKEN_SET.has(g) || parseCustomGroupToken(g) !== null,
+  );
 
   const resolved: ResolvedRecipient[] = [];
   if (memberIds.length) {
