@@ -3,7 +3,7 @@ import { logger } from "./logger";
 import { parseWorkflowDefinition, type WorkflowDefinition } from "./workflowTypes";
 
 /**
- * DB access layer for the email workflow composer (Task #589). Owns all reads
+ * DB access layer for the email workflow composer. Owns all reads
  * and writes against email_workflow_triggers / email_workflows /
  * email_workflow_enrollments. The engine (workflowEngine.ts) and the superadmin
  * routes both go through here so the SQL lives in one place.

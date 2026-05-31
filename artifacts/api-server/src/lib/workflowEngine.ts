@@ -16,7 +16,7 @@ import {
 import type { WorkflowStep } from "./workflowTypes";
 
 /**
- * The workflow engine (Task #589). Sits ABOVE the single-template dispatcher:
+ * The workflow engine. Sits ABOVE the single-template dispatcher:
  * every SEND step calls `dispatchNotification` with a template key, so a
  * single-fire email routed through a one-step workflow is byte-identical to the
  * direct call it replaced.
@@ -77,8 +77,20 @@ function recipientKey(r: { appUserId: number | null; email: string | null }): st
   return null;
 }
 
-function stepDedupeBase(enrollmentDedupeKey: string, stepId: string): string {
-  return `${enrollmentDedupeKey}:s:${stepId}`;
+/**
+ * Per-step idempotency base for `notification_sends (dedupe_key, channel)`.
+ *
+ * Includes the workflow id. Enrollments are namespaced per workflow by the
+ * UNIQUE(workflow_id, dedupe_key) constraint, so two workflows that fire on the
+ * SAME event share an identical dedupe_key *value* (distinguished only by
+ * workflow_id at the row level). Without the workflow id here, two such
+ * workflows that each contain a step with the same id would derive the same
+ * step dedupe base and collide on the notification_sends idempotency slot —
+ * silently suppressing one workflow's send. The id keeps each workflow's step
+ * sends (and the read-state lookups derived from them) independent.
+ */
+function stepDedupeBase(workflowId: number, enrollmentDedupeKey: string, stepId: string): string {
+  return `${enrollmentDedupeKey}:w${workflowId}:s:${stepId}`;
 }
 
 function normalizeContext(
@@ -203,7 +215,7 @@ async function evaluateCondition(
     // Can't resolve read state → treat as "not read".
     return condition.type === "not_read";
   }
-  const refKey = `${stepDedupeBase(snap.dedupe_key, condition.stepId)}:${rk}`;
+  const refKey = `${stepDedupeBase(snap.workflow_id, snap.dedupe_key, condition.stepId)}:${rk}`;
   const read = await isSendRead(refKey);
   return condition.type === "read" ? read : !read;
 }
@@ -275,7 +287,7 @@ async function processClaimedEnrollment(snap: EnrollmentRow, preloaded?: Workflo
         { appUserId: snap.app_user_id, email: snap.recipient_email, name: snap.recipient_name },
       ],
       context: snap.context,
-      dedupeBase: stepDedupeBase(snap.dedupe_key, step.id),
+      dedupeBase: stepDedupeBase(snap.workflow_id, snap.dedupe_key, step.id),
       ...(channels ? { channels } : {}),
     });
   }

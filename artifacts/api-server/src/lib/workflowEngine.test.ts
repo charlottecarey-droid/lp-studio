@@ -375,8 +375,9 @@ describe("enqueueWorkflowTrigger", () => {
     const dedupeBase = `read:${SUFFIX}`;
     const dedupeKey = `${dedupeBase}:${emailKey(email)}`;
     createdDedupeKeys.push(dedupeKey);
-    // Seed a READ in_app send for s1. Engine checks `${dedupeKey}:s:s1:${rk}`.
-    const s1SendKey = `${dedupeKey}:s:s1:${emailKey(email)}`;
+    // Seed a READ in_app send for s1. Engine checks
+    // `${dedupeKey}:w${workflow.id}:s:s1:${rk}` (step dedupe is workflow-scoped).
+    const s1SendKey = `${dedupeKey}:w${workflow.id}:s:s1:${emailKey(email)}`;
     await pool.query(
       `INSERT INTO notification_sends
          (tenant_id, app_user_id, recipient_email, template_key, channel, status, dedupe_key, sent_at, read_at)
