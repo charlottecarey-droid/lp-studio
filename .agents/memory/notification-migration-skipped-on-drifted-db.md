@@ -42,3 +42,12 @@ sweep still returns 200 (the in-app dispatcher catches+logs the insert error).
   seeded template rows present; only the stale Helium dev DB was missing them.
   Verify with a real `information_schema.tables` query against the right DB
   (Neon for prod), not by trusting a 200 from the dispatcher.
+- RECURS for new columns too: `block_catalog.ai_enabled` (0048) was recorded as
+  applied on the shared dev Neon branch but its ALTER never ran (column absent →
+  every block-catalog route 500s). Same fix applied: a `migrate.ts` self-heal
+  runStep re-runs `0048_block_catalog_ai_enabled.sql` (a single
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`) BEFORE the block_catalog seed,
+  asserts the column via information_schema, fails CLOSED. RULE: any new
+  table/column-existence-critical migration in lib/db/migrations needs a matching
+  idempotent self-heal step in migrate.ts — the drizzle high-water-mark dedup
+  will silently skip it on this drifted dev branch otherwise.

@@ -179,6 +179,77 @@ describe("PUT /api/admin/block-catalog (saved defaults stick)", () => {
   });
 });
 
+describe("PUT /api/admin/block-catalog (ai_enabled round-trip)", () => {
+  it("persists ai_enabled=false and round-trips it on GET", async () => {
+    const res = await putRow(SUPER_SID, {
+      block_type: SENTINEL_BLOCK,
+      industry: "generic",
+      label: "AI Off Label",
+      category: "Content",
+      default_props: { headline: "v3" },
+      ai_enabled: false,
+    });
+    expect(res.status).toBe(200);
+
+    const r = await pool.query(
+      `SELECT ai_enabled FROM block_catalog WHERE block_type = $1 AND industry = 'generic'`,
+      [SENTINEL_BLOCK],
+    );
+    expect(r.rows[0].ai_enabled).toBe(false);
+
+    const get = await injectSid({ method: "GET", url: "/api/admin/block-catalog", sid: SUPER_SID });
+    expect(get.status).toBe(200);
+    const rows = get.json as Array<{ block_type: string; industry: string; ai_enabled: boolean }>;
+    const mine = rows.find(r => r.block_type === SENTINEL_BLOCK && r.industry === "generic");
+    expect(mine?.ai_enabled).toBe(false);
+  });
+
+  it("flips ai_enabled back to true on a subsequent PUT", async () => {
+    const res = await putRow(SUPER_SID, {
+      block_type: SENTINEL_BLOCK,
+      industry: "generic",
+      label: "AI On Label",
+      category: "Content",
+      default_props: { headline: "v4" },
+      ai_enabled: true,
+    });
+    expect(res.status).toBe(200);
+
+    const r = await pool.query(
+      `SELECT ai_enabled FROM block_catalog WHERE block_type = $1 AND industry = 'generic'`,
+      [SENTINEL_BLOCK],
+    );
+    expect(r.rows[0].ai_enabled).toBe(true);
+  });
+
+  it("defaults ai_enabled to true when the field is omitted", async () => {
+    // First force it false, then PUT without the field — COALESCE default is true.
+    await putRow(SUPER_SID, {
+      block_type: SENTINEL_BLOCK,
+      industry: "generic",
+      label: "Pre-omit",
+      category: "Content",
+      default_props: {},
+      ai_enabled: false,
+    });
+    // Restore the canonical label so the downstream GET test (which asserts
+    // the generic row still reads "Second Label") sees the expected state.
+    const res = await putRow(SUPER_SID, {
+      block_type: SENTINEL_BLOCK,
+      industry: "generic",
+      label: "Second Label",
+      category: "Content",
+      default_props: {},
+    });
+    expect(res.status).toBe(200);
+    const r = await pool.query(
+      `SELECT ai_enabled FROM block_catalog WHERE block_type = $1 AND industry = 'generic'`,
+      [SENTINEL_BLOCK],
+    );
+    expect(r.rows[0].ai_enabled).toBe(true);
+  });
+});
+
 describe("GET /api/block-catalog (tenant inherits the override)", () => {
   it("returns the override for a tenant of that industry and does not leak another industry's row", async () => {
     const res = await injectSid({ method: "GET", url: "/api/block-catalog", sid: TENANT_SID });

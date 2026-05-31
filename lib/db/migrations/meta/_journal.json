@@ -50,6 +50,7 @@
     { "idx": 45, "version": "7", "when": 1749800000000, "tag": "0045_notification_preferences",             "breakpoints": false },
     { "idx": 46, "version": "7", "when": 1749900000000, "tag": "0046_tenant_scoped_emails",               "breakpoints": false },
     { "idx": 47, "version": "7", "when": 1750000000000, "tag": "0047_email_workflows",                    "breakpoints": false },
-    { "idx": 48, "version": "7", "when": 1750100000000, "tag": "0048_email_template_sender_fields",      "breakpoints": false }
+    { "idx": 48, "version": "7", "when": 1750100000000, "tag": "0048_email_template_sender_fields",      "breakpoints": false },
+    { "idx": 49, "version": "7", "when": 1750200000000, "tag": "0049_block_catalog_ai_enabled",           "breakpoints": false }
   ]
 }

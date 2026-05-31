@@ -178,6 +178,12 @@ export interface CatalogRow {
   tags?: BlockRoleTag[] | null;
   default_props: Record<string, unknown>;
   is_enabled: boolean;
+  /**
+   * Whether the AI page generator may advertise this block to the model.
+   * Independent of `is_enabled` (builder-library visibility). Defaults to true
+   * (fail-open). Synthetic "code default" rows are filled with `true`.
+   */
+  ai_enabled: boolean;
   sort_order: number;
   updated_at: string;
   updated_by?: string | null;
@@ -239,6 +245,7 @@ export function mergeSuperadminCatalog(rows: CatalogRow[]): DisplayRow[] {
           tags: getDefaultBlockTags(def.type),
           default_props: defaultProps,
           is_enabled: true,
+          ai_enabled: true,
           sort_order: 0,
           updated_at: "",
           updated_by: null,

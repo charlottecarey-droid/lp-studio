@@ -425,6 +425,11 @@ function buildDbOnlyDef(row: TemplateRow): NotificationTemplateDef | null {
     emailSubject: row.email_subject ?? "",
     emailIntro,
     emailCtaLabel,
+    // Envelope overrides for blank-slate DB-only rows: no code fallback, so
+    // default to null = env from, no reply-to, intro-derived preheader.
+    fromEmail: row.from_email ?? null,
+    replyTo: row.reply_to ?? null,
+    preheaderText: row.preheader_text ?? null,
     inAppTitle: row.in_app_title ?? displayName,
     inAppBody: row.in_app_body ?? "",
     bodyHtml: row.body_html ?? buildDefaultBodyHtml(emailIntro, emailCtaLabel),

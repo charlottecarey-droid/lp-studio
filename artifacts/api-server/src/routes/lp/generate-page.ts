@@ -1595,7 +1595,7 @@ function buildBlockRoleTagGuide(
   ].join("\n");
 }
 
-const SYSTEM_PROMPT = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
+const GENERAL_SYSTEM_PROMPT_TEMPLATE = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
 
 DENSITY DOCTRINE (the single most important rule — read first):
 You write pages that feel finished, not stub-grade demos. Every array MUST be populated to the per-block minimum below. Every copy field MUST land in the per-block word range. No single-word labels ("Fast", "Easy", "Better"). No filler phrases ("streamline workflows", "unlock value", "industry-leading", "best-in-class", "cutting-edge", "synergy"). Every sentence carries a concrete noun, a number, a product name, or a specific verb. If you can't write a specific item, pick a different block — DO NOT ship the block with empty or 1–3 word stubs.
@@ -1683,7 +1683,7 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), or "parallax-image-hero" (cinematic brands). NEVER use more than one hero-class block on a page. End with a "bottom-cta" block.
+4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), or "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar). NEVER use more than one hero-class block on a page. End the page with a closing "bottom-cta" followed by a "footer" block.
 5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text. Every multi-item array MUST hit the per-block minimum count stated in AVAILABLE BLOCK TYPES above. Empty arrays, 1–3 word stubs ("Slow", "Fast", "Better"), and generic platitudes ("industry-leading", "best-in-class") are failures — the block renders broken.
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
@@ -1700,10 +1700,95 @@ RULES:
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
-14. NO STANDALONE NAV BLOCK with "hero": the standard "hero" block already renders its own sticky navigation bar at the top. NEVER prepend a separate "nav-header" (or any other nav block) on a page that starts with "hero" — doing so produces two stacked navs. The page's first block should be the hero itself. (This also applies to "full-bleed-hero", which renders its own nav.)
-15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, editorial-carousel, video-section) on every page so two different brands never produce identical-looking pages.
+14. NAVIGATION: every page needs a top nav and an end footer. Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", and "dso-heartland-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero" and "parallax-image-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
+15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
 16. VIDEO: Only set videoUrl, backgroundType:"video", or backgroundVideoUrl when you have a REAL video URL provided in the brand assets or the DANDY VIDEOS section. Otherwise use backgroundType:"image" (full-bleed-hero) and leave image fields "" for the server to fill. NEVER invent or guess a video URL.
 17. ITEM COUNTS — match each block's canonical count: every repeating array MUST contain exactly the number of items stated in that block's schema in AVAILABLE BLOCK TYPES above. When a block says "EXACTLY N" use N; when it gives a range (e.g. "3–5"), pick a value inside the range and fully populate it. A block must look complete and balanced — e.g. "trust-bar" always has EXACTLY 4 items, never 2, 3, or 5. Never emit a block with fewer items than its minimum or a half-filled array.`;
+
+// ── GENERAL block library (data-driven, AI-eligibility filterable) ──────────
+// The GENERAL system prompt above is assembled at request time so the advertised
+// block list can be filtered by the per-industry block_catalog `ai_enabled` flag
+// (superadmin toggle). The original prompt text is kept verbatim and split on
+// blank lines into paragraphs; each "- \"type\": …" paragraph is one block's
+// schema. Curated blocks below are authored fresh and injected into the right
+// section. Fail-open: a block with no catalog row (or a missing/true flag) stays
+// included; only blocks explicitly flagged ai_enabled=false are dropped.
+
+// Extra CORE blocks — injected just before the "SHOWCASE BLOCKS" section.
+const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
+  `- "nav-header": Standalone sticky top navigation bar. Use as the FIRST block ONLY before heroes that do NOT render their own nav ("magazine-hero", "parallax-image-hero"). Props: logoText (brand name, 1–3 words), logoUrl ("" — server fills from brand library), navLinks (array of EXACTLY 3–5 of {label (1–2 words), url ("#")}), cta1 ({label (2–3 words), url ("#")} — secondary/ghost button), cta2 ({label (2–4 words, action verb first), url ("#")} — primary button), backgroundColor (hex or ""), textColor (hex or "").`,
+  `- "footer": Standalone page footer. Use as the LAST block on every page. Props: copyrightText (e.g. "© 2026 Acme, Inc. All rights reserved."), accentColor (hex or ""), backgroundColor (hex or ""), showSocialLinks (boolean), linkedinUrl/instagramUrl/facebookUrl (strings or ""), columns (array of EXACTLY 2–4 of {title (1–3 words, e.g. "Product", "Company"), links (array of 2–5 of {label (1–3 words), url ("#")})}).`,
+  `- "case-studies": Grid of customer / case-study cards with logos. Props: headline (5–12 words), subheadline (12–24 words), columns (2 or 3), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (4–9 words naming the concrete result), categories (1–3 words category label), image ("" — server fills), logoUrl ("" — server fills), url ("#")}).`,
+  `- "product-showcase": Card grid of products / services with imagery and badges. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), cards (array of EXACTLY 3–6 of {name (2–5 words), description (16–28 words with a specific use case — not a feature dump), badge (1–3 words, e.g. "New", "Most popular"), image ("" — server fills)}).`,
+  `- "roi-calculator": Interactive ROI / savings calculator with live inputs and computed outputs. Props: headline (5–12 words), subheadline (12–24 words), resultsPanelLabel (2–4 words, e.g. "Your estimated savings"), disclaimer (8–16 words), ctaEnabled (boolean), ctaText (2–5 words), ctaUrl ("#"), inputFields (array of EXACTLY 2–4 of {id (slug), label (2–5 words), defaultValue (number), min (number), max (number), step (number), suffix (e.g. "cases/mo", "$"), inputType ("number"|"slider")}), outputFields (array of EXACTLY 1–3 of {id (slug), label (2–5 words), formula (arithmetic over input ids, e.g. "cases * 480 * 12"), format ("currency"|"number"|"percent"), decimals (number), highlight (boolean)}).`,
+  `- "story-hub": Customer-story hub with a featured story, filter chips, a story grid, and stats. Props: eyebrow (2–4 words), heroTitle (5–12 words), subhead (12–24 words), filters (array of 3–5 short category labels), featured ({tag (1–3 words), title (5–12 words), practice (name), location (city, state), imageUrl (""), href ("#")}), stories (array of EXACTLY 3–6 of {practice (name), location (city, state), headline (5–12 words), tag (1–3 words), imageUrl (""), href ("#")}), stats (array of EXACTLY 3–4 of {number (metric), label (2–5 words)}), ctaHeadline (5–12 words), ctaPrimaryText (2–5 words), ctaPrimaryUrl ("#").`,
+  `- "resources": Grid of resource / blog / guide cards. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (5–12 words), description (14–24 words), category (1–3 words, e.g. "Guide", "Webinar"), image (""), url ("#")}).`,
+];
+
+// Extra SHOWCASE blocks — injected just before the GLOBAL DENSITY ENFORCEMENT
+// (footer) section, alongside the other showcase blocks.
+const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
+  `- "scroll-assembly": Cinematic scroll-driven assembly where text fragments, images, and shapes animate into place as the visitor scrolls — a bold, design-forward brand moment. Props: eyebrow (2–4 words), theme ("light"|"dark"), bgColor (hex or ""), decor ("minimal"|"orbs"|"grid"|"all"), grain (boolean), ctaText (2–5 words), ctaUrl ("#"), floatingImages (array of 0–4 image URLs — leave each ""), marqueeTags (array of 4–8 short label words), pieces (array of EXACTLY 4–8 of {kind ("text-display"|"text-headline"|"text-body"|"image"|"shape"), content (the text, or "" for image/shape), from ("left"|"right"|"top"|"bottom"|"scale"|"fade"), revealAt (number 0–1)}).`,
+  `- "dso-heartland-hero": Bold full-bleed hero with an integrated sticky nav and a stat bar — a strong, conversion-focused hero for B2B and enterprise brands. Renders its OWN nav, so never precede it with a "nav-header". Props: headline (5–12 words), companyName (the brand name), eyebrow (2–4 words), subheadline (15–28 words), primaryCtaText (2–5 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words), secondaryCtaUrl ("#"), backgroundStyle ("dark"|"black"|"gradient" — pick to match the brand), layout ("full-bleed"|"split"), backgroundImageUrl ("" — for full-bleed), heroImageUrl ("" — for split), heroImageSide ("left"|"right"), stats (array of EXACTLY 3–4 of {value (metric), label (2–5 words)}), navLinks (array of 3–5 of {label (1–2 words), href ("#")}).`,
+];
+
+// FULL-PAGE block — a complete page on its own. Only advertised when the user's
+// request is clearly for a podcast / webinar / content-series page.
+const GENERAL_CONTENT_SERIES_BLOCK =
+  `- "content-series": A COMPLETE, full-page block for a podcast, webinar series, or content show — it renders its OWN nav, hero, episode library, hosts, about, lead form, and CTA. Use this as the SINGLE block on the page ONLY when the request is for a podcast / webinar / video-series / show page. Do NOT combine it with other blocks and do NOT use it for ordinary product or marketing pages. Props: seriesType ("podcast"|"webinar"|"series"), seriesTitle (2–6 words), seriesSubtitle (12–24 words), logoUrl (""), navLinks (array of 2–5 of {label, href}), heroEpisodeTitle (5–12 words), heroEpisodeDescription (18–32 words), heroGuestName (full name), heroGuestTitle (specific role), episodes (array of EXACTLY 3–8 of {title (5–12 words), guestName, guestTitle, description (18–32 words), publishDate (e.g. "May 2026"), thumbnailUrl (""), ctaUrl ("#")}), hosts (array of 1–3 of {name, title, photoUrl ("")}), aboutHeadline (5–12 words), aboutDescription (30–55 words), ctaSectionHeadline (5–12 words), ctas (array of 1–2 of {label (2–5 words), url ("#")}).`;
+
+const GENERAL_SHOWCASE_INTRO_MARKER = "SHOWCASE BLOCKS (";
+const GENERAL_FOOTER_MARKER = "GLOBAL DENSITY ENFORCEMENT";
+const GENERAL_BLOCK_TYPE_RE = /^- "([a-z0-9-]+)":/;
+
+// Keywords that indicate the request is for a podcast / webinar / content-series
+// page, which unlocks the full-page "content-series" block.
+export function isContentSeriesRequest(prompt: string): boolean {
+  const lower = (prompt ?? "").toLowerCase();
+  const kws = [
+    "podcast", "webinar", "episode", "content series", "video series",
+    "show page", "interview series", "speaker series", "listen now",
+    "subscribe to the show", "season ", "rss feed", "watch the series",
+  ];
+  return kws.some((kw) => lower.includes(kw));
+}
+
+// Assemble the GENERAL system prompt with the advertised block list filtered by
+// AI-eligibility. Splits the verbatim template into blank-line paragraphs,
+// injects the curated extra blocks into the correct sections, and drops any
+// block whose type is in `aiDisabledTypes`. Fail-open: an empty disabled set
+// (e.g. catalog fetch failed) yields the full library.
+export function buildGeneralSystemPrompt(opts?: {
+  aiDisabledTypes?: Set<string>;
+  includeContentSeries?: boolean;
+}): string {
+  const disabled = opts?.aiDisabledTypes ?? new Set<string>();
+  const keep = (doc: string): boolean => {
+    const m = doc.match(GENERAL_BLOCK_TYPE_RE);
+    return !(m && disabled.has(m[1]));
+  };
+  const paras = GENERAL_SYSTEM_PROMPT_TEMPLATE.split("\n\n");
+  const out: string[] = [];
+  let injectedCore = false;
+  let injectedShowcase = false;
+  for (const para of paras) {
+    if (!injectedCore && para.startsWith(GENERAL_SHOWCASE_INTRO_MARKER)) {
+      for (const b of GENERAL_EXTRA_CORE_BLOCKS) if (keep(b)) out.push(b);
+      injectedCore = true;
+    }
+    if (!injectedShowcase && para.startsWith(GENERAL_FOOTER_MARKER)) {
+      for (const b of GENERAL_EXTRA_SHOWCASE_BLOCKS) if (keep(b)) out.push(b);
+      if (opts?.includeContentSeries && keep(GENERAL_CONTENT_SERIES_BLOCK)) {
+        out.push(GENERAL_CONTENT_SERIES_BLOCK);
+      }
+      injectedShowcase = true;
+    }
+    // Drop existing block paragraphs that are AI-disabled; pass everything else.
+    if (!keep(para)) continue;
+    out.push(para);
+  }
+  return out.join("\n\n");
+}
 
 const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
 
@@ -2520,8 +2605,43 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
   const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
-  const systemPrompt = useDsoPractices ? DSO_PRACTICES_SYSTEM_PROMPT : useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
+
+  // Fetch the per-industry block_catalog once: `tags` drives the role-tag guide
+  // and `ai_enabled` drives which blocks the GENERAL prompt advertises. Both are
+  // best-effort — any failure leaves dbTagsByType empty (no role guide) and
+  // aiDisabledTypes empty (fail-open: full block library advertised).
+  const dbTagsByType = new Map<string, unknown>();
+  const aiDisabledTypes = new Set<string>();
+  try {
+    const industry = await getTenantIndustry(tenantId);
+    const catRows = await pool.query(
+      `SELECT block_type, tags, ai_enabled FROM block_catalog WHERE industry = $1`,
+      [industry],
+    );
+    for (const row of catRows.rows) {
+      if (row.tags !== null && row.tags !== undefined) {
+        dbTagsByType.set(row.block_type as string, row.tags);
+      }
+      // Fail-open: only an explicit `false` excludes a block from AI generation.
+      if (row.ai_enabled === false) {
+        aiDisabledTypes.add(row.block_type as string);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err: String(err) }, "[generate-page] block_catalog fetch skipped");
+  }
+
+  // GENERAL path assembles its block library at request time, filtered by the
+  // superadmin AI-eligibility flag; DSO paths use their static prompts as-is.
+  const systemPrompt = useDsoPractices
+    ? DSO_PRACTICES_SYSTEM_PROMPT
+    : useDso
+      ? DSO_SYSTEM_PROMPT
+      : buildGeneralSystemPrompt({
+          aiDisabledTypes,
+          includeContentSeries: isContentSeriesRequest(prompt),
+        });
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   const segmentSection = segmentContext && typeof segmentContext === "object"
@@ -2547,18 +2667,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // Semantic role-tag guidance (task #459): tell the model which structural
   // role each selectable block fills, with per-industry catalog overrides on
   // top of the in-code defaults, so generated pages reliably include a hero,
-  // closing CTA, social-proof, stats, and a footer. Best-effort: any failure
-  // leaves the prompt unchanged.
+  // closing CTA, social-proof, stats, and a footer. Parses the (already
+  // AI-filtered) systemPrompt so role tags stay in sync with advertised blocks.
+  // Best-effort: any failure leaves the prompt unchanged.
   try {
-    const industry = await getTenantIndustry(tenantId);
-    const catRows = await pool.query(
-      `SELECT block_type, tags FROM block_catalog WHERE industry = $1 AND tags IS NOT NULL`,
-      [industry],
-    );
-    const dbTagsByType = new Map<string, unknown>();
-    for (const row of catRows.rows) {
-      dbTagsByType.set(row.block_type as string, row.tags);
-    }
     const roleTagSection = buildBlockRoleTagGuide(systemPrompt, dbTagsByType);
     if (roleTagSection) userPromptParts.push(roleTagSection);
   } catch (err) {

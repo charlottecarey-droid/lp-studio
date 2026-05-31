@@ -26,6 +26,14 @@ export const blockCatalogTable = pgTable("block_catalog", {
   tags: text("tags").array(),
   defaultProps: jsonb("default_props").notNull().default({}),
   isEnabled: boolean("is_enabled").notNull().default(true),
+  /**
+   * Whether the AI page generator may advertise this block to the model.
+   * Independent of `isEnabled` (which controls builder-library visibility):
+   * a block can stay available in the builder while being excluded from AI
+   * generation. Defaults to true — fail-open so existing generation never
+   * silently loses blocks when no catalog row exists.
+   */
+  aiEnabled: boolean("ai_enabled").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedBy: integer("updated_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -23,7 +23,7 @@ router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
   const industry = await tenantIndustry(user.tenantId);
   try {
     const result = await pool.query(
-      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, sort_order, updated_at
+      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order, updated_at
        FROM block_catalog WHERE industry = $1
        ORDER BY sort_order ASC, label ASC`,
       [industry]
@@ -41,7 +41,7 @@ router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
 router.get("/admin/block-catalog", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const result = await pool.query(
-      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, sort_order, updated_at, updated_by
+      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order, updated_at, updated_by
        FROM block_catalog ORDER BY industry, sort_order, label`
     );
     res.json(result.rows);
@@ -54,7 +54,7 @@ router.get("/admin/block-catalog", requireSuperadmin, async (_req, res): Promise
 // PUT /api/admin/block-catalog — upsert a row
 // Body: { block_type, industry, label, category, default_props, is_enabled?, sort_order? }
 router.put("/admin/block-catalog", requireSuperadmin, async (req, res): Promise<void> => {
-  const { block_type, industry, label, category, tags, default_props, is_enabled, sort_order } = req.body ?? {};
+  const { block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order } = req.body ?? {};
   if (!block_type || !industry || !label || !category) {
     res.status(400).json({ error: "block_type, industry, label, category required" });
     return;
@@ -69,18 +69,19 @@ router.put("/admin/block-catalog", requireSuperadmin, async (req, res): Promise<
   const cleanTags = sanitizeRoleTags(tags);
   try {
     const result = await pool.query(
-      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), COALESCE($8, 0))
+      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), COALESCE($8, true), COALESCE($9, 0))
        ON CONFLICT (block_type, industry) DO UPDATE SET
          label = EXCLUDED.label,
          category = EXCLUDED.category,
          tags = EXCLUDED.tags,
          default_props = EXCLUDED.default_props,
          is_enabled = EXCLUDED.is_enabled,
+         ai_enabled = EXCLUDED.ai_enabled,
          sort_order = EXCLUDED.sort_order,
          updated_at = now()
        RETURNING *`,
-      [block_type, industry, label, category, cleanTags, JSON.stringify(default_props ?? {}), is_enabled, sort_order]
+      [block_type, industry, label, category, cleanTags, JSON.stringify(default_props ?? {}), is_enabled, ai_enabled, sort_order]
     );
     res.json(result.rows[0]);
   } catch (err: any) {
@@ -120,21 +121,22 @@ router.post("/admin/block-catalog/duplicate", requireSuperadmin, async (req, res
   }
   try {
     const src = await pool.query(
-      `SELECT label, category, tags, default_props, is_enabled, sort_order FROM block_catalog
+      `SELECT label, category, tags, default_props, is_enabled, ai_enabled, sort_order FROM block_catalog
        WHERE block_type = $1 AND industry = $2`,
       [block_type, from_industry]
     );
     if (!src.rows.length) { res.status(404).json({ error: "Source row not found" }); return; }
     const r = src.rows[0];
     const result = await pool.query(
-      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (block_type, industry) DO UPDATE SET
          label = EXCLUDED.label, category = EXCLUDED.category, tags = EXCLUDED.tags,
          default_props = EXCLUDED.default_props, is_enabled = EXCLUDED.is_enabled,
+         ai_enabled = EXCLUDED.ai_enabled,
          sort_order = EXCLUDED.sort_order, updated_at = now()
        RETURNING *`,
-      [block_type, to_industry, r.label, r.category, sanitizeRoleTags(r.tags), JSON.stringify(r.default_props), r.is_enabled, r.sort_order]
+      [block_type, to_industry, r.label, r.category, sanitizeRoleTags(r.tags), JSON.stringify(r.default_props), r.is_enabled, r.ai_enabled, r.sort_order]
     );
     res.json(result.rows[0]);
   } catch (err) {

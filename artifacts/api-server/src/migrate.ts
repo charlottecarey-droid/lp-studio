@@ -534,6 +534,39 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Durable self-heal for the block_catalog.ai_enabled column. Same
+    // high-water-mark hazard as the notifications self-heal above: drizzle only
+    // applies a journal entry whose `when` is GREATER than the max created_at
+    // already recorded in drizzle.__drizzle_migrations. On DBs whose journal was
+    // renumbered after they were migrated, 0049_block_catalog_ai_enabled.sql can
+    // be recorded as applied without its ALTER ever running, leaving the column
+    // missing and every block-catalog route 500-ing. Re-applying the file here
+    // is independent of that dedup. It is safe on every DB: the file is a single
+    // ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so it adds the column where
+    // missing and is a no-op everywhere else. The .sql stays the single source
+    // of truth. This must run BEFORE the block_catalog seed below, which writes
+    // ai_enabled. Fails CLOSED: the column is route-critical, so any error must
+    // abort the release. The SQL is idempotent, so a retry is always safe.
+    await runStep("block_catalog ai_enabled self-heal (0049)", async () => {
+      const aiEnabledSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0049_block_catalog_ai_enabled.sql"),
+        "utf8",
+      );
+      await pool.query(aiEnabledSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'block_catalog'
+            AND column_name = 'ai_enabled'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "block_catalog ai_enabled self-heal did not produce the column — aborting release",
+        );
+      }
+    });
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.

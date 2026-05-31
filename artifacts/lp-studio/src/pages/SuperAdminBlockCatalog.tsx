@@ -73,6 +73,7 @@ interface RowFormState {
   tags: BlockRoleTag[];
   default_props_json: string;
   is_enabled: boolean;
+  ai_enabled: boolean;
   sort_order: number;
 }
 
@@ -84,6 +85,7 @@ const EMPTY_FORM: RowFormState = {
   tags: [],
   default_props_json: "{}",
   is_enabled: true,
+  ai_enabled: true,
   sort_order: 0,
 };
 
@@ -161,6 +163,7 @@ function CatalogRowEditor({
           tags: sanitizeRoleTags(form.tags),
           default_props: JSON.parse(form.default_props_json),
           is_enabled: form.is_enabled,
+          ai_enabled: form.ai_enabled,
           sort_order: form.sort_order,
         }),
       });
@@ -330,6 +333,16 @@ function CatalogRowEditor({
                 />
                 <Label htmlFor="is_enabled" className="text-sm cursor-pointer">
                   Enabled — show this block to tenants in the {INDUSTRY_LABEL[form.industry]} industry
+                </Label>
+              </div>
+              <div className="col-span-2 flex items-center gap-2 py-1">
+                <Switch
+                  checked={form.ai_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, ai_enabled: v })}
+                  id="ai_enabled"
+                />
+                <Label htmlFor="ai_enabled" className="text-sm cursor-pointer">
+                  Available to AI generation — let the page generator use this block for the {INDUSTRY_LABEL[form.industry]} industry
                 </Label>
               </div>
               <div className="space-y-1.5 col-span-2">
@@ -643,6 +656,9 @@ export default function SuperAdminBlockCatalog() {
 
   // Quick toggle for is_enabled — saving inline without opening the editor
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  // Quick toggle for ai_enabled (AI generation eligibility)
+  const [togglingAiKey, setTogglingAiKey] = useState<string | null>(null);
+  const [bulkAiBusy, setBulkAiBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -719,6 +735,7 @@ export default function SuperAdminBlockCatalog() {
           category: row.category,
           default_props: row.default_props ?? {},
           is_enabled: row.is_enabled,
+          ai_enabled: row.ai_enabled,
           sort_order: row.sort_order,
         }),
       });
@@ -761,6 +778,7 @@ export default function SuperAdminBlockCatalog() {
           category: row.category,
           default_props: row.default_props ?? {},
           is_enabled: row.is_enabled,
+          ai_enabled: row.ai_enabled,
           sort_order: row.sort_order,
         }),
       });
@@ -804,6 +822,7 @@ export default function SuperAdminBlockCatalog() {
       tags: sanitizeRoleTags(row.tags),
       default_props_json: JSON.stringify(row.default_props ?? {}, null, 2),
       is_enabled: row.is_enabled,
+      ai_enabled: row.ai_enabled,
       sort_order: row.sort_order,
     });
     setEditorIsNew(false);
@@ -825,6 +844,7 @@ export default function SuperAdminBlockCatalog() {
           tags: sanitizeRoleTags(row.tags),
           default_props: row.default_props ?? {},
           is_enabled: !row.is_enabled,
+          ai_enabled: row.ai_enabled,
           sort_order: row.sort_order,
         }),
       });
@@ -840,6 +860,73 @@ export default function SuperAdminBlockCatalog() {
       refresh();
     } finally {
       setTogglingKey(null);
+    }
+  };
+
+  // Persist a single row with the given ai_enabled value. Shared by the inline
+  // per-row AI toggle and the bulk Include all / Exclude all actions. Toggling
+  // a code-default block materializes a new DB override row carrying its
+  // current label/category/tags/props so nothing else drifts.
+  const putAiEnabled = async (row: DisplayRow, aiEnabled: boolean): Promise<void> => {
+    await apiFetch("/api/admin/block-catalog", {
+      method: "PUT",
+      body: JSON.stringify({
+        block_type: row.block_type,
+        industry: row.industry,
+        label: row.label,
+        category: row.category,
+        tags: sanitizeRoleTags(row.tags),
+        default_props: row.default_props ?? {},
+        is_enabled: row.is_enabled,
+        ai_enabled: aiEnabled,
+        sort_order: row.sort_order,
+      }),
+    });
+  };
+
+  const toggleAiEnabled = async (row: DisplayRow) => {
+    const key = `${row.block_type}::${row.industry}`;
+    setTogglingAiKey(key);
+    setActionError(null);
+    try {
+      await putAiEnabled(row, !row.ai_enabled);
+      await refresh();
+    } catch (err: any) {
+      let msg = err?.message ?? "Toggle failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
+      setActionError(`Could not update AI eligibility for ${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
+      refresh();
+    } finally {
+      setTogglingAiKey(null);
+    }
+  };
+
+  // Bulk include/exclude every currently-visible (filtered) row from AI
+  // generation. Only persists rows that actually change to keep writes minimal.
+  const bulkSetAi = async (aiEnabled: boolean) => {
+    const targets = filtered.filter(r => r.ai_enabled !== aiEnabled);
+    if (targets.length === 0) {
+      toast({ title: "Nothing to update", description: `All visible blocks are already ${aiEnabled ? "included" : "excluded"}.` });
+      return;
+    }
+    setBulkAiBusy(true);
+    setActionError(null);
+    try {
+      for (const row of targets) {
+        await putAiEnabled(row, aiEnabled);
+      }
+      await refresh();
+      toast({
+        title: aiEnabled ? "Included in AI generation" : "Excluded from AI generation",
+        description: `${targets.length} block${targets.length === 1 ? "" : "s"} updated.`,
+      });
+    } catch (err: any) {
+      let msg = err?.message ?? "Bulk update failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
+      setActionError(`Bulk AI update failed: ${msg}`);
+      refresh();
+    } finally {
+      setBulkAiBusy(false);
     }
   };
 
@@ -917,6 +1004,31 @@ export default function SuperAdminBlockCatalog() {
             className="h-8 text-sm pl-8"
           />
         </div>
+        <div className="flex items-center gap-1 ml-auto">
+          <span className="text-[11px] text-muted-foreground mr-1">AI generation:</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={bulkAiBusy || filtered.length === 0}
+            onClick={() => bulkSetAi(true)}
+            title="Make every block in the current view available to AI generation"
+          >
+            {bulkAiBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+            Include all
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={bulkAiBusy || filtered.length === 0}
+            onClick={() => bulkSetAi(false)}
+            title="Exclude every block in the current view from AI generation"
+          >
+            {bulkAiBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+            Exclude all
+          </Button>
+        </div>
       </div>
 
       {loadError && (
@@ -943,20 +1055,21 @@ export default function SuperAdminBlockCatalog() {
               <TableHead className="w-[12%]">Category</TableHead>
               <TableHead className="w-[6%] text-right">Sort</TableHead>
               <TableHead className="w-[8%]">Enabled</TableHead>
+              <TableHead className="w-[8%]">AI gen</TableHead>
               <TableHead className="w-[8%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {merged === null && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-12">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-12">Loading…</TableCell></TableRow>
             )}
             {merged && merged.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                 No blocks found.
               </TableCell></TableRow>
             )}
             {merged && merged.length > 0 && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                 No rows match your filter.
               </TableCell></TableRow>
             )}
@@ -996,6 +1109,14 @@ export default function SuperAdminBlockCatalog() {
                       checked={row.is_enabled}
                       disabled={togglingKey === key}
                       onCheckedChange={() => toggleEnabled(row)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={row.ai_enabled}
+                      disabled={togglingAiKey === key || bulkAiBusy}
+                      onCheckedChange={() => toggleAiEnabled(row)}
+                      title="Available to AI page generation"
                     />
                   </TableCell>
                   <TableCell className="text-right">
