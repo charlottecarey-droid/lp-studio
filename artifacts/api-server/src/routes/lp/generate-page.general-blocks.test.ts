@@ -11,11 +11,17 @@
  *      (existing blocks + the new curated blocks).
  *   2. A type in `aiDisabledTypes` is dropped from the advertised list, whether
  *      it is an existing block or one of the new curated blocks.
- *   3. The full-page `content-series` block is advertised ONLY when
- *      `includeContentSeries` is set, and `isContentSeriesRequest` drives that.
+ *   3. The full-page blocks (`content-series`, `blog-series`, `storefront`) are
+ *      advertised ONLY when their respective include flag is set, and the
+ *      matching `is*Request` keyword detector drives that flag.
  */
 import { describe, it, expect } from "vitest";
-import { buildGeneralSystemPrompt, isContentSeriesRequest } from "./generate-page";
+import {
+  buildGeneralSystemPrompt,
+  isContentSeriesRequest,
+  isBlogSeriesRequest,
+  isStorefrontRequest,
+} from "./generate-page";
 
 /** Every block schema bullet looks like `- "type": …`; collect the types. */
 function advertisedTypes(prompt: string): string[] {
@@ -102,5 +108,71 @@ describe("isContentSeriesRequest", () => {
     expect(isContentSeriesRequest("A SaaS pricing page for our analytics tool")).toBe(false);
     expect(isContentSeriesRequest("")).toBe(false);
     expect(isContentSeriesRequest(undefined as unknown as string)).toBe(false);
+  });
+});
+
+describe("buildGeneralSystemPrompt — blog-series conditional", () => {
+  it("omits blog-series by default", () => {
+    expect(advertisedTypes(buildGeneralSystemPrompt())).not.toContain("blog-series");
+  });
+
+  it("advertises blog-series only when includeBlogSeries is set", () => {
+    const types = advertisedTypes(buildGeneralSystemPrompt({ includeBlogSeries: true }));
+    expect(types).toContain("blog-series");
+  });
+
+  it("still respects ai_enabled filtering for blog-series", () => {
+    const types = advertisedTypes(buildGeneralSystemPrompt({
+      includeBlogSeries: true,
+      aiDisabledTypes: new Set(["blog-series"]),
+    }));
+    expect(types).not.toContain("blog-series");
+  });
+});
+
+describe("buildGeneralSystemPrompt — storefront conditional", () => {
+  it("omits storefront by default", () => {
+    expect(advertisedTypes(buildGeneralSystemPrompt())).not.toContain("storefront");
+  });
+
+  it("advertises storefront only when includeStorefront is set", () => {
+    const types = advertisedTypes(buildGeneralSystemPrompt({ includeStorefront: true }));
+    expect(types).toContain("storefront");
+  });
+
+  it("still respects ai_enabled filtering for storefront", () => {
+    const types = advertisedTypes(buildGeneralSystemPrompt({
+      includeStorefront: true,
+      aiDisabledTypes: new Set(["storefront"]),
+    }));
+    expect(types).not.toContain("storefront");
+  });
+});
+
+describe("isBlogSeriesRequest", () => {
+  it("detects blog / editorial / essay-series requests", () => {
+    expect(isBlogSeriesRequest("A page for our company blog")).toBe(true);
+    expect(isBlogSeriesRequest("An EDITORIAL home for our essay series")).toBe(true);
+    expect(isBlogSeriesRequest("A long-form magazine publication")).toBe(true);
+  });
+
+  it("returns false for ordinary product / marketing requests", () => {
+    expect(isBlogSeriesRequest("A SaaS pricing page for our analytics tool")).toBe(false);
+    expect(isBlogSeriesRequest("")).toBe(false);
+    expect(isBlogSeriesRequest(undefined as unknown as string)).toBe(false);
+  });
+});
+
+describe("isStorefrontRequest", () => {
+  it("detects ecommerce / online-store requests", () => {
+    expect(isStorefrontRequest("Build an online store for our coffee brand")).toBe(true);
+    expect(isStorefrontRequest("A DTC ECOMMERCE shop page with add to cart")).toBe(true);
+    expect(isStorefrontRequest("A product catalog with checkout")).toBe(true);
+  });
+
+  it("returns false for ordinary B2B / marketing requests", () => {
+    expect(isStorefrontRequest("A SaaS pricing page for our analytics tool")).toBe(false);
+    expect(isStorefrontRequest("")).toBe(false);
+    expect(isStorefrontRequest(undefined as unknown as string)).toBe(false);
   });
 });

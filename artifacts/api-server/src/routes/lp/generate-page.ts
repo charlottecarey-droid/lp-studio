@@ -1737,6 +1737,16 @@ const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
 const GENERAL_CONTENT_SERIES_BLOCK =
   `- "content-series": A COMPLETE, full-page block for a podcast, webinar series, or content show — it renders its OWN nav, hero, episode library, hosts, about, lead form, and CTA. Use this as the SINGLE block on the page ONLY when the request is for a podcast / webinar / video-series / show page. Do NOT combine it with other blocks and do NOT use it for ordinary product or marketing pages. Props: seriesType ("podcast"|"webinar"|"series"), seriesTitle (2–6 words), seriesSubtitle (12–24 words), logoUrl (""), navLinks (array of 2–5 of {label, href}), heroEpisodeTitle (5–12 words), heroEpisodeDescription (18–32 words), heroGuestName (full name), heroGuestTitle (specific role), episodes (array of EXACTLY 3–8 of {title (5–12 words), guestName, guestTitle, description (18–32 words), publishDate (e.g. "May 2026"), thumbnailUrl (""), ctaUrl ("#")}), hosts (array of 1–3 of {name, title, photoUrl ("")}), aboutHeadline (5–12 words), aboutDescription (30–55 words), ctaSectionHeadline (5–12 words), ctas (array of 1–2 of {label (2–5 words), url ("#")}).`;
 
+// FULL-PAGE block — a complete editorial page. Only advertised when the user's
+// request is clearly for a blog / editorial / essay / article series.
+const GENERAL_BLOG_SERIES_BLOCK =
+  `- "blog-series": A COMPLETE, full-page block for a blog, editorial, or ongoing essay/article series — it renders its OWN nav, magazine hero, featured essay, article archive, topic index, contributor bios, newsletter subscribe form, and footer. Use this as the SINGLE block on the page ONLY when the request is for a blog / editorial / magazine / essay-series / article-hub page. Do NOT combine it with other blocks and do NOT use it for ordinary product or marketing pages. Leave EVERY image URL as "" (an image service fills them). Props: wordmark (the publication name, 1–3 words), navLinks (array of 2–5 of {label, href ("#...")}), navCtaText (2–3 words), navCtaUrl ("#subscribe"), heroEyebrow (2–5 words), heroHeadline (3–7 words), heroHeadlineAccent (2–5 words, the emphasized phrase), heroDeck (18–32 words), heroCtaText (2–4 words), heroCtaUrl ("#archive"), heroMetaLeft (e.g. "Issue 04"), heroMetaRight (e.g. "12 min read"), heroImageUrl (""), heroCaptionLabel (2–3 words), heroCaptionText (3–6 words), archiveEyebrow (2–5 words), archiveLinkText (2–4 words), archiveLinkUrl ("#"), featuredBadge (2–3 words), featuredArticle ({category, title (6–12 words), excerpt (24–40 words), author (full name), avatarUrl (""), date (e.g. "March 4"), readTime (e.g. "14 min"), imageUrl (""), href ("#")}), articles (array of EXACTLY 4–6 of {category, title (5–10 words), excerpt (16–28 words), author (full name), avatarUrl (""), date, readTime, imageUrl (""), href ("#")}), topicsEyebrow (1–2 words), topicsHeadline (3–5 words), topicsDescription (14–24 words), topics (array of 4–6 of {label (1–2 words), count (number)}), contributorsEyebrow (2–3 words), contributors (array of 2–3 of {name (full name), role (2–4 words), bio (18–32 words), avatarUrl (""), twitterUrl ("#"), linkedinUrl ("#"), websiteUrl ("#")}), subscribeEyebrow (2–4 words), subscribeHeadline (3–6 words), subscribeHeadlineAccent (2–5 words), subscribeDescription (18–30 words), subscribePlaceholder ("you@example.com"), subscribeButtonLabel (2–3 words), subscribeDisclaimer (8–16 words), subscribeSuccessMessage (4–8 words), footerTagline (12–24 words), footerColumns (array of 2–3 of {heading (1–2 words), links (array of 3–4 of {label, href ("#")})}), footerCopyright (e.g. "© 2025 The Margin. All rights reserved."), footerLegalLinks (array of 2–3 of {label, href ("#")}).`;
+
+// FULL-PAGE block — a complete DTC storefront. Only advertised when the user's
+// request is clearly for an online shop / store / ecommerce / product catalog.
+const GENERAL_STOREFRONT_BLOCK =
+  `- "storefront": A COMPLETE, full-page block for a direct-to-consumer online store — it renders its OWN announcement bar, sticky nav with cart, product hero with variants, value props, collection banners, product grid, customer reviews, a bundle offer, and a footer newsletter. Use this as the SINGLE block on the page ONLY when the request is for an ecommerce / online-shop / store / product-catalog page. Do NOT combine it with other blocks and do NOT use it for ordinary B2B or marketing pages. Leave EVERY image URL as "" (an image service fills them). Icon keys (use ONLY these): "leaf", "returns", "truck", "coffee", "shield", "star". Props: brandName (the store name, 1–3 words), announcementText (6–12 words), announcementSecondaryText (4–10 words), navLinks (array of 2–5 of {label, href ("#...")}), navCtaText (2–3 words), navCtaUrl ("#shop"), cartCount (number 0–5), heroEyebrow (2–4 words), heroTitle (1–4 words, the flagship product name), heroDescription (18–32 words), heroRating (number 4.0–5.0), heroReviewCount (number), heroPrice (e.g. "$22"), heroComparePrice (e.g. "$26"), heroImageUrl (""), heroVariantLabel (1–2 words, e.g. "Grind"), heroVariants (array of 2–5 of {label}), heroAddToCartLabel (2–3 words), heroAddToCartUrl ("#shop"), heroBuyNowLabel (2–3 words), heroBuyNowUrl ("#checkout"), heroCardLabel (1–2 words), heroCardValue (2–4 words), heroTrustBadges (array of 2–3 of {icon (one of the icon keys), text (2–5 words)}), valueProps (array of EXACTLY 4 of {icon (one of the icon keys), title (1–3 words), description (3–6 words)}), collections (array of 2 of {eyebrow (1–3 words), title (2–5 words), description (14–24 words), ctaLabel (2–4 words), ctaUrl ("#shop"), variant ("dark"|"accent"), imageUrl ("")}), productsEyebrow (2–4 words), productsHeadline (2–4 words), productAddToCartLabel (2–3 words), productFilters (array of 4–6 short label words), products (array of EXACTLY 4 of {name (1–4 words), category (1–3 words), price (e.g. "$22"), comparePrice (optional, e.g. "$26"), rating (number 4.0–5.0), reviewCount (number), tag (optional, e.g. "Bestseller"), href ("#"), imageUrl ("")}), pressLogos (array of 4–6 short brand names), reviewsHeadline (3–6 words), reviewsSummaryText (8–14 words), reviewsAggregateRating (number 4.0–5.0), reviews (array of EXACTLY 3 of {name (e.g. "Jordan M."), location (e.g. "Portland, OR"), quote (20–36 words), rating (integer 1–5), avatarUrl ("")}), bundleEyebrow (1–3 words), bundleTitle (2–4 words), bundleDescription (20–34 words), bundlePrice (e.g. "$48"), bundleComparePrice (e.g. "$64"), bundleSaveLabel (e.g. "Save 25%"), bundleCtaLabel (2–4 words), bundleCtaUrl ("#shop"), bundleImageUrl (""), bundleGuarantees (array of 2 of {icon (one of the icon keys), text (2–5 words)}), footerColumns (array of 2–3 of {heading (1–2 words), links (array of 3–4 of {label, href ("#")})}), footerTagline (12–24 words), footerCopyright (e.g. "© 2025 Meridian Coffee Co. All rights reserved."), paymentIcons (array like ["VISA","MC","AMEX","PayPal","GPay"]), footerLegalLinks (array of 2 of {label, href ("#")}), newsletterHeading (2–4 words), newsletterSubtext (8–14 words), newsletterPlaceholder ("you@email.com"), newsletterButtonLabel (1–2 words), newsletterSuccessMessage (4–8 words).`;
+
 const GENERAL_SHOWCASE_INTRO_MARKER = "SHOWCASE BLOCKS (";
 const GENERAL_FOOTER_MARKER = "GLOBAL DENSITY ENFORCEMENT";
 const GENERAL_BLOCK_TYPE_RE = /^- "([a-z0-9-]+)":/;
@@ -1753,6 +1763,30 @@ export function isContentSeriesRequest(prompt: string): boolean {
   return kws.some((kw) => lower.includes(kw));
 }
 
+// Keywords that indicate the request is for a blog / editorial / essay-series
+// page, which unlocks the full-page "blog-series" block.
+export function isBlogSeriesRequest(prompt: string): boolean {
+  const lower = (prompt ?? "").toLowerCase();
+  const kws = [
+    "blog", "editorial", "magazine", "essay", "essays", "article series",
+    "publication", "newsletter archive", "the margin", "long-form",
+    "longform", "writing series", "column", "journal",
+  ];
+  return kws.some((kw) => lower.includes(kw));
+}
+
+// Keywords that indicate the request is for an ecommerce / online-store page,
+// which unlocks the full-page "storefront" block.
+export function isStorefrontRequest(prompt: string): boolean {
+  const lower = (prompt ?? "").toLowerCase();
+  const kws = [
+    "storefront", "online store", "online shop", "ecommerce", "e-commerce",
+    "shop page", "product catalog", "product catalogue", "dtc", "shopify",
+    "add to cart", "checkout", "sell products", "merch store", "store page",
+  ];
+  return kws.some((kw) => lower.includes(kw));
+}
+
 // Assemble the GENERAL system prompt with the advertised block list filtered by
 // AI-eligibility. Splits the verbatim template into blank-line paragraphs,
 // injects the curated extra blocks into the correct sections, and drops any
@@ -1761,6 +1795,8 @@ export function isContentSeriesRequest(prompt: string): boolean {
 export function buildGeneralSystemPrompt(opts?: {
   aiDisabledTypes?: Set<string>;
   includeContentSeries?: boolean;
+  includeBlogSeries?: boolean;
+  includeStorefront?: boolean;
 }): string {
   const disabled = opts?.aiDisabledTypes ?? new Set<string>();
   const keep = (doc: string): boolean => {
@@ -1780,6 +1816,12 @@ export function buildGeneralSystemPrompt(opts?: {
       for (const b of GENERAL_EXTRA_SHOWCASE_BLOCKS) if (keep(b)) out.push(b);
       if (opts?.includeContentSeries && keep(GENERAL_CONTENT_SERIES_BLOCK)) {
         out.push(GENERAL_CONTENT_SERIES_BLOCK);
+      }
+      if (opts?.includeBlogSeries && keep(GENERAL_BLOG_SERIES_BLOCK)) {
+        out.push(GENERAL_BLOG_SERIES_BLOCK);
+      }
+      if (opts?.includeStorefront && keep(GENERAL_STOREFRONT_BLOCK)) {
+        out.push(GENERAL_STOREFRONT_BLOCK);
       }
       injectedShowcase = true;
     }
@@ -2641,6 +2683,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       : buildGeneralSystemPrompt({
           aiDisabledTypes,
           includeContentSeries: isContentSeriesRequest(prompt),
+          includeBlogSeries: isBlogSeriesRequest(prompt),
+          includeStorefront: isStorefrontRequest(prompt),
         });
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
