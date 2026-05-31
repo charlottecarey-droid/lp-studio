@@ -319,6 +319,40 @@ export function resolvePalette(b?: BrandContext): BrandPalette {
   };
 }
 
+// ── Contrast diagnostics ───────────────────────────────────────────────
+// Reports whether the chosen primary/accent would be auto-adjusted by
+// resolvePalette so the UI can warn a rep BEFORE they generate. The thresholds
+// and adjustment loop here mirror resolvePalette() exactly — keep them in lock-
+// step so the hint always matches the PDF output.
+export interface PaletteContrastReport {
+  /** Chosen primary is too light to read as text on a light surface and will be auto-darkened. */
+  primaryDarkened: boolean;
+  /** Chosen accent has low contrast on the dark primary band and will be auto-lightened. */
+  accentLightened: boolean;
+  /** Chosen accent contrast is so poor it falls back to white text/marks on the band. */
+  accentFallbackWhite: boolean;
+}
+
+export function analyzePaletteContrast(b?: BrandContext): PaletteContrastReport {
+  const primaryHex = (b?.primaryColor ?? "").trim();
+  const accentHex = (b?.accentColor ?? "").trim();
+  const primary = primaryHex ? _hexToRgb(primaryHex) : darkGreen;
+  const accent = accentHex ? _hexToRgb(accentHex) : lime;
+
+  // primary used as TEXT on a light surface — darkened while it fails 4.5:1.
+  const primaryDarkened = _contrast(primary, white) < 4.5;
+
+  // accent used as TEXT/marks on the primary band — lightened while it fails
+  // 3:1; if still failing after the bounded loop, falls back to white.
+  const accentLightened = _contrast(accent, primary) < 3;
+  let accentOnDark = accent;
+  let guard = 0;
+  while (_contrast(accentOnDark, primary) < 3 && guard++ < 16) accentOnDark = _lighten(accentOnDark, 0.18);
+  const accentFallbackWhite = _contrast(accentOnDark, primary) < 3;
+
+  return { primaryDarkened, accentLightened, accentFallbackWhite };
+}
+
 function drawBrandLogo(doc: jsPDF, x: number, y: number, logoPng: string | null, w = 80, h = 28, wordmark = "dandy") {
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", x, y, w, h); return; } catch { }

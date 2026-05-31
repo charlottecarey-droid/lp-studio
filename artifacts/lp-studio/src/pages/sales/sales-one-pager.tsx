@@ -27,6 +27,7 @@ import {
   type AgreementSection,
   type AgreementContact,
   type BrandContext,
+  analyzePaletteContrast,
 } from "@workspace/one-pager-types/generators";
 import { ImagePicker } from "@/components/ImagePicker";
 
@@ -1444,11 +1445,25 @@ const SalesOnePager = () => {
                   });
                   return next;
                 });
+              // Effective colors the generators will actually use for THIS PDF.
+              // Mirror handleGenerate exactly: a non-empty override wins (raw,
+              // NOT validated — resolvePalette maps malformed hex to black just
+              // as it would at generation time), otherwise the Brand Settings
+              // one-pager color. Feeding the same raw values through the shared
+              // contrast logic keeps the inline hint matching the real output,
+              // even for free-text input.
+              const effPrimary = overridePrimary.trim() || (brandContext?.primaryColor || "").trim();
+              const effAccent = overrideAccent.trim() || (brandContext?.accentColor || "").trim();
+              const contrast = analyzePaletteContrast({
+                primaryColor: effPrimary,
+                accentColor: effAccent,
+              });
               const colorRow = (
                 key: string,
                 label: string,
                 value: string,
                 fallbackSwatch: string,
+                warning?: string | null,
               ) => {
                 const swatch = isHex(value) ? norm(value) : fallbackSwatch;
                 return (
@@ -1472,9 +1487,23 @@ const SalesOnePager = () => {
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                       />
                     </div>
+                    {warning && (
+                      <p className="mt-1.5 flex items-start gap-1 text-[10px] leading-snug text-amber-600 dark:text-amber-500">
+                        <AlertTriangle className="w-3 h-3 mt-px shrink-0" />
+                        <span>{warning}</span>
+                      </p>
+                    )}
                   </div>
                 );
               };
+              const primaryWarning = contrast.primaryDarkened
+                ? "This color is light — it will be darkened where used as text so it stays readable on light backgrounds."
+                : null;
+              const accentWarning = contrast.accentFallbackWhite
+                ? "Low contrast on the dark band — accent text will fall back to white in the PDF."
+                : contrast.accentLightened
+                  ? "This accent has low contrast on the dark band — it will be lightened so it stays readable."
+                  : null;
               return (
                 <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
@@ -1507,8 +1536,8 @@ const SalesOnePager = () => {
                     )}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {colorRow(ONE_PAGER_PRIMARY_OVERRIDE_KEY, "Primary color", overridePrimary, brandPrimary)}
-                    {colorRow(ONE_PAGER_ACCENT_OVERRIDE_KEY, "Accent color", overrideAccent, brandAccent)}
+                    {colorRow(ONE_PAGER_PRIMARY_OVERRIDE_KEY, "Primary color", overridePrimary, brandPrimary, primaryWarning)}
+                    {colorRow(ONE_PAGER_ACCENT_OVERRIDE_KEY, "Accent color", overrideAccent, brandAccent, accentWarning)}
                   </div>
                   <p className="text-[10px] text-muted-foreground">
                     Leave blank to use your Brand Settings. Overrides apply to this PDF only and don't change your saved Brand Settings. Text and badge colors auto-adjust for contrast.
