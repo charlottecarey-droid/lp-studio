@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { publishInAppNotification } from "./notificationStream";
 import {
   getNotificationTemplate,
   type NotificationChannel,
@@ -217,6 +218,7 @@ async function dispatchInApp(
   result: DispatchResult,
 ): Promise<void> {
   if (r.appUserId == null) return; // no inbox target
+  const appUserId = r.appUserId;
   const dedupeKey = `${input.dedupeBase}:${rk}`;
   const ctaUrl = ctx["workspaceUrl"] ?? null;
   try {
@@ -239,8 +241,27 @@ async function dispatchInApp(
         dedupeKey,
       ],
     );
-    if (ins.rows.length) result.inAppCreated += 1;
-    else result.deduped += 1;
+    if (ins.rows.length) {
+      result.inAppCreated += 1;
+      // Push to any live SSE clients for this user so the bell updates without
+      // waiting on the poll interval. Best-effort and in-process only — the
+      // client's polling backstop covers misses (e.g. another replica). The
+      // SSE channel is keyed by tenant, so a tenantless send has nowhere to go.
+      if (input.tenantId != null) {
+        publishInAppNotification(input.tenantId, appUserId, {
+          id: ins.rows[0].id,
+          templateKey: input.templateKey,
+          title: content.inAppTitle,
+          body: content.inAppBody,
+          ctaUrl,
+          ctaLabel: ctaUrl ? content.emailCtaLabel : null,
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } else {
+      result.deduped += 1;
+    }
   } catch (err) {
     logger.error({ err, dedupeKey }, "[notificationDispatcher] in-app insert failed");
   }

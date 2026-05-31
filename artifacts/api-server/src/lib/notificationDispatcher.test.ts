@@ -14,6 +14,11 @@ vi.mock("./notificationTemplates", () => ({
   getNotificationTemplate: (...args: unknown[]) => getTemplateMock(...args),
 }));
 
+const publishMock = vi.fn();
+vi.mock("./notificationStream", () => ({
+  publishInAppNotification: (...args: unknown[]) => publishMock(...args),
+}));
+
 import { dispatchNotification } from "./notificationDispatcher";
 
 const baseTpl: NotificationTemplateDef = {
@@ -33,6 +38,7 @@ const baseTpl: NotificationTemplateDef = {
 beforeEach(() => {
   queryMock.mockReset();
   getTemplateMock.mockReset();
+  publishMock.mockReset();
   process.env["RESEND_API_KEY"] = "test-key";
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, text: async () => "" }) as unknown as Response));
 });
@@ -55,6 +61,13 @@ describe("dispatchNotification", () => {
     expect(res.inAppCreated).toBe(1);
     expect(res.emailsSent).toBe(1);
     expect(res.deduped).toBe(0);
+    // The new in-app row is pushed to the live SSE channel for that user.
+    expect(publishMock).toHaveBeenCalledTimes(1);
+    expect(publishMock).toHaveBeenCalledWith(
+      42,
+      1,
+      expect.objectContaining({ id: 10, read: false, templateKey: "trial_day_7" }),
+    );
   });
 
   it("dedupes a second dispatch for the same recipient/milestone", async () => {

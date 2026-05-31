@@ -8,10 +8,56 @@ import {
   NOTIFICATION_TEMPLATES,
   type NotificationChannel,
 } from "../lib/notificationTemplates";
+import { addStreamClient } from "../lib/notificationStream";
 
 const router: IRouter = Router();
 
 const INBOX_LIMIT = 50;
+
+// Heartbeat keeps the SSE connection from being reaped by idle-timeout proxies
+// (Cloudflare, the dev Vite proxy) and lets the client notice a dead link.
+const SSE_HEARTBEAT_MS = 25_000;
+
+/**
+ * GET /api/notifications/stream — Server-Sent Events channel that pushes newly
+ * created in-app notifications to the signed-in user in near-real-time, so the
+ * bell badge updates without waiting on the polling interval. Scoped to the
+ * active (user, tenant) pair exactly like the inbox endpoints. Clients fall
+ * back to polling when this channel is unavailable (see use-notifications.ts).
+ */
+router.get("/notifications/stream", requireAuth, (req, res): void => {
+  const user = req.authUser!;
+  const tenantId = getTenantId(req, res);
+  if (tenantId == null) return;
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    // `no-transform` makes the compression middleware skip this response so
+    // events aren't buffered; the rest disables proxy/browser caching.
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  // Flush headers immediately so the browser marks the EventSource as open.
+  res.write(`retry: 5000\n\n`);
+  res.write(`: connected\n\n`);
+
+  const cleanup = addStreamClient(tenantId, user.userId, res);
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`: ping\n\n`);
+    } catch {
+      /* connection gone; close handler will clean up */
+    }
+  }, SSE_HEARTBEAT_MS);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    cleanup();
+    res.end();
+  });
+});
 
 /**
  * GET /api/notifications — the signed-in user's in-app inbox (most recent

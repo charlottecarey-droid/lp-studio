@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
+// When the live SSE channel is healthy we only need polling as a slow backstop
+// (covers cross-replica misses, where a push happened on another instance).
+// When SSE is unavailable we fall back to the original tighter poll.
 const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_SSE_MS = 5 * 60_000;
 
 export interface NotificationItem {
   id: number;
@@ -88,6 +92,22 @@ export function useNotifications() {
     }
   }, []);
 
+  // Merge a notification pushed over the live SSE channel. Dedupe by id so a
+  // push that races the next poll/inbox load doesn't double-count the badge.
+  const ingestLive = useCallback((item: NotificationItem) => {
+    setItems((prev) => {
+      if (prev.some((i) => i.id === item.id)) return prev;
+      // Only prepend to the in-memory list once the inbox has been opened;
+      // otherwise loadItems() will fetch the canonical list on first open.
+      return loadedRef.current ? [item, ...prev] : prev;
+    });
+    setUnreadCount((c) => {
+      // When the inbox is loaded we keep the badge in sync with the (deduped)
+      // list; otherwise just bump the count for the new unread item.
+      return item.read ? c : c + 1;
+    });
+  }, []);
+
   useEffect(() => {
     if (!isAuthed) {
       setItems([]);
@@ -95,10 +115,51 @@ export function useNotifications() {
       loadedRef.current = false;
       return;
     }
+
     void refreshCount();
-    const id = window.setInterval(() => void refreshCount(), POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [isAuthed, refreshCount]);
+
+    let pollId: number | undefined;
+    const startPolling = (intervalMs: number) => {
+      if (pollId !== undefined) window.clearInterval(pollId);
+      pollId = window.setInterval(() => void refreshCount(), intervalMs);
+    };
+    // Tight polling until/unless SSE proves healthy.
+    startPolling(POLL_INTERVAL_MS);
+
+    // Live channel. EventSource auto-reconnects on transient drops; on hard
+    // failure we simply keep the tighter polling cadence as the backstop.
+    let es: EventSource | null = null;
+    if (typeof window !== "undefined" && "EventSource" in window) {
+      try {
+        es = new EventSource(`${API_BASE}/notifications/stream`, { withCredentials: true });
+        es.addEventListener("open", () => {
+          // SSE is delivering — relax polling to a slow backstop.
+          startPolling(POLL_INTERVAL_SSE_MS);
+        });
+        es.addEventListener("notification", (ev) => {
+          try {
+            const item = JSON.parse((ev as MessageEvent).data) as NotificationItem;
+            if (item && typeof item.id === "number") ingestLive(item);
+          } catch {
+            // Malformed push — fall back to a count refresh.
+            void refreshCount();
+          }
+        });
+        es.addEventListener("error", () => {
+          // Drop back to tight polling while the channel is down. EventSource
+          // keeps trying to reconnect; `open` will relax the cadence again.
+          startPolling(POLL_INTERVAL_MS);
+        });
+      } catch {
+        /* EventSource construction failed — polling-only mode */
+      }
+    }
+
+    return () => {
+      if (pollId !== undefined) window.clearInterval(pollId);
+      es?.close();
+    };
+  }, [isAuthed, refreshCount, ingestLive]);
 
   return { items, unreadCount, loading, loadItems, markRead, markAllRead };
 }
