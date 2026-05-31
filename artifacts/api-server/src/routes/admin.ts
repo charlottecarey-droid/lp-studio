@@ -2536,29 +2536,67 @@ router.get("/superadmin/trial-phones", requireSuperadmin, async (_req, res): Pro
 // Append-only audit of past trial-phone releases (Task #669) so support can see
 // who released what and when, even after the source row + tenant are gone. Only
 // the SHA-256 hash of the number is ever returned, never the raw number. Newest
-// first, capped to a recent window. Defined BEFORE the :phoneHash DELETE so the
-// literal path is unambiguous (DELETE has no GET on the param anyway).
+// first. Defined BEFORE the :phoneHash DELETE so the literal path is unambiguous
+// (DELETE has no GET on the param anyway).
+//
+// Searchable + paginated (Task #671). A single `q` filter matches a phone-hash
+// PREFIX (case-insensitive hex) OR a case-insensitive substring of the prior
+// tenant name/slug or the actor email — these are the fields support knows to
+// look a release up by. `limit`/`offset` page through the full history (beyond
+// the old 200-row cap); the response carries `hasMore` so the UI can offer
+// "load more". Returns `{ rows, hasMore }` (shape change from the old flat
+// array).
 router.get(
   "/superadmin/trial-phones/release-log",
   requireSuperadmin,
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
     try {
-      const result = await pool.query(`
-        SELECT
-          id,
-          phone_hash,
-          prior_tenant_id,
-          prior_tenant_name,
-          prior_tenant_slug,
-          original_created_at,
-          actor_user_id,
-          actor_email,
-          released_at
-        FROM trial_phone_release_log
-        ORDER BY released_at DESC
-        LIMIT 200
-      `);
-      res.json(result.rows);
+      const q = String(req.query.q ?? "").trim();
+      // Clamp the page size to a sane window so a hand-crafted query can't ask
+      // for an unbounded scan.
+      const limitRaw = Number.parseInt(String(req.query.limit ?? "50"), 10);
+      const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
+      const offsetRaw = Number.parseInt(String(req.query.offset ?? "0"), 10);
+      const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0;
+
+      const params: unknown[] = [];
+      let where = "";
+      if (q) {
+        // Escape LIKE wildcards so a literal `%`/`_`/`\` in the query can't act
+        // as a wildcard against the audit data.
+        const esc = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+        // Phone hashes are lowercase hex — match as a PREFIX. Tenant name/slug
+        // and actor email match as case-insensitive substrings.
+        params.push(`${esc.toLowerCase()}%`, `%${esc}%`, `%${esc}%`, `%${esc}%`);
+        where = `WHERE phone_hash ILIKE $1
+                    OR prior_tenant_name ILIKE $2
+                    OR prior_tenant_slug ILIKE $3
+                    OR actor_email ILIKE $4`;
+      }
+      // Fetch one extra row to detect whether more results exist beyond this page.
+      params.push(limit + 1, offset);
+      const limitIdx = params.length - 1;
+      const offsetIdx = params.length;
+      const result = await pool.query(
+        `SELECT
+           id,
+           phone_hash,
+           prior_tenant_id,
+           prior_tenant_name,
+           prior_tenant_slug,
+           original_created_at,
+           actor_user_id,
+           actor_email,
+           released_at
+         FROM trial_phone_release_log
+         ${where}
+         ORDER BY released_at DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+      const hasMore = result.rows.length > limit;
+      const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+      res.json({ rows, hasMore });
     } catch (err) {
       console.error("[superadmin] GET /trial-phones/release-log error:", err);
       res.status(500).json({ error: "Server error" });

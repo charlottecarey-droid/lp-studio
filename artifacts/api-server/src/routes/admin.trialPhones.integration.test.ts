@@ -250,10 +250,66 @@ describe("trial-phones — release history", () => {
   it("lets a superadmin read the recent-release history including the just-released row", async () => {
     const res = await asSuper("GET", "/superadmin/trial-phones/release-log");
     expect(res.status).toBe(200);
-    const rows = res.json as { phone_hash: string; actor_email: string | null }[];
-    const entry = rows.find((r) => r.phone_hash === HASH_A);
+    const body = res.json as {
+      rows: { phone_hash: string; actor_email: string | null }[];
+      hasMore: boolean;
+    };
+    expect(Array.isArray(body.rows)).toBe(true);
+    expect(typeof body.hasMore).toBe("boolean");
+    const entry = body.rows.find((r) => r.phone_hash === HASH_A);
     expect(entry).toBeTruthy();
     expect(entry?.actor_email).toBe(SUPER_EMAIL);
+  });
+
+  it("filters by phone-hash prefix", async () => {
+    const prefix = HASH_A.slice(0, 12);
+    const res = await asSuper(
+      "GET",
+      `/superadmin/trial-phones/release-log?q=${prefix}`,
+    );
+    expect(res.status).toBe(200);
+    const body = res.json as { rows: { phone_hash: string }[] };
+    expect(body.rows.length).toBeGreaterThan(0);
+    expect(body.rows.every((r) => r.phone_hash.startsWith(prefix))).toBe(true);
+  });
+
+  it("filters by actor email and prior tenant slug substrings", async () => {
+    const byEmail = await asSuper(
+      "GET",
+      `/superadmin/trial-phones/release-log?q=${encodeURIComponent(SUPER_EMAIL)}`,
+    );
+    expect(byEmail.status).toBe(200);
+    const emailBody = byEmail.json as { rows: { phone_hash: string }[] };
+    expect(emailBody.rows.some((r) => r.phone_hash === HASH_A)).toBe(true);
+
+    const bySlug = await asSuper(
+      "GET",
+      `/superadmin/trial-phones/release-log?q=trial-phone-it-${RUN}`,
+    );
+    expect(bySlug.status).toBe(200);
+    const slugBody = bySlug.json as { rows: { phone_hash: string }[] };
+    expect(slugBody.rows.some((r) => r.phone_hash === HASH_A)).toBe(true);
+  });
+
+  it("returns an empty page (not all rows) for a non-matching search", async () => {
+    const res = await asSuper(
+      "GET",
+      `/superadmin/trial-phones/release-log?q=zzz-no-such-release-${RUN}`,
+    );
+    expect(res.status).toBe(200);
+    const body = res.json as { rows: unknown[]; hasMore: boolean };
+    expect(body.rows.length).toBe(0);
+    expect(body.hasMore).toBe(false);
+  });
+
+  it("honors limit + offset and reports hasMore for pagination", async () => {
+    const page = await asSuper(
+      "GET",
+      "/superadmin/trial-phones/release-log?limit=1&offset=0",
+    );
+    expect(page.status).toBe(200);
+    const body = page.json as { rows: unknown[]; hasMore: boolean };
+    expect(body.rows.length).toBeLessThanOrEqual(1);
   });
 
   it("rejects a non-superadmin with 403", async () => {

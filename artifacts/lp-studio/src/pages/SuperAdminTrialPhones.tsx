@@ -9,7 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { History, Loader2, RefreshCw, Search, Smartphone } from "lucide-react";
+import { History, Loader2, RefreshCw, Search, Smartphone, X } from "lucide-react";
+
+// Page size for the paginated "Recent releases" history (Task #671).
+const RELEASE_PAGE_SIZE = 50;
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -94,7 +97,6 @@ interface LookupResult {
 
 export default function SuperAdminTrialPhones() {
   const [rows, setRows] = useState<TrialPhoneRow[] | null>(null);
-  const [releases, setReleases] = useState<ReleaseLogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyHash, setBusyHash] = useState<string | null>(null);
@@ -109,22 +111,63 @@ export default function SuperAdminTrialPhones() {
   const [highlightHash, setHighlightHash] = useState<string | null>(null);
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
+  // "Recent releases" history — searchable + paginated (Task #671).
+  const [releases, setReleases] = useState<ReleaseLogRow[] | null>(null);
+  const [releaseSearch, setReleaseSearch] = useState("");
+  const [releasesHasMore, setReleasesHasMore] = useState(false);
+  const [releasesLoading, setReleasesLoading] = useState(false);
+  const [releasesError, setReleasesError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [data, log] = await Promise.all([
-        apiFetch("/api/admin/superadmin/trial-phones"),
-        apiFetch("/api/admin/superadmin/trial-phones/release-log"),
-      ]);
+      const data = await apiFetch("/api/admin/superadmin/trial-phones");
       setRows(data ?? []);
-      setReleases(log ?? []);
     } catch (err) {
       setError(parseError(err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Monotonic request token so a slower earlier search response can't overwrite
+  // the results of a newer one (debounced typing can fire overlapping fetches).
+  const releaseReqId = useRef(0);
+
+  // Fetch a page of the release history. `append` keeps the rows already shown
+  // (for "load more"); otherwise it replaces them (a fresh search/refresh).
+  const loadReleases = useCallback(
+    async (opts?: { q?: string; offset?: number; append?: boolean }) => {
+      const q = (opts?.q ?? "").trim();
+      const offset = opts?.offset ?? 0;
+      const reqId = ++releaseReqId.current;
+      setReleasesLoading(true);
+      setReleasesError(null);
+      try {
+        const params = new URLSearchParams();
+        if (q) params.set("q", q);
+        params.set("limit", String(RELEASE_PAGE_SIZE));
+        params.set("offset", String(offset));
+        const data = await apiFetch(
+          `/api/admin/superadmin/trial-phones/release-log?${params.toString()}`,
+        );
+        // A newer request superseded this one — drop the stale response.
+        if (reqId !== releaseReqId.current) return;
+        const newRows: ReleaseLogRow[] = data?.rows ?? [];
+        setReleasesHasMore(Boolean(data?.hasMore));
+        setReleases((prev) =>
+          opts?.append && prev ? [...prev, ...newRows] : newRows,
+        );
+      } catch (err) {
+        if (reqId !== releaseReqId.current) return;
+        setReleasesError(parseError(err instanceof Error ? err.message : String(err)));
+      } finally {
+        if (reqId === releaseReqId.current) setReleasesLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     load();
@@ -136,6 +179,15 @@ export default function SuperAdminTrialPhones() {
       highlightRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [highlightHash, rows]);
+
+  // Debounce the search box so each keystroke doesn't fire a request. Also
+  // covers the initial load (releaseSearch starts empty).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      loadReleases({ q: releaseSearch });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [releaseSearch, loadReleases]);
 
   const handleLookup = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -179,7 +231,7 @@ export default function SuperAdminTrialPhones() {
         setLookup(null);
         setHighlightHash(null);
       }
-      await load();
+      await Promise.all([load(), loadReleases({ q: releaseSearch })]);
     } catch (err) {
       setError(parseError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -201,7 +253,15 @@ export default function SuperAdminTrialPhones() {
             user who changed numbers, or a leftover test number).
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={() => load()} disabled={loading}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            load();
+            loadReleases({ q: releaseSearch });
+          }}
+          disabled={loading}
+        >
           <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
@@ -379,6 +439,31 @@ export default function SuperAdminTrialPhones() {
           record itself is gone.
         </p>
 
+        <div className="relative mt-3 max-w-md">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            type="search"
+            value={releaseSearch}
+            onChange={(e) => setReleaseSearch(e.target.value)}
+            placeholder="Search by phone hash, workspace name/slug, or admin email…"
+            className="pl-8 pr-8 h-9 text-sm"
+          />
+          {releaseSearch && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setReleaseSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {releasesError && (
+          <p className="text-sm text-destructive mt-2">{releasesError}</p>
+        )}
+
         <div className="border rounded-lg overflow-hidden mt-3">
           <Table>
             <TableHeader>
@@ -400,7 +485,9 @@ export default function SuperAdminTrialPhones() {
               {releases?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    No releases yet.
+                    {releaseSearch.trim()
+                      ? "No releases match your search."
+                      : "No releases yet."}
                   </TableCell>
                 </TableRow>
               )}
@@ -440,6 +527,28 @@ export default function SuperAdminTrialPhones() {
             </TableBody>
           </Table>
         </div>
+
+        {releasesHasMore && (
+          <div className="flex justify-center mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={releasesLoading}
+              onClick={() =>
+                loadReleases({
+                  q: releaseSearch,
+                  offset: releases?.length ?? 0,
+                  append: true,
+                })
+              }
+            >
+              {releasesLoading ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : null}
+              Load more
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
