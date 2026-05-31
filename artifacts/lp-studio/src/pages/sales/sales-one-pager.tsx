@@ -29,6 +29,7 @@ import {
   type BrandContext,
   analyzePaletteContrast,
 } from "@workspace/one-pager-types/generators";
+import { isDandyGatedBuiltin } from "@workspace/one-pager-types";
 import { ImagePicker } from "@/components/ImagePicker";
 
 // =============================================
@@ -1072,7 +1073,7 @@ const SalesOnePager = () => {
                   Partner 2
                 </button>
               )}
-              {isDandy && !deletedBuiltins["comparison"] && templateVisibility["comparison"] !== false && (
+              {(isDandy || !isDandyGatedBuiltin("comparison")) && !deletedBuiltins["comparison"] && templateVisibility["comparison"] !== false && (
                 <button
                   onClick={() => { setTemplate("comparison"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "comparison" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
@@ -1088,7 +1089,7 @@ const SalesOnePager = () => {
                   90-Day Pilot
                 </button>
               )}
-              {isDandy && !deletedBuiltins["agreement-summary"] && templateVisibility["agreement-summary"] !== false && (
+              {(isDandy || !isDandyGatedBuiltin("agreement-summary")) && !deletedBuiltins["agreement-summary"] && templateVisibility["agreement-summary"] !== false && (
                 <button
                   onClick={() => { setTemplate("agreement-summary"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "agreement-summary" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}

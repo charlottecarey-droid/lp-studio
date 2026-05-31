@@ -136,7 +136,7 @@ test.describe("Stripe upgrade flow (billing)", () => {
     await resetToStarter(pool, tenant.tenantId);
     await setSessionCookie(context, tenant.sessionSid, baseURL!);
 
-    await page.goto("/settings/billing", { waitUntil: "networkidle" });
+    await page.goto("/settings/billing", { waitUntil: "domcontentloaded" });
 
     // Current plan card shows Starter, with no live subscription badge.
     await expect(page.getByRole("heading", { name: "Starter", exact: true })).toBeVisible();
@@ -159,7 +159,7 @@ test.describe("Stripe upgrade flow (billing)", () => {
     await applyGrowthSnapshot(pool, tenant.tenantId, "active");
     await setSessionCookie(context, tenant.sessionSid, baseURL!);
 
-    await page.goto("/settings/billing", { waitUntil: "networkidle" });
+    await page.goto("/settings/billing", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Growth", exact: true })).toBeVisible();
     await expect(page.getByTestId("subscription-status-badge")).toHaveText("active");
@@ -178,7 +178,7 @@ test.describe("Stripe upgrade flow (billing)", () => {
     await applyGrowthSnapshot(pool, tenant.tenantId, "past_due");
     await setSessionCookie(context, tenant.sessionSid, baseURL!);
 
-    await page.goto("/settings/billing", { waitUntil: "networkidle" });
+    await page.goto("/settings/billing", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("payment-failed-banner")).toBeVisible();
     await expect(page.getByTestId("subscription-status-badge")).toHaveText("past_due");

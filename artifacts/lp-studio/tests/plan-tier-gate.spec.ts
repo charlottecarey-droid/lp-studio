@@ -95,7 +95,7 @@ test.describe("Plan-tier gate (starter)", () => {
     //    The server-side `requirePlanFeature("salesConsole")` middleware
     //    is still the real security boundary (any /api/sales/* call from
     //    this view 402s); this assertion just pins the client UX.
-    await page.goto("/sales", { waitUntil: "networkidle" });
+    await page.goto("/sales", { waitUntil: "domcontentloaded" });
     await expect(
       page.getByRole("heading", { name: /Sales Console is a Growth feature/i }),
     ).toBeVisible();
@@ -137,7 +137,7 @@ test.describe("Plan-tier gate (superadmin in starter tenant)", () => {
 
     // 2. /sales must load (no redirect back to /) — the AppShell
     //    redirect is skipped for superadmins.
-    await page.goto("/sales", { waitUntil: "networkidle" });
+    await page.goto("/sales", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/sales(\/|$|\?)/);
   });
 });

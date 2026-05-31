@@ -137,6 +137,16 @@ test.describe("Workspace finder — typo suggestions (task #519)", () => {
     );
     await page.goto(APP_SHELL_URL, { waitUntil: "domcontentloaded" });
 
+    // The workspace finder now lives on the Log in tab, behind a quiet
+    // "Find your company's login page" reveal link (open/close animation).
+    await page
+      .locator("button[aria-pressed]")
+      .filter({ hasText: "Log in" })
+      .click();
+    await page
+      .getByRole("button", { name: "Find your company's login page" })
+      .click();
+
     const input = page.getByLabel("Company name or workspace");
     await expect(input).toBeVisible({ timeout: 30_000 });
 

@@ -251,7 +251,10 @@ test.describe("Post-login AuthGate — signed in, no workspace yet", () => {
       timeout: 30_000,
     });
     await expect(toggle(page).filter({ hasText: "Log in" })).toBeVisible();
-    await expect(page.getByText("Already have a workspace?")).toBeVisible();
+    // The Sign up / Log in toggle is unique to the logged-out open screen (the
+    // signed-in create form has no toggle), and "Signed in as" is gone — these
+    // together prove the logged-out open screen. (The workspace finder now lives
+    // behind the Log in tab's reveal link, so it is no longer asserted here.)
     await expect(page.getByText("Signed in as")).toHaveCount(0);
 
     await ctx.close();

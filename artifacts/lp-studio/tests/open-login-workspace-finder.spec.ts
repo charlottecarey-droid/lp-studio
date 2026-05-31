@@ -308,10 +308,11 @@ test.describe("Workspace finder — open sign-in screen", () => {
       ),
     ).toBeVisible({ timeout: 15_000 });
 
-    // No navigation occurred — still on the open sign-in screen.
+    // No navigation occurred — still on the open sign-in screen. openFinder()
+    // switched to the Log in tab, so the visible heading is "Welcome back".
     expect(page.url().startsWith(APP)).toBe(true);
     await expect(
-      page.getByRole("heading", { name: "Create your workspace" }),
+      page.getByRole("heading", { name: "Welcome back" }),
     ).toBeVisible();
 
     await ctx.close();
@@ -338,9 +339,10 @@ test.describe("Workspace finder — open sign-in screen", () => {
     await expect(option.first()).toContainText(targetHost);
 
     // Still on the open sign-in screen — typing alone must not navigate.
+    // openFinder() switched to the Log in tab, so the heading is "Welcome back".
     expect(page.url().startsWith(APP)).toBe(true);
     await expect(
-      page.getByRole("heading", { name: "Create your workspace" }),
+      page.getByRole("heading", { name: "Welcome back" }),
     ).toBeVisible();
 
     await ctx.close();

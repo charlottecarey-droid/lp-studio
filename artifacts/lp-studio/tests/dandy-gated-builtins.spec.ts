@@ -1,33 +1,41 @@
 // Dandy-gated built-in one-pager templates (template tooling de-branding +
-// beta gating).
+// dormant beta gating).
 //
-// Two of the six built-in one-pager templates are Dandy-coded and are gated to
-// Dandy / dandy-smb workspaces only:
-//   - "comparison"        — rep-facing label "Dandy Evolution" / "Before / After"
-//   - "agreement-summary" — the Dandy Practice Agreement summary
+// Two of the six built-in one-pager templates are Dandy-coded:
+//   - "comparison"        — rep-facing label "Dandy Evolution" (Dandy) /
+//                           "Before / After" (everyone else)
+//   - "agreement-summary" — the Practice Agreement summary
 //
-// This spec runs as a NON-Dandy "Royal" tenant and verifies the two gated
-// built-ins are hidden from the picker UI (the admin templates gallery and the
-// sales-rep generator) AND rejected (403) by the server publish/save routes,
-// while the four neutral built-ins (ROI, 90-Day Pilot, Partner Practices,
-// Partner 2) remain available.
+// The Dandy gate is currently DORMANT: `DANDY_GATED_BUILTIN_IDS` (in
+// lib/one-pager-types/src/constants.ts) is empty, so `isDandyGatedBuiltin(id)`
+// returns false for every id. As a result both formerly-gated built-ins are
+// available to ALL tenants — the picker UI (admin gallery + sales-rep
+// generator), the Template Editor, and the server save/publish routes all show
+// / accept them. What still differs by tenant is the *copy*: Dandy-only verbatim
+// labels (e.g. "Dandy Evolution") are brand-scrubbed for non-Dandy tenants
+// (→ "Before / After" in the generator, "<productName> Evolution" in the editor).
 //
-// This spec covers BOTH gating directions:
+// This spec covers BOTH directions of that copy split:
 //
-//   1. NON-Dandy "Royal" tenant — the gated built-ins are hidden from the
-//      picker UI and rejected (403) by the publish/save routes (negative path).
-//   2. Dandy workspace — the gated built-ins appear in both pickers, the
-//      Agreement Summary editor populates its defaults, "Download PDF" fires a
-//      download, and the publish/save routes accept the gated ids (positive
-//      path).
+//   1. NON-Dandy "Royal" tenant — both formerly-gated built-ins appear in the
+//      gallery, generator, and editor with brand-scrubbed labels; the Dandy-only
+//      verbatim "Dandy Evolution" label stays absent.
+//   2. Dandy workspace — the built-ins appear with their Dandy copy, the
+//      Agreement Summary editor populates its defaults, and "Download PDF" fires
+//      a download.
 //
-// Both the picker UI and the server routes now key off the SAME
-// server-authoritative signal — `brand.isDandy`, resolved from the immutable
-// tenant SLUG (isProtectedEnterpriseSlug → "dandy"/"dandy-smb"), never the
-// editable `brandName`. So the positive path can't be faked by renaming a Royal
-// tenant's brand to "Dandy"; it must impersonate the *seeded* Dandy workspace
-// via a short-lived admin session (createDandyOperatorSession) and delete any
-// rows it writes (see cleanupDandyOnePagerRows) so real Dandy data is untouched.
+// The server-side behaviour of the dormant gate (save/publish routes returning
+// non-403 for the formerly-gated builtinIds) is locked by the in-process
+// integration test (dandyGatedTemplates.integration.test.ts), so it is not
+// re-asserted here.
+//
+// Dandy detection keys off the server-authoritative `brand.isDandy`, resolved
+// from the immutable tenant SLUG (isProtectedEnterpriseSlug → "dandy"/"dandy-smb"),
+// never the editable `brandName`. So the Dandy path can't be faked by renaming a
+// Royal tenant's brand to "Dandy"; it must impersonate the *seeded* Dandy
+// workspace via a short-lived admin session (createDandyOperatorSession) and
+// delete any rows it writes (see cleanupDandyOnePagerRows) so real Dandy data is
+// untouched.
 
 import pg from "pg";
 import { test, expect } from "@playwright/test";
@@ -91,15 +99,16 @@ test.describe("Dandy-gated built-in one-pager templates (non-Dandy tenant)", () 
     await expect(page.getByText("90-Day Pilot").first()).toBeVisible();
     await expect(page.getByText("Partner Practices").first()).toBeVisible();
 
-    // The two gated built-ins are absent. "Agreement Summary" is the agreement
-    // card's title; "Before/after comparison" is the comparison card's
-    // (brand-free) description — a stable handle even though its label is
-    // brand-scrubbed away from "Dandy Evolution".
-    await expect(page.getByText("Agreement Summary", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("Before/after comparison")).toHaveCount(0);
+    // The Dandy-gate is now dormant (DANDY_GATED_BUILTIN_IDS is empty), so the
+    // two formerly-gated built-ins are available to non-Dandy tenants too, with
+    // brand-scrubbed copy. "Agreement Summary" is the agreement card's title;
+    // "Before/after comparison" is the comparison card's brand-free description
+    // (its label is scrubbed from "Dandy Evolution" to "Before / After").
+    await expect(page.getByText("Agreement Summary", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Before/after comparison").first()).toBeVisible();
   });
 
-  test("sales-rep generator hides the gated built-ins but keeps the neutral ones", async ({ page }) => {
+  test("sales-rep generator shows the formerly-gated built-ins (gate dormant) alongside the neutral ones", async ({ page }) => {
     await page.goto("/sales/one-pager");
     // Wait for the visibility-loaded fade-in (`opacity-0` → `opacity-100`) so
     // the built-in button list is stable before asserting.
@@ -108,15 +117,17 @@ test.describe("Dandy-gated built-in one-pager templates (non-Dandy tenant)", () 
     // A neutral built-in button is present.
     await expect(page.getByRole("button", { name: /^90-Day Pilot$/ })).toBeVisible();
 
-    // The gated built-in buttons are absent. The comparison button label is
-    // "Dandy Evolution" for Dandy and "Before / After" for everyone else —
-    // assert both spellings are gone.
-    await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toHaveCount(0);
+    // The gate is dormant, so the formerly-gated buttons now appear for a
+    // non-Dandy tenant. The comparison button carries the brand-scrubbed
+    // "Before / After" label (NOT the Dandy-only "Dandy Evolution"), and the
+    // Agreement Summary button is present.
+    await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Before \/ After$/ })).toBeVisible();
+    // The Dandy-only verbatim label stays absent for a non-Dandy tenant.
     await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Before \/ After$/ })).toHaveCount(0);
   });
 
-  test("Template Editor hides the gated built-in tabs but keeps the neutral ones", async ({ page }) => {
+  test("Template Editor shows the formerly-gated tabs (gate dormant) alongside the neutral ones", async ({ page }) => {
     await page.goto("/sales/one-pager/editor");
     await page.getByRole("heading", { name: "Template Editor" }).waitFor({ timeout: 15000 });
 
@@ -125,47 +136,21 @@ test.describe("Dandy-gated built-in one-pager templates (non-Dandy tenant)", () 
     await expect(page.getByRole("button", { name: /^90-Day Pilot$/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Partner Practices$/ })).toBeVisible();
 
-    // The two gated tabs are absent. The comparison tab is hidden entirely for
-    // non-Dandy tenants, so NEITHER its Dandy label ("Dandy Evolution") NOR its
-    // brand-scrubbed label ("Before / After") should render — assert both, plus
-    // the Agreement Summary tab, are gone.
+    // The gate is dormant, so the formerly-gated tabs now render for a non-Dandy
+    // tenant: the comparison tab plus the Agreement Summary tab. The editor scrubs
+    // the comparison tab's "Dandy Evolution" label via scrubBrand → "<productName>
+    // Evolution". The neutral Royal fixture ships no brandName, so productName
+    // falls back to "Our Lab" → the tab reads "Our Lab Evolution" (NOT the
+    // Dandy-only "Dandy Evolution").
+    await expect(page.getByRole("button", { name: /^Our Lab Evolution$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Dandy Evolution$/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Before \/ After$/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toHaveCount(0);
   });
 
-  test("server save/publish routes reject the gated built-ins (403) for a non-Dandy tenant", async ({ baseURL }) => {
-    const api = await newAuthedContext({
-      baseURL: baseURL ?? "http://127.0.0.1:4318",
-      sid: tenant.sessionSid,
-    });
-    try {
-      // Custom-template save route gates an explicit gated builtinId.
-      for (const builtinId of ["comparison", "agreement-summary"]) {
-        const res = await api.post("/api/sales/one-pager-templates", {
-          data: { name: `Gated ${builtinId}`, orientation: "portrait", fields: [], builtinId },
-        });
-        expect(res.status(), `POST one-pager-templates builtinId=${builtinId} must be gated`).toBe(403);
-      }
-
-      // Control: a non-gated builtinId is NOT rejected by the gate (it passes
-      // the gate and is handled normally — proving the 403s above are the
-      // Dandy gate, not a blanket permission denial for this tenant).
-      const ungated = await api.post("/api/sales/one-pager-templates", {
-        data: { name: "Neutral ROI", orientation: "portrait", fields: [], builtinId: "roi" },
-      });
-      expect(ungated.status(), "POST one-pager-templates builtinId=roi must NOT be gated").not.toBe(403);
-
-      // The web-one-pager publish route gates a gated `template` id too. The
-      // handler requires dsoName + tenantId before reaching the gate.
-      const web = await api.post("/api/sales/web-one-pager", {
-        data: { dsoName: "Royal Test", tenantId: tenant.tenantId, template: "comparison" },
-      });
-      expect(web.status(), "POST web-one-pager template=comparison must be gated").toBe(403);
-    } finally {
-      await api.dispose();
-    }
-  });
+  // NOTE: the server-side behaviour of the now-dormant gate (the save/publish
+  // routes returning non-403 for the formerly-gated builtinIds) is locked by the
+  // in-process integration test (dandyGatedTemplates.integration.test.ts), so it
+  // is not re-asserted here — this e2e spec focuses on the picker/editor UI.
 });
 
 test.describe("Dandy-gated built-in one-pager templates (Dandy workspace)", () => {
