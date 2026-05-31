@@ -153,6 +153,7 @@ const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 const GeneralPage = lazy(() => import("@/pages/settings/GeneralPage"));
 const DomainPage = lazy(() => import("@/pages/settings/DomainPage"));
 const SeoPage = lazy(() => import("@/pages/settings/SeoPage"));
+const NotificationsPage = lazy(() => import("@/pages/settings/NotificationsPage"));
 const BillingPage = lazy(() => import("@/pages/settings/BillingPage"));
 
 // Superadmin (no auth gate)
@@ -296,6 +297,10 @@ function AppRouter() {
         <Route path="/settings/general">{() => <PermRoute perm="settings" fallback="/"><GeneralPage /></PermRoute>}</Route>
         <Route path="/settings/domain">{() => <PermRoute perm="settings" fallback="/"><DomainPage /></PermRoute>}</Route>
         <Route path="/settings/seo">{() => <PermRoute perm="settings" fallback="/"><SeoPage /></PermRoute>}</Route>
+        {/* Task #587 — personal email preferences. Open to ANY authenticated
+            workspace member: each user manages their OWN lifecycle-email
+            opt-outs, so it is not gated on the admin-ish "settings" perm. */}
+        <Route path="/settings/notifications" component={NotificationsPage} />
         {/* Task #425 — self-serve billing settings. Open to ANY
             authenticated workspace member in read-only mode so teammates
             can see what plan they're on and the renewal date. The

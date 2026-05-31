@@ -13,6 +13,7 @@ import {
   Shield,
   Settings,
   Globe,
+  Bell,
   CreditCard,
   LogOut,
   ChevronDown,
@@ -395,6 +396,17 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* Task #587 — personal email preferences. Shown to every
+                    authenticated member (not perm-gated): each user manages
+                    their own lifecycle-email opt-outs. */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/settings/notifications"}>
+                    <Link href="/settings/notifications" className="font-medium">
+                      <Bell className="w-4 h-4" />
+                      <span>Email preferences</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 {(hasPerm("settings") || user?.isAdmin) && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location === "/settings/seo"}>

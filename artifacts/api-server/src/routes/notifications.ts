@@ -22,6 +22,14 @@ import {
 } from "../lib/emailShell";
 import { renderEmail, expandEmailVars, DEFAULT_EMAIL_SHELL } from "../lib/emailRender";
 import { addStreamClient } from "../lib/notificationStream";
+import {
+  getOptOuts,
+  setOptOut,
+  unsubscribeAllLifecycleEmails,
+  verifyUnsubscribeToken,
+  lifecycleEmailTemplateKeys,
+} from "../lib/notificationPreferences";
+import { getRequestHost } from "../lib/requestHost";
 
 const router: IRouter = Router();
 
@@ -70,6 +78,132 @@ router.get("/notifications/stream", requireAuth, (req, res): void => {
     cleanup();
     res.end();
   });
+});
+
+// ---------------------------------------------------------------------------
+// Email preferences (Task #587)
+//
+// One-click unsubscribe (PUBLIC, no session) + the signed-in user's per-email
+// opt-out toggles. The unsubscribe token is stateless, host-bound and reusable,
+// so it keeps working when an old email is clicked weeks later. Suppression ONLY
+// ever applies to lifecycle-category emails — system/transactional emails (auth,
+// billing) always send and have no working one-click link.
+// ---------------------------------------------------------------------------
+
+/** Branded confirmation/error page for the public unsubscribe route. */
+function unsubPage(heading: string, message: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${heading}</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F6F2E9}
+.box{text-align:center;padding:48px;max-width:440px}h1{color:#1A1815;margin:0 0 12px;font-size:24px;letter-spacing:-0.02em}p{color:#5C5853;line-height:1.6;font-size:15px;margin:0}</style></head>
+<body><div class="box"><h1>${heading}</h1><p>${message}</p></div></body></html>`;
+}
+
+/**
+ * GET /api/notifications/unsubscribe?token=… — one-click unsubscribe from the
+ * lifecycle-email footer. PUBLIC (no session): the recipient clicks straight
+ * from their inbox. Opts the recipient out of ALL lifecycle emails; granular
+ * re-subscribe lives on /settings/notifications. The host the token was minted
+ * for is re-checked against the request host.
+ */
+router.get("/notifications/unsubscribe", async (req, res): Promise<void> => {
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+  // Use the canonical host resolver (honors the CF worker's X-Original-Host and
+  // Replit's X-Forwarded-Host) so a token minted for the tenant's real host
+  // verifies regardless of proxy hops.
+  const host = getRequestHost(req);
+  const claims = token ? verifyUnsubscribeToken(token, host) : null;
+  if (!claims) {
+    res
+      .status(400)
+      .type("html")
+      .send(
+        unsubPage(
+          "Link no longer valid",
+          "This unsubscribe link is invalid or has expired. You can manage your email preferences from Email preferences in your workspace settings.",
+        ),
+      );
+    return;
+  }
+  try {
+    await unsubscribeAllLifecycleEmails(claims.tenantId, claims.appUserId);
+    res
+      .status(200)
+      .type("html")
+      .send(
+        unsubPage(
+          "You've been unsubscribed",
+          "You won't receive any more update emails. You can re-enable them anytime from Email preferences in your workspace settings.",
+        ),
+      );
+  } catch (err) {
+    console.error("[notifications] unsubscribe error:", err);
+    res
+      .status(500)
+      .type("html")
+      .send(
+        unsubPage(
+          "Something went wrong",
+          "We couldn't process your request. Please try again, or manage your preferences from your workspace settings.",
+        ),
+      );
+  }
+});
+
+/**
+ * GET /api/notifications/preferences — the signed-in user's lifecycle email
+ * opt-outs. Scoped to BOTH app_user_id and tenant_id. Returns the manageable
+ * lifecycle email templates plus the keys the user has opted out of.
+ */
+router.get("/notifications/preferences", requireAuth, async (req, res): Promise<void> => {
+  const user = req.authUser!;
+  const tenantId = getTenantId(req, res);
+  if (tenantId == null) return;
+  try {
+    const all = await getNotificationTemplates();
+    const templates = all
+      .filter((t) => t.category === "lifecycle" && t.channels.includes("email"))
+      .map((t) => ({ key: t.key, name: t.name, description: t.description }));
+    const optedOut = (await getOptOuts(tenantId, user.userId))
+      .filter((o) => o.channel === "email")
+      .map((o) => o.templateKey);
+    res.json({ templates, optedOut });
+  } catch (err) {
+    console.error("[notifications] preferences get error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * PATCH /api/notifications/preferences { templateKey, subscribed } — toggle one
+ * lifecycle email for the signed-in user. Only known lifecycle email templates
+ * are accepted (a non-lifecycle/unknown key is rejected so this can never
+ * suppress a system email).
+ */
+router.patch("/notifications/preferences", requireAuth, async (req, res): Promise<void> => {
+  const user = req.authUser!;
+  const tenantId = getTenantId(req, res);
+  if (tenantId == null) return;
+  const b = req.body ?? {};
+  const templateKey = typeof b.templateKey === "string" ? b.templateKey : "";
+  const subscribed = typeof b.subscribed === "boolean" ? b.subscribed : null;
+  if (!templateKey || subscribed === null) {
+    res.status(400).json({ error: "templateKey (string) and subscribed (boolean) are required" });
+    return;
+  }
+  if (!lifecycleEmailTemplateKeys().includes(templateKey)) {
+    res.status(400).json({ error: "Unknown or non-lifecycle template" });
+    return;
+  }
+  try {
+    await setOptOut(tenantId, user.userId, templateKey, "email", !subscribed);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[notifications] preferences patch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /**

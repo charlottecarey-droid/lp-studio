@@ -8,6 +8,7 @@ import {
 } from "./notificationTemplates";
 import { getEmailShell } from "./emailShell";
 import { expandEmailVars, renderEmail } from "./emailRender";
+import { isOptedOut, makeUnsubscribeToken } from "./notificationPreferences";
 
 /**
  * Channel-aware notification dispatcher.
@@ -56,6 +57,8 @@ export interface DispatchResult {
   inAppFailed: number;
   emailsSent: number;
   emailsFailed: number;
+  /** Lifecycle emails skipped because the recipient opted out (Task #587). */
+  emailsSuppressed: number;
   deduped: number;
 }
 
@@ -136,6 +139,34 @@ interface RenderedContent {
   emailSubject: string;
   emailIntro: string;
   emailCtaLabel: string;
+}
+
+/**
+ * Build the one-click, host-bound unsubscribe URL for a lifecycle email's
+ * footer. Returns null for system/transactional emails (never one-click
+ * unsubscribable), recipients with no app_users row, tenantless sends, or when
+ * no workspace URL is available — callers then fall back to the generic
+ * "/settings/notifications" link that `expandEmailVars` supplies.
+ */
+function buildLifecycleUnsubUrl(
+  tpl: NotificationTemplateDef,
+  input: DispatchInput,
+  r: NotificationRecipient,
+  ctx: Record<string, string>,
+): string | null {
+  if (tpl.category !== "lifecycle") return null;
+  if (r.appUserId == null || input.tenantId == null) return null;
+  const workspaceUrl = ctx["workspaceUrl"];
+  if (!workspaceUrl) return null;
+  let host: string;
+  try {
+    host = new URL(workspaceUrl).host;
+  } catch {
+    return null;
+  }
+  if (!host) return null;
+  const token = makeUnsubscribeToken(r.appUserId, input.tenantId, host);
+  return `${workspaceUrl.replace(/\/+$/, "")}/api/notifications/unsubscribe?token=${token}`;
 }
 
 function renderContent(tpl: NotificationTemplateDef, ctx: Record<string, string>): RenderedContent {
@@ -222,6 +253,18 @@ async function dispatchEmail(
   result: DispatchResult,
 ): Promise<void> {
   if (!r.email) return;
+
+  // Per-recipient email opt-out (Task #587). ONLY lifecycle-category emails are
+  // ever suppressed — system/transactional emails (auth, billing) always send
+  // and never consult the preference store. Checked before claiming the dedupe
+  // slot so a suppressed recipient leaves no 'pending' row behind.
+  if (tpl.category === "lifecycle" && r.appUserId != null && input.tenantId != null) {
+    if (await isOptedOut(input.tenantId, r.appUserId, input.templateKey, "email")) {
+      result.emailsSuppressed += 1;
+      return;
+    }
+  }
+
   const dedupeKey = `${input.dedupeBase}:${rk}`;
   const ctaUrl = ctx["billingUrl"] ?? ctx["workspaceUrl"] ?? null;
 
@@ -263,6 +306,7 @@ async function dispatchEmail(
   try {
     const shell = await getEmailShell();
     const firstName = (r.name ?? "").trim().split(/\s+/)[0] ?? "";
+    const unsubscribeUrl = buildLifecycleUnsubUrl(tpl, input, r, ctx);
     const html = renderEmail({
       shell,
       bodyHtml: tpl.bodyHtml,
@@ -275,6 +319,9 @@ async function dispatchEmail(
         subject: content.emailSubject,
         preheaderText: content.emailIntro,
         ctaUrl: ctaUrl ?? "",
+        // Tokenized one-click link for lifecycle emails; falls back to the
+        // generic settings-page link in expandEmailVars when null.
+        ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
       }),
     });
     await sendEmail(r.email, content.emailSubject, html);
@@ -303,6 +350,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<Dispat
     inAppFailed: 0,
     emailsSent: 0,
     emailsFailed: 0,
+    emailsSuppressed: 0,
     deduped: 0,
   };
 
