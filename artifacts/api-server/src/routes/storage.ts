@@ -885,6 +885,15 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
 
+    // These objects are public brand/microsite assets meant to be embedded
+    // cross-origin: in published microsites, in tenant notification emails,
+    // and in the email-shell preview (rendered in a `sandbox=""` iframe whose
+    // opaque origin makes every fetch cross-origin). Helmet's app-wide default
+    // of `Cross-Origin-Resource-Policy: same-origin` would block those embeds
+    // (e.g. an uploaded logo shows a broken-image icon in the preview), so
+    // relax CORP to `cross-origin` for this public serve path only.
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
     if (response.body) {
       const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
       nodeStream.pipe(res);

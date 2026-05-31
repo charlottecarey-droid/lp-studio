@@ -278,6 +278,60 @@ describe("tenant email-template editor API", () => {
     expect((patch.json as { overrides: { headerBg: string } }).overrides.headerBg).toBe("#abcdef");
   });
 
+  it("persists a mailing address, injects it into the footer, and omits cleanly when blank", async () => {
+    const address = "123 Market St, Suite 400, San Francisco, CA 94103";
+
+    // PATCH persists physicalAddress and the GET round-trips it.
+    const patch = await injectSid({
+      method: "PATCH",
+      url: "/api/tenant/email-shell",
+      sid: ADMIN_SID,
+      body: { physicalAddress: address },
+    });
+    expect(patch.status).toBe(200);
+    expect((patch.json as { overrides: { physicalAddress: string } }).overrides.physicalAddress).toBe(address);
+
+    const get = await injectSid({ method: "GET", url: "/api/tenant/email-shell", sid: ADMIN_SID });
+    expect((get.json as { overrides: { physicalAddress: string } }).overrides.physicalAddress).toBe(address);
+
+    // The rendered preview injects the saved address into the footer.
+    const previewSaved = await injectSid({
+      method: "POST",
+      url: "/api/tenant/email-shell/preview",
+      sid: ADMIN_SID,
+      body: {},
+    });
+    expect(previewSaved.status).toBe(200);
+    const savedHtml = (previewSaved.json as { html: string }).html;
+    expect(savedHtml).toContain(address);
+    expect(savedHtml).not.toContain("{{physicalAddress}}");
+    expect(savedHtml).not.toContain("undefined");
+
+    // An unsaved blank draft address omits cleanly — no token leak, no
+    // "undefined", and no orphaned address line.
+    const previewBlank = await injectSid({
+      method: "POST",
+      url: "/api/tenant/email-shell/preview",
+      sid: ADMIN_SID,
+      body: { physicalAddress: "" },
+    });
+    expect(previewBlank.status).toBe(200);
+    const blankHtml = (previewBlank.json as { html: string }).html;
+    expect(blankHtml).not.toContain(address);
+    expect(blankHtml).not.toContain("{{physicalAddress}}");
+    expect(blankHtml).not.toContain("undefined");
+
+    // Clearing the saved address via PATCH stores the empty value.
+    const clear = await injectSid({
+      method: "PATCH",
+      url: "/api/tenant/email-shell",
+      sid: ADMIN_SID,
+      body: { physicalAddress: "" },
+    });
+    expect(clear.status).toBe(200);
+    expect((clear.json as { overrides: { physicalAddress: string } }).overrides.physicalAddress).toBe("");
+  });
+
   it.skipIf(HAS_RESEND)("test-send audit is metadata-only (no recipient PII)", async () => {
     const override = `it-tenem-recip-${Date.now()}@example.com`;
     const res = await injectSid({

@@ -45,8 +45,15 @@ export async function renderTenantEmail(
   const body = (tpl.bodyHtml ?? "").trim();
   if (!body) return null;
 
-  const expanded = expandEmailVars(input.vars);
-  const { shell, source } = await resolveTenantShell(input.tenantId);
+  const { shell, source, physicalAddress } = await resolveTenantShell(input.tenantId);
+  // Inject the tenant's saved postal address into the `{{physicalAddress}}` footer
+  // token unless the caller explicitly supplied one. expandEmailVars then defaults
+  // any still-missing value to "" so an unset address omits the footer line cleanly.
+  const withAddress =
+    input.vars.physicalAddress === undefined && physicalAddress
+      ? { ...input.vars, physicalAddress }
+      : input.vars;
+  const expanded = expandEmailVars(withAddress);
   const html = renderEmail({
     shell,
     bodyHtml: tpl.bodyHtml,

@@ -386,6 +386,38 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the tenant_email_shells.physical_address column.
+    // Same high-water-mark hazard as the notifications/workflow_send_failures
+    // self-heals above: on a drifted DB whose drizzle.__drizzle_migrations max
+    // created_at already sits ABOVE 0052's journal `when`, the node-postgres
+    // migrator records nothing and never runs 0052's DDL, leaving the column
+    // missing. Every tenant email footer injects {{physicalAddress}} and the
+    // shell resolver SELECTs physical_address, so a missing column 500s the
+    // whole tenant email-shell editor + breaks sends. Re-applying the file here
+    // is independent of drizzle's dedup and idempotent (ADD COLUMN IF NOT
+    // EXISTS), so it adds the column where missing and is a no-op elsewhere. The
+    // .sql stays the single source of truth. Fails CLOSED: the column is
+    // feature-critical, so any error aborts the release; a retry is always safe.
+    await runStep("tenant_email_shells physical_address self-heal (0054)", async () => {
+      const physicalAddressSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0054_tenant_email_shells_physical_address.sql"),
+        "utf8",
+      );
+      await pool.query(physicalAddressSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'tenant_email_shells'
+            AND column_name = 'physical_address'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "tenant_email_shells physical_address self-heal did not produce the column — aborting release",
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

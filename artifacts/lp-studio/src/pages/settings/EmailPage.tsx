@@ -254,6 +254,7 @@ interface ShellFields {
   logoHtml: string | null;
   headerBg: string | null;
   footerHtml: string | null;
+  physicalAddress: string | null;
 }
 
 function ShellEditor() {
@@ -279,6 +280,7 @@ function ShellEditor() {
         logoHtml: data.overrides.logoHtml ?? null,
         headerBg: data.overrides.headerBg ?? null,
         footerHtml: data.overrides.footerHtml ?? null,
+        physicalAddress: data.overrides.physicalAddress ?? null,
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load shell");
@@ -333,6 +335,7 @@ function ShellEditor() {
           logoHtml: draft.logoHtml ?? undefined,
           headerBg: draft.headerBg ?? undefined,
           footerHtml: draft.footerHtml ?? undefined,
+          physicalAddress: draft.physicalAddress ?? "",
         }),
       });
       setPreviewHtml(data.html as string);
@@ -396,6 +399,23 @@ function ShellEditor() {
       </div>
 
       <div className="space-y-3 rounded-lg border bg-card p-3">
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[11px] font-medium">Mailing address</span>
+          </div>
+          <Textarea
+            value={field("physicalAddress")}
+            onChange={(e) => setField("physicalAddress", e.target.value)}
+            rows={2}
+            placeholder="123 Market St, Suite 400, San Francisco, CA 94103"
+            className="text-xs"
+            spellCheck={false}
+          />
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Your business postal address, shown in the footer of every email for
+            CAN-SPAM compliance. Leave blank to omit the address line.
+          </p>
+        </div>
         {renderField(
           "headerBg",
           "Header background",

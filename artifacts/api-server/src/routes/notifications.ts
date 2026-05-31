@@ -1321,6 +1321,20 @@ router.post(
 // getTenantId already enforces.
 // ---------------------------------------------------------------------------
 
+/**
+ * Pick the `{{physicalAddress}}` value a tenant preview/test-send should show.
+ * An explicit preview-data override wins (so the editor can experiment); otherwise
+ * the tenant's REAL saved address is used so the preview matches a live send. An
+ * unset saved address resolves to "" → the footer omits the line cleanly.
+ */
+function addressForPreview(previewData: unknown, savedAddress: string): string {
+  if (previewData && typeof previewData === "object" && !Array.isArray(previewData)) {
+    const v = (previewData as Record<string, unknown>)["physicalAddress"];
+    if (v !== null && v !== undefined) return String(v);
+  }
+  return savedAddress;
+}
+
 /** Sample substitution map for tenant preview / test-send, with overrides. */
 function buildTenantPreviewVars(overrides?: unknown): Record<string, string> {
   const base = buildSampleVars(TENANT_NOTIFICATION_VARIABLES);
@@ -1559,10 +1573,14 @@ router.post(
     const b = req.body ?? {};
     try {
       const tpl = await getTenantNotificationTemplate(tenantId, key);
-      const { shell } = await resolveTenantShell(tenantId);
+      const { shell, physicalAddress } = await resolveTenantShell(tenantId);
       const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
       const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
-      const vars = buildTenantPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      const previewData = { ...tpl.previewData, ...(b.previewData as object) };
+      const vars = buildTenantPreviewVars(previewData);
+      // Reflect the tenant's REAL saved address in the preview footer (so what the
+      // admin sees matches what recipients get), unless preview data overrode it.
+      vars["physicalAddress"] = addressForPreview(previewData, physicalAddress);
       vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
       const html = renderEmail({
         shell,
@@ -1612,10 +1630,12 @@ router.post(
     }
     try {
       const tpl = await getTenantNotificationTemplate(tenantId, key);
-      const { shell } = await resolveTenantShell(tenantId);
+      const { shell, physicalAddress } = await resolveTenantShell(tenantId);
       const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
       const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
-      const vars = buildTenantPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      const previewData = { ...tpl.previewData, ...(b.previewData as object) };
+      const vars = buildTenantPreviewVars(previewData);
+      vars["physicalAddress"] = addressForPreview(previewData, physicalAddress);
       vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
       const html = renderEmail({
         shell,
@@ -1688,21 +1708,23 @@ router.patch(
     const has = (f: string): boolean => Object.prototype.hasOwnProperty.call(b, f);
     try {
       await pool.query(
-        `INSERT INTO tenant_email_shells (tenant_id, shell_html, logo_html, header_bg, footer_html, updated_at, updated_by)
-         VALUES ($1,$2,$3,$4,$5, now(), $6)
+        `INSERT INTO tenant_email_shells (tenant_id, shell_html, logo_html, header_bg, footer_html, physical_address, updated_at, updated_by)
+         VALUES ($1,$2,$3,$4,$5,$6, now(), $7)
          ON CONFLICT (tenant_id) DO UPDATE SET
-           shell_html  = $2,
-           logo_html   = $3,
-           header_bg   = $4,
-           footer_html = $5,
-           updated_at  = now(),
-           updated_by  = $6`,
+           shell_html       = $2,
+           logo_html        = $3,
+           header_bg        = $4,
+           footer_html      = $5,
+           physical_address = $6,
+           updated_at       = now(),
+           updated_by       = $7`,
         [
           tenantId,
           longStr(b.shellHtml),
           longStr(b.logoHtml),
           shortStr(b.headerBg),
           longStr(b.footerHtml),
+          shortStr(b.physicalAddress),
           editorEmail,
         ],
       );
@@ -1712,7 +1734,9 @@ router.patch(
         targetKey: `tenant:${tenantId}`,
         editorEmail,
         action: "update",
-        diff: { fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml"].filter(has) },
+        diff: {
+          fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml", "physicalAddress"].filter(has),
+        },
       });
       const { overrides, derived } = await getTenantEmailShellOverrides(tenantId);
       res.json({ overrides, defaults: derived });
@@ -1733,7 +1757,7 @@ router.post(
     if (tenantId == null) return;
     const b = req.body ?? {};
     try {
-      const { derived } = await getTenantEmailShellOverrides(tenantId);
+      const { overrides, derived } = await getTenantEmailShellOverrides(tenantId);
       const shell = {
         shellHtml: typeof b.shellHtml === "string" ? b.shellHtml : derived.shellHtml,
         logoHtml: typeof b.logoHtml === "string" ? b.logoHtml : derived.logoHtml,
@@ -1742,6 +1766,13 @@ router.post(
       };
       const sampleTpl = TENANT_NOTIFICATION_TEMPLATES["lead_notification"];
       const vars = buildTenantPreviewVars();
+      // Reflect the (possibly unsaved draft) address so the editor sees the real
+      // footer; blank string is honored (shows clean omission), falling back to
+      // the saved override only when the draft field is absent entirely.
+      vars["physicalAddress"] =
+        typeof b.physicalAddress === "string"
+          ? b.physicalAddress.trim()
+          : (overrides.physicalAddress ?? "");
       const html = renderEmail({
         shell,
         bodyHtml: sampleTpl?.bodyHtml ?? "<p>Sample email body</p>",

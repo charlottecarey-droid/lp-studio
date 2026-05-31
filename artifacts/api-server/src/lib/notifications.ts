@@ -37,15 +37,22 @@ async function renderSystemEmail(
     if (!tpl || !tpl.enabled) return null;
     const body = (tpl.bodyHtml ?? "").trim();
     if (!body) return null;
-    const expanded = expandEmailVars(vars);
     // Brandable account emails (payment_failed, slug_redirect_expiry) co-brand
     // with the tenant's own logo when a tenantId is supplied; auth/trust emails
     // (magic link, reset, verify, invite) pass no tenantId and stay LP Studio.
-    const { shell } = await resolveEmailShellForEmail({
+    const { shell, physicalAddress } = await resolveEmailShellForEmail({
       key,
       tenantId,
       wrapInShell: tpl.wrapInShell,
     });
+    // Inject the tenant's saved postal address into the `{{physicalAddress}}`
+    // footer token unless explicitly provided; expandEmailVars defaults missing
+    // values to "" so an unset address omits the line cleanly.
+    const expanded = expandEmailVars(
+      vars.physicalAddress === undefined && physicalAddress
+        ? { ...vars, physicalAddress }
+        : vars,
+    );
     const html = renderEmail({
       shell,
       bodyHtml: tpl.bodyHtml,

@@ -108,7 +108,11 @@ function buildBrandLogoHtml(brand: TenantBrandForEmail): string {
 function buildTenantFooterHtml(brand: TenantBrandForEmail): string {
   const name = (brand.brandName ?? "").trim();
   const copyright = (brand.copyrightName ?? "").trim() || name || "All rights reserved";
-  const addressLead = name ? `${escapeHtml(name)} &middot; ` : "";
+  // The postal address sits on its own line carrying ONLY the {{physicalAddress}}
+  // token (no baked name/separator). When the tenant has set no address the token
+  // resolves to "" and the paragraph collapses to nothing — no stray "·" lead and
+  // no literal "undefined". The org name still appears in the copyright line, so
+  // dropping it from the address line costs no sender identity.
   return `<table role="presentation" class="container" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;background:#F6F2E9;">
           <tr>
             <td class="px-pad" style="padding:48px 56px 0 56px;">
@@ -120,10 +124,8 @@ function buildTenantFooterHtml(brand: TenantBrandForEmail): string {
               <p style="margin:0 0 8px 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#8B857C;">
                 <a href="{{unsubscribeUrl}}" style="color:#5C5853;text-decoration:underline;">Manage email preferences</a>
               </p>
-              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">
-                ${addressLead}{{physicalAddress}}<br>
-                &copy; {{currentYear}} ${escapeHtml(copyright)}.
-              </p>
+              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">{{physicalAddress}}</p>
+              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">&copy; {{currentYear}} ${escapeHtml(copyright)}.</p>
             </td>
           </tr>
         </table>`;
@@ -160,6 +162,7 @@ interface TenantShellRow {
   logo_html: string | null;
   header_bg: string | null;
   footer_html: string | null;
+  physical_address: string | null;
 }
 
 /** Raw override row for the editor (nulls preserved). */
@@ -168,12 +171,23 @@ export interface TenantEmailShellOverrides {
   logoHtml: string | null;
   headerBg: string | null;
   footerHtml: string | null;
+  /** Per-tenant CAN-SPAM postal address (null/"" = no address line). */
+  physicalAddress: string | null;
+}
+
+/** Resolved shell plus the tenant's saved postal address (for the footer token). */
+export interface ResolvedTenantShell {
+  shell: EmailShell;
+  source: TenantShellSource;
+  /** The tenant's saved `{{physicalAddress}}` value ("" when unset). */
+  physicalAddress: string;
 }
 
 const CACHE_TTL_MS = 60_000;
 interface ShellCacheEntry {
   shell: EmailShell;
   source: TenantShellSource;
+  physicalAddress: string;
   expiresAt: number;
 }
 const cache = new Map<number, ShellCacheEntry>();
@@ -181,11 +195,11 @@ let generation = 0;
 
 async function loadShell(
   tenantId: number,
-): Promise<{ shell: EmailShell; source: TenantShellSource }> {
+): Promise<ResolvedTenantShell> {
   try {
     const [shellRes, brand] = await Promise.all([
       pool.query<TenantShellRow>(
-        `SELECT shell_html, logo_html, header_bg, footer_html
+        `SELECT shell_html, logo_html, header_bg, footer_html, physical_address
            FROM tenant_email_shells WHERE tenant_id = $1`,
         [tenantId],
       ),
@@ -203,31 +217,36 @@ async function loadShell(
           footerHtml: row.footer_html ?? derived.footerHtml,
         },
         source: "tenant",
+        physicalAddress: (row.physical_address ?? "").trim(),
       };
     }
-    return { shell: derived, source: "brand" };
+    return { shell: derived, source: "brand", physicalAddress: "" };
   } catch (err) {
     console.error(
       "[tenantEmailShell] resolve failed, using platform default:",
       err,
     );
-    return { shell: { ...DEFAULT_EMAIL_SHELL }, source: "platform" };
+    return { shell: { ...DEFAULT_EMAIL_SHELL }, source: "platform", physicalAddress: "" };
   }
 }
 
-/** Resolved tenant shell (cached 60s per tenant), with its provenance label. */
+/** Resolved tenant shell (cached 60s per tenant), with its provenance label and
+ *  the tenant's saved postal address for the `{{physicalAddress}}` footer token. */
 export async function resolveTenantShell(
   tenantId: number,
-): Promise<{ shell: EmailShell; source: TenantShellSource }> {
+): Promise<ResolvedTenantShell> {
   const now = Date.now();
   const hit = cache.get(tenantId);
-  if (hit && now < hit.expiresAt) return { shell: hit.shell, source: hit.source };
+  if (hit && now < hit.expiresAt) {
+    return { shell: hit.shell, source: hit.source, physicalAddress: hit.physicalAddress };
+  }
   const myGeneration = generation;
   const loaded = await loadShell(tenantId);
   if (myGeneration === generation) {
     cache.set(tenantId, {
       shell: loaded.shell,
       source: loaded.source,
+      physicalAddress: loaded.physicalAddress,
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
   }
@@ -243,7 +262,7 @@ export async function getTenantEmailShellOverrides(
   const derived = buildBrandDerivedShell(brand);
   try {
     const r = await pool.query<TenantShellRow>(
-      `SELECT shell_html, logo_html, header_bg, footer_html
+      `SELECT shell_html, logo_html, header_bg, footer_html, physical_address
          FROM tenant_email_shells WHERE tenant_id = $1`,
       [tenantId],
     );
@@ -254,13 +273,20 @@ export async function getTenantEmailShellOverrides(
         logoHtml: row?.logo_html ?? null,
         headerBg: row?.header_bg ?? null,
         footerHtml: row?.footer_html ?? null,
+        physicalAddress: row?.physical_address ?? null,
       },
       derived,
     };
   } catch (err) {
     console.error("[tenantEmailShell] overrides load failed:", err);
     return {
-      overrides: { shellHtml: null, logoHtml: null, headerBg: null, footerHtml: null },
+      overrides: {
+        shellHtml: null,
+        logoHtml: null,
+        headerBg: null,
+        footerHtml: null,
+        physicalAddress: null,
+      },
       derived,
     };
   }
@@ -336,7 +362,7 @@ export async function resolveEmailShellForEmail(opts: {
   key: string;
   tenantId: number | null | undefined;
   wrapInShell: boolean;
-}): Promise<{ shell: EmailShell; source: TenantShellSource }> {
+}): Promise<ResolvedTenantShell> {
   if (
     opts.wrapInShell &&
     opts.tenantId != null &&
@@ -345,5 +371,7 @@ export async function resolveEmailShellForEmail(opts: {
     return resolveTenantShell(opts.tenantId);
   }
   const shell = await getEmailShell();
-  return { shell, source: "platform" };
+  // Platform shell carries its own baked LP Studio address; nothing tenant-scoped
+  // to inject here, so the address token resolves via expandEmailVars' default.
+  return { shell, source: "platform", physicalAddress: "" };
 }

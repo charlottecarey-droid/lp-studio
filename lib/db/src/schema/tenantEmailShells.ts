@@ -18,6 +18,10 @@ export const tenantEmailShellsTable = pgTable("tenant_email_shells", {
   logoHtml: text("logo_html"),
   headerBg: text("header_bg"),
   footerHtml: text("footer_html"),
+  // Per-tenant CAN-SPAM postal address injected into the `{{physicalAddress}}`
+  // footer token of every tenant email. NULL/empty = the footer omits the
+  // address line cleanly (no stray separators).
+  physicalAddress: text("physical_address"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   updatedBy: text("updated_by"),
 });

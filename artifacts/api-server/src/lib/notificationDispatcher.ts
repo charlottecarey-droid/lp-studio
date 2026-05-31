@@ -369,7 +369,7 @@ async function dispatchEmail(
     // with the tenant's own logo via the brand-derived shell; everything else
     // (and any non-brandable key) renders in the platform LP Studio shell.
     // Resolves to the platform shell on any DB error, so a send never breaks.
-    const { shell, source: shellSource } = await resolveEmailShellForEmail({
+    const { shell, source: shellSource, physicalAddress } = await resolveEmailShellForEmail({
       key: input.templateKey,
       tenantId: input.tenantId,
       wrapInShell: tpl.wrapInShell,
@@ -394,6 +394,11 @@ async function dispatchEmail(
         // Tokenized one-click link for lifecycle emails; falls back to the
         // generic settings-page link in expandEmailVars when null.
         ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
+        // Co-branded (brandable) emails carry the tenant's own postal address in
+        // the footer; non-brandable keys resolve "" → expandEmailVars default.
+        ...(ctx["physicalAddress"] === undefined && physicalAddress
+          ? { physicalAddress }
+          : {}),
       }),
     });
     await sendEmail(r.email, content.emailSubject, html, {
