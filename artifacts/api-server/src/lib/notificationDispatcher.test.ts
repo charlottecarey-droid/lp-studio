@@ -19,6 +19,17 @@ vi.mock("./notificationStream", () => ({
   publishInAppNotification: (...args: unknown[]) => publishMock(...args),
 }));
 
+// Mock the shell accessor so the email path does not issue an extra pool.query
+// (these tests assert exact query call counts). renderEmail itself is pure.
+vi.mock("./emailShell", () => ({
+  getEmailShell: async () => ({
+    shellHtml: "<html><body>{{headline}}{{body}}{{logoHtml}}{{footerHtml}}</body></html>",
+    logoHtml: "LP",
+    headerBg: "#003A30",
+    footerHtml: "footer",
+  }),
+}));
+
 import { dispatchNotification } from "./notificationDispatcher";
 
 const baseTpl: NotificationTemplateDef = {
@@ -32,6 +43,10 @@ const baseTpl: NotificationTemplateDef = {
   emailCtaLabel: "Go",
   inAppTitle: "Title {{tenantName}}",
   inAppBody: "Body {{daysRemaining}}",
+  bodyHtml: "<p>Intro {{daysRemaining}}</p><a href=\"{{ctaUrl}}\">Go</a>",
+  bodyMode: "wysiwyg",
+  wrapInShell: true,
+  previewData: {},
   enabled: true,
 };
 

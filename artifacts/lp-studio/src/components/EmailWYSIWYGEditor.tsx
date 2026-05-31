@@ -59,10 +59,23 @@ export interface EmailEditorHandle {
   isEmpty: () => boolean;
 }
 
+interface MergeVar {
+  label: string;
+  variable: string;
+}
+
 interface EmailWYSIWYGEditorProps {
   initialContent?: string;
   onChange?: (html: string) => void;
-  dandyBannerUrl: string;
+  /** Dandy banner image URL for the campaign banner button (campaign use only). */
+  dandyBannerUrl?: string;
+  /** Merge-variable chips to offer. Defaults to the Dandy campaign variables. */
+  mergeVars?: MergeVar[];
+  /**
+   * Show the Dandy campaign-specific tools (microsite link, 2-col, banner,
+   * signature). Off for the platform email editor.
+   */
+  showCampaignTools?: boolean;
 }
 
 /* ── Toolbar Button ── */
@@ -315,7 +328,16 @@ const fromEmailHTML = (html: string): string => {
 
 /* ── Main Editor Component ── */
 const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps>(
-  ({ initialContent = "", onChange, dandyBannerUrl }, ref) => {
+  (
+    {
+      initialContent = "",
+      onChange,
+      dandyBannerUrl = "",
+      mergeVars = MERGE_VARS,
+      showCampaignTools = true,
+    },
+    ref,
+  ) => {
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -529,47 +551,51 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
 
               <div className="w-px h-5 bg-border mx-1" />
 
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={insertMicrositeLink}
-                title="Insert Microsite Link"
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <Globe className="w-3.5 h-3.5" /> Microsite
-              </button>
-
               <ImagePopover editor={editor} dandyBannerUrl={dandyBannerUrl} />
 
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={insert2Col}
-                title="Insert 2-Column Block"
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <Columns className="w-3.5 h-3.5" /> 2-Col
-              </button>
+              {showCampaignTools && (
+                <>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={insertMicrositeLink}
+                    title="Insert Microsite Link"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <Globe className="w-3.5 h-3.5" /> Microsite
+                  </button>
 
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={insertDandyBanner}
-                title="Insert Dandy Banner"
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <FileText className="w-3.5 h-3.5" /> Banner
-              </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={insert2Col}
+                    title="Insert 2-Column Block"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <Columns className="w-3.5 h-3.5" /> 2-Col
+                  </button>
 
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={insertSignature}
-                title="Insert Signature Block"
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                ✍️ Signature
-              </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={insertDandyBanner}
+                    title="Insert Dandy Banner"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Banner
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={insertSignature}
+                    title="Insert Signature Block"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    ✍️ Signature
+                  </button>
+                </>
+              )}
             </>
           )}
 
@@ -594,7 +620,7 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide mr-1">
               Merge:
             </span>
-            {MERGE_VARS.map((mv) => (
+            {mergeVars.map((mv) => (
               <button
                 key={mv.variable}
                 type="button"

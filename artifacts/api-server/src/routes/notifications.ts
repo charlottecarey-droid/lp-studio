@@ -1,13 +1,26 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { pool } from "@workspace/db";
-import { requireAuth, getTenantId } from "../middleware/requireAuth";
+import {
+  PLATFORM_NOTIFICATION_VARIABLES,
+  buildSampleVars,
+} from "@workspace/notification-variables";
+import { requireAuth, getTenantId, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import {
   getNotificationTemplates,
+  getNotificationTemplate,
   bustNotificationTemplateCache,
   NOTIFICATION_TEMPLATES,
   type NotificationChannel,
 } from "../lib/notificationTemplates";
+import {
+  getEmailShell,
+  getEmailShellOverrides,
+  bustEmailShellCache,
+  EMAIL_SHELL_ID,
+} from "../lib/emailShell";
+import { renderEmail, DEFAULT_EMAIL_SHELL } from "../lib/emailRender";
 import { addStreamClient } from "../lib/notificationStream";
 
 const router: IRouter = Router();
@@ -160,27 +173,129 @@ router.post("/notifications/mark-all-read", requireAuth, async (req, res): Promi
 });
 
 // ---------------------------------------------------------------------------
-// SuperAdmin template management (v1). Mounted before adminRouter in
-// routes/index.ts so these /admin paths resolve before adminRouter's blanket
-// requireAuth wildcard can swallow them (same reason blockCatalog is).
+// SuperAdmin email authoring. Mounted before adminRouter in routes/index.ts so
+// these /admin paths resolve before adminRouter's blanket requireAuth wildcard
+// can swallow them (same reason blockCatalog is).
+//
+// Every editor route is gated by requireSuperadmin (identity-based, 403 on a
+// non-superadmin). Edits / resets / test-sends are appended to
+// `email_template_edit_log` for attribution. The render pipeline (renderEmail +
+// the shared shell) is the SAME one production sends use, so preview and
+// test-send are faithful.
 // ---------------------------------------------------------------------------
 
-/** GET /api/admin/notification-templates — list templates (code defaults merged with DB overrides). */
+const VALID_CHANNELS: NotificationChannel[] = ["email", "in_app"];
+// Short fields (subject/intro/labels) vs. long fields (free-form body / raw
+// shell HTML) get different caps so a real HTML body isn't silently truncated.
+const SHORT_MAX = 5000;
+const LONG_MAX = 200_000;
+
+const shortStr = (v: unknown): string | null =>
+  v === undefined || v === null ? null : String(v).slice(0, SHORT_MAX);
+const longStr = (v: unknown): string | null =>
+  v === undefined || v === null ? null : String(v).slice(0, LONG_MAX);
+
+/** Plain `{{key}}` substitution (NOT escaped) — for subject lines / logging. */
+function substitutePlain(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k: string) =>
+    Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : "",
+  );
+}
+
+/** Sample substitution map for preview / test-send, with caller overrides. */
+function buildPreviewVars(overrides?: unknown): Record<string, string> {
+  const base = buildSampleVars(PLATFORM_NOTIFICATION_VARIABLES);
+  if (overrides && typeof overrides === "object" && !Array.isArray(overrides)) {
+    for (const [k, v] of Object.entries(overrides as Record<string, unknown>)) {
+      if (v === null || v === undefined) continue;
+      base[k] = String(v);
+    }
+  }
+  return base;
+}
+
+/** Append an audit row. Best-effort: a logging failure must not fail the edit. */
+async function writeEditLog(opts: {
+  targetType: "template" | "shell";
+  targetKey: string;
+  editorEmail: string | null;
+  action: "update" | "reset" | "test_send";
+  diff: unknown;
+}): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO email_template_edit_log (target_type, target_key, editor_email, action, diff)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [opts.targetType, opts.targetKey, opts.editorEmail, opts.action, JSON.stringify(opts.diff ?? {})],
+    );
+  } catch (err) {
+    console.error("[notifications] edit-log write failed:", err);
+  }
+}
+
+/** Test-send cap: 10 per hour per superadmin (cost + abuse guard). */
+const testSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req: Request): string => {
+    const u = (req as Request & { authUser?: AuthUser }).authUser;
+    if (u?.userId != null) return `u:${u.userId}`;
+    return `ip:${ipKeyGenerator(req.ip ?? "unknown", 56)}`;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Test-send rate limit reached (10 per hour). Wait a bit and try again.",
+    code: "rate_limited",
+  },
+});
+
+async function sendViaResend(to: string, subject: string, html: string): Promise<void> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) throw new Error("RESEND_API_KEY not configured");
+  const from = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to, subject, html }),
+  });
+  if (!res.ok) {
+    throw new Error(`Resend ${res.status}: ${await res.text().catch(() => "")}`);
+  }
+}
+
+// --- Templates -------------------------------------------------------------
+
+/** GET /api/admin/notification-templates — list (code defaults merged with DB overrides). */
 router.get("/admin/notification-templates", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const templates = await getNotificationTemplates();
-    res.json({ templates });
+    res.json({ templates, variables: PLATFORM_NOTIFICATION_VARIABLES });
   } catch (err) {
     console.error("[notifications] template list error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-const VALID_CHANNELS: NotificationChannel[] = ["email", "in_app"];
+/** GET /api/admin/notification-templates/:key — one resolved template. */
+router.get("/admin/notification-templates/:key", requireSuperadmin, async (req, res): Promise<void> => {
+  const key = String(req.params.key);
+  try {
+    const tpl = await getNotificationTemplate(key);
+    if (!tpl) {
+      res.status(404).json({ error: "Unknown template" });
+      return;
+    }
+    res.json({ template: tpl, variables: PLATFORM_NOTIFICATION_VARIABLES });
+  } catch (err) {
+    console.error("[notifications] template get error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 /**
  * PATCH /api/admin/notification-templates/:key — upsert an override row.
- * Only the editable fields are accepted; `key`/`category` are code-owned.
+ * Only editable fields are accepted; `key`/`category` are code-owned.
  */
 router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req, res): Promise<void> => {
   const key = String(req.params.key);
@@ -191,9 +306,9 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
   }
   const b = req.body ?? {};
 
-  // Validate channels if provided: subset of valid channels, must be a subset
-  // of the code template's declared channels (can't invent an email channel for
-  // an in-app-only template like welcome).
+  // Validate channels if provided: subset of valid channels AND of the code
+  // template's declared channels (can't invent an email channel for an
+  // in-app-only template like welcome).
   let channels: NotificationChannel[] | undefined;
   if (b.channels !== undefined) {
     if (!Array.isArray(b.channels)) {
@@ -206,15 +321,23 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
     channels = Array.from(new Set<NotificationChannel>(filtered)).filter((c) => def.channels.includes(c));
   }
 
-  const str = (v: unknown): string | null =>
-    v === undefined || v === null ? null : String(v).slice(0, 5000);
+  const bodyMode =
+    b.bodyMode === "html" ? "html" : b.bodyMode === "wysiwyg" ? "wysiwyg" : null;
+  const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : null;
+  const previewData =
+    b.previewData && typeof b.previewData === "object" && !Array.isArray(b.previewData)
+      ? JSON.stringify(b.previewData)
+      : null;
+
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
 
   try {
     await pool.query(
       `INSERT INTO notification_templates
          (key, name, description, category, channels,
-          email_subject, email_intro, email_cta_label, in_app_title, in_app_body, enabled, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
+          email_subject, email_intro, email_cta_label, in_app_title, in_app_body,
+          body_html, body_mode, wrap_in_shell, preview_data, enabled, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now())
        ON CONFLICT (key) DO UPDATE SET
          channels        = COALESCE($5, notification_templates.channels),
          email_subject   = $6,
@@ -222,7 +345,11 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
          email_cta_label = $8,
          in_app_title    = $9,
          in_app_body     = $10,
-         enabled         = $11,
+         body_html       = $11,
+         body_mode       = $12,
+         wrap_in_shell   = $13,
+         preview_data    = $14::jsonb,
+         enabled         = $15,
          updated_at      = now()`,
       [
         key,
@@ -230,19 +357,216 @@ router.patch("/admin/notification-templates/:key", requireSuperadmin, async (req
         def.description,
         def.category,
         channels ? JSON.stringify(channels) : JSON.stringify(def.channels),
-        str(b.emailSubject),
-        str(b.emailIntro),
-        str(b.emailCtaLabel),
-        str(b.inAppTitle),
-        str(b.inAppBody),
+        shortStr(b.emailSubject),
+        shortStr(b.emailIntro),
+        shortStr(b.emailCtaLabel),
+        shortStr(b.inAppTitle),
+        shortStr(b.inAppBody),
+        longStr(b.bodyHtml),
+        bodyMode,
+        wrapInShell,
+        previewData,
         typeof b.enabled === "boolean" ? b.enabled : def.enabled,
       ],
     );
     bustNotificationTemplateCache();
+    await writeEditLog({
+      targetType: "template",
+      targetKey: key,
+      editorEmail,
+      action: "update",
+      diff: {
+        fields: Object.keys(b).filter((f) => f !== "key" && f !== "category"),
+      },
+    });
     const templates = await getNotificationTemplates();
     res.json({ templates });
   } catch (err) {
     console.error("[notifications] template patch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/admin/notification-templates/:key/preview — render the (possibly
+ * unsaved) body through the live shell with sample data. Returns the full HTML.
+ */
+router.post("/admin/notification-templates/:key/preview", requireSuperadmin, async (req, res): Promise<void> => {
+  const key = String(req.params.key);
+  const b = req.body ?? {};
+  try {
+    const tpl = await getNotificationTemplate(key);
+    if (!tpl) {
+      res.status(404).json({ error: "Unknown template" });
+      return;
+    }
+    const shell = await getEmailShell();
+    const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
+    const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
+    const vars = buildPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+    const html = renderEmail({ shell, bodyHtml, wrapInShell, vars });
+    const subject = substitutePlain(
+      typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
+      vars,
+    );
+    res.json({ html, subject });
+  } catch (err) {
+    console.error("[notifications] template preview error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/admin/notification-templates/:key/test-send — render and send the
+ * template to the requesting superadmin's own email. Rate-limited to 10/hour.
+ */
+router.post(
+  "/admin/notification-templates/:key/test-send",
+  requireSuperadmin,
+  testSendLimiter,
+  async (req, res): Promise<void> => {
+    const key = String(req.params.key);
+    const b = req.body ?? {};
+    const user = (req as Request & { authUser?: AuthUser }).authUser;
+    const to = user?.email;
+    if (!to) {
+      res.status(400).json({ error: "Your account has no email address to send to." });
+      return;
+    }
+    try {
+      const tpl = await getNotificationTemplate(key);
+      if (!tpl) {
+        res.status(404).json({ error: "Unknown template" });
+        return;
+      }
+      const shell = await getEmailShell();
+      const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
+      const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
+      const vars = buildPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      const html = renderEmail({ shell, bodyHtml, wrapInShell, vars });
+      const subject = `[Test] ${substitutePlain(
+        typeof b.emailSubject === "string" ? b.emailSubject : tpl.emailSubject,
+        vars,
+      )}`;
+      await sendViaResend(to, subject, html);
+      await pool.query(
+        `UPDATE notification_templates SET last_test_sent_at = now(), last_test_sent_by = $2 WHERE key = $1`,
+        [key, to],
+      );
+      await writeEditLog({
+        targetType: "template",
+        targetKey: key,
+        editorEmail: to,
+        action: "test_send",
+        diff: { sentTo: to },
+      });
+      res.json({ ok: true, sentTo: to });
+    } catch (err) {
+      console.error("[notifications] template test-send error:", err);
+      res.status(502).json({ error: "Failed to send test email." });
+    }
+  },
+);
+
+// --- Shell -----------------------------------------------------------------
+
+/** GET /api/admin/email-shell — overrides (nulls = using default) + code defaults. */
+router.get("/admin/email-shell", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const overrides = await getEmailShellOverrides();
+    res.json({ overrides, defaults: DEFAULT_EMAIL_SHELL });
+  } catch (err) {
+    console.error("[notifications] shell get error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * PATCH /api/admin/email-shell — upsert the singleton override row. A field set
+ * to null clears that override (falls back to the code default = "restore").
+ */
+router.patch("/admin/email-shell", requireSuperadmin, async (req, res): Promise<void> => {
+  const b = req.body ?? {};
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  const has = (f: string): boolean => Object.prototype.hasOwnProperty.call(b, f);
+  try {
+    await pool.query(
+      `INSERT INTO email_shell_templates (id, shell_html, logo_html, header_bg, footer_html, updated_at, updated_by)
+       VALUES ($1,$2,$3,$4,$5, now(), $6)
+       ON CONFLICT (id) DO UPDATE SET
+         shell_html  = $2,
+         logo_html   = $3,
+         header_bg   = $4,
+         footer_html = $5,
+         updated_at  = now(),
+         updated_by  = $6`,
+      [
+        EMAIL_SHELL_ID,
+        longStr(b.shellHtml),
+        longStr(b.logoHtml),
+        shortStr(b.headerBg),
+        longStr(b.footerHtml),
+        editorEmail,
+      ],
+    );
+    bustEmailShellCache();
+    await writeEditLog({
+      targetType: "shell",
+      targetKey: EMAIL_SHELL_ID,
+      editorEmail,
+      action: "update",
+      diff: { fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml"].filter(has) },
+    });
+    const overrides = await getEmailShellOverrides();
+    res.json({ overrides, defaults: DEFAULT_EMAIL_SHELL });
+  } catch (err) {
+    console.error("[notifications] shell patch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * POST /api/admin/email-shell/preview — render a sample email through the
+ * (possibly unsaved) shell so the operator sees the frame with real chrome.
+ */
+router.post("/admin/email-shell/preview", requireSuperadmin, async (req, res): Promise<void> => {
+  const b = req.body ?? {};
+  try {
+    const shell = {
+      shellHtml: typeof b.shellHtml === "string" ? b.shellHtml : DEFAULT_EMAIL_SHELL.shellHtml,
+      logoHtml: typeof b.logoHtml === "string" ? b.logoHtml : DEFAULT_EMAIL_SHELL.logoHtml,
+      headerBg: typeof b.headerBg === "string" ? b.headerBg : DEFAULT_EMAIL_SHELL.headerBg,
+      footerHtml: typeof b.footerHtml === "string" ? b.footerHtml : DEFAULT_EMAIL_SHELL.footerHtml,
+    };
+    const sampleTpl = NOTIFICATION_TEMPLATES["trial_day_7"];
+    const vars = buildPreviewVars();
+    const html = renderEmail({
+      shell,
+      bodyHtml: sampleTpl?.bodyHtml ?? "<p>Sample email body</p>",
+      wrapInShell: true,
+      vars,
+    });
+    res.json({ html });
+  } catch (err) {
+    console.error("[notifications] shell preview error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/** GET /api/admin/email-template-log — recent audit entries (most recent first). */
+router.get("/admin/email-template-log", requireSuperadmin, async (req, res): Promise<void> => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+  try {
+    const r = await pool.query(
+      `SELECT id, target_type, target_key, editor_email, action, diff, created_at
+         FROM email_template_edit_log
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [limit],
+    );
+    res.json({ entries: r.rows });
+  } catch (err) {
+    console.error("[notifications] edit-log list error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

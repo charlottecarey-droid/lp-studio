@@ -18,7 +18,7 @@ import {
  * code default so a config hiccup can never break a send.
  */
 
-export const EMAIL_SHELL_ID = "platform";
+export const EMAIL_SHELL_ID = "platform_default";
 
 interface ShellRow {
   shell_html: string | null;
