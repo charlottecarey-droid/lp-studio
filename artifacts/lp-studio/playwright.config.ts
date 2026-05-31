@@ -78,6 +78,12 @@ export default defineConfig({
         TWILIO_ACCOUNT_SID: "",
         TWILIO_AUTH_TOKEN: "",
         TWILIO_VERIFY_SERVICE_SID: "",
+        // Bot protection (Phase 3 audit): the e2e api-server inherits the
+        // parent process env, which now carries the real Turnstile secret.
+        // Force it empty so turnstileConfigured() is false and the auth flows
+        // (register / login / password reset) keep their legacy no-challenge
+        // path — automated tests can't solve a real Cloudflare Turnstile widget.
+        TURNSTILE_SECRET_KEY: "",
       },
     },
     // ── 2. The Vite dev server hosting the lp-studio app. We deliberately
