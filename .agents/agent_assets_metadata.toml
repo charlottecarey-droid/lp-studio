@@ -12,6 +12,150 @@ uri = "file://artifacts/mockup-sandbox/public/images/dental-professional.png"
 type = "image"
 title = "editorial photo of dental professional"
 
+[[generated]]
+id = "A3kflq8sYH5BJqiTgeZVx"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-hero.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "QWubtoVUYUR80JhkhG19R"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-featured.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "RxrPRzJn9iAKlm9M-_xEd"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-thumb-1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "vAwu8Zytfh_6XCtVrvCQ_"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-thumb-2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "CcHa6NfTB7fEOA5nMCiz3"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-thumb-3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "6I4Ci0kyqg03jEawxQ_W9"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-hero.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4AU900LwuLlXscxPcM58c"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "hjpzE_czehVpeG9-bgn-i"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "IM6-vhBpDhNkRINfDbV38"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "0LS2lISMqrdrLbBw4u66a"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-4.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "9iMxD0-1HSAPjSlP9eUxA"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-thumb-4.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "j9QS62lDzQFnnQzOFnGFI"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-thumb-5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "X_AjlRb2TxoT0z9INDCay"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-thumb-6.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "VZfkXCqrmanT8nfflp_nX"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-author-1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4VVjFjtGYHaTmaoRSSUbL"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-author-2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "VI-A90HAgXnzEpir2pZoL"
+uri = "file://artifacts/mockup-sandbox/public/images/blog-author-3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "mWFE3fUU6vyvdLDopdO7r"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Pui6uvSM2CzqlVZhAqvnb"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-6.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "CVVisJXQFaASZH4C0LuC-"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-7.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "nbCG2GgHOVI0Jxecj6QoV"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-prod-8.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "bEntMMHZ_EylrzgRbnV2i"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-lifestyle.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "isqT8mwCgDSjLP-NbCoOj"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-avatar-1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "tLcVNYp_Liky49oWsCz_0"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-avatar-2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "uL13ycY8ETp9gILEm883L"
+uri = "file://artifacts/mockup-sandbox/public/images/ecom-avatar-3.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"

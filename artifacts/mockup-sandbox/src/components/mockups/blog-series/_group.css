@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+.blog-series-root {
+  --bs-paper: #f6f3ec;
+  --bs-paper-2: #efeae0;
+  --bs-ink: #1c1a16;
+  --bs-ink-soft: #4a463f;
+  --bs-muted: #8b857a;
+  --bs-line: #d9d3c6;
+  --bs-accent: #b5491f;
+  --bs-accent-soft: #cf6a3e;
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+.bs-serif { font-family: var(--font-serif); }
+.bs-sans { font-family: var(--font-sans); }
+
+.bs-link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.35s ease;
+}
+.bs-link-underline:hover { background-size: 100% 1px; }
+
+.bs-card-img { transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+.bs-card:hover .bs-card-img { transform: scale(1.04); }
+
+.bs-pill { transition: all 0.3s ease; }
+.bs-pill:hover {
+  background-color: var(--bs-ink);
+  color: var(--bs-paper);
+  border-color: var(--bs-ink);
+}

@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&display=swap');
+
+.meridian-root {
+  --brand-ink: #211a14;
+  --brand-cream: #f6f0e6;
+  --brand-paper: #fbf7f0;
+  --brand-accent: #c2603a;
+  --brand-accent-dark: #a44c2b;
+  --brand-sage: #7d8a6a;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.meridian-root .font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.meridian-card-hover {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+}
+.meridian-card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 50px -22px rgba(33, 26, 20, 0.45);
+}
+.meridian-card-hover:hover .meridian-quick-add {
+  opacity: 1;
+  transform: translateY(0);
+}
+.meridian-quick-add {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+@keyframes meridian-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.meridian-marquee {
+  animation: meridian-marquee 26s linear infinite;
+}
