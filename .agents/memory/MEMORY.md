@@ -46,3 +46,4 @@
 - [drizzle multi-statement = extended protocol fail](drizzle-multistatement-extended-protocol.md) — run a whole .sql file via raw `pool.query(string)` (simple protocol); `db.execute(sql.raw(...))` sends params → extended → "cannot insert multiple commands".
 - [e2e concurrent-run flake](e2e-concurrent-run-flake.md) — lp-studio e2e "browser/page closed" + api-server dist clobber are env flakes from running alongside dev workflows; clean isolated run = 108/108; trust test-results/.last-run.json not /tmp snapshots.
 - [jsPDF fill-color encoding](jspdf-fill-color-encoding.md) — PDF byte color guards: fills=2-decimal `rg`, text=3-decimal; hardcode brand RGB literals, not DANDY_PALETTE-derived.
+- [notification_templates channels stale row](notification-channels-stale-row.md) — channels col = capability+toggle; adding a channel in code never backfills existing rows; stale row hides editor ("handled in code"), fix via data UPDATE.
