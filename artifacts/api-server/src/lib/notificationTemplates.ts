@@ -276,7 +276,11 @@ const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
     key: "slug_redirect_expiry",
     name: "Old URL expiring",
     description: "Warns admins that a renamed workspace's old redirect URL is about to expire.",
-    category: "system",
+    // Lifecycle (opt-out-eligible) per Task #587: this is an operational heads-up,
+    // not transactional auth/billing, so recipients may unsubscribe from it. It
+    // therefore appears on /settings/notifications and its footer carries a
+    // tokenized one-click unsubscribe link.
+    category: "lifecycle",
     channels: ["email"],
     emailSubject: "Heads up: an old {{tenantName}} URL stops working soon",
     emailIntro: "An old URL for your workspace is about to stop working.",

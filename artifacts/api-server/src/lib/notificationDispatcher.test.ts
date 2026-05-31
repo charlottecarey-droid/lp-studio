@@ -23,6 +23,15 @@ vi.mock("./notificationStream", () => ({
   publishInAppNotification: (...args: unknown[]) => publishMock(...args),
 }));
 
+// Mock the preference store so the dispatcher's per-recipient opt-out check does
+// not hit the (mocked) pool — keeping the exact query-count assertions valid.
+// Defaults to "not opted out"; individual suppression tests flip it.
+const isOptedOutMock = vi.fn(async (..._args: unknown[]) => false);
+vi.mock("./notificationPreferences", () => ({
+  isOptedOut: (...args: unknown[]) => isOptedOutMock(...args),
+  makeUnsubscribeToken: () => "tok_test",
+}));
+
 // Mock the shell accessor so the email path does not issue an extra pool.query
 // (these tests assert exact query call counts). renderEmail itself is pure.
 vi.mock("./emailShell", () => ({
@@ -58,6 +67,8 @@ beforeEach(() => {
   queryMock.mockReset();
   getTemplateMock.mockReset();
   publishMock.mockReset();
+  isOptedOutMock.mockReset();
+  isOptedOutMock.mockResolvedValue(false);
   process.env["RESEND_API_KEY"] = "test-key";
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, text: async () => "" }) as unknown as Response));
 });
@@ -120,6 +131,49 @@ describe("dispatchNotification", () => {
 
     expect(res.skippedDisabled).toBe(true);
     expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("suppresses a lifecycle email when the recipient has opted out (no claim written)", async () => {
+    getTemplateMock.mockResolvedValue({ ...baseTpl, channels: ["email"] });
+    isOptedOutMock.mockResolvedValue(true);
+
+    const res = await dispatchNotification({
+      templateKey: "trial_day_7",
+      tenantId: 42,
+      recipients: [{ appUserId: 1, email: "a@b.com" }],
+      context: { tenantName: "Acme", daysRemaining: 7, workspaceUrl: "https://acme.lpstudio.ai" },
+      dedupeBase: "trial_day_7:tenant:42",
+      channels: ["email"],
+    });
+
+    expect(res.emailsSuppressed).toBe(1);
+    expect(res.emailsSent).toBe(0);
+    // The opt-out is checked on the email channel for the resolved template.
+    expect(isOptedOutMock).toHaveBeenCalledWith(42, 1, "trial_day_7", "email");
+    // Suppression happens before claiming a dedupe slot — no DB write at all.
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("never consults preferences for a system template — always sends even if opted out", async () => {
+    // category:"system" (auth/billing) must ALWAYS send; the opt-out store is
+    // never consulted, so even a "true" opt-out cannot suppress it.
+    getTemplateMock.mockResolvedValue({ ...baseTpl, key: "password_reset", category: "system", channels: ["email"] });
+    isOptedOutMock.mockResolvedValue(true);
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 60 }] }); // email claim
+    queryMock.mockResolvedValueOnce({ rows: [] }); // mark sent
+
+    const res = await dispatchNotification({
+      templateKey: "password_reset",
+      tenantId: 42,
+      recipients: [{ appUserId: 1, email: "a@b.com" }],
+      context: { tenantName: "Acme", workspaceUrl: "https://acme.lpstudio.ai" },
+      dedupeBase: "password_reset:tenant:42",
+      channels: ["email"],
+    });
+
+    expect(res.emailsSuppressed).toBe(0);
+    expect(res.emailsSent).toBe(1);
+    expect(isOptedOutMock).not.toHaveBeenCalled();
   });
 
   it("restricts to the requested channel subset (in_app only)", async () => {
