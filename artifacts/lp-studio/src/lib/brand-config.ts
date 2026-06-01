@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 import { toFontFamilyValue, cleanFamilyName } from "./font-catalog";
-import type { BackgroundPresetLabels } from "./bg-styles";
+import type { BackgroundPresetLabels, BackgroundPresetColors } from "./bg-styles";
+import { BACKGROUND_STYLE_KEYS } from "./bg-styles";
 import type { FormStyling } from "./form-styling";
 import type { BrandPdfFonts, EmbeddedFontFaces } from "@workspace/one-pager-types/generators";
 
-export type { BackgroundPresetLabels };
+export type { BackgroundPresetLabels, BackgroundPresetColors };
 
 export type ButtonRadius = "pill" | "rounded" | "slight" | "square";
 export type ButtonShadow = "none" | "sm" | "md" | "lg";
@@ -307,6 +308,11 @@ export interface BrandConfig {
    *  hero/cta/popup/etc property panels. Unset keys fall back to auto-derived
    *  labels (brand-name interpolated). See `getBgOptions` in `bg-styles.ts`. */
   backgroundPresetLabels?: BackgroundPresetLabels;
+  /** Per-brand color overrides for the section background presets. Hex per key;
+   *  unset keys keep the preset's historical default. Emitted as `--lp-bg-<key>`
+   *  CSS variables by `getBrandStyleVars` so they cascade to every rendered
+   *  section. See `bg-styles.ts`. */
+  backgroundPresetColors?: BackgroundPresetColors;
   /** Per-tenant Sales Console configuration. All sender identity, AI-prompt
    *  brand strings and value-prop pairs used by /api/sales/* routes live
    *  here so the Sales Console can be used by tenants other than Dandy
@@ -848,6 +854,25 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
   if (displayValue) vars["--brand-font-display"] = displayValue;
   if (bodyValue) vars["--brand-font-body"] = bodyValue;
   if (numbersValue) vars["--brand-font-numbers"] = numbersValue;
+
+  // Background preset color overrides. For each preset the tenant has recolored,
+  // emit `--lp-bg-<key>` (the background) plus `--lp-bg-<key>-fg` (a contrast-
+  // safe text color derived from the chosen background). These cascade from the
+  // page root so every section using getBgStyle picks them up with no per-block
+  // changes; unset presets fall back to their historical defaults in the MAP.
+  const presetColors = brand.backgroundPresetColors ?? {};
+  for (const key of BACKGROUND_STYLE_KEYS) {
+    const hex = presetColors[key];
+    if (hex && isValidHex(hex)) {
+      vars[`--lp-bg-${key}`] = hex;
+      // The gradient preset overrides only the *first* stop; it always fades
+      // into fixed dark stops (#001a14 → #000), so its text must stay white
+      // regardless of the chosen first-stop color — never derive -fg from it.
+      if (key !== "gradient") {
+        vars[`--lp-bg-${key}-fg`] = contrastTextColor(hex);
+      }
+    }
+  }
   return vars as CSSProperties;
 }
 

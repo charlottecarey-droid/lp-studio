@@ -39,7 +39,7 @@ import type {
   ImportedVoiceProfile, ImportedPhotographyProfile,
 } from "@/lib/brand-config";
 import { FONT_CATALOG, isSelfHostedFont, toFontFamilyValue } from "@/lib/font-catalog";
-import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
+import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels, type BackgroundPresetColors, BACKGROUND_PRESET_DISPLAY_NAMES, BACKGROUND_PRESET_DEFAULT_COLORS } from "@/lib/bg-styles";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { FormStylingPanel } from "@/components/FormStylingPanel";
 import type { FormStyling } from "@/lib/form-styling";
@@ -3581,12 +3581,13 @@ export default function BrandSettings() {
             </div>
           </Card>
 
-          {/* Background Presets — lets a tenant rename the section background
-              dropdown labels (e.g. "Dandy green" → "Royal brand color"). The
-              underlying preset keys stay the same so existing pages keep
-              rendering correctly; only the user-visible label changes. Each
-              field shows the auto-derived default as its placeholder so the
-              user only has to type to override. */}
+          {/* Background Presets — lets a tenant set the color used by each
+              section-background preset AND rename the option label shown in the
+              page builder. The underlying preset keys stay the same so existing
+              pages keep rendering correctly; the color is emitted as a CSS
+              variable (--lp-bg-<key>) by getBrandStyleVars and cascades to every
+              section. The label field shows the auto-derived default as its
+              placeholder so the user only has to type to override it. */}
           <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
             <div className="flex items-center gap-2 mb-1">
               <Palette className="w-4 h-4 text-primary" />
@@ -3594,34 +3595,76 @@ export default function BrandSettings() {
             </div>
             <Separator />
             <p className="text-sm text-muted-foreground -mt-2">
-              Rename the section background options shown in the page builder.
-              Leave a field blank to use the auto-derived default
-              (your brand name is filled in for the brand-color and gradient presets).
+              Set the color for each section-background option and, optionally,
+              rename how it appears in the page builder. Leave a color on its
+              default to keep the built-in look; leave a name blank to use the
+              auto-derived default (your brand name is filled in for the brand
+              color and gradient presets). Tip: keep light presets light and dark
+              presets dark — switching a preset across that line may need a manual
+              text-color check on existing sections.
             </p>
             {(() => {
               const autoOptions = getBgOptions({ brandName: config.brandName });
-              const overrides: BackgroundPresetLabels = config.backgroundPresetLabels ?? {};
+              const labelOverrides: BackgroundPresetLabels = config.backgroundPresetLabels ?? {};
+              const colorOverrides: BackgroundPresetColors = config.backgroundPresetColors ?? {};
+              const brandPrimary = isValidHex(config.primaryColor) ? config.primaryColor : "#0f172a";
               const setLabel = (key: BackgroundStyle, val: string) => {
-                const next: BackgroundPresetLabels = { ...overrides };
+                const next: BackgroundPresetLabels = { ...labelOverrides };
                 if (val.trim()) next[key] = val;
                 else delete next[key];
                 update("backgroundPresetLabels", Object.keys(next).length ? next : undefined);
               };
+              const setColor = (key: BackgroundStyle, val: string) => {
+                const next: BackgroundPresetColors = { ...colorOverrides };
+                next[key] = val;
+                update("backgroundPresetColors", next);
+              };
+              const resetColor = (key: BackgroundStyle) => {
+                const next: BackgroundPresetColors = { ...colorOverrides };
+                delete next[key];
+                update("backgroundPresetColors", Object.keys(next).length ? next : undefined);
+              };
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {autoOptions.map((opt) => (
-                    <div key={opt.value}>
-                      <Label className="text-sm font-medium mb-1.5 block capitalize">
-                        {opt.value.replace(/-/g, " ")}
-                      </Label>
-                      <Input
-                        value={overrides[opt.value] ?? ""}
-                        onChange={(e) => setLabel(opt.value, e.target.value)}
-                        placeholder={opt.label}
-                        className="h-9"
-                      />
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {autoOptions.map((opt) => {
+                    const displayName = BACKGROUND_PRESET_DISPLAY_NAMES[opt.value];
+                    const override = colorOverrides[opt.value];
+                    // The brand-color and gradient presets seed from the brand
+                    // primary; the neutrals seed from their fixed default hex.
+                    const fallbackColor = BACKGROUND_PRESET_DEFAULT_COLORS[opt.value] || brandPrimary;
+                    const swatch = override && isValidHex(override) ? override : fallbackColor;
+                    return (
+                      <div key={opt.value} className="rounded-lg border border-border/50 p-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">{displayName}</Label>
+                          {override ? (
+                            <button
+                              type="button"
+                              onClick={() => resetColor(opt.value)}
+                              className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                            >
+                              Reset color
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={swatch}
+                            onChange={(e) => setColor(opt.value, e.target.value)}
+                            aria-label={`${displayName} color`}
+                            className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent p-0.5 flex-shrink-0"
+                          />
+                          <Input
+                            value={labelOverrides[opt.value] ?? ""}
+                            onChange={(e) => setLabel(opt.value, e.target.value)}
+                            placeholder={opt.label}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
