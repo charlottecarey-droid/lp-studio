@@ -252,6 +252,39 @@ async function fetchScreenshotBuffer(screenshotUrl: string): Promise<{ buf: Buff
   }
 }
 
+/**
+ * Produce a lightweight, persistable preview of the homepage screenshot.
+ *
+ * The full-resolution `screenshotDataUrl` can be up to MAX_SCREENSHOT_BYTES
+ * (8MB) because the vision extractors (colors/buttons/typography) need the
+ * detail. That's too heavy to (a) re-host as a Brand-Settings preview asset —
+ * the asset-mirror's per-asset cap is 5MB — and (b) cache verbatim in the
+ * brand-import cache jsonb. So we downsample to a width-capped JPEG that's
+ * comfortably under the mirror cap and cheap to cache, while staying perfectly
+ * legible as a "what your homepage looked like" preview. Vision keeps using the
+ * untouched `screenshotDataUrl`; only the persisted/cached copy is shrunk.
+ * Best-effort: returns null on any failure (no preview rather than a broken
+ * import).
+ */
+export async function buildScreenshotPreviewDataUrl(dataUrl: string | null): Promise<string | null> {
+  if (!dataUrl || !dataUrl.startsWith("data:")) return null;
+  const m = dataUrl.match(/^data:([^;,]+)(;base64)?,(.+)$/);
+  if (!m) return null;
+  try {
+    const buf = m[2]
+      ? Buffer.from(m[3], "base64")
+      : Buffer.from(decodeURIComponent(m[3]), "utf8");
+    if (!buf.length) return null;
+    const out = await sharp(buf)
+      .resize({ width: 1600, withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${out.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 async function samplePaletteFromBuffer(buf: Buffer): Promise<string[]> {
   try {
     const { data, info } = await sharp(buf)

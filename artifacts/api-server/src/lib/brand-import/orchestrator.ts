@@ -1,5 +1,5 @@
 import { getOpenAIClient } from "../../routes/lp/brand-import";
-import { buildEvidence, EVIDENCE_BUILD_BUDGET_MS } from "./evidence";
+import { buildEvidence, buildScreenshotPreviewDataUrl, EVIDENCE_BUILD_BUDGET_MS } from "./evidence";
 import { extractLogos } from "./extractors/logos";
 import { extractColors } from "./extractors/colors";
 import { extractTypography } from "./extractors/typography";
@@ -9,7 +9,7 @@ import { extractVoice } from "./extractors/voice";
 import { extractContent } from "./extractors/content";
 import { extractStructure } from "./extractors/structure";
 import { getCached, putCached } from "./cache";
-import { mirrorBrandAssets } from "./assets-uploader";
+import { mirrorBrandAssets, mirrorHomepageScreenshot } from "./assets-uploader";
 import { logger } from "../logger";
 import type {
   Confidence,
@@ -466,11 +466,18 @@ export async function* runOrchestrator(
     confidence["socialUrls"] = "high";
   }
 
+  // Downsample the homepage screenshot to a light preview JPEG. The full-res
+  // bytes (up to 8MB) are needed by the vision extractors above but are too
+  // heavy to cache in the import-cache jsonb or re-host as a Brand-Settings
+  // preview (mirror cap is 5MB), so the persisted/cached copy is shrunk here.
+  const screenshotPreviewDataUrl = await buildScreenshotPreviewDataUrl(evidence.screenshotDataUrl);
+
   const payload: OrchestratorPayload = {
     sourceUrl: evidence.homeUrl,
     pagesScraped: evidence.pages.map((p) => p.url),
     sampledPalette: evidence.sampledPalette,
     hasScreenshot: !!evidence.screenshotUrl,
+    screenshotDataUrl: screenshotPreviewDataUrl,
     robots: evidence.robots,
     results,
     proposed,
@@ -508,6 +515,28 @@ async function applyAssetMirror(payload: OrchestratorPayload, tenantId: number):
   const brandName = typeof proposed["brandName"] === "string" ? proposed["brandName"] as string : "";
   const logoUrl = typeof proposed["logoUrl"] === "string" ? proposed["logoUrl"] as string : undefined;
   const photoProfile = proposed["photographyProfile"] as { referenceImageUrls?: unknown } | undefined;
+
+  // Homepage screenshot is mirrored independently of the logo/photo mirror
+  // below (which early-returns when neither is present) — a tenant may scrape
+  // a site that yields a screenshot but no usable logo/photos, and they still
+  // want to see what their homepage looked like at import time. Surfaced as a
+  // `homepageScreenshotUrl` proposed field so it flows through the existing
+  // apply path and gets persisted into BrandConfig on apply.
+  const shot = payload.screenshotDataUrl;
+  if (typeof shot === "string" && shot.startsWith("data:")) {
+    try {
+      const url = await mirrorHomepageScreenshot({ tenantId, dataUrl: shot });
+      if (url) {
+        proposed["homepageScreenshotUrl"] = url;
+        // "high" so the review UI checks the row by default (the FE only
+        // pre-checks high/medium-confidence fields) — the screenshot is a
+        // verbatim capture, not an inferred value, so there's no ambiguity.
+        payload.confidence["homepageScreenshotUrl"] = "high";
+      }
+    } catch (err) {
+      logger.warn({ tenantId, err: String(err) }, "[brand-import] homepage screenshot mirror threw");
+    }
+  }
 
   // Collect candidate photo URLs from BOTH the flattened `proposed`
   // (present only when the photography dimension didn't fail) AND the raw

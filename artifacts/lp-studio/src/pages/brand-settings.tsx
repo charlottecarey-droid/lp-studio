@@ -906,6 +906,7 @@ const FIELD_LABELS: Record<string, string> = {
   salesConsole: "Sales Console (value props + AI prompts)",
   logoUrl: "Logo", logoUrlDark: "Dark-mode Logo",
   socialUrls: "Social Links",
+  homepageScreenshotUrl: "Homepage screenshot",
 };
 
 interface SalesBrandSetupSummary {
@@ -2571,6 +2572,39 @@ export default function BrandSettings() {
                       </div>
                     </div>
 
+                    {/* Homepage snapshot — captured during a URL brand import.
+                        Lets the user see what their site looked like at import
+                        time; replaced whenever they re-run Brand Import (rebrand
+                        / refresh). Only shown once an import has produced one. */}
+                    {(config.homepageScreenshotUrl ?? "").trim() && (
+                      <>
+                        <Separator />
+                        <div>
+                          <Label className="text-sm font-medium mb-1.5 block">Homepage snapshot</Label>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Captured from your website the last time you ran Brand Import. Re-run Brand Import to refresh it after a rebrand.
+                          </p>
+                          <div className="rounded-xl border border-border overflow-hidden bg-muted/20 max-w-md">
+                            <img
+                              src={config.homepageScreenshotUrl}
+                              alt="Homepage snapshot captured during brand import"
+                              className="w-full h-auto object-contain object-top"
+                              loading="lazy"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => update("homepageScreenshotUrl", "")}
+                            className="mt-2 text-muted-foreground hover:text-destructive"
+                          >
+                            Remove snapshot
+                          </Button>
+                        </div>
+                      </>
+                    )}
+
                     <Separator />
 
                     {/* Email banner — inserted at the top of templated emails
@@ -4147,6 +4181,22 @@ export default function BrandSettings() {
                         );
                       })}
                     </div>
+                  </div>
+                </div>
+              )}
+              {typeof importResult.proposed["homepageScreenshotUrl"] === "string" && (importResult.proposed["homepageScreenshotUrl"] as string).trim() && (
+                <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+                  <div className="text-sm font-medium">Homepage snapshot</div>
+                  <p className="text-xs text-muted-foreground">
+                    Here's what we captured from your site. Keep the "Homepage screenshot" row checked below to save it to Brand Settings.
+                  </p>
+                  <div className="rounded-lg border border-border overflow-hidden bg-muted/20 max-w-sm">
+                    <img
+                      src={importResult.proposed["homepageScreenshotUrl"] as string}
+                      alt="Homepage snapshot captured during brand import"
+                      className="w-full h-auto object-contain object-top"
+                      loading="lazy"
+                    />
                   </div>
                 </div>
               )}

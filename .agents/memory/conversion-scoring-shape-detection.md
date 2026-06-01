@@ -25,9 +25,9 @@ social proof, booking, imagery, and trust signals. Premium all-in-one blocks
 - Booking: a premium block's `showFinalCta !== false` + non-empty
   `finalCtaPrimaryText` is the conversion path even without a dedicated cta block.
 
-**Why:** without shape detection, a complete page (#30276) scored 52 (C-) despite
+**Why:** without shape detection, a complete bespoke page scored 52 (C-) despite
 having hero+stats+quotes+CTA+images+comparison; DSO microsites scored Trust=D
-because comparison blocks weren't counted. After: #30276 -> 88, microsites -> ~88
+because comparison blocks weren't counted. After: that page -> 88, microsites -> ~88
 (Trust D->B).
 
 ## imageCount vs hasImagery — keep them SEPARATE

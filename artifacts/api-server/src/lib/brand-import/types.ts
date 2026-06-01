@@ -199,6 +199,17 @@ export interface OrchestratorPayload {
   pagesScraped: string[];
   sampledPalette: string[];
   hasScreenshot: boolean;
+  /** Downsampled `data:image/jpeg;base64,...` preview of the homepage
+   *  screenshot taken during evidence build (NOT the full-res copy the vision
+   *  extractors use — that stays on `Evidence.screenshotDataUrl`). Shrunk via
+   *  `buildScreenshotPreviewDataUrl` so it fits under the asset-mirror's 5MB
+   *  cap and is cheap to cache. Carried on the payload so `applyAssetMirror`
+   *  can re-host it per-tenant into object storage and surface it as a
+   *  previewable `homepageScreenshotUrl` in the brand-settings review. Cached
+   *  alongside the rest of the payload so cache-hit imports (incl. cross-tenant
+   *  — homepage snapshots are public site content) can still mirror it. Null
+   *  when the scrape produced no screenshot. */
+  screenshotDataUrl: string | null;
   robots: RobotsVerdict;
   results: {
     logos: DimensionResult<LogosData>;

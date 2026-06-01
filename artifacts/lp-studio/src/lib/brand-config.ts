@@ -353,6 +353,12 @@ export interface BrandConfig {
    *  rendering side can stylesheet-inject them without re-running font
    *  detection. */
   loadedFonts?: ImportedLoadedFont[];
+  /** `/api/storage/...` URL of the homepage screenshot captured the last
+   *  time the brand was imported from a URL. Re-hosted per-tenant by the
+   *  importer's asset mirror and shown as a preview in Brand Settings so
+   *  the user can see what their site looked like at import time. Replaced
+   *  on every rebrand / brand refresh that re-scrapes the site. */
+  homepageScreenshotUrl?: string;
 }
 
 export interface ImportedLogoCandidate {

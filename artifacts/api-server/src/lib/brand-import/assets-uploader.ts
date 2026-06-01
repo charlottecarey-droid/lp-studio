@@ -272,6 +272,45 @@ function titleFromUrl(url: string, fallback: string): string {
 }
 
 /**
+ * Re-host the homepage screenshot captured during evidence build into the
+ * tenant's object storage and return a `/api/storage/...` URL. Unlike logos
+ * and photography this does NOT create an `lp_media` row — the screenshot is
+ * a brand-settings preview asset (a visual record of what the source site
+ * looked like at import time), not a reusable media-library image, so keeping
+ * it out of the picker avoids cluttering the library. Accepts the inlined
+ * `data:image/...;base64,...` URL (the firecrawl-hosted screenshot URL is
+ * short-lived, so we only ever mirror from the bytes we already fetched).
+ * Best-effort: returns null on any failure so the import still succeeds.
+ */
+export async function mirrorHomepageScreenshot(inputs: {
+  tenantId: number;
+  dataUrl: string;
+}): Promise<string | null> {
+  const fetched = await fetchAsset(inputs.dataUrl);
+  if (!fetched.ok) {
+    logger.warn(
+      { tenantId: inputs.tenantId, reason: fetched.reason },
+      "[brand-import] homepage screenshot mirror skipped",
+    );
+    return null;
+  }
+  try {
+    const servePath = await objectStorage.uploadObjectEntity(
+      fetched.asset.buffer,
+      fetched.asset.mimeType,
+      { tenantId: inputs.tenantId },
+    );
+    return `/api/storage${servePath}`;
+  } catch (err) {
+    logger.warn(
+      { tenantId: inputs.tenantId, err: String(err) },
+      "[brand-import] homepage screenshot upload failed",
+    );
+    return null;
+  }
+}
+
+/**
  * Download the importer's chosen logo + photography reference images
  * and re-host them as tenant-scoped `lp_media` rows. Returns rewritten
  * `/api/storage/...` URLs so the orchestrator can swap them into the
