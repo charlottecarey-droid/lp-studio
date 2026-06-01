@@ -160,30 +160,10 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Delete contact — returns the full deleted row so the client can offer Undo.
-router.delete("/contacts/:id", async (req, res): Promise<void> => {
-  try {
-    const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const [deleted] = await db
-      .delete(salesContactsTable)
-      .where(and(
-        eq(salesContactsTable.tenantId, tenantId),
-        eq(salesContactsTable.id, Number(req.params.id)),
-      ))
-      .returning();
-    if (!deleted) {
-      res.status(404).json({ error: "Contact not found" });
-      return;
-    }
-    res.json({ ok: true, restore: { contacts: [deleted] } });
-  } catch (err) {
-    console.error("DELETE /sales/contacts/:id error:", err);
-    res.status(500).json({ error: "Failed to delete contact" });
-  }
-});
-
 // Bulk-delete contacts by IDs — CSV-only (no salesforceId).
 // Returns the full deleted rows for Undo.
+// NOTE: must be registered before "/contacts/:id" so Express does not match
+// "bulk" as an :id param.
 router.delete("/contacts/bulk", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -203,6 +183,28 @@ router.delete("/contacts/bulk", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("DELETE /sales/contacts/bulk error:", err);
     res.status(500).json({ error: "Failed to delete contacts" });
+  }
+});
+
+// Delete contact — returns the full deleted row so the client can offer Undo.
+router.delete("/contacts/:id", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const [deleted] = await db
+      .delete(salesContactsTable)
+      .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
+        eq(salesContactsTable.id, Number(req.params.id)),
+      ))
+      .returning();
+    if (!deleted) {
+      res.status(404).json({ error: "Contact not found" });
+      return;
+    }
+    res.json({ ok: true, restore: { contacts: [deleted] } });
+  } catch (err) {
+    console.error("DELETE /sales/contacts/:id error:", err);
+    res.status(500).json({ error: "Failed to delete contact" });
   }
 });
 

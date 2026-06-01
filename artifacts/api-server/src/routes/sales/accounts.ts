@@ -145,6 +145,38 @@ router.patch("/accounts/:id", async (req, res): Promise<void> => {
   }
 });
 
+// Bulk-delete accounts by IDs (cascades to contacts, signals, briefings).
+// Returns the full deleted rows + cascade-deleted children for Undo.
+// NOTE: must be registered before "/accounts/:id" so Express does not match
+// "bulk" as an :id param.
+router.delete("/accounts/bulk", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { ids } = req.body as { ids?: number[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array" });
+      return;
+    }
+
+    const contacts = await db.select().from(salesContactsTable)
+      .where(and(eq(salesContactsTable.tenantId, tenantId), inArray(salesContactsTable.accountId, ids)));
+    const signals = await db.select().from(salesSignalsTable)
+      .where(and(eq(salesSignalsTable.tenantId, tenantId), inArray(salesSignalsTable.accountId, ids)));
+
+    const deleted = await db
+      .delete(salesAccountsTable)
+      .where(and(
+        eq(salesAccountsTable.tenantId, tenantId),
+        inArray(salesAccountsTable.id, ids),
+      ))
+      .returning();
+    res.json({ ok: true, deleted: deleted.length, restore: { accounts: deleted, contacts, signals } });
+  } catch (err) {
+    console.error("DELETE /sales/accounts/bulk error:", err);
+    res.status(500).json({ error: "Failed to delete accounts" });
+  }
+});
+
 // Delete account — returns the deleted account plus its cascade-deleted
 // contacts/signals so the client can offer an Undo.
 router.delete("/accounts/:id", async (req, res): Promise<void> => {
@@ -173,36 +205,6 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("DELETE /sales/accounts/:id error:", err);
     res.status(500).json({ error: "Failed to delete account" });
-  }
-});
-
-// Bulk-delete accounts by IDs (cascades to contacts, signals, briefings).
-// Returns the full deleted rows + cascade-deleted children for Undo.
-router.delete("/accounts/bulk", async (req, res): Promise<void> => {
-  try {
-    const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const { ids } = req.body as { ids?: number[] };
-    if (!Array.isArray(ids) || ids.length === 0) {
-      res.status(400).json({ error: "ids must be a non-empty array" });
-      return;
-    }
-
-    const contacts = await db.select().from(salesContactsTable)
-      .where(and(eq(salesContactsTable.tenantId, tenantId), inArray(salesContactsTable.accountId, ids)));
-    const signals = await db.select().from(salesSignalsTable)
-      .where(and(eq(salesSignalsTable.tenantId, tenantId), inArray(salesSignalsTable.accountId, ids)));
-
-    const deleted = await db
-      .delete(salesAccountsTable)
-      .where(and(
-        eq(salesAccountsTable.tenantId, tenantId),
-        inArray(salesAccountsTable.id, ids),
-      ))
-      .returning();
-    res.json({ ok: true, deleted: deleted.length, restore: { accounts: deleted, contacts, signals } });
-  } catch (err) {
-    console.error("DELETE /sales/accounts/bulk error:", err);
-    res.status(500).json({ error: "Failed to delete accounts" });
   }
 });
 
