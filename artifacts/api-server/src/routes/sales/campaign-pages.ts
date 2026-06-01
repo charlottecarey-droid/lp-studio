@@ -202,31 +202,35 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
     alertEmails = [],
   } = req.body;
 
-  // Per-tenant sender identity — no Dandy fallbacks. Refuse the launch
-  // (rather than send from another tenant's address) when sender/reply-to
-  // are unset.
-  const launchBrandCtx = await getSalesBrandContext(tenantId);
-  const senderName = senderNameOverride ?? launchBrandCtx.senderName;
-  const senderEmail = senderEmailOverride ?? launchBrandCtx.senderLocalPart;
-  const SENDER_DOMAIN = launchBrandCtx.sendingDomain;
-  const DEFAULT_REPLY_TO = launchBrandCtx.replyTo;
-  if (sendEmails && (!senderName || !senderEmail || !SENDER_DOMAIN || !DEFAULT_REPLY_TO)) {
-    res.status(400).json({
-      error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
-    });
-    return;
-  }
-
-  if (!pageId) {
-    res.status(400).json({ error: "pageId is required" });
-    return;
-  }
-  if (!audienceId) {
-    res.status(400).json({ error: "audienceId is required — select an audience before launching" });
-    return;
-  }
-
   try {
+    // Per-tenant sender identity — no Dandy fallbacks. Refuse the launch
+    // (rather than send from another tenant's address) when sender/reply-to
+    // are unset. This DB read runs INSIDE the try (and is retry-wrapped like
+    // the other launch queries) so a transient pool-saturation timeout
+    // surfaces as a machine-readable 503 via the catch below — not an
+    // unhandled throw that the client renders as a dead-end "Failed to launch
+    // campaign" with no detail.
+    const launchBrandCtx = await withDbRetry(() => getSalesBrandContext(tenantId));
+    const senderName = senderNameOverride ?? launchBrandCtx.senderName;
+    const senderEmail = senderEmailOverride ?? launchBrandCtx.senderLocalPart;
+    const SENDER_DOMAIN = launchBrandCtx.sendingDomain;
+    const DEFAULT_REPLY_TO = launchBrandCtx.replyTo;
+    if (sendEmails && (!senderName || !senderEmail || !SENDER_DOMAIN || !DEFAULT_REPLY_TO)) {
+      res.status(400).json({
+        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
+      });
+      return;
+    }
+
+    if (!pageId) {
+      res.status(400).json({ error: "pageId is required" });
+      return;
+    }
+    if (!audienceId) {
+      res.status(400).json({ error: "audienceId is required — select an audience before launching" });
+      return;
+    }
+
     const [page] = await db.select().from(lpPagesTable)
       .where(and(eq(lpPagesTable.id, Number(pageId)), eq(lpPagesTable.tenantId, tenantId)));
     if (!page) {
@@ -248,7 +252,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
       return;
     }
 
-    const host = await getTenantOutboundOrigin(tenantId, req);
+    const host = await withDbRetry(() => getTenantOutboundOrigin(tenantId, req));
     const filters = audResult.rows[0].filters as Record<string, unknown>;
     const contacts = await resolveContacts(filters, tenantId);
 
