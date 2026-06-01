@@ -452,7 +452,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <Label htmlFor="brand-name">Company name <span className="text-destructive">*</span></Label>
                 <Input
                   id="brand-name"
-                  placeholder="Acme Dental"
+                  placeholder="Acme Inc"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
                   autoFocus
@@ -463,7 +463,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <Label htmlFor="tagline">Tagline <span className="text-muted-foreground text-xs">(optional)</span></Label>
                 <Input
                   id="tagline"
-                  placeholder="Smarter dental care for modern practices"
+                  placeholder="Your company's one-line promise"
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && canAdvanceStep0) setStep(1); }}
