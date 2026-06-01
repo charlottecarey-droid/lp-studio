@@ -1,7 +1,7 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { eq, desc, and, sql, isNull, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesAccountsTable,
@@ -152,11 +152,10 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
       .where(and(
         eq(salesAccountsTable.tenantId, tenantId),
         eq(salesAccountsTable.id, Number(req.params.id)),
-        isNull(salesAccountsTable.salesforceId),
       ))
       .returning();
     if (!deleted) {
-      res.status(404).json({ error: "Account not found or is Salesforce-managed" });
+      res.status(404).json({ error: "Account not found" });
       return;
     }
     res.json({ ok: true });
@@ -166,7 +165,7 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Bulk-delete accounts by IDs — CSV-only (no salesforceId)
+// Bulk-delete accounts by IDs (cascades to contacts, signals, briefings)
 router.delete("/accounts/bulk", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -180,7 +179,6 @@ router.delete("/accounts/bulk", async (req, res): Promise<void> => {
       .where(and(
         eq(salesAccountsTable.tenantId, tenantId),
         inArray(salesAccountsTable.id, ids),
-        isNull(salesAccountsTable.salesforceId),
       ))
       .returning({ id: salesAccountsTable.id });
     res.json({ ok: true, deleted: deleted.length });

@@ -143,6 +143,32 @@ router.delete("/signals", async (req, res): Promise<void> => {
   }
 });
 
+// ─── DELETE /sales/signals/:id — delete a single signal ────────────────────
+router.delete("/signals/:id", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid signal id" });
+      return;
+    }
+    const [deleted] = await db.delete(salesSignalsTable)
+      .where(and(
+        eq(salesSignalsTable.tenantId, tenantId),
+        eq(salesSignalsTable.id, id),
+      ))
+      .returning({ id: salesSignalsTable.id });
+    if (!deleted) {
+      res.status(404).json({ error: "Signal not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /sales/signals/:id error:", err);
+    res.status(500).json({ error: "Failed to delete signal" });
+  }
+});
+
 // ─── POST /sales/signals — create a signal ──────────────────
 
 router.post("/signals", async (req, res): Promise<void> => {

@@ -60,6 +60,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Flame, Thermometer, Zap, Snowflake, TrendingDown, ArrowRight } from "lucide-react";
 import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 const API_BASE = "/api";
 
@@ -521,9 +523,11 @@ function AccountListView() {
   const [newOwner, setNewOwner] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // ── Account delete (CSV-only) ─────────────────────────────────────────────
+  // ── Account delete ────────────────────────────────────────────────────────
   const [selectedAccIds, setSelectedAccIds] = useState<Set<number>>(new Set());
   const [acctDeleting, setAcctDeleting] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState<Account | null>(null);
 
   function toggleAcctSelect(id: number, e: React.MouseEvent) {
     e.stopPropagation();
@@ -538,15 +542,42 @@ function AccountListView() {
     if (selectedAccIds.size === 0) return;
     setAcctDeleting(true);
     try {
-      await fetch(`${API_BASE}/sales/accounts/bulk`, {
+      const res = await fetch(`${API_BASE}/sales/accounts/bulk`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: Array.from(selectedAccIds) }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      const n = data?.deleted ?? selectedAccIds.size;
+      toast.success(`Deleted ${n} account${n !== 1 ? "s" : ""}`);
       setSelectedAccIds(new Set());
+      setConfirmBulkDelete(false);
       fetchAccounts();
     } catch (err) {
       console.error("Failed to delete accounts:", err);
+      toast.error("Failed to delete accounts. Please try again.");
+    } finally {
+      setAcctDeleting(false);
+    }
+  }
+
+  async function deleteAccount(account: Account) {
+    setAcctDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/accounts/${account.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success(`Deleted ${account.displayName ?? account.name}`);
+      setRowToDelete(null);
+      setSelectedAccIds(prev => {
+        const next = new Set(prev);
+        next.delete(account.id);
+        return next;
+      });
+      fetchAccounts();
+    } catch (err) {
+      console.error("Failed to delete account:", err);
+      toast.error("Failed to delete account. Please try again.");
     } finally {
       setAcctDeleting(false);
     }
@@ -1165,45 +1196,47 @@ function AccountListView() {
           <div className="flex flex-col gap-2.5">
             {/* Bulk delete toolbar */}
             {selectedAccIds.size > 0 && (
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-destructive/8 border border-destructive/20 text-sm">
-                <span className="text-foreground font-medium">
-                  {selectedAccIds.size} account{selectedAccIds.size !== 1 ? "s" : ""} selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setSelectedAccIds(new Set())} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
-                  <button
-                    onClick={deleteSelectedAccounts}
-                    disabled={acctDeleting}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    {acctDeleting ? "Deleting…" : `Delete ${selectedAccIds.size}`}
-                  </button>
+              <div className="flex flex-col gap-1.5 px-4 py-2.5 rounded-xl bg-destructive/8 border border-destructive/20 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-foreground font-medium">
+                    {selectedAccIds.size} account{selectedAccIds.size !== 1 ? "s" : ""} selected
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setSelectedAccIds(new Set())} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
+                    <button
+                      onClick={() => setConfirmBulkDelete(true)}
+                      disabled={acctDeleting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {acctDeleting ? "Deleting…" : `Delete ${selectedAccIds.size}`}
+                    </button>
+                  </div>
                 </div>
+                {accounts.some(a => selectedAccIds.has(a.id) && a.salesforceId) && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    Some selected accounts are synced from Salesforce and may reappear on the next sync.
+                  </span>
+                )}
               </div>
             )}
             {accPag.pageItems.map((account) => {
               const isSelected = selectedAccIds.has(account.id);
-              const isCsvOnly = !account.salesforceId;
               return (
               <div
                 key={account.id}
                 onClick={() => navigate(`/sales/accounts/${account.id}`)}
                 className={`group flex items-center gap-4 px-5 py-4 bg-card border rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150 cursor-pointer ${isSelected ? "border-destructive/40 bg-destructive/3" : "border-border/60"}`}
               >
-                {/* Checkbox for CSV-only accounts */}
-                {isCsvOnly ? (
-                  <button
-                    onClick={(e) => toggleAcctSelect(account.id, e)}
-                    className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors -ml-1"
-                    style={{ borderColor: isSelected ? "rgb(var(--destructive))" : undefined }}
-                    title={isSelected ? "Deselect" : "Select for deletion"}
-                  >
-                    {isSelected && <Check className="w-3 h-3 text-destructive" />}
-                  </button>
-                ) : (
-                  <div className="w-5 -ml-1 flex-shrink-0" />
-                )}
+                {/* Selection checkbox */}
+                <button
+                  onClick={(e) => toggleAcctSelect(account.id, e)}
+                  className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors -ml-1"
+                  style={{ borderColor: isSelected ? "rgb(var(--destructive))" : undefined }}
+                  title={isSelected ? "Deselect" : "Select for deletion"}
+                >
+                  {isSelected && <Check className="w-3 h-3 text-destructive" />}
+                </button>
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-primary" />
                 </div>
@@ -1248,6 +1281,13 @@ function AccountListView() {
                   <span>{format(new Date(account.updatedAt), "MMM d")}</span>
                 </div>
 
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRowToDelete(account); }}
+                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Delete account"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
               </div>
               );
@@ -1260,6 +1300,46 @@ function AccountListView() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        onOpenChange={(o) => { if (!acctDeleting) setConfirmBulkDelete(o); }}
+        title={`Delete ${selectedAccIds.size} account${selectedAccIds.size !== 1 ? "s" : ""}?`}
+        description={
+          <>
+            This permanently deletes the selected account{selectedAccIds.size !== 1 ? "s" : ""} along with their contacts, signals, and briefings. This cannot be undone.
+            {accounts.some(a => selectedAccIds.has(a.id) && a.salesforceId) && (
+              <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                Some selected accounts are synced from Salesforce and may reappear on the next sync.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel={acctDeleting ? "Deleting…" : "Delete"}
+        destructive
+        loading={acctDeleting}
+        onConfirm={deleteSelectedAccounts}
+      />
+
+      <ConfirmDialog
+        open={rowToDelete !== null}
+        onOpenChange={(o) => { if (!o && !acctDeleting) setRowToDelete(null); }}
+        title="Delete account?"
+        description={
+          <>
+            This permanently deletes <strong>{rowToDelete?.displayName ?? rowToDelete?.name}</strong> along with its contacts, signals, and briefings. This cannot be undone.
+            {rowToDelete?.salesforceId && (
+              <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                This account is synced from Salesforce and may reappear on the next sync.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel={acctDeleting ? "Deleting…" : "Delete"}
+        destructive
+        loading={acctDeleting}
+        onConfirm={() => { if (rowToDelete) deleteAccount(rowToDelete); }}
+      />
     </SalesLayout>
   );
 }

@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useReviews } from "@/hooks/use-collaboration";
 import type { PageReview } from "@/hooks/use-collaboration";
+import { toast } from "sonner";
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -18,6 +20,7 @@ import {
   Inbox,
   Globe,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 const API_BASE = "/api";
@@ -117,6 +120,8 @@ export default function ReviewsOverview() {
   const [refreshing, setRefreshing] = useState(false);
   const [shareModal, setShareModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "changes_requested">("all");
+  const [reviewToDelete, setReviewToDelete] = useState<PageReviewSummary | null>(null);
+  const [deletingReview, setDeletingReview] = useState(false);
 
   const fetchAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -180,6 +185,32 @@ export default function ReviewsOverview() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  async function deleteReviewsForPage(item: PageReviewSummary) {
+    setDeletingReview(true);
+    try {
+      const results = await Promise.all(
+        item.reviews.map((review) =>
+          fetch(`${API_BASE}/lp/pages/${item.pageId}/reviews/${review.id}`, { method: "DELETE" })
+            .then((r) => r.ok)
+            .catch(() => false)
+        )
+      );
+      const allOk = results.every(Boolean);
+      setReviewToDelete(null);
+      await fetchAll(true);
+      if (allOk) {
+        toast.success("Review links deleted");
+      } else {
+        toast.error("Some review links could not be deleted");
+      }
+    } catch (err) {
+      console.error("Failed to delete reviews:", err);
+      toast.error("Failed to delete review links");
+    } finally {
+      setDeletingReview(false);
+    }
+  }
 
   const filtered = rows.filter(r => {
     if (filter === "all") return true;
@@ -333,6 +364,17 @@ export default function ReviewsOverview() {
                         <Edit2 className="w-3.5 h-3.5" />
                       </Button>
                     </Link>
+                    {item.reviews.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                        title="Delete review links"
+                        onClick={() => setReviewToDelete(item)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -357,6 +399,21 @@ export default function ReviewsOverview() {
           onReviewsChanged={() => fetchAll(true)}
         />
       )}
+
+      <ConfirmDialog
+        open={reviewToDelete !== null}
+        onOpenChange={(o) => { if (!o && !deletingReview) setReviewToDelete(null); }}
+        title={`Delete ${reviewToDelete?.reviews.length ?? 0} review link${(reviewToDelete?.reviews.length ?? 0) !== 1 ? "s" : ""}?`}
+        description={
+          <>
+            This permanently deletes all review links for <strong>{reviewToDelete?.pageTitle}</strong>. Reviewers will no longer be able to access them. This cannot be undone.
+          </>
+        }
+        confirmLabel={deletingReview ? "Deleting…" : "Delete"}
+        destructive
+        loading={deletingReview}
+        onConfirm={() => { if (reviewToDelete) deleteReviewsForPage(reviewToDelete); }}
+      />
     </AppLayout>
   );
 }

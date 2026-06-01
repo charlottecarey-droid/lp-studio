@@ -71,3 +71,4 @@
 - [lp-studio typecheck via validation](lp-studio-typecheck-via-validation.md) — lp-studio tsc is >12min (past bash 120s cap) + detached procs get reaped; run it through the validation skill, not raw/background bash.
 - [Snapshot render-version reconcile](snapshot-render-version-reconcile.md) — published R2 snapshots self-heal via manually-bumped CURRENT_RENDER_VERSION metadata + post-deploy reconcile; dev shares prod's R2 bucket, so NEVER run the reconcile/backfill from dev.
 - [Partner one-pager is PDF-only](partner-onepager-pdf-only.md) — Partner Practices template renders via jsPDF generateNewPartnerOnePager, NOT the web one-pager-hero block; shareable web links are pilot-only.
+- [Sales delete allows synced rows](sales-delete-synced-rows.md) — account/contact delete endpoints dropped the isNull(salesforceId) guard; synced rows hard-deletable but may resync; UI warns via amber note.

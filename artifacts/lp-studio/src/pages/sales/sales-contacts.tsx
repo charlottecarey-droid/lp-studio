@@ -54,6 +54,8 @@ import { GenerateMicrositeModal } from "./sales-accounts";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { useAuth } from "@/context/AuthContext";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 const API_BASE = "/api";
 
@@ -91,6 +93,7 @@ interface Contact {
   titleLevel?: string | null;
   contactRole?: string | null;
   department?: string | null;
+  salesforceId?: string | null;
   status: string;
   createdAt: string;
   // From accounts join
@@ -636,6 +639,10 @@ function ContactListView() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [rowDeleting, setRowDeleting] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState<Contact | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showAudience, setShowAudience] = useState(false);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
@@ -730,6 +737,60 @@ function ContactListView() {
       setDeleteConfirm(false);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  function toggleSelect(id: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelectedContacts() {
+    if (selectedIds.size === 0) return;
+    setRowDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/contacts/bulk`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      const n = data?.deleted ?? selectedIds.size;
+      toast.success(`Deleted ${n} contact${n !== 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+      fetchContacts();
+    } catch (err) {
+      console.error("Failed to delete contacts:", err);
+      toast.error("Failed to delete contacts. Please try again.");
+    } finally {
+      setRowDeleting(false);
+    }
+  }
+
+  async function deleteContact(contact: Contact) {
+    setRowDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/contacts/${contact.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success(`Deleted ${contact.firstName} ${contact.lastName}`);
+      setRowToDelete(null);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(contact.id);
+        return next;
+      });
+      fetchContacts();
+    } catch (err) {
+      console.error("Failed to delete contact:", err);
+      toast.error("Failed to delete contact. Please try again.");
+    } finally {
+      setRowDeleting(false);
     }
   }
 
@@ -963,6 +1024,26 @@ function ContactListView() {
           )}
         </div>
 
+        {/* Bulk delete toolbar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-destructive/8 border border-destructive/20 text-sm">
+            <span className="text-foreground font-medium">
+              {selectedIds.size} contact{selectedIds.size !== 1 ? "s" : ""} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSelectedIds(new Set())} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
+              <button
+                onClick={() => setConfirmBulkDelete(true)}
+                disabled={rowDeleting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {rowDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* List / Grouped */}
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -1025,8 +1106,16 @@ function ContactListView() {
                     <div
                       key={contact.id}
                       onClick={() => navigate(`/sales/contacts/${contact.id}`)}
-                      className="group/row flex items-center gap-3 pl-10 pr-5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
+                      className={`group/row flex items-center gap-3 pl-4 pr-5 py-2.5 bg-card border rounded-xl hover:border-primary/25 transition-all cursor-pointer ${selectedIds.has(contact.id) ? "border-destructive/40 bg-destructive/3" : "border-border/60"}`}
                     >
+                      <button
+                        onClick={(e) => toggleSelect(contact.id, e)}
+                        className="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors"
+                        style={{ borderColor: selectedIds.has(contact.id) ? "rgb(var(--destructive))" : undefined }}
+                        title={selectedIds.has(contact.id) ? "Deselect" : "Select for deletion"}
+                      >
+                        {selectedIds.has(contact.id) && <Check className="w-2.5 h-2.5 text-destructive" />}
+                      </button>
                       <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${indicatorColor}`} title={engagementScore.label} />
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-bold text-primary uppercase">
                         {contact.firstName[0]}{contact.lastName[0]}
@@ -1081,6 +1170,13 @@ function ContactListView() {
                         <Sparkles className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Draft Email</span>
                       </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setRowToDelete(contact); }}
+                        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/row:opacity-100 transition-all"
+                        title="Delete contact"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   );
                 })}
@@ -1116,8 +1212,16 @@ function ContactListView() {
                     <div key={contact.id} style={rowStyle}>
                       <div
                         onClick={() => navigate(`/sales/contacts/${contact.id}`)}
-                        className="group flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
+                        className={`group flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border rounded-xl hover:border-primary/25 transition-all cursor-pointer ${selectedIds.has(contact.id) ? "border-destructive/40 bg-destructive/3" : "border-border/60"}`}
                       >
+                        <button
+                          onClick={(e) => toggleSelect(contact.id, e)}
+                          className="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors"
+                          style={{ borderColor: selectedIds.has(contact.id) ? "rgb(var(--destructive))" : undefined }}
+                          title={selectedIds.has(contact.id) ? "Deselect" : "Select for deletion"}
+                        >
+                          {selectedIds.has(contact.id) && <Check className="w-2.5 h-2.5 text-destructive" />}
+                        </button>
                         <div className={`flex-shrink-0 w-2 h-2 rounded-full ${indicatorColor}`} title={engagementScore.label} />
                         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
                           {contact.firstName[0]}{contact.lastName[0]}
@@ -1185,6 +1289,13 @@ function ContactListView() {
                         <span className="text-xs text-muted-foreground shrink-0">
                           {format(new Date(contact.createdAt), "MMM d")}
                         </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRowToDelete(contact); }}
+                          className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Delete contact"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -1216,6 +1327,46 @@ function ContactListView() {
           onClose={() => setDraftContact(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        onOpenChange={(o) => { if (!rowDeleting) setConfirmBulkDelete(o); }}
+        title={`Delete ${selectedIds.size} contact${selectedIds.size !== 1 ? "s" : ""}?`}
+        description={
+          <>
+            This permanently deletes the selected contact{selectedIds.size !== 1 ? "s" : ""}. This cannot be undone.
+            {contacts.some(c => selectedIds.has(c.id) && c.salesforceId) && (
+              <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                Some selected contacts are synced from Salesforce and may reappear on the next sync.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel={rowDeleting ? "Deleting…" : "Delete"}
+        destructive
+        loading={rowDeleting}
+        onConfirm={deleteSelectedContacts}
+      />
+
+      <ConfirmDialog
+        open={rowToDelete !== null}
+        onOpenChange={(o) => { if (!o && !rowDeleting) setRowToDelete(null); }}
+        title="Delete contact?"
+        description={
+          <>
+            This permanently deletes <strong>{rowToDelete ? `${rowToDelete.firstName} ${rowToDelete.lastName}` : ""}</strong>. This cannot be undone.
+            {rowToDelete?.salesforceId && (
+              <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                This contact is synced from Salesforce and may reappear on the next sync.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel={rowDeleting ? "Deleting…" : "Delete"}
+        destructive
+        loading={rowDeleting}
+        onConfirm={() => { if (rowToDelete) deleteContact(rowToDelete); }}
+      />
     </SalesLayout>
   );
 }

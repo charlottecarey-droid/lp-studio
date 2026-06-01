@@ -26,6 +26,8 @@ import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { getSignalIcon, getSignalLabel, SIGNAL_TYPES } from "@/lib/signal-types";
 import { useAuth } from "@/context/AuthContext";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 const API_BASE = "/api";
 
@@ -57,6 +59,8 @@ export default function SalesSignals() {
   const [filter, setFilter] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [signalToDelete, setSignalToDelete] = useState<Signal | null>(null);
+  const [deletingSignal, setDeletingSignal] = useState(false);
   const [groupByAccount, setGroupByAccount] = useState(false);
   const [collapsedAccounts, setCollapsedAccounts] = useState<Set<string>>(new Set());
 
@@ -161,6 +165,22 @@ export default function SalesSignals() {
       console.error("Failed to clear signals:", err);
     } finally {
       setClearing(false);
+    }
+  }
+
+  async function deleteSignal(signal: Signal) {
+    setDeletingSignal(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/signals/${signal.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+      setSignals((prev) => prev.filter((s) => s.id !== signal.id));
+      setSignalToDelete(null);
+      toast.success("Signal deleted");
+    } catch (err) {
+      console.error("Failed to delete signal:", err);
+      toast.error("Failed to delete signal");
+    } finally {
+      setDeletingSignal(false);
     }
   }
 
@@ -398,7 +418,7 @@ export default function SalesSignals() {
                     {!isCollapsed && (
                       <div className="flex flex-col divide-y divide-border/40">
                         {acctSignals.map((signal) => (
-                          <div key={signal.id} className="flex items-center gap-4 px-5 py-3 bg-card hover:bg-muted/20 transition-colors">
+                          <div key={signal.id} className="group/row flex items-center gap-4 px-5 py-3 bg-card hover:bg-muted/20 transition-colors">
                             <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
                               {getSignalIcon(signal.type)}
                             </div>
@@ -414,6 +434,13 @@ export default function SalesSignals() {
                             <span className="text-xs text-muted-foreground shrink-0">
                               {format(new Date(signal.createdAt), "MMM d, h:mm a")}
                             </span>
+                            <button
+                              onClick={() => setSignalToDelete(signal)}
+                              className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/row:opacity-100 transition-all"
+                              title="Delete signal"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -449,7 +476,7 @@ export default function SalesSignals() {
                       style={rowStyle}
                       className="pb-2"
                     >
-                      <Link href={dest} className="block text-foreground no-underline">
+                      <Link href={dest} className="group/row block text-foreground no-underline">
                         <div className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer">
                           <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
                             {getSignalIcon(signal.type)}
@@ -497,6 +524,13 @@ export default function SalesSignals() {
                           <span className="text-xs text-muted-foreground shrink-0 ml-2">
                             {format(new Date(signal.createdAt), "MMM d, h:mm a")}
                           </span>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSignalToDelete(signal); }}
+                            className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/row:opacity-100 transition-all"
+                            title="Delete signal"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </Link>
                     </div>
@@ -507,6 +541,17 @@ export default function SalesSignals() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={signalToDelete !== null}
+        onOpenChange={(o) => { if (!o && !deletingSignal) setSignalToDelete(null); }}
+        title="Delete signal?"
+        description="This permanently deletes this activity signal. This cannot be undone."
+        confirmLabel={deletingSignal ? "Deleting…" : "Delete"}
+        destructive
+        loading={deletingSignal}
+        onConfirm={() => { if (signalToDelete) deleteSignal(signalToDelete); }}
+      />
     </SalesLayout>
   );
 }
