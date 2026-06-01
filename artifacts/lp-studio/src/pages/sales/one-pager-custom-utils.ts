@@ -158,13 +158,13 @@ export async function apiSaveLayoutDefault(key: string, config: Record<string, u
   try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(config)); } catch {}
   try {
     await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
+      method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
     });
   } catch {}
 }
 
 export async function fetchCustomTemplates(): Promise<CustomTemplate[]> {
-  const res = await fetch(`${API_BASE}/sales/one-pager-templates`);
+  const res = await fetch(`${API_BASE}/sales/one-pager-templates`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to load templates");
   const data = await res.json();
   return (data as Record<string, unknown>[]).map(t => ({
@@ -191,7 +191,7 @@ export async function saveCustomTemplate(tpl: CustomTemplate): Promise<CustomTem
     ? `${API_BASE}/sales/one-pager-templates/${tpl.id}`
     : `${API_BASE}/sales/one-pager-templates`;
   const method = tpl.id ? "PATCH" : "POST";
-  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   if (!res.ok) throw new Error("Save failed");
   const d = await res.json() as Record<string, unknown>;
   return {
@@ -204,6 +204,6 @@ export async function saveCustomTemplate(tpl: CustomTemplate): Promise<CustomTem
 }
 
 export async function deleteCustomTemplate(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/sales/one-pager-templates/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/sales/one-pager-templates/${id}`, { method: "DELETE", credentials: "include" });
   if (!res.ok) throw new Error("Delete failed");
 }

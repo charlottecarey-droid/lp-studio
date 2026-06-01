@@ -56,11 +56,22 @@ async function loadLayoutDefault(key: string): Promise<Record<string, any> | nul
 
 async function saveLayoutDefault(key: string, config: Record<string, any>): Promise<void> {
   try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(config)); } catch {}
-  try {
-    await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, {
-      method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
-    });
-  } catch {}
+  // The API is the source of truth. Do NOT swallow errors here: a failed PUT
+  // (expired session, CSRF token failure, server error) must propagate so the
+  // caller (handleSave) can surface "Save failed" instead of falsely reporting
+  // success while the change never persists. localStorage above is only a local
+  // cache; persisting it is best-effort and never a substitute for the server.
+  const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, {
+    method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.clone().json();
+      if (body && typeof body.error === "string") detail = `: ${body.error}`;
+    } catch { /* non-JSON body — fall back to status only */ }
+    throw new Error(`Couldn't save (HTTP ${res.status}${detail}). Your changes were not persisted.`);
+  }
 }
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -828,8 +839,12 @@ export default function SalesOnePagerEditor() {
       setSavedIndicator(true);
       setTimeout(() => setSavedIndicator(false), 2500);
       toast({ title: "Template saved!", description: "All sales reps will now see these defaults when generating one-pagers." });
-    } catch {
-      toast({ title: "Save failed", description: "Please try again.", variant: "destructive" });
+    } catch (err) {
+      toast({
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
