@@ -193,9 +193,16 @@ export interface BrandContext {
    *  tenant's actual brand fonts. Not part of resolveBrand() defaults — read
    *  directly off the raw brand in registerBrandFonts(). */
   fonts?: BrandPdfFonts;
+  /** Server-computed (read-only) Dandy flag, mirrored from BrandConfig.isDandy.
+   *  When true, the four non-Agreement generators force the bundled Bagoss face
+   *  for the MAIN HEADER title only (Dandy ships no embeddable brand font, so it
+   *  can't arrive via `fonts.heading`). Other tenants with a `fonts.heading`
+   *  already render their own display font in the header; tenants with neither
+   *  keep helvetica — bundled Bagoss must NEVER render on a non-Dandy header. */
+  isDandy?: boolean;
 }
 
-export const DEFAULT_BRAND_CONTEXT: Required<Omit<BrandContext, "fonts">> = {
+export const DEFAULT_BRAND_CONTEXT: Required<Omit<BrandContext, "fonts" | "isDandy">> = {
   wordmark: "dandy",
   productName: "Dandy",
   industryLabel: "DSO",
@@ -208,7 +215,7 @@ export const DEFAULT_BRAND_CONTEXT: Required<Omit<BrandContext, "fonts">> = {
   accentColor: "",
 };
 
-function resolveBrand(b?: BrandContext): Required<Omit<BrandContext, "fonts">> {
+function resolveBrand(b?: BrandContext): Required<Omit<BrandContext, "fonts" | "isDandy">> {
   if (!b) return DEFAULT_BRAND_CONTEXT;
   return {
     wordmark: b.wordmark ?? DEFAULT_BRAND_CONTEXT.wordmark,
@@ -967,6 +974,15 @@ export const generatePilotOnePager = async (
   const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
   const headingStyle = (builtin: "normal" | "bold"): string =>
     hasBrandHeading ? "normal" : builtin;
+  // Main header title only: non-Dandy tenants with an embedded display font
+  // already get it via hasBrandHeading; Dandy ships no embeddable brand font, so
+  // force the bundled Bagoss for its header title to match the Agreement Summary.
+  // Tenants with neither keep helvetica — never leak Bagoss onto a non-Dandy header.
+  const headerTitleHasBrand =
+    hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc));
+  const headerTitleFont = headerTitleHasBrand ? "Bagoss" : "helvetica";
+  const headerTitleStyle = (builtin: "normal" | "bold"): string =>
+    headerTitleHasBrand ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1025,7 +1041,7 @@ export const generatePilotOnePager = async (
     doc.text(dsoName, logoEndX + 12, 70);
   }
 
-  doc.setFont(headingFont, headingStyle("normal"));
+  doc.setFont(headerTitleFont, headerTitleStyle("normal"));
   doc.setFontSize(dsoName.length > 15 ? 22 : ((hCfg.titleFontSize as number | undefined) ?? 28));
   doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize(`${b.productName} x ${dsoName}\n90-Day Pilot`, splitX - margin - 20);
@@ -1264,6 +1280,15 @@ export const generateComparisonOnePager = async (
   const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
   const headingStyle = (builtin: "normal" | "bold"): string =>
     hasBrandHeading ? "normal" : builtin;
+  // Main header title only: non-Dandy tenants with an embedded display font
+  // already get it via hasBrandHeading; Dandy ships no embeddable brand font, so
+  // force the bundled Bagoss for its header title to match the Agreement Summary.
+  // Tenants with neither keep helvetica — never leak Bagoss onto a non-Dandy header.
+  const headerTitleHasBrand =
+    hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc));
+  const headerTitleFont = headerTitleHasBrand ? "Bagoss" : "helvetica";
+  const headerTitleStyle = (builtin: "normal" | "bold"): string =>
+    headerTitleHasBrand ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1329,7 +1354,7 @@ export const generateComparisonOnePager = async (
   const titleSize = (hCfg.titleFontSize as number | undefined) ?? 20;
   const titleLineSpacing = (hCfg.titleLineSpacing as number | undefined) ?? 1.32;
   const titleLineH = Math.round(titleSize * titleLineSpacing);
-  doc.setFont(headingFont, headingStyle("normal")); doc.setFontSize(titleSize); doc.setTextColor(...white);
+  doc.setFont(headerTitleFont, headerTitleStyle("normal")); doc.setFontSize(titleSize); doc.setTextColor(...white);
   doc.text("Stronger Systems.", margin, 90);
   doc.text("Better Outcomes.", margin, 90 + titleLineH);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(...pal.onPrimaryMuted2);
@@ -1493,6 +1518,15 @@ export const generateNewPartnerOnePager = async (
   const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
   const headingStyle = (builtin: "normal" | "bold"): string =>
     hasBrandHeading ? "normal" : builtin;
+  // Main header title only: non-Dandy tenants with an embedded display font
+  // already get it via hasBrandHeading; Dandy ships no embeddable brand font, so
+  // force the bundled Bagoss for its header title to match the Agreement Summary.
+  // Tenants with neither keep helvetica — never leak Bagoss onto a non-Dandy header.
+  const headerTitleHasBrand =
+    hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc));
+  const headerTitleFont = headerTitleHasBrand ? "Bagoss" : "helvetica";
+  const headerTitleStyle = (builtin: "normal" | "bold"): string =>
+    headerTitleHasBrand ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1577,7 +1611,7 @@ export const generateNewPartnerOnePager = async (
   // header title in normal weight. Undefined/true keeps the default bold.
   const titleWeight: "normal" | "bold" =
     (hCfg as Record<string, unknown>).boldHeading === false ? "normal" : "bold";
-  doc.setFont(headingFont, headingStyle(titleWeight)); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
+  doc.setFont(headerTitleFont, headerTitleStyle(titleWeight)); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
   doc.text(titleLines, margin, 65 + subtitleOffY + subtitleFontSize + 14);
 
@@ -1704,6 +1738,15 @@ export const generateROIOnePager = async (
   const headingFont = hasBrandHeading ? "Bagoss" : "helvetica";
   const headingStyle = (builtin: "normal" | "bold"): string =>
     hasBrandHeading ? "normal" : builtin;
+  // Main header title only: non-Dandy tenants with an embedded display font
+  // already get it via hasBrandHeading; Dandy ships no embeddable brand font, so
+  // force the bundled Bagoss for its header title to match the Agreement Summary.
+  // Tenants with neither keep helvetica — never leak Bagoss onto a non-Dandy header.
+  const headerTitleHasBrand =
+    hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc));
+  const headerTitleFont = headerTitleHasBrand ? "Bagoss" : "helvetica";
+  const headerTitleStyle = (builtin: "normal" | "bold"): string =>
+    headerTitleHasBrand ? "normal" : builtin;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const margin = 48;
@@ -1737,7 +1780,7 @@ export const generateROIOnePager = async (
   const defaultNameSize = dsoName.length > 15 ? 16 : 22;
   const roiNameSize = (hCfg.titleFontSize as number | undefined) ?? defaultNameSize;
   const titleY = Math.round(headerH * 0.575);
-  doc.setFont(headingFont, headingStyle("normal")); doc.setFontSize(roiNameSize); doc.setTextColor(...white);
+  doc.setFont(headerTitleFont, headerTitleStyle("normal")); doc.setFontSize(roiNameSize); doc.setTextColor(...white);
   doc.text("& ", margin, titleY);
   const ampWidth = doc.getTextWidth("& ");
   doc.text(dsoName, margin + ampWidth, titleY);

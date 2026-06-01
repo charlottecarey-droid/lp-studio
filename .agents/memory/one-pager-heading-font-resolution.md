@@ -14,13 +14,27 @@ heading font the same way the Agreement Summary does:
   `headingStyle(builtin) => hasBrandHeading ? "normal" : builtin` (Bagoss only ships a
   "normal" face; preserve the original built-in weight in the fallback).
 
-**Why:** brands with no resolvable heading font (e.g. Dandy) must keep the current
-built-in fonts on Pilot/Comparison/New Partner/ROI. The Agreement Summary is the lone
-exception that calls `ensureBagoss` unconditionally (so it always draws bundled Bagoss);
-the other four generators must NOT call `ensureBagoss`, or Dandy would wrongly get Bagoss
-headings.
+**Why:** brands with no resolvable heading font must keep built-in helvetica on
+Pilot/Comparison/New Partner/ROI section headings. The Agreement Summary is the lone
+exception that calls `ensureBagoss` unconditionally (always bundled Bagoss everywhere).
 
-**How to apply:** only true headings (main title/headline + section headings) switch to
-`headingFont`; body copy, stat values, table cells, and small uppercase labels stay
-helvetica. The font-embed test (`onePagerFontEmbed.test.ts`) relies on ROI embedding no
-`FontFile2` when no fonts are supplied — keep that invariant (no unconditional Bagoss).
+**MAIN HEADER TITLE exception (Dandy only):** the four generators now force bundled
+Bagoss on the MAIN HEADER title ONLY (not section headings) when `opts.brand.isDandy`.
+Dandy ships no embeddable font, so it can't arrive via `fonts.heading`; the header uses a
+separate resolver computed AFTER `hasBrandHeading`:
+`headerTitleHasBrand = hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc))`,
+then `headerTitleFont`/`headerTitleStyle` swapped into ONLY the main header `setFont`.
+- Ordering matters: `hasBrandHeading` is read before this `ensureBagoss`, so section
+  headings stay helvetica for Dandy (only the header title flips).
+- LEAK GUARD: never call `ensureBagoss` for non-Dandy — short-circuit on `isDandy===true`.
+  A non-Dandy tenant without `fonts.heading` keeps helvetica; Bagoss is Dandy's font and
+  must never render on another tenant's header.
+- `BrandContext.isDandy` is excluded from `DEFAULT_BRAND_CONTEXT`/`resolveBrand` via
+  `Omit<..., "fonts" | "isDandy">`. lp-studio's `sales-one-pager.tsx` keeps Dandy's
+  `brandContext === undefined` (no font-fetch/scrub) but threads `{ isDandy: true }` into
+  `effectiveBrandContext` (both override + no-override branches).
+
+**How to apply:** non-header true headings (section headings) switch to `headingFont`;
+body copy, stat values, table cells, and small uppercase labels stay helvetica. The
+font-embed test (`onePagerFontEmbed.test.ts`) relies on ROI embedding no `FontFile2` when
+no brand/fonts supplied — keep that invariant (bundled Bagoss gated strictly on isDandy).

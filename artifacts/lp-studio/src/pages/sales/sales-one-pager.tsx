@@ -905,20 +905,25 @@ const SalesOnePager = () => {
       // undefined when nothing is resolvable, so the generators fall back.
       const brandFonts = brandContext ? await resolveBrandPdfFonts(brand) : undefined;
       // Effective context for the built-in generators: apply the per-one-pager
-      // override on top of the font-resolved Brand Settings base. When no
-      // override is set this equals the plain font-resolved context, so Dandy
-      // (brandContext === undefined) stays undefined and its palette/output is
-      // byte-identical.
+      // override on top of the font-resolved Brand Settings base. Dandy keeps its
+      // byte-identical palette (no brand colors/fonts), but still carries the
+      // server-computed `isDandy` flag so the generators force the bundled Bagoss
+      // face on the MAIN HEADER title only (matching the Agreement Summary).
+      // Non-Dandy tenants never set isDandy, so bundled Bagoss can't leak onto
+      // their headers — they get their own display font or helvetica.
       const effectiveBrandContext: BrandContext | undefined = hasColorOverride
         ? {
             ...(brandContext ?? {}),
             ...(brandFonts ? { fonts: brandFonts } : {}),
+            ...(isDandy ? { isDandy: true } : {}),
             primaryColor: overridePrimary || ((brandContext?.primaryColor || "").trim()),
             accentColor: overrideAccent || ((brandContext?.accentColor || "").trim()),
           }
         : brandContext
           ? { ...brandContext, fonts: brandFonts }
-          : undefined;
+          : isDandy
+            ? { isDandy: true }
+            : undefined;
       // Check if a custom template is selected
       if (selectedCustomId !== null) {
         const ct = customTemplates.find(t => t.id === selectedCustomId);

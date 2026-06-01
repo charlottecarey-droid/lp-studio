@@ -76,4 +76,23 @@ describe("PDF one-pager brand font embedding (ROI built-in, helvetica-only)", ()
     });
     expect(bytes(doc)).toContain("FontFile2");
   });
+
+  it("forces bundled Bagoss for Dandy's main header (isDandy embeds FontFile2)", async () => {
+    // Dandy ships no embeddable brand font, so it can't arrive via fonts.heading.
+    // The isDandy flag must force the bundled Bagoss face onto the header title,
+    // which embeds a font program even though no fonts were supplied.
+    const doc = await generateROIOnePager("Acme Group", 100, {
+      brand: { isDandy: true },
+    });
+    expect(bytes(doc)).toContain("FontFile2");
+  });
+
+  it("never leaks bundled Bagoss onto a NON-Dandy header with no display font", async () => {
+    // A non-Dandy tenant without a resolvable display font must stay on the
+    // built-in helvetica header — bundled Bagoss must not embed/leak.
+    const doc = await generateROIOnePager("Acme Group", 100, {
+      brand: { productName: "Acme", primaryColor: "#123456" },
+    });
+    expect(bytes(doc)).not.toContain("FontFile2");
+  });
 });
