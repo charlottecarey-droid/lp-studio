@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { NotificationTemplateDef } from "./notificationTemplates";
 // Real (un-mocked) helper — the dispatcher renders the structured intro+CTA
 // frame through this, so the welcome editability tests build their override body
 // the exact same way an operator's edits would be rendered.
 import { buildDefaultBodyHtml } from "./emailRender";
+import { PLATFORM_FROM_FALLBACK, PLATFORM_REPLY_TO_FALLBACK } from "./platformSender";
 
 // Drive the dispatcher's DB writes and the template it resolves. The pool is
 // mocked so each INSERT's RETURNING result decides created-vs-deduped, and the
@@ -272,7 +273,13 @@ const { NOTIFICATION_TEMPLATES: REAL_TEMPLATES } = await vi.importActual<
 const WELCOME_TPL = REAL_TEMPLATES["welcome"]!;
 
 /** Parse the JSON body of the most recent (Resend) fetch call. */
-function lastSentEmail(): { from: string; to: string; subject: string; html: string } {
+function lastSentEmail(): {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  reply_to?: string;
+} {
   const f = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
   const call = f.mock.calls.at(-1);
   const init = call?.[1] as RequestInit | undefined;
@@ -376,5 +383,70 @@ describe("welcome email editability", () => {
     const sent = lastSentEmail();
     expect(sent.html).toContain(`href="${WORKSPACE_URL}"`);
     expect(sent.html).not.toContain('href=""');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Platform reply-to header — proves the centralized platformReplyTo() default
+// actually reaches the Resend payload through the dispatcher, and that the
+// "disable reply-to" escape hatch (RESEND_REPLY_TO="") really omits the header
+// so a future change can't silently break who customers reply to.
+// ---------------------------------------------------------------------------
+describe("platform reply-to header", () => {
+  const ORIGINAL_REPLY_TO = process.env["RESEND_REPLY_TO"];
+  const ORIGINAL_FROM = process.env["RESEND_FROM_EMAIL"];
+
+  beforeEach(() => {
+    // Isolate both sender env vars so the from/reply-to assertions reflect the
+    // code defaults, never an ambient CI value.
+    delete process.env["RESEND_REPLY_TO"];
+    delete process.env["RESEND_FROM_EMAIL"];
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_REPLY_TO === undefined) delete process.env["RESEND_REPLY_TO"];
+    else process.env["RESEND_REPLY_TO"] = ORIGINAL_REPLY_TO;
+    if (ORIGINAL_FROM === undefined) delete process.env["RESEND_FROM_EMAIL"];
+    else process.env["RESEND_FROM_EMAIL"] = ORIGINAL_FROM;
+  });
+
+  it("emits the default reply_to header when RESEND_REPLY_TO is unset", async () => {
+    getTemplateMock.mockResolvedValue({ ...baseTpl, channels: ["email"] });
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 70 }] }); // email claim
+    queryMock.mockResolvedValueOnce({ rows: [] }); // mark sent
+
+    const res = await dispatchNotification({
+      templateKey: "trial_day_7",
+      tenantId: 42,
+      recipients: [{ appUserId: 1, email: "a@b.com" }],
+      context: { tenantName: "Acme", daysRemaining: 7, workspaceUrl: "https://acme.lpstudio.ai" },
+      dedupeBase: "trial_day_7:tenant:42",
+      channels: ["email"],
+    });
+
+    expect(res.emailsSent).toBe(1);
+    const sent = lastSentEmail();
+    // The outgoing Resend payload's from-header is the verified platform address.
+    expect(sent.from).toBe(PLATFORM_FROM_FALLBACK);
+    expect(sent.reply_to).toBe(PLATFORM_REPLY_TO_FALLBACK);
+  });
+
+  it("omits the reply_to header when RESEND_REPLY_TO is an explicit empty string", async () => {
+    process.env["RESEND_REPLY_TO"] = "";
+    getTemplateMock.mockResolvedValue({ ...baseTpl, channels: ["email"] });
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 71 }] }); // email claim
+    queryMock.mockResolvedValueOnce({ rows: [] }); // mark sent
+
+    const res = await dispatchNotification({
+      templateKey: "trial_day_7",
+      tenantId: 42,
+      recipients: [{ appUserId: 1, email: "a@b.com" }],
+      context: { tenantName: "Acme", daysRemaining: 7, workspaceUrl: "https://acme.lpstudio.ai" },
+      dedupeBase: "trial_day_7:tenant:42",
+      channels: ["email"],
+    });
+
+    expect(res.emailsSent).toBe(1);
+    expect(lastSentEmail()).not.toHaveProperty("reply_to");
   });
 });
