@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import {
   Gauge,
   AlertTriangle,
   Image,
   Layers,
+  ArrowUpRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
 
@@ -265,7 +268,15 @@ export default function PageSpeed() {
               {/* Detail panel — shared self-fetching component */}
               <div>
                 {selectedPageId !== null ? (
-                  <PageSpeedPanel pageId={selectedPageId} />
+                  <div className="space-y-3">
+                    <Link href={`/analytics/pages/${selectedPageId}`}>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <ArrowUpRight className="h-4 w-4 mr-1" />
+                        View page detail
+                      </Button>
+                    </Link>
+                    <PageSpeedPanel pageId={selectedPageId} />
+                  </div>
                 ) : (
                   <Card>
                     <CardContent className="pt-8">

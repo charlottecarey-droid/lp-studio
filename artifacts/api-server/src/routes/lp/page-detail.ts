@@ -425,6 +425,68 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
       }
     }
 
+    // Per-visit detail for the row-expand: the ordered scroll path and click
+    // sequence for each anonymous session (bounded to the first 60 events of
+    // each type per session so the payload stays small at ~10k events/page).
+    interface ScrollPoint {
+      depth: number;
+      at: string;
+    }
+    interface ClickPoint {
+      blockId: string | null;
+      elementTag: string | null;
+      xPct: number | null;
+      yPct: number | null;
+      at: string;
+    }
+    const detailBySession = new Map<
+      string,
+      { scrollPath: ScrollPoint[]; clickSequence: ClickPoint[] }
+    >();
+
+    if (sessionIds.length > 0) {
+      const detail = await db.execute(sql`
+        SELECT session_id, event_type, block_id, element_tag, x_pct, y_pct, scroll_depth_pct, created_at
+        FROM (
+          SELECT *, row_number() OVER (
+            PARTITION BY session_id, event_type ORDER BY created_at
+          ) AS rn
+          FROM lp_heatmap_events
+          WHERE page_id = ${pageId} AND session_id = ANY(${sessionIds})
+        ) t
+        WHERE rn <= 60
+        ORDER BY session_id, created_at
+      `);
+      for (const r of detail.rows as {
+        session_id: string;
+        event_type: string;
+        block_id: string | null;
+        element_tag: string | null;
+        x_pct: number | null;
+        y_pct: number | null;
+        scroll_depth_pct: number | null;
+        created_at: Date | string;
+      }[]) {
+        let entry = detailBySession.get(r.session_id);
+        if (!entry) {
+          entry = { scrollPath: [], clickSequence: [] };
+          detailBySession.set(r.session_id, entry);
+        }
+        const at = new Date(r.created_at).toISOString();
+        if (r.event_type === "scroll" && r.scroll_depth_pct != null) {
+          entry.scrollPath.push({ depth: Number(r.scroll_depth_pct), at });
+        } else if (r.event_type === "click") {
+          entry.clickSequence.push({
+            blockId: r.block_id,
+            elementTag: r.element_tag,
+            xPct: r.x_pct != null ? Number(r.x_pct) : null,
+            yPct: r.y_pct != null ? Number(r.y_pct) : null,
+            at,
+          });
+        }
+      }
+    }
+
     const visits = rows.map((r) => {
       const isAnon = r.source === "anonymous";
       const eng = isAnon && r.session_id ? engagementBySession.get(r.session_id) : undefined;
@@ -435,6 +497,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           : null;
       const clicks = isAnon ? eng?.clicks ?? 0 : Number(r.clicks ?? 0) || 0;
       const device = isAnon ? eng?.device ?? null : null;
+      const detail = isAnon && r.session_id ? detailBySession.get(r.session_id) : undefined;
       return {
         id: r.id,
         source: r.source,
@@ -453,6 +516,10 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
         scrollDepthPct,
         clicks,
         converted: Boolean(r.converted),
+        // Per-visit detail for row-expand (anonymous heatmap stream only;
+        // the personalized stream is not session-joinable to heatmap events).
+        scrollPath: detail?.scrollPath ?? [],
+        clickSequence: detail?.clickSequence ?? [],
       };
     });
 

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowUpRight } from "lucide-react";
 import { PageConversionScore } from "@/components/analytics/PageConversionScore";
 
 interface PageOption {
@@ -54,10 +55,18 @@ export default function ConversionScoring() {
             </p>
           </div>
           {selectedPageId !== null && (
-            <Button variant="outline" size="sm" onClick={handleReanalyze}>
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Re-analyze
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link href={`/analytics/pages/${selectedPageId}`}>
+                <Button variant="outline" size="sm">
+                  <ArrowUpRight className="h-4 w-4 mr-1" />
+                  View page detail
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={handleReanalyze}>
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Re-analyze
+              </Button>
+            </div>
           )}
         </div>
 

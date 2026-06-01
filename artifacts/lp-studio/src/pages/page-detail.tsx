@@ -146,6 +146,8 @@ interface VisitRow {
   scrollDepthPct: number | null;
   clicks: number | null;
   converted: boolean;
+  scrollPath: { depth: number; at: string }[];
+  clickSequence: { blockId: string | null; elementTag: string | null; xPct: number | null; yPct: number | null; at: string }[];
 }
 
 interface VisitsResponse {
@@ -423,6 +425,58 @@ function VisitDetail({ visit: v }: { visit: VisitRow }) {
           </>
         )}
       </div>
+
+      {v.source === "anonymous" && (v.clickSequence.length > 0 || v.scrollPath.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-semibold mb-1.5">
+              Click sequence
+            </p>
+            {v.clickSequence.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No clicks recorded.</p>
+            ) : (
+              <ol className="space-y-1 text-sm">
+                {v.clickSequence.map((c, i) => (
+                  <li key={i} className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs tabular-nums text-muted-foreground w-5 shrink-0">{i + 1}.</span>
+                    <span className="truncate">
+                      {c.elementTag ? <span className="font-mono">{c.elementTag}</span> : "element"}
+                      {c.blockId ? <span className="text-muted-foreground"> · {c.blockId}</span> : null}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums ml-auto shrink-0">
+                      {new Date(c.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-semibold mb-1.5">
+              Scroll path
+            </p>
+            {v.scrollPath.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No scroll data.</p>
+            ) : (
+              <div className="space-y-1">
+                {v.scrollPath.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary/60 rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(0, s.depth))}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums w-10 text-right shrink-0">
+                      {Math.round(s.depth)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -969,7 +1023,14 @@ export default function PageDetail() {
           <VisitsTable pageId={pageId} days={days} />
         </Section>
 
-        {/* Two-column analytics grid */}
+        {/* Two-column analytics grid.
+            Date-range scope: the `days` window applies to the time-series surfaces
+            (summary, visits table, traffic sources). The remaining panels are
+            point-in-time by design and intentionally NOT windowed:
+              - Conversion Score / Page Speed: snapshots of the page's current
+                structure + latest analysis, not a windowed aggregate.
+              - Programmatic Variables / A/B Tests / Ad Map: configuration state
+                (current rules/tests/mappings), independent of any date window. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Section title="Conversion Score" icon={Sparkles}>
             <PageConversionScore pageId={pageId} />
