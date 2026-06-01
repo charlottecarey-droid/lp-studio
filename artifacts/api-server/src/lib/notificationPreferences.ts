@@ -1,7 +1,11 @@
 import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
-import { NOTIFICATION_TEMPLATES } from "./notificationTemplates";
+import {
+  PREFERENCE_GROUP_DEFS,
+  groupIdForTemplateKey,
+  groupOptOutKey,
+} from "./notificationPreferenceGroups";
 
 /**
  * Per-recipient email preference store + one-click unsubscribe token helpers
@@ -123,15 +127,12 @@ export function verifyUnsubscribeToken(
   }
 }
 
-/** Lifecycle template keys that have an email channel — the opt-out surface. */
-export function lifecycleEmailTemplateKeys(): string[] {
-  return Object.values(NOTIFICATION_TEMPLATES)
-    .filter((t) => t.category === "lifecycle" && t.channels.includes("email"))
-    .map((t) => t.key);
-}
-
 /**
- * Is this recipient opted OUT of (templateKey, channel)? Fails OPEN (returns
+ * Is this recipient opted OUT of (templateKey, channel)? True when EITHER a
+ * per-template opt-out row exists (legacy / one-click) OR a group-level opt-out
+ * row exists for the template's category. The group-level check is what makes a
+ * category unsubscribe DURABLE — a template added to that category later inherits
+ * the existing opt-out instead of silently delivering. Fails OPEN (returns
  * false = deliver) on any DB error: a preference-store hiccup must never block a
  * legitimate send. Callers gate on `category === 'lifecycle'` before calling.
  */
@@ -141,12 +142,14 @@ export async function isOptedOut(
   templateKey: string,
   channel: string,
 ): Promise<boolean> {
+  const groupKey = groupOptOutKey(groupIdForTemplateKey(templateKey));
   try {
     const r = await pool.query(
       `SELECT 1 FROM notification_preferences
-        WHERE tenant_id = $1 AND app_user_id = $2 AND template_key = $3 AND channel = $4
+        WHERE tenant_id = $1 AND app_user_id = $2 AND channel = $3
+          AND template_key IN ($4, $5)
         LIMIT 1`,
-      [tenantId, appUserId, templateKey, channel],
+      [tenantId, appUserId, channel, templateKey, groupKey],
     );
     return r.rows.length > 0;
   } catch (err) {
@@ -196,14 +199,17 @@ export async function setOptOut(
 }
 
 /**
- * One-click: opt the recipient OUT of every lifecycle EMAIL. Returns the number
- * of new opt-out rows written (0 if already fully unsubscribed).
+ * One-click: opt the recipient OUT of every lifecycle EMAIL category. Writes one
+ * durable group-level opt-out row per category (not per template), so it also
+ * suppresses operator-created / DB-only lifecycle templates — which map to the
+ * catch-all group — and any template added to a category later. Returns the
+ * number of new opt-out rows written (0 if already fully unsubscribed).
  */
 export async function unsubscribeAllLifecycleEmails(
   tenantId: number,
   appUserId: number,
 ): Promise<number> {
-  const keys = lifecycleEmailTemplateKeys();
+  const keys = PREFERENCE_GROUP_DEFS.map((g) => groupOptOutKey(g.id));
   if (!keys.length) return 0;
   const r = await pool.query(
     `INSERT INTO notification_preferences (tenant_id, app_user_id, template_key, channel)

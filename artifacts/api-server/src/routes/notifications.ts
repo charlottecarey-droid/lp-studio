@@ -66,7 +66,9 @@ import {
 import {
   buildPreferenceGroups,
   groupMemberKeys,
+  groupOptOutKey,
   isKnownPreferenceGroup,
+  parseGroupOptOutKey,
 } from "../lib/notificationPreferenceGroups";
 import { getRequestHost } from "../lib/requestHost";
 import {
@@ -216,10 +218,21 @@ router.get("/notifications/preferences", requireAuth, async (req, res): Promise<
   if (tenantId == null) return;
   try {
     const lifecycleEmailKeys = await lifecycleEmailKeysLive();
-    const optedOut = (await getOptOuts(tenantId, user.userId))
-      .filter((o) => o.channel === "email")
-      .map((o) => o.templateKey);
-    const groups = buildPreferenceGroups(lifecycleEmailKeys, optedOut);
+    const emailRows = (await getOptOuts(tenantId, user.userId)).filter(
+      (o) => o.channel === "email",
+    );
+    const perTemplateOptedOut: string[] = [];
+    const groupOptedOutIds: string[] = [];
+    for (const o of emailRows) {
+      const gid = parseGroupOptOutKey(o.templateKey);
+      if (gid) groupOptedOutIds.push(gid);
+      else perTemplateOptedOut.push(o.templateKey);
+    }
+    const groups = buildPreferenceGroups(
+      lifecycleEmailKeys,
+      perTemplateOptedOut,
+      groupOptedOutIds,
+    );
     res.json({ groups, recipientEmail: user.email });
   } catch (err) {
     console.error("[notifications] preferences get error:", err);
@@ -250,10 +263,18 @@ router.patch("/notifications/preferences", requireAuth, async (req, res): Promis
     return;
   }
   try {
-    const lifecycleEmailKeys = await lifecycleEmailKeysLive();
-    const keys = groupMemberKeys(groupId, lifecycleEmailKeys);
-    for (const key of keys) {
-      await setOptOut(tenantId, user.userId, key, "email", !subscribed);
+    if (subscribed) {
+      // Re-subscribe: clear the durable group opt-out AND any legacy per-template
+      // rows (e.g. from one-click unsubscribe) so the category really turns back on.
+      await setOptOut(tenantId, user.userId, groupOptOutKey(groupId), "email", false);
+      const lifecycleEmailKeys = await lifecycleEmailKeysLive();
+      for (const key of groupMemberKeys(groupId, lifecycleEmailKeys)) {
+        await setOptOut(tenantId, user.userId, key, "email", false);
+      }
+    } else {
+      // Unsubscribe the whole category durably — a single group-level row that
+      // also covers templates added to this category later.
+      await setOptOut(tenantId, user.userId, groupOptOutKey(groupId), "email", true);
     }
     res.json({ ok: true });
   } catch (err) {

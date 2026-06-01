@@ -13,6 +13,13 @@
  * "Product news & offers" group rather than vanishing — and toggling that group
  * off correctly suppresses it. This also closes the old bug where the UI listed
  * DB-only templates the PATCH endpoint then rejected as "unknown".
+ *
+ * Opt-out is stored at the GROUP level: one `notification_preferences` row whose
+ * `template_key` is `grp:<groupId>` (see `groupOptOutKey`). The dispatcher maps a
+ * lifecycle template to its group (`groupIdForTemplateKey`) and suppresses on the
+ * group row OR a legacy per-template row. Storing at the group level makes a
+ * category unsubscribe DURABLE: a template added to a group later inherits the
+ * existing opt-out instead of silently re-subscribing the recipient.
  */
 
 export interface PreferenceGroupDef {
@@ -85,34 +92,83 @@ export function groupMemberKeys(groupId: string, lifecycleEmailKeys: string[]): 
   return (def.templateKeys ?? []).filter((k) => live.has(k));
 }
 
+/** The single catch-all group id (absorbs every unclaimed lifecycle key). */
+const CATCH_ALL_GROUP_ID = PREFERENCE_GROUP_DEFS.find((g) => g.catchAll)!.id;
+
+/**
+ * Map a lifecycle EMAIL template key to the id of the group that owns it. Keys
+ * not explicitly claimed by a named group belong to the catch-all. Used by the
+ * dispatcher to resolve a template to its category for the group-level opt-out
+ * check — independent of the live registry, so it also covers DB-only templates.
+ */
+export function groupIdForTemplateKey(templateKey: string): string {
+  for (const g of PREFERENCE_GROUP_DEFS) {
+    if ((g.templateKeys ?? []).includes(templateKey)) return g.id;
+  }
+  return CATCH_ALL_GROUP_ID;
+}
+
+/**
+ * Prefix marking a `notification_preferences` row as a group-level opt-out. The
+ * colon is what reserves the namespace: real template keys are validated against
+ * `/^[a-z0-9_]{2,64}$/` at every create/update path, so a key can never contain a
+ * ":" and therefore can never collide with `grp:<id>`.
+ */
+export const GROUP_OPTOUT_KEY_PREFIX = "grp:";
+
+/** The synthetic `template_key` used to store a group-level opt-out row. */
+export function groupOptOutKey(groupId: string): string {
+  return `${GROUP_OPTOUT_KEY_PREFIX}${groupId}`;
+}
+
+/**
+ * Return the group id if `key` is a group-level opt-out row, else null. Defense
+ * in depth: only `grp:<knownGroupId>` is treated as a group row, so any stray /
+ * unrecognized `grp:*` value is classified as an ordinary per-template key rather
+ * than conjuring a phantom group.
+ */
+export function parseGroupOptOutKey(key: string): string | null {
+  if (!key.startsWith(GROUP_OPTOUT_KEY_PREFIX)) return null;
+  const id = key.slice(GROUP_OPTOUT_KEY_PREFIX.length);
+  return isKnownPreferenceGroup(id) ? id : null;
+}
+
 export interface PreferenceGroupView {
   id: string;
   name: string;
   description: string;
-  /** False only when the recipient is opted out of EVERY member of the group. */
+  /** False when the group is opted out (group row, or every member opted out). */
   subscribed: boolean;
 }
 
 /**
- * Build the display model: one entry per non-empty group, in taxonomy order. A
- * group reads as subscribed unless every one of its members is opted out, so
- * turning a group off (opt out all members) flips it to off and turning it on
- * (clear all member opt-outs) flips it back on.
+ * Build the display model: one entry per visible group, in taxonomy order.
+ *
+ * A group reads as unsubscribed when EITHER a group-level opt-out row exists OR
+ * (legacy back-compat) every one of its live members has a per-template opt-out
+ * row. The catch-all is always shown so a recipient can pre-emptively unsubscribe
+ * from promotions; other groups are hidden only when they currently have no
+ * members to manage.
  */
 export function buildPreferenceGroups(
   lifecycleEmailKeys: string[],
-  optedOutKeys: string[],
+  perTemplateOptedOut: string[],
+  groupOptedOutIds: string[],
 ): PreferenceGroupView[] {
-  const optedOut = new Set(optedOutKeys);
+  const perTemplate = new Set(perTemplateOptedOut);
+  const groupOut = new Set(groupOptedOutIds);
   const views: PreferenceGroupView[] = [];
   for (const def of PREFERENCE_GROUP_DEFS) {
     const members = groupMemberKeys(def.id, lifecycleEmailKeys);
-    if (members.length === 0) continue; // hide categories with nothing to manage
+    if (members.length === 0 && !def.catchAll) continue;
+    const optedOut =
+      groupOut.has(def.id) ||
+      (members.length > 0 && members.every((k) => perTemplate.has(k)));
     views.push({
       id: def.id,
       name: def.name,
       description: def.description,
-      subscribed: members.some((k) => !optedOut.has(k)),
+      subscribed: !optedOut,
     });
   }
   return views;
