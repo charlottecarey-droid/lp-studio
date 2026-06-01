@@ -17,6 +17,9 @@ export const lpPageVisitsTable = pgTable("lp_page_visits", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("lp_page_visits_page_id_idx").on(table.pageId),
+  // Composite index supporting windowed, page-scoped analytics aggregations
+  // (per-page detail view, Task #719). See migration 0061_page_detail_indexes.sql.
+  index("lp_page_visits_page_id_created_at_idx").on(table.pageId, table.createdAt),
 ]);
 
 export type LpPageVisit = typeof lpPageVisitsTable.$inferSelect;

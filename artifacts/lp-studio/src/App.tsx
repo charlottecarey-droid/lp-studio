@@ -99,6 +99,7 @@ function RouteErrorBoundaryWithReset({ children, locationKey }: { children: Reac
 
 // Lazy-loaded page components
 const Analytics = lazy(() => import("@/pages/analytics"));
+const PageDetail = lazy(() => import("@/pages/page-detail"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PartnerHome = lazy(() => import("@/pages/partner-home"));
 const PersonalizedLinkResolver = lazy(() => import("@/pages/personalized-link-resolver"));
@@ -277,6 +278,7 @@ function AppRouter() {
         <Route path="/tests/:testId">{() => <PermRoute perm="tests" fallback="/"><TestDetail /></PermRoute>}</Route>
         <Route path="/tests">{() => <PermRoute perm="tests" fallback="/"><AllTests /></PermRoute>}</Route>
         <Route path="/brand">{() => <PermRoute perm="brand" fallback="/"><BrandSettings /></PermRoute>}</Route>
+        <Route path="/analytics/pages/:pageId">{() => <PermRoute perm="analytics" fallback="/"><PageDetail /></PermRoute>}</Route>
         <Route path="/analytics">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
         <Route path="/pages/new">{() => <PermRoute perm="pages" fallback="/sales"><NewPage /></PermRoute>}</Route>
         <Route path="/pages">{() => <PermRoute perm="pages" fallback="/sales"><PagesGallery /></PermRoute>}</Route>

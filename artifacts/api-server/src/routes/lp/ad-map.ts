@@ -24,6 +24,13 @@ router.get("/lp/ad-map", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 
+  // Optional per-page filter. When a valid positive int is supplied, the
+  // returned mappings + stats are scoped to that single landing page.
+  const pageIdRaw = req.query.pageId;
+  const pageIdFilter =
+    pageIdRaw != null && String(pageIdRaw).trim() !== "" ? parseInt(String(pageIdRaw), 10) : null;
+  const pageIdFilterValid = pageIdFilter != null && !isNaN(pageIdFilter) ? pageIdFilter : null;
+
   try {
     // 1. All tenant pages
     const pages = await db
@@ -98,22 +105,36 @@ router.get("/lp/ad-map", async (req, res): Promise<void> => {
       };
     }).filter(Boolean);
 
-    // 5. Stats
-    const pagesWithoutAds = pages.filter(p => !pagesWithAds.has(p.id)).length;
-    const avgCvr = mappings.length > 0
-      ? Math.round(mappings.reduce((s, m) => s + (m?.cvr ?? 0), 0) / mappings.length * 10) / 10
+    // 4b. Optional per-page filter — scope mappings + stats to one landing page.
+    const scopedMappings = pageIdFilterValid != null
+      ? mappings.filter(m => m?.landingPageId === pageIdFilterValid)
+      : mappings;
+    const scopedPages = pageIdFilterValid != null
+      ? pages.filter(p => p.id === pageIdFilterValid)
+      : pages;
+    const scopedCampaignKeys = pageIdFilterValid != null
+      ? new Set(scopedMappings.map(m => `${m?.utmSource}|${m?.campaignName === "(direct / no campaign)" ? "(none)" : m?.campaignName || "(none)"}`))
+      : campaignKeys;
+    const scopedPagesWithAds = pageIdFilterValid != null
+      ? new Set(scopedMappings.map(m => m?.landingPageId).filter((id): id is number => id != null))
+      : pagesWithAds;
+
+    // 5. Stats (over the scoped set)
+    const pagesWithoutAds = scopedPages.filter(p => !scopedPagesWithAds.has(p.id)).length;
+    const avgCvr = scopedMappings.length > 0
+      ? Math.round(scopedMappings.reduce((s, m) => s + (m?.cvr ?? 0), 0) / scopedMappings.length * 10) / 10
       : 0;
-    const totalVisits = mappings.reduce((s, m) => s + (m?.visits ?? 0), 0);
+    const totalVisits = scopedMappings.reduce((s, m) => s + (m?.visits ?? 0), 0);
 
     res.json({
-      mappings,
+      mappings: scopedMappings,
       stats: {
-        total:           mappings.length,
+        total:           scopedMappings.length,
         avgCvr,
         totalVisits,
         pagesWithoutAds,
         adsWithoutPages: 0,
-        uniqueCampaigns: campaignKeys.size,
+        uniqueCampaigns: scopedCampaignKeys.size,
       },
     });
   } catch (err) {

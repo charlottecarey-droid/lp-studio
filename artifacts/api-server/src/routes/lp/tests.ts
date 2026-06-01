@@ -15,6 +15,24 @@ const router = Router();
 
 router.get("/lp/tests", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+  // Optional ?pageId= filter — return only tests whose variants point at the
+  // given builder page. Used by the unified Page Detail view's A/B section.
+  // Tenant isolation is preserved because the test list itself is tenant-scoped.
+  let testIdFilter: number[] | null = null;
+  const pageIdRaw = req.query.pageId;
+  if (typeof pageIdRaw === "string" && pageIdRaw.trim() !== "") {
+    const pid = parseInt(pageIdRaw, 10);
+    if (!Number.isNaN(pid)) {
+      const vrows = await db
+        .select({ testId: lpVariantsTable.testId })
+        .from(lpVariantsTable)
+        .where(eq(lpVariantsTable.builderPageId, pid));
+      testIdFilter = [...new Set(vrows.map(v => v.testId))];
+      if (testIdFilter.length === 0) { res.json([]); return; }
+    }
+  }
+
   const tests = await db
     .select({
       id: lpTestsTable.id,
@@ -27,7 +45,11 @@ router.get("/lp/tests", async (req, res): Promise<void> => {
       updatedAt: lpTestsTable.updatedAt,
     })
     .from(lpTestsTable)
-    .where(eq(lpTestsTable.tenantId, tenantId))
+    .where(
+      testIdFilter
+        ? and(eq(lpTestsTable.tenantId, tenantId), inArray(lpTestsTable.id, testIdFilter))
+        : eq(lpTestsTable.tenantId, tenantId),
+    )
     .orderBy(lpTestsTable.createdAt);
 
   // Fetch variant counts separately to avoid Drizzle correlated subquery issues

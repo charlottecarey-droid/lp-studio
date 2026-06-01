@@ -62,6 +62,7 @@
     { "idx": 57, "version": "7", "when": 1751100000000, "tag": "0057_app_users_github_id",               "breakpoints": false },
     { "idx": 58, "version": "7", "when": 1751200000000, "tag": "0058_audit_log",                          "breakpoints": false },
     { "idx": 59, "version": "7", "when": 1751300000000, "tag": "0059_trial_phone_lookup_log",            "breakpoints": false },
-    { "idx": 60, "version": "7", "when": 1751400000000, "tag": "0060_oauth_login_states",                "breakpoints": false }
+    { "idx": 60, "version": "7", "when": 1751400000000, "tag": "0060_oauth_login_states",                "breakpoints": false },
+    { "idx": 61, "version": "7", "when": 1751500000000, "tag": "0061_page_detail_indexes",               "breakpoints": false }
   ]
 }

@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -14,11 +13,11 @@ import {
   AlertCircle,
   Zap,
   BarChart3,
-  Wand2,
   FileText,
   Upload,
   Download,
 } from "lucide-react";
+import { PageProgrammaticVars } from "@/components/analytics/PageProgrammaticVars";
 
 const API_BASE = "/api";
 
@@ -31,21 +30,6 @@ interface PageSummary {
   status: string;
   variableCount: number;
   variables: Record<string, string>;
-}
-
-interface DTRRule {
-  variable: string;
-  defaultValue: string;
-  source: string;
-  inBlocks: boolean;
-}
-
-interface DTRRulesResponse {
-  pageId: number;
-  pageTitle: string;
-  pageSlug: string;
-  rules: DTRRule[];
-  tokenCount: number;
 }
 
 interface TemplateSummary {
@@ -69,16 +53,6 @@ export default function ProgrammaticPages() {
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [loadingPages, setLoadingPages] = useState(true);
   const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
-
-  // DTR rules for selected page
-  const [dtrData, setDtrData] = useState<DTRRulesResponse | null>(null);
-  const [loadingRules, setLoadingRules] = useState(false);
-
-  // Add variable form
-  const [showAddVar, setShowAddVar] = useState(false);
-  const [newVarName, setNewVarName] = useState("");
-  const [newVarDefault, setNewVarDefault] = useState("");
-  const [saving, setSaving] = useState(false);
 
   // Bulk generator
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
@@ -154,21 +128,6 @@ export default function ProgrammaticPages() {
       .finally(() => setLoadingPages(false));
   }, []);
 
-  // ─── Load DTR rules when page changes ────────────────────────────
-  const loadRules = useCallback((pageId: number) => {
-    setLoadingRules(true);
-    setDtrData(null);
-    fetch(`${API_BASE}/lp/programmatic/dtr-rules/${pageId}`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: DTRRulesResponse) => setDtrData(data))
-      .catch(() => setDtrData(null))
-      .finally(() => setLoadingRules(false));
-  }, []);
-
-  useEffect(() => {
-    if (selectedPageId) loadRules(selectedPageId);
-  }, [selectedPageId, loadRules]);
-
   // ─── Load templates for bulk gen ─────────────────────────────────
   useEffect(() => {
     fetch(`${API_BASE}/lp/programmatic/templates`)
@@ -177,54 +136,6 @@ export default function ProgrammaticPages() {
       .catch(() => setTemplates([]))
       .finally(() => setLoadingTemplates(false));
   }, []);
-
-  // ─── Add variable ────────────────────────────────────────────────
-  const handleAddVariable = async () => {
-    if (!newVarName.trim() || !selectedPageId || !dtrData) return;
-    const key = newVarName.trim().toLowerCase().replace(/\s+/g, "_");
-
-    // Build updated variables map from current rules
-    const vars: Record<string, string> = {};
-    for (const rule of dtrData.rules) {
-      if (rule.source === "page_variable") vars[rule.variable] = rule.defaultValue;
-    }
-    vars[key] = newVarDefault.trim() || "";
-
-    setSaving(true);
-    try {
-      const r = await fetch(`${API_BASE}/lp/programmatic/dtr-rules/${selectedPageId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variables: vars }),
-      });
-      if (r.ok) {
-        loadRules(selectedPageId);
-        setNewVarName("");
-        setNewVarDefault("");
-        setShowAddVar(false);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // ─── Delete variable ─────────────────────────────────────────────
-  const handleDeleteVariable = async (varName: string) => {
-    if (!selectedPageId || !dtrData) return;
-    const vars: Record<string, string> = {};
-    for (const rule of dtrData.rules) {
-      if (rule.source === "page_variable" && rule.variable !== varName) {
-        vars[rule.variable] = rule.defaultValue;
-      }
-    }
-
-    const r = await fetch(`${API_BASE}/lp/programmatic/dtr-rules/${selectedPageId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ variables: vars }),
-    });
-    if (r.ok) loadRules(selectedPageId);
-  };
 
   // ─── Bulk generate ───────────────────────────────────────────────
   const handleBulkGenerate = async () => {
@@ -268,16 +179,10 @@ export default function ProgrammaticPages() {
   };
 
   // Get template variable names for bulk gen column headers
-  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const templatePage = pages.find(p => p.id === selectedTemplateId);
   const templateVarNames = templatePage ? Object.keys(templatePage.variables) : [];
 
-  // ─── Helpers ─────────────────────────────────────────────────────
-  const getSourceBadge = (source: string) => {
-    if (source === "page_variable") return <Badge className="bg-blue-100 text-blue-800">Declared</Badge>;
-    if (source === "detected_in_blocks") return <Badge className="bg-yellow-100 text-yellow-800">Detected</Badge>;
-    return <Badge className="bg-gray-100 text-gray-800">{source}</Badge>;
-  };
+  const selectedPage = pages.find(p => p.id === selectedPageId);
 
   return (
     <AppLayout>
@@ -348,104 +253,19 @@ export default function ProgrammaticPages() {
                 </CardContent>
               </Card>
 
-              {/* DTR Rules */}
-              {selectedPageId && (
+              {/* DTR Rules — shared read-only component */}
+              {selectedPageId !== null && (
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <div>
-                      <CardTitle className="text-base">
-                        {dtrData ? dtrData.pageTitle : "Variables"}
-                      </CardTitle>
-                      <CardDescription>
-                        {dtrData ? `/${dtrData.pageSlug}` : "Loading..."}
-                      </CardDescription>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => setShowAddVar(!showAddVar)} className="gap-1">
-                      <Plus className="w-4 h-4" />
-                      Add Variable
-                    </Button>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">
+                      {selectedPage ? selectedPage.title : "Variables"}
+                    </CardTitle>
+                    {selectedPage && (
+                      <CardDescription>/{selectedPage.slug}</CardDescription>
+                    )}
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {showAddVar && (
-                      <div className="rounded-lg border border-dashed border-slate-300 p-4 space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Variable Name</label>
-                            <Input placeholder="e.g. city" value={newVarName} onChange={e => setNewVarName(e.target.value)} />
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Default Value</label>
-                            <Input placeholder="e.g. your city" value={newVarDefault} onChange={e => setNewVarDefault(e.target.value)} />
-                          </div>
-                          <div className="flex items-end gap-2">
-                            <Button onClick={handleAddVariable} size="sm" disabled={saving || !newVarName.trim()} className="flex-1">
-                              {saving ? "Saving..." : "Add"}
-                            </Button>
-                            <Button onClick={() => setShowAddVar(false)} size="sm" variant="outline" className="flex-1">
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {loadingRules ? (
-                      <div className="space-y-2">
-                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-                      </div>
-                    ) : !dtrData || dtrData.rules.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Wand2 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                        <p className="text-sm text-slate-500 mb-1">No variables yet</p>
-                        <p className="text-xs text-slate-400">
-                          {`Add {{tokens}} to your page content in the builder, or add variables above.`}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b text-left">
-                              <th className="font-semibold px-3 py-2">Variable</th>
-                              <th className="font-semibold px-3 py-2">Default</th>
-                              <th className="font-semibold px-3 py-2">Status</th>
-                              <th className="font-semibold px-3 py-2">In Blocks</th>
-                              <th className="font-semibold px-3 py-2 text-center">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dtrData.rules.map((rule, idx) => (
-                              <tr key={idx} className="border-b hover:bg-slate-50 transition-colors">
-                                <td className="px-3 py-3">
-                                  <code className="font-mono font-semibold bg-slate-100 px-2 py-1 rounded text-sm">
-                                    {`{{${rule.variable}}}`}
-                                  </code>
-                                </td>
-                                <td className="px-3 py-3 text-slate-600">
-                                  {rule.defaultValue || <span className="italic text-slate-400">none</span>}
-                                </td>
-                                <td className="px-3 py-3">{getSourceBadge(rule.source)}</td>
-                                <td className="px-3 py-3">
-                                  {rule.inBlocks
-                                    ? <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                    : <span className="text-slate-400 text-xs">unused</span>}
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                  {rule.source === "page_variable" && (
-                                    <button
-                                      onClick={() => handleDeleteVariable(rule.variable)}
-                                      className="text-slate-400 hover:text-red-600 transition-colors p-1"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                  <CardContent>
+                    <PageProgrammaticVars pageId={selectedPageId} />
                   </CardContent>
                 </Card>
               )}

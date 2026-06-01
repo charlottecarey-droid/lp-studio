@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import {
   MapPin, Globe, TrendingUp, TrendingDown, RefreshCw,
   BarChart3, Users, FileText, ArrowUpRight, ArrowDownRight, Minus,
@@ -351,6 +352,7 @@ function TrafficChart({ data, loading }: { data: TrafficDay[]; loading: boolean 
 /* ------------------------------------------------------------------ */
 
 function PagesTable({ pages, loading }: { pages: PageMetrics[]; loading: boolean }) {
+  const [, setLocation] = useLocation();
   if (loading) {
     return (
       <Card>
@@ -397,7 +399,11 @@ function PagesTable({ pages, loading }: { pages: PageMetrics[]; loading: boolean
           </thead>
           <tbody className="divide-y">
             {pages.map((p) => (
-              <tr key={p.pageId} className="hover:bg-muted/30 transition-colors">
+              <tr
+                key={p.pageId}
+                className="hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => setLocation(`/analytics/pages/${p.pageId}`)}
+              >
                 <td className="px-5 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate max-w-xs">{p.title}</p>

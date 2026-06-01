@@ -2,19 +2,14 @@ import { useState, useEffect } from "react";
 import {
   Gauge,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
   Image,
-  Code2,
   Layers,
-  Play,
-  Sparkles,
-  Box,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
 
 const API_BASE = "/api";
 
@@ -76,18 +71,6 @@ function getScoreRingColor(score: number) {
   return "#dc2626";
 }
 
-function getSeverityColor(severity: string) {
-  if (severity === "critical") return "bg-red-100 text-red-800 border-red-200";
-  if (severity === "warning") return "bg-yellow-100 text-yellow-800 border-yellow-200";
-  return "bg-blue-100 text-blue-800 border-blue-200";
-}
-
-function getSeverityIcon(severity: string) {
-  if (severity === "critical") return <XCircle className="h-4 w-4 text-red-600 shrink-0" />;
-  if (severity === "warning") return <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />;
-  return <CheckCircle className="h-4 w-4 text-blue-600 shrink-0" />;
-}
-
 function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
   const radius = (size - 8) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -142,8 +125,6 @@ function usePageSpeed() {
 export default function PageSpeed() {
   const { pages, summary, loading, error } = usePageSpeed();
   const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
-
-  const selectedPage = pages.find(p => p.pageId === selectedPageId);
 
   useEffect(() => {
     if (pages.length > 0 && !selectedPageId) {
@@ -281,107 +262,10 @@ export default function PageSpeed() {
                 </Card>
               </div>
 
-              {/* Detail panel */}
+              {/* Detail panel — shared self-fetching component */}
               <div>
-                {selectedPage ? (
-                  <div className="space-y-4">
-                    {/* Score + breakdown */}
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg truncate">{selectedPage.name}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center gap-4 mb-4">
-                          <ScoreRing score={selectedPage.score} size={80} />
-                          <div>
-                            <Badge className={getStatusColor(selectedPage.status)}>
-                              {getStatusLabel(selectedPage.status)}
-                            </Badge>
-                            <p className="text-xs text-slate-500 mt-1">~{selectedPage.estimatedDomNodes} DOM nodes</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3 text-sm">
-                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                            <Layers className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-                            <p className="font-bold text-slate-900">{selectedPage.blockCount}</p>
-                            <p className="text-xs text-slate-500">blocks</p>
-                          </div>
-                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                            <Image className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-                            <p className="font-bold text-slate-900">{selectedPage.imageCount}</p>
-                            <p className="text-xs text-slate-500">images</p>
-                          </div>
-                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                            <Play className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-                            <p className="font-bold text-slate-900">{selectedPage.videoCount}</p>
-                            <p className="text-xs text-slate-500">videos</p>
-                          </div>
-                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                            <Code2 className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-                            <p className="font-bold text-slate-900">{selectedPage.customHtmlCount}</p>
-                            <p className="text-xs text-slate-500">custom HTML</p>
-                          </div>
-                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                            <Sparkles className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-                            <p className="font-bold text-slate-900">{selectedPage.animatedBlocks}</p>
-                            <p className="text-xs text-slate-500">animated</p>
-                          </div>
-                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                            <Box className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-                            <p className="font-bold text-slate-900">{selectedPage.formCount}</p>
-                            <p className="text-xs text-slate-500">forms</p>
-                          </div>
-                        </div>
-
-                        {selectedPage.heavyBlocks.length > 0 && (
-                          <div className="mt-3 p-2.5 bg-red-50 rounded-lg">
-                            <p className="text-xs font-medium text-red-800">
-                              Heavy blocks: {selectedPage.heavyBlocks.join(", ")}
-                            </p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {/* Issues */}
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          Issues ({selectedPage.issues.length})
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {selectedPage.issues.length === 0 ? (
-                          <div className="text-center py-6">
-                            <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                            <p className="text-sm text-slate-600">No issues detected</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 max-h-[350px] overflow-y-auto">
-                            {selectedPage.issues
-                              .sort((a, b) => {
-                                const order = { critical: 0, warning: 1, info: 2 };
-                                return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
-                              })
-                              .map((issue, idx) => (
-                                <div key={idx} className={`flex gap-2 p-2.5 rounded-lg border ${getSeverityColor(issue.severity)}`}>
-                                  {getSeverityIcon(issue.severity)}
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium">{issue.category}</p>
-                                    <p className="text-xs mt-0.5 opacity-80">{issue.message}</p>
-                                    {issue.blockType && (
-                                      <p className="text-xs mt-0.5 opacity-60">Block: {issue.blockType}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
+                {selectedPageId !== null ? (
+                  <PageSpeedPanel pageId={selectedPageId} />
                 ) : (
                   <Card>
                     <CardContent className="pt-8">

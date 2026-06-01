@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, real, index } from "drizzle-orm/pg-core";
 import { lpPagesTable } from "./lpPages";
 
 export const lpHeatmapEventsTable = pgTable("lp_heatmap_events", {
@@ -20,6 +20,10 @@ export const lpHeatmapEventsTable = pgTable("lp_heatmap_events", {
   // Device type for filtering
   device: text("device"), // "desktop" | "tablet" | "mobile"
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  // Composite index for per-session engagement enrichment on the per-page
+  // detail view (Task #719). See migration 0061_page_detail_indexes.sql.
+  index("lp_heatmap_events_page_id_session_id_idx").on(table.pageId, table.sessionId),
+]);
 
 export type LpHeatmapEvent = typeof lpHeatmapEventsTable.$inferSelect;
