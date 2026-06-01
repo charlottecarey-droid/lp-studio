@@ -28,7 +28,7 @@ export default function Home() {
   usePageMeta({
     title: "LP Studio — AI Landing Pages for Revenue Teams",
     description:
-      "Skip the brief, ship the page. Build fast, on-brand landing pages and ABM microsites in minutes — one per account, no designer, no dev. ABM for the rest of us.",
+      "Skip the brief, ship the page. On-brand landing pages and ABM microsites for every account in minutes — no designer, no dev. Enterprise ABM results, without the enterprise price.",
     canonical: "https://lpstudio.ai/",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
     ogImageWidth: 1280,
