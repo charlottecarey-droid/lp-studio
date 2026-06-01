@@ -1583,15 +1583,28 @@ export const generateNewPartnerOnePager = async (
 
   let y = headerH + 40;
 
+  // Body layout controls (editor: "Content Offset X", "Section Spacing",
+  // "Show intro paragraph"). contentOffsetX shifts the left-aligned body block
+  // horizontally; sectionExtra adjusts the gaps between major sections relative
+  // to the default (16) so existing saved layouts render unchanged; showIntro
+  // hides the intro paragraph.
+  const offsetX = (bCfg.contentOffsetX as number | undefined) ?? 0;
+  const sectionExtra = ((bCfg.sectionSpacing as number | undefined) ?? 16) - 16;
+  const showIntro = (bCfg.showIntro as boolean | undefined) !== false;
+
   doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 18); doc.setTextColor(...textDark);
   const headlineLines = doc.splitTextToSize(headline, contentW);
-  doc.text(headlineLines, margin, y);
+  doc.text(headlineLines, margin + offsetX, y);
   y += headlineLines.length * 22 + 14;
 
-  doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.introFontSize as number | undefined) ?? 10); doc.setTextColor(...textMuted);
-  const introLines = doc.splitTextToSize(intro, contentW);
-  doc.text(introLines, margin, y);
-  y += introLines.length * 14 + 24;
+  if (showIntro) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.introFontSize as number | undefined) ?? 10); doc.setTextColor(...textMuted);
+    const introLines = doc.splitTextToSize(intro, contentW);
+    doc.text(introLines, margin + offsetX, y);
+    y += introLines.length * 14 + 24 + sectionExtra;
+  } else {
+    y += sectionExtra;
+  }
 
   const cardGap = 14;
   const cardW = (contentW - cardGap) / 2;
@@ -1604,7 +1617,7 @@ export const generateNewPartnerOnePager = async (
     for (let col = 0; col < 2; col++) {
       const idx = row * 2 + col;
       const feat = features[idx];
-      const cx = margin + col * (cardW + cardGap);
+      const cx = margin + offsetX + col * (cardW + cardGap);
       const cy = y + row * (cardH + cardGap);
       doc.setFillColor(...cardOffWhite); doc.roundedRect(cx, cy, cardW, cardH, 4, 4, "F");
       doc.setFillColor(...cardBorderColor); doc.roundedRect(cx, cy, cardBorderW, cardH, 2, 0, "F");
@@ -1630,11 +1643,11 @@ export const generateNewPartnerOnePager = async (
       }
     }
   }
-  y += 2 * (cardH + cardGap) + 28;
+  y += 2 * (cardH + cardGap) + 28 + sectionExtra;
 
   const testimonialsHeading = content.testimonialsHeading ?? scrubBrand(`See what ${b.productName} doctors are saying:`, opts?.brand);
   doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
-  doc.text(testimonialsHeading, margin, y);
+  doc.text(testimonialsHeading, margin + offsetX, y);
   y += 28;
 
   const statGap = 14;
@@ -1644,7 +1657,7 @@ export const generateNewPartnerOnePager = async (
   const statValueFs = (bCfg.statValueFontSize as number | undefined) ?? 36;
   const statDescFs = (bCfg.statDescFontSize as number | undefined) ?? 8.5;
   stats.forEach((stat, i) => {
-    const sx = margin + (statW + statGap) * i;
+    const sx = margin + offsetX + (statW + statGap) * i;
     doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(statValueFs); doc.setTextColor(...pal.primaryOnLight);
     doc.text(stat.value, sx + statW / 2, y + 45, { align: "center" });
@@ -1653,7 +1666,7 @@ export const generateNewPartnerOnePager = async (
     const statLines = doc.splitTextToSize(statDesc, statW - 24);
     doc.text(statLines, sx + statW / 2, y + 45 + statValueFs * 0.4 + 6, { align: "center", maxWidth: statW - 24 });
   });
-  y += statH + 30;
+  y += statH + 30 + sectionExtra;
 
   if ((fCfg.show as boolean | undefined) !== false) {
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...textMuted);
