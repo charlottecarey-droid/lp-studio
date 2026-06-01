@@ -143,12 +143,19 @@ function ScrollDepthBar({ scrollData, totalSessions }: { scrollData: ScrollBucke
   );
 }
 
-export function HeatmapOverlay({ pageId }: { pageId: number }) {
+export function HeatmapOverlay({ pageId, days: externalDays }: { pageId: number; days?: number }) {
   const [data, setData] = useState<HeatmapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("click");
   const [device, setDevice] = useState<DeviceFilter>("all");
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(externalDays ?? 30);
+
+  // Keep the heatmap window in sync with the page-level date selector when this
+  // overlay is embedded on the unified page detail view; the local selector
+  // below still lets the user refine the heatmap window independently.
+  useEffect(() => {
+    if (externalDays != null) setDays(externalDays);
+  }, [externalDays]);
 
   useEffect(() => {
     setLoading(true);
@@ -232,6 +239,9 @@ export function HeatmapOverlay({ pageId }: { pageId: number }) {
           <option value={14}>Last 14 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
+          {![7, 14, 30, 90].includes(days) && (
+            <option value={days}>Last {days} days</option>
+          )}
         </select>
       </div>
 

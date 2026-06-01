@@ -1025,8 +1025,9 @@ export default function PageDetail() {
 
         {/* Two-column analytics grid.
             Date-range scope: the `days` window applies to the time-series surfaces
-            (summary, visits table, traffic sources). The remaining panels are
-            point-in-time by design and intentionally NOT windowed:
+            (summary, visits table, traffic sources, and the heatmap below). The
+            remaining panels are point-in-time by design and intentionally NOT
+            windowed:
               - Conversion Score / Page Speed: snapshots of the page's current
                 structure + latest analysis, not a windowed aggregate.
               - Programmatic Variables / A/B Tests / Ad Map: configuration state
@@ -1059,7 +1060,7 @@ export default function PageDetail() {
         <Section title="Heatmap" icon={MousePointerClick} description="Click and scroll behavior across this page.">
           <LazyInView fallback={<Skeleton className="h-64 w-full" />}>
             <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-              <HeatmapOverlay pageId={pageId} />
+              <HeatmapOverlay pageId={pageId} days={days} />
             </Suspense>
           </LazyInView>
         </Section>
