@@ -13,6 +13,7 @@ import {
 import { resolveContacts } from "./audiences";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { isTransientDbError, withDbRetry } from "../../lib/dbResilience";
 
 const router = Router();
 
@@ -256,65 +257,83 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
     let hotlinksCreated = 0;
 
     for (const contact of contacts) {
-      const existingCheck = await db.select({ id: salesHotlinksTable.id })
-        .from(salesHotlinksTable)
-        .where(and(eq(salesHotlinksTable.contactId, contact.id), eq(salesHotlinksTable.pageId, Number(pageId))))
-        .limit(1);
-      const isNew = existingCheck.length === 0;
+      try {
+        const existingCheck = await withDbRetry(() => db.select({ id: salesHotlinksTable.id })
+          .from(salesHotlinksTable)
+          .where(and(eq(salesHotlinksTable.contactId, contact.id), eq(salesHotlinksTable.pageId, Number(pageId))))
+          .limit(1));
+        const isNew = existingCheck.length === 0;
 
-      const hotlink = await getOrCreateHotlink(tenantId, contact.id, Number(pageId));
-      if (isNew) hotlinksCreated++;
+        const hotlink = await withDbRetry(() => getOrCreateHotlink(tenantId, contact.id, Number(pageId)));
+        if (isNew) hotlinksCreated++;
 
-      const micrositeUrl = `${host}/p/${hotlink.token}`;
+        const micrositeUrl = `${host}/p/${hotlink.token}`;
 
-      if (sendEmails && emailSubject && emailBodyHtml) {
-        // Wrap the personalized link with click tracking
-        const trackedMicrositeUrl = `${host}/api/sales/track/click-hotlink?h=${hotlink.id}&url=${encodeURIComponent(micrositeUrl)}`;
+        if (sendEmails && emailSubject && emailBodyHtml) {
+          // Wrap the personalized link with click tracking
+          const trackedMicrositeUrl = `${host}/api/sales/track/click-hotlink?h=${hotlink.id}&url=${encodeURIComponent(micrositeUrl)}`;
 
-        const vars: Record<string, string> = {
-          "{{first_name}}": contact.firstName ?? "",
-          "{{last_name}}": contact.lastName ?? "",
-          "{{company}}": contact.accountName ?? "",
-          "{{microsite_url}}": trackedMicrositeUrl,
-          "{{sender_name}}": senderName,
-          "{{email}}": contact.email!,
-        };
+          const vars: Record<string, string> = {
+            "{{first_name}}": contact.firstName ?? "",
+            "{{last_name}}": contact.lastName ?? "",
+            "{{company}}": contact.accountName ?? "",
+            "{{microsite_url}}": trackedMicrositeUrl,
+            "{{sender_name}}": senderName,
+            "{{email}}": contact.email!,
+          };
 
-        const subject = replaceVars(emailSubject, vars);
-        let html = replaceVars(emailBodyHtml, vars);
+          const subject = replaceVars(emailSubject, vars);
+          let html = replaceVars(emailBodyHtml, vars);
 
-        // Inject open tracking pixel
-        const pixelUrl = `${host}/api/sales/track/open-hotlink?h=${hotlink.id}`;
-        const pixel = `<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="" />`;
-        html = html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
+          // Inject open tracking pixel
+          const pixelUrl = `${host}/api/sales/track/open-hotlink?h=${hotlink.id}`;
+          const pixel = `<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="" />`;
+          html = html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
 
-        const result = await sendViaResend({
-          from: `${senderName} <${senderEmail}@${SENDER_DOMAIN}>`,
-          reply_to: DEFAULT_REPLY_TO,
-          to: [contact.email!],
-          subject,
-          html,
-        });
-
-        if (result.ok) {
-          sent++;
-          await db.insert(salesSignalsTable).values({
-            tenantId,
-            accountId: contact.accountId,
-            contactId: contact.id,
-            hotlinkId: hotlink.id,
-            type: "email_sent",
-            source: `Campaign Page: ${page.title}`,
-            metadata: { pageId: Number(pageId), micrositeUrl },
+          const result = await sendViaResend({
+            from: `${senderName} <${senderEmail}@${SENDER_DOMAIN}>`,
+            reply_to: DEFAULT_REPLY_TO,
+            to: [contact.email!],
+            subject,
+            html,
           });
-        } else {
-          failed++;
-          console.error(`Failed to send to ${contact.email}:`, result.error);
-        }
 
-        if (contacts.length > 10) {
-          await new Promise(r => setTimeout(r, 150));
+          if (result.ok) {
+            sent++;
+            // The email already went out — a failed signal insert must not
+            // un-count the send, so this is best-effort (retry then swallow).
+            try {
+              await withDbRetry(() => db.insert(salesSignalsTable).values({
+                tenantId,
+                accountId: contact.accountId,
+                contactId: contact.id,
+                hotlinkId: hotlink.id,
+                type: "email_sent",
+                source: `Campaign Page: ${page.title}`,
+                metadata: { pageId: Number(pageId), micrositeUrl },
+              }));
+            } catch (sigErr) {
+              console.error(`email_sent signal insert failed for contact ${contact.id} (email was still sent):`, sigErr);
+            }
+          } else {
+            failed++;
+            console.error(`Failed to send to ${contact.email}:`, result.error);
+          }
+
+          if (contacts.length > 10) {
+            await new Promise(r => setTimeout(r, 150));
+          }
         }
+      } catch (contactErr) {
+        // A single contact's failure (e.g. transient DB pool timeout while
+        // resolving its hotlink) shouldn't abort the entire launch. Count it
+        // as failed (it wasn't delivered) and continue so the rest of the
+        // audience still gets sent to.
+        failed++;
+        console.error(
+          `Launch: failed to process contact ${contact.id} (${contact.email ?? "no-email"}):`,
+          contactErr,
+        );
       }
     }
 
@@ -334,19 +353,35 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
 
     if (!sendEmails) {
       res.json({
-        hotlinksCreated: contacts.length,
+        hotlinksCreated,
         sent: 0,
-        failed: 0,
+        failed,
         total: contacts.length,
         alertEmailsConfigured: validAlertEmails.length,
-        message: "Hotlinks created. No emails were sent.",
+        message: failed > 0
+          ? `Hotlinks created for ${contacts.length - failed} of ${contacts.length} contacts. No emails were sent.`
+          : "Hotlinks created. No emails were sent.",
       });
     } else {
       res.json({ hotlinksCreated, sent, failed, total: contacts.length, alertEmailsConfigured: validAlertEmails.length });
     }
   } catch (err) {
-    console.error("POST /sales/campaign-pages/launch error:", err);
-    res.status(500).json({ error: "Failed to launch campaign" });
+    // Log the real underlying error with context — the opaque fixed string
+    // used to hide DB pool timeouts and made prod failures undebuggable.
+    console.error(
+      `POST /sales/campaign-pages/launch error (tenant ${tenantId}, page ${pageId}, audience ${audienceId}):`,
+      err,
+    );
+    if (isTransientDbError(err)) {
+      // The DB pool was briefly saturated (typically by concurrent background
+      // sweeps). This is retryable — tell the user so instead of a dead-end 500.
+      res.status(503).json({
+        error: "The system is briefly busy and couldn't launch the campaign. Please wait a moment and try again.",
+      });
+      return;
+    }
+    const detail = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Failed to launch campaign: ${detail}` });
   }
 });
 

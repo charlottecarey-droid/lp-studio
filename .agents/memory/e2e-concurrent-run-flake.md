@@ -26,6 +26,14 @@ appear — neither is a code defect:
    A build started while the dev server is (re)starting clobbers `dist/`,
    leaving the dev `start` step unable to find its freshly-deleted files.
 
+The same `dist/` wipe is **self-inflicted** if you run `node ./build.mjs` (or
+`pnpm run build`) manually while the api-server workflow is (re)starting:
+`build.mjs` does `rm(distDir, {recursive,force})` first, so your manual build
+deletes the files the workflow's `start` step is about to `--import`. Symptom is
+the identical `ERR_MODULE_NOT_FOUND dist/instrument.mjs`. Don't run manual builds
+to "verify" while the workflow is booting — just restart the workflow once and
+wait; verify via `curl localhost:8080/api/healthz` (200), not by rebuilding.
+
 **How to get a clean run:** ensure the dev api-server is already up and idle
 (not mid-build), kill orphan Chromium (`pkill -f headless_shell`), then run the
 suite — ideally in isolation. A clean run passes 108/108. The authoritative

@@ -18,6 +18,7 @@ import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { isTransientDbError, withDbRetry } from "../../lib/dbResilience";
 
 const router = Router();
 
@@ -722,17 +723,23 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
       if (result.ok) {
         sent++;
-        // Create signal for email sent
-        const [sig1] = await db.insert(salesSignalsTable).values({
-          tenantId,
-          accountId: contact.accountId,
-          contactId: contact.id,
-          hotlinkId: hotlink?.id ?? null,
-          type: "email_sent",
-          source: `Campaign: ${campaign.name}`,
-          metadata: { campaignId, templateId: template.id },
-        }).returning();
-        broadcastSignal(sig1);
+        // Create signal for email sent. The email already went out, so a
+        // transient DB hiccup here must not abort the rest of the send —
+        // retry then swallow (best-effort), keeping the send counted.
+        try {
+          const [sig1] = await withDbRetry(() => db.insert(salesSignalsTable).values({
+            tenantId,
+            accountId: contact.accountId,
+            contactId: contact.id,
+            hotlinkId: hotlink?.id ?? null,
+            type: "email_sent",
+            source: `Campaign: ${campaign.name}`,
+            metadata: { campaignId, templateId: template.id },
+          }).returning());
+          if (sig1) broadcastSignal(sig1);
+        } catch (sigErr) {
+          logger.error({ err: sigErr, contactId: contact.id, campaignId }, "email_sent signal insert failed (email was still sent)");
+        }
 
         // SFDC write-back: log email as Activity (fire-and-forget)
         if (contact.salesforceId) {
@@ -758,18 +765,25 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
     // Batch insert send records
     if (sendRecords.length > 0) {
-      await db.insert(salesEmailSendsTable).values(sendRecords);
+      await withDbRetry(() => db.insert(salesEmailSendsTable).values(sendRecords));
     }
 
     // Mark campaign as sent
-    await db.update(salesEmailCampaignsTable)
+    await withDbRetry(() => db.update(salesEmailCampaignsTable)
       .set({ status: "sent", sentAt: new Date() })
-      .where(eq(salesEmailCampaignsTable.id, campaignId));
+      .where(eq(salesEmailCampaignsTable.id, campaignId)));
 
     res.json({ sent, failed, skipped: skippedCount, total: sendable.length + skippedCount });
   } catch (err) {
-    logger.error({ err }, "POST /sales/campaigns/:id/send error");
-    res.status(500).json({ error: "Failed to send campaign" });
+    logger.error({ err, campaignId, tenantId }, "POST /sales/campaigns/:id/send error");
+    if (isTransientDbError(err)) {
+      res.status(503).json({
+        error: "The system is briefly busy and couldn't finish sending the campaign. Please wait a moment and try again.",
+      });
+      return;
+    }
+    const detail = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Failed to send campaign: ${detail}` });
   }
 });
 
