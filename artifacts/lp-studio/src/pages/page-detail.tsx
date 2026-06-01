@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useRoute } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,12 @@ import {
   ArrowDownRight,
   Minus,
   Users,
+  UserCheck,
   MousePointerClick,
   Target,
   Percent,
   ScrollText,
   Eye,
-  ExternalLink,
   PencilRuler,
   FlaskConical,
   Gauge,
@@ -30,7 +30,16 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Copy,
+  Check,
+  Clock,
+  Send,
+  Upload,
+  CheckCircle2,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { PageConversionScore } from "@/components/analytics/PageConversionScore";
 import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
 import { PageTrafficSources } from "@/components/analytics/PageTrafficSources";
@@ -39,6 +48,43 @@ import { PageProgrammaticVars } from "@/components/analytics/PageProgrammaticVar
 const HeatmapOverlay = lazy(() =>
   import("@/components/heatmap/HeatmapOverlay").then(m => ({ default: m.HeatmapOverlay })),
 );
+
+/** Lazy-mount children only once they scroll into view (IntersectionObserver). */
+function LazyInView({
+  children,
+  fallback,
+  rootMargin = "200px",
+}: {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+  rootMargin?: string;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    if (inView) return;
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const obs = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          setInView(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [inView, rootMargin]);
+
+  return <div ref={ref}>{inView ? children : fallback}</div>;
+}
 
 const API_BASE = "/api";
 
@@ -52,14 +98,14 @@ interface Metric {
 }
 
 interface SummaryResponse {
-  page: { id: number; title: string; slug: string; status: string };
+  page: { id: number; title: string; slug: string; status: string; updatedAt: string };
   metrics: {
     visits: Metric;
-    conversions: Metric;
+    uniqueVisitors: Metric;
+    leads: Metric;
     conversionRate: Metric;
-    knownVisitors: Metric;
     avgScrollDepth: Metric;
-    totalClicks: Metric;
+    clicksPerSession: Metric;
   };
 }
 
@@ -329,13 +375,66 @@ function AdMapSection({ pageId }: { pageId: number }) {
 /*  Visits table (net-new)                                             */
 /* ------------------------------------------------------------------ */
 
+function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-semibold">
+        {label}
+      </p>
+      <p className="text-sm truncate">{value ?? "—"}</p>
+    </div>
+  );
+}
+
+/* Per-visit detail shown inline when a Visits Table row is expanded. */
+function VisitDetail({ visit: v }: { visit: VisitRow }) {
+  const loc = [v.city, v.region, v.country].filter(Boolean).join(", ");
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+        <DetailField
+          label="Visited"
+          value={new Date(v.visitedAt).toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
+        />
+        <DetailField label="Type" value={v.source === "personalized" ? "Known contact" : "Anonymous"} />
+        {v.source === "personalized" && (
+          <>
+            <DetailField label="Contact" value={v.contactName || "—"} />
+            <DetailField label="Company" value={v.company || "—"} />
+            <DetailField label="Email" value={v.email || "—"} />
+          </>
+        )}
+        <DetailField label="Location" value={loc || "—"} />
+        <DetailField label="Device" value={v.device ? <span className="capitalize">{v.device}</span> : "—"} />
+        <DetailField
+          label="Scroll depth"
+          value={v.scrollDepthPct != null ? `${Math.round(v.scrollDepthPct)}%` : "—"}
+        />
+        <DetailField label="Clicks" value={v.clicks != null ? v.clicks : "—"} />
+        <DetailField label="Converted" value={v.converted ? "Yes" : "No"} />
+        {v.source === "anonymous" && (
+          <>
+            <DetailField label="UTM source" value={v.utmSource || "—"} />
+            <DetailField label="UTM medium" value={v.utmMedium || "—"} />
+            <DetailField label="UTM campaign" value={v.utmCampaign || "—"} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [convertedOnly, setConvertedOnly] = useState(false);
   const [knownOnly, setKnownOnly] = useState(false);
-  const limit = 25;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const limit = 50;
 
   const { data, isLoading, isError, isFetching } = useQuery({
     queryKey: ["page-visits", pageId, days, page, search, convertedOnly, knownOnly],
@@ -421,6 +520,7 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
+                <th className="font-medium px-2 py-2 w-8"></th>
                 <th className="font-medium px-3 py-2">Visitor</th>
                 <th className="font-medium px-3 py-2">Source</th>
                 <th className="font-medium px-3 py-2">Location</th>
@@ -436,55 +536,73 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
                 const identity =
                   v.contactName || v.company || v.email || (v.source === "personalized" ? "Known visitor" : "Anonymous");
                 const loc = [v.city, v.region, v.country].filter(Boolean).join(", ");
+                const expanded = expandedId === v.id;
                 return (
-                  <tr key={v.id} className="border-b hover:bg-muted/40 transition-colors">
-                    <td className="px-3 py-2.5">
-                      <p className="font-medium truncate max-w-[200px]">{identity}</p>
-                      {v.company && v.contactName && (
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{v.company}</p>
-                      )}
-                      {v.utmCampaign && (
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {v.utmCampaign}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <Badge variant={v.source === "personalized" ? "default" : "secondary"}>
-                        {v.source === "personalized" ? "Known" : "Anonymous"}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2.5 text-muted-foreground">
-                      {loc ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <span>{flagEmoji(v.countryCode)}</span>
-                          <span className="truncate max-w-[160px]">{loc}</span>
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-muted-foreground capitalize">{v.device || "—"}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {v.scrollDepthPct != null ? `${Math.round(v.scrollDepthPct)}%` : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {v.clicks != null ? v.clicks : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {v.converted ? (
-                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" title="Converted" />
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-muted-foreground whitespace-nowrap">
-                      {new Date(v.visitedAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </td>
-                  </tr>
+                  <Fragment key={v.id}>
+                    <tr
+                      className="border-b hover:bg-muted/40 transition-colors cursor-pointer"
+                      onClick={() => setExpandedId(expanded ? null : v.id)}
+                    >
+                      <td className="px-2 py-2.5 text-muted-foreground">
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`}
+                        />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <p className="font-medium truncate max-w-[200px]">{identity}</p>
+                        {v.company && v.contactName && (
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">{v.company}</p>
+                        )}
+                        {v.utmCampaign && (
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {v.utmCampaign}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Badge variant={v.source === "personalized" ? "default" : "secondary"}>
+                          {v.source === "personalized" ? "Known" : "Anonymous"}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground">
+                        {loc ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span>{flagEmoji(v.countryCode)}</span>
+                            <span className="truncate max-w-[160px]">{loc}</span>
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground capitalize">{v.device || "—"}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        {v.scrollDepthPct != null ? `${Math.round(v.scrollDepthPct)}%` : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        {v.clicks != null ? v.clicks : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {v.converted ? (
+                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" title="Converted" />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-muted-foreground whitespace-nowrap">
+                        {new Date(v.visitedAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="border-b bg-muted/20">
+                        <td colSpan={9} className="px-4 py-3">
+                          <VisitDetail visit={v} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -527,6 +645,152 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Header — copyable URL + last-edited + publish/unpublish            */
+/* ------------------------------------------------------------------ */
+
+function CopyUrlButton({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false);
+  const url =
+    typeof window !== "undefined" ? `${window.location.origin}/lp/${slug}` : `/lp/${slug}`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable — no-op */
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" type="button" onClick={copy} title={url}>
+      {copied ? <Check className="w-4 h-4 mr-1.5 text-emerald-600" /> : <Copy className="w-4 h-4 mr-1.5" />}
+      {copied ? "Copied" : "Copy URL"}
+    </Button>
+  );
+}
+
+function PublishControls({ pageId, status }: { pageId: number; status: string }) {
+  const { canPublish } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (nextStatus: "published" | "draft") => {
+      const r = await fetch(`${API_BASE}/lp/pages/${pageId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || `HTTP ${r.status}`);
+      }
+      return nextStatus;
+    },
+    onSuccess: nextStatus => {
+      queryClient.invalidateQueries({ queryKey: ["page-summary", pageId] });
+      toast({
+        title: nextStatus === "published" ? "Page published" : "Page unpublished",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Couldn't update page", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (!canPublish) return null;
+
+  const isPublished = status === "published";
+  return (
+    <Button
+      variant={isPublished ? "outline" : "default"}
+      size="sm"
+      type="button"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate(isPublished ? "draft" : "published")}
+    >
+      {isPublished ? (
+        <>
+          <Send className="w-4 h-4 mr-1.5" />
+          Unpublish
+        </>
+      ) : (
+        <>
+          <Upload className="w-4 h-4 mr-1.5" />
+          Publish
+        </>
+      )}
+    </Button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Approvals — only when the tenant's review workflow is enabled      */
+/* ------------------------------------------------------------------ */
+
+interface PendingReviewRow {
+  id: number;
+  title: string;
+  slug: string;
+  submittedAt: string | null;
+  submittedBy: string | null;
+}
+
+function ApprovalsSection({ pageId, status }: { pageId: number; status: string }) {
+  const { reviewWorkflowEnabled, canReview } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["page-pending-review", pageId],
+    queryFn: async (): Promise<PendingReviewRow[]> => {
+      const r = await fetch(`${API_BASE}/lp/pages/pending-review`, { credentials: "include" });
+      if (r.status === 409 || r.status === 403) return [];
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json() as Promise<PendingReviewRow[]>;
+    },
+    enabled: reviewWorkflowEnabled && canReview,
+  });
+
+  // Omit entirely unless the tenant's review workflow is enabled.
+  if (!reviewWorkflowEnabled) return null;
+
+  const isPending = status === "pending_review";
+  const queueCount = data?.length ?? 0;
+  const thisInQueue = (data ?? []).some(r => r.id === pageId);
+
+  return (
+    <Section
+      title="Approvals"
+      icon={CheckCircle2}
+      description="Review workflow status for this page."
+      action={
+        <Link href="/reviews">
+          <Button variant="outline" size="sm" type="button">
+            Review queue{queueCount > 0 ? ` (${queueCount})` : ""}
+          </Button>
+        </Link>
+      }
+    >
+      {isLoading ? (
+        <Skeleton className="h-10 w-full" />
+      ) : isPending || thisInQueue ? (
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="w-4 h-4 text-amber-500" />
+          <span>This page is awaiting approval.</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          <span>No pending approval for this page.</span>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -536,10 +800,26 @@ const RANGES = [
   { label: "90d", value: 90 },
 ];
 
+function fmtLastEdited(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function PageDetail() {
   const [, params] = useRoute("/analytics/pages/:pageId");
   const pageId = params?.pageId ? parseInt(params.pageId, 10) : NaN;
   const [days, setDays] = useState(30);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customInput, setCustomInput] = useState("30");
+  const isPreset = RANGES.some(r => r.value === days);
+
+  function applyCustom(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseInt(customInput, 10);
+    if (!isNaN(n)) setDays(Math.min(365, Math.max(1, n)));
+  }
 
   const { data: summary, isLoading, isError } = useQuery({
     queryKey: ["page-summary", pageId, days],
@@ -592,9 +872,18 @@ export default function PageDetail() {
                   )}
                 </h1>
               )}
-              {page?.slug && <p className="text-sm text-muted-foreground mt-1">/lp/{page.slug}</p>}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                {page?.slug && <p className="text-sm text-muted-foreground">/lp/{page.slug}</p>}
+                {fmtLastEdited(page?.updatedAt) && (
+                  <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Last edited {fmtLastEdited(page?.updatedAt)}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {page?.slug && <CopyUrlButton slug={page.slug} />}
               {page?.slug && (
                 <a href={`/lp/${page.slug}`} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">
@@ -609,21 +898,50 @@ export default function PageDetail() {
                   Edit
                 </Button>
               </Link>
+              {page?.status && <PublishControls pageId={pageId} status={page.status} />}
             </div>
           </div>
 
           {/* Date range selector */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {RANGES.map(r => (
               <Button
                 key={r.value}
                 size="sm"
                 variant={days === r.value ? "default" : "outline"}
-                onClick={() => setDays(r.value)}
+                onClick={() => {
+                  setDays(r.value);
+                  setCustomOpen(false);
+                }}
               >
                 {r.label}
               </Button>
             ))}
+            <Button
+              size="sm"
+              variant={!isPreset || customOpen ? "default" : "outline"}
+              onClick={() => setCustomOpen(o => !o)}
+            >
+              {!isPreset ? `${days}d` : "Custom"}
+            </Button>
+            {customOpen && (
+              <form onSubmit={applyCustom} className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={customInput}
+                  onChange={e => setCustomInput(e.target.value)}
+                  className="w-20 px-2 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Days"
+                  aria-label="Custom range in days"
+                />
+                <span className="text-xs text-muted-foreground">days</span>
+                <Button size="sm" type="submit" variant="outline">
+                  Apply
+                </Button>
+              </form>
+            )}
           </div>
         </div>
 
@@ -638,11 +956,11 @@ export default function PageDetail() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatCard label="Visits" value={m?.visits.value ?? 0} trend={m?.visits.deltaPct} icon={Users} loading={isLoading} />
-            <StatCard label="Conversions" value={m?.conversions.value ?? 0} trend={m?.conversions.deltaPct} icon={Target} loading={isLoading} />
+            <StatCard label="Unique visitors" value={m?.uniqueVisitors.value ?? 0} trend={m?.uniqueVisitors.deltaPct} icon={UserCheck} loading={isLoading} />
+            <StatCard label="Leads" value={m?.leads.value ?? 0} trend={m?.leads.deltaPct} icon={Target} loading={isLoading} />
             <StatCard label="CVR" value={m ? `${m.conversionRate.value.toFixed(1)}%` : "0%"} trend={m?.conversionRate.deltaPct} icon={Percent} loading={isLoading} />
-            <StatCard label="Known" value={m?.knownVisitors.value ?? 0} trend={m?.knownVisitors.deltaPct} icon={Users} loading={isLoading} />
-            <StatCard label="Avg Scroll" value={m ? `${Math.round(m.avgScrollDepth.value)}%` : "0%"} trend={m?.avgScrollDepth.deltaPct} icon={ScrollText} loading={isLoading} />
-            <StatCard label="Clicks" value={m?.totalClicks.value ?? 0} trend={m?.totalClicks.deltaPct} icon={MousePointerClick} loading={isLoading} />
+            <StatCard label="Avg scroll" value={m ? `${Math.round(m.avgScrollDepth.value)}%` : "0%"} trend={m?.avgScrollDepth.deltaPct} icon={ScrollText} loading={isLoading} />
+            <StatCard label="Clicks / session" value={m ? m.clicksPerSession.value.toFixed(1) : "0"} trend={m?.clicksPerSession.deltaPct} icon={MousePointerClick} loading={isLoading} />
           </div>
         )}
 
@@ -673,11 +991,16 @@ export default function PageDetail() {
           </Section>
         </div>
 
-        {/* Heatmap (lazy — heavy) */}
+        {/* Approvals (only when the tenant's review workflow is enabled) */}
+        {page?.status && <ApprovalsSection pageId={pageId} status={page.status} />}
+
+        {/* Heatmap (lazy — heavy; only mounts when scrolled into view) */}
         <Section title="Heatmap" icon={MousePointerClick} description="Click and scroll behavior across this page.">
-          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <HeatmapOverlay pageId={pageId} />
-          </Suspense>
+          <LazyInView fallback={<Skeleton className="h-64 w-full" />}>
+            <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <HeatmapOverlay pageId={pageId} />
+            </Suspense>
+          </LazyInView>
         </Section>
       </div>
     </AppLayout>

@@ -35,11 +35,11 @@ async function resolvePageId(
     return null;
   }
   const pageRes = await db.execute(sql`
-    SELECT id, title, slug, status, tenant_id
+    SELECT id, title, slug, status, tenant_id, updated_at
     FROM lp_pages WHERE id = ${pageId} LIMIT 1
   `);
   const page = pageRes.rows[0] as
-    | { id: number; title: string; slug: string; status: string; tenant_id: number }
+    | { id: number; title: string; slug: string; status: string; tenant_id: number; updated_at: Date | string }
     | undefined;
   if (!page || page.tenant_id !== tenantId) {
     res.status(404).json({ error: "Page not found" });
@@ -60,7 +60,7 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
   if (pageId === null) return;
 
   const page = (req as unknown as {
-    _page: { id: number; title: string; slug: string; status: string };
+    _page: { id: number; title: string; slug: string; status: string; updated_at: Date | string };
   })._page;
 
   const days = clampInt(req.query.days, 30, 1, 365);
@@ -72,6 +72,7 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
     const [
       anonVisits,
       persVisits,
+      anonUnique,
       anonConv,
       persConv,
       known,
@@ -93,6 +94,13 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
         FROM lp_personalized_link_visits plv
         JOIN lp_personalized_links pl ON pl.id = plv.link_id
         WHERE pl.page_id = ${pageId} AND pl.tenant_id = ${tenantId}
+      `),
+      // anonymous unique visitors (distinct session_id)
+      db.execute(sql`
+        SELECT
+          count(DISTINCT session_id) FILTER (WHERE created_at > ${curStart}) AS cur,
+          count(DISTINCT session_id) FILTER (WHERE created_at > ${prevStart} AND created_at <= ${curStart}) AS prev
+        FROM lp_page_visits WHERE page_id = ${pageId} AND session_id IS NOT NULL
       `),
       // anonymous conversions (lp_events.page_id)
       db.execute(sql`
@@ -156,8 +164,9 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
     const rateCur = visitsCur > 0 ? (convCur / visitsCur) * 100 : 0;
     const ratePrev = visitsPrev > 0 ? (convPrev / visitsPrev) * 100 : 0;
 
-    const knownCur = num(known.rows, "cur");
-    const knownPrev = num(known.rows, "prev");
+    // Unique visitors = distinct anonymous sessions + distinct known contacts.
+    const uniqueCur = num(anonUnique.rows, "cur") + num(known.rows, "cur");
+    const uniquePrev = num(anonUnique.rows, "prev") + num(known.rows, "prev");
 
     const scrollCur = num(scroll.rows, "cur");
     const scrollPrev = num(scroll.rows, "prev");
@@ -165,21 +174,34 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
     const clicksCur = num(clicks.rows, "cur");
     const clicksPrev = num(clicks.rows, "prev");
 
+    // Clicks per session = total clicks / unique visitors (0 when no visitors).
+    const cpsCur = uniqueCur > 0 ? clicksCur / uniqueCur : 0;
+    const cpsPrev = uniquePrev > 0 ? clicksPrev / uniquePrev : 0;
+
     res.json({
-      page: { id: page.id, title: page.title, slug: page.slug, status: page.status },
+      page: {
+        id: page.id,
+        title: page.title,
+        slug: page.slug,
+        status: page.status,
+        updatedAt: page.updated_at,
+      },
       metrics: {
         visits: { value: visitsCur, deltaPct: pctDelta(visitsCur, visitsPrev) },
-        conversions: { value: convCur, deltaPct: pctDelta(convCur, convPrev) },
+        uniqueVisitors: { value: uniqueCur, deltaPct: pctDelta(uniqueCur, uniquePrev) },
+        leads: { value: convCur, deltaPct: pctDelta(convCur, convPrev) },
         conversionRate: {
           value: Math.round(rateCur * 10) / 10,
           deltaPct: pctDelta(rateCur, ratePrev),
         },
-        knownVisitors: { value: knownCur, deltaPct: pctDelta(knownCur, knownPrev) },
         avgScrollDepth: {
           value: Math.round(scrollCur * 10) / 10,
           deltaPct: pctDelta(scrollCur, scrollPrev),
         },
-        totalClicks: { value: clicksCur, deltaPct: pctDelta(clicksCur, clicksPrev) },
+        clicksPerSession: {
+          value: Math.round(cpsCur * 100) / 100,
+          deltaPct: pctDelta(cpsCur, cpsPrev),
+        },
       },
     });
   } catch (err) {
