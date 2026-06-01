@@ -21,6 +21,7 @@ import {
   isContentSeriesRequest,
   isBlogSeriesRequest,
   isStorefrontRequest,
+  isSingleFullPageBlock,
 } from "./generate-page";
 
 /** Every block schema bullet looks like `- "type": …`; collect the types. */
@@ -174,5 +175,32 @@ describe("isStorefrontRequest", () => {
     expect(isStorefrontRequest("A SaaS pricing page for our analytics tool")).toBe(false);
     expect(isStorefrontRequest("")).toBe(false);
     expect(isStorefrontRequest(undefined as unknown as string)).toBe(false);
+  });
+});
+
+describe("isSingleFullPageBlock", () => {
+  it("is true for a page that is a single self-contained full-page block", () => {
+    for (const type of ["content-series", "blog-series", "storefront"]) {
+      expect(isSingleFullPageBlock([{ type }])).toBe(true);
+    }
+  });
+
+  it("is false when the full-page block is combined with other blocks", () => {
+    expect(isSingleFullPageBlock([{ type: "storefront" }, { type: "footer" }])).toBe(false);
+    expect(isSingleFullPageBlock([{ type: "nav-header" }, { type: "content-series" }])).toBe(false);
+  });
+
+  it("is false for a single block that is NOT a self-contained full-page block", () => {
+    // event-page / business-case render their own nav but no footer, so they
+    // are intentionally NOT treated as self-contained here.
+    for (const type of ["hero", "full-bleed-hero", "event-page", "business-case-split"]) {
+      expect(isSingleFullPageBlock([{ type }])).toBe(false);
+    }
+  });
+
+  it("is false for an empty page or malformed block entries", () => {
+    expect(isSingleFullPageBlock([])).toBe(false);
+    expect(isSingleFullPageBlock([{}])).toBe(false);
+    expect(isSingleFullPageBlock([{ type: 42 as unknown }])).toBe(false);
   });
 });

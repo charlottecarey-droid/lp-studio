@@ -1787,6 +1787,29 @@ export function isStorefrontRequest(prompt: string): boolean {
   return kws.some((kw) => lower.includes(kw));
 }
 
+// The self-contained full-page blocks that render their OWN nav AND footer.
+// A page made of a SINGLE one of these is already a complete page, so the
+// post-processing pass must NOT auto-inject a nav-header, bottom-cta, or footer
+// on top of it (that stacks duplicate chrome). event-page / business-case render
+// their own nav but NO footer, so they are intentionally excluded here — they
+// still need a footer injected.
+export const SELF_CONTAINED_FULL_PAGE_TYPES = new Set([
+  "content-series",
+  "blog-series",
+  "storefront",
+]);
+
+// True when the generated page is exactly one self-contained full-page block.
+export function isSingleFullPageBlock(
+  blocks: ReadonlyArray<{ type?: unknown }>,
+): boolean {
+  return (
+    blocks.length === 1 &&
+    typeof blocks[0]?.type === "string" &&
+    SELF_CONTAINED_FULL_PAGE_TYPES.has(blocks[0].type)
+  );
+}
+
 // Assemble the GENERAL system prompt with the advertised block list filtered by
 // AI-eligibility. Splits the verbatim template into blank-line paragraphs,
 // injects the curated extra blocks into the correct sections, and drops any
@@ -3035,6 +3058,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     const blocks = parsed.blocks as Array<Record<string, unknown>>;
     const cpUrl = brand.chilipiperUrl ?? "#";
 
+    // Self-contained full-page blocks render their OWN nav, CTA, and footer, so
+    // a page that is a SINGLE such block must NOT have a nav-header, bottom-cta,
+    // or footer injected on top of it — that would stack duplicate chrome over
+    // the chrome already baked into the block. See isSingleFullPageBlock.
+    const isSingleFullPage = isSingleFullPageBlock(blocks);
+
     // 1. Nav header — prepend if missing
     const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
     // These hero blocks render their own sticky navbar internally —
@@ -3054,7 +3083,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       blocks.shift();
     }
     const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string) || SELF_NAV_TYPES.has(b.type as string));
-    if (!hasNav) {
+    if (!hasNav && !isSingleFullPage) {
       if (useDsoPractices) {
         // DSO practices get the co-branded sticky practice nav
         blocks.unshift({
@@ -3096,7 +3125,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // 2. Final CTA — inject before footer if missing
     const FINAL_CTA_TYPES = new Set(["bottom-cta", "dso-final-cta", "dso-cta-capture"]);
     const hasFinalCta = blocks.some(b => FINAL_CTA_TYPES.has(b.type as string));
-    if (!hasFinalCta) {
+    if (!hasFinalCta && !isSingleFullPage) {
       const footerIdx = blocks.findIndex(b => b.type === "footer");
       const insertAt = footerIdx !== -1 ? footerIdx : blocks.length;
       const brandNameForCta = (brand.brandName ?? "").trim();
@@ -3146,7 +3175,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // footer using their own brandName, defaultCtaUrl, and social links so
     // the AI never leaks meetdandy.com links into a non-Dandy workspace.
     const hasFooter = blocks.some(b => b.type === "footer");
-    if (!hasFooter) {
+    if (!hasFooter && !isSingleFullPage) {
       const year = new Date().getFullYear();
       const brandNameRaw = (brand.brandName ?? "").trim();
       const isDandyBrand =
