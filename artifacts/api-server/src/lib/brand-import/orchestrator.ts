@@ -1,5 +1,5 @@
 import { getOpenAIClient } from "../../routes/lp/brand-import";
-import { buildEvidence } from "./evidence";
+import { buildEvidence, EVIDENCE_BUILD_BUDGET_MS } from "./evidence";
 import { extractLogos } from "./extractors/logos";
 import { extractColors } from "./extractors/colors";
 import { extractTypography } from "./extractors/typography";
@@ -20,8 +20,9 @@ import type {
   StreamEvent,
 } from "./types";
 
-// Evidence build has its own 7s cap. Extractors then get their own
-// 12s budget from the moment evidence is in hand — a vision call into
+// Evidence build has its own budget (EVIDENCE_BUILD_BUDGET_MS, derived in
+// evidence.ts from its internal scrape/fetch timeouts). Extractors then get
+// their own budget from the moment evidence is in hand — a vision call into
 // GPT regularly costs 4-7s and we want all six dimensions to actually
 // land in the streamed result, not race a shared 12s clock that
 // evidence already half-consumed.
@@ -344,7 +345,12 @@ export async function* runOrchestrator(
 
   let evidence: Evidence;
   try {
-    evidence = await withTimeout(buildEvidence(url, firecrawlApiKey), 7_000, "evidence");
+    // Evidence build is dominated by the home-page firecrawl scrape, which
+    // renders a screenshot for heavy sites (15-25s for large e-commerce
+    // homepages). The previous 7s cap silently failed the whole import for
+    // slow retail sites; EVIDENCE_BUILD_BUDGET_MS is derived in evidence.ts to
+    // clear the worst-case sum of the scrape + downstream fetch timeouts.
+    evidence = await withTimeout(buildEvidence(url, firecrawlApiKey), EVIDENCE_BUILD_BUDGET_MS, "evidence");
   } catch (e) {
     yield { event: "error", error: `evidence build failed: ${String(e)}` };
     return;

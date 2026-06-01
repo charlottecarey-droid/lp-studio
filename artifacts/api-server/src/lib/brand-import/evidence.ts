@@ -64,9 +64,36 @@ async function urlIsSafe(url: string): Promise<boolean> {
   }
 }
 
-const FIRECRAWL_TIMEOUT_MS = 6000;
+// Markdown-only sub-page scrapes return quickly. The home page additionally
+// renders a full-page screenshot + rawHtml, and for heavy/slow sites (large
+// e-commerce homepages, often behind bot-protection) firecrawl's headless
+// browser can take 15-25s to settle. A single tight timeout starves that home
+// scrape — and because the home scrape is the ONLY source of the screenshot,
+// pixel-sampled palette, and rawHTML, losing it cascades into empty/failed
+// color/logo/typography results (observed as "nothing imported" for slow
+// retail sites). So screenshot scrapes get a much larger budget than the
+// quick markdown sub-pages.
+const FIRECRAWL_TIMEOUT_MS = 12000;
+const FIRECRAWL_SCREENSHOT_TIMEOUT_MS = 30000;
 const RAW_HTML_TIMEOUT_MS = 5000;
 const STYLESHEET_TIMEOUT_MS = 4000;
+const SCREENSHOT_FETCH_TIMEOUT_MS = 8000;
+const ROBOTS_TIMEOUT_MS = 4000;
+
+// Upper bound for the whole buildEvidence() phase. Its slow steps run
+// sequentially in the worst case: robots fetch (awaited before scrapes) ->
+// home screenshot scrape (the dominant cost) -> stylesheet fetches ->
+// screenshot-buffer fetch -> palette sampling. The orchestrator wraps
+// buildEvidence in a single hard timeout, and exceeding it fails the ENTIRE
+// import (no dimensions stream at all), so this must clear the sum of those
+// maxima with margin. Derived from the constants above so it can't silently
+// drift when an individual timeout is retuned.
+export const EVIDENCE_BUILD_BUDGET_MS =
+  ROBOTS_TIMEOUT_MS +
+  FIRECRAWL_SCREENSHOT_TIMEOUT_MS +
+  STYLESHEET_TIMEOUT_MS +
+  SCREENSHOT_FETCH_TIMEOUT_MS +
+  6000; // palette sampling + scheduling slack
 const MAX_STYLESHEETS = 3;
 const MAX_STYLESHEET_BYTES = 200 * 1024;
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
@@ -113,7 +140,7 @@ async function firecrawlScrape(
           waitFor: 1500,
         }),
       },
-      FIRECRAWL_TIMEOUT_MS,
+      opts.withScreenshot ? FIRECRAWL_SCREENSHOT_TIMEOUT_MS : FIRECRAWL_TIMEOUT_MS,
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -206,7 +233,7 @@ async function fetchScreenshotBuffer(screenshotUrl: string): Promise<{ buf: Buff
   if (!(await urlIsSafe(screenshotUrl))) return null;
   try {
     const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 8000);
+    const t = setTimeout(() => ctl.abort(), SCREENSHOT_FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(screenshotUrl, {
         signal: ctl.signal,
@@ -400,7 +427,7 @@ export async function buildEvidence(
     .map((p) => safeJoinUrl(homeUrl, p))
     .filter((u): u is string => !!u);
 
-  const robotsP = fetchRobotsVerdict(homeUrl, candidatePaths);
+  const robotsP = fetchRobotsVerdict(homeUrl, candidatePaths, ROBOTS_TIMEOUT_MS);
   const directHtmlP = fetchRawHtmlDirect(homeUrl);
 
   // Always ask firecrawl for the home page with markdown + screenshot +
