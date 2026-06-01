@@ -1,0 +1,120 @@
+Template card thumbnails — capture a real screenshot for every template
+What we're fixing
+The Templates gallery (/templates) currently shows every card with a gradient color placeholder where the thumbnail should be. There are 88 templates. Without real previews, users can't tell what any template looks like without clicking into it — which makes the gallery a chore to browse and undersells the quality of what's actually in there.
+Every template card should show a real screenshot of the rendered template. New templates should auto-capture on save/publish. The existing 88 should be backfilled in a one-time job.
+Architecture: reuse what's already there
+The Builder's Page Settings sidebar already has an OG Image system that uses thum.io to capture screenshots from a live URL — I saw it in the page editor showing URLs like https://image.thum.io/g.... That's the exact infrastructure we need; we just need to point it at template preview URLs and store the result on the template record.
+Don't introduce a new screenshot service unless the existing thum.io integration is unreliable enough to justify it. Reuse first; if performance is bad, swap later.
+Data model
+Add a single column to the templates table (or whatever the underlying entity is called — templates, landing_page_templates, etc.):
+tsthumbnail_url: text("thumbnail_url"), // nullable — falls back to gradient if null
+thumbnail_captured_at: timestamp("thumbnail_captured_at"), // for cache invalidation
+The gradient placeholder stays as the fallback for templates where thumbnail_url is null or capture has failed.
+Capture flow
+Step 1: Identify the template's preview URL
+Templates either (a) have an underlying live page (the ones with the "Live" badge in the gallery), or (b) are pure templates with no live URL.
+For case (a), reuse the underlying page's OG image. That's the cleanest path — same URL, same screenshot, no new work. Set template.thumbnail_url = sourcePage.ogImageUrl directly.
+For case (b), the template needs a render target. Add a server-side route:
+GET /templates/preview/:templateId
+That renders the template's blocks against a default brand kit (use the platform-default brand if the template isn't tenant-scoped, or the owning tenant's brand if it is), at a fixed viewport size (1200×800 is what thum.io expects for OG-ish capture). No nav chrome, no header — just the template content rendered as a static page.
+This route is what we hand to thum.io for capture.
+Step 2: Trigger thum.io capture
+Use the same call pattern the OG Image flow already uses. Something like:
+tsasync function captureTemplateThumbnail(templateId: string) {
+  const previewUrl = `${BASE_URL}/templates/preview/${templateId}`;
+  const thumioUrl = `https://image.thum.io/get/width/1200/crop/800/png/${encodeURIComponent(previewUrl)}`;
+  
+  // Pre-warm the capture by fetching it (thum.io captures on first GET)
+  await fetch(thumioUrl, { method: 'HEAD' });
+  
+  // Persist the capture URL on the template record
+  await db.update(templates)
+    .set({
+      thumbnail_url: thumioUrl,
+      thumbnail_captured_at: new Date(),
+    })
+    .where(eq(templates.id, templateId));
+}
+Match whatever pattern the existing OG capture uses — variant params (width/crop/format), auth tokens if any, error handling, all the same.
+Step 3: Backfill all 88 existing templates
+Add a one-time admin script (or a SuperAdmin route) that:
+
+Queries all templates where thumbnail_url IS NULL
+For each, runs captureTemplateThumbnail(template.id) with a small concurrency limit (5 parallel — don't hammer thum.io)
+Logs success/failure per template
+Sets thumbnail_url = null for failures so they retry on next run rather than getting stuck
+
+Run this once before launch. Then any new template automatically gets a thumbnail on save.
+Step 4: Auto-capture on template save/publish
+Hook into the existing template save flow:
+
+When a template is created or its blocks/styling are edited, mark thumbnail_captured_at = null
+A background job (or a debounced 30-second-after-save trigger) calls captureTemplateThumbnail()
+New thumbnail replaces the old one
+
+The user shouldn't have to wait for capture to complete to save — fire and forget, update the card next page load.
+Step 5: Manual re-capture affordance
+On each template card (and on the template edit view), add a small "Refresh thumbnail" action in the overflow menu (…). Triggers captureTemplateThumbnail() immediately and shows a toast: "Thumbnail refreshed."
+This is for cases where the template was edited mid-capture, the auto-capture failed silently, or someone wants to force a fresh capture after a brand change.
+UI changes
+Template cards (/templates)
+For each card, replace the current gradient block with:
+tsx{template.thumbnail_url ? (
+  <img
+    src={template.thumbnail_url}
+    alt={`Preview of ${template.name}`}
+    className="h-48 w-full object-cover object-top rounded-t-lg"
+    loading="lazy"
+    onError={(e) => {
+      // If image fails to load (thum.io down, etc.), fall back to gradient
+      e.currentTarget.style.display = 'none';
+      e.currentTarget.parentElement?.classList.add('bg-gradient-placeholder');
+    }}
+  />
+) : (
+  <div className="h-48 w-full bg-gradient-placeholder rounded-t-lg" />
+)}
+The gradient placeholder remains the fallback — keep that component intact.
+Loading state during capture
+If a template was just created and thumbnail_captured_at is null but created_at is < 60 seconds ago, show a subtle shimmer/skeleton over the gradient with text "Capturing preview…" so the user knows it's in flight rather than missing.
+Cache busting
+thumbnail_url is a thum.io URL — thum.io caches its captures. If a template is re-edited and re-captured, the URL needs a cache-buster param. Either:
+
+Append ?v={thumbnail_captured_at.getTime()} to the URL when rendering, OR
+Use thum.io's noCache param on re-capture and store the timestamped URL
+
+Pick whichever matches the existing OG image cache strategy.
+Edge cases to handle
+
+Tenant-scoped templates: when a template belongs to a specific tenant, render the preview with that tenant's brand kit, not the platform default. Otherwise the thumbnail won't match how the template looks for that tenant.
+Templates with no blocks: render an empty-state preview (or skip — these probably shouldn't be in the gallery anyway).
+Templates with external dependencies (custom HTML, third-party embeds): the preview route needs to render these with sane defaults or stub them out. Don't let a broken embed break the screenshot.
+Templates that are still being edited (draft state): capture once on first publish, then on every subsequent publish. Don't capture during draft saves.
+Templates from _____ One Pager (the broken-named one I noticed in the audit): these have placeholder content. Either fix the names + capture, or hide from the gallery until they're real. Don't capture garbage.
+
+Acceptance criteria
+
+ thumbnail_url and thumbnail_captured_at columns added to the templates table
+ Server-side preview route GET /templates/preview/:id renders the template at 1200×800 with the right brand kit, no chrome
+ captureTemplateThumbnail(templateId) helper exists and matches the OG image capture pattern
+ One-time backfill script captures thumbnails for all 88 existing templates with success/failure logging
+ Template save/publish flow triggers auto-capture in the background
+ Template cards in /templates render <img> with the captured thumbnail, falling back to gradient on null or error
+ Lazy-loading on card images so a gallery scroll doesn't blow the network budget
+ Cache-buster mechanism so re-captured templates show the new image
+ Manual "Refresh thumbnail" action in template card overflow menu
+ Loading shimmer for newly-created templates whose capture is in flight
+ Tenant-scoped templates capture with the right brand kit
+ Templates with placeholder names (e.g. _____ One Pager) are either renamed or excluded from the gallery before capture runs
+
+What NOT to do
+
+Don't introduce a new screenshot service (Puppeteer, Playwright, Browserless, etc.) unless thum.io is demonstrably failing. The existing integration works for OG images and is proven.
+Don't block the save flow waiting for capture — fire and forget.
+Don't capture on every read/render — capture once on save, cache the URL, serve from CDN.
+Don't store the captured image as a blob in our DB or R2 unless thum.io has a cost/reliability issue. Their URLs are the storage.
+Don't add a "thumbnail editor" UI at this stage. Auto-capture + manual refresh is enough. If users want custom thumbnails later, that's a follow-up.
+
+After this ships
+The Templates gallery will look like an actual gallery — visual, browsable, scannable. This addresses UX audit item I12 (template cards are gradient blocks, not previews). It also becomes the screenshot most likely to land in marketing-site #52 alongside the unified Page Detail view from #51 — a /templates page with real thumbnails is a much more compelling "look at what's possible" surface than the current gradient grid.
+Before running the backfill on production, also handle audit item I13 (the _____ One Pager template name has literal underscores) and I14 (templates showing "Live" badges that don't make conceptual sense). Otherwise the cleaned-up gallery will still have visible junk.
