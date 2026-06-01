@@ -293,23 +293,39 @@ router.get("/lp/public-pages", async (req, res): Promise<void> => {
 // and only the caller's tenant-owned templates are returned. Used by the
 // sales-rep microsite generator so reps only see brand-vetted internal
 // templates (no off-brand global starters).
+//
+// When `?salesMode=true` is passed, the result is the caller's tenant-owned
+// templates PLUS the global "business-case" flagship templates (detected by
+// the first block's type starting with "business-case"). These are
+// brand-vetted Dandy sales documents the rep microsite generator is meant to
+// use, so we surface them without opening the full global starter library.
 router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const ownedOnly = String(req.query.ownedOnly ?? "").toLowerCase() === "true";
+    const salesMode = String(req.query.salesMode ?? "").toLowerCase() === "true";
+    // The first block's type — business-case templates are single-block
+    // "monograph" documents whose first (only) block is business-case-*.
+    const isBusinessCaseGlobal = and(
+      eq(lpPagesTable.isGlobal, true),
+      sql`(${lpPagesTable.blocks} -> 0 ->> 'type') LIKE 'business-case%'`,
+    );
     // ownedOnly: tenant-owned AND not flagged is_global. The is_global=false
     // guard is defensive — a tenant template should not normally also be a
     // global starter, but if it ever is, we don't want it leaking into the
     // sales-rep microsite generator's tenant-only picker.
-    const visibility = ownedOnly
-      ? and(
-          eq(lpPagesTable.tenantId, tenantId),
-          eq(lpPagesTable.isGlobal, false),
-        )
-      : or(
-          eq(lpPagesTable.tenantId, tenantId),
-          eq(lpPagesTable.isGlobal, true),
-        );
+    const ownedTemplates = and(
+      eq(lpPagesTable.tenantId, tenantId),
+      eq(lpPagesTable.isGlobal, false),
+    );
+    const visibility = salesMode
+      ? or(ownedTemplates, isBusinessCaseGlobal)
+      : ownedOnly
+        ? ownedTemplates
+        : or(
+            eq(lpPagesTable.tenantId, tenantId),
+            eq(lpPagesTable.isGlobal, true),
+          );
     const templates = await db
       .select()
       .from(lpPagesTable)

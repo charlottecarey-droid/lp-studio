@@ -3273,10 +3273,11 @@ export function GenerateMicrositeModal({
   useEffect(() => {
     if (!open) return;
     Promise.all([
-      // Sales reps only see templates owned by their own tenant — global
-      // starter templates are hidden so reps can't accidentally generate
+      // Sales reps see templates owned by their own tenant PLUS the global
+      // "business-case" flagship templates (salesMode). Generic off-brand
+      // global starters stay hidden so reps can't accidentally generate
       // microsites with off-brand designs.
-      fetch(`${API_BASE}/lp/templates?ownedOnly=true`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/lp/templates?salesMode=true`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/lp/library/team_member`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/lp/brand`).then(r => r.json()).catch(() => ({})),
     ]).then(([templates, reps, brand]: [MarketingTemplate[], SalesRep[], Record<string, unknown>]) => {

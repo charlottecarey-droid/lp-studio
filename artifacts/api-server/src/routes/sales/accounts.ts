@@ -1,7 +1,7 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, or, isNotNull, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesAccountsTable,
@@ -291,7 +291,7 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
     const accountId = Number(req.params.id);
 
     // Verify account belongs to this tenant
-    const [account] = await db.select({ id: salesAccountsTable.id })
+    const [account] = await db.select({ id: salesAccountsTable.id, salesforceId: salesAccountsTable.salesforceId })
       .from(salesAccountsTable)
       .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, accountId)));
     if (!account) {
@@ -322,8 +322,26 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
 
     const taggedPageIds = new Set(taggedPages.map(p => p.id));
 
+    // Path C: pages linked via the account_id / sfdc_account_id columns — the
+    // canonical link written by the AI microsite generator and used by the
+    // accounts-list overview. Without this, AI-generated microsites appear in
+    // the accounts list ("N pages") but not on the account detail page
+    // ("0 MICROSITES" / empty Microsites tab). Mirrors hotlinks.ts overview.
+    const sfdcMatch = account.salesforceId
+      ? and(isNotNull(lpPagesTable.sfdcAccountId), eq(lpPagesTable.sfdcAccountId, account.salesforceId))
+      : undefined;
+    const columnLinkedPages = await db.select().from(lpPagesTable)
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        eq(lpPagesTable.isTemplate, false),
+        sfdcMatch
+          ? or(eq(lpPagesTable.accountId, accountId), sfdcMatch)
+          : eq(lpPagesTable.accountId, accountId),
+      ));
+    const columnLinkedPageIds = new Set(columnLinkedPages.map(p => p.id));
+
     // Merge all distinct page IDs
-    const allPageIds = new Set([...hotlinkPageIds, ...taggedPageIds]);
+    const allPageIds = new Set([...hotlinkPageIds, ...taggedPageIds, ...columnLinkedPageIds]);
 
     if (allPageIds.size === 0) {
       res.json([]);
@@ -334,6 +352,7 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
     const results = [];
     for (const pageId of allPageIds) {
       const page = taggedPages.find(p => p.id === pageId) ??
+        columnLinkedPages.find(p => p.id === pageId) ??
         (await db.select().from(lpPagesTable).where(
           and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId))
         ))[0];

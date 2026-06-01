@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
@@ -158,6 +158,65 @@ function getOpenAIClient(): OpenAI | null {
 }
 
 type AiBlock = Record<string, unknown>;
+
+// ── Compound business-case template personalisation ───────────────────────
+// The business-case-* blocks are single, richly-structured "monograph" pages
+// the AI can't reliably reproduce field-by-field. For these we deep-merge the
+// AI's personalised copy OVER the authored template props (the complete,
+// on-brand base) so every field stays present, then substitute the
+// {{company_name}} / {{practice_count}} placeholders with real account data.
+function isBusinessCaseType(type: unknown): boolean {
+  return typeof type === "string" && type.startsWith("business-case");
+}
+
+// Deep-merge preferring AI values but ALWAYS shape-preserving: the authored
+// base defines the complete, on-brand structure, and the renderer must never
+// see a missing field or a wrong-typed value. Rules:
+//   - Arrays: keep the AUTHORED length and merge AI items element-wise over the
+//     authored items; authored items past the AI array's length are preserved.
+//     An empty/absent or wrong-typed AI value keeps the authored array.
+//   - Objects: merge AI keys over the authored object; a wrong-typed AI value
+//     (primitive/array) keeps the authored object.
+//   - Scalars: prefer the AI scalar; a blank string, null/undefined, or a
+//     wrong-typed (object/array) AI value keeps the authored scalar.
+function mergeAuthored(base: unknown, ai: unknown): unknown {
+  if (Array.isArray(base)) {
+    if (!Array.isArray(ai) || ai.length === 0) return base;
+    return base.map((item, i) => (i < ai.length ? mergeAuthored(item, ai[i]) : item));
+  }
+  if (base && typeof base === "object") {
+    if (!ai || typeof ai !== "object" || Array.isArray(ai)) return base;
+    const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+    for (const k of Object.keys(ai as Record<string, unknown>)) {
+      out[k] = mergeAuthored((base as Record<string, unknown>)[k], (ai as Record<string, unknown>)[k]);
+    }
+    return out;
+  }
+  // base is a scalar (or null/undefined)
+  if (typeof ai === "string") return ai.trim() === "" ? base : ai;
+  if (typeof ai === "number" || typeof ai === "boolean") return ai;
+  return base;
+}
+
+// Replace {{company_name}} / {{practice_count}} everywhere (safety net for any
+// field the AI left as the authored placeholder), then collapse double spaces.
+function substituteAccountVars(value: unknown, companyName: string, practiceCount: string): unknown {
+  if (typeof value === "string") {
+    return value
+      .replace(/\{\{\s*company_name\s*\}\}/g, companyName)
+      .replace(/\{\{\s*practice_count\s*\}\}/g, practiceCount)
+      .replace(/ {2,}/g, " ");
+  }
+  if (Array.isArray(value)) return value.map(v => substituteAccountVars(v, companyName, practiceCount));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = substituteAccountVars(v, companyName, practiceCount);
+    }
+    return out;
+  }
+  return value;
+}
 
 // Image-bearing prop names to restore from the template block at each position.
 const SCALAR_IMAGE_PROPS = ["imageUrl", "backgroundImageUrl", "heroImageUrl", "mediaUrl"] as const;
@@ -666,6 +725,9 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-promo-cards": "{ eyebrow, headline, subheadline, cards: [{ title, desc, badge, ctaText }], backgroundStyle }",
   "footer": "{ columns: [] (always empty array), copyrightText, showSocialLinks: false, backgroundColor: \"#003A30\" }",
   "video-section": "{ headline, subheadline, videoUrl, backgroundStyle }",
+  "business-case-split": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationStats: [{ value, label }], signalHeading, signalCards: [{ icon, stat, body, attribution }], costHeading, costItems: [{ stat, label, description }], shiftHeading, shiftOldBullets: [{ title, body }], shiftNewBullets: [{ title, body }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathStats: [{ label, value, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSteps: [{ num, title, timeframe, description }], finalCtaHeading, finalCtaSubhead } — a single full-page consultative DSO business-case document; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",
+  "business-case-centered": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationBodyExtra, situationStats: [{ value, label, description }], signalHeading, signalCards: [{ stat, body, attribution }], costHeading, costSubhead, costItems: [{ num, stat, label, description }], shiftHeading, shiftRows: [{ category, oldWay, withDandy }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathStats: [{ label, value, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSubhead, planSteps: [{ num, title, timeframe, description }], finalCtaHeading, finalCtaSubhead } — a single full-page centered DSO business-case document; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",
+  "business-case-premium": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationBodyExtra, situationStats: [{ value, label, description }], signalHeading, signalCards: [{ stat, body, attribution }], costHeading, costSubhead, costItems: [{ num, stat, label, description }], shiftHeading, shiftRows: [{ category, oldWay, withDandy }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathHeroEyebrow, mathHeroStat, mathHeroDescription, mathStats: [{ value, label, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSubhead, planSteps: [{ num, title, timeframe, description }], finalCtaEyebrow, finalCtaHeading, finalCtaSubhead } — a single full-page premium editorial DSO field-study; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",
 };
 
 // ── Brand catalog types (server-side mirrors of lp-studio brand-config) ────
@@ -1140,7 +1202,23 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     let templateBlockTypes: string[] | undefined;
     let templateBlocks: AiBlock[] | undefined;
     if (typeof templateId === "number") {
-      const [templatePage] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, templateId));
+      // Scope the lookup: only a real template (isTemplate=true) that is either
+      // owned by the caller's tenant OR a global flagship template may be used.
+      // Without this guard a caller could pass an arbitrary page id and pull a
+      // different tenant's private page content into their generated microsite.
+      const [templatePage] = await db
+        .select()
+        .from(lpPagesTable)
+        .where(
+          and(
+            eq(lpPagesTable.id, templateId),
+            eq(lpPagesTable.isTemplate, true),
+            or(
+              eq(lpPagesTable.tenantId, tenantId),
+              eq(lpPagesTable.isGlobal, true),
+            ),
+          ),
+        );
       if (templatePage?.blocks && Array.isArray(templatePage.blocks)) {
         templateBlocks = templatePage.blocks as AiBlock[];
         templateBlockTypes = templateBlocks.map(b => b.type as string).filter(Boolean);
@@ -1287,6 +1365,31 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // updated copy but we keep the original carefully chosen images.
     if (templateBlocks) {
       normalizedBlocks = restoreTemplateImages(normalizedBlocks, templateBlocks) as AiBlock[];
+
+      // Compound business-case templates are a single rich monograph block.
+      // Rather than trust the AI to emit every nested field, merge its copy
+      // over the authored template props and substitute account placeholders,
+      // guaranteeing a complete, on-brand, personalised page.
+      if (templateBlocks.length === 1 && isBusinessCaseType(templateBlocks[0]?.type)) {
+        const tmpl = templateBlocks[0];
+        const companyName = (account.displayName ?? account.name ?? "").trim();
+        const sizeAndLocations = briefingData?.sizeAndLocations as Record<string, unknown> | undefined;
+        const rawCount = sizeAndLocations?.locationCount;
+        const practiceCount = rawCount != null && String(rawCount).trim() !== ""
+          ? String(rawCount).trim()
+          : "multiple";
+        const aiProps = (normalizedBlocks[0]?.props ?? {}) as Record<string, unknown>;
+        const mergedProps = substituteAccountVars(
+          mergeAuthored((tmpl.props ?? {}) as Record<string, unknown>, aiProps),
+          companyName,
+          practiceCount,
+        ) as Record<string, unknown>;
+        normalizedBlocks = [{
+          id: (normalizedBlocks[0]?.id as string) ?? (tmpl.id as string),
+          type: tmpl.type,
+          props: mergedProps,
+        }];
+      }
     }
 
     // AI image-gen / Unsplash fallback for slots the library couldn't fill —
