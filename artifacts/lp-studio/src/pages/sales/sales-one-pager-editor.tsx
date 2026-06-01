@@ -76,6 +76,12 @@ interface HeaderConfig {
   /** When false, the partner header title renders in normal (not bold) weight.
    *  Undefined/true keeps the default bold so existing pages are unchanged. */
   boldHeading?: boolean;
+  /** Partner "Brand & DSO name:" subtitle line. `subtitleShow=false` hides it.
+   *  subtitleOffsetX / subtitleLineOffsetY nudge ONLY this line (X/Y), independent
+   *  of the header title. (subtitleOffsetY above still shifts the whole block.) */
+  subtitleShow?: boolean;
+  subtitleOffsetX?: number;
+  subtitleLineOffsetY?: number;
 }
 interface BodyConfig {
   headlineText: string; headlineFontSize: number; introFontSize: number;
@@ -181,6 +187,7 @@ const defaultComparisonStats = [
 ];
 
 const defaultPartnerHeadline = "Unlock the Power of Digital Dentistry with Dandy";
+const defaultPartnerTestimonialsHeading = "See what Dandy doctors are saying:";
 const defaultPartnerIntro = `As {dso}'s newest preferred lab partner, Dandy is here to help your practice thrive with the most advanced digital dental lab in the industry. Together, we're delivering smarter, faster, and more predictable outcomes—while elevating patient care and your bottom line.`;
 const defaultPartnerFeatures = [
   { title: "Increase treatment predictability", desc: "Get real-time expert guidance while your patient is in the chair for confident, accurate outcomes." },
@@ -346,6 +353,7 @@ export default function SalesOnePagerEditor() {
 
   // Partner content
   const [partnerHeadline, setPartnerHeadline] = useState(defaultPartnerHeadline);
+  const [partnerTestimonialsHeading, setPartnerTestimonialsHeading] = useState(defaultPartnerTestimonialsHeading);
   const [partnerIntro, setPartnerIntro] = useState(defaultPartnerIntro);
   const [partnerFeatures, setPartnerFeatures] = useState(JSON.parse(JSON.stringify(defaultPartnerFeatures)));
   const [partnerStats, setPartnerStats] = useState(JSON.parse(JSON.stringify(defaultPartnerStats)));
@@ -601,6 +609,7 @@ export default function SalesOnePagerEditor() {
     }
     if (tmpl === "partner") {
       if (saved.partnerHeadline) setPartnerHeadline(saved.partnerHeadline);
+      if (typeof saved.partnerTestimonialsHeading === "string") setPartnerTestimonialsHeading(saved.partnerTestimonialsHeading);
       if (saved.partnerIntro) setPartnerIntro(saved.partnerIntro);
       if (saved.partnerFeatures) setPartnerFeatures(saved.partnerFeatures);
       if (saved.partnerStats) setPartnerStats(saved.partnerStats);
@@ -687,7 +696,7 @@ export default function SalesOnePagerEditor() {
         } else if (editorTemplate === "partner") {
           doc = await generateNewPartnerOnePager(
             dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl,
-            { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
+            { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
             undefined, brandContext, oneAssets,
           );
         } else if (editorTemplate === "agreement-summary") {
@@ -735,7 +744,7 @@ export default function SalesOnePagerEditor() {
     brand, isDandy,
     previewVisible, editorTemplate, audience, dsoName, numPractices,
     headerCfg, bodyCfg, teamCfg, footerCfg, audienceContent,
-    comparisonRows, comparisonStats, partnerHeadline, partnerIntro,
+    comparisonRows, comparisonStats, partnerHeadline, partnerTestimonialsHeading, partnerIntro,
     partnerFeatures, partnerStats, partnerQrUrl,
     teamContacts, phoneNumber, customLinkText, customLinkUrl,
     prospectLogoData, prospectLogoDims,
@@ -785,7 +794,7 @@ export default function SalesOnePagerEditor() {
       } else if (editorTemplate === "partner") {
         await saveLayoutDefault("dandy_partner_template_layout", {
           headerCfg, bodyCfg, teamCfg, footerCfg,
-          partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl,
+          partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl,
         });
       } else if (editorTemplate === "roi") {
         await saveLayoutDefault("dandy_roi_template_layout", { headerCfg });
@@ -834,7 +843,7 @@ export default function SalesOnePagerEditor() {
     setFooterCfg({ ...defaultFooterConfig });
     if (editorTemplate === "pilot") setAudienceContent(JSON.parse(JSON.stringify(defaultAudienceContent)));
     if (editorTemplate === "comparison") { setComparisonRows(JSON.parse(JSON.stringify(defaultComparisonRows))); setComparisonStats(JSON.parse(JSON.stringify(defaultComparisonStats))); }
-    if (editorTemplate === "partner") { setPartnerHeadline(defaultPartnerHeadline); setPartnerIntro(defaultPartnerIntro); setPartnerFeatures(JSON.parse(JSON.stringify(defaultPartnerFeatures))); setPartnerStats(JSON.parse(JSON.stringify(defaultPartnerStats))); }
+    if (editorTemplate === "partner") { setPartnerHeadline(defaultPartnerHeadline); setPartnerTestimonialsHeading(defaultPartnerTestimonialsHeading); setPartnerIntro(defaultPartnerIntro); setPartnerFeatures(JSON.parse(JSON.stringify(defaultPartnerFeatures))); setPartnerStats(JSON.parse(JSON.stringify(defaultPartnerStats))); }
     if (editorTemplate === "agreement-summary") {
       setAgreementHeadline(defaultAgreementSummaryContent.headline);
       setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
@@ -876,7 +885,7 @@ export default function SalesOnePagerEditor() {
         doc = await generateComparisonOnePager(dsoName, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, { ...override, comparisonRows, stats: comparisonStats }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_Evolution_${dsoName.replace(/\s+/g, "_")}.pdf`);
       } else if (editorTemplate === "partner") {
-        doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.replace(/\s+/g, "_")}_Partner.pdf`);
       } else if (editorTemplate === "agreement-summary") {
         doc = await generateAgreementSummaryOnePager({
@@ -1291,7 +1300,21 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Split Ratio (left %)" value={headerCfg.splitRatio} min={30} max={70} unit="%" onChange={v => setHeaderCfg(p => ({ ...p, splitRatio: v }))} />
                     <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={16} max={42} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
                     <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={8} max={24} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
-                    <SliderRow label="Title Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <SliderRow label="Header Text Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <span className="text-[11px] font-medium text-muted-foreground">Show "Brand &amp; DSO" subtitle</span>
+                        <p className="text-[10px] text-muted-foreground/70">The "Dandy &amp; [DSO name]:" line under the logos.</p>
+                      </div>
+                      <Switch
+                        checked={headerCfg.subtitleShow !== false}
+                        onCheckedChange={v => setHeaderCfg(p => ({ ...p, subtitleShow: v }))}
+                      />
+                    </div>
+                    {headerCfg.subtitleShow !== false && (<>
+                      <SliderRow label="Subtitle Offset X" value={headerCfg.subtitleOffsetX ?? 0} min={-80} max={200} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetX: v }))} />
+                      <SliderRow label="Subtitle Offset Y" value={headerCfg.subtitleLineOffsetY ?? 0} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleLineOffsetY: v }))} />
+                    </>)}
                     <ProspectLogoScaleRow value={headerCfg.prospectLogoScale} onChange={v => setHeaderCfg(p => ({ ...p, prospectLogoScale: v }))} />
                     <div>
                       <span className="text-[11px] font-medium text-muted-foreground">Header Image</span>
@@ -1338,6 +1361,10 @@ export default function SalesOnePagerEditor() {
                         Intro Paragraph ({partnerIntro.length}/300) <span className="font-normal opacity-60">— use {"{dso}"} for DSO name</span>
                       </label>
                       <textarea rows={3} maxLength={300} value={partnerIntro} onChange={e => setPartnerIntro(e.target.value)} className={textareaCls} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Testimonials Heading ({partnerTestimonialsHeading.length}/60)</label>
+                      <input type="text" maxLength={60} value={partnerTestimonialsHeading} onChange={e => setPartnerTestimonialsHeading(e.target.value)} placeholder="See what Dandy doctors are saying:" className={inputCls} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Feature Cards — Title / Description</label>

@@ -396,6 +396,7 @@ export const generateNewPartnerOnePager = async (
     intro: saved.partnerIntro as string | undefined,
     features: saved.partnerFeatures as Array<{ title: string; desc: string }> | undefined,
     stats: saved.partnerStats as Array<{ value: string; desc: string }> | undefined,
+    testimonialsHeading: saved.partnerTestimonialsHeading as string | undefined,
     footerLink: (saved.footerCfg as { link?: string } | undefined)?.link,
   };
 

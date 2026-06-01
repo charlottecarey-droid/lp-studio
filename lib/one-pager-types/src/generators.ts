@@ -1457,6 +1457,8 @@ export interface NewPartnerContent {
   intro?: string;
   features?: Array<{ title: string; desc: string }>;
   stats?: Array<{ value: string; desc: string }>;
+  /** Editable heading above the stats row (defaults to "See what <brand> doctors are saying:"). */
+  testimonialsHeading?: string;
   footerLink?: string;
 }
 
@@ -1559,8 +1561,17 @@ export const generateNewPartnerOnePager = async (
 
   const subtitleFontSize = (hCfg.subtitleFontSize as number | undefined) ?? 12;
   const subtitleOffY = (hCfg.subtitleOffsetY as number | undefined) ?? 0;
-  doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(...pal.onPrimaryMuted2);
-  doc.text(`${b.productName} & ${dsoName}:`, margin, 65 + subtitleOffY);
+  // The "Brand & DSO name:" subtitle line can be hidden, and nudged in X/Y
+  // independently of the header title. subtitleOffsetY still shifts the whole
+  // header block (subtitle + title) for backward compatibility, while
+  // subtitleOffsetX / subtitleLineOffsetY move ONLY this subtitle line.
+  const subtitleShow = (hCfg.subtitleShow as boolean | undefined) !== false;
+  const subtitleOnlyX = (hCfg.subtitleOffsetX as number | undefined) ?? 0;
+  const subtitleOnlyY = (hCfg.subtitleLineOffsetY as number | undefined) ?? 0;
+  if (subtitleShow) {
+    doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(...pal.onPrimaryMuted2);
+    doc.text(`${b.productName} & ${dsoName}:`, margin + subtitleOnlyX, 65 + subtitleOffY + subtitleOnlyY);
+  }
   const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
   // Honor the editor's "Bold heading" toggle: when explicitly false, render the
   // header title in normal weight. Undefined/true keeps the default bold.
@@ -1621,8 +1632,9 @@ export const generateNewPartnerOnePager = async (
   }
   y += 2 * (cardH + cardGap) + 28;
 
+  const testimonialsHeading = content.testimonialsHeading ?? scrubBrand(`See what ${b.productName} doctors are saying:`, opts?.brand);
   doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
-  doc.text(`See what ${b.productName} doctors are saying:`, margin, y);
+  doc.text(testimonialsHeading, margin, y);
   y += 28;
 
   const statGap = 14;
