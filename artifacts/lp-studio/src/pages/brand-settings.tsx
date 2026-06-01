@@ -34,7 +34,7 @@ import type {
   HeadingWeight, HeadingLetterSpacing, BodyTextSize, HeadlineSize,
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
-  ClaimEntry, SalesConsoleConfig, SalesConsoleValuePropPair,
+  ClaimEntry, SalesConsoleConfig, SalesConsoleValuePropPair, SalesConsoleMicrositeExemplar,
   ImportedButtonStyle, ImportedSurfaceStyle,
   ImportedVoiceProfile, ImportedPhotographyProfile,
 } from "@/lib/brand-config";
@@ -1168,6 +1168,18 @@ function SalesConsoleSettings({
     patch({ valuePropPairs: [...pairs, { roles: [], theme: "", pain: "", proof: "" }] });
   };
 
+  const exemplars: SalesConsoleMicrositeExemplar[] = Array.isArray(sc.customMicrositeExemplars) ? sc.customMicrositeExemplars : [];
+  const updateExemplar = (idx: number, changes: Partial<SalesConsoleMicrositeExemplar>) => {
+    const next = exemplars.map((e, i) => i === idx ? { ...e, ...changes } : e);
+    patch({ customMicrositeExemplars: next });
+  };
+  const removeExemplar = (idx: number) => {
+    patch({ customMicrositeExemplars: exemplars.filter((_, i) => i !== idx) });
+  };
+  const addExemplar = () => {
+    patch({ customMicrositeExemplars: [...exemplars, { label: "", content: "" }] });
+  };
+
   // Single fetch of /sales/brand-context that feeds both the Setup status
   // card (server-saved summary + checklist verification state) and the
   // pill rendered next to the Sending domain input below. Keeping it in
@@ -1336,17 +1348,60 @@ function SalesConsoleSettings({
           />
           <p className="text-xs text-muted-foreground">Free-form rules appended to the prompt about how customer names should be written.</p>
         </div>
-        <div className="flex items-start gap-3 pt-2 border-t border-border">
-          <Checkbox
-            id="useBuiltInExemplars"
-            checked={!!sc.useBuiltInExemplars}
-            onCheckedChange={v => patch({ useBuiltInExemplars: v === true })}
-          />
-          <div className="space-y-1">
-            <Label htmlFor="useBuiltInExemplars" className="text-sm font-medium">Use built-in microsite exemplars</Label>
-            <p className="text-xs text-muted-foreground">
-              Off by default. When on, the microsite generator feeds the AI a set of Dandy-specific reference pages as style exemplars. Leave off for non-Dandy tenants.
-            </p>
+        <div className="space-y-4 pt-2 border-t border-border">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="useBuiltInExemplars"
+              checked={!!sc.useBuiltInExemplars}
+              onCheckedChange={v => patch({ useBuiltInExemplars: v === true })}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="useBuiltInExemplars" className="text-sm font-medium">Use built-in microsite exemplars</Label>
+              <p className="text-xs text-muted-foreground">
+                Off by default. When on, the microsite generator studies a set of built-in reference pages as style examples. Prefer your own? Enter them below.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-sm">Your microsite exemplars (optional)</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Reference pages the AI should study as style examples. Paste the copy from a microsite you're proud of, or describe a great example in detail (sections, headlines, proof points, tone). The generator matches this register, specificity and structure — it won't copy them verbatim.
+              </p>
+            </div>
+
+            {exemplars.map((ex, idx) => (
+              <div key={idx} className="rounded-md border border-border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={ex.label ?? ""}
+                    onChange={e => updateExemplar(idx, { label: e.target.value })}
+                    placeholder='Label — e.g. "Enterprise buyer, multi-site rollout"'
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeExemplar(idx)}
+                    aria-label="Remove exemplar"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Textarea
+                  rows={5}
+                  value={ex.content ?? ""}
+                  onChange={e => updateExemplar(idx, { content: e.target.value })}
+                  placeholder="Paste the example microsite copy here, or describe a great reference page in detail."
+                />
+              </div>
+            ))}
+
+            <Button type="button" variant="outline" size="sm" onClick={addExemplar} className="gap-1.5">
+              <Plus className="w-3.5 h-3.5" /> Add exemplar
+            </Button>
           </div>
         </div>
       </Card>

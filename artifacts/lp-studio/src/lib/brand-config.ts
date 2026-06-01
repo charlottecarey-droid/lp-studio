@@ -437,6 +437,20 @@ export interface SalesConsoleValuePropPair {
   proof: string;
 }
 
+/**
+ * A tenant-authored microsite reference page used as a few-shot style example
+ * in the AI microsite generator. `content` is free-form — the tenant pastes the
+ * copy from a microsite they're proud of, or describes a great reference page in
+ * detail. These are the generic, white-label path: any tenant can add their own
+ * exemplars without relying on the built-in (Dandy) sample pages.
+ */
+export interface SalesConsoleMicrositeExemplar {
+  /** Short scenario/audience label shown in the prompt header. */
+  label: string;
+  /** The example microsite copy or a detailed description of a great page. */
+  content: string;
+}
+
 export interface SalesConsoleConfig {
   senderName?: string;
   senderLocalPart?: string;
@@ -448,6 +462,13 @@ export interface SalesConsoleConfig {
   salesIntroLine?: string;
   briefBlurb?: string;
   useBuiltInExemplars?: boolean;
+  /**
+   * Tenant-authored microsite reference pages fed to the AI generator as
+   * few-shot style examples. Always applied (not gated by useBuiltInExemplars)
+   * since they're the tenant's own content — the generic, white-label path that
+   * lets any tenant supply exemplars without the built-in sample pages.
+   */
+  customMicrositeExemplars?: SalesConsoleMicrositeExemplar[];
   customerNameRules?: string;
   valuePropPairs?: SalesConsoleValuePropPair[];
   /**

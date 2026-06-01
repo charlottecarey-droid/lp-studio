@@ -520,22 +520,72 @@ export function pickExemplars(
 }
 
 /**
- * Format the picked exemplars as a prompt section. Returns "" when the
- * input array is empty so the prompt builder can drop the section
- * cleanly via filter(Boolean).
+ * A tenant-authored microsite reference page (free-form text) used as a few-shot
+ * style example. This is the generic, white-label path: any tenant can supply
+ * their own exemplars from Brand Settings without relying on the built-in
+ * (Dandy) sample pages. Stored on `salesConsole.customMicrositeExemplars`.
  */
-export function formatExemplarsSection(exemplars: MicrositeExemplar[]): string {
-  if (exemplars.length === 0) return "";
+export interface CustomMicrositeExemplar {
+  /** Short scenario/audience label shown in the prompt header. */
+  label: string;
+  /** The example microsite copy or a detailed description of a great page. */
+  content: string;
+}
+
+/**
+ * Parse + validate tenant-authored custom exemplars off the brand config blob.
+ * Drops entries with no usable `content`. Capped at 3 to keep token usage in
+ * check. Unlike the built-in exemplars, these are NOT gated by
+ * useBuiltInExemplars — they're the tenant's own content, always applied.
+ */
+export function parseCustomExemplars(v: unknown): CustomMicrositeExemplar[] {
+  if (!Array.isArray(v)) return [];
+  // Bound per-exemplar size so a tenant pasting a huge document can't blow up
+  // the prompt token budget (or get silently truncated by the model).
+  const MAX_LABEL = 200;
+  const MAX_CONTENT = 4000;
+  const out: CustomMicrositeExemplar[] = [];
+  for (const item of v) {
+    if (!item || typeof item !== "object") continue;
+    const obj = item as Record<string, unknown>;
+    const label = typeof obj.label === "string" ? obj.label.trim().slice(0, MAX_LABEL) : "";
+    const content = typeof obj.content === "string" ? obj.content.trim().slice(0, MAX_CONTENT) : "";
+    if (!content) continue;
+    out.push({ label, content });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+/**
+ * Format the picked exemplars as a prompt section. Built-in exemplars are
+ * emitted as page JSON; tenant `custom` exemplars are emitted as free-form text.
+ * Returns "" when both inputs are empty so the prompt builder can drop the
+ * section cleanly via filter(Boolean).
+ */
+export function formatExemplarsSection(
+  exemplars: MicrositeExemplar[],
+  custom: CustomMicrositeExemplar[] = [],
+): string {
+  if (exemplars.length === 0 && custom.length === 0) return "";
 
   const intro = [
     "EXEMPLARS — these are the gold standard for what a great microsite looks like. Study them. Match this register, this level of specificity, this structure. Do NOT copy them — write something equally good for the new account.",
     "",
   ].join("\n");
 
-  const blocks = exemplars.map((e, i) => {
+  const builtInBlocks = exemplars.map((e, i) => {
     const json = JSON.stringify(e.page, null, 2);
     return `EXAMPLE ${i + 1} — ${e.scenario}:\n${json}`;
-  }).join("\n\n");
+  });
+
+  const customBlocks = custom.map((e, i) => {
+    const n = exemplars.length + i + 1;
+    const label = e.label || "Reference microsite";
+    return `EXAMPLE ${n} — ${label}:\n${e.content}`;
+  });
+
+  const blocks = [...builtInBlocks, ...customBlocks].join("\n\n");
 
   const outro = [
     "",

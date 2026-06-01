@@ -5,7 +5,7 @@ import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesConta
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 import rateLimit from "express-rate-limit";
-import { pickExemplars, formatExemplarsSection } from "./microsite-exemplars";
+import { pickExemplars, formatExemplarsSection, parseCustomExemplars } from "./microsite-exemplars";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 // Image pipeline shared with the marketing generator so the sales path stays
 // at parity: tenant-scoped media fetch, untagged-image surfacing, broad
@@ -934,10 +934,16 @@ function buildSystemPrompt(
   // matching the requested audience (and boosted by segment hints).
   // Returns "" when no exemplars apply (e.g. independent-practice audience
   // for which we don't ship an exemplar yet) so the prompt stays clean.
-  const salesConsole = (brand.salesConsole ?? {}) as { useBuiltInExemplars?: boolean };
+  const salesConsole = (brand.salesConsole ?? {}) as {
+    useBuiltInExemplars?: boolean;
+    customMicrositeExemplars?: unknown;
+  };
   const useBuiltInExemplars = salesConsole.useBuiltInExemplars === true;
+  // Tenant-authored exemplars are always applied (the generic, white-label
+  // path); built-in Dandy sample pages stay opt-in via useBuiltInExemplars.
   const exemplarsSection = formatExemplarsSection(
     pickExemplars(segment.id ?? "", accountSegment, 2, { useBuiltIn: useBuiltInExemplars }),
+    parseCustomExemplars(salesConsole.customMicrositeExemplars),
   );
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
