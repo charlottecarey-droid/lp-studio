@@ -1136,7 +1136,7 @@ export default function AssembleScene() {
   const published = progress >= 0.95;
 
   // ---------- text values ----------
-  const eyebrowFull = "FOR REVENUE TEAMS";
+  const eyebrowFull = "THE AI REVENUE WORKSPACE";
   const headlineL1Full = "Landing pages that convert,";
   const headlineL2Full = "shipped before the brief is dry.";
   const subtitleFull =
