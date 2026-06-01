@@ -16,7 +16,7 @@ const router = Router();
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
-function letterGrade(score: number): string {
+export function letterGrade(score: number): string {
   if (score >= 93) return "A";
   if (score >= 85) return "A-";
   if (score >= 80) return "B+";
@@ -36,12 +36,12 @@ interface Block {
   [key: string]: unknown;
 }
 
-// Analyze the blocks jsonb from a page to compute content-based scores
-function analyzeBlocks(blocks: unknown[]): {
+export interface BlockAnalysis {
   hasHero: boolean;
   hasCtaButton: boolean;
   hasSocialProof: boolean;
   hasForm: boolean;
+  hasBooking: boolean;
   formFieldCount: number;
   hasFaq: boolean;
   hasFooter: boolean;
@@ -49,12 +49,40 @@ function analyzeBlocks(blocks: unknown[]): {
   blockCount: number;
   headlineCount: number;
   imageCount: number;
-} {
-  const result = {
+}
+
+// Social-proof block types the generator and catalog actually emit. Matched by
+// exact type (substring keyword matching is avoided here because, e.g.,
+// "bold-statement" contains "stat" but is NOT social proof).
+const SOCIAL_PROOF_TYPES = new Set<string>([
+  "trust-bar",
+  "stat-callout",
+  "case-studies",
+  "case-study",
+  "story-hub",
+  "testimonial",
+  "dso-stat-bar",
+  "dso-stat-row",
+  "dso-stat-showcase",
+  "dso-success-stories",
+  "dso-testimonials",
+  "dso-case-study",
+  "dso-flow-canvas",
+  "dso-bento-outcomes",
+]);
+
+function valStr(v: unknown): string {
+  return typeof v === "string" ? v.toLowerCase() : "";
+}
+
+// Analyze the blocks jsonb from a page to compute content-based scores
+export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
+  const result: BlockAnalysis = {
     hasHero: false,
     hasCtaButton: false,
     hasSocialProof: false,
     hasForm: false,
+    hasBooking: false,
     formFieldCount: 0,
     hasFaq: false,
     hasFooter: false,
@@ -67,30 +95,347 @@ function analyzeBlocks(blocks: unknown[]): {
   for (const raw of blocks) {
     const block = raw as Block;
     const type = (block.type || "").toLowerCase();
-    const propsStr = JSON.stringify(block.props || {}).toLowerCase();
+    const props = (block.props || {}) as Record<string, unknown>;
+    const propsStr = JSON.stringify(props).toLowerCase();
 
     if (type.includes("hero") || type.includes("header")) result.hasHero = true;
     if (type.includes("cta") || type.includes("button") || propsStr.includes("cta")) result.hasCtaButton = true;
-    if (type.includes("testimonial") || type.includes("social") || type.includes("review") || type.includes("logo")) result.hasSocialProof = true;
+
+    // ── Social proof ───────────────────────────────────────────────
+    // Recognize the full vocabulary: testimonials, logo bars, reviews, trust /
+    // stat bars, stat callouts, case studies, story hubs, the dso-* social
+    // family, and bento grids whose tiles are quotes or stats.
+    if (
+      SOCIAL_PROOF_TYPES.has(type) ||
+      type.includes("testimonial") ||
+      type.includes("review") ||
+      type.includes("-logo") ||
+      type.includes("logo-") ||
+      type.includes("case-stud") ||
+      type.includes("success-stor")
+    ) {
+      result.hasSocialProof = true;
+    }
+    // Props-based social proof — a block carrying a non-empty stats /
+    // testimonials / cases array is credibility content regardless of its type
+    // (e.g. a `dandy-conversion-panel` or `dso-ai-feature` with "Join 8,000+
+    // practices" stats).
+    const statsArr = props.stats;
+    const testimonialsArr = props.testimonials;
+    const casesArr = props.cases;
+    if (
+      (Array.isArray(statsArr) && statsArr.length > 0) ||
+      (Array.isArray(testimonialsArr) && testimonialsArr.length > 0) ||
+      (Array.isArray(casesArr) && casesArr.length > 0)
+    ) {
+      result.hasSocialProof = true;
+    }
+    if (type.includes("bento")) {
+      const tiles = props.tiles;
+      if (Array.isArray(tiles)) {
+        for (const t of tiles) {
+          const kind = valStr((t as Record<string, unknown>)?.kind) || valStr((t as Record<string, unknown>)?.type);
+          if (kind === "quote" || kind === "stat") {
+            result.hasSocialProof = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // ── Forms ──────────────────────────────────────────────────────
     if (type.includes("form") || type.includes("lead") || type.includes("signup")) {
       result.hasForm = true;
-      // Try to count form fields from props
-      const steps = (block.props as Record<string, unknown>)?.steps;
+      // Multi-step forms store fields under steps[].fields …
+      const steps = props.steps;
       if (Array.isArray(steps)) {
         for (const step of steps) {
           const fields = (step as Record<string, unknown>)?.fields;
           if (Array.isArray(fields)) result.formFieldCount += fields.length;
         }
       }
+      // … single-step forms store them directly under props.fields.
+      const fields = props.fields;
+      if (Array.isArray(fields)) result.formFieldCount += fields.length;
     }
+
+    // ── Booking / low-friction capture path ────────────────────────
+    // A ChiliPiper-wired CTA, an inline capture block, or an ROI calculator
+    // with a CTA is a valid conversion mechanism — not a "no form" gap.
+    // Check VALUES (not the serialized props string) because the neutral
+    // default props include an empty `chilipiperUrl: ""` key whose name alone
+    // contains "chilipiper".
+    const ctaMode =
+      valStr(props.ctaMode) ||
+      valStr(props.primaryCtaMode) ||
+      valStr(props.ctaType) ||
+      valStr(props.ctaAction);
+    const chilipiperUrl = typeof props.chilipiperUrl === "string" ? props.chilipiperUrl.trim() : "";
+    const ctaUrls = `${valStr(props.ctaUrl)} ${valStr(props.primaryCtaUrl)} ${valStr(props.ctaHref)}`;
+    if (
+      ctaMode === "chilipiper" ||
+      chilipiperUrl !== "" ||
+      ctaUrls.includes("chilipiper") ||
+      type === "dso-cta-capture"
+    ) {
+      result.hasBooking = true;
+    }
+    // A dedicated final/conversion CTA block (bottom-cta, dso-final-cta,
+    // dandy-conversion-panel, a standalone cta-button) IS the page's conversion
+    // mechanism, so long as it carries a CTA label. This keeps structurally
+    // complete pages from being penalized for "no form" when the conversion
+    // path is a low-friction CTA rather than an inline form.
+    const isConversionBlock =
+      type === "bottom-cta" ||
+      type === "cta-button" ||
+      type.includes("final-cta") ||
+      type.includes("conversion-panel") ||
+      type.includes("cta-capture");
+    if (isConversionBlock && (valStr(props.ctaText) !== "" || valStr(props.primaryCtaText) !== "")) {
+      result.hasBooking = true;
+    }
+    if (type.includes("roi-calculator") && (props.ctaEnabled === true || valStr(props.ctaText) !== "")) {
+      result.hasBooking = true;
+    }
+
     if (type.includes("faq") || type.includes("accordion")) result.hasFaq = true;
     if (type.includes("footer")) result.hasFooter = true;
-    if (type.includes("trust") || type.includes("badge") || type.includes("security") || type.includes("guarantee")) result.hasTrustSignals = true;
+    // Trust signals — kept DISTINCT from social proof (no "trust" substring, so
+    // the social-proof "trust-bar" stat block is not double-counted here).
+    if (
+      type.includes("badge") ||
+      type.includes("security") ||
+      type.includes("guarantee") ||
+      type.includes("shield") ||
+      type.includes("promise") ||
+      type.includes("seal") ||
+      type.includes("compliance")
+    ) {
+      result.hasTrustSignals = true;
+    }
     if (type.includes("heading") || type.includes("headline") || type.includes("hero")) result.headlineCount++;
-    if (type.includes("image") || type.includes("gallery") || type.includes("video")) result.imageCount++;
+    // Imagery — recognized by type keyword (image/gallery/video/photo/carousel)
+    // OR by carrying a non-empty images[] array (e.g. `photo-strip`).
+    const imagesArr = props.images;
+    if (
+      type.includes("image") ||
+      type.includes("gallery") ||
+      type.includes("video") ||
+      type.includes("photo") ||
+      type.includes("carousel") ||
+      (Array.isArray(imagesArr) && imagesArr.length > 0)
+    ) {
+      result.imageCount++;
+    }
   }
 
   return result;
+}
+
+export interface ScoringCategory {
+  name: string;
+  score: number;
+  grade: string;
+  recommendation: string;
+}
+
+export interface QuickWin {
+  impact: "high" | "medium" | "low";
+  suggestion: string;
+}
+
+// Weighted category order: Headline, CTA, Social, Form, Visual, Speed, Mobile, Trust
+const WEIGHTS = [0.15, 0.2, 0.1, 0.15, 0.1, 0.1, 0.1, 0.1];
+
+// Pure scoring — given the structural analysis plus whatever behavioral data
+// exists, produce the category breakdown, overall score, and quick wins.
+//
+// Calibration principle: a structurally complete page with NO traffic yet is
+// scored on its structure/content (so it lands in B territory out of the box),
+// while behavioral signals (CVR, scroll depth, leads) blend in once real
+// traffic exists. A genuinely weak page (no social proof, long form, thin
+// structure) still scores low regardless of traffic.
+export function computeConversionScore(input: {
+  analysis: BlockAnalysis;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  impressions: number;
+  cvr: number;
+  leadCount: number;
+  avgScrollDepth: number;
+}): { categories: ScoringCategory[]; overallScore: number; quickWins: QuickWin[] } {
+  const { analysis, metaTitle, metaDescription, impressions, cvr, leadCount, avgScrollDepth } = input;
+  const hasTraffic = impressions > 0;
+  const hasScrollData = avgScrollDepth > 0;
+  const hasConversionPath = analysis.hasForm || analysis.hasBooking;
+
+  // Headline Clarity: hero block + headings (+ meta title). Pure structure.
+  const headlineScore = Math.min(
+    (analysis.hasHero ? 40 : 0) +
+      (analysis.headlineCount >= 1 ? 30 : 0) +
+      (analysis.headlineCount >= 2 ? 15 : 0) +
+      (metaTitle ? 15 : 0),
+    100,
+  );
+
+  // CTA Effectiveness: structural baseline when there's no traffic; once
+  // impressions exist, real CVR blends in (and can pull a non-performing CTA
+  // down). A page with neither a CTA nor a booking path scores low.
+  const cvrScore = Math.min(Math.round((cvr / 5) * 100), 100);
+  let ctaScore: number;
+  if (!analysis.hasCtaButton && !analysis.hasBooking) {
+    ctaScore = 30;
+  } else if (hasTraffic) {
+    // structure 40% + behavioral CVR 60%
+    ctaScore = Math.min(Math.round(85 * 0.4 + cvrScore * 0.6), 100);
+  } else {
+    ctaScore = analysis.hasBooking ? 90 : 85;
+  }
+
+  // Social Proof: present → strong (A-/B+). Absent → low, with a small lift if
+  // leads are actually coming in even without a recognized block.
+  const socialProofScore = analysis.hasSocialProof ? 88 : leadCount > 5 ? 45 : 20;
+
+  // Form Friction: short forms / low-friction booking score well; only
+  // genuinely long forms are penalized. No conversion path at all scores low.
+  let formFrictionScore: number;
+  if (analysis.hasForm) {
+    if (analysis.formFieldCount <= 3) formFrictionScore = 95;
+    else if (analysis.formFieldCount <= 5) formFrictionScore = 80;
+    else if (analysis.formFieldCount <= 8) formFrictionScore = 55;
+    else formFrictionScore = 35;
+  } else if (analysis.hasBooking) {
+    formFrictionScore = 90; // one-click booking is the lowest friction path
+  } else {
+    formFrictionScore = 40; // no capture mechanism at all
+  }
+
+  // Visual Hierarchy: block count sweet spot, imagery, hero + footer framing.
+  const blockCountScore = analysis.blockCount >= 4 && analysis.blockCount <= 20 ? 40 : analysis.blockCount > 0 ? 20 : 0;
+  const visualScore = Math.min(
+    blockCountScore + (analysis.imageCount >= 1 ? 25 : 0) + (analysis.hasHero ? 20 : 0) + (analysis.hasFooter ? 15 : 0),
+    100,
+  );
+
+  // Page Speed Impact: block/image-count proxy (unchanged — real metrics need PSI).
+  const speedScore = Math.max(100 - analysis.blockCount * 3 - analysis.imageCount * 5, 20);
+
+  // Mobile Responsiveness: scroll depth as a proxy once we have scroll data;
+  // until then, assume the responsive block library renders well (structural).
+  const scrollScore = Math.min(Math.round(avgScrollDepth), 100);
+  const mobileScore = hasScrollData ? Math.min(scrollScore + 20, 100) : 85;
+
+  // Trust Signals: trust badges / guarantees, FAQ, footer, meta description.
+  const trustScore = Math.min(
+    (analysis.hasTrustSignals ? 40 : 0) +
+      (analysis.hasFaq ? 25 : 0) +
+      (analysis.hasFooter ? 20 : 0) +
+      (metaDescription ? 15 : 0),
+    100,
+  );
+
+  const categories: ScoringCategory[] = [
+    {
+      name: "Headline Clarity",
+      score: headlineScore,
+      grade: letterGrade(headlineScore),
+      recommendation: !analysis.hasHero
+        ? "Add a hero block with a clear headline above the fold"
+        : headlineScore < 70
+          ? "Add a benefit-driven subheadline to your hero section"
+          : "Headline structure looks solid",
+    },
+    {
+      name: "CTA Effectiveness",
+      score: ctaScore,
+      grade: letterGrade(ctaScore),
+      recommendation:
+        !analysis.hasCtaButton && !analysis.hasBooking
+          ? "Add a prominent call-to-action button or booking link"
+          : hasTraffic && cvr < 2
+            ? "Try action-oriented CTA copy and increase button contrast"
+            : "CTA is in place — keep testing copy and placement",
+    },
+    {
+      name: "Social Proof",
+      score: socialProofScore,
+      grade: letterGrade(socialProofScore),
+      recommendation: !analysis.hasSocialProof
+        ? "Add testimonials, a stats/trust bar, or case studies to build credibility"
+        : "Social proof is present — consider adding specific metrics or named quotes",
+    },
+    {
+      name: "Form Friction",
+      score: formFrictionScore,
+      grade: letterGrade(formFrictionScore),
+      recommendation: !hasConversionPath
+        ? "Add a lead capture form or a one-click booking CTA to convert visitors"
+        : analysis.hasForm && analysis.formFieldCount > 5
+          ? `Reduce form from ${analysis.formFieldCount} fields to 3-4 to improve completion rate`
+          : analysis.hasBooking && !analysis.hasForm
+            ? "Low-friction booking flow detected — keep the booking CTA prominent"
+            : "Form field count is optimized",
+    },
+    {
+      name: "Visual Hierarchy",
+      score: visualScore,
+      grade: letterGrade(visualScore),
+      recommendation:
+        analysis.blockCount < 4
+          ? "Add more content sections to tell a complete story"
+          : analysis.imageCount === 0
+            ? "Add at least one image or visual element"
+            : "Visual structure looks good",
+    },
+    {
+      name: "Page Speed Impact",
+      score: speedScore,
+      grade: letterGrade(speedScore),
+      recommendation:
+        analysis.imageCount > 5
+          ? "Optimize images — consider lazy loading below-fold content"
+          : analysis.blockCount > 15
+            ? "Consider consolidating blocks to improve load time"
+            : "Page complexity is within recommended limits",
+    },
+    {
+      name: "Mobile Responsiveness",
+      score: mobileScore,
+      grade: letterGrade(mobileScore),
+      recommendation: hasScrollData && avgScrollDepth < 30
+        ? "Low scroll depth suggests mobile layout issues — check on a phone"
+        : !hasScrollData
+          ? "Built on responsive blocks — validate on a real device once traffic arrives"
+          : "Scroll depth indicates content is engaging on all devices",
+    },
+    {
+      name: "Trust Signals",
+      score: trustScore,
+      grade: letterGrade(trustScore),
+      recommendation: !analysis.hasTrustSignals
+        ? "Add trust badges, security icons, or a guarantee near your CTA"
+        : !analysis.hasFaq
+          ? "Add an FAQ section to address common objections"
+          : "Trust signals are well-placed",
+    },
+  ];
+
+  const overallScore = Math.round(categories.reduce((sum, cat, i) => sum + cat.score * WEIGHTS[i], 0));
+
+  // Quick wins — lowest weighted-impact categories first.
+  const quickWins: QuickWin[] = [];
+  const scored = categories.map((c, i) => ({ ...c, weight: WEIGHTS[i] }));
+  scored.sort((a, b) => a.score * a.weight - b.score * b.weight);
+  for (const cat of scored.slice(0, 3)) {
+    if (cat.score < 80) {
+      quickWins.push({
+        impact: cat.score < 50 ? "high" : "medium",
+        suggestion: cat.recommendation,
+      });
+    }
+  }
+
+  return { categories, overallScore, quickWins };
 }
 
 // ─── GET /lp/conversion-scoring/pages — list tenant pages for the selector ─────
@@ -204,161 +549,16 @@ router.get("/lp/conversion-scoring/:pageId", async (req, res): Promise<void> => 
       .where(and(eq(lpLeadsTable.pageId, pageId), sql`${lpLeadsTable.createdAt} > ${dateFilter}`));
     const leadCount = leadStats?.count ?? 0;
 
-    // 3. Compute category scores (0-100)
-
-    // Headline Clarity: has hero block + at least one heading = good
-    const headlineScore = Math.min(
-      (analysis.hasHero ? 40 : 0) +
-      (analysis.headlineCount >= 1 ? 30 : 0) +
-      (analysis.headlineCount >= 2 ? 15 : 0) +
-      (page.metaTitle ? 15 : 0),
-      100
-    );
-
-    // CTA Effectiveness: has CTA + good CVR
-    const cvrScore = Math.min(Math.round((cvr / 5) * 100), 100);
-    const ctaScore = Math.min(
-      (analysis.hasCtaButton ? 40 : 0) +
-      Math.round(cvrScore * 0.6),
-      100
-    );
-
-    // Social Proof: testimonials, logos, reviews
-    const socialProofScore = analysis.hasSocialProof ? 80 : (leadCount > 5 ? 40 : 15);
-
-    // Form Friction: fewer fields = better; no form = lower score
-    let formFrictionScore = 50; // default if no form
-    if (analysis.hasForm) {
-      if (analysis.formFieldCount <= 3) formFrictionScore = 95;
-      else if (analysis.formFieldCount <= 5) formFrictionScore = 75;
-      else if (analysis.formFieldCount <= 8) formFrictionScore = 50;
-      else formFrictionScore = 30;
-    }
-
-    // Visual Hierarchy: block count (sweet spot 6-15), images, proper structure
-    const blockCountScore = analysis.blockCount >= 4 && analysis.blockCount <= 20 ? 40 : (analysis.blockCount > 0 ? 20 : 0);
-    const visualScore = Math.min(
-      blockCountScore +
-      (analysis.imageCount >= 1 ? 25 : 0) +
-      (analysis.hasHero ? 20 : 0) +
-      (analysis.hasFooter ? 15 : 0),
-      100
-    );
-
-    // Page Speed Impact: based on block/image count (proxy — real metrics need PSI)
-    const speedScore = Math.max(100 - (analysis.blockCount * 3) - (analysis.imageCount * 5), 20);
-
-    // Mobile Responsiveness: scroll depth as proxy (good scroll = mobile works)
-    const scrollScore = Math.min(Math.round(avgScrollDepth), 100);
-    const mobileScore = totalVisits > 0 ? Math.min(scrollScore + 20, 100) : 50;
-
-    // Trust Signals: trust badges, FAQ, footer with legal
-    const trustScore = Math.min(
-      (analysis.hasTrustSignals ? 40 : 0) +
-      (analysis.hasFaq ? 25 : 0) +
-      (analysis.hasFooter ? 20 : 0) +
-      (page.metaDescription ? 15 : 0),
-      100
-    );
-
-    // 4. Build categories array
-    const categories = [
-      {
-        name: "Headline Clarity",
-        score: headlineScore,
-        grade: letterGrade(headlineScore),
-        recommendation: !analysis.hasHero
-          ? "Add a hero block with a clear headline above the fold"
-          : headlineScore < 70
-          ? "Add a benefit-driven subheadline to your hero section"
-          : "Headline structure looks solid",
-      },
-      {
-        name: "CTA Effectiveness",
-        score: ctaScore,
-        grade: letterGrade(ctaScore),
-        recommendation: !analysis.hasCtaButton
-          ? "Add a prominent call-to-action button"
-          : cvr < 2
-          ? "Try action-oriented CTA copy and increase button contrast"
-          : "CTA is performing well — keep testing variants",
-      },
-      {
-        name: "Social Proof",
-        score: socialProofScore,
-        grade: letterGrade(socialProofScore),
-        recommendation: !analysis.hasSocialProof
-          ? "Add customer testimonials or logo bar above the fold"
-          : "Social proof is present — consider adding specific metrics or quotes",
-      },
-      {
-        name: "Form Friction",
-        score: formFrictionScore,
-        grade: letterGrade(formFrictionScore),
-        recommendation: !analysis.hasForm
-          ? "Add a lead capture form to convert visitors"
-          : analysis.formFieldCount > 5
-          ? `Reduce form from ${analysis.formFieldCount} fields to 3-4 to improve completion rate`
-          : "Form field count is optimized",
-      },
-      {
-        name: "Visual Hierarchy",
-        score: visualScore,
-        grade: letterGrade(visualScore),
-        recommendation: analysis.blockCount < 4
-          ? "Add more content sections to tell a complete story"
-          : analysis.imageCount === 0
-          ? "Add at least one image or visual element"
-          : "Visual structure looks good",
-      },
-      {
-        name: "Page Speed Impact",
-        score: speedScore,
-        grade: letterGrade(speedScore),
-        recommendation: analysis.imageCount > 5
-          ? "Optimize images — consider lazy loading below-fold content"
-          : analysis.blockCount > 15
-          ? "Consider consolidating blocks to improve load time"
-          : "Page complexity is within recommended limits",
-      },
-      {
-        name: "Mobile Responsiveness",
-        score: mobileScore,
-        grade: letterGrade(mobileScore),
-        recommendation: avgScrollDepth < 30
-          ? "Low scroll depth suggests mobile layout issues — check on a phone"
-          : "Scroll depth indicates content is engaging on all devices",
-      },
-      {
-        name: "Trust Signals",
-        score: trustScore,
-        grade: letterGrade(trustScore),
-        recommendation: !analysis.hasTrustSignals
-          ? "Add trust badges, security icons, or a guarantee near your CTA"
-          : !analysis.hasFaq
-          ? "Add an FAQ section to address common objections"
-          : "Trust signals are well-placed",
-      },
-    ];
-
-    // 5. Overall score (weighted)
-    const weights = [0.15, 0.20, 0.10, 0.15, 0.10, 0.10, 0.10, 0.10];
-    const overallScore = Math.round(
-      categories.reduce((sum, cat, i) => sum + cat.score * weights[i], 0)
-    );
-
-    // 6. Quick wins — sorted by impact
-    const quickWins: Array<{ impact: "high" | "medium" | "low"; suggestion: string }> = [];
-    const scored = categories.map((c, i) => ({ ...c, weight: weights[i] }));
-    scored.sort((a, b) => (a.score * a.weight) - (b.score * b.weight));
-    for (const cat of scored.slice(0, 3)) {
-      if (cat.score < 80) {
-        quickWins.push({
-          impact: cat.score < 50 ? "high" : "medium",
-          suggestion: cat.recommendation,
-        });
-      }
-    }
+    // 3. Compute category scores + overall + quick wins (pure)
+    const { categories, overallScore, quickWins } = computeConversionScore({
+      analysis,
+      metaTitle: page.metaTitle,
+      metaDescription: page.metaDescription,
+      impressions,
+      cvr,
+      leadCount,
+      avgScrollDepth,
+    });
 
     res.json({
       pageId,
