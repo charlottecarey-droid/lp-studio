@@ -52,7 +52,7 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-RESEND_FROM_EMAIL = "LP Studio <noreply@lpstudio.ai>"
+RESEND_FROM_EMAIL = "LP Studio <team@mail.lpstudio.ai>"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
 TURNSTILE_SITE_KEY = "0x4AAAAAADboov6vgE0UvZpL"
