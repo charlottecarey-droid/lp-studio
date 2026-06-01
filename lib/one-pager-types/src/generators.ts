@@ -1562,7 +1562,11 @@ export const generateNewPartnerOnePager = async (
   doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(...pal.onPrimaryMuted2);
   doc.text(`${b.productName} & ${dsoName}:`, margin, 65 + subtitleOffY);
   const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
-  doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
+  // Honor the editor's "Bold heading" toggle: when explicitly false, render the
+  // header title in normal weight. Undefined/true keeps the default bold.
+  const titleWeight: "normal" | "bold" =
+    (hCfg as Record<string, unknown>).boldHeading === false ? "normal" : "bold";
+  doc.setFont(headingFont, headingStyle(titleWeight)); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
   doc.text(titleLines, margin, 65 + subtitleOffY + subtitleFontSize + 14);
 

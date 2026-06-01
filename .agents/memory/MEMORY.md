@@ -69,3 +69,4 @@
 - [Scheduled trigger timezone math](scheduled-trigger-timezone.md) — schedules carry optional IANA timezone (default UTC); dueOccurrenceId resolves all boundaries+fire instant in-zone, occurrence id = LOCAL date; invalid tz fails closed.
 - [lp-studio typecheck via validation](lp-studio-typecheck-via-validation.md) — lp-studio tsc is >12min (past bash 120s cap) + detached procs get reaped; run it through the validation skill, not raw/background bash.
 - [Snapshot render-version reconcile](snapshot-render-version-reconcile.md) — published R2 snapshots self-heal via manually-bumped CURRENT_RENDER_VERSION metadata + post-deploy reconcile; dev shares prod's R2 bucket, so NEVER run the reconcile/backfill from dev.
+- [Partner one-pager is PDF-only](partner-onepager-pdf-only.md) — Partner Practices template renders via jsPDF generateNewPartnerOnePager, NOT the web one-pager-hero block; shareable web links are pilot-only.

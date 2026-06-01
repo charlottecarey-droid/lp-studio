@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -72,6 +73,9 @@ interface HeaderConfig {
   imageCropAnchor: "top" | "center" | "bottom"; partnerLogoScale: number;
   partnerLogoOffsetX: number; partnerLogoOffsetY: number; titleLineSpacing: number;
   prospectLogoScale: number;
+  /** When false, the partner header title renders in normal (not bold) weight.
+   *  Undefined/true keeps the default bold so existing pages are unchanged. */
+  boldHeading?: boolean;
 }
 interface BodyConfig {
   headlineText: string; headlineFontSize: number; introFontSize: number;
@@ -1298,6 +1302,16 @@ export default function SalesOnePagerEditor() {
                         </button>
                         {headerCfg.headerImage && <button onClick={() => setHeaderCfg(p => ({ ...p, headerImage: null }))} className="text-xs text-muted-foreground hover:text-destructive">Reset</button>}
                       </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <span className="text-[11px] font-medium text-muted-foreground">Bold heading</span>
+                        <p className="text-[10px] text-muted-foreground/70">Turn off for a normal-weight header title.</p>
+                      </div>
+                      <Switch
+                        checked={headerCfg.boldHeading !== false}
+                        onCheckedChange={v => setHeaderCfg(p => ({ ...p, boldHeading: v }))}
+                      />
                     </div>
                   </EditorSection>
 
