@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { eq, and, gt, sql, inArray } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
@@ -17,6 +17,25 @@ import { resolveBroadcastRecipients } from "../../lib/broadcastRecipients";
 import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
 
 const router = Router();
+
+/**
+ * Guard a page-scoped mutation: confirms the page exists and belongs to the
+ * caller's tenant. Returns false (and sends the response) when access is denied
+ * so handlers can `if (!(await pageBelongsToTenant(...))) return;`.
+ */
+async function pageBelongsToTenant(req: Request, res: Response, pageId: number): Promise<boolean> {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return false; // getTenantId already sent 401/403
+  const [page] = await db
+    .select({ tenantId: lpPagesTable.tenantId })
+    .from(lpPagesTable)
+    .where(eq(lpPagesTable.id, pageId));
+  if (!page || page.tenantId !== tenantId) {
+    res.status(404).json({ error: "Page not found" });
+    return false;
+  }
+  return true;
+}
 
 // ─── Email Helpers ─────────────────────────────────────────────────────────────
 
@@ -394,6 +413,7 @@ router.delete("/lp/pages/:pageId/reviews/:reviewId", async (req, res): Promise<v
   const pageId = parseInt(req.params.pageId, 10);
   const reviewId = parseInt(req.params.reviewId, 10);
   if (isNaN(pageId) || isNaN(reviewId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!(await pageBelongsToTenant(req, res, pageId))) return;
 
   const [deleted] = await db
     .delete(lpPageReviewsTable)
@@ -416,6 +436,7 @@ router.post("/lp/pages/:pageId/reviews/bulk-delete", async (req, res): Promise<v
 
   const parsed = BulkDeleteReviewsBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  if (!(await pageBelongsToTenant(req, res, pageId))) return;
 
   const deleted = await db
     .delete(lpPageReviewsTable)

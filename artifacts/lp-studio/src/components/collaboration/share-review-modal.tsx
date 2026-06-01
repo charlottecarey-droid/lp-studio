@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link2, Copy, CheckCheck, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +36,22 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deletingBatch, setDeletingBatch] = useState(false);
   const [latestReviewUrl, setLatestReviewUrl] = useState<string | null>(null);
+
+  // Reset selection when the modal closes, and prune any ids that no longer
+  // exist after an external refetch so "Delete N" never reflects stale rows.
+  useEffect(() => {
+    if (!open) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(prev => {
+      if (prev.size === 0) return prev;
+      const valid = new Set(reviews.map(r => r.id));
+      const next = new Set<number>();
+      for (const id of prev) if (valid.has(id)) next.add(id);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [open, reviews]);
 
   const latestReview = [...reviews].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
