@@ -10,6 +10,7 @@ import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate"
 import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
 import { requireAiGenerationQuota } from "../../middleware/requireAiGenerationQuota";
 import { maybeMultiPageScrapeRef, maybeScrapeRef, type MaybeScrapeResult } from "./firecrawl";
+import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
@@ -2093,12 +2094,24 @@ async function gatherReferences(
   const truncated = stitched.length > COMBINED_MAX;
   const screenshotUrl = primary.result.screenshotUrl
     ?? successful.find((s) => s.result.screenshotUrl)?.result.screenshotUrl;
+  // Aggregate harvested image candidates across every successful reference,
+  // primary first, deduped (task #747).
+  const imageUrls: string[] = [];
+  const seenImg = new Set<string>();
+  for (const s of successful) {
+    for (const u of s.result.scraped?.imageUrls ?? []) {
+      if (seenImg.has(u)) continue;
+      seenImg.add(u);
+      imageUrls.push(u);
+    }
+  }
   return {
     scraped: {
       url: primary.url,
       markdown: stitched.slice(0, COMBINED_MAX),
       truncated,
       additionalUrls: successful.slice(1).map((s) => s.url),
+      imageUrls,
     },
     screenshotUrl,
   };
@@ -2668,6 +2681,41 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   }
   // ── End template-driven mode ─────────────────────────────────────────
 
+  // Task #747 — harvest the reference site's real content images into the
+  // tenant's media library, kicked off here so the fetch+upload overlaps with
+  // prompt assembly and the (multi-second) LLM call rather than adding latency.
+  // Best-effort: any scrape/extract/mirror failure resolves to an empty pool
+  // and the flow degrades to the existing drawer→AI image behavior. Skipped in
+  // captureOnly (prompt-debug) mode since no page is actually generated.
+  const scrapedImageUrls = scrapeResult.scraped?.imageUrls ?? [];
+  const scrapedMediaPromise: Promise<MediaImage[]> =
+    tenantId != null && !captureOnly && scrapeResult.scraped && scrapedImageUrls.length > 0
+      ? mirrorReferenceImages({
+          tenantId,
+          sourceUrl: scrapeResult.scraped.url,
+          imageUrls: scrapedImageUrls,
+        })
+          .then((r) => {
+            logger.info(
+              {
+                tenantId,
+                refUrl: scrapeResult.scraped?.url,
+                candidates: scrapedImageUrls.length,
+                attempted: r.attempted,
+                uploaded: r.uploaded,
+                deduped: r.skipped,
+                skips: r.skips.length ? r.skips : undefined,
+              },
+              "[generate-page] reference-image harvest complete",
+            );
+            return r.images as MediaImage[];
+          })
+          .catch((err) => {
+            logger.warn({ tenantId, err: String(err) }, "[generate-page] reference-image harvest failed");
+            return [] as MediaImage[];
+          })
+      : Promise.resolve([] as MediaImage[]);
+
   const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
@@ -3007,20 +3055,51 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       prompt.trim(),
     ].join(" ").trim().slice(0, 240);
 
+    // Task #747 — merge the reference-site images harvested above into the
+    // fill pool. They are appended AFTER the tenant's drawer images so a
+    // genuine drawer match still wins each slot (findBestImage keeps the first
+    // max-scorer on ties), while these untagged scraped images only fill slots
+    // no drawer image fits — ahead of the AI-generation fallback below.
+    //
+    // The harvest ran concurrently with the (multi-second) LLM call and is
+    // almost always finished by now. To keep it strictly latency-free we only
+    // wait a short grace window past the LLM: if a slow CDN means it hasn't
+    // settled, we proceed with the drawer-only pool. The mirror still completes
+    // in the background and persists its rows, so the next generation from the
+    // same site picks them up via the refsrc dedup — no work is wasted.
+    const SCRAPED_MEDIA_GRACE_MS = 4000;
+    const scrapedMedia = await Promise.race([
+      scrapedMediaPromise,
+      new Promise<MediaImage[]>((resolve) =>
+        setTimeout(() => {
+          logger.info(
+            { tenantId },
+            "[generate-page] reference-image harvest not ready within grace window — using drawer-only pool",
+          );
+          resolve([]);
+        }, SCRAPED_MEDIA_GRACE_MS),
+      ),
+    ]);
+    const fillPool: MediaImage[] = scrapedMedia.length > 0
+      ? [...mediaCatalog.images, ...scrapedMedia]
+      : mediaCatalog.images;
+
     // Subject the model's OWN image picks to the same dedup + purpose/relevance
     // guardrails used for empty slots: clear duplicates and wrong-purpose /
     // clearly-off-topic library picks so the smart fill below replaces them.
-    parsed.blocks = validateAndDedupeAIImages(parsed.blocks, mediaCatalog.images, pageImageContext);
+    parsed.blocks = validateAndDedupeAIImages(parsed.blocks, fillPool, pageImageContext);
 
     // Fill in any remaining empty image URLs from the media library
-    parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images, pageImageContext);
+    parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext);
 
     // An empty media catalog is the upstream cause of the brand-import
     // broken-image symptom (task #592): if nothing was mirrored into
     // lp_media, fillEmptyImages has nothing to substitute and image
     // blocks ship with empty `src`. Warn loudly so the failure is
     // diagnosable from logs instead of only surfacing as a blank page.
-    if (tenantId != null && mediaCatalog.images.length === 0) {
+    // (Only warn when the reference scrape also yielded nothing — otherwise
+    // the scraped images cover the slots.)
+    if (tenantId != null && fillPool.length === 0) {
       logger.warn(
         { tenantId, catalogAll: mediaCatalog.allImages.length },
         "[generate-page] media catalog has no usable images — image slots will rely on AI fill or ship empty; check brand-import asset mirroring",

@@ -1,5 +1,6 @@
 import type OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
+import type * as cheerio from "cheerio";
 import type { Evidence, DimensionResult, PhotographyData, PhotographyProfile } from "../types";
 import { withOpenAIConcurrency } from "../openai-semaphore";
 
@@ -76,15 +77,20 @@ function urlFromBackgroundStyle(style: string): string | null {
   return m ? m[2] : null;
 }
 
-export function pickImages(evidence: Evidence): string[] {
-  const $ = evidence.$home;
-  if (!$) return [];
-  const base = evidence.homeUrl;
+/**
+ * Extract candidate content-image URLs from an already-parsed DOM. Shared by
+ * the Brand Import photography extractor (which has a Cheerio `Evidence`) and
+ * page-create reference scraping (which loads raw Firecrawl HTML), so both use
+ * identical quality heuristics: largest `srcset`, lazy-load attributes, and CSS
+ * background images, while skipping header/nav/footer chrome, icon/sprite/
+ * favicon/logo assets, and vision-unsupported formats (SVG/ICO/etc). Capped at 8.
+ */
+export function pickImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): string[] {
   const abs = (u: string | undefined | null): string | null => {
     if (!u) return null;
     const trimmed = u.trim();
     if (!trimmed || trimmed.startsWith("data:")) return null;
-    try { return new URL(trimmed, base).toString(); } catch { return null; }
+    try { return new URL(trimmed, baseUrl).toString(); } catch { return null; }
   };
   const out: string[] = [];
   const seen = new Set<string>();
@@ -146,6 +152,12 @@ export function pickImages(evidence: Evidence): string[] {
   }
 
   return out.slice(0, 8);
+}
+
+export function pickImages(evidence: Evidence): string[] {
+  const $ = evidence.$home;
+  if (!$) return [];
+  return pickImagesFromDom($, evidence.homeUrl);
 }
 
 export async function extractPhotography(

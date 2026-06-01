@@ -15,6 +15,9 @@
 //     better than from one. Falls back to single-page behaviour when the
 //     input URL already has a deep path.
 
+import * as cheerio from "cheerio";
+import { pickImagesFromDom } from "../../lib/brand-import/extractors/photography";
+
 const MARKDOWN_MAX_CHARS = 24_000;
 // Combined multi-page markdown is capped at this length too — three full
 // marketing pages stitched together can easily run 60k chars otherwise.
@@ -31,6 +34,10 @@ export interface RawScrapeResult {
   screenshotUrl?: string;
   /** True when raw markdown exceeded MARKDOWN_MAX_CHARS and was truncated. */
   truncated: boolean;
+  /** Candidate content-image URLs extracted from the page HTML (hero/product
+   *  `<img>`, lazy-load attrs, CSS backgrounds), using the same heuristics as
+   *  Brand Import. Empty when HTML was unavailable or yielded nothing. */
+  imageUrls: string[];
 }
 
 /** Low-level wrapper around Firecrawl's /v1/scrape. */
@@ -55,7 +62,13 @@ export async function firecrawlScrape(
           //     most often want to clone) come through.
           //   • waitFor 4000 ms instead of 1500 — JS-heavy marketing pages
           //     animate hero copy in on scroll.
-          formats: withScreenshot ? ["markdown", "screenshot@fullPage"] : ["markdown"],
+          // `html` is requested alongside markdown/screenshot so we can
+          // extract the page's real content images (task #747) using the
+          // same Cheerio heuristics Brand Import uses — markdown alone loses
+          // lazy-load attrs, srcset, and CSS background images.
+          formats: withScreenshot
+            ? ["markdown", "screenshot@fullPage", "html"]
+            : ["markdown", "html"],
           onlyMainContent: false,
           waitFor: 4000,
         }),
@@ -63,12 +76,22 @@ export async function firecrawlScrape(
       30000,
     );
     if (!res.ok) return null;
-    const data = (await res.json()) as { data?: { markdown?: string; screenshot?: string } };
+    const data = (await res.json()) as { data?: { markdown?: string; screenshot?: string; html?: string } };
     const raw = (data?.data?.markdown ?? "").trim();
+    let imageUrls: string[] = [];
+    const html = data?.data?.html;
+    if (html) {
+      try {
+        imageUrls = pickImagesFromDom(cheerio.load(html), url);
+      } catch {
+        imageUrls = [];
+      }
+    }
     return {
       markdown: raw.slice(0, MARKDOWN_MAX_CHARS),
       screenshotUrl: data?.data?.screenshot,
       truncated: raw.length > MARKDOWN_MAX_CHARS,
+      imageUrls,
     };
   } catch { return null; }
 }
@@ -149,6 +172,10 @@ export interface MaybeScrapeResult {
         /** When multi-page, the additional URLs that contributed to the
          *  combined markdown beyond the primary one. Empty for single-page. */
         additionalUrls?: string[];
+        /** Candidate content-image URLs harvested from the scraped page(s),
+         *  deduped across pages (task #747). Used to mirror real site images
+         *  into the media library at page-create time. */
+        imageUrls?: string[];
       }
     | null;
   screenshotUrl?: string;
@@ -187,7 +214,12 @@ export async function maybeScrapeRef(
     return { scraped: null, screenshotUrl: got.screenshotUrl, failureReason: "empty_markdown" };
   }
   return {
-    scraped: { url: parsed.toString(), markdown: got.markdown, truncated: got.truncated },
+    scraped: {
+      url: parsed.toString(),
+      markdown: got.markdown,
+      truncated: got.truncated,
+      imageUrls: got.imageUrls,
+    },
     screenshotUrl: got.screenshotUrl,
   };
 }
@@ -281,12 +313,24 @@ export async function maybeMultiPageScrapeRef(
   const combined = combinedRaw.slice(0, COMBINED_MAX_CHARS);
   const truncated = combinedRaw.length > COMBINED_MAX_CHARS;
 
+  // Aggregate image candidates across all scraped pages, primary first, deduped.
+  const imageUrls: string[] = [];
+  const seenImg = new Set<string>();
+  for (const s of [...successful].sort((a, b) => Number(b.primary) - Number(a.primary))) {
+    for (const u of s.result.imageUrls ?? []) {
+      if (seenImg.has(u)) continue;
+      seenImg.add(u);
+      imageUrls.push(u);
+    }
+  }
+
   return {
     scraped: {
       url: primaryUrl,
       markdown: combined,
       truncated,
       additionalUrls: successful.filter((s) => !s.primary).map((s) => s.url),
+      imageUrls,
     },
     screenshotUrl,
   };

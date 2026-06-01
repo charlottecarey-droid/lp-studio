@@ -1,5 +1,7 @@
 import dns from "dns/promises";
 import net from "net";
+import { createHash } from "node:crypto";
+import { and, eq, sql } from "drizzle-orm";
 import { db, lpMediaTable } from "@workspace/db";
 import { ObjectStorageService } from "../objectStorage";
 import { USER_AGENT } from "./types";
@@ -337,6 +339,151 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
     logger.warn(
       { tenantId: inputs.tenantId, brandName: inputs.brandName, skips: out.skips },
       "[brand-import] mirrorBrandAssets skipped assets",
+    );
+  }
+  return out;
+}
+
+// ── Page-create reference-image harvest (task #747) ─────────────────────────
+//
+// At page-create time we scrape the reference URL for its real content images
+// and mirror them into the tenant's media library so the generator can use
+// genuine site photos before falling back to AI generation. This is a sibling
+// of mirrorBrandAssets but with its own tagging + de-dup so repeated
+// generations from one site don't pile up duplicate rows.
+
+// Cap distinct from MAX_PHOTOS: page-create runs on the user's critical path,
+// so keep the fan-out small and bounded.
+const MAX_REFERENCE_PHOTOS = 6;
+
+/** A mirrored library image, structurally compatible with the generator's
+ *  in-memory MediaImage so it can be appended straight into the fill pool. */
+export interface MirroredImage {
+  url: string;
+  title: string;
+  tags: string[];
+}
+
+export interface MirrorReferenceOutput {
+  /** Freshly uploaded `/api/storage/...` library images (excludes de-duped /
+   *  failed candidates). */
+  images: MirroredImage[];
+  attempted: number;
+  uploaded: number;
+  /** Candidates skipped because they were already mirrored for this tenant
+   *  from the same source (de-dup). */
+  skipped: number;
+  /** Per-asset fetch/upload skip reasons, surfaced in logs. */
+  skips: string[];
+}
+
+/** Stable content-addressed tag for a source image URL, so we can detect
+ *  whether this tenant already mirrored it on a prior generation. */
+function referenceSrcTag(normalizedUrl: string): string {
+  return `refsrc:${createHash("sha1").update(normalizedUrl).digest("hex").slice(0, 16)}`;
+}
+
+function normalizeForDedup(u: string): string {
+  try {
+    const url = new URL(u);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return u;
+  }
+}
+
+/**
+ * Mirror the reference site's content images into the tenant's media library.
+ * Tags each row `["page-reference", "scraped", "refhost:<host>", "refsrc:<hash>"]`
+ * so they're identifiable and de-dupable. Best-effort throughout: a dedup-query
+ * failure just risks a few duplicate rows, and per-asset fetch failures are
+ * silent skips — never thrown — so a slow/hostile CDN can't fail generation.
+ */
+export async function mirrorReferenceImages(inputs: {
+  tenantId: number;
+  sourceUrl: string;
+  imageUrls: string[];
+}): Promise<MirrorReferenceOutput> {
+  const out: MirrorReferenceOutput = { images: [], attempted: 0, uploaded: 0, skipped: 0, skips: [] };
+
+  let refHost = "";
+  try {
+    refHost = new URL(inputs.sourceUrl).hostname.replace(/^www\./, "");
+  } catch {
+    refHost = "";
+  }
+
+  // Normalize + de-dup candidate URLs within this request.
+  const candidates: { sourceUrl: string; tag: string }[] = [];
+  const seenTags = new Set<string>();
+  for (const raw of inputs.imageUrls) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const tag = referenceSrcTag(normalizeForDedup(trimmed));
+    if (seenTags.has(tag)) continue;
+    seenTags.add(tag);
+    candidates.push({ sourceUrl: trimmed, tag });
+  }
+  if (candidates.length === 0) return out;
+
+  // De-dup across prior page-create harvests for this tenant: collect the
+  // refsrc tags already present on "scraped" rows and skip those sources.
+  const alreadyMirrored = new Set<string>();
+  try {
+    const existing = await db
+      .select({ tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(and(
+        eq(lpMediaTable.tenantId, inputs.tenantId),
+        eq(lpMediaTable.mediaType, "image"),
+        sql`${lpMediaTable.tags} @> ${JSON.stringify(["scraped"])}::jsonb`,
+      ))
+      .limit(2000);
+    for (const row of existing) {
+      const tags = (row.tags as string[]) ?? [];
+      for (const t of tags) if (typeof t === "string" && t.startsWith("refsrc:")) alreadyMirrored.add(t);
+    }
+  } catch (e) {
+    logger.warn(
+      { tenantId: inputs.tenantId, refHost, err: String(e) },
+      "[page-reference] dedup query failed — may re-mirror some images",
+    );
+  }
+
+  const fresh = candidates.filter((c) => !alreadyMirrored.has(c.tag));
+  out.skipped = candidates.length - fresh.length;
+  const toMirror = fresh.slice(0, MAX_REFERENCE_PHOTOS);
+  out.attempted = toMirror.length;
+  if (toMirror.length === 0) return out;
+
+  const baseTags = ["page-reference", "scraped", ...(refHost ? [`refhost:${refHost}`] : [])];
+
+  const results = await Promise.all(toMirror.map(async (c, i) => {
+    const tags = [...baseTags, c.tag];
+    const title = titleFromUrl(c.sourceUrl, `${refHost || "Reference"} image ${i + 1}`);
+    const fetched = await fetchAsset(c.sourceUrl);
+    if (!fetched.ok) {
+      return { url: null as string | null, reason: fetched.reason, sourceUrl: c.sourceUrl, tags, title };
+    }
+    const url = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
+    return { url, reason: url ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
+  }));
+
+  for (const r of results) {
+    if (r.url) {
+      out.images.push({ url: r.url, title: r.title, tags: r.tags });
+      out.uploaded++;
+    } else {
+      out.skips.push(`${r.sourceUrl} -> ${r.reason ?? "unknown"}`);
+    }
+  }
+
+  if (out.skips.length) {
+    logger.warn(
+      { tenantId: inputs.tenantId, refHost, skips: out.skips },
+      "[page-reference] mirrorReferenceImages skipped assets",
     );
   }
   return out;
