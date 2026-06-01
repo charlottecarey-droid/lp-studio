@@ -10,8 +10,32 @@ export function getLpPublicBase(micrositeDomain?: string | null): string {
   return window.location.origin;
 }
 
-export function getLpPageUrl(slug: string, micrositeDomain?: string | null): string {
+/**
+ * Build the public URL for a published landing page.
+ *
+ * Published pages are resolved per-tenant BY HOSTNAME (see
+ * api-server `findTenantByHost`): a page only loads on a host that maps to
+ * its tenant — the tenant's microsite/custom domain, or its wildcard
+ * subdomain `<slug>.lpstudio.ai`. The admin host the editor is browsing
+ * (e.g. `app.lpstudio.ai` / `dev.lpstudio.ai`) has NO tenant binding, so a
+ * link built off `window.location.origin` 404s with "Page Not Found".
+ *
+ * Resolution order:
+ *   1. `micrositeDomain`  → `https://<micrositeDomain>/<slug>` (microsite serves at root)
+ *   2. `tenantHost`       → `https://<tenantHost>/lp/<slug>` (custom domain or `<slug>.lpstudio.ai`)
+ *   3. fallback           → `window.location.origin/lp/<slug>` (last resort; only correct
+ *                            when already on a tenant host)
+ *
+ * Callers should pass the tenant's canonical host from `useAuth().user.tenantHost`
+ * (set by `/auth/me`) so the link always points at a host that resolves the tenant.
+ */
+export function getLpPageUrl(
+  slug: string,
+  micrositeDomain?: string | null,
+  tenantHost?: string | null,
+): string {
   if (micrositeDomain) return `https://${micrositeDomain}/${slug}`;
+  if (tenantHost) return `https://${tenantHost}/lp/${slug}`;
   return `${window.location.origin}/lp/${slug}`;
 }
 
