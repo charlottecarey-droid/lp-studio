@@ -35,8 +35,9 @@ export default function AllTests() {
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteTest();
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const { domainContext } = useAuth();
+  const { domainContext, user } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
 
   const handleDelete = async (e: React.MouseEvent, testId: number, testName: string) => {
     e.stopPropagation();
@@ -173,7 +174,7 @@ export default function AllTests() {
         ) : (
           <div className="flex flex-col gap-2.5">
             {sorted.map((test, i) => {
-              const liveUrl = getLpPageUrl(test.slug, micrositeDomain);
+              const liveUrl = getLpPageUrl(test.slug, micrositeDomain, tenantHost);
               const isRunning = test.status === "running";
               return (
                 <motion.div

@@ -63,8 +63,9 @@ export default function LivePages() {
 
   const isLoading = testsLoading || pagesLoading;
   const runningTests = tests?.filter(t => t.status === "running") ?? [];
-  const { domainContext } = useAuth();
+  const { domainContext, user } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
 
   const totalLive = runningTests.length + (publishedPages?.length ?? 0);
 
@@ -124,7 +125,7 @@ export default function LivePages() {
                 )}
                 <div className="border border-border rounded-lg divide-y divide-border overflow-hidden">
                   {runningTests.map((test, i) => {
-                    const liveUrl = getLpPageUrl(test.slug, micrositeDomain);
+                    const liveUrl = getLpPageUrl(test.slug, micrositeDomain, tenantHost);
                     return (
                       <motion.div
                         key={`test-${test.id}`}
@@ -179,7 +180,7 @@ export default function LivePages() {
                 )}
                 <div className="border border-border rounded-lg divide-y divide-border overflow-hidden">
                   {publishedPages!.map((page, i) => {
-                    const liveUrl = getLpPageUrl(page.slug, micrositeDomain);
+                    const liveUrl = getLpPageUrl(page.slug, micrositeDomain, tenantHost);
                     return (
                       <motion.div
                         key={`page-${page.id}`}

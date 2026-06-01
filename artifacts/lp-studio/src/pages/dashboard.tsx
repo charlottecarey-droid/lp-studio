@@ -216,8 +216,9 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.lead.createdAt).getTime() - new Date(a.lead.createdAt).getTime())
     .slice(0, 5);
 
-  const { domainContext } = useAuth();
+  const { domainContext, user } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
   const today = format(new Date(), "EEEE, MMMM d");
 
   const realPages = allPages.filter(p => !p.isTemplate);
@@ -487,9 +488,9 @@ export default function Dashboard() {
                     recentWork.map((item) => {
                       const isExperiment = item.kind === "experiment";
                       const liveUrl = isExperiment
-                        ? getLpPageUrl(item.slug, micrositeDomain)
+                        ? getLpPageUrl(item.slug, micrositeDomain, tenantHost)
                         : item.status === "published"
-                        ? getLpPageUrl(item.slug, micrositeDomain)
+                        ? getLpPageUrl(item.slug, micrositeDomain, tenantHost)
                         : null;
                       const isRunning = item.status === "running" || item.status === "published";
                       const statusLabel = isExperiment

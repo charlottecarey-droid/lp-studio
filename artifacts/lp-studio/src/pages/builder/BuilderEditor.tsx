@@ -971,8 +971,9 @@ export default function BuilderEditor() {
   const [, params] = useRoute("/builder/:pageId");
   const [, navigate] = useLocation();
   const pageId = params?.pageId ?? "";
-  const { domainContext, canPublish, canReview, reviewWorkflowEnabled } = useAuth();
+  const { domainContext, canPublish, canReview, reviewWorkflowEnabled, user } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
 
   const [blocks, setBlocksRaw] = useState<PageBlock[]>([]);
   // 50-entry undo/redo. We snapshot blocks BEFORE every mutation. Loads from
@@ -1273,7 +1274,6 @@ export default function BuilderEditor() {
 
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
   const { reviews, createReview, deleteReview, deleteReviews } = useReviews(pageIdNum);
-  const { user } = useAuth();
   const tenantIndustry = user?.tenantIndustry ?? null;
   const authDisplayName = user?.name || user?.email || "";
   const displayName = authDisplayName || getAuthorName() || "Builder User";
@@ -2443,7 +2443,7 @@ export default function BuilderEditor() {
         onSegmentChange={handleSegmentChange}
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
-        liveUrl={getLpPageUrl(slug, micrositeDomain)}
+        liveUrl={getLpPageUrl(slug, micrositeDomain, tenantHost)}
         previewUrl={getLpPreviewUrl(slug, micrositeDomain)}
         onSave={handleSave}
         onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
@@ -3546,6 +3546,8 @@ function AutoMetaButton({
   onGenerated: (metaTitle: string, metaDescription: string, suggestedSlug: string, ogImage: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const tenantHost = user?.tenantHost ?? null;
 
   const handleAutoFill = async () => {
     setLoading(true);
@@ -3565,7 +3567,7 @@ function AutoMetaButton({
 
       // Generate OG screenshot URL from the live page
       const pageSlug = data.suggestedSlug || currentSlug;
-      const pageUrl = getLpPageUrl(pageSlug, micrositeDomain);
+      const pageUrl = getLpPageUrl(pageSlug, micrositeDomain, tenantHost);
       const ogScreenshot = `https://image.thum.io/get/width/1200/crop/630/noanimate/${pageUrl}`;
 
       onGenerated(data.metaTitle, data.metaDescription, data.suggestedSlug, ogScreenshot);

@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, getLpPageUrl } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import { CopyButton } from "./copy-button";
 import { PageActionsMenu } from "./page-actions-menu";
@@ -58,8 +59,10 @@ export function PageRow({
   onDelete,
   onTemplateSaved,
 }: Props) {
+  const { user } = useAuth();
+  const tenantHost = user?.tenantHost ?? null;
   const isPublished = page.status === "published";
-  const liveUrl = isPublished || isRunning ? getLpPageUrl(page.slug, micrositeDomain) : null;
+  const liveUrl = isPublished || isRunning ? getLpPageUrl(page.slug, micrositeDomain, tenantHost) : null;
   // For drafts (no live URL), fall back to the in-app preview route so the
   // "view" / external-link button always opens *something* — the live page if
   // it exists, otherwise the authenticated preview. Without this, clicking

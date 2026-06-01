@@ -835,8 +835,9 @@ function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; mic
 }
 
 export function CampaignPagesContent() {
-  const { domainContext } = useAuth();
+  const { domainContext, user } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
   const [pages, setPages] = useState<Page[]>([]);
   const [eligibleContacts, setEligibleContacts] = useState<EligibleContact[]>([]);
   const [audiences, setAudiences] = useState<Audience[]>([]);
@@ -1266,7 +1267,7 @@ export function CampaignPagesContent() {
                         }
                       </Button>
                       <a
-                        href={`${getLpPageUrl(page.slug, micrositeDomain)}?_v_company=Acme+Dental&_v_first_name=Sarah`}
+                        href={`${getLpPageUrl(page.slug, micrositeDomain, tenantHost)}?_v_company=Acme+Dental&_v_first_name=Sarah`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
