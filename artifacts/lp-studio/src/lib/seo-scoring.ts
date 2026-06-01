@@ -35,10 +35,6 @@ export interface AiSuggestion {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function getBlocksByType(blocks: PageBlock[], type: string): PageBlock[] {
-  return blocks.filter((b) => b.type === type);
-}
-
 function getTextFromBlocks(blocks: PageBlock[]): string {
   const texts: string[] = [];
   for (const block of blocks) {
@@ -81,6 +77,80 @@ function getTextFromBlocks(blocks: PageBlock[]): string {
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
+
+function countBlocksByTypes(blocks: PageBlock[], types: Set<string>): number {
+  return blocks.reduce((n, b) => n + (types.has(b.type) ? 1 : 0), 0);
+}
+
+function hasAnyBlockType(blocks: PageBlock[], types: Set<string>): boolean {
+  return blocks.some((b) => types.has(b.type));
+}
+
+// ── Block-type vocabularies ────────────────────────────────────────────────
+//
+// The AI generator and the block catalog emit hero, CTA, social-proof, form,
+// authority and structured blocks under MANY type strings — not just the few
+// literal names the scorer originally recognized. Detecting only the handful of
+// literals made well-built templated/generated pages earn no credit for content
+// they actually have, collapsing almost every page to a D/F grade. These sets
+// capture the real vocabulary so structurally complete pages are graded fairly.
+
+const HERO_TYPES = new Set([
+  "hero", "full-bleed-hero", "parallax-image-hero", "magazine-hero",
+  "one-pager-hero", "dandy-product-hero", "dandy-hero-v7-s3",
+  "dso-heartland-hero", "dso-practice-hero", "dso-scroll-story-hero",
+  "event-landing-hero", "id-hero",
+]);
+
+// Calls-to-action: explicit CTA strips and buttons.
+const CTA_TYPES = new Set([
+  "bottom-cta", "cta-button", "dandy-cta-block", "dso-final-cta",
+]);
+
+// Lead-capture / conversion paths: forms, email capture, booking, reservations.
+const LEAD_CAPTURE_TYPES = new Set([
+  "form", "dandy-form-right-alt", "dandy-conversion-panel-1",
+  "dso-cta-capture", "id-form", "id-reservation-pass",
+]);
+
+// Social proof: testimonials, customer stories, case studies, results galleries.
+// Kept DISTINCT from authority so a page earns each credit once, never double.
+const SOCIAL_PROOF_TYPES = new Set([
+  "testimonial", "case-studies", "story-hub", "dandy-video-testimonials",
+  "dso-testimonials", "dso-success-stories", "dso-case-study",
+  "before-after-gallery", "business-case-split", "business-case-premium",
+  "business-case-centered",
+]);
+
+// Authority: stats, trust bars, metric showcases (concrete data signals).
+const AUTHORITY_TYPES = new Set([
+  "trust-bar", "stat-callout", "bento-showcase", "dso-stat-bar",
+  "dso-stat-row", "dso-stat-showcase", "id-stats",
+]);
+
+// Structured content sections AI engines can extract organized answers from.
+const STRUCTURED_TYPES = new Set([
+  "how-it-works", "benefits-grid", "comparison", "product-grid",
+  "zigzag-features", "product-showcase", "product-launch",
+  "dandy-columns-v2", "dandy-columns-v3", "dandy-vertical-tabs",
+  "dandy-switchback", "dandy-versus", "bento-showcase",
+  "dso-ai-feature", "dso-problem", "dso-challenges", "dso-products-grid",
+  "dso-promo-cards", "dso-activation-steps", "dso-promises", "dso-faq",
+  "dso-split-feature", "dso-software-showcase", "dso-pilot-steps",
+  "dso-case-flow", "dso-insights-dashboard", "dso-lab-tour",
+  "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
+  "id-cinema-pillars", "id-system-flow", "id-grid", "id-spotlight",
+  "id-parallax-showcase", "gradient-pricing", "editorial-carousel",
+  "speaker-grid",
+]);
+
+// Comparison / differentiation ("us vs them", "old way vs new way").
+const COMPARISON_TYPES = new Set([
+  "comparison", "dandy-versus", "dso-paradigm-shift",
+]);
+
+// FAQ / Q&A blocks reinforce the question-answer GEO signal.
+const FAQ_TYPES = new Set(["dso-faq"]);
 
 // ── Rule-Based Scoring ─────────────────────────────────────────────────────
 
@@ -168,7 +238,7 @@ export function scorePageSeoGeo(
   });
 
   // 6. Has hero block
-  const hasHero = getBlocksByType(blocks, "hero").length > 0 || getBlocksByType(blocks, "full-bleed-hero").length > 0;
+  const hasHero = hasAnyBlockType(blocks, HERO_TYPES);
   checks.push({
     id: "has-hero",
     label: "Has hero section",
@@ -181,7 +251,7 @@ export function scorePageSeoGeo(
   });
 
   // 7. Headline length
-  const heroBlocks = [...getBlocksByType(blocks, "hero"), ...getBlocksByType(blocks, "full-bleed-hero")];
+  const heroBlocks = blocks.filter((b) => HERO_TYPES.has(b.type));
   const heroHeadline = heroBlocks.length > 0 ? (((heroBlocks[0].props ?? {}) as Record<string, unknown>).headline as string ?? "") : "";
   const headlineWords = wordCount(heroHeadline);
   checks.push({
@@ -197,8 +267,8 @@ export function scorePageSeoGeo(
         : "Headline length is solid.",
   });
 
-  // 8. Has CTA block
-  const hasCta = getBlocksByType(blocks, "bottom-cta").length > 0 || getBlocksByType(blocks, "cta-button").length > 0;
+  // 8. Has CTA block (explicit CTA strip/button OR a lead-capture path)
+  const hasCta = hasAnyBlockType(blocks, CTA_TYPES) || hasAnyBlockType(blocks, LEAD_CAPTURE_TYPES);
   checks.push({
     id: "has-cta",
     label: "Has a clear CTA",
@@ -207,7 +277,7 @@ export function scorePageSeoGeo(
     weight: 6,
     tip: hasCta
       ? "Page has a clear call-to-action."
-      : "Add a bottom CTA block — every landing page needs a clear next step.",
+      : "Add a CTA or booking/form block — every landing page needs a clear next step.",
   });
 
   // 9. Content depth (word count)
@@ -238,36 +308,34 @@ export function scorePageSeoGeo(
 
   // ── GEO checks ──────────────────────────────────────────────────────
 
-  // 1. Has trust/authority signals
-  const hasTrustBar = getBlocksByType(blocks, "trust-bar").length > 0;
-  const hasStatCallout = getBlocksByType(blocks, "stat-callout").length > 0;
+  // 1. Has trust/authority signals (stats, trust bars, metric showcases)
+  const hasAuthority = hasAnyBlockType(blocks, AUTHORITY_TYPES);
   checks.push({
     id: "geo-authority",
     label: "Authority signals (stats, trust bar)",
     category: "geo",
-    passed: hasTrustBar || hasStatCallout,
+    passed: hasAuthority,
     weight: 8,
-    tip: hasTrustBar || hasStatCallout
+    tip: hasAuthority
       ? "Page includes authority signals (stats, trust metrics) — great for AI citation."
       : "Add a trust bar or stat callout. AI engines prefer citing pages with concrete data and authority markers.",
   });
 
-  // 2. Has testimonial (social proof for GEO)
-  const hasTestimonial = getBlocksByType(blocks, "testimonial").length > 0;
+  // 2. Has social proof (testimonials, customer stories, case studies)
+  const hasSocialProof = hasAnyBlockType(blocks, SOCIAL_PROOF_TYPES);
   checks.push({
     id: "geo-social-proof",
     label: "Social proof (testimonials)",
     category: "geo",
-    passed: hasTestimonial,
+    passed: hasSocialProof,
     weight: 7,
-    tip: hasTestimonial
-      ? "Has testimonial content — AI engines value social proof as a credibility signal."
-      : "Add a testimonial block. AI-generated answers prefer citing pages with real-world endorsements.",
+    tip: hasSocialProof
+      ? "Has social proof (testimonials, case studies) — AI engines value it as a credibility signal."
+      : "Add a testimonial or case-study block. AI-generated answers prefer citing pages with real-world endorsements.",
   });
 
-  // 3. Structured content sections (how-it-works, benefits, comparison)
-  const structuredTypes = ["how-it-works", "benefits-grid", "comparison", "product-grid", "zigzag-features"];
-  const structuredCount = structuredTypes.reduce((n, t) => n + getBlocksByType(blocks, t).length, 0);
+  // 3. Structured content sections (how-it-works, benefits, comparison, etc.)
+  const structuredCount = countBlocksByTypes(blocks, STRUCTURED_TYPES);
   checks.push({
     id: "geo-structured",
     label: "Structured content sections (2+)",
@@ -293,21 +361,23 @@ export function scorePageSeoGeo(
       : "Include more specific numbers (percentages, timeframes, counts). AI engines are more likely to cite pages with concrete, verifiable data.",
   });
 
-  // 5. Question-answer format (good for GEO)
+  // 5. Question-answer format (good for GEO) — explicit FAQ block or question phrasing
   const hasQuestionMarks = (allText.match(/\?/g) ?? []).length;
+  const hasFaqBlock = hasAnyBlockType(blocks, FAQ_TYPES);
+  const hasQaFormat = hasQuestionMarks >= 1 || hasFaqBlock;
   checks.push({
     id: "geo-qa-format",
     label: "Question-answer patterns",
     category: "geo",
-    passed: hasQuestionMarks >= 1,
+    passed: hasQaFormat,
     weight: 5,
-    tip: hasQuestionMarks >= 1
+    tip: hasQaFormat
       ? "Page includes question phrasing — helps match conversational AI queries."
-      : "Consider phrasing some headlines as questions. This helps AI engines match your content to user queries.",
+      : "Consider adding an FAQ section or phrasing some headlines as questions. This helps AI engines match your content to user queries.",
   });
 
   // 6. Has comparison/differentiation content
-  const hasComparison = getBlocksByType(blocks, "comparison").length > 0;
+  const hasComparison = hasAnyBlockType(blocks, COMPARISON_TYPES);
   checks.push({
     id: "geo-differentiation",
     label: "Comparison or differentiation content",
@@ -320,7 +390,7 @@ export function scorePageSeoGeo(
   });
 
   // 7. Has lead capture (intent signal)
-  const hasForm = getBlocksByType(blocks, "form").length > 0;
+  const hasForm = hasAnyBlockType(blocks, LEAD_CAPTURE_TYPES);
   checks.push({
     id: "geo-intent",
     label: "Lead capture form present",
@@ -358,7 +428,12 @@ export function scorePageSeoGeo(
 
   const seoScore = calcScore(seoChecks);
   const geoScore = calcScore(geoChecks);
-  const overallScore = Math.round(seoScore * 0.5 + geoScore * 0.5);
+  // Weight content quality (GEO: structure, social proof, authority, data)
+  // slightly above raw SEO meta-tags. Templated/generated pages routinely ship
+  // before meta title/description are filled in, so leaning on metadata alone
+  // unfairly fails an otherwise complete page. Content structure is the better
+  // proxy for "is this a real, well-built page".
+  const overallScore = Math.round(seoScore * 0.45 + geoScore * 0.55);
 
   const grade: ScoreResult["grade"] =
     overallScore >= 90 ? "A" : overallScore >= 75 ? "B" : overallScore >= 60 ? "C" : overallScore >= 40 ? "D" : "F";

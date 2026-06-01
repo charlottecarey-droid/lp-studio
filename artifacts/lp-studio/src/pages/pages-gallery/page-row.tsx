@@ -227,22 +227,32 @@ export function PageRow({
         {/* Blocks */}
         <span className="text-xs text-muted-foreground tabular-nums">{page.blocks?.length ?? 0}</span>
 
-        {/* Score */}
+        {/* Score: letter grade (content quality) + behavioral number (traffic) */}
         <div className="flex items-center gap-1.5">
           {seoScore && (
-            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-semibold", gradeBgColor(seoScore.grade))}>
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] px-1.5 py-0 font-semibold", gradeBgColor(seoScore.grade))}
+              title={`Content quality grade ${seoScore.grade} — SEO/GEO score ${seoScore.overallScore}/100`}
+            >
               {seoScore.grade}
             </Badge>
           )}
           {perf && perf.visits > 0 && (
-            <span className={cn(
-              "text-[11px] font-medium tabular-nums",
-              perf.composite >= 70 ? "text-emerald-600" :
-              perf.composite >= 40 ? "text-amber-600" :
-              "text-red-500"
-            )}>
-              {perf.composite}
-            </span>
+            <>
+              <span className="text-muted-foreground/30 text-[10px] leading-none">·</span>
+              <span
+                className={cn(
+                  "text-[11px] font-medium tabular-nums",
+                  perf.composite >= 70 ? "text-emerald-600" :
+                  perf.composite >= 40 ? "text-amber-600" :
+                  "text-red-500"
+                )}
+                title={`Performance ${perf.composite}/100 — last 30 days of traffic`}
+              >
+                {perf.composite}
+              </span>
+            </>
           )}
         </div>
 

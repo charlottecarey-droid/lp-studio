@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction } from "react";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { PageRow } from "./page-row";
+import { ScoreLegend } from "./score-legend";
 import type { ColumnVisibility, Page, PerfScore, Test } from "./types";
 
 interface PaginationLike {
@@ -95,7 +96,7 @@ export function ResultsList({
         <span>Page</span>
         <span>Status</span>
         <span>Blocks</span>
-        <span>Score</span>
+        <span className="flex items-center"><ScoreLegend /></span>
         <span>Updated</span>
         {showLastEdited && <span>Last edited</span>}
         {showCreatedBy && <span>Created by</span>}
