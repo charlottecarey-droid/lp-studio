@@ -188,7 +188,7 @@ export function MagazineHeroPanel({ props, onChange }: Props) {
           {props.ctaAction === "chilipiper" && (
             <div>
               <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-              <Input value={props.chilipiperUrl ?? ""} onChange={(e) => update({ chilipiperUrl: e.target.value })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs font-mono" />
+              <Input value={props.chilipiperUrl ?? ""} onChange={(e) => update({ chilipiperUrl: e.target.value })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" />
             </div>
           )}
         </div>
@@ -226,7 +226,7 @@ export function MagazineHeroPanel({ props, onChange }: Props) {
           {props.ctaSecondaryAction === "chilipiper" && (
             <div>
               <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-              <Input value={props.secondaryChilipiperUrl ?? ""} onChange={(e) => update({ secondaryChilipiperUrl: e.target.value })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs font-mono" />
+              <Input value={props.secondaryChilipiperUrl ?? ""} onChange={(e) => update({ secondaryChilipiperUrl: e.target.value })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" />
             </div>
           )}
         </div>

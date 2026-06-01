@@ -369,7 +369,7 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
               <Input
                 value={product.name}
                 onChange={(e) => onChange("name", e.target.value)}
-                placeholder="e.g. Dandy Crowns"
+                placeholder="e.g. Acme Crowns"
                 className="h-9 text-sm"
               />
             </div>
@@ -1225,7 +1225,7 @@ function SalesConsoleSettings({
             <Input
               value={sc.senderName ?? ""}
               onChange={e => patch({ senderName: e.target.value })}
-              placeholder="e.g. Dandy"
+              placeholder="e.g. Acme"
             />
             <p className="text-xs text-muted-foreground">Shown as the From name. Also used as the brand name in AI-generated copy.</p>
           </div>
@@ -1254,7 +1254,7 @@ function SalesConsoleSettings({
             <Input
               value={sc.sendingDomain ?? ""}
               onChange={e => patch({ sendingDomain: e.target.value })}
-              placeholder="e.g. ent.meetdandy.com"
+              placeholder="e.g. ent.example.com"
             />
             <p className="text-xs text-muted-foreground">
               Must be a verified domain in Resend.{" "}
@@ -1281,7 +1281,7 @@ function SalesConsoleSettings({
             <Input
               value={sc.replyTo ?? ""}
               onChange={e => patch({ replyTo: e.target.value })}
-              placeholder="e.g. sales@meetdandy.com"
+              placeholder="e.g. sales@example.com"
             />
             <p className="text-xs text-muted-foreground">Where recipient replies land. Typically a monitored inbox.</p>
           </div>
@@ -1312,7 +1312,7 @@ function SalesConsoleSettings({
             rows={2}
             value={sc.salesIntroLine ?? ""}
             onChange={e => patch({ salesIntroLine: e.target.value })}
-            placeholder='e.g. You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.'
+            placeholder='e.g. You write short, human cold emails for Acme — a vertically integrated dental lab and clinical performance platform for DSOs.'
           />
           <p className="text-xs text-muted-foreground">First line of the cold-email system prompt. Sets the tone and explains who the brand is to the model.</p>
         </div>
@@ -3611,7 +3611,7 @@ export default function BrandSettings() {
                   label="Brand Name"
                   value={config.brandName}
                   onChange={(v) => update("brandName", v)}
-                  placeholder="e.g. Dandy"
+                  placeholder="e.g. Acme"
                 />
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">Company description</Label>
@@ -3619,7 +3619,7 @@ export default function BrandSettings() {
                   <Textarea
                     value={config.companyDescription ?? ""}
                     onChange={(e) => update("companyDescription", e.target.value)}
-                    placeholder="e.g. Dandy is a dental technology company that provides in-office digital dentistry — crowns, aligners, and implants — to dental practices and DSOs across the US."
+                    placeholder="e.g. Acme is a dental technology company that provides in-office digital dentistry — crowns, aligners, and implants — to dental practices and DSOs across the US."
                     className="min-h-[80px] text-sm resize-none"
                   />
                 </div>

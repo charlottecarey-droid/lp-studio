@@ -50,7 +50,7 @@ export function DandySiteFooterPanel({ props: p, onChange }: Props) {
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Copyright</Label>
-        <Input value={p.copyrightText ?? ""} onChange={e => set("copyrightText", e.target.value || undefined)} className="h-8 text-xs" placeholder="© 2024 Dandy" />
+        <Input value={p.copyrightText ?? ""} onChange={e => set("copyrightText", e.target.value || undefined)} className="h-8 text-xs" placeholder="© 2024 Acme" />
       </div>
 
       <div className="border-t pt-3 space-y-3">

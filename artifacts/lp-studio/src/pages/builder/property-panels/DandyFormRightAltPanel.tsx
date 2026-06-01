@@ -271,7 +271,7 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Chili Piper URL (optional)</Label>
-          <Input value={(p as any).chilipiperUrl ?? ""} onChange={e => onChange({ ...p, chilipiperUrl: e.target.value || undefined } as any)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+          <Input value={(p as any).chilipiperUrl ?? ""} onChange={e => onChange({ ...p, chilipiperUrl: e.target.value || undefined } as any)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
           <p className="text-[11px] text-muted-foreground">If set, opens the scheduling modal after form submit.</p>
         </div>
       </div>

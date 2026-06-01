@@ -109,7 +109,7 @@ export function DandySideImageV6Panel({ props: p, onChange }: Props) {
         {p.ctaAction === "chilipiper" && (
           <div className="space-y-1.5">
             <Label className="text-xs">Chili Piper URL</Label>
-            <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+            <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
           </div>
         )}
       </div>
@@ -140,7 +140,7 @@ export function DandySideImageV6Panel({ props: p, onChange }: Props) {
         {p.secondaryCtaAction === "chilipiper" && (
           <div className="space-y-1.5">
             <Label className="text-xs">Chili Piper URL</Label>
-            <Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => set("secondaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+            <Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => set("secondaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
           </div>
         )}
       </div>

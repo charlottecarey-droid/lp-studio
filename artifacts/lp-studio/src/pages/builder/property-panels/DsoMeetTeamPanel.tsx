@@ -147,7 +147,7 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet, bgOptions }: 
               </div>
               <Input value={m.name} onChange={e => updateMember(i, { name: e.target.value })} placeholder="Name" className="h-8 text-xs" />
               <Input value={m.role} onChange={e => updateMember(i, { role: e.target.value })} placeholder="Role / Title" className="h-8 text-xs" />
-              <Input value={m.email ?? ""} onChange={e => updateMember(i, { email: e.target.value })} placeholder="email@meetdandy.com" className="h-8 text-xs" />
+              <Input value={m.email ?? ""} onChange={e => updateMember(i, { email: e.target.value })} placeholder="email@example.com" className="h-8 text-xs" />
               <Input value={m.chilipiperUrl ?? ""} onChange={e => updateMember(i, { chilipiperUrl: e.target.value })} placeholder="Chili Piper / booking URL" className="h-8 text-xs" />
               <ImagePicker label="Headshot" value={m.photo ?? ""} onChange={url => updateMember(i, { photo: url })} />
             </div>

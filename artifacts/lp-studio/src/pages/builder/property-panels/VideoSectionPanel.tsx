@@ -189,7 +189,7 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
           {props.ctaAction === "chilipiper" && (
             <div>
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
-              <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+              <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://yourcompany.chilipiper.com/round-robin/..." />
               <p className="text-[11px] text-muted-foreground mt-1">Leads are captured on meeting confirmation and synced to CRM.</p>
             </div>
           )}

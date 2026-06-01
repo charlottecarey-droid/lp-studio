@@ -152,7 +152,7 @@ function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; o
     <div className="space-y-2">
       <Input placeholder="Full name" value={v.name ?? ""} onChange={e => onChange({ ...v, name: e.target.value })} className="text-xs h-7" />
       <Input placeholder="Role / Title (e.g. Enterprise AE)" value={v.role ?? ""} onChange={e => onChange({ ...v, role: e.target.value })} className="text-xs h-7" />
-      <Input placeholder="email@meetdandy.com" value={v.email ?? ""} onChange={e => onChange({ ...v, email: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="email@example.com" value={v.email ?? ""} onChange={e => onChange({ ...v, email: e.target.value })} className="text-xs h-7" />
       <Input placeholder="Chili Piper URL" value={v.chilipiperUrl ?? ""} onChange={e => onChange({ ...v, chilipiperUrl: e.target.value })} className="text-xs h-7" />
       <ImagePicker label="Headshot" value={v.photo ?? ""} onChange={url => onChange({ ...v, photo: url })} />
     </div>

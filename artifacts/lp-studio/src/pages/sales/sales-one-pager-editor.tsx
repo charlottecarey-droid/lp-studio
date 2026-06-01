@@ -1096,7 +1096,7 @@ export default function SalesOnePagerEditor() {
                   <EditorSection title="Header" icon={<Ruler className="w-4 h-4 text-muted-foreground" />} open={openSections.header} onToggle={() => toggle("header")}>
                     <div>
                       <span className="text-[11px] font-medium text-muted-foreground">Header Headline</span>
-                      <textarea value={headerCfg.titleText} rows={2} placeholder={`Dandy x ${dsoName}\n90-Day Pilot`}
+                      <textarea value={headerCfg.titleText} rows={2} placeholder={`Acme x ${dsoName}\n90-Day Pilot`}
                         onChange={e => setHeaderCfg(p => ({ ...p, titleText: e.target.value }))}
                         className={`mt-1 ${textareaCls}`} />
                       <p className="text-[10px] text-muted-foreground mt-0.5">Use {"{dso}"} for DSO name. Leave blank for default.</p>
@@ -1262,8 +1262,8 @@ export default function SalesOnePagerEditor() {
                       {comparisonRows.map((row: typeof defaultComparisonRows[0], i: number) => (
                         <div key={i} className="space-y-1.5 p-3 rounded-lg border border-border bg-muted/20">
                           <input type="text" value={row.capability} onChange={e => updateComparisonRow(i, "capability", e.target.value)} placeholder="Capability" className={`${inputCls} font-semibold`} />
-                          <input type="text" value={row.then} onChange={e => updateComparisonRow(i, "then", e.target.value)} placeholder="Then (Dandy 2022)" className={inputCls} />
-                          <input type="text" value={row.now} onChange={e => updateComparisonRow(i, "now", e.target.value)} placeholder="Now (Dandy today)" className={inputCls} />
+                          <input type="text" value={row.then} onChange={e => updateComparisonRow(i, "then", e.target.value)} placeholder="Then (Acme 2022)" className={inputCls} />
+                          <input type="text" value={row.now} onChange={e => updateComparisonRow(i, "now", e.target.value)} placeholder="Now (Acme today)" className={inputCls} />
                         </div>
                       ))}
                     </div>
@@ -1439,7 +1439,7 @@ export default function SalesOnePagerEditor() {
                         value={agreementHeadline}
                         rows={2}
                         onChange={e => setAgreementHeadline(e.target.value)}
-                        placeholder="Summary of Dandy Agreement"
+                        placeholder="Summary of Acme Agreement"
                         className={`mt-1 ${textareaCls}`}
                       />
                     </div>
@@ -1467,7 +1467,7 @@ export default function SalesOnePagerEditor() {
                         value={agreementSubheadline}
                         rows={3}
                         onChange={e => setAgreementSubheadline(e.target.value)}
-                        placeholder="With Dandy, you get a simple, hassle-free month-to-month with no surprise fees."
+                        placeholder="With Acme, you get a simple, hassle-free month-to-month with no surprise fees."
                         className={`mt-1 ${textareaCls}`}
                       />
                     </div>
@@ -1602,7 +1602,7 @@ export default function SalesOnePagerEditor() {
                         value={agreementFooter}
                         rows={2}
                         onChange={e => setAgreementFooter(e.target.value)}
-                        placeholder="For the full terms of agreement, please see the Dandy Practice Agreement."
+                        placeholder="For the full terms of agreement, please see the Acme Practice Agreement."
                         className={`mt-1 ${textareaCls}`}
                       />
                     </div>
@@ -1638,7 +1638,7 @@ export default function SalesOnePagerEditor() {
                         type="url"
                         value={agreementFooterLinkUrl}
                         onChange={e => setAgreementFooterLinkUrl(e.target.value)}
-                        placeholder="https://meetdandy.com/practice-agreement"
+                        placeholder="https://example.com/practice-agreement"
                         className={inputCls}
                       />
                     </div>
@@ -1682,7 +1682,7 @@ export default function SalesOnePagerEditor() {
                             type="email"
                             value={c.email ?? ""}
                             onChange={e => setAgreementFooterContacts(p => p.map((x, j) => j === i ? { ...x, email: e.target.value } : x))}
-                            placeholder="Email (e.g. sales@meetdandy.com)"
+                            placeholder="Email (e.g. sales@example.com)"
                             className={inputCls}
                           />
                         </div>
@@ -1733,7 +1733,7 @@ export default function SalesOnePagerEditor() {
                       <SliderRow label="Footer Height" value={footerCfg.height} min={24} max={72} unit="pt" onChange={v => setFooterCfg(p => ({ ...p, height: v }))} />
                       <div>
                         <label className="text-[11px] font-medium text-muted-foreground">Footer Link</label>
-                        <input type="text" value={footerCfg.link} onChange={e => setFooterCfg(p => ({ ...p, link: e.target.value }))} placeholder="meetdandy.com" className={`mt-1 ${inputCls}`} />
+                        <input type="text" value={footerCfg.link} onChange={e => setFooterCfg(p => ({ ...p, link: e.target.value }))} placeholder="example.com" className={`mt-1 ${inputCls}`} />
                       </div>
                       <div>
                         <label className="text-[11px] font-medium text-muted-foreground">Custom CTA Link Text</label>

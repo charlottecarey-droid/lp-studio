@@ -56,7 +56,7 @@ export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll, bgOptions 
       ) : (
         <div>
           <Label>Chili Piper URL</Label>
-          <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="mt-2 font-mono text-xs" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+          <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="mt-2 font-mono text-xs" placeholder="https://yourcompany.chilipiper.com/round-robin/..." />
           <p className="text-xs text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
         </div>
       )}

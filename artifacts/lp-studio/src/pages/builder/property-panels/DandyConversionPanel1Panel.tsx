@@ -83,7 +83,7 @@ export function DandyConversionPanel1Panel({ props: p, onChange }: Props) {
         {p.primaryCtaAction === "chilipiper" && (
           <div className="space-y-1.5">
             <Label className="text-xs">Chili Piper URL</Label>
-            <Input value={p.primaryChilipiperUrl ?? ""} onChange={e => set("primaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+            <Input value={p.primaryChilipiperUrl ?? ""} onChange={e => set("primaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
           </div>
         )}
       </div>
@@ -115,7 +115,7 @@ export function DandyConversionPanel1Panel({ props: p, onChange }: Props) {
         {p.secondaryCtaAction === "chilipiper" && (
           <div className="space-y-1.5">
             <Label className="text-xs">Chili Piper URL</Label>
-            <Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => set("secondaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+            <Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => set("secondaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
           </div>
         )}
       </div>

@@ -1216,7 +1216,7 @@ const SalesOnePager = () => {
                       type="text"
                       value={agreementContent.footerLinkText ?? ""}
                       onChange={e => setAgreementContent(p => ({ ...p, footerLinkText: e.target.value }))}
-                      placeholder="e.g. Dandy Practice Agreement"
+                      placeholder="e.g. Acme Practice Agreement"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                     />
                   </div>
@@ -1407,7 +1407,7 @@ const SalesOnePager = () => {
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">QR / Link URL (optional)</label>
                     <input
                       type="url"
-                      placeholder="https://meetdandy.com"
+                      placeholder="https://example.com"
                       value={customLinkUrl}
                       onChange={(e) => setCustomLinkUrl(e.target.value)}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"

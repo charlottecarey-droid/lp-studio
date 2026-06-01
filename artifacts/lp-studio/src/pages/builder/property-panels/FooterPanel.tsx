@@ -96,7 +96,7 @@ export function FooterPanel({ props, onChange }: Props) {
         <Input
           value={props.copyrightText}
           onChange={e => set("copyrightText", e.target.value)}
-          placeholder={`© ${new Date().getFullYear()} Dandy. All rights reserved.`}
+          placeholder={`© ${new Date().getFullYear()} Acme. All rights reserved.`}
         />
       </div>
 

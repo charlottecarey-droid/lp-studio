@@ -1725,7 +1725,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[9px] text-muted-foreground uppercase block mb-1">Prefix</label>
-                      <input type="text" value={selectedField.prefix || ""} onChange={e => updateField(selectedField.id, { prefix: e.target.value })} placeholder="e.g. Dandy & " className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                      <input type="text" value={selectedField.prefix || ""} onChange={e => updateField(selectedField.id, { prefix: e.target.value })} placeholder="e.g. Acme & " className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
                     </div>
                     <div>
                       <label className="text-[9px] text-muted-foreground uppercase block mb-1">Suffix</label>
@@ -1785,7 +1785,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
                 <>
                   <div>
                     <label className="text-[9px] text-muted-foreground uppercase block mb-1">URL</label>
-                    <input type="url" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="https://meetdandy.com" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                    <input type="url" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="https://example.com" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
                   </div>
                   <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground">
                     <input type="checkbox" checked={selectedField.underline !== false} onChange={e => updateField(selectedField.id, { underline: e.target.checked })} className="rounded" /> Show underline
@@ -1917,7 +1917,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
                 <>
                   <div>
                     <label className="text-[9px] text-muted-foreground uppercase block mb-1">QR URL</label>
-                    <input type="url" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="https://meetdandy.com" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                    <input type="url" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="https://example.com" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
                   </div>
                   <div>
                     <label className="text-[9px] text-muted-foreground uppercase block mb-1">QR Size (%)</label>

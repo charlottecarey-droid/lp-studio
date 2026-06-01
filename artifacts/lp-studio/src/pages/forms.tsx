@@ -660,7 +660,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                         <Label className="text-[11px] text-muted-foreground">Base URL</Label>
                         <Input
                           className="text-sm font-mono"
-                          placeholder="//go.meetdandy.com"
+                          placeholder="//go.example.com"
                           value={local.marketoConfig?.forms2?.baseUrl ?? ""}
                           onChange={e => setMarketoForms2({ baseUrl: e.target.value })}
                         />

@@ -159,7 +159,7 @@ export function ZigzagFeaturesPanel({ blockType, props, onChange, brandVoiceSet 
                   value={row.chilipiperUrl ?? ""}
                   onChange={e => updateRow(i, "chilipiperUrl", e.target.value)}
                   className="text-xs h-7 font-mono"
-                  placeholder="https://meetdandy.chilipiper.com/..."
+                  placeholder="https://yourcompany.chilipiper.com/..."
                 />
               </div>
             )}

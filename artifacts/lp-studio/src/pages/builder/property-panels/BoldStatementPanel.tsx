@@ -107,7 +107,7 @@ export function BoldStatementPanel({ props, onChange }: Props) {
             <Input
               value={props.chilipiperUrl ?? ""}
               onChange={(e) => update({ chilipiperUrl: e.target.value })}
-              placeholder="https://meetdandy.chilipiper.com/round-robin/..."
+              placeholder="https://yourcompany.chilipiper.com/round-robin/..."
               className="h-8 text-xs font-mono"
             />
           </div>

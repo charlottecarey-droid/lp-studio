@@ -71,7 +71,7 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
           <Input
             value={cfg.modalChilipiperUrl ?? ""}
             onChange={(e) => set({ modalChilipiperUrl: e.target.value })}
-            placeholder="https://meetdandy.chilipiper.com/router/your-router"
+            placeholder="https://yourcompany.chilipiper.com/router/your-router"
             className="h-9 text-xs font-mono"
           />
           <p className="text-[10px] text-muted-foreground mt-1">
@@ -170,7 +170,7 @@ export function CtaButtonModalConfigSection({ ctaAction, value, onChange }: Prop
                   <Input
                     value={cfg.modalChiliPiperHandoffUrl ?? ""}
                     onChange={(e) => set({ modalChiliPiperHandoffUrl: e.target.value })}
-                    placeholder="https://meetdandy.chilipiper.com/router/your-router"
+                    placeholder="https://yourcompany.chilipiper.com/router/your-router"
                     className="h-9 text-xs font-mono"
                   />
                 </div>

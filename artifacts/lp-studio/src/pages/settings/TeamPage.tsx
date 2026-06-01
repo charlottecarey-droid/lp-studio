@@ -338,7 +338,7 @@ function TeamContent() {
                   <label className="text-sm font-medium">Email address</label>
                   <Input
                     type="email"
-                    placeholder="name@meetdandy.com"
+                    placeholder="name@example.com"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     required

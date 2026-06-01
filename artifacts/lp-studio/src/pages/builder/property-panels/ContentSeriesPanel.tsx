@@ -760,7 +760,7 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
                     <Input value={hosts[0].title} onChange={e => updateHost(0, { title: e.target.value })} className="h-7 text-xs" placeholder="CEO & Founder" />
                   </Field>
                   <Field label="Company">
-                    <Input value={hosts[0].company ?? ""} onChange={e => updateHost(0, { company: e.target.value })} className="h-7 text-xs" placeholder="Dandy" />
+                    <Input value={hosts[0].company ?? ""} onChange={e => updateHost(0, { company: e.target.value })} className="h-7 text-xs" placeholder="Acme" />
                   </Field>
                   <Field label="Bio">
                     <Textarea value={hosts[0].bio ?? ""} onChange={e => updateHost(0, { bio: e.target.value })} className="text-xs min-h-[3rem]" rows={3} placeholder="A brief bio…" />

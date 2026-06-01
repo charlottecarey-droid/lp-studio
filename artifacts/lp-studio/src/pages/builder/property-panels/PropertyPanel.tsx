@@ -1064,11 +1064,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               label="Logo (optional)"
               value={p.logoUrl ?? ""}
               onChange={v => onChange({ ...block, props: { ...p, logoUrl: v } })}
-              placeholder="Defaults to Dandy logo"
+              placeholder="Defaults to your logo"
             />
             <div className="space-y-1.5">
               <Label className="text-xs">Logo alt text</Label>
-              <Input value={p.logoAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, logoAlt: e.target.value } })} placeholder="Dandy" className="h-8 text-xs" />
+              <Input value={p.logoAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, logoAlt: e.target.value } })} placeholder="Acme" className="h-8 text-xs" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Partner / company name (optional)</Label>
@@ -1131,7 +1131,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               {p.primaryCtaAction === "chilipiper" && (
                 <Input
                   className="h-8 text-xs font-mono"
-                  placeholder="https://meetdandy.chilipiper.com/router/your-router"
+                  placeholder="https://yourcompany.chilipiper.com/router/your-router"
                   value={p.chilipiperUrl ?? ""}
                   onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })}
                 />
@@ -1446,7 +1446,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chili Piper</Label>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Chili Piper URL</Label>
-                  <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs" />
+                  <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs" />
                   <p className="text-[11px] text-muted-foreground">When mode is set to Chili Piper, this URL opens the scheduling popup.</p>
                 </div>
               </div>
@@ -1679,7 +1679,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Quote</Label>
-                      <Textarea value={c.quote} onChange={e => updateCase(i, { quote: e.target.value })} rows={2} placeholder="Dandy transformed…" className="text-xs mt-1 resize-none" />
+                      <Textarea value={c.quote} onChange={e => updateCase(i, { quote: e.target.value })} rows={2} placeholder="Acme transformed…" className="text-xs mt-1 resize-none" />
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Attribution</Label>
@@ -1922,7 +1922,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Description</Label>
-                      <Textarea value={step.desc} onChange={e => updateStep(i, { desc: e.target.value })} rows={2} placeholder="Dandy deploys…" className="text-xs mt-1 resize-none" />
+                      <Textarea value={step.desc} onChange={e => updateStep(i, { desc: e.target.value })} rows={2} placeholder="Acme deploys…" className="text-xs mt-1 resize-none" />
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -2007,7 +2007,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             {p.primaryCtaMode === "chilipiper" && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Chili Piper URL</Label>
-                <Input value={p.primaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryChilipiperUrl: e.target.value } })} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+                <Input value={p.primaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryChilipiperUrl: e.target.value } })} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/round-robin/..." />
               </div>
             )}
             {(p.primaryCtaMode === "modal-form" || p.primaryCtaMode === "modal-chilipiper") && (
@@ -2131,7 +2131,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             {p.ctaMode === "chilipiper" && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Chili Piper URL</Label>
-                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} className="font-mono" placeholder="https://meetdandy.chilipiper.com/..." />
+                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} className="font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
               </div>
             )}
             {(p.ctaMode === "modal-form" || p.ctaMode === "modal-chilipiper") && (
@@ -2712,7 +2712,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   {p.submitMode === "modal-chilipiper" && (
                     <div className="space-y-1.5">
                       <Label className="text-xs">Chili Piper booking URL</Label>
-                      <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs" />
+                      <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://yourcompany.chilipiper.com/router/…" className="h-8 text-xs" />
                     </div>
                   )}
 
@@ -2782,7 +2782,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               {(p.primaryCtaMode ?? "link") === "chilipiper" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Chili Piper URL</Label>
-                  <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs" />
+                  <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs" />
                   <p className="text-[11px] text-muted-foreground">Opens the scheduling popup when the button is clicked.</p>
                 </div>
               )}
@@ -2945,7 +2945,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               {p.ctaAction === "chilipiper" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Chili Piper URL</Label>
-                  <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs font-mono" />
+                  <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://yourcompany.chilipiper.com/router/…" className="h-8 text-xs font-mono" />
                 </div>
               )}
 
@@ -2960,7 +2960,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               {p.submitMode === "modal-chilipiper" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Chili Piper booking URL</Label>
-                  <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs" />
+                  <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://yourcompany.chilipiper.com/router/…" className="h-8 text-xs" />
                 </div>
               )}
 
@@ -2972,7 +2972,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <Input
                       value={p.modalChiliPiperHandoffUrl ?? ""}
                       onChange={e => onChange({ ...block, props: { ...p, modalChiliPiperHandoffUrl: e.target.value || undefined } })}
-                      placeholder="https://meetdandy.chilipiper.com/router/your-router"
+                      placeholder="https://yourcompany.chilipiper.com/router/your-router"
                       className="h-8 text-xs font-mono"
                     />
                   </div>
@@ -4055,7 +4055,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             {p.ctaMode === "chilipiper" && (
               <div className="space-y-1.5">
                 <Label className="text-xs">Chili Piper URL</Label>
-                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} className="font-mono h-8 text-xs" placeholder="https://meetdandy.chilipiper.com/..." />
+                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} className="font-mono h-8 text-xs" placeholder="https://yourcompany.chilipiper.com/..." />
               </div>
             )}
             {(p.ctaMode === "modal-form" || p.ctaMode === "modal-chilipiper") && (
@@ -4352,7 +4352,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chili Piper</Label>
               <div className="space-y-1.5">
                 <Label className="text-xs">Chili Piper URL</Label>
-                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs" />
+                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs" />
                 <p className="text-xs text-muted-foreground">Email will be auto-prefilled when the form is submitted.</p>
               </div>
             </div>
@@ -4410,7 +4410,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Old Way Label</Label><Input value={p.oldWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, oldWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Old Way" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">New Way Label</Label><Input value={p.newWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, newWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Dandy Way" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">New Way Label</Label><Input value={p.newWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, newWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Acme Way" /></div>
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{bgOptions.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             {(["oldWayItems", "newWayItems"] as const).map(side => (
@@ -4708,7 +4708,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             )}
             {p.ctaMode === "chilipiper" && (
-              <div className="space-y-1.5"><Label className="text-xs">Chili Piper URL</Label><Input value={p.chilipiperUrl ?? p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Chili Piper URL</Label><Input value={p.chilipiperUrl ?? p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
             )}
             <div className="space-y-1.5"><Label className="text-xs">CTA Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
             {(p.ctaMode === "modal-form" || p.ctaMode === "modal-chilipiper") && (
@@ -4896,7 +4896,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText", "trustLine"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "", secondaryCtaText: p.secondaryCtaText ?? "", trustLine: p.trustLine ?? "" }} />
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow (co-brand)</Label>
-              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} placeholder="Heartland Dental × Dandy" fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} placeholder="Heartland Dental × Acme" fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -4924,7 +4924,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1.5"><Label className="text-xs">Primary CTA URL</Label><Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
               )}
               {p.primaryCtaMode === "chilipiper" && (
-                <div className="space-y-1.5"><Label className="text-xs">Primary Chili Piper URL</Label><Input value={p.primaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryChilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Primary Chili Piper URL</Label><Input value={p.primaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryChilipiperUrl: e.target.value || undefined } })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
               )}
               <div className="space-y-1.5 col-span-2"><Label className="text-xs">Primary CTA Action</Label><Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Open URL</SelectItem><SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem><SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem><SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem></SelectContent></Select></div>
             </div>
@@ -4937,7 +4937,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1.5"><Label className="text-xs">Secondary CTA URL</Label><Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
               )}
               {p.secondaryCtaMode === "chilipiper" && (
-                <div className="space-y-1.5"><Label className="text-xs">Secondary Chili Piper URL</Label><Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryChilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Secondary Chili Piper URL</Label><Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryChilipiperUrl: e.target.value || undefined } })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" /></div>
               )}
               <div className="space-y-1.5 col-span-2"><Label className="text-xs">Secondary CTA Action</Label><Select value={p.secondaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, secondaryCtaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Open URL</SelectItem><SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem><SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem><SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem></SelectContent></Select></div>
             </div>
@@ -4972,7 +4972,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Label className="text-xs">Trust Line</Label>
                 <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, trustLine: (p.trustLine ?? "") + token } })} />
               </div>
-              <AiTextField type="input" value={p.trustLine ?? ""} onChange={v => onChange({ ...block, props: { ...p, trustLine: v || undefined } })} placeholder="Join 200+ practices already using Dandy" fieldLabel="Trust Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "trustLine", p.trustLine ?? "", { headline: p.headline ?? "" })} />
+              <AiTextField type="input" value={p.trustLine ?? ""} onChange={v => onChange({ ...block, props: { ...p, trustLine: v || undefined } })} placeholder="Join 200+ practices already using Acme" fieldLabel="Trust Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "trustLine", p.trustLine ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{bgOptions.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-xs">Height</Label><Select value={p.heroHeight ?? "default"} onValueChange={v => onChange({ ...block, props: { ...p, heroHeight: v as "compact" | "default" | "large" | "full" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="compact" className="text-xs">Compact</SelectItem><SelectItem value="default" className="text-xs">Default</SelectItem><SelectItem value="large" className="text-xs">Large</SelectItem><SelectItem value="full" className="text-xs">Full Screen</SelectItem></SelectContent></Select></div>

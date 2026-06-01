@@ -75,7 +75,7 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
 
       <SectionHeader>Pass card</SectionHeader>
       <Field label="Pass label">
-        <Input className="h-8 text-xs" value={p.passLabel ?? ""} onChange={(e) => set("passLabel", e.target.value)} placeholder="DANDY · INSIDE PASS" />
+        <Input className="h-8 text-xs" value={p.passLabel ?? ""} onChange={(e) => set("passLabel", e.target.value)} placeholder="ACME · INSIDE PASS" />
       </Field>
       <Field label="Pass serial">
         <Input className="h-8 text-xs font-mono" value={p.passSerial ?? ""} onChange={(e) => set("passSerial", e.target.value)} placeholder="№ INSIDE-2026-0418" />
@@ -174,7 +174,7 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
       )}
       {p.primaryCtaAction === "chilipiper" && (
         <Field label="Chili Piper URL">
-          <Input className="h-8 text-xs font-mono" value={p.chilipiperUrl ?? ""} onChange={(e) => set("chilipiperUrl", e.target.value)} placeholder="https://meetdandy.chilipiper.com/router/…" />
+          <Input className="h-8 text-xs font-mono" value={p.chilipiperUrl ?? ""} onChange={(e) => set("chilipiperUrl", e.target.value)} placeholder="https://yourcompany.chilipiper.com/router/…" />
         </Field>
       )}
       {p.primaryCtaAction === "video-modal" && (
@@ -211,12 +211,12 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
       </Field>
       {(p.secondaryCtaAction ?? "url") === "url" && (
         <Field label="URL">
-          <Input className="h-8 text-xs" value={p.secondaryCtaUrl ?? ""} onChange={(e) => set("secondaryCtaUrl", e.target.value)} placeholder="mailto:press@meetdandy.com" />
+          <Input className="h-8 text-xs" value={p.secondaryCtaUrl ?? ""} onChange={(e) => set("secondaryCtaUrl", e.target.value)} placeholder="mailto:press@example.com" />
         </Field>
       )}
       {p.secondaryCtaAction === "chilipiper" && (
         <Field label="Chili Piper URL">
-          <Input className="h-8 text-xs font-mono" value={p.secondaryChilipiperUrl ?? ""} onChange={(e) => set("secondaryChilipiperUrl", e.target.value)} placeholder="https://meetdandy.chilipiper.com/router/…" />
+          <Input className="h-8 text-xs font-mono" value={p.secondaryChilipiperUrl ?? ""} onChange={(e) => set("secondaryChilipiperUrl", e.target.value)} placeholder="https://yourcompany.chilipiper.com/router/…" />
         </Field>
       )}
       {p.secondaryCtaAction === "video-modal" && (

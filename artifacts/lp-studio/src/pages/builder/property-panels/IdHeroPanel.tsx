@@ -63,7 +63,7 @@ function CtaEditor({
       {action === "chilipiper" && (
         <div>
           <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-          <Input value={chilipiperUrl} onChange={(e) => onChilipiperUrl(e.target.value)} className="h-8 text-xs font-mono" placeholder="https://meetdandy.chilipiper.com/router/…" />
+          <Input value={chilipiperUrl} onChange={(e) => onChilipiperUrl(e.target.value)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/router/…" />
         </div>
       )}
       {action === "video-modal" && (
