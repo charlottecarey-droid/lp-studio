@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
-  getButtonClasses, getSecondaryButtonClasses,
+  getButtonClasses, getSecondaryButtonClasses, getImportedButtonInlineStyle,
   getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass,
   isValidHex,
   getClaimText, isClaimApproved,
@@ -2382,13 +2382,13 @@ export default function BrandSettings() {
               <div className="w-16 h-3 rounded-full opacity-80" style={{ backgroundColor: config.accentColor }} />
               <span style={{ color: config.navText }} className="text-[10px] font-mono opacity-50">logo</span>
             </div>
-            <div className={previewBtnClass} style={{ backgroundColor: config.ctaBackground, color: config.ctaText }}>
+            <div className={previewBtnClass} style={{ backgroundColor: config.ctaBackground, color: config.ctaText, ...getImportedButtonInlineStyle(config) }}>
               {config.navCtaText}
             </div>
           </div>
           <div style={{ backgroundColor: config.primaryColor }} className="px-6 py-10 text-center">
             <p className="text-white/40 text-xs uppercase tracking-widest mb-4">Hero section</p>
-            <div className={previewBtnClass} style={{ backgroundColor: config.ctaBackground, color: config.ctaText, display: "inline-block" }}>
+            <div className={previewBtnClass} style={{ backgroundColor: config.ctaBackground, color: config.ctaText, display: "inline-block", ...getImportedButtonInlineStyle(config) }}>
               {config.defaultCtaText}
             </div>
           </div>
@@ -3000,7 +3000,7 @@ export default function BrandSettings() {
 
             <div className="flex items-center gap-6 p-5 bg-muted/30 rounded-xl border border-border/50">
               <p className="text-sm text-muted-foreground flex-shrink-0">Preview:</p>
-              <div className={previewBtnClass} style={{ backgroundColor: config.ctaBackground, color: config.ctaText }}>
+              <div className={previewBtnClass} style={{ backgroundColor: config.ctaBackground, color: config.ctaText, ...getImportedButtonInlineStyle(config) }}>
                 {config.defaultCtaText}
               </div>
               <div

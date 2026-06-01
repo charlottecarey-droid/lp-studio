@@ -174,7 +174,7 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId 
             props.cta1,
             cta1Action,
             onFieldChange ? (v) => onFieldChange({ ...props, cta1: { ...props.cta1, label: v } }) : undefined,
-            cn(getButtonClasses(brand), "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"),
+            cn(getButtonClasses(brand, "", { imported: false }), "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"),
           )}
           {renderCta(
             props.cta2,

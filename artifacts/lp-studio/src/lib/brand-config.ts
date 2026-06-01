@@ -922,7 +922,11 @@ const BODY_TEXT_SIZE: Record<BodyTextSize, string> = {
   lg: "text-lg",
 };
 
-export function getButtonClasses(brand: BrandConfig, extra = ""): string {
+export function getButtonClasses(
+  brand: BrandConfig,
+  extra = "",
+  opts: { imported?: boolean } = {},
+): string {
   return [
     BUTTON_RADIUS[brand.buttonRadius],
     BUTTON_SHADOW[brand.buttonShadow],
@@ -932,8 +936,79 @@ export function getButtonClasses(brand: BrandConfig, extra = ""): string {
     BUTTON_CASE[brand.buttonTextCase],
     BUTTON_SPACING[brand.buttonLetterSpacing],
     "text-sm transition-all",
+    // Stable hook so the imported "Primary button CSS" (buttonStyleRaw) can be
+    // applied page-wide via a single injected stylesheet (see getBrandButtonCss).
+    // Only primary CTAs get this class — pass { imported: false } for
+    // outline/secondary buttons that happen to reuse this helper for sizing.
+    opts.imported === false ? "" : "lp-brand-btn",
     extra,
   ].filter(Boolean).join(" ");
+}
+
+/**
+ * Reject CSS values that could break out of a declaration or the surrounding
+ * <style> element. buttonStyleRaw is populated by the URL importer (scraped
+ * from untrusted external sites) and editable by tenants, so any value baked
+ * into a published <style> must be sanitized. Returns the trimmed value when
+ * safe, or null to skip the declaration entirely.
+ */
+function sanitizeCssValue(v: string): string | null {
+  const t = v.trim();
+  if (!t) return null;
+  if (/[<>{}\\;@]/.test(t)) return null;
+  if (t.includes("/*") || t.includes("*/")) return null;
+  return t;
+}
+
+/**
+ * Inline-style form of the imported "Primary button CSS" (buttonStyleRaw).
+ * Used for the Brand Settings live preview, where a React style object wins
+ * over the utility classes from getButtonClasses. Only emits properties that
+ * are actually present so an empty import leaves buttons untouched.
+ */
+export function getImportedButtonInlineStyle(brand: BrandConfig): CSSProperties {
+  const raw = brand.buttonStyleRaw;
+  if (!raw) return {};
+  const s: CSSProperties = {};
+  if (raw.background?.value) s.background = raw.background.value;
+  if (raw.boxShadow) s.boxShadow = raw.boxShadow;
+  if (typeof raw.radiusPx === "number") s.borderRadius = `${raw.radiusPx}px`;
+  if (raw.paddingX) { s.paddingLeft = raw.paddingX; s.paddingRight = raw.paddingX; }
+  if (raw.paddingY) { s.paddingTop = raw.paddingY; s.paddingBottom = raw.paddingY; }
+  if (typeof raw.fontWeight === "number") s.fontWeight = raw.fontWeight;
+  if (raw.textTransform) s.textTransform = raw.textTransform as CSSProperties["textTransform"];
+  return s;
+}
+
+/**
+ * Stylesheet form of the imported "Primary button CSS". Returns a single
+ * `.lp-brand-btn { … }` rule (with !important so it overrides each block's
+ * inline backgroundColor/utility classes) or "" when nothing is imported.
+ * Inject once per rendered landing page (preview + prerender) so every
+ * primary CTA picks up the brand's real button styling.
+ */
+export function getBrandButtonCss(brand: BrandConfig): string {
+  const raw = brand.buttonStyleRaw;
+  if (!raw) return "";
+  const decls: string[] = [];
+  const bg = raw.background?.value ? sanitizeCssValue(raw.background.value) : null;
+  if (bg) decls.push(`background:${bg} !important`);
+  const shadow = raw.boxShadow ? sanitizeCssValue(raw.boxShadow) : null;
+  if (shadow) decls.push(`box-shadow:${shadow} !important`);
+  if (typeof raw.radiusPx === "number" && Number.isFinite(raw.radiusPx)) {
+    decls.push(`border-radius:${raw.radiusPx}px !important`);
+  }
+  const px = raw.paddingX ? sanitizeCssValue(raw.paddingX) : null;
+  if (px) decls.push(`padding-left:${px} !important`, `padding-right:${px} !important`);
+  const py = raw.paddingY ? sanitizeCssValue(raw.paddingY) : null;
+  if (py) decls.push(`padding-top:${py} !important`, `padding-bottom:${py} !important`);
+  if (typeof raw.fontWeight === "number" && Number.isFinite(raw.fontWeight)) {
+    decls.push(`font-weight:${raw.fontWeight} !important`);
+  }
+  const tt = raw.textTransform ? sanitizeCssValue(raw.textTransform) : null;
+  if (tt) decls.push(`text-transform:${tt} !important`);
+  if (decls.length === 0) return "";
+  return `.lp-brand-btn{${decls.join(";")}}`;
 }
 
 export function getSecondaryButtonClasses(brand: BrandConfig): string {
