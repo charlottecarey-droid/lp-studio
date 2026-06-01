@@ -1272,7 +1272,7 @@ export default function BuilderEditor() {
   }, [pageIdNum]);
 
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
-  const { reviews, createReview, deleteReview } = useReviews(pageIdNum);
+  const { reviews, createReview, deleteReview, deleteReviews } = useReviews(pageIdNum);
   const { user } = useAuth();
   const tenantIndustry = user?.tenantIndustry ?? null;
   const authDisplayName = user?.name || user?.email || "";
@@ -2845,6 +2845,7 @@ export default function BuilderEditor() {
         reviews={reviews}
         onCreateReview={createReview}
         onDeleteReview={deleteReview}
+        onDeleteReviews={deleteReviews}
       />
 
       {/* Save as Template Dialog */}

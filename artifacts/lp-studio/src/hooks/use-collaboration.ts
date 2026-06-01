@@ -157,7 +157,21 @@ export function useReviews(pageId: number) {
     return false;
   }, [pageId, fetchReviews]);
 
-  return { reviews, loading, fetchReviews, createReview, deleteReview };
+  const deleteReviews = useCallback(async (reviewIds: number[]): Promise<boolean> => {
+    if (reviewIds.length === 0) return false;
+    const res = await fetch(`${API_BASE}/lp/pages/${pageId}/reviews/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewIds }),
+    });
+    if (res.ok) {
+      await fetchReviews();
+      return true;
+    }
+    return false;
+  }, [pageId, fetchReviews]);
+
+  return { reviews, loading, fetchReviews, createReview, deleteReview, deleteReviews };
 }
 
 export function usePresence(pageId: number, displayName: string) {

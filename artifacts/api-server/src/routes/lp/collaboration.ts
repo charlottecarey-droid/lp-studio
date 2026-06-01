@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, gt, sql } from "drizzle-orm";
+import { eq, and, gt, sql, inArray } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
 import {
@@ -402,6 +402,30 @@ router.delete("/lp/pages/:pageId/reviews/:reviewId", async (req, res): Promise<v
 
   if (!deleted) { res.status(404).json({ error: "Review not found" }); return; }
   res.json({ success: true, restore: { reviews: [deleted] } });
+});
+
+const BulkDeleteReviewsBody = z.object({
+  reviewIds: z.array(z.number().int()).min(1),
+});
+
+// Batch-delete review links. Scoped to the page in the URL (same posture as the
+// single-delete route) and returns the removed rows so the client can offer Undo.
+router.post("/lp/pages/:pageId/reviews/bulk-delete", async (req, res): Promise<void> => {
+  const pageId = parseInt(req.params.pageId, 10);
+  if (isNaN(pageId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const parsed = BulkDeleteReviewsBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const deleted = await db
+    .delete(lpPageReviewsTable)
+    .where(and(
+      eq(lpPageReviewsTable.pageId, pageId),
+      inArray(lpPageReviewsTable.id, parsed.data.reviewIds),
+    ))
+    .returning();
+
+  res.json({ success: true, deletedCount: deleted.length, restore: { reviews: deleted } });
 });
 
 // Restore review links deleted via Undo. pageId is forced from the URL so a

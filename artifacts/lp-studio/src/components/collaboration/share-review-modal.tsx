@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link2, Copy, CheckCheck, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { PageReview } from "@/hooks/use-collaboration";
@@ -25,12 +26,15 @@ interface ShareReviewModalProps {
   reviews: PageReview[];
   onCreateReview: () => Promise<{ token: string; reviewUrl: string } | null>;
   onDeleteReview: (reviewId: number) => Promise<boolean>;
+  onDeleteReviews: (reviewIds: number[]) => Promise<boolean>;
 }
 
-export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onCreateReview, onDeleteReview }: ShareReviewModalProps) {
+export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onCreateReview, onDeleteReview, onDeleteReviews }: ShareReviewModalProps) {
   const [copied, setCopied] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deletingBatch, setDeletingBatch] = useState(false);
   const [latestReviewUrl, setLatestReviewUrl] = useState<string | null>(null);
 
   const latestReview = [...reviews].sort(
@@ -67,6 +71,12 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
       if (latestReview?.id === reviewId) {
         setLatestReviewUrl(null);
       }
+      setSelectedIds(prev => {
+        if (!prev.has(reviewId)) return prev;
+        const next = new Set(prev);
+        next.delete(reviewId);
+        return next;
+      });
     } finally {
       setDeletingId(null);
     }
@@ -75,6 +85,38 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
   const sortedReviews = [...reviews].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
+
+  const allSelected = sortedReviews.length > 0 && sortedReviews.every(r => selectedIds.has(r.id));
+
+  const toggleOne = (reviewId: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(reviewId)) next.delete(reviewId);
+      else next.add(reviewId);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(sortedReviews.map(r => r.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setDeletingBatch(true);
+    try {
+      const ok = await onDeleteReviews(ids);
+      if (ok) {
+        if (latestReview && ids.includes(latestReview.id)) {
+          setLatestReviewUrl(null);
+        }
+        setSelectedIds(new Set());
+      }
+    } finally {
+      setDeletingBatch(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -156,10 +198,36 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
 
           {sortedReviews.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Review History</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Review History</p>
+                {selectedIds.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBulkDelete}
+                    disabled={deletingBatch}
+                    className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    {deletingBatch ? "Deleting..." : `Delete ${selectedIds.size}`}
+                  </Button>
+                )}
+              </div>
+              {sortedReviews.length > 1 && (
+                <label className="flex items-center gap-2 mb-1.5 px-3 cursor-pointer select-none w-fit">
+                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all review links" />
+                  <span className="text-[11px] text-muted-foreground">{allSelected ? "Deselect all" : "Select all"}</span>
+                </label>
+              )}
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {sortedReviews.map(review => (
-                  <div key={review.id} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-lg bg-muted/30 border border-border/40">
+                  <div key={review.id} className="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-muted/30 border border-border/40">
+                    <Checkbox
+                      checked={selectedIds.has(review.id)}
+                      onCheckedChange={() => toggleOne(review.id)}
+                      aria-label="Select review link"
+                      className="shrink-0"
+                    />
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-medium shrink-0 ${statusColor(review.status)}`}>
                         {statusLabel(review.status)}

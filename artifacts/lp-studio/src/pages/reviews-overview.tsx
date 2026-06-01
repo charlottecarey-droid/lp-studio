@@ -88,7 +88,7 @@ function ShareModalWrapper({
   onClose: () => void;
   onReviewsChanged: () => void;
 }) {
-  const { reviews, createReview, deleteReview } = useReviews(pageId);
+  const { reviews, createReview, deleteReview, deleteReviews } = useReviews(pageId);
 
   const handleCreate = async () => {
     const result = await createReview();
@@ -102,6 +102,12 @@ function ShareModalWrapper({
     return ok;
   };
 
+  const handleDeleteMany = async (reviewIds: number[]) => {
+    const ok = await deleteReviews(reviewIds);
+    if (ok) onReviewsChanged();
+    return ok;
+  };
+
   return (
     <ShareReviewModal
       open
@@ -111,6 +117,7 @@ function ShareModalWrapper({
       reviews={reviews}
       onCreateReview={handleCreate}
       onDeleteReview={handleDelete}
+      onDeleteReviews={handleDeleteMany}
     />
   );
 }
