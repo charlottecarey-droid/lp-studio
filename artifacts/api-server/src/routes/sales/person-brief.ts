@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -46,11 +47,12 @@ async function generateContactBriefText(args: {
   account: typeof salesAccountsTable.$inferSelect;
   briefing: BriefingData | null;
   researchText?: ResearchText;
+  brandCtx: SalesBrandContext;
 }): Promise<string> {
   const ai = getAIClient();
   if (!ai) throw new Error("No AI client configured");
 
-  const { contact, account, briefing, researchText } = args;
+  const { contact, account, briefing, researchText, brandCtx } = args;
   const firstName = contact.firstName ?? "";
   const lastName  = contact.lastName  ?? "";
   const fullName  = [firstName, lastName].filter(Boolean).join(" ") || "this contact";
@@ -149,14 +151,53 @@ async function generateContactBriefText(args: {
   const hasResearch = !!(researchText?.person || researchText?.linkedin || researchText?.company || researchText?.site);
   const researchIsWeak = !researchText?.person && !researchText?.linkedin && !researchText?.company;
 
-  const prompt = `You are a sales intelligence analyst preparing a pre-call brief for a B2B sales rep at Dandy (a dental lab and clinical performance platform for DSOs).
+  // ─── Brand-aware framing (per-tenant; no hardcoded "Dandy") ───
+  // Dandy (tenant 1) is seeded with brandName "Dandy" and a briefBlurb
+  // "(a dental lab and clinical performance platform for DSOs)", so the
+  // intro + angle header below render identically to the old hardcoded
+  // copy. Other tenants supply their own — and a tenant with no Sales
+  // Console config falls back to brand-neutral phrasing (no "Dandy",
+  // no empty gaps).
+  // Intro framing mirrors the source priority Generate Email / draft-email
+  // use (salesIntroLine → briefBlurb → brand-neutral), but adapted to the
+  // brief's grammar: the analyst intro needs a *noun phrase* ("a B2B sales
+  // rep at X"), and Dandy's seeded salesIntroLine is an email-rep voice line,
+  // so we surface salesIntroLine as positioning context rather than splicing
+  // it mid-sentence. briefBlurb still anchors the framing — which keeps Dandy
+  // byte-identical (brandName "Dandy" + parenthetical blurb).
+  const repBrandName = brandCtx.brandName || "our company";
+  const briefBlurb   = brandCtx.briefBlurb.trim();
+  const salesIntroLine = brandCtx.salesIntroLine.trim();
+  const repFraming = briefBlurb
+    ? `a B2B sales rep at ${repBrandName} ${briefBlurb}`
+    : `a B2B sales rep at ${repBrandName}`;
+  const angleHeader = brandCtx.brandName
+    ? `${brandCtx.brandName.toUpperCase()} ANGLE`
+    : "RECOMMENDED ANGLE";
+  // Possessive-free subject so the no-brand fallback reads naturally:
+  // "the single best Dandy messaging pillar" vs "the single best messaging pillar".
+  const angleSubject = brandCtx.brandName ? `${brandCtx.brandName} ` : "";
+  const valuePropPairs = Array.isArray(brandCtx.valuePropPairs) ? brandCtx.valuePropPairs : [];
+  const positioningLines = [
+    salesIntroLine && `Brand positioning / voice: ${salesIntroLine}`,
+    ...valuePropPairs.map(p => {
+      const rolesLine = (p.roles ?? []).filter(Boolean).join(" / ");
+      const header = rolesLine ? `For ${rolesLine} → ${p.theme}` : p.theme;
+      return [header, p.pain && `  Pain: ${p.pain}`, p.proof && `  Proof: ${p.proof}`].filter(Boolean).join("\n");
+    }),
+  ].filter(Boolean);
+  const valuePropBlock = positioningLines.length > 0
+    ? `\n=== ${repBrandName.toUpperCase()} POSITIONING & VALUE PROPS (pick the angle that best fits this person's role) ===\n${positioningLines.join("\n")}\n`
+    : "";
+
+  const prompt = `You are a sales intelligence analyst preparing a pre-call brief for ${repFraming}.
 
 Today is ${todayStr}. Recency cutoff: ${cutoffStr}. Only cite things that occurred after ${cutoffStr} as "recent."
 
 ${hasResearch ? `=== WEB RESEARCH ===\n${researchBlock}` : "No web research was available for this contact."}
 
 ${briefingBlock || "No account briefing available."}
-
+${valuePropBlock}
 === CONTACT ===
 ${contactContext}
 
@@ -176,8 +217,8 @@ Bullet points: specific talks, quotes, posts, articles, career moves, or company
 **CONVERSATION STARTERS**
 3 numbered openers a sales rep could use on a cold call or meeting. Make them specific to this person and ${company} — reference their background, role-specific pain points, company details from the briefing, or a recent signal if available. NEVER generic.
 
-**DANDY ANGLE**
-1–2 sentences: the single best Dandy messaging pillar for this person based on their role and background, and the most relevant proof point to lead with.
+**${angleHeader}**
+1–2 sentences: the single best ${angleSubject}messaging pillar or value prop for this person based on their role and background, and the most relevant proof point to lead with. Draw on the positioning, value props, and the account briefing's fit analysis above; do not invent proof points.
 
 Rules:
 - Be specific. Use names, numbers, and dates when found in the research or briefing.
@@ -315,7 +356,8 @@ router.post("/person-brief", requireAuth, async (req, res): Promise<void> => {
     }
 
     const briefing = await loadAccountBriefing(tenantId, accountId);
-    const brief = await generateContactBriefText({ contact, account, briefing, researchText });
+    const brandCtx = await getSalesBrandContext(tenantId);
+    const brief = await generateContactBriefText({ contact, account, briefing, researchText, brandCtx });
 
     // Persist (best-effort — don't fail the response if the write hiccups)
     await persistContactBrief(tenantId, contactId, brief).catch((err) => {
@@ -387,7 +429,8 @@ router.post("/contacts/:id/brief", requireAuth, async (req, res): Promise<void> 
     }
 
     const briefing = await loadAccountBriefing(tenantId, account.id);
-    const brief = await generateContactBriefText({ contact, account, briefing });
+    const brandCtx = await getSalesBrandContext(tenantId);
+    const brief = await generateContactBriefText({ contact, account, briefing, brandCtx });
     const row = await persistContactBrief(tenantId, contactId, brief);
     res.json(row);
   } catch (err) {
