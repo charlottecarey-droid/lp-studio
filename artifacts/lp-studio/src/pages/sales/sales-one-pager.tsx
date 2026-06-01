@@ -90,6 +90,7 @@ async function saveLayoutDefault(key: string, config: Record<string, any>): Prom
   try {
     await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, {
       method: "PUT",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ config }),
     });
@@ -101,7 +102,7 @@ async function deleteLayoutDefault(key: string): Promise<void> {
     localStorage.removeItem(`lp_studio_${key}`);
   } catch {}
   try {
-    await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, { method: "DELETE" });
+    await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, { method: "DELETE", credentials: "include" });
   } catch {}
 }
 

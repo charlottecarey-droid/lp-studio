@@ -58,7 +58,7 @@ async function saveLayoutDefault(key: string, config: Record<string, any>): Prom
   try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(config)); } catch {}
   try {
     await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
+      method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
     });
   } catch {}
 }
