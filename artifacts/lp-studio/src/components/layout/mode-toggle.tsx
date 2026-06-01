@@ -49,13 +49,13 @@ export function ModeToggle() {
     // tenant already pays for Sales but whose role just lacks access.
     const pill = (
       <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 w-full">
-        <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-foreground/15" />
+        <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-primary" />
         <ModeButton
           active={true}
           onClick={() => {}}
           icon={<Megaphone className="w-3 h-3" />}
           label="Marketing"
-          trailing={planLocksToMarketing ? <Lock className="w-3 h-3 opacity-60" data-testid="sales-locked-icon" /> : undefined}
+          trailing={planLocksToMarketing ? <Lock className="w-3 h-3 opacity-70" data-testid="sales-locked-icon" /> : undefined}
         />
       </div>
     );
@@ -73,7 +73,7 @@ export function ModeToggle() {
   if (lockedMode === "sales") {
     return (
       <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 w-full">
-        <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-foreground/15" />
+        <div className="absolute top-0.5 bottom-0.5 w-[calc(100%-4px)] left-0.5 rounded-[5px] bg-sidebar-primary" />
         <ModeButton
           active={true}
           onClick={() => {}}
@@ -87,7 +87,7 @@ export function ModeToggle() {
   return (
     <div className="relative flex items-center bg-sidebar-foreground/5 border border-sidebar-foreground/8 rounded-md p-0.5 gap-0 w-full">
       <div
-        className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-[5px] bg-sidebar-foreground/15 transition-all duration-200 ease-out"
+        className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-[5px] bg-sidebar-primary transition-all duration-200 ease-out"
         style={{ left: isSales ? "calc(50% + 2px)" : "2px" }}
       />
       <ModeButton
@@ -118,8 +118,8 @@ function ModeButton({ active, onClick, icon, label, trailing }: {
       onClick={onClick}
       className={`relative z-10 flex items-center justify-center gap-1.5 flex-1 py-1 rounded-[5px] text-[11px] font-medium tracking-wide transition-colors duration-150 ${
         active
-          ? "text-sidebar-foreground"
-          : "text-sidebar-foreground/40 hover:text-sidebar-foreground/70"
+          ? "text-sidebar-primary-foreground"
+          : "text-sidebar-foreground/65 hover:text-sidebar-foreground/90"
       }`}
     >
       {icon}
