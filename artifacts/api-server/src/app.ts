@@ -203,6 +203,35 @@ app.post(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+// Encoded-body unwrapper. Some payloads (the superadmin email-shell / template
+// editor) carry raw email HTML in the request body. The production edge WAF
+// (Cloudflare managed rules) blocks such bodies with a 403 when they contain
+// patterns like template tokens inside an href (`<a href="{{unsubscribeUrl}}">`).
+// To avoid the false positive, those clients base64-wrap the JSON payload as
+// `{ "__encoded": "<base64-utf8-json>" }`. We decode it back into req.body here,
+// before CSRF and the route handlers run. No-op for normal (unwrapped) requests
+// and for multipart uploads (express.json leaves those bodies untouched).
+app.use((req, res, next) => {
+  const body = req.body as { __encoded?: unknown } | undefined;
+  if (body && typeof body.__encoded === "string") {
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(Buffer.from(body.__encoded, "base64").toString("utf8"));
+    } catch {
+      res.status(400).json({ error: "Malformed encoded request body" });
+      return;
+    }
+    // Decoded payload must be a plain object so downstream handlers keep their
+    // `req.body.<field>` assumptions; reject arrays/primitives/null.
+    if (decoded === null || typeof decoded !== "object" || Array.isArray(decoded)) {
+      res.status(400).json({ error: "Malformed encoded request body" });
+      return;
+    }
+    req.body = decoded;
+  }
+  next();
+});
+
 // Test-only helper: invalidate the in-process tenant host cache so direct-DB
 // tenant inserts in e2e fixtures (royal-tenant, etc.) become visible without
 // waiting out the 60s TTL. Hard-gated on NODE_ENV !== "production".

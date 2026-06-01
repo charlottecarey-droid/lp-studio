@@ -32,9 +32,28 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/**
+ * Base64-wrap a JSON request body so the email HTML it carries never appears as
+ * raw markup in the request stream. The production edge WAF (Cloudflare managed
+ * rules) otherwise 403s payloads containing patterns like a template token
+ * inside an href (`<a href="{{unsubscribeUrl}}">`), which broke every shell /
+ * template preview + test-send. The server unwraps `{ __encoded }` back into
+ * req.body before any route runs (see api-server/src/app.ts).
+ */
+function encodeRequestBody(jsonStr: string): string {
+  const bytes = new TextEncoder().encode(jsonStr);
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return JSON.stringify({ __encoded: btoa(binary) });
+}
+
 async function apiFetch(path: string, opts?: RequestInit) {
+  const body = typeof opts?.body === "string" ? encodeRequestBody(opts.body) : opts?.body;
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
+    body,
     credentials: "include",
     headers: { "content-type": "application/json", ...(opts?.headers ?? {}) },
   });
