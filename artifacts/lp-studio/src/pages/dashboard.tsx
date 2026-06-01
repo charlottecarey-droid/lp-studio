@@ -22,7 +22,6 @@ import { getRecentEntries } from "@/hooks/use-recently-viewed";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
 import { NewLauncher } from "@/components/NewLauncher";
 import { getLpPageUrl } from "@/lib/utils";
@@ -493,6 +492,9 @@ export default function Dashboard() {
                         ? getLpPageUrl(item.slug, micrositeDomain)
                         : null;
                       const isRunning = item.status === "running" || item.status === "published";
+                      const statusLabel = isExperiment
+                        ? (isRunning ? "Running" : "Not running")
+                        : (item.status === "published" ? "Published" : "Not published");
 
                       const rowHref = isExperiment ? `/tests/${item.id}` : `/builder/${item.id}`;
                       // The row's primary target is a real <Link> covering the
@@ -511,12 +513,15 @@ export default function Dashboard() {
                             aria-label={`Open ${item.name}`}
                             className="absolute inset-0 rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           />
-                          <div className={`relative flex-shrink-0 w-2 h-2 rounded-full ${isRunning ? "bg-[hsl(var(--accent-warm))] animate-pulse" : "bg-muted-foreground/20"}`} />
+                          <div
+                            className={`relative flex-shrink-0 w-2 h-2 rounded-full ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30"}`}
+                            title={statusLabel}
+                          />
 
                           <div className="relative flex-1 min-w-0 pointer-events-none">
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <span className="font-medium text-foreground text-[13px] truncate">{item.name}</span>
-                              <StatusBadge status={item.status} />
+                              <span className="sr-only">{statusLabel}</span>
                             </div>
                             <div className="text-xs text-muted-foreground/70 flex items-center gap-2">
                               <code className="font-mono text-[11px] truncate">/{item.slug}</code>
