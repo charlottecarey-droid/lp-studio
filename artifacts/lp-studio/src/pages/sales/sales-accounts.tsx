@@ -62,6 +62,7 @@ import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
 
@@ -550,7 +551,12 @@ function AccountListView() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json().catch(() => ({}));
       const n = data?.deleted ?? selectedAccIds.size;
-      toast.success(`Deleted ${n} account${n !== 1 ? "s" : ""}`);
+      toastUndoableDelete({
+        message: `Deleted ${n} account${n !== 1 ? "s" : ""}`,
+        restorePath: "/sales/accounts/restore",
+        restorePayload: data?.restore ?? {},
+        onRestored: fetchAccounts,
+      });
       setSelectedAccIds(new Set());
       setConfirmBulkDelete(false);
       fetchAccounts();
@@ -567,7 +573,13 @@ function AccountListView() {
     try {
       const res = await fetch(`${API_BASE}/sales/accounts/${account.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success(`Deleted ${account.displayName ?? account.name}`);
+      const data = await res.json().catch(() => ({}));
+      toastUndoableDelete({
+        message: `Deleted ${account.displayName ?? account.name}`,
+        restorePath: "/sales/accounts/restore",
+        restorePayload: data?.restore ?? {},
+        onRestored: fetchAccounts,
+      });
       setRowToDelete(null);
       setSelectedAccIds(prev => {
         const next = new Set(prev);

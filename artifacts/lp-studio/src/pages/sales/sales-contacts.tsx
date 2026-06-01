@@ -56,6 +56,7 @@ import { usePagination } from "@/hooks/use-pagination";
 import { useAuth } from "@/context/AuthContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
 
@@ -761,7 +762,12 @@ function ContactListView() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json().catch(() => ({}));
       const n = data?.deleted ?? selectedIds.size;
-      toast.success(`Deleted ${n} contact${n !== 1 ? "s" : ""}`);
+      toastUndoableDelete({
+        message: `Deleted ${n} contact${n !== 1 ? "s" : ""}`,
+        restorePath: "/sales/contacts/restore",
+        restorePayload: data?.restore ?? {},
+        onRestored: fetchContacts,
+      });
       setSelectedIds(new Set());
       setConfirmBulkDelete(false);
       fetchContacts();
@@ -778,7 +784,13 @@ function ContactListView() {
     try {
       const res = await fetch(`${API_BASE}/sales/contacts/${contact.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success(`Deleted ${contact.firstName} ${contact.lastName}`);
+      const data = await res.json().catch(() => ({}));
+      toastUndoableDelete({
+        message: `Deleted ${contact.firstName} ${contact.lastName}`,
+        restorePath: "/sales/contacts/restore",
+        restorePayload: data?.restore ?? {},
+        onRestored: fetchContacts,
+      });
       setRowToDelete(null);
       setSelectedIds(prev => {
         const next = new Set(prev);

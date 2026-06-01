@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useReviews } from "@/hooks/use-collaboration";
 import type { PageReview } from "@/hooks/use-collaboration";
 import { toast } from "sonner";
+import { toastUndoableDelete } from "@/lib/undo-delete";
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -192,15 +193,24 @@ export default function ReviewsOverview() {
       const results = await Promise.all(
         item.reviews.map((review) =>
           fetch(`${API_BASE}/lp/pages/${item.pageId}/reviews/${review.id}`, { method: "DELETE" })
-            .then((r) => r.ok)
-            .catch(() => false)
+            .then(async (r) => (r.ok ? (await r.json().catch(() => ({}))) : null))
+            .catch(() => null)
         )
       );
       const allOk = results.every(Boolean);
+      // Collect the full deleted rows the server returned so Undo can restore them.
+      const restoredReviews = results.flatMap(
+        (d) => (d?.restore?.reviews ?? []) as unknown[]
+      );
       setReviewToDelete(null);
       await fetchAll(true);
       if (allOk) {
-        toast.success("Review links deleted");
+        toastUndoableDelete({
+          message: `Deleted ${restoredReviews.length} review link${restoredReviews.length !== 1 ? "s" : ""}`,
+          restorePath: `/lp/pages/${item.pageId}/reviews/restore`,
+          restorePayload: { reviews: restoredReviews },
+          onRestored: () => { void fetchAll(true); },
+        });
       } else {
         toast.error("Some review links could not be deleted");
       }

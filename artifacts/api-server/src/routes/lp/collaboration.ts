@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { z } from "zod";
 import crypto from "crypto";
+import { restoreRows } from "../../lib/restoreRows";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { buildCommentCtaBlock, buildReviewCommentBlock } from "../../lib/tenantEmailAssets";
 import { resolveBroadcastRecipients } from "../../lib/broadcastRecipients";
@@ -400,7 +401,18 @@ router.delete("/lp/pages/:pageId/reviews/:reviewId", async (req, res): Promise<v
     .returning();
 
   if (!deleted) { res.status(404).json({ error: "Review not found" }); return; }
-  res.json({ success: true });
+  res.json({ success: true, restore: { reviews: [deleted] } });
+});
+
+// Restore review links deleted via Undo. pageId is forced from the URL so a
+// restore can only ever re-create reviews on the page it was scoped to.
+router.post("/lp/pages/:pageId/reviews/restore", async (req, res): Promise<void> => {
+  const pageId = parseInt(req.params.pageId, 10);
+  if (isNaN(pageId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { reviews } = req.body as { reviews?: unknown[] };
+  const restored = await restoreRows(lpPageReviewsTable, reviews, { pageId });
+  res.json({ success: true, restored });
 });
 
 // ─── Presence ─────────────────────────────────────────────────────────────────

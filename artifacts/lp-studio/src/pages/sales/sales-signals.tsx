@@ -28,6 +28,7 @@ import { getSignalIcon, getSignalLabel, SIGNAL_TYPES } from "@/lib/signal-types"
 import { useAuth } from "@/context/AuthContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
 
@@ -158,9 +159,19 @@ export default function SalesSignals() {
   async function handleClearAll() {
     setClearing(true);
     try {
-      await fetch(`${API_BASE}/sales/signals`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/sales/signals`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      const n = data?.deleted ?? 0;
       setSignals([]);
       setConfirmClear(false);
+      if (n > 0) {
+        toastUndoableDelete({
+          message: `Cleared ${n} signal${n !== 1 ? "s" : ""}`,
+          restorePath: "/sales/signals/restore",
+          restorePayload: data?.restore ?? {},
+          onRestored: () => fetchSignals(),
+        });
+      }
     } catch (err) {
       console.error("Failed to clear signals:", err);
     } finally {
@@ -173,9 +184,15 @@ export default function SalesSignals() {
     try {
       const res = await fetch(`${API_BASE}/sales/signals/${signal.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("delete failed");
+      const data = await res.json().catch(() => ({}));
       setSignals((prev) => prev.filter((s) => s.id !== signal.id));
       setSignalToDelete(null);
-      toast.success("Signal deleted");
+      toastUndoableDelete({
+        message: "Signal deleted",
+        restorePath: "/sales/signals/restore",
+        restorePayload: data?.restore ?? {},
+        onRestored: () => fetchSignals(),
+      });
     } catch (err) {
       console.error("Failed to delete signal:", err);
       toast.error("Failed to delete signal");

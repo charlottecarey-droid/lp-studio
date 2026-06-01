@@ -3,6 +3,7 @@ import { Router } from "express";
 import { eq, desc, and, ilike, count, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
+import { restoreRows } from "../../lib/restoreRows";
 
 const router = Router();
 
@@ -159,7 +160,7 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Delete contact
+// Delete contact — returns the full deleted row so the client can offer Undo.
 router.delete("/contacts/:id", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -174,14 +175,15 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Contact not found" });
       return;
     }
-    res.json({ ok: true });
+    res.json({ ok: true, restore: { contacts: [deleted] } });
   } catch (err) {
     console.error("DELETE /sales/contacts/:id error:", err);
     res.status(500).json({ error: "Failed to delete contact" });
   }
 });
 
-// Bulk-delete contacts by IDs — CSV-only (no salesforceId)
+// Bulk-delete contacts by IDs — CSV-only (no salesforceId).
+// Returns the full deleted rows for Undo.
 router.delete("/contacts/bulk", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -196,11 +198,24 @@ router.delete("/contacts/bulk", async (req, res): Promise<void> => {
         eq(salesContactsTable.tenantId, tenantId),
         inArray(salesContactsTable.id, ids),
       ))
-      .returning({ id: salesContactsTable.id });
-    res.json({ ok: true, deleted: deleted.length });
+      .returning();
+    res.json({ ok: true, deleted: deleted.length, restore: { contacts: deleted } });
   } catch (err) {
     console.error("DELETE /sales/contacts/bulk error:", err);
     res.status(500).json({ error: "Failed to delete contacts" });
+  }
+});
+
+// Restore contacts deleted via Undo.
+router.post("/contacts/restore", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { contacts } = req.body as { contacts?: unknown[] };
+    const restored = await restoreRows(salesContactsTable, contacts, { tenantId });
+    res.json({ ok: true, restored });
+  } catch (err) {
+    console.error("POST /sales/contacts/restore error:", err);
+    res.status(500).json({ error: "Failed to restore contacts" });
   }
 });
 

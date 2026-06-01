@@ -9,6 +9,7 @@ import {
   salesEmailSendsTable,
 } from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
+import { restoreRows } from "../../lib/restoreRows";
 
 const router = Router();
 
@@ -135,11 +136,24 @@ router.delete("/signals", async (req, res): Promise<void> => {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const deleted = await db.delete(salesSignalsTable)
       .where(eq(salesSignalsTable.tenantId, tenantId))
-      .returning({ id: salesSignalsTable.id });
-    res.json({ ok: true, deleted: deleted.length });
+      .returning();
+    res.json({ ok: true, deleted: deleted.length, restore: { signals: deleted } });
   } catch (err) {
     console.error("DELETE /sales/signals error:", err);
     res.status(500).json({ error: "Failed to clear signals" });
+  }
+});
+
+// Restore signals deleted via Undo (single delete or clear-all).
+router.post("/signals/restore", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { signals } = req.body as { signals?: unknown[] };
+    const restored = await restoreRows(salesSignalsTable, signals, { tenantId });
+    res.json({ ok: true, restored });
+  } catch (err) {
+    console.error("POST /sales/signals/restore error:", err);
+    res.status(500).json({ error: "Failed to restore signals" });
   }
 });
 
@@ -157,12 +171,12 @@ router.delete("/signals/:id", async (req, res): Promise<void> => {
         eq(salesSignalsTable.tenantId, tenantId),
         eq(salesSignalsTable.id, id),
       ))
-      .returning({ id: salesSignalsTable.id });
+      .returning();
     if (!deleted) {
       res.status(404).json({ error: "Signal not found" });
       return;
     }
-    res.json({ ok: true });
+    res.json({ ok: true, restore: { signals: [deleted] } });
   } catch (err) {
     console.error("DELETE /sales/signals/:id error:", err);
     res.status(500).json({ error: "Failed to delete signal" });

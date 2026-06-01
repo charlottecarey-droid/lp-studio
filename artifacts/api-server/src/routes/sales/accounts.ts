@@ -6,9 +6,11 @@ import { db } from "@workspace/db";
 import {
   salesAccountsTable,
   salesContactsTable,
+  salesSignalsTable,
   salesHotlinksTable,
   lpPagesTable,
 } from "@workspace/db";
+import { restoreRows } from "../../lib/restoreRows";
 
 const router = Router();
 
@@ -143,29 +145,39 @@ router.patch("/accounts/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Delete account
+// Delete account — returns the deleted account plus its cascade-deleted
+// contacts/signals so the client can offer an Undo.
 router.delete("/accounts/:id", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const id = Number(req.params.id);
+
+    // Snapshot cascade-deleted children before the delete removes them.
+    const contacts = await db.select().from(salesContactsTable)
+      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, id)));
+    const signals = await db.select().from(salesSignalsTable)
+      .where(and(eq(salesSignalsTable.tenantId, tenantId), eq(salesSignalsTable.accountId, id)));
+
     const [deleted] = await db
       .delete(salesAccountsTable)
       .where(and(
         eq(salesAccountsTable.tenantId, tenantId),
-        eq(salesAccountsTable.id, Number(req.params.id)),
+        eq(salesAccountsTable.id, id),
       ))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Account not found" });
       return;
     }
-    res.json({ ok: true });
+    res.json({ ok: true, restore: { accounts: [deleted], contacts, signals } });
   } catch (err) {
     console.error("DELETE /sales/accounts/:id error:", err);
     res.status(500).json({ error: "Failed to delete account" });
   }
 });
 
-// Bulk-delete accounts by IDs (cascades to contacts, signals, briefings)
+// Bulk-delete accounts by IDs (cascades to contacts, signals, briefings).
+// Returns the full deleted rows + cascade-deleted children for Undo.
 router.delete("/accounts/bulk", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -174,17 +186,41 @@ router.delete("/accounts/bulk", async (req, res): Promise<void> => {
       res.status(400).json({ error: "ids must be a non-empty array" });
       return;
     }
+
+    const contacts = await db.select().from(salesContactsTable)
+      .where(and(eq(salesContactsTable.tenantId, tenantId), inArray(salesContactsTable.accountId, ids)));
+    const signals = await db.select().from(salesSignalsTable)
+      .where(and(eq(salesSignalsTable.tenantId, tenantId), inArray(salesSignalsTable.accountId, ids)));
+
     const deleted = await db
       .delete(salesAccountsTable)
       .where(and(
         eq(salesAccountsTable.tenantId, tenantId),
         inArray(salesAccountsTable.id, ids),
       ))
-      .returning({ id: salesAccountsTable.id });
-    res.json({ ok: true, deleted: deleted.length });
+      .returning();
+    res.json({ ok: true, deleted: deleted.length, restore: { accounts: deleted, contacts, signals } });
   } catch (err) {
     console.error("DELETE /sales/accounts/bulk error:", err);
     res.status(500).json({ error: "Failed to delete accounts" });
+  }
+});
+
+// Restore accounts (and their contacts/signals) deleted via Undo.
+router.post("/accounts/restore", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { accounts, contacts, signals } = req.body as {
+      accounts?: unknown[]; contacts?: unknown[]; signals?: unknown[];
+    };
+    // Accounts first so FK references from contacts/signals resolve.
+    const restoredAccounts = await restoreRows(salesAccountsTable, accounts, { tenantId });
+    const restoredContacts = await restoreRows(salesContactsTable, contacts, { tenantId });
+    const restoredSignals = await restoreRows(salesSignalsTable, signals, { tenantId });
+    res.json({ ok: true, restored: { accounts: restoredAccounts, contacts: restoredContacts, signals: restoredSignals } });
+  } catch (err) {
+    console.error("POST /sales/accounts/restore error:", err);
+    res.status(500).json({ error: "Failed to restore accounts" });
   }
 });
 
