@@ -2614,7 +2614,7 @@ export default function BrandSettings() {
                     <div>
                       <Label className="text-sm font-medium mb-1.5 block">Email banner</Label>
                       <p className="text-xs text-muted-foreground mb-2">
-                        Image inserted at the top of follow-up emails and sales outreach drafts. Wide formats work best (e.g. 1200×300). Leave blank to use the default Dandy banner.
+                        Image inserted at the top of follow-up emails and sales outreach drafts. Wide formats work best (e.g. 1200×300). Leave blank to use the default banner.
                       </p>
                       <input
                         ref={emailBannerFileInputRef}

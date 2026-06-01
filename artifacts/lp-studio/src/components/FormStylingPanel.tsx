@@ -185,7 +185,7 @@ export function FormStylingPanel({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-muted/30 p-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold">Visual theme</p>
