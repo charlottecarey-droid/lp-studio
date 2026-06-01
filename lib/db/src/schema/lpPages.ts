@@ -34,6 +34,14 @@ export const lpPagesTable = pgTable("lp_pages", {
   isTemplate: boolean("is_template").notNull().default(false),
   templateLabel: text("template_label"),
   templateDescription: text("template_description"),
+  // Template-gallery preview thumbnail (task #736). A thum.io screenshot URL
+  // captured from this page's /preview/:slug render, distinct from `ogImage`
+  // (which is the social/share card). NULL = never captured → the gallery
+  // falls back to ogImage, then to a gradient placeholder. `thumbnailCapturedAt`
+  // drives both cache-busting (the captured thum.io target carries ?v=<ts>) and
+  // the "Capturing preview…" shimmer for freshly-created templates.
+  thumbnailUrl: text("thumbnail_url"),
+  thumbnailCapturedAt: timestamp("thumbnail_captured_at", { withTimezone: true }),
   // Cross-tenant template visibility. When isGlobal=true, this template is
   // visible to every tenant whose settings.industry matches `industry` (or any
   // tenant if `industry` is null). Tenant-owned templates (isGlobal=false) are

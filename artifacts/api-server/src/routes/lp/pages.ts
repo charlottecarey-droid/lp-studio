@@ -14,6 +14,7 @@ import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import crypto from "node:crypto";
 import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/triggerPublishedRender";
+import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
 
 const router = Router();
 
@@ -915,6 +916,12 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
         triggerPublishedDelete(page.tenantId, page.slug);
       }
     }
+    // Task #736: keep a template's gallery thumbnail fresh when its content or
+    // styling changes. Debounced so rapid autosaves coalesce into one capture;
+    // the old thumbnail stays visible until the new one is ready.
+    if (page.isTemplate && (updates.blocks !== undefined || updates.customCss !== undefined)) {
+      triggerTemplateThumbnailCapture({ pageId: page.id, requestHost: getRequestHost(req) });
+    }
     res.json(page);
   } catch (err) {
     if (isDbError(err) && err.code === "23505") {
@@ -952,6 +959,16 @@ router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> 
     if (!page) {
       res.status(404).json({ error: "Page not found" });
       return;
+    }
+    // Task #736: when a page becomes a template, capture its gallery thumbnail.
+    // Short debounce (vs. the autosave default) since this is a deliberate
+    // one-shot action and the user expects a preview to appear shortly.
+    if (page.isTemplate) {
+      triggerTemplateThumbnailCapture({
+        pageId: page.id,
+        requestHost: getRequestHost(req),
+        debounceMs: 2000,
+      });
     }
     res.json(page);
   } catch (err) {

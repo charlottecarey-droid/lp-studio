@@ -75,3 +75,4 @@
 - [Partner one-pager is PDF-only](partner-onepager-pdf-only.md) — Partner Practices template renders via jsPDF generateNewPartnerOnePager, NOT the web one-pager-hero block; shareable web links are pilot-only.
 - [Sales delete allows synced rows](sales-delete-synced-rows.md) — account/contact delete endpoints dropped the isNull(salesforceId) guard; synced rows hard-deletable but may resync; UI warns via amber note.
 - [Undo-delete restore](undo-delete-restore.md) — hard-delete Undo = capture-and-reinsert: DELETE returns rows under `restore`, POST /restore re-inserts via restoreRows (forces tenant/page scope, idempotent onConflictDoNothing, preserves ids+timestamps).
+- [Template thumbnail capture](template-thumbnail-capture.md) — gallery cards show thum.io screenshots (thumbnailUrl→ogImage→gradient); isPlaceholderTemplateLabel duplicated in templates.ts + backfill script; backfill is a deliberate prod job.

@@ -10,7 +10,8 @@
     "start": "node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env --import ./dist/instrument.mjs ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "refresh-font-catalog": "tsx scripts/refresh-font-catalog.ts"
+    "refresh-font-catalog": "tsx scripts/refresh-font-catalog.ts",
+    "backfill-template-thumbnails": "tsx scripts/backfill-template-thumbnails.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1053.0",

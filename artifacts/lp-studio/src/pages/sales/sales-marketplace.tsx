@@ -9,6 +9,7 @@ import {
   Plus,
   Loader2,
   LayoutTemplate,
+  RefreshCw,
 } from "lucide-react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
@@ -33,6 +34,12 @@ interface TemplatePage {
   status: string;
   mode: string;
   ogImage: string;
+  /** Real screenshot thumbnail captured from the template's preview render.
+   * null until captured; the card falls back to ogImage, then a gradient. */
+  thumbnailUrl: string | null;
+  /** When the thumbnail was last captured. null + recently created → the card
+   * shows a "Capturing preview…" shimmer. */
+  thumbnailCapturedAt: string | null;
   /** True for global starter templates shared across tenants; false (or
    *  missing on legacy responses) for templates owned by the caller's
    *  tenant. Used to keep tenant-owned templates ahead of global starters
@@ -60,6 +67,58 @@ function getGradient(index: number): string {
   return GRADIENT_PALETTE[index % GRADIENT_PALETTE.length];
 }
 
+/** A template just created (< 60s ago) whose thumbnail hasn't landed yet — the
+ * capture runs async, so show a brief "Capturing preview…" shimmer. */
+function isCapturingThumbnail(t: { thumbnailUrl: string | null; thumbnailCapturedAt: string | null; createdAt: string }): boolean {
+  if (t.thumbnailUrl || t.thumbnailCapturedAt) return false;
+  const created = new Date(t.createdAt).getTime();
+  return Number.isFinite(created) && Date.now() - created < 60_000;
+}
+
+/** Card media: prefers the real screenshot thumbnail, then the OG image, then a
+ * gradient placeholder. A broken/slow image falls back to the gradient via
+ * onError. Layered absolutely so the parent hover overlay + badges sit on top. */
+function TemplateCardMedia({
+  thumbnailUrl,
+  ogImage,
+  gradient,
+  capturing,
+}: {
+  thumbnailUrl: string | null;
+  ogImage: string;
+  gradient: string;
+  capturing: boolean;
+}) {
+  const src = thumbnailUrl || ogImage || "";
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+  const showImage = !!src && !failed;
+  return (
+    <>
+      {showImage ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover object-top"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="absolute inset-0" style={{ background: gradient }} />
+      )}
+      {capturing && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <span className="flex items-center gap-2 text-xs font-medium text-white">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Capturing preview…
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 type SortOption = "Newest" | "Name" | "Most Blocks";
 
 export default function SalesMarketplace() {
@@ -71,6 +130,7 @@ export default function SalesMarketplace() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("Newest");
   const [cloningId, setCloningId] = useState<number | null>(null);
+  const [refreshingThumbId, setRefreshingThumbId] = useState<number | null>(null);
   // In-app preview modal state. Templates aren't published as public /lp
   // pages (opening one in a new tab 404s), so the preview button now opens
   // a modal that fetches the template's full block JSON and renders it
@@ -163,6 +223,40 @@ export default function SalesMarketplace() {
       toast({ title: "Clone failed", description: message, variant: "destructive" });
     } finally {
       setCloningId(null);
+    }
+  };
+
+  // Force a fresh screenshot capture for a tenant-owned template. Awaits the
+  // server (a few seconds while thum.io renders), then patches the row in local
+  // state so the new thumbnail (with its cache-busted URL) loads immediately.
+  const handleRefreshThumbnail = async (template: TemplatePage) => {
+    if (template.isGlobal) return;
+    setRefreshingThumbId(template.id);
+    try {
+      const res = await fetch(`/api/lp/templates/${template.id}/refresh-thumbnail`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { thumbnailUrl: string | null; thumbnailCapturedAt: string | null };
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === template.id
+            ? { ...t, thumbnailUrl: data.thumbnailUrl, thumbnailCapturedAt: data.thumbnailCapturedAt }
+            : t,
+        ),
+      );
+      toast({
+        title: "Thumbnail refreshed",
+        description: `Updated the preview for "${template.templateLabel}".`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to refresh thumbnail";
+      toast({ title: "Couldn't refresh thumbnail", description: message, variant: "destructive" });
+    } finally {
+      setRefreshingThumbId(null);
     }
   };
 
@@ -290,26 +384,18 @@ export default function SalesMarketplace() {
                   className="group overflow-hidden border border-border/40 hover:border-border/80 hover:shadow-lg transition-all duration-300 flex flex-col"
                 >
                   <div
-                    className="h-40 relative overflow-hidden cursor-pointer"
+                    className="h-40 relative overflow-hidden cursor-pointer bg-muted"
                     onClick={() => handlePreview(template)}
-                    style={
-                      template.ogImage
-                        ? {
-                            backgroundImage: `url(${template.ogImage})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }
-                        : { background: getGradient(index) }
-                    }
                   >
+                    <TemplateCardMedia
+                      thumbnailUrl={template.thumbnailUrl}
+                      ogImage={template.ogImage}
+                      gradient={getGradient(index)}
+                      capturing={isCapturingThumbnail(template)}
+                    />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                       <Eye className="h-8 w-8 text-white" />
                     </div>
-                    {template.status === "published" && (
-                      <Badge className="absolute top-2 right-2 bg-green-600 text-white text-[10px]">
-                        Live
-                      </Badge>
-                    )}
                   </div>
 
                   <div className="p-5 flex flex-col flex-grow">
@@ -360,6 +446,23 @@ export default function SalesMarketplace() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {/* Refresh thumbnail — tenant-owned only (the server
+                          refuses to re-capture shared global templates). */}
+                      {!template.isGlobal && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRefreshThumbnail(template)}
+                          title="Refresh preview thumbnail"
+                          disabled={refreshingThumbId === template.id}
+                        >
+                          {refreshingThumbId === template.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>

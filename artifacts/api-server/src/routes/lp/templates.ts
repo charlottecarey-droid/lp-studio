@@ -7,9 +7,26 @@ import { eq, and, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
+import { getRequestHost } from "../../lib/requestHost";
+import { captureTemplateThumbnail } from "../../lib/captureTemplateThumbnail";
 import { PREMIUM_RANK_BY_SLUG } from "../../seeds/globalTemplates";
 
 const router = Router();
+
+/**
+ * Placeholder/scaffold template names that should never surface in the gallery
+ * (task #736 cleanup). These are blank-fill stubs like "_____ One Pager" left
+ * over from authoring; they have no real content worth a thumbnail. Matched on
+ * the effective label (templateLabel || title): a run of 3+ underscores, or a
+ * label that starts with underscores acting as a fill-in-the-blank, or empty.
+ */
+function isPlaceholderTemplateLabel(label: string | null | undefined): boolean {
+  const l = (label ?? "").trim();
+  if (!l) return true;
+  if (/_{3,}/.test(l)) return true;
+  if (/^_+\s/.test(l)) return true;
+  return false;
+}
 
 // GET /lp/templates/enriched — templates with block count for the marketplace.
 // Returns the union of:
@@ -35,7 +52,10 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         ),
       );
 
-    const enriched = templates.map((t) => {
+    const enriched = templates
+      // Drop placeholder/scaffold templates so the gallery shows no junk cards.
+      .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
+      .map((t) => {
       const blocks = Array.isArray(t.blocks) ? t.blocks : [];
       // Expose the block-type list so the UI can audience-gate templates
       // (e.g. hide leadership-only templates from practice-targeted pages).
@@ -60,6 +80,10 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         status: t.status,
         mode: t.mode,
         ogImage: t.ogImage || "",
+        // Real screenshot thumbnail (task #736). null until captured; the
+        // gallery prefers thumbnailUrl, then ogImage, then a gradient.
+        thumbnailUrl: t.thumbnailUrl || null,
+        thumbnailCapturedAt: t.thumbnailCapturedAt,
         isGlobal: t.isGlobal,
         industry: t.industry,
         premiumRank,
@@ -116,6 +140,55 @@ router.get("/lp/templates/:id/preview", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("GET /lp/templates/:id/preview error:", String(err));
     res.status(500).json({ error: "Failed to load template preview" });
+  }
+});
+
+// POST /lp/templates/:id/refresh-thumbnail — force a fresh screenshot capture
+// for a template the caller owns. Awaited (a few seconds) so the client can
+// update the card + toast on success. Tenant-owned templates only: global
+// templates are platform-shared rows whose thumbnails are managed by the
+// backfill/seed flow, so we refuse cross-tenant writes here (the UI hides the
+// action on global cards).
+router.post("/lp/templates/:id/refresh-thumbnail", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid template id" });
+      return;
+    }
+
+    const [template] = await db
+      .select({ id: lpPagesTable.id, tenantId: lpPagesTable.tenantId, isGlobal: lpPagesTable.isGlobal })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.id, id), eq(lpPagesTable.isTemplate, true)));
+    if (!template) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+    if (template.isGlobal) {
+      res.status(403).json({ error: "Global templates are managed by the platform" });
+      return;
+    }
+    if (template.tenantId !== tenantId) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    const result = await captureTemplateThumbnail({ pageId: id, requestHost: getRequestHost(req) });
+    if (!result.ok) {
+      res.status(502).json({ error: "Could not capture a preview right now", detail: result.error });
+      return;
+    }
+    res.json({
+      ok: true,
+      thumbnailUrl: result.thumbnailUrl,
+      thumbnailCapturedAt: result.thumbnailCapturedAt,
+    });
+  } catch (err) {
+    console.error("POST /lp/templates/:id/refresh-thumbnail error:", String(err));
+    res.status(500).json({ error: "Failed to refresh thumbnail" });
   }
 });
 

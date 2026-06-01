@@ -13,6 +13,7 @@ import {
   Loader2,
   LayoutTemplate,
   StarOff,
+  RefreshCw,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,12 @@ interface TemplatePage {
   status: string;
   mode: string;
   ogImage: string;
+  /** Real screenshot thumbnail captured from the template's preview render.
+   * null until captured; the card falls back to ogImage, then a gradient. */
+  thumbnailUrl: string | null;
+  /** When the thumbnail was last captured. null + recently created → the card
+   * shows a "Capturing preview…" shimmer. */
+  thumbnailCapturedAt: string | null;
   /** True for built-in starter templates seeded by the platform. Sorted to the
    * bottom so a tenant's own custom templates always appear first. */
   isGlobal: boolean;
@@ -89,6 +96,61 @@ function getGradient(index: number): string {
   return GRADIENT_PALETTE[index % GRADIENT_PALETTE.length];
 }
 
+/** A template just created (< 60s ago) whose thumbnail hasn't landed yet — the
+ * capture runs async, so show a brief "Capturing preview…" shimmer instead of
+ * leaving the card looking empty. */
+function isCapturingThumbnail(t: { thumbnailUrl: string | null; thumbnailCapturedAt: string | null; createdAt: string }): boolean {
+  if (t.thumbnailUrl || t.thumbnailCapturedAt) return false;
+  const created = new Date(t.createdAt).getTime();
+  return Number.isFinite(created) && Date.now() - created < 60_000;
+}
+
+/** Card media: prefers the real screenshot thumbnail, then the OG image, then a
+ * gradient placeholder. A broken/slow image falls back to the gradient via
+ * onError. Layered absolutely so the parent button's hover overlay + badges sit
+ * on top. */
+function TemplateCardMedia({
+  thumbnailUrl,
+  ogImage,
+  gradient,
+  capturing,
+}: {
+  thumbnailUrl: string | null;
+  ogImage: string;
+  gradient: string;
+  capturing: boolean;
+}) {
+  const src = thumbnailUrl || ogImage || "";
+  const [failed, setFailed] = useState(false);
+  // Reset the error state if the source changes (e.g. after a manual refresh).
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+  const showImage = !!src && !failed;
+  return (
+    <>
+      {showImage ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover object-top"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="absolute inset-0" style={{ background: gradient }} />
+      )}
+      {capturing && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <span className="flex items-center gap-2 text-xs font-medium text-white">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Capturing preview…
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 type SortOption = "Featured" | "Newest" | "Name" | "Most Blocks";
 // Owner filter for the template library. "all" = the full union (default,
 // matches existing behavior). "owned" = only templates this tenant created
@@ -111,6 +173,7 @@ export default function TemplateMarketplace() {
   // can show the label without re-querying state after the user clicks.
   const [removingTemplateId, setRemovingTemplateId] = useState<number | null>(null);
   const [removeConfirmTarget, setRemoveConfirmTarget] = useState<TemplatePage | null>(null);
+  const [refreshingThumbId, setRefreshingThumbId] = useState<number | null>(null);
   // Industry filter: `null` means "all industries" (default). A Set means
   // only show global templates whose industry is in the set. Tenant-saved
   // templates and universal globals (no industry) always pass through so
@@ -354,12 +417,40 @@ export default function TemplateMarketplace() {
   const ownedCount = useMemo(() => templates.filter((t) => !t.isGlobal).length, [templates]);
   const starterCount = useMemo(() => templates.filter((t) => t.isGlobal).length, [templates]);
 
-  // Un-template: flips the page's is_template flag off via the existing
-  // PATCH /lp/pages/:id/mark-template route. Globals are guarded against in
-  // both UI (button hidden) and server (route enforces tenant ownership), so
-  // a sales admin can never accidentally remove another tenant's starter.
-  // After success we drop the row from local state so the grid refreshes
-  // immediately without a full refetch — matching the pages-gallery pattern.
+  // Force a fresh screenshot capture for a tenant-owned template. Awaits the
+  // server (a few seconds while thum.io renders), then patches the row in local
+  // state so the new thumbnail (with its cache-busted URL) loads immediately.
+  const handleRefreshThumbnail = async (template: TemplatePage) => {
+    if (template.isGlobal) return;
+    setRefreshingThumbId(template.id);
+    try {
+      const res = await fetch(`/api/lp/templates/${template.id}/refresh-thumbnail`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { thumbnailUrl: string | null; thumbnailCapturedAt: string | null };
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === template.id
+            ? { ...t, thumbnailUrl: data.thumbnailUrl, thumbnailCapturedAt: data.thumbnailCapturedAt }
+            : t,
+        ),
+      );
+      toast({
+        title: "Thumbnail refreshed",
+        description: `Updated the preview for "${template.templateLabel}".`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to refresh thumbnail";
+      toast({ title: "Couldn't refresh thumbnail", description: message, variant: "destructive" });
+    } finally {
+      setRefreshingThumbId(null);
+    }
+  };
+
   const handleRemoveTemplate = async (template: TemplatePage) => {
     if (template.isGlobal) return;
     setRemovingTemplateId(template.id);
@@ -587,28 +678,24 @@ export default function TemplateMarketplace() {
                   key={template.id}
                   className="group overflow-hidden border border-border/40 hover:border-border/80 hover:shadow-lg transition-all duration-300 flex flex-col"
                 >
-                  {/* Thumbnail — use ogImage if available, otherwise gradient.
-                      Clicking the thumbnail opens the preview modal (matches
-                      the Eye icon affordance on hover). */}
+                  {/* Thumbnail — real screenshot if captured, else ogImage,
+                      else a gradient placeholder. Clicking opens the preview
+                      modal (matches the Eye icon affordance on hover). */}
                   <button
                     type="button"
                     onClick={() => handlePreview(template)}
                     aria-label={`Preview ${template.templateLabel}`}
-                    className="h-40 relative overflow-hidden block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    style={
-                      template.ogImage
-                        ? { backgroundImage: `url(${template.ogImage})`, backgroundSize: "cover", backgroundPosition: "center" }
-                        : { background: getGradient(index) }
-                    }
+                    className="h-40 relative overflow-hidden block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-muted"
                   >
+                    <TemplateCardMedia
+                      thumbnailUrl={template.thumbnailUrl}
+                      ogImage={template.ogImage}
+                      gradient={getGradient(index)}
+                      capturing={isCapturingThumbnail(template)}
+                    />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
                       <Eye className="h-8 w-8 text-white" />
                     </div>
-                    {template.status === "published" && (
-                      <Badge className="absolute top-2 right-2 bg-green-600 text-white text-[10px]">
-                        Live
-                      </Badge>
-                    )}
                     {template.isGlobal && (
                       <Badge className="absolute top-2 left-2 bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
                         Starter
@@ -665,10 +752,23 @@ export default function TemplateMarketplace() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {/* Un-template — only available on tenant-owned templates.
-                          Globals are platform-seeded and shared across tenants,
-                          so removing them from one tenant's library is both
-                          unauthorized server-side and undesirable UX. */}
+                      {/* Refresh thumbnail — tenant-owned only (the server
+                          refuses to re-capture shared global templates). */}
+                      {!template.isGlobal && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRefreshThumbnail(template)}
+                          title="Refresh preview thumbnail"
+                          disabled={refreshingThumbId === template.id}
+                        >
+                          {refreshingThumbId === template.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                       {!template.isGlobal && (
                         <Button
                           variant="outline"
