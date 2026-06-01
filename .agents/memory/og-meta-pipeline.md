@@ -15,6 +15,13 @@ Two independent surfaces produce OG/meta, both reaching non-JS scrapers via
   that page — no static `index.html` edit. A single Playwright page snapshots
   all routes sequentially, so `usePageMeta` MUST clear any tag it doesn't set
   (e.g. og:image) or it bleeds from the previous route.
+  - **Apex title/description live in TWO places that must stay in sync:** the
+    prerender bakes `usePageMeta` (home.tsx), but the LIVE apex ALSO runs a
+    per-host override `<script>` in `index.html` (`isLpStudio` branch, sets
+    `LP_TITLE`/`LP_DESC`/og:*). Editing the homepage Google title/description
+    means editing BOTH or the rendered page and the baked HTML disagree. (The
+    static base `<title>` in index.html is "Meet Dandy …" — the per-host script
+    overrides it for lpstudio.ai hosts; tenant hosts get injectPageMeta.)
 - **Tenant landing pages**: `api-server/src/lib/injectPageMeta.ts` is the
   source of truth; it strips + re-injects managed tags per page and writes to
   R2. Per-page isolation depends on every managed tag being in
