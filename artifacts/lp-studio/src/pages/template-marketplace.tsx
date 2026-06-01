@@ -3,12 +3,11 @@ import { useLocation } from "wouter";
 import {
   Search,
   Star,
-  TrendingUp,
+  History,
   Clock,
   Grid3x3,
   Eye,
   Copy,
-  Filter,
   Plus,
   Loader2,
   LayoutTemplate,
@@ -32,12 +31,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { DEFAULT_BRAND, getBrandStyleVars, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
 import type { PageBlock } from "@/lib/block-types";
+import {
+  type TemplateTypeFilter,
+  templateMatchesType,
+  templateMatchesIndustry,
+  collectIndustries,
+  compareRecentlyUsed,
+  formatIndustry,
+} from "@/lib/template-library";
 
 // Matches the enriched response from GET /api/lp/templates/enriched
 interface TemplatePage {
@@ -67,15 +79,11 @@ interface TemplatePage {
    * 50 = generic starters, 100 = industry starters. Missing → fall back
    * to a high number so unranked entries sink. */
   premiumRank?: number;
+  /** Per-workspace last-used timestamp (ISO). null = this workspace has never
+   *  cloned this template; the "Recently Used" sort pushes these to the end. */
+  lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-function formatIndustry(slug: string): string {
-  return slug
-    .split(/[-_\s]+/)
-    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : ""))
-    .join(" ");
 }
 
 // Color palette for template thumbnails (when no ogImage)
@@ -151,13 +159,7 @@ function TemplateCardMedia({
   );
 }
 
-type SortOption = "Featured" | "Newest" | "Name" | "Most Blocks";
-// Owner filter for the template library. "all" = the full union (default,
-// matches existing behavior). "owned" = only templates this tenant created
-// (isGlobal=false). "starters" = only platform-seeded global templates. The
-// "owned" view is the primary tool for sales admins to audit and prune which
-// templates appear in the New Microsite modal.
-type OwnerFilter = "all" | "owned" | "starters";
+type SortOption = "Featured" | "Newest" | "Name" | "Recently Used";
 
 export default function TemplateMarketplace() {
   const { toast } = useToast();
@@ -167,18 +169,21 @@ export default function TemplateMarketplace() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("Featured");
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
+  // Type filter (task #753): All / Premium / Industry-specific / Custom.
+  // Replaces the former All / Yours / Starters owner control. See
+  // templateMatchesType for the bucket definitions.
+  const [typeFilter, setTypeFilter] = useState<TemplateTypeFilter>("All");
   // Track the in-flight un-template request and the template pending
   // confirmation. We stash the full record (not just the id) so the dialog
   // can show the label without re-querying state after the user clicks.
   const [removingTemplateId, setRemovingTemplateId] = useState<number | null>(null);
   const [removeConfirmTarget, setRemoveConfirmTarget] = useState<TemplatePage | null>(null);
   const [refreshingThumbId, setRefreshingThumbId] = useState<number | null>(null);
-  // Industry filter: `null` means "all industries" (default). A Set means
-  // only show global templates whose industry is in the set. Tenant-saved
-  // templates and universal globals (no industry) always pass through so
-  // the user never loses access to their own work.
-  const [selectedIndustries, setSelectedIndustries] = useState<Set<string> | null>(null);
+  // Industry filter: `null` means "all industries" (default). Otherwise a
+  // single industry slug; only industry-tagged globals are restricted —
+  // tenant-owned templates and untagged globals always pass through so the
+  // user never loses access to their own work.
+  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [cloningId, setCloningId] = useState<number | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<TemplatePage | null>(null);
   const [previewBlocks, setPreviewBlocks] = useState<PageBlock[] | null>(null);
@@ -214,15 +219,10 @@ export default function TemplateMarketplace() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Unique industry tags present across the loaded templates, sorted
-  // alphabetically. Used to populate the filter checkbox list.
-  const availableIndustries = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of templates) {
-      if (t.industry && t.industry.trim()) set.add(t.industry.trim());
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [templates]);
+  // Real industry tags present across the loaded templates (excludes the
+  // "generic" catch-all), sorted alphabetically. Populates the Industry
+  // dropdown.
+  const availableIndustries = useMemo(() => collectIndustries(templates), [templates]);
 
   const filteredAndSorted = useMemo(() => {
     let result = templates;
@@ -238,24 +238,16 @@ export default function TemplateMarketplace() {
       );
     }
 
-    // Owner filter: lets sales admins narrow the library to just the
-    // templates they own (so they can audit/prune what shows in the New
-    // Microsite modal) or to just the platform starter library.
-    if (ownerFilter === "owned") {
-      result = result.filter((t) => !t.isGlobal);
-    } else if (ownerFilter === "starters") {
-      result = result.filter((t) => t.isGlobal);
+    // Type filter: Premium / Industry-specific / Custom (or All). See
+    // templateMatchesType for the bucket definitions.
+    if (typeFilter !== "All") {
+      result = result.filter((t) => templateMatchesType(t, typeFilter));
     }
 
     // Industry filter: only restricts global, industry-tagged templates.
     // Tenant-owned templates and untagged globals always remain visible.
-    if (selectedIndustries !== null) {
-      result = result.filter((t) => {
-        if (!t.isGlobal) return true;
-        const tag = t.industry?.trim();
-        if (!tag) return true;
-        return selectedIndustries.has(tag);
-      });
+    if (selectedIndustry !== null) {
+      result = result.filter((t) => templateMatchesIndustry(t, selectedIndustry));
     }
 
     // Two-stage sort: tenant-owned templates always appear first, then the
@@ -278,15 +270,15 @@ export default function TemplateMarketplace() {
       if (sortBy === "Name") {
         return a.templateLabel.localeCompare(b.templateLabel);
       }
-      if (sortBy === "Most Blocks") {
-        return b.blockCount - a.blockCount;
+      if (sortBy === "Recently Used") {
+        return compareRecentlyUsed(a, b);
       }
       return 0;
     };
     sorted.sort(compare);
 
     return sorted;
-  }, [templates, searchQuery, sortBy, selectedIndustries, ownerFilter]);
+  }, [templates, searchQuery, sortBy, selectedIndustry, typeFilter]);
 
   // Build display groups for the Featured sort. Tenant-owned templates
   // ALWAYS render first ("Your templates") so a tenant's own work stays
@@ -319,40 +311,6 @@ export default function TemplateMarketplace() {
     }
     return groups;
   }, [filteredAndSorted, sortBy]);
-
-  // "All" is true both for the sentinel (`null`, untouched) and for the case
-  // where the user has individually re-checked every industry. This keeps the
-  // Select-All checkbox and label honest after individual toggles.
-  const allIndustriesSelected =
-    selectedIndustries === null ||
-    (availableIndustries.length > 0 && selectedIndustries.size === availableIndustries.length);
-  const someIndustriesSelected =
-    !allIndustriesSelected && selectedIndustries !== null && selectedIndustries.size > 0;
-  const filterButtonLabel = allIndustriesSelected
-    ? "All industries"
-    : selectedIndustries && selectedIndustries.size === 0
-      ? "No industries"
-      : selectedIndustries && selectedIndustries.size === 1
-        ? formatIndustry(Array.from(selectedIndustries)[0])
-        : `${selectedIndustries?.size ?? 0} industries`;
-
-  const toggleIndustry = (industry: string, checked: boolean) => {
-    setSelectedIndustries((prev) => {
-      // Materialize "all" into a concrete set on first interaction so the
-      // user can deselect a single industry without nuking the rest.
-      const base = prev === null ? new Set(availableIndustries) : new Set(prev);
-      if (checked) base.add(industry);
-      else base.delete(industry);
-      // Collapse back to the "all" sentinel when every industry is checked,
-      // so the Select-All control and label stay in their natural state.
-      if (base.size === availableIndustries.length) return null;
-      return base;
-    });
-  };
-
-  const toggleSelectAll = (checked: boolean) => {
-    setSelectedIndustries(checked ? null : new Set<string>());
-  };
 
   // Clone a template using the real pages clone endpoint
   const handleUseTemplate = async (template: TemplatePage) => {
@@ -409,13 +367,6 @@ export default function TemplateMarketplace() {
       }
     }
   };
-
-  // Counts shown next to the owner-filter buttons. Computed once per
-  // templates change so the badges stay accurate even as the user toggles
-  // between views, and so the "Yours" badge surfaces when the tenant has
-  // saved their own templates.
-  const ownedCount = useMemo(() => templates.filter((t) => !t.isGlobal).length, [templates]);
-  const starterCount = useMemo(() => templates.filter((t) => t.isGlobal).length, [templates]);
 
   // Force a fresh screenshot capture for a tenant-owned template. Awaits the
   // server (a few seconds while thum.io renders), then patches the row in local
@@ -511,85 +462,42 @@ export default function TemplateMarketplace() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {/* Owner filter — primary tool for sales admins to focus on the
-                tenant's own templates (the ones that show up in the New
-                Microsite modal). Defaults to "All" so existing users see no
-                behavior change. */}
-            <div className="inline-flex rounded-md border border-border overflow-hidden">
-              {([
-                { key: "all" as const, label: "All", count: templates.length },
-                { key: "owned" as const, label: "Yours", count: ownedCount },
-                { key: "starters" as const, label: "Starters", count: starterCount },
-              ]).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setOwnerFilter(opt.key)}
-                  className={
-                    "px-3 h-9 text-sm font-medium transition-colors border-r last:border-r-0 border-border " +
-                    (ownerFilter === opt.key
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background hover:bg-muted")
-                  }
-                  aria-pressed={ownerFilter === opt.key}
-                >
-                  {opt.label}
-                  <span
-                    className={
-                      "ml-1.5 text-[10px] " +
-                      (ownerFilter === opt.key ? "opacity-80" : "text-muted-foreground")
-                    }
-                  >
-                    {opt.count}
-                  </span>
-                </button>
-              ))}
-            </div>
+            {/* Type filter — All / Premium / Industry-specific / Custom.
+                Replaces the former owner control. Defaults to "All". */}
+            <Select
+              value={typeFilter}
+              onValueChange={(v) => setTypeFilter(v as TemplateTypeFilter)}
+            >
+              <SelectTrigger className="h-9 w-[170px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All types</SelectItem>
+                <SelectItem value="Premium">Premium</SelectItem>
+                <SelectItem value="Industry-specific">Industry-specific</SelectItem>
+                <SelectItem value="Custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* Industry filter — single-select, defaults to "All industries". */}
             {availableIndustries.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Filter className="h-3.5 w-3.5" />
-                    {filterButtonLabel}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-0" align="end">
-                  <div className="p-3 border-b">
-                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-medium">
-                      <Checkbox
-                        checked={
-                          allIndustriesSelected
-                            ? true
-                            : someIndustriesSelected
-                              ? "indeterminate"
-                              : false
-                        }
-                        onCheckedChange={(c) => toggleSelectAll(c === true || c === "indeterminate")}
-                      />
-                      Select all
-                    </label>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto p-2">
-                    {availableIndustries.map((industry) => {
-                      const checked = allIndustriesSelected || (selectedIndustries?.has(industry) ?? false);
-                      return (
-                        <label
-                          key={industry}
-                          className="flex items-center gap-2 cursor-pointer select-none text-sm px-2 py-1.5 rounded hover:bg-muted"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(c) => toggleIndustry(industry, c === true)}
-                          />
-                          {formatIndustry(industry)}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <Select
+                value={selectedIndustry ?? "__all__"}
+                onValueChange={(v) => setSelectedIndustry(v === "__all__" ? null : v)}
+              >
+                <SelectTrigger className="h-9 w-[170px]">
+                  <SelectValue placeholder="Industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All industries</SelectItem>
+                  {availableIndustries.map((industry) => (
+                    <SelectItem key={industry} value={industry}>
+                      {formatIndustry(industry)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-            {(["Featured", "Newest", "Name", "Most Blocks"] as SortOption[]).map((option) => (
+            {(["Featured", "Newest", "Name", "Recently Used"] as SortOption[]).map((option) => (
               <Button
                 key={option}
                 variant={sortBy === option ? "default" : "outline"}
@@ -598,6 +506,7 @@ export default function TemplateMarketplace() {
               >
                 {option === "Featured" && <Star className="h-3.5 w-3.5 mr-1" />}
                 {option === "Newest" && <Clock className="h-3.5 w-3.5 mr-1" />}
+                {option === "Recently Used" && <History className="h-3.5 w-3.5 mr-1" />}
                 {option}
               </Button>
             ))}

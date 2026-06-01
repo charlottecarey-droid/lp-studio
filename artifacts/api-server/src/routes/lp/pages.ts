@@ -3,7 +3,7 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, asc, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpPagesTable, lpPageReviewsTable, salesAccountsTable } from "@workspace/db";
+import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -1180,6 +1180,22 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         ...(linkAccountId ? { accountId: linkAccountId } : {}),
       })
       .returning();
+    // Best-effort: record that this workspace just used the source template so
+    // the library's "Recently Used" sort reflects it. Only template sources are
+    // tracked, and the write must NEVER block or fail the clone — swallow errors.
+    if (source.isTemplate) {
+      try {
+        await db
+          .insert(lpTemplateUsageTable)
+          .values({ tenantId, templateId: source.id, lastUsedAt: new Date() })
+          .onConflictDoUpdate({
+            target: [lpTemplateUsageTable.tenantId, lpTemplateUsageTable.templateId],
+            set: { lastUsedAt: new Date() },
+          });
+      } catch (usageErr) {
+        console.error("Template usage upsert failed (non-fatal):", String(usageErr));
+      }
+    }
     res.status(201).json({
       ...page,
       personalization: shouldRewrite

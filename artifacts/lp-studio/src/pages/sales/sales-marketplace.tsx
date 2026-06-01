@@ -6,6 +6,7 @@ import {
   Eye,
   Copy,
   Clock,
+  History,
   Plus,
   Loader2,
   LayoutTemplate,
@@ -19,10 +20,25 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { DEFAULT_BRAND, getBrandStyleVars } from "@/lib/brand-config";
 import type { PageBlock } from "@/lib/block-types";
+import {
+  type TemplateTypeFilter,
+  templateMatchesType,
+  templateMatchesIndustry,
+  collectIndustries,
+  compareRecentlyUsed,
+  formatIndustry,
+} from "@/lib/template-library";
 
 interface TemplatePage {
   id: number;
@@ -46,6 +62,14 @@ interface TemplatePage {
    *  in every sort order, so DSO templates and other internal designs
    *  always appear first. */
   isGlobal?: boolean;
+  /** Industry tag for global starters (e.g. "dental"); drives the Industry
+   *  filter. The "generic" catch-all is treated as untagged. */
+  industry?: string | null;
+  /** Marketplace rank; 1–10 marks a curated flagship "Premium" template. */
+  premiumRank?: number;
+  /** Per-workspace last-used timestamp (ISO). null = never cloned by this
+   *  workspace; the "Recently Used" sort pushes these to the end. */
+  lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -119,7 +143,7 @@ function TemplateCardMedia({
   );
 }
 
-type SortOption = "Newest" | "Name" | "Most Blocks";
+type SortOption = "Newest" | "Name" | "Recently Used";
 
 export default function SalesMarketplace() {
   const { toast } = useToast();
@@ -129,6 +153,11 @@ export default function SalesMarketplace() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("Newest");
+  // Type filter (task #753): All / Premium / Industry-specific / Custom.
+  const [typeFilter, setTypeFilter] = useState<TemplateTypeFilter>("All");
+  // Industry filter: null = "all industries"; otherwise a single industry slug
+  // that only restricts industry-tagged globals.
+  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [cloningId, setCloningId] = useState<number | null>(null);
   const [refreshingThumbId, setRefreshingThumbId] = useState<number | null>(null);
   // In-app preview modal state. Templates aren't published as public /lp
@@ -157,6 +186,11 @@ export default function SalesMarketplace() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Real industry tags present across the loaded templates (excludes the
+  // "generic" catch-all), sorted alphabetically. Populates the Industry
+  // dropdown.
+  const availableIndustries = useMemo(() => collectIndustries(templates), [templates]);
+
   const filteredAndSorted = useMemo(() => {
     let result = templates;
 
@@ -169,6 +203,16 @@ export default function SalesMarketplace() {
           t.templateDescription.toLowerCase().includes(q) ||
           t.slug.toLowerCase().includes(q)
       );
+    }
+
+    // Type filter: Premium / Industry-specific / Custom (or All).
+    if (typeFilter !== "All") {
+      result = result.filter((t) => templateMatchesType(t, typeFilter));
+    }
+
+    // Industry filter: only restricts global, industry-tagged templates.
+    if (selectedIndustry !== null) {
+      result = result.filter((t) => templateMatchesIndustry(t, selectedIndustry));
     }
 
     const sorted = [...result];
@@ -188,16 +232,16 @@ export default function SalesMarketplace() {
         if (r !== 0) return r;
         return a.templateLabel.localeCompare(b.templateLabel);
       });
-    } else if (sortBy === "Most Blocks") {
+    } else if (sortBy === "Recently Used") {
       sorted.sort((a, b) => {
         const r = ownedRank(a) - ownedRank(b);
         if (r !== 0) return r;
-        return b.blockCount - a.blockCount;
+        return compareRecentlyUsed(a, b);
       });
     }
 
     return sorted;
-  }, [templates, searchQuery, sortBy]);
+  }, [templates, searchQuery, sortBy, typeFilter, selectedIndustry]);
 
   const handleUseTemplate = async (template: TemplatePage) => {
     setCloningId(template.id);
@@ -311,8 +355,42 @@ export default function SalesMarketplace() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-            {(["Newest", "Name", "Most Blocks"] as SortOption[]).map((option) => (
+          <div className="flex gap-2 flex-wrap">
+            {/* Type filter — All / Premium / Industry-specific / Custom. */}
+            <Select
+              value={typeFilter}
+              onValueChange={(v) => setTypeFilter(v as TemplateTypeFilter)}
+            >
+              <SelectTrigger className="h-9 w-[170px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All types</SelectItem>
+                <SelectItem value="Premium">Premium</SelectItem>
+                <SelectItem value="Industry-specific">Industry-specific</SelectItem>
+                <SelectItem value="Custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* Industry filter — single-select, defaults to "All industries". */}
+            {availableIndustries.length > 0 && (
+              <Select
+                value={selectedIndustry ?? "__all__"}
+                onValueChange={(v) => setSelectedIndustry(v === "__all__" ? null : v)}
+              >
+                <SelectTrigger className="h-9 w-[170px]">
+                  <SelectValue placeholder="Industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All industries</SelectItem>
+                  {availableIndustries.map((industry) => (
+                    <SelectItem key={industry} value={industry}>
+                      {formatIndustry(industry)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {(["Newest", "Name", "Recently Used"] as SortOption[]).map((option) => (
               <Button
                 key={option}
                 variant={sortBy === option ? "default" : "outline"}
@@ -320,6 +398,7 @@ export default function SalesMarketplace() {
                 onClick={() => setSortBy(option)}
               >
                 {option === "Newest" && <Clock className="h-3.5 w-3.5 mr-1" />}
+                {option === "Recently Used" && <History className="h-3.5 w-3.5 mr-1" />}
                 {option}
               </Button>
             ))}

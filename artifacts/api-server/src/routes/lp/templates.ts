@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { eq, and, or } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpPagesTable } from "@workspace/db";
+import { lpPagesTable, lpTemplateUsageTable } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
 import { getRequestHost } from "../../lib/requestHost";
 import { captureTemplateThumbnail } from "../../lib/captureTemplateThumbnail";
@@ -52,6 +52,21 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         ),
       );
 
+    // Per-workspace "last used" timestamps (task #753). Recorded when this
+    // tenant clones a template; drives the library's "Recently Used" sort.
+    // Templates with no row here have never been used by this workspace and
+    // get a null lastUsedAt (the UI sorts them last).
+    const usageRows = await db
+      .select({
+        templateId: lpTemplateUsageTable.templateId,
+        lastUsedAt: lpTemplateUsageTable.lastUsedAt,
+      })
+      .from(lpTemplateUsageTable)
+      .where(eq(lpTemplateUsageTable.tenantId, tenantId));
+    const lastUsedByTemplateId = new Map<number, Date>(
+      usageRows.map((r) => [r.templateId, r.lastUsedAt]),
+    );
+
     const enriched = templates
       // Drop placeholder/scaffold templates so the gallery shows no junk cards.
       .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
@@ -87,6 +102,8 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         isGlobal: t.isGlobal,
         industry: t.industry,
         premiumRank,
+        // Per-workspace last-used timestamp (null = never used by this tenant).
+        lastUsedAt: lastUsedByTemplateId.get(t.id) ?? null,
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
       };

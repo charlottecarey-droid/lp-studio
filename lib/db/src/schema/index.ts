@@ -13,6 +13,7 @@ export * from "./lpPageAdCopyRuns";
 export * from "./lpSmartTraffic";
 export * from "./lpHeatmapEvents";
 export * from "./lpProofPoints";
+export * from "./lpTemplateUsage";
 
 // Sales Console tables
 export * from "./salesAccounts";
