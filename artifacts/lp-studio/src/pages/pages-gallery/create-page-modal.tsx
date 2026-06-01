@@ -459,8 +459,8 @@ export function CreatePageModal({
                 className="mt-1.5 w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 rows={4}
                 placeholder={aiTemplateId
-                  ? "e.g. Promote our new clear aligner service to general dentists. Emphasize speed, support, and proven case outcomes."
-                  : "e.g. A landing page for our new dental crown service targeting general dentists. Emphasize 5-day turnaround, digital workflow, and free remakes. Include a lead capture form asking for practice name, email, and number of chairs."}
+                  ? "e.g. Promote our new service to the audience it's for. Emphasize the benefits and outcomes that matter most to them."
+                  : "e.g. A landing page for our new product or service, targeting the audience it's for. Highlight the top benefits and desired tone, and include a lead capture form asking for name, email, and company."}
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
                 autoFocus

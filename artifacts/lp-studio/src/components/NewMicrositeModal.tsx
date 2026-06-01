@@ -653,8 +653,8 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                     rows={4}
                     placeholder={
                       selectedAccount
-                        ? `e.g. A landing page pitching our new aligner workflow to ${selectedAccount.name}. Emphasise speed, support, and proven case outcomes.`
-                        : "e.g. A landing page for our new dental crown service targeting general dentists. 5-day turnaround, digital workflow, free remakes."
+                        ? `e.g. A landing page pitching our product to ${selectedAccount.name}. Highlight the benefits and outcomes that matter most to them.`
+                        : "e.g. A landing page for our new product or service. Highlight the top benefits, who it's for, and the tone you want."
                     }
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
