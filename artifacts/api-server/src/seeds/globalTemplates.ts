@@ -2895,7 +2895,7 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     templateLabel: "Business Case — Split",
     templateDescription:
       "DSO microsite, split-hero layout. Dark left column with the offer, portrait photo on the right, then situation → signal → cost → shift → math → proof → plan → CTA. Built for consultative enterprise sales.",
-    ogImage: "",
+    ogImage: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=1200&q=80",
     industry: "dental",
     premiumRank: 26,
     blocks: [
@@ -2912,7 +2912,7 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     templateLabel: "Business Case — Centered",
     templateDescription:
       "DSO microsite, centered-hero layout. Symmetric dark hero band, full-width comparison table for the paradigm shift, large KPI row for the math. Best when the executive narrative leads the page.",
-    ogImage: "",
+    ogImage: "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=1200&q=80",
     industry: "dental",
     premiumRank: 27,
     blocks: [
@@ -2929,7 +2929,7 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     templateLabel: "Business Case — Premium Editorial",
     templateDescription:
       "Centered editorial business case tuned to organic-demand stories — inbound interest, clinical case grid, operational layer, insights comparison, math, proof, plan, and CTA. Modeled on the PDS-style 'why doctors keep finding Dandy' narrative.",
-    ogImage: "",
+    ogImage: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200&q=80",
     industry: "dental",
     premiumRank: 28,
     blocks: [

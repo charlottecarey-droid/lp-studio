@@ -9,6 +9,8 @@ Template cards in the Templates gallery render a real screenshot stored on `lp_p
 
 **Why:** scaffold templates (e.g. "_____ One Pager") must never get a captured thumbnail or be shown.
 
+**In practice ogImage IS the real preview source — thumbnail_url is empty for ALL global templates.** The thum.io backfill has never successfully populated `thumbnail_url` (every global template row is NULL), so the gallery effectively renders `ogImage ?? gradient`. Therefore any seeded template with `ogImage: ""` shows the gradient placeholder. When adding global templates to the seeds, always set a real `ogImage` (existing ones use `images.unsplash.com` or Dandy `/api/storage` assets) — empty string = gradient card. Both the seed AND the existing DB row must be set (a seed-only change won't reflect without a seed-marker bump + reseed).
+
 **Capture host resolution:** `captureTemplateThumbnail` prefers `requestHost` (passed from routes) then falls back to the configured render base URL. The backfill script has no request, so thum.io must reach `/preview/:slug` via the env-configured base URL — set it before running the backfill.
 
 **Refresh route is tenant-owned only:** `POST /lp/templates/:id/refresh-thumbnail` returns 403 for global templates (platform-managed). The UI hides the refresh button on global cards. Both marketplaces (`template-marketplace.tsx`, `sales/sales-marketplace.tsx`) carry identical card + refresh logic — edit both.
