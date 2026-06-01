@@ -1,12 +1,24 @@
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesAccountsTable, salesBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
+import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 import rateLimit from "express-rate-limit";
 import { pickExemplars, formatExemplarsSection } from "./microsite-exemplars";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
+// Image pipeline shared with the marketing generator so the sales path stays
+// at parity: tenant-scoped media fetch, untagged-image surfacing, broad
+// empty-slot backfill, and AI/Unsplash fallback gated per tenant.
+import {
+  fetchMediaCatalog,
+  sanitizeAIImageUrls,
+  validateAndDedupeAIImages,
+  fillEmptyImages,
+  aiFillEmptyImages,
+} from "../lp/generate-page";
+import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
+import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 
 const router = Router();
 
@@ -21,58 +33,20 @@ const micrositeLimiter = rateLimit({
 
 // ── Media library utilities ────────────────────────────────────────────────
 
-interface MediaImage { url: string; title: string; tags: string[]; }
-const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
-const SKIP_TAGS = new Set(["lp-hero", "lp-feature", "product-detail", "web res", "high res", "untitled folder"]);
-const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative"]);
+// NOTE: image catalog + fill helpers (fetchMediaCatalog, sanitizeAIImageUrls,
+// validateAndDedupeAIImages, fillEmptyImages, aiFillEmptyImages) are imported
+// from the marketing generator above so both paths stay at parity. The sales
+// path keeps only its bespoke VIDEO catalog/fill below.
 
-function getImagePurpose(img: MediaImage): string {
-  for (const t of img.tags) {
-    if (PURPOSE_TAGS.includes(t as typeof PURPOSE_TAGS[number])) return t;
-  }
-  return "";
-}
-
-async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText: string }> {
-  try {
-    const rows = await db
-      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
-      .from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "image"))
-      .orderBy(desc(lpMediaTable.createdAt))
-      .limit(500);
-    const allImages: MediaImage[] = rows.map(r => ({ url: r.url, title: r.title ?? "", tags: (r.tags as string[]) ?? [] }));
-    const images = allImages.filter(img => !img.tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase())));
-    if (images.length === 0) return { images, catalogText: "" };
-
-    const heroImages    = images.filter(i => getImagePurpose(i) === "lp-hero");
-    const featureImages = images.filter(i => getImagePurpose(i) === "lp-feature");
-
-    const buildSection = (imgs: MediaImage[], label: string): string => {
-      if (imgs.length === 0) return "";
-      const samples = imgs.slice(0, 8).map(i => i.url);
-      return `[${label}]\n${samples.join("\n")}`;
-    };
-    const sections: string[] = [
-      buildSection(heroImages,    "HERO & LIFESTYLE IMAGES — use for hero imageUrl, backgroundImageUrl, heroImageUrl"),
-      buildSection(featureImages, "FEATURE IMAGES — use for dso-split-feature, dso-lab-tour, zigzag-features imageUrl"),
-    ].filter(Boolean);
-
-    const catalogText = sections.length > 0
-      ? `\nIMAGE LIBRARY — ONLY use these URLs for any imageUrl / backgroundImageUrl / heroImageUrl field:\n${sections.join("\n\n")}\n`
-      : "";
-    return { images, catalogText };
-  } catch {
-    return { images: [], catalogText: "" };
-  }
-}
-
-async function fetchVideoCatalog(): Promise<{ videoUrls: string[]; catalogText: string }> {
+async function fetchVideoCatalog(tenantId: number | null): Promise<{ videoUrls: string[]; catalogText: string }> {
+  // Tenant isolation: never surface another tenant's videos. Fail closed on a
+  // missing tenantId so the generator ships empty rather than cross-tenant.
+  if (tenantId == null) return { videoUrls: [], catalogText: "" };
   try {
     const rows = await db
       .select({ url: lpMediaTable.url, title: lpMediaTable.title })
       .from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "video"))
+      .where(and(eq(lpMediaTable.mediaType, "video"), eq(lpMediaTable.tenantId, tenantId)))
       .orderBy(desc(lpMediaTable.createdAt))
       .limit(20);
     if (rows.length === 0) return { videoUrls: [], catalogText: "" };
@@ -82,70 +56,6 @@ async function fetchVideoCatalog(): Promise<{ videoUrls: string[]; catalogText: 
   } catch {
     return { videoUrls: [], catalogText: "" };
   }
-}
-
-function findBestImage(context: string, images: MediaImage[], usedUrls: Set<string>, preferredPurpose?: string): string {
-  if (images.length === 0) return "";
-  const contextLower = context.toLowerCase();
-  let best: MediaImage | null = null;
-  let bestScore = -Infinity;
-  for (const img of images) {
-    if (usedUrls.has(img.url)) continue;
-    let score = 0;
-    const imgPurpose = getImagePurpose(img);
-    if (preferredPurpose) {
-      if (imgPurpose === preferredPurpose) score += 8;
-      else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
-        if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
-        else score -= 2;
-      }
-    }
-    for (const tag of img.tags) {
-      const t = tag.toLowerCase();
-      if (!SKIP_TAGS.has(t) && contextLower.includes(t)) score += 3;
-    }
-    if (score > bestScore) { bestScore = score; best = img; }
-  }
-  if (best && bestScore >= 0) { usedUrls.add(best.url); return best.url; }
-  return "";
-}
-
-function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
-  if (images.length === 0) return blocks;
-  const usedUrls = new Set<string>();
-  for (const block of blocks) {
-    const props = (block as Record<string, unknown>).props as Record<string, unknown> | undefined;
-    if (!props) continue;
-    if (typeof props.imageUrl === "string" && props.imageUrl) usedUrls.add(props.imageUrl);
-    if (typeof props.backgroundImageUrl === "string" && props.backgroundImageUrl) usedUrls.add(props.backgroundImageUrl);
-    if (typeof props.heroImageUrl === "string" && props.heroImageUrl) usedUrls.add(props.heroImageUrl);
-  }
-  return blocks.map((block) => {
-    const b = { ...(block as Record<string, unknown>) };
-    const props = { ...(b.props as Record<string, unknown>) };
-    const blockType = b.type as string;
-    const ctx = `${blockType} ${(props.headline as string) ?? ""} ${(props.subheadline as string) ?? ""}`;
-
-    if (blockType === "hero" && "imageUrl" in props && !props.imageUrl)
-      props.imageUrl = findBestImage(ctx, images, usedUrls, "lp-hero");
-
-    if (blockType === "dso-heartland-hero") {
-      if (props.layout === "split") {
-        if (!props.heroImageUrl) props.heroImageUrl = findBestImage(ctx, images, usedUrls, "lp-hero");
-      } else {
-        if (!props.backgroundImageUrl) props.backgroundImageUrl = findBestImage(ctx, images, usedUrls, "lp-hero");
-      }
-    }
-
-    if ((blockType === "dso-split-feature" || blockType === "dso-lab-tour") && "imageUrl" in props && !props.imageUrl)
-      props.imageUrl = findBestImage(ctx, images, usedUrls, "lp-feature");
-
-    if (blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl)
-      props.imageUrl = findBestImage(ctx, images, usedUrls, "lp-feature");
-
-    b.props = props;
-    return b;
-  });
 }
 
 /** Replace invented / missing video URLs with real media library videos. */
@@ -1145,7 +1055,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
   // `segmentId` is the current field. `audience` is a one-release legacy alias
   // (the old enum values doubled as segment ids); both resolve against
   // brand.segments by id after the brand row is loaded inside the try block.
-  const { prompt: userPrompt, segmentId, audience, templateId, ctaOverride } = req.body as { prompt?: string; segmentId?: string; audience?: string; templateId?: number; ctaOverride?: CtaOverride };
+  const { prompt: userPrompt, segmentId, audience, templateId, ctaOverride, contactId } = req.body as { prompt?: string; segmentId?: string; audience?: string; templateId?: number; ctaOverride?: CtaOverride; contactId?: number };
 
   try {
     const [account] = await db.select().from(salesAccountsTable)
@@ -1159,6 +1069,33 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       ))
       .orderBy(desc(salesBriefingsTable.updatedAt))
       .limit(1);
+
+    // Optional: personalise the microsite toward a specific contact. Scope the
+    // lookup to BOTH this tenant AND this account so we never pull another
+    // account's people (or another tenant's) into the prompt. Its AI brief
+    // (sales_contact_briefings.briefText) is injected into the context below.
+    let contact: typeof salesContactsTable.$inferSelect | undefined;
+    let contactBriefText: string | null = null;
+    if (contactId != null && Number.isInteger(contactId)) {
+      const [c] = await db.select().from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.id, contactId),
+          eq(salesContactsTable.tenantId, tenantId),
+          eq(salesContactsTable.accountId, accountId),
+        ))
+        .limit(1);
+      if (c) {
+        contact = c;
+        const [cb] = await db.select().from(salesContactBriefingsTable)
+          .where(and(
+            eq(salesContactBriefingsTable.tenantId, tenantId),
+            eq(salesContactBriefingsTable.contactId, contactId),
+          ))
+          .orderBy(desc(salesContactBriefingsTable.updatedAt))
+          .limit(1);
+        contactBriefText = (cb?.briefText as string | undefined) ?? null;
+      }
+    }
 
     const brandRows = await db.select().from(lpBrandSettingsTable)
       .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
@@ -1192,8 +1129,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     };
 
     // Fetch media library so the AI uses real assets, not invented URLs
-    const [{ images, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }] =
-      await Promise.all([fetchMediaCatalog(), fetchVideoCatalog()]);
+    const [{ images, allImages, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }] =
+      await Promise.all([fetchMediaCatalog(tenantId), fetchVideoCatalog(tenantId)]);
 
     const openai = getOpenAIClient();
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
@@ -1257,6 +1194,18 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       }
     }
 
+    // Personalisation toward the targeted contact, if any. Tailor messaging
+    // toward this individual's role and priorities (from their AI brief).
+    if (contact) {
+      const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim();
+      const who = [contactName, contact.title].filter(Boolean).join(" — ");
+      if (who) contextParts.push(`\nTARGET CONTACT: ${who}`);
+      if (contact.role) contextParts.push(`Buyer persona: ${contact.role}`);
+      if (contactBriefText) {
+        contextParts.push(`\nCONTACT BRIEF — tailor the hero, value props, pain points, and tone toward this person's priorities (do not paste this verbatim onto the page):\n${contactBriefText}`);
+      }
+    }
+
     // Inject media library so AI uses real assets instead of inventing URLs
     if (imageCatalogText) contextParts.push(imageCatalogText);
     if (videoCatalogText) contextParts.push(videoCatalogText);
@@ -1311,8 +1260,26 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
 
-    // Post-process: fill any empty image slots, replace invented video URLs, inject brand
-    normalizedBlocks = fillEmptyImages(normalizedBlocks, images) as AiBlock[];
+    // ── Image pipeline (parity with the marketing generator) ──────────────
+    // Page-level topic context biases image scoring toward on-topic library
+    // imagery even when a block headline is generic.
+    const industryForImages = await getTenantIndustry(tenantId);
+    const pageImageContext = [
+      getIndustryImageKeywords(industryForImages).join(" "),
+      account.industry ?? "",
+      account.segment ?? "",
+      (userPrompt ?? "").trim(),
+    ].join(" ").trim().slice(0, 240);
+
+    // Clear AI-assigned URLs that are hallucinated or excluded (OG/social/ads)
+    // so the fill passes below can replace them.
+    normalizedBlocks = sanitizeAIImageUrls(normalizedBlocks, allImages) as AiBlock[];
+    // Subject the model's own picks to the same dedupe + relevance guardrails.
+    normalizedBlocks = validateAndDedupeAIImages(normalizedBlocks, images, pageImageContext) as AiBlock[];
+    // Fill remaining empty image slots from the tenant media library (surfaces
+    // untagged images + broad block-type coverage).
+    normalizedBlocks = fillEmptyImages(normalizedBlocks, images, pageImageContext) as AiBlock[];
+    // Replace invented / missing video URLs with real library videos.
     normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
     normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand, ctaOverride) as AiBlock[];
 
@@ -1320,6 +1287,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // updated copy but we keep the original carefully chosen images.
     if (templateBlocks) {
       normalizedBlocks = restoreTemplateImages(normalizedBlocks, templateBlocks) as AiBlock[];
+    }
+
+    // AI image-gen / Unsplash fallback for slots the library couldn't fill —
+    // gated per-tenant exactly like the marketing generator. Best-effort:
+    // failures fall through to the empty-string defaults the editor handles.
+    const [outsideBuilderOn, imageGenStatus] = await Promise.all([
+      getAiImageGenOutsideBuilderEnabled(tenantId),
+      getAiImageGenStatus(tenantId),
+    ]);
+    if (outsideBuilderOn || imageGenStatus.enabled) {
+      normalizedBlocks = await aiFillEmptyImages(
+        normalizedBlocks as unknown as Array<Record<string, unknown>>,
+        tenantId,
+        brand as unknown as Parameters<typeof aiFillEmptyImages>[2],
+        userPrompt,
+      ) as unknown as AiBlock[];
     }
 
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),

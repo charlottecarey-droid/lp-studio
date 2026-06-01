@@ -50,6 +50,7 @@ import {
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import DraftEmailModal from "./DraftEmailModal";
+import { GenerateMicrositeModal } from "./sales-accounts";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { useAuth } from "@/context/AuthContext";
@@ -1423,6 +1424,7 @@ function ContactDetailView({ id }: { id: string }) {
   const [hotlinks, setHotlinks] = useState<Hotlink[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountName, setAccountName] = useState<string>("");
+  const [showMicrositeModal, setShowMicrositeModal] = useState(false);
 
   // Hotlink creation state
   const [accountPages, setAccountPages] = useState<{ id: number; title: string; slug: string; accountId: number | null }[]>([]);
@@ -1556,6 +1558,15 @@ function ContactDetailView({ id }: { id: string }) {
               </div>
             </div>
           </div>
+          {contact.accountId && (
+            <Button
+              onClick={() => setShowMicrositeModal(true)}
+              className="rounded-lg gap-2 flex-shrink-0"
+            >
+              <Sparkles className="w-4 h-4" />
+              Generate Microsite
+            </Button>
+          )}
         </div>
 
         {/* Contact Info Card */}
@@ -1794,6 +1805,17 @@ function ContactDetailView({ id }: { id: string }) {
           )}
         </div>
       </div>
+
+      {contact.accountId && (
+        <GenerateMicrositeModal
+          open={showMicrositeModal}
+          onClose={() => setShowMicrositeModal(false)}
+          accountName={accountName || "this account"}
+          accountId={String(contact.accountId)}
+          contactId={contact.id}
+          onCreated={fetchData}
+        />
+      )}
     </SalesLayout>
   );
 }

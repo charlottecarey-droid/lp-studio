@@ -3148,17 +3148,19 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function GenerateMicrositeModal({
+export function GenerateMicrositeModal({
   open,
   onClose,
   accountName,
   accountId,
+  contactId,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   accountName: string;
   accountId: string;
+  contactId?: number;
   onCreated: () => void;
 }) {
   const [, navigate] = useLocation();
@@ -3242,6 +3244,7 @@ function GenerateMicrositeModal({
           segmentId,
           audience: segmentId,
           prompt: prompt.trim() || undefined,
+          ...(contactId != null ? { contactId } : {}),
           ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
           ...(ctaOverride ? { ctaOverride } : {}),
         }),

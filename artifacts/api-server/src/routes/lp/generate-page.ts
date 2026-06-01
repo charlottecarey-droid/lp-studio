@@ -135,7 +135,7 @@ function getImagePurpose(img: MediaImage): string {
  * is_shared=true) are intentionally excluded so generated pages cannot leak
  * Dandy (or any other tenant's) imagery into a Royal / non-Dandy instance.
  */
-async function fetchMediaCatalog(tenantId: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
+export async function fetchMediaCatalog(tenantId: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
   // Tenant isolation: without a tenantId we MUST NOT query the global media
   // pool — that's how Dandy sales-rep photos previously leaked onto a Frambam
   // furniture page. Fail closed: return empty so the generator falls back to
@@ -766,7 +766,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
  * to MAX_GENS so a 30-block page can't burn dozens of image-API credits
  * in a single click.
  */
-async function aiFillEmptyImages(
+export async function aiFillEmptyImages(
   blocks: Array<Record<string, unknown>>,
   tenantId: number,
   brand: BrandConfig,
