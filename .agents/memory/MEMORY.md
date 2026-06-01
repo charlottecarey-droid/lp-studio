@@ -81,3 +81,4 @@
 - [Sales delete allows synced rows](sales-delete-synced-rows.md) — account/contact delete endpoints dropped the isNull(salesforceId) guard; synced rows hard-deletable but may resync; UI warns via amber note.
 - [Undo-delete restore](undo-delete-restore.md) — hard-delete Undo = capture-and-reinsert: DELETE returns rows under `restore`, POST /restore re-inserts via restoreRows (forces tenant/page scope, idempotent onConflictDoNothing, preserves ids+timestamps).
 - [Template thumbnail capture](template-thumbnail-capture.md) — gallery cards show thum.io screenshots (thumbnailUrl→ogImage→gradient); isPlaceholderTemplateLabel duplicated in templates.ts + backfill script; backfill is a deliberate prod job.
+- [Brand-import cache poisoning](brand-import-cache-poisoning.md) — brand-import results cache must never store/serve an all-failed payload, or one transient failure blocks re-scrape of that site for 24h ("won't even try to scrape").

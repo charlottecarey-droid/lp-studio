@@ -122,6 +122,20 @@ function failedResult<T>(error: string): DimensionResult<T> {
   return { status: "failed", data: null, confidence: "low", errors: [error] };
 }
 
+// A run where EVERY dimension failed is a transient/total failure (AI-proxy
+// 429 storm, master-budget timeout that starved the extractors, evidence that
+// built but yielded nothing usable). Such a payload must never be cached or
+// served: otherwise one bad attempt poisons the 24h cache and every retry
+// replays the empty result WITHOUT re-scraping — the site appears to "never
+// even try to scrape" again until the row ages out. We only treat a payload
+// as cache-worthy/usable when at least one dimension actually produced data
+// (status "ok" or "partial"). Legitimately-partial results are still cached;
+// only the all-failed case is rejected.
+export function payloadHasUsableResults(payload: OrchestratorPayload): boolean {
+  const results = payload.results as Record<string, DimensionResult<unknown> | undefined>;
+  return Object.values(results).some((r) => !!r && r.status !== "failed");
+}
+
 // Map per-dimension results onto the existing BrandConfig flat-field shape so
 // the existing brand-settings review UI can pick them up as `proposed[field]`
 // + `confidence[field]`. Anything that doesn't map to an existing field is
@@ -312,7 +326,9 @@ export async function* runOrchestrator(
 
   if (!opts.forceRefresh) {
     const cached = await getCached(url, CACHE_MAX_AGE_HOURS);
-    if (cached) {
+    // Ignore a poisoned cache row (a prior all-failed attempt) so we fall
+    // through to a fresh scrape instead of replaying the empty result.
+    if (cached && payloadHasUsableResults(cached)) {
       yield { event: "start", sourceUrl: cached.sourceUrl, pagesScraped: cached.pagesScraped, hasScreenshot: cached.hasScreenshot, sampledPalette: cached.sampledPalette, robots: cached.robots };
       const dims: DimensionName[] = ["logos", "colors", "typography", "buttons", "photography", "content", "structure", "voice"];
       for (const d of dims) {
@@ -491,8 +507,12 @@ export async function* runOrchestrator(
   // cache.ts). Important: we cache BEFORE mirroring so the row stores
   // external URLs — mirror runs per-tenant on cache reads too, giving
   // each tenant their own lp_media copies rather than pointing every
-  // tenant at the first one's storage paths.
-  void putCached(evidence.homeUrl, payload);
+  // tenant at the first one's storage paths. We never persist an
+  // all-failed payload (see payloadHasUsableResults) — caching a transient
+  // total failure would block re-scraping for the full 24h TTL.
+  if (payloadHasUsableResults(payload)) {
+    void putCached(evidence.homeUrl, payload);
+  }
 
   if (opts.tenantId !== undefined) {
     await applyAssetMirror(payload, opts.tenantId);
