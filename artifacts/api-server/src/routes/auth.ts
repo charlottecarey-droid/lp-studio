@@ -373,7 +373,10 @@ async function establishSession(
     permissions,
     isAdmin,
     micrositeDomain,
-    appUserRole: user.role ?? null,
+    // Root superadmin is email-identified (case-insensitive), so stamp the
+    // operator role at session-creation time too — independent of the
+    // app_users.role on the (possibly case-mismatched) row this login resolved.
+    appUserRole: isRootSuperadminEmail(user.email) ? "superadmin" : (user.role ?? null),
   });
   const expire = new Date(Date.now() + SESSION_TTL_MS);
 

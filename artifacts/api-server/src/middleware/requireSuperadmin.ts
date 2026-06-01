@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { pool } from "@workspace/db";
 import { SESSION_COOKIE, type AuthUser } from "./requireAuth";
+import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
 
 /**
  * Express middleware that gates a route on the authenticated session user
@@ -34,6 +35,13 @@ export async function requireSuperadmin(
   if (!user) {
     res.status(401).json({ error: "Session expired" });
     return;
+  }
+  // The configured root superadmin is identified purely by email (case- and
+  // whitespace-insensitive), so it always passes this gate even if the
+  // app_users row it logged into never received the seeded 'superadmin' role
+  // (e.g. an OAuth email-casing mismatch created a separate row).
+  if (isRootSuperadminEmail(user.email)) {
+    user.appUserRole = "superadmin";
   }
   // Re-read the role from app_users on every request when the cached
   // session value is missing OR not "superadmin". This handles the

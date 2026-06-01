@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/node";
 import { pool } from "@workspace/db";
 import { findTenantByHost } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
+import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
 
 export const SESSION_COOKIE = "lp_sid";
 
@@ -93,6 +94,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       } catch {
         user.appUserRole = null;
       }
+    }
+    // The configured root superadmin is identified purely by email (case- and
+    // whitespace-insensitive). Always treat it as a platform operator,
+    // regardless of the app_users.role value — an OAuth provider returning a
+    // different email casing (e.g. "Admin@lpstudio.ai") upserts into a SEPARATE
+    // app_users row via the case-sensitive (email) unique index, and that row
+    // never inherits the seeded 'superadmin' role. Honouring the email here
+    // means the root operator can always reach SuperAdmin no matter which row
+    // they logged into.
+    if (isRootSuperadminEmail(user.email)) {
+      user.appUserRole = "superadmin";
     }
     req.authUser = user;
 
