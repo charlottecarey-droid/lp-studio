@@ -34,6 +34,7 @@ import {
 } from "../lib/notificationTemplates";
 import {
   listTriggers,
+  getTrigger,
   upsertTrigger,
   deleteTrigger,
   listWorkflows,
@@ -42,7 +43,7 @@ import {
   updateWorkflow,
   deleteWorkflow,
 } from "../lib/workflowStore";
-import { validateWorkflowDefinition, parseAudienceConfig } from "../lib/workflowTypes";
+import { validateWorkflowDefinition, parseAudienceConfig, parseScheduledConfig } from "../lib/workflowTypes";
 import { runWorkflowSweep, runWorkflowTick, retryWorkflowSendFailure } from "../lib/workflowEngine";
 import { previewAudience } from "../lib/workflowAudience";
 import { PLANS } from "@workspace/plan-config";
@@ -1041,6 +1042,86 @@ router.post("/admin/email-workflow-triggers", requireSuperadmin, async (req, res
     res.json({ trigger });
   } catch (err) {
     console.error("[notifications] trigger upsert error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * PATCH /api/admin/email-workflow-triggers/:key — edit an existing non-system
+ * trigger in place. Keeps the key and triggerType immutable (those identify the
+ * trigger and bind it to its workflows); updates name + config (and eventKey for
+ * event triggers). Scheduled/audience configs are revalidated via the producer's
+ * own parsers so an edit can never store a config that would silently fail to
+ * fire. Because the scheduled occurrence id is derived from the config at sweep
+ * time, saving a new time/timezone recomputes future occurrences automatically.
+ */
+router.patch("/admin/email-workflow-triggers/:key", requireSuperadmin, async (req, res): Promise<void> => {
+  const key = String(req.params.key);
+  let existing;
+  try {
+    existing = await getTrigger(key);
+  } catch (err) {
+    // A failed read is an operational error, not a missing trigger — surface it
+    // as 500 rather than masking it as a 404 (which would wrongly tell the admin
+    // the trigger no longer exists).
+    console.error("[notifications] trigger read error:", err);
+    res.status(500).json({ error: "Server error" });
+    return;
+  }
+  if (!existing) {
+    res.status(404).json({ error: "Trigger not found" });
+    return;
+  }
+  if (existing.is_system) {
+    res.status(403).json({ error: "System triggers cannot be edited" });
+    return;
+  }
+  const b = req.body ?? {};
+  const triggerType = existing.trigger_type;
+  const eventKey =
+    triggerType === "event"
+      ? (typeof b.eventKey === "string" && b.eventKey.trim() ? b.eventKey.trim() : existing.event_key)
+      : null;
+  if (triggerType === "event" && !eventKey) {
+    res.status(400).json({ error: "an event trigger needs an eventKey" });
+    return;
+  }
+  const rawConfig =
+    b.config && typeof b.config === "object" && !Array.isArray(b.config)
+      ? (b.config as Record<string, unknown>)
+      : {};
+  let config: Record<string, unknown> = {};
+  if (triggerType === "scheduled") {
+    const parsed = parseScheduledConfig(rawConfig);
+    if (!parsed) {
+      res.status(400).json({ error: "Invalid schedule: check audience, frequency, time, timezone, and day/date" });
+      return;
+    }
+    config = parsed as unknown as Record<string, unknown>;
+  } else if (triggerType === "audience") {
+    const parsed = parseAudienceConfig(rawConfig);
+    if (!parsed) {
+      res.status(400).json({ error: "Invalid audience: a role is required" });
+      return;
+    }
+    config = parsed as unknown as Record<string, unknown>;
+  }
+  const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
+  try {
+    const trigger = await upsertTrigger({
+      key,
+      name: shortStr(b.name) ?? existing.name ?? key,
+      description: shortStr(b.description) ?? existing.description ?? "",
+      triggerType,
+      eventKey,
+      config,
+      enabled: typeof b.enabled === "boolean" ? b.enabled : existing.enabled,
+      updatedBy: editorEmail,
+    });
+    await writeEditLog({ targetType: "trigger", targetKey: key, editorEmail, action: "update", diff: { triggerType } });
+    res.json({ trigger });
+  } catch (err) {
+    console.error("[notifications] trigger edit error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

@@ -16,6 +16,7 @@ import {
   Layers,
   RotateCcw,
   Plus,
+  Pencil,
   Trash2,
   GitBranch,
   Clock,
@@ -1296,6 +1297,9 @@ function TriggersPanel({
   const [dayOfWeek, setDayOfWeek] = useState(1);
   const [dayOfMonth, setDayOfMonth] = useState(1);
   const [date, setDate] = useState("");
+  // Non-null when editing an existing trigger in place; the form then PATCHes
+  // that key instead of POSTing a new trigger.
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -1335,22 +1339,67 @@ function TriggersPanel({
     return undefined;
   };
 
-  const create = async () => {
+  const resetForm = () => {
+    setEditingKey(null);
+    setKey("");
+    setName("");
+    setTriggerType("event");
+    setEventKey("");
+    setRole("member");
+    setFrequency("daily");
+    setTime("09:00");
+    setTimezone(DEFAULT_TIMEZONE);
+    setDayOfWeek(1);
+    setDayOfMonth(1);
+    setDate("");
+  };
+
+  // Load an existing trigger's config into the form for in-place editing.
+  const startEdit = (t: Trigger) => {
+    setErr(null);
+    setSaved(null);
+    setEditingKey(t.key);
+    setKey(t.key);
+    setName(t.name);
+    setTriggerType(t.trigger_type);
+    setEventKey(t.event_key ?? "");
+    const c = (t.config ?? {}) as Record<string, unknown>;
+    if (typeof c.role === "string") setRole(c.role as AudienceRole);
+    if (typeof c.frequency === "string") setFrequency(c.frequency as ScheduleFrequency);
+    if (typeof c.time === "string") setTime(c.time);
+    setTimezone(typeof c.timezone === "string" && c.timezone ? c.timezone : "UTC");
+    if (typeof c.dayOfWeek === "number") setDayOfWeek(c.dayOfWeek);
+    if (typeof c.dayOfMonth === "number") setDayOfMonth(c.dayOfMonth);
+    setDate(typeof c.date === "string" ? c.date : "");
+  };
+
+  const save = async () => {
     setBusy(true);
     setErr(null);
     setSaved(null);
     try {
       const config = buildConfig();
-      await apiFetch("/api/admin/email-workflow-triggers", {
-        method: "POST",
-        body: JSON.stringify({
-          key: key.trim().toLowerCase(),
-          name: name.trim() || key.trim(),
-          triggerType,
-          eventKey: triggerType === "event" ? eventKey.trim() : null,
-          ...(config ? { config } : {}),
-        }),
-      });
+      if (editingKey) {
+        await apiFetch(`/api/admin/email-workflow-triggers/${encodeURIComponent(editingKey)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: name.trim() || editingKey,
+            eventKey: triggerType === "event" ? eventKey.trim() : null,
+            ...(config ? { config } : {}),
+          }),
+        });
+      } else {
+        await apiFetch("/api/admin/email-workflow-triggers", {
+          method: "POST",
+          body: JSON.stringify({
+            key: key.trim().toLowerCase(),
+            name: name.trim() || key.trim(),
+            triggerType,
+            eventKey: triggerType === "event" ? eventKey.trim() : null,
+            ...(config ? { config } : {}),
+          }),
+        });
+      }
       // Repeat the live recipient count back as a save confirmation.
       if (triggerType !== "event") {
         const { count, overCap } = lastPreview.current;
@@ -1363,9 +1412,7 @@ function TriggersPanel({
       } else {
         setSaved("Trigger saved.");
       }
-      setKey("");
-      setName("");
-      setEventKey("");
+      resetForm();
       onChanged();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to save trigger");
@@ -1418,16 +1465,28 @@ function TriggersPanel({
               {t.is_system ? (
                 <Badge variant="outline">System</Badge>
               ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-destructive"
-                  disabled={busy}
-                  onClick={() => void remove(t.key)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    disabled={busy}
+                    onClick={() => startEdit(t)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-destructive"
+                    disabled={busy}
+                    onClick={() => void remove(t.key)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -1436,13 +1495,22 @@ function TriggersPanel({
       </div>
 
       <div className="rounded-md border bg-muted/20 p-3">
-        <p className="mb-2 text-xs font-semibold">New trigger</p>
+        <p className="mb-2 text-xs font-semibold">
+          {editingKey ? `Edit trigger “${editingKey}”` : "New trigger"}
+        </p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Input className="h-8 font-mono" placeholder="key" value={key} onChange={(e) => setKey(e.target.value)} />
+          <Input
+            className="h-8 font-mono"
+            placeholder="key"
+            value={key}
+            disabled={!!editingKey}
+            onChange={(e) => setKey(e.target.value)}
+          />
           <Input className="h-8" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
           <select
-            className="rounded-md border bg-background px-2 py-1.5 text-sm"
+            className="rounded-md border bg-background px-2 py-1.5 text-sm disabled:opacity-60"
             value={triggerType}
+            disabled={!!editingKey}
             onChange={(e) => setTriggerType(e.target.value as TriggerType)}
           >
             <option value="event">Event</option>
@@ -1628,9 +1696,24 @@ function TriggersPanel({
           </div>
         )}
 
-        <Button type="button" size="sm" className="mt-2" disabled={busy || !key.trim()} onClick={() => void create()}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> Add trigger
-        </Button>
+        <div className="mt-2 flex items-center gap-2">
+          <Button type="button" size="sm" disabled={busy || !key.trim()} onClick={() => void save()}>
+            {editingKey ? (
+              <>
+                <Pencil className="mr-1 h-3.5 w-3.5" /> Save changes
+              </>
+            ) : (
+              <>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Add trigger
+              </>
+            )}
+          </Button>
+          {editingKey && (
+            <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={resetForm}>
+              Cancel
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

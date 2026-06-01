@@ -77,6 +77,17 @@ export async function listTriggers(): Promise<TriggerRow[]> {
   return r.rows;
 }
 
+export async function getTrigger(key: string): Promise<TriggerRow | null> {
+  const r = await pool.query<TriggerRow>(
+    `SELECT key, name, description, trigger_type, event_key, config,
+            is_system, enabled, updated_at, updated_by
+       FROM email_workflow_triggers
+      WHERE key = $1`,
+    [key],
+  );
+  return r.rows[0] ?? null;
+}
+
 export async function upsertTrigger(input: {
   key: string;
   name: string;
