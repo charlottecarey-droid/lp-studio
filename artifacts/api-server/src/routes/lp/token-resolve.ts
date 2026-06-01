@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 import { getRequestOrigin } from "../../lib/requestHost";
+import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
 import rateLimit from "express-rate-limit";
 
 interface LinkWithPage {
@@ -85,7 +86,8 @@ async function sendVisitAlert(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+        from: platformFromAddress(),
+        reply_to: platformReplyTo(),
         to: recipients,
         subject: `${opts.contactName} just viewed your page`,
         html,

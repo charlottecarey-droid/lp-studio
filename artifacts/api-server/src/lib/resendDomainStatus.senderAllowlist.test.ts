@@ -37,7 +37,9 @@ function stubDomainsResponse(domains: Array<{ name: string; status: string }>): 
 
 beforeEach(() => {
   _clearResendDomainStatusCache();
-  process.env["RESEND_FROM_EMAIL"] = "LP Studio <noreply@lpstudio.ai>";
+  // Exercise the genuine centralized platform default (mail.lpstudio.ai) by
+  // leaving RESEND_FROM_EMAIL unset; platformFromAddress() supplies the fallback.
+  delete process.env["RESEND_FROM_EMAIL"];
 });
 
 afterEach(() => {
@@ -75,7 +77,7 @@ describe("getAllowedSenderDomains", () => {
     const { domains, available } = await getAllowedSenderDomains({ force: true });
     expect(available).toBe(true);
     expect(domains).toContain("acme.com");
-    expect(domains).toContain("lpstudio.ai"); // platform default
+    expect(domains).toContain("mail.lpstudio.ai"); // platform default
     expect(domains).not.toContain("pending.com"); // not verified
   });
 
@@ -112,7 +114,7 @@ describe("checkSenderDomain", () => {
   it("allows the platform default domain even when not in the verified list", async () => {
     process.env["RESEND_API_KEY"] = "test-key";
     stubDomainsResponse([{ name: "acme.com", status: "verified" }]);
-    const check = await checkSenderDomain("noreply@lpstudio.ai");
+    const check = await checkSenderDomain("team@mail.lpstudio.ai");
     expect(check.allowed).toBe(true);
   });
 

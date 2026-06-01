@@ -17,6 +17,7 @@ import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { escapeHtml } from "../../lib/emailRender";
+import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
 
 const router = Router();
 
@@ -159,11 +160,13 @@ async function sendFollowUpEmailToSubmitter(opts: {
     console.error("[lead", leadId, "] follow-up tenant render failed — using legacy fallback", err);
   }
 
+  const followUpReplyTo = platformReplyTo();
   const body: Record<string, unknown> = {
-    from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+    from: platformFromAddress(),
     to: [submitterEmail],
     subject: finalSubject,
   };
+  if (followUpReplyTo) body.reply_to = followUpReplyTo;
   if (finalHtml) body.html = finalHtml;
   if (finalText) body.text = finalText;
 

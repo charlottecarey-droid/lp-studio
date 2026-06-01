@@ -13,6 +13,7 @@ import crypto from "crypto";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { buildCommentCtaBlock, buildReviewCommentBlock } from "../../lib/tenantEmailAssets";
 import { resolveBroadcastRecipients } from "../../lib/broadcastRecipients";
+import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
 
 const router = Router();
 
@@ -40,7 +41,8 @@ async function sendCollaborationEmail(to: string[], subject: string, html: strin
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+        from: platformFromAddress(),
+        reply_to: platformReplyTo(),
         to,
         subject,
         html,

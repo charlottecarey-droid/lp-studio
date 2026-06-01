@@ -12,6 +12,8 @@
  * tenantId + domain so changing the domain invalidates the prior entry.
  */
 
+import { platformFromAddress } from "./platformSender";
+
 export type ResendDomainVerificationState =
   | "verified"
   | "pending"
@@ -223,8 +225,7 @@ export function extractAddressDomain(rawFrom: string): string | null {
 
 /** Domain of the platform default sender — always allowed (it's what we send from). */
 function defaultSenderDomain(): string | null {
-  const def = process.env["RESEND_FROM_EMAIL"] || "LP Studio <noreply@lpstudio.ai>";
-  return extractAddressDomain(def);
+  return extractAddressDomain(platformFromAddress());
 }
 
 /**

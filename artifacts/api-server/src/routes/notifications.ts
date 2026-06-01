@@ -44,6 +44,7 @@ import {
   deleteWorkflow,
 } from "../lib/workflowStore";
 import { validateWorkflowDefinition, parseAudienceConfig, parseScheduledConfig } from "../lib/workflowTypes";
+import { platformFromAddress, platformReplyTo } from "../lib/platformSender";
 import { runWorkflowSweep, runWorkflowTick, retryWorkflowSendFailure } from "../lib/workflowEngine";
 import { previewAudience } from "../lib/workflowAudience";
 import { PLANS } from "@workspace/plan-config";
@@ -493,14 +494,13 @@ async function sendViaResend(
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey) throw new Error("RESEND_API_KEY not configured");
-  // Operator-configured sender wins; otherwise the env default (today's behavior).
-  const from =
-    (envelope?.from && envelope.from.trim()) ||
-    process.env["RESEND_FROM_EMAIL"] ||
-    "LP Studio <noreply@lpstudio.ai>";
+  // Operator-configured sender wins; otherwise the verified platform default.
+  const from = (envelope?.from && envelope.from.trim()) || platformFromAddress();
   const payload: Record<string, unknown> = { from, to, subject, html };
-  if (envelope?.replyTo && envelope.replyTo.trim()) {
-    payload["reply_to"] = envelope.replyTo.trim();
+  // Explicit per-send reply-to wins; otherwise fall back to the platform default.
+  const replyTo = (envelope?.replyTo && envelope.replyTo.trim()) || platformReplyTo();
+  if (replyTo) {
+    payload["reply_to"] = replyTo;
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

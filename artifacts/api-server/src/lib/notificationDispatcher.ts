@@ -10,6 +10,7 @@ import { expandEmailVars, renderEmail } from "./emailRender";
 import { resolveEmailShellForEmail } from "./tenantEmailShell";
 import { isOptedOut, makeUnsubscribeToken } from "./notificationPreferences";
 import { recordWorkflowSendFailure, type SendFailureChannel } from "./workflowSendFailures";
+import { platformFromAddress, platformReplyTo } from "./platformSender";
 
 /**
  * Channel-aware notification dispatcher.
@@ -155,14 +156,13 @@ async function sendEmail(
     logger.warn("[notificationDispatcher] RESEND_API_KEY not set — skipping email");
     throw new Error("RESEND_API_KEY not configured");
   }
-  // Per-template sender override wins; otherwise the env default (today's behavior).
-  const from =
-    (envelope?.from && envelope.from.trim()) ||
-    process.env["RESEND_FROM_EMAIL"] ||
-    "LP Studio <noreply@lpstudio.ai>";
+  // Per-template sender override wins; otherwise the verified platform default.
+  const from = (envelope?.from && envelope.from.trim()) || platformFromAddress();
   const payload: Record<string, unknown> = { from, to, subject, html };
-  if (envelope?.replyTo && envelope.replyTo.trim()) {
-    payload["reply_to"] = envelope.replyTo.trim();
+  // Explicit per-send reply-to wins; otherwise fall back to the platform default.
+  const replyTo = (envelope?.replyTo && envelope.replyTo.trim()) || platformReplyTo();
+  if (replyTo) {
+    payload["reply_to"] = replyTo;
   }
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= 3; attempt++) {

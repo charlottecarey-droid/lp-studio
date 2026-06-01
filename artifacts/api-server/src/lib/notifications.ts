@@ -4,6 +4,7 @@ import { getNotificationTemplate } from "./notificationTemplates";
 import { renderTenantEmail } from "./tenantEmailRender";
 import { resolveEmailShellForEmail } from "./tenantEmailShell";
 import { buildLeadFieldsTable, buildLeadVariantNote } from "./tenantEmailAssets";
+import { platformFromAddress, platformReplyTo } from "./platformSender";
 
 /**
  * Plain-text token substitution for email SUBJECTS (no HTML escaping). Mirrors
@@ -158,7 +159,8 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: invite.fromEmail ?? process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+        from: invite.fromEmail ?? platformFromAddress(),
+        reply_to: platformReplyTo(),
         to: [inviteeEmail],
         subject,
         html,
@@ -280,7 +282,8 @@ async function sendAuthActionEmail(opts: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: opts.fromEmail ?? process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+        from: opts.fromEmail ?? platformFromAddress(),
+        reply_to: platformReplyTo(),
         to: [opts.to],
         subject: opts.subject,
         html: opts.html,
@@ -425,7 +428,7 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
   // Deliberately do NOT honor a per-tenant from-domain here — many tenant
   // domains aren't verified with Resend, which would cause hard rejections
   // and an admin who never gets warned. The platform sender is verified.
-  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const fromAddress = platformFromAddress();
   const expiryFormatted = expiresAt.toUTCString().replace(/ GMT$/, " UTC");
   const headline = `An old ${escapeHtml(tenantName)} URL is about to stop working`;
   const dayLabel = daysUntilExpiry === 1 ? "1 day" : `${daysUntilExpiry} days`;
@@ -499,6 +502,7 @@ export async function sendSlugRedirectExpiryWarning(payload: SlugRedirectExpiryP
       },
       body: JSON.stringify({
         from: fromAddress,
+        reply_to: platformReplyTo(),
         to: [recipientEmail],
         subject,
         html,
@@ -556,7 +560,7 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
   // Per the slug-expiry precedent: always send from the verified platform
   // sender, never a per-tenant domain (most tenant domains aren't verified
   // with Resend, which would hard-bounce the one email that matters most).
-  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const fromAddress = platformFromAddress();
 
   const amountText =
     amountDue != null && currency
@@ -637,6 +641,7 @@ export async function sendPaymentFailedEmail(payload: PaymentFailedPayload): Pro
       },
       body: JSON.stringify({
         from: payload.fromEmail ?? fromAddress,
+        reply_to: platformReplyTo(),
         to: recipients,
         subject,
         html,
@@ -797,7 +802,8 @@ export async function sendEmailNotification(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
+        from: platformFromAddress(),
+        reply_to: platformReplyTo(),
         to: recipients,
         subject,
         html,
@@ -1007,7 +1013,7 @@ export async function sendCustomDomainActiveEmail(payload: CustomDomainActivePay
     return false;
   }
   const { recipientEmail, tenantName, hostname, publishedUrl } = payload;
-  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const fromAddress = platformFromAddress();
   const headline = `${escapeHtml(hostname)} is live`;
 
   const contentHtml = `              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
@@ -1041,6 +1047,7 @@ export async function sendCustomDomainActiveEmail(payload: CustomDomainActivePay
       },
       body: JSON.stringify({
         from: fromAddress,
+        reply_to: platformReplyTo(),
         to: [recipientEmail],
         subject: `${hostname} is live`,
         html,
@@ -1065,7 +1072,7 @@ export async function sendCustomDomainStuckEmail(payload: CustomDomainStuckPaylo
     return false;
   }
   const { recipientEmail, tenantName, hostname, cnameTarget, settingsUrl, hoursPending } = payload;
-  const fromAddress = process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>";
+  const fromAddress = platformFromAddress();
   const headline = `${escapeHtml(hostname)} still needs DNS setup`;
   const hoursLabel = hoursPending === 1 ? "1 hour" : `${hoursPending} hours`;
 
@@ -1117,6 +1124,7 @@ export async function sendCustomDomainStuckEmail(payload: CustomDomainStuckPaylo
       },
       body: JSON.stringify({
         from: fromAddress,
+        reply_to: platformReplyTo(),
         to: [recipientEmail],
         subject: `Action needed: ${hostname} still isn't pointing to LP Studio`,
         html,
