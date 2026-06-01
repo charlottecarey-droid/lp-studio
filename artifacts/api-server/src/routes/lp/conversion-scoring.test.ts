@@ -103,6 +103,65 @@ describe("analyzeBlocks — broadened detection", () => {
     expect(a.hasSocialProof).toBe(true);
     expect(a.hasTrustSignals).toBe(false);
   });
+
+  it("detects a hero, headline, social proof, booking, imagery, and trust inside a premium all-in-one block", () => {
+    const a = analyzeBlocks([
+      {
+        type: "business-case-premium",
+        props: {
+          heroHeadline: "Why PDS doctors keep finding Dandy.",
+          heroLayout: "split-image-right",
+          heroImageUrl: "/api/storage/objects/uploads/abc",
+          situationStats: [{ value: "9", label: "active practices" }],
+          mathStats: [{ value: "$25K", label: "Monthly spend" }],
+          proofFeatured: { name: "PDS practice", quote: "The scans are hit or miss." },
+          shiftRows: [{ oldWay: "Tracked weeks late", withDandy: "Real time" }],
+          showFinalCta: true,
+          finalCtaPrimaryText: "Explore DSO Partnerships",
+          finalCtaPrimaryUrl: "https://www.meetdandy.com/dso",
+        },
+      },
+    ]);
+    expect(a.hasHero).toBe(true);
+    expect(a.headlineCount).toBeGreaterThanOrEqual(1);
+    expect(a.hasSocialProof).toBe(true);
+    expect(a.hasBooking).toBe(true);
+    expect(a.hasImagery).toBe(true);
+    expect(a.hasTrustSignals).toBe(true);
+  });
+
+  it("treats old-way-vs-new-way comparison blocks as trust signals", () => {
+    expect(analyzeBlocks([{ type: "dandy-versus", props: {} }]).hasTrustSignals).toBe(true);
+    expect(
+      analyzeBlocks([{ type: "dso-paradigm-shift", props: { oldWayItems: ["a"], newWayItems: ["b"] } }]).hasTrustSignals,
+    ).toBe(true);
+    expect(analyzeBlocks([{ type: "dso-comparison", props: { rows: [{ traditional: "x", dandy: "y" }] } }]).hasTrustSignals).toBe(
+      true,
+    );
+  });
+
+  it("recognizes social proof from bespoke *Stats prop names and stat/quote object shapes", () => {
+    expect(analyzeBlocks([{ type: "x", props: { mathStats: [{ value: "8k", label: "practices" }] } }]).hasSocialProof).toBe(true);
+    expect(analyzeBlocks([{ type: "x", props: { signalCards: [{ body: "...", stat: "Quality" }] } }]).hasSocialProof).toBe(true);
+    expect(analyzeBlocks([{ type: "x", props: { proofSecondary: [{ name: "n", quote: "q" }] } }]).hasSocialProof).toBe(true);
+  });
+
+  it("does NOT treat feature/step item lists as social proof or trust", () => {
+    const switchback = analyzeBlocks([{ type: "dandy-switchback", props: { items: [{ title: "t", ctaUrl: "u", ctaText: "c" }] } }]);
+    expect(switchback.hasSocialProof).toBe(false);
+    expect(switchback.hasTrustSignals).toBe(false);
+    const benefits = analyzeBlocks([{ type: "benefits-grid", props: { items: [{ title: "t", description: "d" }] } }]);
+    expect(benefits.hasSocialProof).toBe(false);
+  });
+
+  it("flags imagery from bespoke *ImageUrl / imageUrls props without inflating the speed imageCount", () => {
+    const a = analyzeBlocks([{ type: "dso-problem", props: { imageUrls: ["/a", "/b"], panels: [{}, {}] } }]);
+    expect(a.hasImagery).toBe(true);
+    expect(a.imageCount).toBe(0);
+    // Image-flavored config strings (tone/zoom/focus) must NOT count as imagery.
+    const b = analyzeBlocks([{ type: "x", props: { heroImageTone: "color", heroImageZoom: "fill", heroImageFocus: "top" } }]);
+    expect(b.hasImagery).toBe(false);
+  });
 });
 
 describe("computeConversionScore — calibration", () => {

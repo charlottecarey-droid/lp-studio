@@ -48,7 +48,12 @@ export interface BlockAnalysis {
   hasTrustSignals: boolean;
   blockCount: number;
   headlineCount: number;
+  // Count of media-heavy blocks (image/gallery/video/photo/carousel or an
+  // images[] array) — used as the Page Speed proxy, so it stays narrow.
   imageCount: number;
+  // Whether ANY block carries imagery (incl. heroImageUrl / imageUrls[] /
+  // bespoke *ImageUrl props) — used for Visual Hierarchy, so it stays broad.
+  hasImagery: boolean;
 }
 
 // Social-proof block types the generator and catalog actually emit. Matched by
@@ -75,6 +80,56 @@ function valStr(v: unknown): string {
   return typeof v === "string" ? v.toLowerCase() : "";
 }
 
+function nonEmptyArray(v: unknown): v is unknown[] {
+  return Array.isArray(v) && v.length > 0;
+}
+
+function nonEmptyStr(v: unknown): boolean {
+  return typeof v === "string" && v.trim() !== "";
+}
+
+// A prop key that holds an image reference: imageUrl, heroImageUrl,
+// backgroundImageUrl, proofImageUrl, situationImageUrl, imageUrls[], imageKey,
+// image / images. Deliberately excludes look-alikes that are NOT images
+// (heroImageTone, heroImageZoom, heroImageFocus, heroImageCaption).
+function isImageKey(key: string): boolean {
+  const k = key.toLowerCase();
+  return (
+    k === "image" ||
+    k === "images" ||
+    k === "imagekey" ||
+    k.endsWith("imageurl") ||
+    k.endsWith("imageurls")
+  );
+}
+
+// Recognize a credibility object inside an array prop: a testimonial/quote, a
+// case study, or a labeled stat — regardless of the array's prop name. This is
+// what lets bespoke premium blocks (situationStats, mathStats, signalCards,
+// proofSecondary, costItems …) register as social proof.
+function isSocialProofObject(item: unknown): boolean {
+  if (!item || typeof item !== "object") return false;
+  const o = item as Record<string, unknown>;
+  return (
+    nonEmptyStr(o.quote) ||
+    nonEmptyStr(o.stat) ||
+    (nonEmptyStr(o.value) && nonEmptyStr(o.label))
+  );
+}
+
+// Recognize an old-way-vs-new-way comparison row (a credibility / trust
+// device): dso-comparison rows {need,dandy,traditional}, paradigm-shift
+// {oldWay,newWay}, business-case shiftRows {oldWay,withDandy} …
+function isComparisonObject(item: unknown): boolean {
+  if (!item || typeof item !== "object") return false;
+  const o = item as Record<string, unknown>;
+  return (
+    nonEmptyStr(o.oldWay) ||
+    nonEmptyStr(o.withDandy) ||
+    nonEmptyStr(o.traditional)
+  );
+}
+
 // Analyze the blocks jsonb from a page to compute content-based scores
 export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
   const result: BlockAnalysis = {
@@ -90,6 +145,7 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     blockCount: blocks.length,
     headlineCount: 0,
     imageCount: 0,
+    hasImagery: false,
   };
 
   for (const raw of blocks) {
@@ -97,8 +153,14 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     const type = (block.type || "").toLowerCase();
     const props = (block.props || {}) as Record<string, unknown>;
     const propsStr = JSON.stringify(props).toLowerCase();
+    const propEntries = Object.entries(props);
 
-    if (type.includes("hero") || type.includes("header")) result.hasHero = true;
+    // ── Hero ───────────────────────────────────────────────────────
+    // By type keyword OR by carrying hero content under bespoke prop names —
+    // premium all-in-one blocks (e.g. `business-case-premium`) render a hero
+    // via `heroHeadline` / `heroLayout` without "hero" in their type.
+    const hasHeroProps = nonEmptyStr(props.heroHeadline) || nonEmptyStr(props.heroLayout);
+    if (type.includes("hero") || type.includes("header") || hasHeroProps) result.hasHero = true;
     if (type.includes("cta") || type.includes("button") || propsStr.includes("cta")) result.hasCtaButton = true;
 
     // ── Social proof ───────────────────────────────────────────────
@@ -116,19 +178,23 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     ) {
       result.hasSocialProof = true;
     }
-    // Props-based social proof — a block carrying a non-empty stats /
-    // testimonials / cases array is credibility content regardless of its type
-    // (e.g. a `dandy-conversion-panel` or `dso-ai-feature` with "Join 8,000+
-    // practices" stats).
-    const statsArr = props.stats;
-    const testimonialsArr = props.testimonials;
-    const casesArr = props.cases;
-    if (
-      (Array.isArray(statsArr) && statsArr.length > 0) ||
-      (Array.isArray(testimonialsArr) && testimonialsArr.length > 0) ||
-      (Array.isArray(casesArr) && casesArr.length > 0)
-    ) {
-      result.hasSocialProof = true;
+    // Props-based social proof — a block carrying credibility content is social
+    // proof regardless of its type or the exact prop name. Premium all-in-one
+    // blocks store stats/quotes under bespoke names (situationStats, mathStats,
+    // signalCards, proofSecondary, costItems, proofFeatured …), so detect by
+    // SHAPE: any array whose key ends in "stats", or any array containing a
+    // testimonial/stat object, or a featured-proof object with a quote.
+    for (const [key, value] of propEntries) {
+      const lk = key.toLowerCase();
+      if (nonEmptyArray(value)) {
+        if (lk.endsWith("stats") || value.some(isSocialProofObject)) {
+          result.hasSocialProof = true;
+          break;
+        }
+      } else if (lk.includes("proof") && isSocialProofObject(value)) {
+        result.hasSocialProof = true;
+        break;
+      }
     }
     if (type.includes("bento")) {
       const tiles = props.tiles;
@@ -197,11 +263,21 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     if (type.includes("roi-calculator") && (props.ctaEnabled === true || valStr(props.ctaText) !== "")) {
       result.hasBooking = true;
     }
+    // A premium all-in-one block whose final-CTA band is enabled with a labeled
+    // button (e.g. `business-case-premium`'s showFinalCta + finalCtaPrimaryText)
+    // IS the page's conversion path, even without a dedicated final-cta block.
+    if (props.showFinalCta !== false && nonEmptyStr(props.finalCtaPrimaryText)) {
+      result.hasBooking = true;
+    }
 
     if (type.includes("faq") || type.includes("accordion")) result.hasFaq = true;
     if (type.includes("footer")) result.hasFooter = true;
-    // Trust signals — kept DISTINCT from social proof (no "trust" substring, so
-    // the social-proof "trust-bar" stat block is not double-counted here).
+    // ── Trust signals ──────────────────────────────────────────────
+    // Kept DISTINCT from social proof (no "trust" substring, so the social-proof
+    // "trust-bar" stat block is not double-counted here). Counted when a block
+    // is a guarantee/badge/seal type, a credibility comparison (versus /
+    // paradigm-shift / old-way-vs-Dandy table), or carries promises / a
+    // guarantee / trust-line / certifications / badges under any prop name.
     if (
       type.includes("badge") ||
       type.includes("security") ||
@@ -209,13 +285,50 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       type.includes("shield") ||
       type.includes("promise") ||
       type.includes("seal") ||
-      type.includes("compliance")
+      type.includes("compliance") ||
+      type.includes("comparison") ||
+      type.includes("versus") ||
+      type.includes("paradigm")
     ) {
       result.hasTrustSignals = true;
     }
-    if (type.includes("heading") || type.includes("headline") || type.includes("hero")) result.headlineCount++;
-    // Imagery — recognized by type keyword (image/gallery/video/photo/carousel)
-    // OR by carrying a non-empty images[] array (e.g. `photo-strip`).
+    if (
+      nonEmptyArray(props.promises) ||
+      (nonEmptyArray(props.oldWayItems) && nonEmptyArray(props.newWayItems)) ||
+      nonEmptyArray(props.certifications) ||
+      nonEmptyArray(props.badges) ||
+      nonEmptyArray(props.trustBadges) ||
+      nonEmptyStr(props.trustLine) ||
+      nonEmptyStr(props.guarantee) ||
+      nonEmptyStr(props.guaranteeText)
+    ) {
+      result.hasTrustSignals = true;
+    } else {
+      for (const value of Object.values(props)) {
+        if (nonEmptyArray(value) && value.some(isComparisonObject)) {
+          result.hasTrustSignals = true;
+          break;
+        }
+      }
+    }
+
+    // ── Headlines ──────────────────────────────────────────────────
+    // By type keyword OR by carrying a hero / headline string (premium blocks
+    // hold their above-the-fold headline under `heroHeadline` / `headline`).
+    if (
+      type.includes("heading") ||
+      type.includes("headline") ||
+      type.includes("hero") ||
+      nonEmptyStr(props.heroHeadline) ||
+      nonEmptyStr(props.headline)
+    ) {
+      result.headlineCount++;
+    }
+
+    // ── Imagery ────────────────────────────────────────────────────
+    // imageCount stays NARROW (it feeds the Page Speed proxy): media-heavy
+    // blocks only — image/gallery/video/photo/carousel types or an images[]
+    // array.
     const imagesArr = props.images;
     if (
       type.includes("image") ||
@@ -226,6 +339,22 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       (Array.isArray(imagesArr) && imagesArr.length > 0)
     ) {
       result.imageCount++;
+    }
+    // hasImagery stays BROAD (it feeds Visual Hierarchy): any block carrying an
+    // image reference under any prop name (heroImageUrl, backgroundImageUrl,
+    // proofImageUrl, imageUrls[], imageKey …) counts, so image-rich pages are
+    // not told to "add an image".
+    if (!result.hasImagery) {
+      if (result.imageCount > 0) {
+        result.hasImagery = true;
+      } else {
+        for (const [key, value] of propEntries) {
+          if (isImageKey(key) && (nonEmptyStr(value) || nonEmptyArray(value))) {
+            result.hasImagery = true;
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -313,7 +442,7 @@ export function computeConversionScore(input: {
   // Visual Hierarchy: block count sweet spot, imagery, hero + footer framing.
   const blockCountScore = analysis.blockCount >= 4 && analysis.blockCount <= 20 ? 40 : analysis.blockCount > 0 ? 20 : 0;
   const visualScore = Math.min(
-    blockCountScore + (analysis.imageCount >= 1 ? 25 : 0) + (analysis.hasHero ? 20 : 0) + (analysis.hasFooter ? 15 : 0),
+    blockCountScore + (analysis.hasImagery ? 25 : 0) + (analysis.hasHero ? 20 : 0) + (analysis.hasFooter ? 15 : 0),
     100,
   );
 
@@ -383,7 +512,7 @@ export function computeConversionScore(input: {
       recommendation:
         analysis.blockCount < 4
           ? "Add more content sections to tell a complete story"
-          : analysis.imageCount === 0
+          : !analysis.hasImagery
             ? "Add at least one image or visual element"
             : "Visual structure looks good",
     },
