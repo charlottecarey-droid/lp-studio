@@ -26,9 +26,9 @@ export default function Home() {
   // the legacy opengraph.png is 6.5MB and large images frequently time out
   // in scrapers' short fetch windows, which is why previews "rarely showed".
   usePageMeta({
-    title: "LP Studio",
+    title: "LP Studio — AI Landing Pages for Revenue Teams",
     description:
-      "Skip the brief, ship the page. Fast, branded landing pages for revenue teams — ABM for the rest of us. One page for every account, built on your lunch break with time left to eat.",
+      "Skip the brief, ship the page. Build fast, on-brand landing pages and ABM microsites in minutes — one per account, no designer, no dev. ABM for the rest of us.",
     canonical: "https://lpstudio.ai/",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
     ogImageWidth: 1280,
