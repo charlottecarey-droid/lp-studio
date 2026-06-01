@@ -1,0 +1,263 @@
+Unified Page Detail View — consolidate per-page surfaces into one route
+What we're building
+A single Page Detail route that aggregates everything about one landing page in one place — analytics, conversion scoring, page speed, traffic sources, A/B tests, programmatic variables, heatmap, and a per-visit table — instead of scattering those across six different Labs/Analytics tabs.
+Today the IA is feature-centric: Conversion Scoring is its own tab in Labs, Page Speed is its own tab in Labs, AdMap is its own tab in Labs, the per-page metrics live in the builder sidebar, A/B Tests are their own tab, Approvals are their own tab. To understand how one page is performing, an operator has to traverse 5–7 surfaces. That's the problem.
+The fix is entity-centric IA: one route per page at /analytics/pages/[pageId] that consolidates all per-page data into a single operating dashboard. Think CRM contact-detail page, but for a landing page.
+Important: don't remove the existing Labs tabs. Those remain useful as cross-page rollups (e.g. "which of my 143 pages are failing on Conversion Score?"). They become the inventory view. The new Page Detail view is the per-entity drill-down. Both are needed.
+Scope: this is mostly a UI consolidation, not a data engineering build
+The data already exists. Almost every component on this page already has a working implementation somewhere in the codebase — in the builder sidebar, in Labs/Conversion Scoring, in Labs/Page Speed, etc. The work is:
+
+Extract those existing implementations into reusable shared components.
+Build one new route that composes them.
+Build one net-new component: the Visits Table (the per-visit drill-down with resolved contact identity).
+Wire navigation so users can land here from Analytics > Pages, from Labs/*, and from the Builder.
+
+Time estimate: 3–5 focused days if data is where I expect it. Longer if the per-feature data isn't already callable from the per-page level.
+Route + file structure
+New route: /analytics/pages/[pageId] in the Marketing Console.
+Component file: apps/web/src/routes/marketing/analytics/pages/[pageId]/page.tsx (or whatever the existing convention is — match what /analytics/pages uses today).
+Why under /analytics/pages/ and not under /pages/: the user mental model is "I'm looking at analytics for a page," and the existing Analytics > Pages table is the natural entry point. The /pages/ route is the editing context (list of pages → click to edit in builder); /analytics/pages/ is the measurement context (list of pages → click to see how it's performing).
+Sections, top to bottom
+1. Header bar
+
+Breadcrumb: Analytics › Pages › [Page Name]
+Page name (with edit pencil icon → opens builder at /builder/[pageId])
+URL with copy-to-clipboard button (e.g. lpstudio.ai/p/dandy-ai-lp-copy)
+Status badge: Draft / Published / Archived
+Last edited timestamp ("Edited 2 hours ago")
+Right side: Open in Builder button (secondary), Publish/Unpublish button (primary)
+
+2. Performance summary strip
+A responsive 6-card row, each card showing a single metric with the prior-period delta:
+
+Visits (raw count, ↑/↓ vs prior period %)
+Unique visitors
+Leads
+CVR (conversion rate %)
+Avg scroll depth (%)
+Clicks per session
+
+Above the strip: a date-range selector (7d / 30d / 90d / Custom). All cards respect this range.
+Data source: the same query that powers the per-page row in /analytics/pages. Just filtered to this single page.
+3. Conversion Score card
+Extract from /labs/conversion-scoring:
+
+Overall score (e.g. 54/100) with grade
+Four category grades in a 2×2 grid: Headline Clarity, CTA Effectiveness, Social Proof, Form Friction — each with the score, letter grade, and one-line recommendation
+Quick Wins list (top 3, with priority badges: high / medium / low)
+"Re-analyze" button (re-runs the AI scoring)
+"View full breakdown" link → /labs/conversion-scoring?page=[pageId]
+
+Empty state if scoring hasn't been run yet: "Run conversion analysis" CTA.
+4. Page Speed card
+Extract from /labs/page-speed (the right-side detail panel that appears when you click a page in the list):
+
+Score circle (e.g. 94) with status label (Passing / Needs Work / Failing)
+DOM nodes count
+Per-block-type counters in a grid: blocks, images, videos, custom HTML, animated, forms
+Heavy blocks callout (red): "Heavy blocks: dso-paradigm-shift, dso-ai-feature, dso-live-feed"
+Issues section: first 3 with severity icons + "View all (N)" expand
+
+Empty state: "Run performance analysis" CTA.
+5. Traffic Sources section (AdMap)
+Pull from the AdMap data model, filtered to this page:
+
+Horizontal stacked bar showing source breakdown: Organic / Paid / Direct / Referral with percentages
+Active campaigns driving to this page — one row per campaign with platform icon (LinkedIn etc.), campaign name, source type (paid_social), visits, leads, CVR, link arrow
+If zero campaigns: yellow callout: "No campaigns drive to this page yet. Consider adding it to a LinkedIn retargeting set or sending to a contact list." with two CTAs ("Set up campaign" + "Send to contacts")
+
+Link to full AdMap surface: "View all campaigns" → /labs/ad-map?page=[pageId].
+6. A/B Tests section
+Pull from the Tests data model, filtered to this page:
+
+Active tests — one row per test with variant names, traffic split, current leader (if statistically significant), days running
+Historical tests — collapsed by default, expand to show past tests with winners
+"Create new test" button (secondary)
+Empty state if no tests have ever run on this page: "No tests yet — A/B test variants to optimize conversion" with CTA.
+
+7. Programmatic Variables section
+Pull from the Programmatic Pages data model, filtered to this page:
+
+DTR Variables defined for this page — table with variable name, default value, sample URL preview (e.g. ?city=Austin → "Emergency dental in Austin")
+Bulk-generated children count if any (e.g. "12 city-specific pages generated from this template")
+"Manage variables" link → /labs/programmatic?page=[pageId]
+Empty state if no variables defined: "Add dynamic text replacement to personalize this page based on URL params" with explainer + CTA.
+
+8. Heatmap section
+Extract the existing Heatmap component from the builder sidebar:
+
+Clicks / Scroll toggle
+Device filter: All / Desktop / Mobile / Tablet (icon buttons)
+Date range (respects the top-level range selector if possible, otherwise its own)
+Render area with heatmap overlay on the page screenshot
+Below the render: counters — Sessions, Clicks, Avg scroll, Clicks/session
+
+This component already exists. The work is extracting it from apps/web/src/routes/builder/[pageId]/sidebar/PerformanceSection.tsx (or wherever it lives) into a shared component at apps/web/src/components/analytics/Heatmap.tsx that accepts a pageId prop.
+9. Visits Table — THE ONE NET-NEW COMPONENT
+This is the only piece that doesn't exist elsewhere. It's the per-visit drill-down with resolved contact identity from URL tokens.
+Data source: query page_events (or whatever the page-tracking event table is called) joined with contacts and accounts, filtered to this page.
+Columns:
+
+Timestamp (relative + absolute on hover)
+Contact — resolved from URL token if present (?c=john-donahoe-abc123 → John Donahoe); fallback to "Anonymous visitor" + location for organic/untokenized hits
+Account (linked to account detail page in Sales Console)
+Scroll depth (% max reached)
+Clicks count
+CTA clicked (which specific CTA — e.g. "Book a demo" — or em-dash if none)
+Form submitted (✓ or em-dash)
+
+Behavior:
+
+Default sort: timestamp descending
+Pagination: 50 rows per page
+Filters above the table:
+
+Date range (separate from the top strip, scoped to this table — or inherits, designer's call)
+Contact name search
+"Has converted" toggle (filters to visits with form_submitted = true)
+"Only known contacts" toggle (filters out anonymous)
+
+
+Row click: expand inline to show per-visit detail
+
+Full scroll path (scroll depth over time)
+Click sequence (which elements in order)
+Time on page (engaged time)
+Referrer
+UTM params if any
+Device + browser
+
+
+
+The structural advantage to make legible in this table: identity resolution is deterministic because the contact ID comes from the URL token at send time, not from third-party cookie matching. That means rows show resolved contacts even for cold-outbound visitors who aren't in the user's CRM. This is the wedge against Mutiny's probabilistic identity resolution. Don't make the table look apologetic about anonymous visits — frame them as a separate stream (organic + direct) while making the tokenized visits the hero data.
+10. Approval status section (only if approvals are enabled for the tenant)
+
+Current state badge (Draft / Pending review / Approved / Rejected)
+Recent activity log (last 5 events with user + timestamp + action)
+Link to full approval queue: "View in Approvals" → /approvals?page=[pageId]
+
+If approvals aren't enabled for this tenant: omit the section entirely (don't show an empty state — it'd add visual noise for tenants who don't use the feature).
+Components to extract into shared
+These currently live inside per-feature routes. They need to be lifted into a shared components/analytics/ directory (or wherever the existing shared analytics components live):
+
+PerformanceScoreCard — currently in /labs/conversion-scoring
+PageSpeedCard — currently in /labs/page-speed (the right-side detail panel)
+Heatmap — currently in builder sidebar
+TrafficSourceBreakdown — currently in /labs/ad-map
+ProgrammaticVariablesTable — currently in /labs/programmatic
+
+Each should accept a pageId prop and self-fetch its own data, so the Page Detail view can compose them without a single mega-query.
+Why self-fetching components vs one aggregated endpoint: simpler, each section loads independently (faster perceived performance), failures are isolated (Conversion Score failing doesn't blank the whole page), and the existing per-feature endpoints can be reused without modification.
+Data layer
+Most of the existing per-feature endpoints already accept (or trivially can accept) a pageId filter:
+
+GET /api/analytics/pages/:pageId/summary → the summary strip (likely already exists)
+GET /api/conversion-scoring/:pageId → the scoring card
+GET /api/page-speed/:pageId → the speed card
+GET /api/ad-map?pageId=:pageId → the traffic sources
+GET /api/tests?pageId=:pageId → the tests section
+GET /api/programmatic/variables?pageId=:pageId → the variables section
+GET /api/heatmap/:pageId?type=clicks|scroll&device=*&range=* → the heatmap
+
+The one new endpoint: GET /api/analytics/pages/:pageId/visits?range=*&page=*&limit=50&contactSearch=*&convertedOnly=*&knownOnly=*
+Returns a paginated list of visit events with contact identity resolved via the URL token lookup. Implementation:
+ts// rough pseudocode — adapt to existing query patterns
+SELECT
+  pe.timestamp,
+  pe.url_token,
+  c.id AS contact_id,
+  c.name AS contact_name,
+  a.id AS account_id,
+  a.name AS account_name,
+  pe.max_scroll_depth,
+  pe.click_count,
+  pe.cta_clicked,
+  pe.form_submitted,
+  pe.location_country,
+  pe.location_city,
+  pe.referrer,
+  pe.utm_source,
+  pe.device,
+  pe.engaged_seconds
+FROM page_events pe
+LEFT JOIN contacts c ON c.id = pe.contact_id_from_token
+LEFT JOIN accounts a ON a.id = c.account_id
+WHERE pe.page_id = $1
+  AND pe.timestamp BETWEEN $2 AND $3
+  [AND c.name ILIKE '%' || $4 || '%']
+  [AND pe.form_submitted = true]
+  [AND pe.contact_id_from_token IS NOT NULL]
+ORDER BY pe.timestamp DESC
+LIMIT 50 OFFSET ($page - 1) * 50;
+If the page_events table doesn't already store cta_clicked or max_scroll_depth per visit, that's a slightly bigger lift — check the existing event schema before scoping. The Heatmap already aggregates scroll + click events, so those signals exist somewhere — the question is whether they're stored per-visit or only aggregated. If only aggregated, then the Visits Table either (a) needs schema changes to record per-visit max scroll + cta click, or (b) joins to the raw event stream and computes per-visit on read. Use whichever pattern matches the existing telemetry architecture.
+Navigation wiring
+Add links into this view from existing surfaces:
+
+/analytics/pages table — clicking a page row navigates to /analytics/pages/[pageId]. (Today the row likely doesn't link anywhere meaningful — make it the primary entry point.)
+/labs/conversion-scoring — the per-page dropdown selector remains, but each scored page should have a "View page detail" link.
+/labs/page-speed — clicking a page in the list opens this detail view in a new context (in addition to the right-side panel for inline quick-scan).
+/labs/ad-map — campaign rows that link to a page should also surface "View page detail."
+Builder — add an Open analytics button in the page-settings sidebar header (alongside the existing Performance Score sidebar) that opens /analytics/pages/[pageId] in a new tab.
+Direct URL — anyone with the page ID can navigate to /analytics/pages/[pageId] directly.
+
+Performance + loading patterns
+
+Load the header + performance summary strip immediately (these are the fastest queries).
+Render each section with its own skeleton/spinner while its data loads, in parallel.
+Lazy-load the Heatmap section — it's the heaviest visualization. Load it after the page has settled (or behind an Intersection Observer when the user scrolls near it).
+The Visits Table should load 50 rows by default with infinite scroll or pagination — never load all rows up front.
+
+Empty states
+Each section needs a non-apologetic empty state:
+
+No conversion analysis: "Run analysis" CTA
+No speed analysis: "Run analysis" CTA
+No campaigns: yellow callout (specified above)
+No tests: explainer + CTA
+No variables: explainer + CTA
+No visits in date range: "No visits in this period. Try a wider range." with the range selector
+Page not published yet: top-level callout "This page is in draft. Publish it to start collecting visit data."
+
+Design constraints
+
+Match existing Marketing Console styling — same typography (DM Sans display, Inter body), same color tokens (cream #F6F2E9, ink #1A1815, indigo #4B47E5, coral #E26B4F, lime #C7E738).
+Section dividers should be subtle (1px hairline) — this is a long scroll page; the eye needs anchors but not heavy visual breaks.
+Use the same card patterns already in /analytics and /labs/* — don't invent new component styles.
+Mobile: collapse the 6-card summary strip into 2 columns × 3 rows. Most other sections can stack naturally.
+
+Acceptance criteria
+
+ Route /analytics/pages/[pageId] exists and renders without error for any published page
+ Header shows correct page name, URL, status, last edited; both buttons work
+ Performance summary strip shows 6 metrics with prior-period deltas; date range selector updates all sections
+ Conversion Score card renders extracted from /labs/conversion-scoring; empty state if not yet analyzed
+ Page Speed card renders extracted from /labs/page-speed; empty state if not yet analyzed
+ Traffic Sources section shows source breakdown + campaign list; yellow callout if no campaigns
+ A/B Tests section shows active + historical tests; empty state if none
+ Programmatic Variables section shows defined variables; empty state if none
+ Heatmap renders with Clicks/Scroll toggle + device filter (component extracted from builder sidebar)
+ Visits Table renders one row per visit; tokenized hits show resolved contact + account; anonymous hits show location; filters + pagination work; row expand shows per-visit detail
+ Approval section renders only when approvals are enabled for the tenant
+ Navigation links added: from /analytics/pages table, from each Labs tab, from Builder
+ All shared components live in components/analytics/ (or matching shared dir) and accept pageId
+ Page loads with skeleton states; sections fail independently if their endpoint errors
+ Mobile responsive: summary strip collapses, sections stack
+ Empty states render gracefully for every section
+ Visits Table query handles ~10k events per page without timeout (add pagination + reasonable indexes if not already present)
+
+What NOT to do
+
+Don't remove the existing Labs tabs. They remain valuable as cross-page rollup views.
+Don't build a single mega-endpoint that returns everything in one call. Use parallel queries with independent loading.
+Don't redesign the existing components. Extract them as-is and compose. Visual polish can come in a follow-up pass.
+Don't add new metrics. Use what's already being captured. (Engaged-time-while-tab-is-focused is tempting but skip it — scroll depth + clicks-per-visit covers the same signal more reliably.)
+Don't gate this behind a feature flag. It replaces a missing experience, not an existing one. Ship it to all tenants directly.
+
+After this ships
+This is the prerequisite for the marketing-site reframe (task #52). The screenshots of this consolidated view become the proof imagery on the homepage tour. Specifically:
+
+Section 5 of the homepage tour ("Know who's looking") uses the Heatmap + Visits Table screenshot
+Section 6 ("Optimize what's working") uses the Conversion Score + Quick Wins screenshot
+The Mutiny comparison page (#53) uses the Visits Table with resolved identities screenshot as the wedge image
+
+Ship this, take the screenshots, then move to #52.
