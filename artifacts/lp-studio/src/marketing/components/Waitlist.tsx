@@ -312,7 +312,7 @@ export default function Waitlist() {
             className="text-[10px] uppercase mb-5"
             style={{ color: "var(--dark-faint)", letterSpacing: "0.22em", fontWeight: 600 }}
           >
-            — Trusted by revenue teams at —
+            Built inside a real revenue org
           </div>
           <div className="flex items-center justify-center flex-wrap gap-x-8 gap-y-4">
             {TRUSTED_BY.map((b) => (
