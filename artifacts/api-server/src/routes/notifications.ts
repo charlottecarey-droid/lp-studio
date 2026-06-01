@@ -62,8 +62,12 @@ import {
   setOptOut,
   unsubscribeAllLifecycleEmails,
   verifyUnsubscribeToken,
-  lifecycleEmailTemplateKeys,
 } from "../lib/notificationPreferences";
+import {
+  buildPreferenceGroups,
+  groupMemberKeys,
+  isKnownPreferenceGroup,
+} from "../lib/notificationPreferenceGroups";
 import { getRequestHost } from "../lib/requestHost";
 import {
   checkSenderDomain,
@@ -192,24 +196,31 @@ router.get("/notifications/unsubscribe", async (req, res): Promise<void> => {
   }
 });
 
+/** Live lifecycle EMAIL template keys (code registry + operator-created rows). */
+async function lifecycleEmailKeysLive(): Promise<string[]> {
+  const all = await getNotificationTemplates();
+  return all
+    .filter((t) => t.category === "lifecycle" && t.channels.includes("email"))
+    .map((t) => t.key);
+}
+
 /**
- * GET /api/notifications/preferences — the signed-in user's lifecycle email
- * opt-outs. Scoped to BOTH app_user_id and tenant_id. Returns the manageable
- * lifecycle email templates plus the keys the user has opted out of.
+ * GET /api/notifications/preferences — the signed-in user's PERSONAL email
+ * preferences, grouped into human-friendly categories (not raw internal
+ * templates). Scoped to BOTH app_user_id and tenant_id. Account / security /
+ * billing emails are transactional and never appear here — they always send.
  */
 router.get("/notifications/preferences", requireAuth, async (req, res): Promise<void> => {
   const user = req.authUser!;
   const tenantId = getTenantId(req, res);
   if (tenantId == null) return;
   try {
-    const all = await getNotificationTemplates();
-    const templates = all
-      .filter((t) => t.category === "lifecycle" && t.channels.includes("email"))
-      .map((t) => ({ key: t.key, name: t.name, description: t.description }));
+    const lifecycleEmailKeys = await lifecycleEmailKeysLive();
     const optedOut = (await getOptOuts(tenantId, user.userId))
       .filter((o) => o.channel === "email")
       .map((o) => o.templateKey);
-    res.json({ templates, optedOut });
+    const groups = buildPreferenceGroups(lifecycleEmailKeys, optedOut);
+    res.json({ groups, recipientEmail: user.email });
   } catch (err) {
     console.error("[notifications] preferences get error:", err);
     res.status(500).json({ error: "Server error" });
@@ -217,28 +228,33 @@ router.get("/notifications/preferences", requireAuth, async (req, res): Promise<
 });
 
 /**
- * PATCH /api/notifications/preferences { templateKey, subscribed } — toggle one
- * lifecycle email for the signed-in user. Only known lifecycle email templates
- * are accepted (a non-lifecycle/unknown key is rejected so this can never
- * suppress a system email).
+ * PATCH /api/notifications/preferences { groupId, subscribed } — subscribe or
+ * unsubscribe the signed-in user from a whole preference CATEGORY at once. Member
+ * template keys are resolved from the live registry against a fixed, code-owned
+ * group taxonomy, so the client can never name an arbitrary template — this can
+ * never suppress a system/transactional email, and unknown groups are rejected.
  */
 router.patch("/notifications/preferences", requireAuth, async (req, res): Promise<void> => {
   const user = req.authUser!;
   const tenantId = getTenantId(req, res);
   if (tenantId == null) return;
   const b = req.body ?? {};
-  const templateKey = typeof b.templateKey === "string" ? b.templateKey : "";
+  const groupId = typeof b.groupId === "string" ? b.groupId : "";
   const subscribed = typeof b.subscribed === "boolean" ? b.subscribed : null;
-  if (!templateKey || subscribed === null) {
-    res.status(400).json({ error: "templateKey (string) and subscribed (boolean) are required" });
+  if (!groupId || subscribed === null) {
+    res.status(400).json({ error: "groupId (string) and subscribed (boolean) are required" });
     return;
   }
-  if (!lifecycleEmailTemplateKeys().includes(templateKey)) {
-    res.status(400).json({ error: "Unknown or non-lifecycle template" });
+  if (!isKnownPreferenceGroup(groupId)) {
+    res.status(400).json({ error: "Unknown preference group" });
     return;
   }
   try {
-    await setOptOut(tenantId, user.userId, templateKey, "email", !subscribed);
+    const lifecycleEmailKeys = await lifecycleEmailKeysLive();
+    const keys = groupMemberKeys(groupId, lifecycleEmailKeys);
+    for (const key of keys) {
+      await setOptOut(tenantId, user.userId, key, "email", !subscribed);
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error("[notifications] preferences patch error:", err);
