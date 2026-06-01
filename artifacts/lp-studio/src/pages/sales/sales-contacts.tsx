@@ -55,7 +55,7 @@ import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { useAuth } from "@/context/AuthContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
@@ -773,7 +773,7 @@ function ContactListView() {
       fetchContacts();
     } catch (err) {
       console.error("Failed to delete contacts:", err);
-      toast.error("Failed to delete contacts. Please try again.");
+      toast({ title: "Failed to delete contacts. Please try again.", variant: "destructive" });
     } finally {
       setRowDeleting(false);
     }
@@ -800,7 +800,7 @@ function ContactListView() {
       fetchContacts();
     } catch (err) {
       console.error("Failed to delete contact:", err);
-      toast.error("Failed to delete contact. Please try again.");
+      toast({ title: "Failed to delete contact. Please try again.", variant: "destructive" });
     } finally {
       setRowDeleting(false);
     }

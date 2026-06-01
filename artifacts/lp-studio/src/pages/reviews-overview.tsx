@@ -9,7 +9,7 @@ import { ShareReviewModal } from "@/components/collaboration/share-review-modal"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useReviews } from "@/hooks/use-collaboration";
 import type { PageReview } from "@/hooks/use-collaboration";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 import {
   ClipboardCheck,
@@ -212,11 +212,11 @@ export default function ReviewsOverview() {
           onRestored: () => { void fetchAll(true); },
         });
       } else {
-        toast.error("Some review links could not be deleted");
+        toast({ title: "Some review links could not be deleted", variant: "destructive" });
       }
     } catch (err) {
       console.error("Failed to delete reviews:", err);
-      toast.error("Failed to delete review links");
+      toast({ title: "Failed to delete review links", variant: "destructive" });
     } finally {
       setDeletingReview(false);
     }

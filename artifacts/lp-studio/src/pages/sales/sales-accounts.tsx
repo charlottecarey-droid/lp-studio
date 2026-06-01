@@ -61,7 +61,7 @@ import { Flame, Thermometer, Zap, Snowflake, TrendingDown, ArrowRight } from "lu
 import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
@@ -562,7 +562,7 @@ function AccountListView() {
       fetchAccounts();
     } catch (err) {
       console.error("Failed to delete accounts:", err);
-      toast.error("Failed to delete accounts. Please try again.");
+      toast({ title: "Failed to delete accounts. Please try again.", variant: "destructive" });
     } finally {
       setAcctDeleting(false);
     }
@@ -589,7 +589,7 @@ function AccountListView() {
       fetchAccounts();
     } catch (err) {
       console.error("Failed to delete account:", err);
-      toast.error("Failed to delete account. Please try again.");
+      toast({ title: "Failed to delete account. Please try again.", variant: "destructive" });
     } finally {
       setAcctDeleting(false);
     }

@@ -27,7 +27,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { getSignalIcon, getSignalLabel, SIGNAL_TYPES } from "@/lib/signal-types";
 import { useAuth } from "@/context/AuthContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 
 const API_BASE = "/api";
@@ -195,7 +195,7 @@ export default function SalesSignals() {
       });
     } catch (err) {
       console.error("Failed to delete signal:", err);
-      toast.error("Failed to delete signal");
+      toast({ title: "Failed to delete signal", variant: "destructive" });
     } finally {
       setDeletingSignal(false);
     }

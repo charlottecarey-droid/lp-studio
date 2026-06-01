@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } fro
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import {
   Bold, Italic, Link as LinkIcon, List, Heading1, Heading2,
   Minus, RemoveFormatting, Globe, Image as ImageIcon, Columns,
@@ -115,7 +115,7 @@ const LinkPopover = ({ editor }: { editor: Editor }) => {
 
   const handleInsert = () => {
     if (!url.trim()) {
-      toast.error("URL is required");
+      toast({ title: "URL is required", variant: "destructive" });
       return;
     }
     const linkText = text.trim() || url.trim();
@@ -190,7 +190,7 @@ const ImagePopover = ({
 
   const handleInsert = () => {
     if (!url.trim()) {
-      toast.error("Image URL is required");
+      toast({ title: "Image URL is required", variant: "destructive" });
       return;
     }
     editor.chain().focus().setImage({ src: url.trim(), alt: alt.trim() || "" }).run();
@@ -437,7 +437,7 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
           `<h2>Left column</h2><p>Content here</p><hr/><h2>Right column</h2><p>Content here</p>`
         )
         .run();
-      toast.info("Two-column layout inserted — it will render as a table in the final email.");
+      toast({ title: "Two-column layout inserted — it will render as a table in the final email." });
     }, [editor]);
 
     const insertDandyBanner = useCallback(() => {

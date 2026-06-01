@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import App from "./App";
-import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import "./index.css";
 import { installCsrfFetchInterceptor, ensureCsrfToken } from "./lib/api-fetch";
 
@@ -212,12 +211,6 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <Sentry.ErrorBoundary fallback={({ error }) => <RootErrorFallback error={error} />}>
     <App />
-    {/* Sonner toaster — mounted once at the root so toasts fired via the
-        `sonner` API (Sales Console accounts/contacts/signals, Reviews
-        overview, the email editor) actually render. App.tsx only mounts the
-        Radix `Toaster` (driven by useToast); without this the sonner toasts
-        were silently dropped on every shell. */}
-    <SonnerToaster />
   </Sentry.ErrorBoundary>,
 );
 
