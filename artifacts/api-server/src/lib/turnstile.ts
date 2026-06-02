@@ -23,7 +23,18 @@ export async function verifyTurnstile(
   remoteIp?: string,
 ): Promise<{ ok: boolean; configured: boolean }> {
   const secret = process.env["TURNSTILE_SECRET_KEY"];
-  if (!secret) return { ok: true, configured: false };
+  if (!secret) {
+    // Fail CLOSED in production. A live deploy missing the secret must never
+    // wave challenges through (that silently disables bot protection on the
+    // public auth endpoints). Boot also refuses to start in prod without it —
+    // this is the defense-in-depth runtime guard for the case where the env
+    // somehow drops out after boot. Dev/test still run keyless on purpose.
+    if (process.env.NODE_ENV === "production") {
+      logger.error("Turnstile secret missing at runtime in production — rejecting challenge (fail-closed)");
+      return { ok: false, configured: false };
+    }
+    return { ok: true, configured: false };
+  }
   if (typeof token !== "string" || token.length === 0) return { ok: false, configured: true };
   try {
     const body = new URLSearchParams({ secret, response: token });

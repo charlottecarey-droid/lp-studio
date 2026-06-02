@@ -1,0 +1,325 @@
+# Prompt 1 — Send-path + security hardening (launch-blocker bundle)
+
+## Context
+
+This is a focused fix-set for the highest-blast-radius issues found in the pre-launch audit. All seven items below are small, fix-only, and live in adjacent paths. They should ship as one PR. Reference: `/outputs/pre-launch-audit.md`.
+
+**Branch:** work on `staging`.
+
+## Fix 1 — Campaign send idempotency + concurrency lock
+
+**File:** `artifacts/api-server/src/routes/sales/campaigns.ts` (around lines 537–741) and `artifacts/lp-studio/src/components/QuickCampaignWizard.tsx` (around lines 675–700).
+
+### The bug
+
+Two distinct race conditions in the campaign send path that combine to produce duplicate emails:
+
+**(a)** The send loop iterates recipients with a 200ms pacing delay between sends but only writes `sales_email_sends` rows in a **single batch insert AFTER the entire loop completes** (around line 740). At 1,000 recipients × 200ms = 200 seconds of wall time — beyond Replit's request timeout. If the request dies mid-loop, emails have already left Resend but no `sales_email_sends` rows exist. Campaign status is still `"sending"`. The idempotency guard at line 537–543 (`WHERE status = 'sent'`) is therefore blind to those sends. The operator retries → **every recipient who already got the email gets it again.**
+
+**(b)** The "Send Now" button does not optimistically disable, and the server has no advisory lock. Two parallel requests (double-click, retry on slow network) both pass the idempotency check, both iterate `sendable`, both call `ensureHotlinkForContact` (which is safe), and both fire emails. Recipients receive each email twice.
+
+### The fix
+
+**Server side:**
+1. Wrap the send handler in a Postgres advisory transaction lock keyed on campaign ID:
+   ```ts
+   await db.transaction(async (tx) => {
+     const locked = await tx.execute(
+       sql`SELECT pg_try_advisory_xact_lock(${campaignId}) AS got`
+     );
+     if (!locked.rows[0]?.got) {
+       return res.status(409).json({ error: "Campaign send already in progress" });
+     }
+     // ... rest of send logic inside this transaction
+   });
+   ```
+2. Insert `sales_email_sends` rows **per contact (or in chunks of 25)** BEFORE the next send fires. The dedup set must be durable as the loop progresses, not after it completes. Pattern:
+   ```ts
+   for (const contact of sendable) {
+     await db.insert(salesEmailSendsTable).values({ /* ... */ });
+     await sendViaResend({ /* ... */ });
+     await sleep(200);
+   }
+   ```
+   If a per-contact insert is too slow, use chunks of 25 with a try-catch that records partial progress before continuing.
+3. After the loop, verify campaign status update is the LAST step (so a mid-flight crash leaves the campaign visible as "sending" rather than "sent").
+
+**Client side:**
+1. Optimistically disable the "Send Now" button on click. Keep it disabled until the response resolves (success or error). Add a small loading spinner.
+2. On 409 from the server, show "Send already in progress — refresh to see status" rather than retrying.
+
+### Acceptance criteria
+- [ ] `pg_try_advisory_xact_lock(campaignId)` wraps the entire send loop in a transaction.
+- [ ] A second concurrent POST to `/campaigns/:id/send` returns 409.
+- [ ] `sales_email_sends` rows exist for every contact that received an email, regardless of when the request died.
+- [ ] Retrying a failed-mid-send campaign sends ONLY the contacts who did not already receive it (verified by integration test).
+- [ ] Client button disables on click; 409 surfaces a clear message.
+- [ ] New integration test: simulate request termination after N sends, retry, assert N+remaining sends total, zero duplicates.
+
+---
+
+## Fix 2 — Remove hardcoded `UNSUB_SECRET` fallback + harden HMAC
+
+**File:** `artifacts/api-server/src/routes/sales/campaigns.ts:35, 61, 80-82`.
+
+### The bug
+
+```ts
+UNSUB_SECRET = process.env.UNSUB_SECRET 
+             ?? process.env.RESEND_API_KEY 
+             ?? "dandy-unsub-secret"
+```
+
+If both env vars are unset, the secret is the literal string `"dandy-unsub-secret"` — in the public repo. Anyone can forge `/sales/unsubscribe?token=…` and unsubscribe arbitrary contacts at scale by computing valid HMACs against the known constant.
+
+Comparison at line 61 is `mac === expected` — timing-attack vulnerable (lower-priority but trivial to fix).
+
+The contact UPDATE at line 80-82 has no tenant scoping. The HMAC binds contactId, so this is only safe if the secret holds.
+
+### The fix
+
+1. Remove the hardcoded fallback. Throw at boot if `UNSUB_SECRET` is missing in production:
+   ```ts
+   const UNSUB_SECRET = process.env.UNSUB_SECRET;
+   if (!UNSUB_SECRET && process.env.NODE_ENV === "production") {
+     throw new Error("UNSUB_SECRET is required in production");
+   }
+   ```
+   Match the pattern already used by `CSRF_SECRET` and `TURNSTILE_SECRET_KEY`.
+
+2. Use `crypto.timingSafeEqual` for the HMAC comparison:
+   ```ts
+   const macBuf = Buffer.from(mac, "hex");
+   const expectedBuf = Buffer.from(expected, "hex");
+   if (macBuf.length !== expectedBuf.length) return reject();
+   if (!crypto.timingSafeEqual(macBuf, expectedBuf)) return reject();
+   ```
+
+3. Include `tenantId` in the HMAC payload (belt-and-suspenders). New token format:
+   ```
+   base64url(tenantId).base64url(contactId).base64url(timestamp).hmacHex
+   ```
+   When validating, parse all three and pass `tenantId` to the UPDATE filter. Old token format should still validate during a grace window (read both formats for 90 days, then drop old).
+
+### Acceptance criteria
+- [ ] Boot throws if `UNSUB_SECRET` unset in production NODE_ENV.
+- [ ] Comparison uses `crypto.timingSafeEqual`.
+- [ ] New unsubscribe tokens include tenantId in payload.
+- [ ] Old tokens continue to validate (grace window).
+- [ ] UPDATE filter includes tenantId.
+- [ ] Test: forged token (made with the old hardcoded string) is rejected.
+
+---
+
+## Fix 3 — Resend webhook signature verifier fail-closed
+
+**File:** `artifacts/api-server/src/routes/sales/resend-webhook.ts:17-18`.
+
+### The bug
+
+```ts
+if (!RESEND_WEBHOOK_SECRET || !signature) return !RESEND_WEBHOOK_SECRET;
+```
+
+If `RESEND_WEBHOOK_SECRET` is unset, the function returns `true` (signature valid). Route is in the `LP_PUBLIC` set. Forged events can flip campaign send statuses, inject bounces/complaints into `sales_signals`, poison sender reputation logic.
+
+### The fix
+
+Replace with:
+```ts
+if (!RESEND_WEBHOOK_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("RESEND_WEBHOOK_SECRET is required in production");
+  }
+  // In non-prod, log a loud warning but still fail closed for unsigned requests
+  logger.warn("Resend webhook secret not configured — all requests will be rejected");
+  return false;
+}
+if (!signature) return false;
+// ... rest of signature verification
+```
+
+Add the boot-time check at the same place `CSRF_SECRET` and `TURNSTILE_SECRET_KEY` are validated (likely `server.ts:352` or `app.ts`).
+
+### Acceptance criteria
+- [ ] Boot throws if `RESEND_WEBHOOK_SECRET` unset in production.
+- [ ] Unsigned requests return 401 in all environments.
+- [ ] Loud warn log when secret is missing in non-prod.
+- [ ] Test: POST with no signature → 401. POST with bad signature → 401. POST with valid signature → 200.
+
+---
+
+## Fix 4 — Marketo describe-schema validation throw on empty
+
+**File:** `artifacts/api-server/src/lib/notifications.ts:990` (in `getMarketoLeadFieldNames` or `syncLinksToMarketoStaticList`).
+
+### The bug
+
+```ts
+if (validFields.size > 0 && !validFields.has(linkField)) { throw ... }
+```
+
+The "fail-closed" comment in the file warns that "Marketo rejects the entire request when a field name is unknown." But if `getMarketoLeadFieldNames` returns an empty set — Marketo describe API was rate-limited, returned malformed body, or auth token is silently wrong — the validation **bypasses entirely**. The first real batch then triggers the exact poisoning the comment warns about.
+
+### The fix
+
+Invert the gate — throw when the field set is empty (we can't validate, so we won't proceed):
+```ts
+if (validFields.size === 0) {
+  throw new Error(
+    "Could not retrieve Marketo lead field list — describe API may be rate-limited, " +
+    "auth may be misconfigured, or the response was malformed. Refusing to send to avoid " +
+    "poisoning the batch with an unknown field name."
+  );
+}
+if (!validFields.has(linkField)) {
+  throw new Error(
+    `Marketo field "${linkField}" does not exist on the lead schema. Available fields: ` +
+    `${Array.from(validFields).slice(0, 10).join(", ")}${validFields.size > 10 ? "..." : ""}`
+  );
+}
+```
+
+### Acceptance criteria
+- [ ] Empty `validFields` throws with a clear error message.
+- [ ] Unknown field name throws with the field name + sample of valid options.
+- [ ] Test: mock describe API to return `{}`, expect throw. Mock to return malformed body, expect throw. Mock to return valid fields, expect pass-through.
+
+---
+
+## Fix 5 — Turnstile fail-open in production guard
+
+**File:** `artifacts/api-server/src/lib/turnstile.ts:25-26`.
+
+### The bug
+
+Returns `{ ok: true, configured: false }` when `TURNSTILE_SECRET_KEY` is missing. The `server.ts:352` boot-time check protects production, but if the env var is missing at runtime (rotated and not redeployed, removed by mistake, staging-like env that runs prod-style traffic), challenges silently pass.
+
+### The fix
+
+```ts
+if (!TURNSTILE_SECRET_KEY) {
+  if (process.env.NODE_ENV === "production") {
+    // Should have been caught at boot, but defense in depth
+    logger.error("Turnstile secret missing at runtime — rejecting all challenges");
+    return { ok: false, configured: false, reason: "turnstile-not-configured" };
+  }
+  return { ok: true, configured: false };
+}
+```
+
+### Acceptance criteria
+- [ ] In production NODE_ENV without `TURNSTILE_SECRET_KEY`, challenges return `{ ok: false }` and log an error.
+- [ ] In non-prod without the key, behavior is unchanged (challenges pass).
+- [ ] Test: set NODE_ENV=production, unset key, call verifier → returns ok:false.
+
+---
+
+## Fix 6 — Hotlink token generation race condition
+
+**File:** `artifacts/api-server/src/lib/ensureHotlink.ts:42-50`.
+
+### The bug
+
+The token uniqueness check is SELECT-then-INSERT (not atomic). With 12 parallel workers in `linkExport.ts` (`HOTLINK_CONCURRENCY = 12`), two workers can generate the same 16-char base64url candidate, both see "no clash" on the SELECT, and both try to INSERT. The unique index on `token` rejects one with Postgres error 23505, bubbling as a 500 from `link-export/build`. Probability per pair is ~2^-96 (low), but compounded across many parallel calls it's non-zero — and there's no retry around the INSERT itself, only around candidate generation.
+
+### The fix
+
+Wrap the INSERT in a try/catch on 23505 and retry candidate generation:
+```ts
+for (let attempt = 0; attempt < 5; attempt++) {
+  const candidate = randomBytes(12).toString("base64url").slice(0, 16);
+  try {
+    const [inserted] = await db.insert(salesHotlinksTable)
+      .values({ contactId, pageId, tenantId, sfdcContactId, token: candidate, isActive: true })
+      .onConflictDoNothing({ target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId] })
+      .returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
+    if (inserted) return { id: inserted.id, token: inserted.token };
+    // If onConflictDoNothing returned nothing, another worker won — re-fetch
+    const [existing] = await db.select(...).where(...);
+    if (existing) return existing;
+  } catch (err) {
+    if (isPostgresError(err) && err.code === "23505" && err.constraint?.includes("token")) {
+      // Token collision — try a new candidate
+      continue;
+    }
+    throw err;
+  }
+}
+throw new Error("Failed to generate unique hotlink token after 5 attempts");
+```
+
+### Acceptance criteria
+- [ ] INSERT wrapped in try/catch handling 23505 with `token` constraint.
+- [ ] Candidate generation retries up to 5 times.
+- [ ] If `(contact_id, page_id)` ON CONFLICT fires, the existing row is returned.
+- [ ] Test: simulate parallel concurrent calls for same (contact, page) — all return the same token.
+- [ ] Test: simulate token-collision (mock randomBytes to return a fixed value twice) — second call retries with new candidate.
+
+---
+
+## Fix 7 — Marketo partial-batch failure accumulation
+
+**File:** `artifacts/api-server/src/lib/notifications.ts:1001-1035` (in `syncLinksToMarketoStaticList`).
+
+### The bug
+
+Each 300-row batch is sent independently. If batch 2 of 5 throws (rate-limit, network blip), the function bubbles the error up via `throw new Error(...)`. The `created` counter, `syncedLeadIds` array, and the static-list POST step never run. **300 leads got upserted to Marketo without being added to the list**, and the user sees only an error message with no indication of partial state.
+
+### The fix
+
+Wrap each batch in try/catch, accumulate failures into `reasons`, and proceed to the next batch + the static-list POST:
+```ts
+const result = { created: 0, addedToList: 0, failed: 0, reasons: [] as string[] };
+const syncedLeadIds: number[] = [];
+
+for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+  const batch = rows.slice(i, i + BATCH_SIZE);
+  try {
+    const batchResult = await upsertBatch(batch);
+    result.created += batchResult.created;
+    syncedLeadIds.push(...batchResult.leadIds);
+  } catch (err) {
+    result.failed += batch.length;
+    result.reasons.push(`Batch ${i / BATCH_SIZE + 1}: ${(err as Error).message}`);
+    // Continue with next batch
+  }
+}
+
+// Even on partial failure, add successful leads to the static list
+if (syncedLeadIds.length > 0) {
+  try {
+    const addResult = await addToStaticList(listId, syncedLeadIds);
+    result.addedToList = addResult.added;
+  } catch (err) {
+    result.reasons.push(`Static list add: ${(err as Error).message}`);
+  }
+}
+
+return result;
+```
+
+Update the caller in `exportDestinations.ts:141-167` to format the result message correctly when `failed > 0`:
+```
+"Synced 700 contacts to Marketo (300 failed); added 700 to list 1042. 
+ Failures: Batch 2: Rate limited; Batch 4: Network error."
+```
+
+### Acceptance criteria
+- [ ] Batch failure does not abort the loop.
+- [ ] Successful batches still get added to the static list.
+- [ ] Result message clearly reports partial state.
+- [ ] Test: mock 5 batches, fail batch 2 — expect 4×300 created, 300 failed, 1200 added to list.
+
+---
+
+## What NOT to do
+
+- **Don't** rewrite the campaign send architecture. The fix is additive: lock + per-contact insert. Keep the existing batching, pacing, and resend client.
+- **Don't** rotate `UNSUB_SECRET` if it's currently set to the production value. The grace window for old tokens depends on the secret staying stable.
+- **Don't** change the public API contract for the Marketo destination. The result shape is additive (`failed` + `reasons` are new fields; `created` + `addedToList` semantics unchanged).
+- **Don't** ship without integration tests on Fix 1 and Fix 6. Those are the two with subtle concurrency semantics.
+
+## Ordering / dependencies
+
+These fixes are independent — no ordering constraint. Can be done in parallel by different engineers. Estimated total: 1–2 days of focused work.

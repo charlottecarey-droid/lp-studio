@@ -15,7 +15,18 @@ const router = Router();
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
 
 function verifyWebhookSignature(payload: string, signature: string | undefined): boolean {
-  if (!RESEND_WEBHOOK_SECRET || !signature) return !RESEND_WEBHOOK_SECRET;
+  if (!RESEND_WEBHOOK_SECRET) {
+    // Fail CLOSED. In production the boot guard refuses to start without the
+    // secret, so reaching here in prod means the env dropped out — refuse the
+    // request loudly. In dev/test (no secret on purpose) we still reject so an
+    // unsigned/forged webhook can never mutate send/signal state.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("RESEND_WEBHOOK_SECRET is not set in production — refusing to verify webhook");
+    }
+    logger.warn("Resend webhook secret not configured — rejecting webhook (fail-closed)");
+    return false;
+  }
+  if (!signature) return false;
   try {
     const expected = createHmac("sha256", RESEND_WEBHOOK_SECRET)
       .update(payload)
@@ -44,16 +55,17 @@ type ResendEvent = {
 };
 
 router.post("/resend", async (req, res): Promise<void> => {
-  if (RESEND_WEBHOOK_SECRET) {
-    const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
-    const signature = (req.headers["resend-signature"] as string | undefined)
-      ?? (req.headers["x-resend-signature"] as string | undefined)
-      ?? (req.headers["svix-signature"] as string | undefined);
-    if (!verifyWebhookSignature(rawBody, signature)) {
-      logger.warn("Resend webhook: invalid signature rejected");
-      res.status(401).json({ error: "Invalid webhook signature" });
-      return;
-    }
+  // ALWAYS verify — never process an unsigned/unverified webhook in any
+  // environment. verifyWebhookSignature fails closed when the secret is
+  // missing (throws in prod, returns false in dev/test).
+  const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
+  const signature = (req.headers["resend-signature"] as string | undefined)
+    ?? (req.headers["x-resend-signature"] as string | undefined)
+    ?? (req.headers["svix-signature"] as string | undefined);
+  if (!verifyWebhookSignature(rawBody, signature)) {
+    logger.warn("Resend webhook: invalid signature rejected");
+    res.status(401).json({ error: "Invalid webhook signature" });
+    return;
   }
 
   const evt = (req.body ?? {}) as ResendEvent;

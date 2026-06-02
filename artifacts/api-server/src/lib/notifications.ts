@@ -986,9 +986,23 @@ export async function syncLinksToMarketoStaticList(
   if (!linkField) throw new Error("A Marketo field for the personalized link is required.");
 
   // Validate the link field exists before sending anything (fail-closed).
+  // If the describe call returns NO fields we cannot validate the mapping, so
+  // refuse rather than blindly pushing — an empty schema means the credentials
+  // lack read access or the API call silently failed, and proceeding would risk
+  // writing every record to a non-existent field.
   const validFields = await getMarketoLeadFieldNames(config, token);
-  if (validFields.size > 0 && !validFields.has(linkField)) {
-    throw new Error(`Marketo has no lead field named "${linkField}". Check the field's REST API name and try again.`);
+  if (validFields.size === 0) {
+    throw new Error(
+      "Could not read Marketo's lead field schema to validate the personalized-link field. " +
+      "Check the Marketo API credentials and their lead-schema read permission, then try again.",
+    );
+  }
+  if (!validFields.has(linkField)) {
+    const sample = [...validFields].slice(0, 8).join(", ");
+    throw new Error(
+      `Marketo has no lead field named "${linkField}". Check the field's REST API name and try again.` +
+      (sample ? ` Example available fields: ${sample}.` : ""),
+    );
   }
 
   const reasons: string[] = [];
