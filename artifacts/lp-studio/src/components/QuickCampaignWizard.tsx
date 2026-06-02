@@ -88,10 +88,22 @@ interface PreviewResult {
   isSample: boolean;
 }
 
+interface PageOption {
+  id: number;
+  title: string;
+  slug: string;
+  status: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreated?: (campaignId: number) => void;
+  /**
+   * When provided, the wizard launches locked to this landing page (used by the
+   * per-row "Launch" button). When omitted, the user picks a page in step 1.
+   */
+  initialPage?: { id: number; title: string } | null;
 }
 
 const MERGE_VARS = [
@@ -102,9 +114,24 @@ const MERGE_VARS = [
   { label: "Microsite link", token: "{{microsite_url}}" },
 ];
 
+// When a landing page is attached we default to a short, page-centric email so
+// the user isn't forced into a full template. Plain text — quick compose sends
+// bodyText with format "plain".
+const PAGE_DEFAULT_SUBJECT = "We built something for {{company}}";
+const PAGE_DEFAULT_BODY = `Hi {{first_name}},
+
+I put together a personalized page specifically for {{company}} — it shows exactly how we can help your team.
+
+View your personalized page: {{microsite_url}}
+
+Happy to walk through it together if that would be helpful.
+
+Best,
+{{sender_name}}`;
+
 type Step = 1 | 2 | 3 | 4;
 
-export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
+export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -113,6 +140,11 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
   // Step 1 — basics
   const [name, setName] = useState("");
   const [accountId, setAccountId] = useState<string>("");
+
+  // Step 1 — landing page (optional). When set, the send path generates a
+  // per-contact tracking link and resolves {{microsite_url}}.
+  const [pages, setPages] = useState<PageOption[]>([]);
+  const [pageId, setPageId] = useState<string>("");
 
   // Step 2 — audience
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -162,24 +194,27 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
     if (open) {
       setStep(1);
       setError(null);
-      setName("");
+      setName(initialPage ? `Launch: ${initialPage.title}` : "");
       setAccountId("");
+      setPageId(initialPage ? String(initialPage.id) : "");
       setSelectedContactIds(new Set());
       setSelectedAudienceId("");
       setContactSearch("");
       setTierFilter([]);
       setTitleLevelFilter([]);
-      setComposeMode("template");
+      // With a page attached, default to a short page-centric email instead of
+      // forcing the user into a full saved template.
+      setComposeMode(initialPage ? "quick" : "template");
       setTemplateId("");
-      setQuickSubject("");
-      setQuickBody("");
+      setQuickSubject(initialPage ? PAGE_DEFAULT_SUBJECT : "");
+      setQuickBody(initialPage ? PAGE_DEFAULT_BODY : "");
       setPreview(null);
       setPreviewContactId("");
       setSentTest(false);
       setConfirmedUnresolved(false);
       setDraftId(null); // ensure a fresh draft each time the wizard opens
     }
-  }, [open, user]);
+  }, [open, user, initialPage]);
 
   // Load per-tenant Sales Console defaults (sender name, sending domain,
   // reply-to). Falls back to the signed-in user's first name only if the
@@ -228,6 +263,18 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
         titleLevels: Array.isArray(opts?.titleLevels) ? opts.titleLevels : [],
       });
     }).catch(() => {});
+  }, [open]);
+
+  // ─── Load published landing pages (page picker in step 1) ─
+  useEffect(() => {
+    if (!open) return;
+    fetch(`${API_BASE}/lp/pages`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: PageOption[]) => {
+        // Only published pages can be sent — recipients can't visit a draft.
+        setPages(Array.isArray(data) ? data.filter(p => p.status === "published") : []);
+      })
+      .catch(() => {});
   }, [open]);
 
   // ─── Load contacts when entering step 2 ──────────────────
@@ -345,6 +392,17 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
     setQuickBody(b => b + (b && !b.endsWith(" ") && !b.endsWith("\n") ? " " : "") + token + " ");
   }
 
+  // Picking a page (when not locked) seeds a short page-centric email if the
+  // user hasn't written anything yet — so they aren't forced into a template.
+  function handlePageChange(val: string) {
+    setPageId(val);
+    if (val && composeMode === "template" && !templateId && !quickSubject.trim() && !quickBody.trim()) {
+      setComposeMode("quick");
+      setQuickSubject(PAGE_DEFAULT_SUBJECT);
+      setQuickBody(PAGE_DEFAULT_BODY);
+    }
+  }
+
   // ─── Validation per step ────────────────────────────────
   function canAdvance(): boolean {
     if (step === 1) return name.trim().length > 0;
@@ -418,6 +476,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
         senderName: senderName.trim(),
         senderEmail,
         replyTo,
+        ...(pageId ? { pageId: Number(pageId) } : {}),
       };
 
       if (draftId) {
@@ -636,6 +695,27 @@ export function QuickCampaignWizard({ open, onClose, onCreated }: Props) {
                   autoFocus
                 />
                 <p className="text-[11px] text-muted-foreground mt-1.5">Only visible to your team. Recipients won't see this.</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-foreground mb-1.5 block">Landing page</label>
+                {initialPage ? (
+                  <div className="flex items-center gap-2 h-10 rounded-md border border-input bg-muted/40 px-3 text-sm">
+                    <FileText className="w-4 h-4 text-primary shrink-0" />
+                    <span className="truncate font-medium text-foreground">{initialPage.title}</span>
+                  </div>
+                ) : (
+                  <select
+                    value={pageId}
+                    onChange={e => handlePageChange(e.target.value)}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">No page — send email only</option>
+                    {pages.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Each recipient gets a personalized <code className="font-mono">{"{{microsite_url}}"}</code> tracking link to this page. Only published pages can be sent.
+                </p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground mb-1.5 block">Filter recipients by account (optional)</label>

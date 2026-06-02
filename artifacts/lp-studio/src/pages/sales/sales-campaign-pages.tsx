@@ -8,26 +8,20 @@ import {
   Loader2,
   Rocket,
   Users,
-  CheckCircle2,
-  XCircle,
   Copy,
   Check,
   ChevronRight,
   ChevronDown,
-  Variable,
   Eye,
   Sparkles,
   Link2,
   Filter,
   Pencil,
   Trash2,
-  AlertCircle,
   Star,
   Building2,
   FileText,
   X,
-  Bell,
-  BookmarkCheck,
   ListFilter,
   Zap,
   ArrowRight,
@@ -39,9 +33,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -60,7 +52,6 @@ import {
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import { useAuth } from "@/context/AuthContext";
-import { useBrandConfig } from "@/context/BrandConfigContext";
 import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
@@ -106,13 +97,6 @@ interface EligibleContact {
   accountName: string | null;
 }
 
-interface LaunchResult {
-  sent: number;
-  failed: number;
-  total: number;
-  hotlinksCreated: number;
-}
-
 interface HotlinkEntry {
   id: number;
   token: string;
@@ -124,459 +108,6 @@ interface HotlinkEntry {
   accountId: number | null;
   isActive: boolean;
   createdAt: string;
-}
-
-const DEFAULT_SUBJECT = "We built something for {{company}}";
-const DEFAULT_BODY = `<p>Hi {{first_name}},</p>
-
-<p>I put together a personalized page specifically for {{company}} — it shows exactly how we can help your team.</p>
-
-<p><a href="{{microsite_url}}">View your personalized page →</a></p>
-
-<p>Happy to walk through it together if that would be helpful.</p>
-
-<p>Best,<br>{{sender_name}}</p>`;
-
-function VariableTag({ tag, onClick }: { tag: string; onClick: (tag: string) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(tag)}
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-xs font-mono hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors cursor-pointer"
-      title="Click to copy"
-    >
-      {tag}
-    </button>
-  );
-}
-
-function LaunchModal({
-  page,
-  audiences,
-  onClose,
-  onLaunch,
-  onCreateAudience,
-  onAudienceCreated,
-}: {
-  page: Page;
-  audiences: Audience[];
-  onClose: () => void;
-  onLaunch: (opts: {
-    audienceId: number;
-    emailSubject: string;
-    emailBodyHtml: string;
-    senderName: string;
-    senderEmail: string;
-    sendEmails: boolean;
-    alertEmails: string[];
-  }) => Promise<LaunchResult | void>;
-  onCreateAudience: () => void;
-  onAudienceCreated: (a: Audience) => void;
-}) {
-  const { user } = useAuth();
-  const { brand } = useBrandConfig();
-  const sendingDomain = brand.salesConsole?.sendingDomain?.trim() || "";
-  const senderSuffix = sendingDomain ? `@${sendingDomain}` : "@(set sending domain in Brand Settings)";
-  const [selectedAudienceId, setSelectedAudienceId] = useState<number | null>(
-    audiences.length === 1 ? audiences[0].id : null
-  );
-  const [subject, setSubject] = useState(DEFAULT_SUBJECT);
-  const [body, setBody] = useState(DEFAULT_BODY);
-  const [senderName, setSenderName] = useState("");
-  const [senderEmail, setSenderEmail] = useState("partnerships");
-  const [sendEmails, setSendEmails] = useState(true);
-  const [alertEmailInput, setAlertEmailInput] = useState("");
-  const [launching, setLaunching] = useState(false);
-  const [result, setResult] = useState<LaunchResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedVar, setCopiedVar] = useState<string | null>(null);
-
-  // Saved account views from localStorage
-  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-  const [creatingFromView, setCreatingFromView] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user?.userId) return;
-    try {
-      const views = JSON.parse(localStorage.getItem(`sc_acct_views_${user.userId}`) ?? "[]") as SavedView[];
-      setSavedViews(views);
-    } catch {}
-  }, [user?.userId]);
-
-  async function createAudienceFromView(view: SavedView) {
-    setCreatingFromView(view.id);
-    setError(null);
-    try {
-      const accts = await fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []) as AccountForView[];
-      const matching = accts.filter(a => {
-        const matchesOwner = view.filters.ownerFilters.length === 0 || view.filters.ownerFilters.includes(a.owner ?? "");
-        const matchesTier = !view.filters.abmTierFilter || a.abmTier === view.filters.abmTierFilter;
-        return matchesOwner && matchesTier;
-      });
-      const descParts = [
-        view.filters.ownerFilters.length > 0 && `Owners: ${view.filters.ownerFilters.join(", ")}`,
-        view.filters.abmTierFilter && `Tier: ${view.filters.abmTierFilter}`,
-      ].filter(Boolean).join(" · ");
-      const res = await fetch(`${API_BASE}/sales/audiences`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: view.name,
-          description: descParts || "From saved account view",
-          filters: { accountIds: matching.map(a => a.id) },
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to create audience");
-      const created = await res.json() as Audience;
-      onAudienceCreated(created);
-      setSelectedAudienceId(created.id);
-    } catch {
-      setError("Failed to create audience from saved view. Try again.");
-    } finally {
-      setCreatingFromView(null);
-    }
-  }
-
-  const selectedAudience = audiences.find(a => a.id === selectedAudienceId);
-
-  function insertVar(tag: string) {
-    navigator.clipboard.writeText(tag).then(() => {
-      setCopiedVar(tag);
-      setTimeout(() => setCopiedVar(null), 1500);
-    });
-  }
-
-  async function handleLaunch() {
-    if (!selectedAudienceId) {
-      setError("Please select an audience before launching.");
-      return;
-    }
-    setLaunching(true);
-    setError(null);
-    const alertEmails = alertEmailInput
-      .split(/[\s,;]+/)
-      .map(e => e.trim().toLowerCase())
-      .filter(e => e.includes("@"));
-    try {
-      const launchResult = await onLaunch({ audienceId: selectedAudienceId, emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails, alertEmails });
-      if (launchResult) setResult(launchResult);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Launch failed");
-    } finally {
-      setLaunching(false);
-    }
-  }
-
-  if (result) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <Card className="w-full max-w-md p-8 rounded-2xl text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <h2 className="text-xl font-display font-bold mb-2">Campaign Launched!</h2>
-          <p className="text-muted-foreground text-sm mb-6">
-            Your personalized campaign for <strong>{page.title}</strong> is live.
-          </p>
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="bg-muted/40 rounded-xl p-3">
-              <div className="text-2xl font-bold text-foreground">{result.total}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Contacts</div>
-            </div>
-            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{result.sent}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Sent</div>
-            </div>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3">
-              <div className="text-2xl font-bold text-red-500">{result.failed}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Failed</div>
-            </div>
-          </div>
-          <Button onClick={onClose} className="w-full">Done</Button>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 rounded-2xl flex flex-col gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-display font-bold">Launch Campaign</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Sending <strong>{page.title}</strong> to the selected audience
-            </p>
-          </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors mt-0.5">
-            <XCircle className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Saved account views — quick audience creation */}
-        {savedViews.length > 0 && (
-          <div className="rounded-xl border border-primary/20 bg-primary/4 p-4 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wide">
-              <BookmarkCheck className="w-3.5 h-3.5" />
-              Your saved account lists
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Use an account view as your campaign audience — we'll target all contacts at matching accounts.
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {savedViews.map(view => {
-                const parts = [
-                  view.filters.ownerFilters.length === 1 ? view.filters.ownerFilters[0] : view.filters.ownerFilters.length > 1 ? `${view.filters.ownerFilters.length} owners` : null,
-                  view.filters.abmTierFilter || null,
-                ].filter(Boolean).join(" · ");
-                const alreadyCreated = audiences.find(a => a.name === view.name);
-                return (
-                  <div key={view.id} className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => alreadyCreated ? setSelectedAudienceId(alreadyCreated.id) : createAudienceFromView(view)}
-                      disabled={creatingFromView === view.id}
-                      className={`flex-1 flex items-center gap-2.5 text-left px-3 py-2 rounded-lg border transition-all text-sm ${
-                        (alreadyCreated && selectedAudienceId === alreadyCreated.id)
-                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                          : "border-border hover:border-primary/40 bg-background"
-                      }`}
-                    >
-                      {creatingFromView === view.id
-                        ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
-                        : alreadyCreated && selectedAudienceId === alreadyCreated.id
-                          ? <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0"><Check className="w-2.5 h-2.5 text-primary-foreground" /></div>
-                          : <BookmarkCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
-                      <span className="font-medium text-foreground">{view.name}</span>
-                      {parts && <span className="text-xs text-muted-foreground ml-auto">{parts}</span>}
-                      {alreadyCreated && selectedAudienceId !== alreadyCreated.id && (
-                        <span className="text-xs text-primary ml-auto">Select</span>
-                      )}
-                      {!alreadyCreated && creatingFromView !== view.id && (
-                        <span className="text-xs text-primary ml-auto">Use this →</span>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Audience selector */}
-        <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5" />
-              {savedViews.length > 0 ? "Or pick a saved audience" : "Target Audience *"}
-            </label>
-            <button
-              type="button"
-              onClick={onCreateAudience}
-              className="text-xs text-primary hover:underline flex items-center gap-1"
-            >
-              <Plus className="w-3 h-3" />
-              New audience
-            </button>
-          </div>
-          {audiences.length === 0 ? (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No audiences yet</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                  Create an audience first to define who will receive this campaign.
-                </p>
-                <button
-                  type="button"
-                  onClick={onCreateAudience}
-                  className="mt-2 text-xs font-semibold text-amber-800 dark:text-amber-300 underline"
-                >
-                  Create audience →
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {audiences.map(a => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => setSelectedAudienceId(a.id)}
-                  className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg border transition-all ${
-                    selectedAudienceId === a.id
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                      : "border-border hover:border-primary/40 bg-background"
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                    selectedAudienceId === a.id ? "border-primary" : "border-muted-foreground/40"
-                  }`}>
-                    {selectedAudienceId === a.id && (
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{a.name}</span>
-                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                        {a.contact_count} contacts
-                      </span>
-                    </div>
-                    {a.description && (
-                      <p className="text-xs text-muted-foreground truncate">{a.description}</p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Variable reference */}
-        <div className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/20 p-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 mb-2">
-            <Variable className="w-3.5 h-3.5" />
-            Available variables — click to copy
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {AVAILABLE_VARS.map(v => (
-              <button
-                key={v.tag}
-                type="button"
-                onClick={() => insertVar(v.tag)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-xs font-mono hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
-                title={`${v.label} — e.g. "${v.example}"`}
-              >
-                {copiedVar === v.tag ? <Check className="w-3 h-3" /> : null}
-                {v.tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Send emails toggle */}
-        <div className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-muted/30">
-          <input
-            type="checkbox"
-            id="sendEmails"
-            checked={sendEmails}
-            onChange={e => setSendEmails(e.target.checked)}
-            className="w-4 h-4 accent-primary"
-          />
-          <label htmlFor="sendEmails" className="text-sm font-medium cursor-pointer">
-            Send emails to contacts
-          </label>
-          <span className="text-xs text-muted-foreground ml-auto">
-            Uncheck to create personalized links only (no email)
-          </span>
-        </div>
-
-        {/* View alert emails */}
-        <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-2">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Bell className="w-3.5 h-3.5" />
-            View alert emails
-            <span className="ml-1 font-normal normal-case text-muted-foreground/70">(optional)</span>
-          </label>
-          <Input
-            value={alertEmailInput}
-            onChange={e => setAlertEmailInput(e.target.value)}
-            placeholder="e.g. alice@company.com, bob@company.com"
-          />
-          <p className="text-xs text-muted-foreground leading-snug">
-            These addresses will receive an email notification each time a contact views their personalized page.
-            Separate multiple addresses with commas.
-          </p>
-        </div>
-
-        {sendEmails && (
-          <>
-            {/* Sender */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sender name</label>
-                <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="Sender name" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  From address
-                </label>
-                <div className="flex items-center rounded-md border border-input overflow-hidden">
-                  <Input
-                    value={senderEmail}
-                    onChange={e => setSenderEmail(e.target.value)}
-                    placeholder="partnerships"
-                    className="border-0 rounded-none flex-1"
-                  />
-                  <span className="px-3 text-xs text-muted-foreground bg-muted border-l border-input h-full flex items-center">
-                    {senderSuffix}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Subject */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subject line</label>
-              <Input
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                placeholder="We built something for {{company}}"
-              />
-            </div>
-
-            {/* Body */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email body (HTML)</label>
-              <Textarea
-                value={body}
-                onChange={e => setBody(e.target.value)}
-                placeholder="Hi {{first_name}}, …"
-                className="min-h-[160px] font-mono text-xs"
-              />
-              <p className="text-xs text-muted-foreground">
-                Use HTML or plain text. The personalized page link{" "}
-                <code className="bg-muted px-1 rounded text-[11px]">{"{{microsite_url}}"}</code> must be included.
-              </p>
-            </div>
-          </>
-        )}
-
-        {error && (
-          <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
-        )}
-
-        <div className="flex items-center gap-3 pt-1">
-          <Button variant="outline" onClick={onClose} className="flex-1">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleLaunch}
-            disabled={launching || !selectedAudienceId || audiences.length === 0}
-            className="flex-1 gap-2"
-          >
-            {launching ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Launching…
-              </>
-            ) : (
-              <>
-                <Rocket className="w-4 h-4" />
-                {!selectedAudienceId
-                  ? "Select an audience first"
-                  : sendEmails
-                    ? `Send to ${selectedAudience?.contact_count ?? "?"} contacts`
-                    : `Create ${selectedAudience?.contact_count ?? "?"} links`
-                }
-              </>
-            )}
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
 }
 
 interface MarketingTemplate {
@@ -843,8 +374,9 @@ export function CampaignPagesContent() {
   const [audiences, setAudiences] = useState<Audience[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [launchingPage, setLaunchingPage] = useState<Page | null>(null);
-  const [launchResults, setLaunchResults] = useState<Record<number, LaunchResult>>({});
+  // Page to seed the campaign wizard with (per-row "Launch" locks the wizard to
+  // this page; "New Campaign" leaves it null so the user picks one).
+  const [wizardPage, setWizardPage] = useState<Page | null>(null);
   const [expandedPageId, setExpandedPageId] = useState<number | null>(null);
   const [pageLinks, setPageLinks] = useState<Record<number, HotlinkEntry[]>>({});
   const [linksLoading, setLinksLoading] = useState<number | null>(null);
@@ -886,35 +418,12 @@ export function CampaignPagesContent() {
     } catch {} finally { setDeletingAudienceId(null); }
   }
 
-  async function handleLaunch(opts: {
-    audienceId: number;
-    emailSubject: string;
-    emailBodyHtml: string;
-    senderName: string;
-    senderEmail: string;
-    sendEmails: boolean;
-    alertEmails: string[];
-  }) {
-    if (!launchingPage) return;
-
-    const res = await fetch(`${API_BASE}/sales/campaign-pages/launch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId: launchingPage.id, ...opts }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error ?? "Failed to launch campaign");
+  // Refresh the links panel for a page after a campaign is sent, so the newly
+  // generated per-contact tracking links show up.
+  function refreshLinksFor(pageId: number) {
+    if (expandedPageId === pageId) {
+      setPageLinks(prev => { const next = { ...prev }; delete next[pageId]; return next; });
     }
-
-    const result = await res.json() as LaunchResult;
-    setLaunchResults(prev => ({ ...prev, [launchingPage.id]: result }));
-    // Refresh links panel if it was open for this page
-    if (expandedPageId === launchingPage.id) {
-      setPageLinks(prev => { const next = { ...prev }; delete next[launchingPage.id]; return next; });
-    }
-    return result;
   }
 
   async function toggleLinks(pageId: number) {
@@ -960,23 +469,6 @@ export function CampaignPagesContent() {
         />
       )}
 
-      {launchingPage && (
-        <LaunchModal
-          page={launchingPage}
-          audiences={audiences}
-          onClose={() => setLaunchingPage(null)}
-          onCreateAudience={() => { setLaunchingPage(null); setAudienceBuilderOpen(true); }}
-          onAudienceCreated={(a) => setAudiences(prev => [...prev, a])}
-          onLaunch={async (opts) => {
-            const result = await handleLaunch(opts);
-            if (result) {
-              setLaunchResults(prev => ({ ...prev, [launchingPage.id]: result }));
-            }
-            return result;
-          }}
-        />
-      )}
-
       <div className="flex flex-col gap-6 pb-12">
         <SalesPageHeader
           title="Personalized Pages"
@@ -984,7 +476,7 @@ export function CampaignPagesContent() {
           back={{ onClick: () => window.history.length > 1 ? window.history.back() : window.location.assign("/sales") }}
           actions={
             <div className="flex flex-col items-end gap-2">
-              <Button className="gap-2" onClick={() => setShowCampaignWizard(true)}>
+              <Button className="gap-2" onClick={() => { setWizardPage(null); setShowCampaignWizard(true); }}>
                 <Plus className="w-4 h-4" />
                 New Campaign
               </Button>
@@ -1211,7 +703,6 @@ export function CampaignPagesContent() {
         ) : (
           <div className="flex flex-col gap-2.5">
             {campPagesPag.pageItems.map(page => {
-              const result = launchResults[page.id];
               const isExpanded = expandedPageId === page.id;
               const links = pageLinks[page.id];
               const isLoadingLinks = linksLoading === page.id;
@@ -1239,13 +730,6 @@ export function CampaignPagesContent() {
                         </span>
                       </div>
                       <code className="text-xs text-muted-foreground font-mono">/{page.slug}</code>
-                      {result && (
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                            ✓ {result.sent} sent, {result.failed} failed
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
@@ -1284,7 +768,7 @@ export function CampaignPagesContent() {
                       {page.status === "published" ? (
                         <Button
                           size="sm"
-                          onClick={() => setLaunchingPage(page)}
+                          onClick={() => { setWizardPage(page); setShowCampaignWizard(true); }}
                           className="gap-1.5"
                         >
                           <Rocket className="w-3.5 h-3.5" />
@@ -1386,8 +870,13 @@ export function CampaignPagesContent() {
 
       <QuickCampaignWizard
         open={showCampaignWizard}
-        onClose={() => setShowCampaignWizard(false)}
-        onCreated={() => setShowCampaignWizard(false)}
+        initialPage={wizardPage ? { id: wizardPage.id, title: wizardPage.title } : null}
+        onClose={() => { setShowCampaignWizard(false); setWizardPage(null); }}
+        onCreated={() => {
+          setShowCampaignWizard(false);
+          if (wizardPage) refreshLinksFor(wizardPage.id);
+          setWizardPage(null);
+        }}
       />
     </>
   );
