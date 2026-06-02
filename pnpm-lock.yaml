@@ -214,6 +214,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/lead-utils':
+        specifier: workspace:*
+        version: link:../../lib/lead-utils
       '@workspace/lp-template-engine':
         specifier: workspace:*
         version: link:../../lib/lp-template-engine
@@ -395,6 +398,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.20.4
         version: 3.20.4
+      '@workspace/lead-utils':
+        specifier: workspace:*
+        version: link:../../lib/lead-utils
       '@workspace/lp-template-engine':
         specifier: workspace:*
         version: link:../../lib/lp-template-engine
@@ -866,6 +872,15 @@ importers:
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.9
+
+  lib/lead-utils:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.3.5
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
 
   lib/lp-template-engine:
     devDependencies:

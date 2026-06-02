@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useListTests } from "@workspace/api-client-react";
+import { isTestLead, leadName } from "@workspace/lead-utils";
 import { getRecentEntries } from "@/hooks/use-recently-viewed";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -150,71 +151,10 @@ function getGreeting() {
   return "Good evening";
 }
 
-// Builds a forgiving accessor over a lead's submitted fields. Form field
-// keys vary wildly between tenants — "firstName", "first_name" and the
-// human-authored "First Name" all refer to the same thing — so we index
-// every string value by a normalized key (lowercased, non-alphanumerics
-// stripped) and let callers look one up by any of its common spellings.
-// Without this, leads from forms that label fields "First Name" / "Email
-// Address" look nameless and get filtered off the dashboard entirely.
-function fieldAccessor(fields: Record<string, unknown>): (...keys: string[]) => string {
-  const normKey = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const norm: Record<string, string> = {};
-  for (const [k, v] of Object.entries(fields)) {
-    if (typeof v !== "string") continue;
-    const nk = normKey(k);
-    const val = v.trim();
-    // First non-empty value per normalized key wins, so an empty
-    // "first_name" can't shadow a populated "First Name" synonym.
-    if (nk && val && norm[nk] === undefined) norm[nk] = val;
-  }
-  return (...keys: string[]): string => {
-    for (const k of keys) {
-      const v = norm[normKey(k)];
-      if (v) return v;
-    }
-    return "";
-  };
-}
-
-// Heuristic for "this looks like a test submission". The leads table
-// has no test flag, so we sniff the common throw-away patterns:
-// example.com / test.com / mailinator domains, "test" / "+test" local
-// parts, or filler names like "Test User" / "John Doe". Used by the
-// dashboard to keep the Recent Leads widget hidden until a real lead
-// arrives — a half-empty widget full of QA traffic looks worse than no
-// widget at all.
-function isTestLead(fields: Record<string, unknown>): boolean {
-  const get = fieldAccessor(fields);
-  const email = get("email", "workEmail", "work_email", "emailAddress").toLowerCase();
-  if (email) {
-    if (/@(example\.(com|org|net)|test\.com|mailinator\.com|tempmail\.[a-z]+|10minutemail\.[a-z]+|yopmail\.com)$/i.test(email)) return true;
-    const local = email.split("@")[0] ?? "";
-    if (/^test(\d+)?$/.test(local) || /\+test/.test(local) || /^qa([._+-]|\d|$)/.test(local) || local === "demo") return true;
-  }
-  const name = (get("name", "fullName", "full_name") || `${get("firstName", "first_name")} ${get("lastName", "last_name")}`.trim()).toLowerCase();
-  if (name) {
-    if (/^(test( user)?|testing|john doe|jane doe|asdf+|qwerty|foo( bar)?)$/i.test(name)) return true;
-    if (/\btest\b/.test(name) && name.length < 20) return true;
-  }
-  return false;
-}
-
-// Pulls a human name out of a lead's submitted fields. Forms vary, so
-// we try the common shapes (name / fullName / firstName + lastName) via
-// a normalized accessor that also matches human-authored labels like
-// "First Name" or "Full Name". Returns null when no usable name is
-// present — the dashboard widget uses that signal to hide nameless
-// submissions instead of showing a list full of "Anonymous" rows.
-function leadName(fields: Record<string, unknown>): string | null {
-  const get = fieldAccessor(fields);
-  const full = get("name", "fullName", "full_name");
-  if (full) return full;
-  const first = get("firstName", "first_name");
-  const last = get("lastName", "last_name");
-  if (first || last) return [first, last].filter(Boolean).join(" ");
-  return null;
-}
+// Lead field extraction (fieldAccessor), the test-lead heuristic (isTestLead)
+// and name resolution (leadName) live in @workspace/lead-utils so the
+// dashboard widget, the master/per-page leads lists and the summary counts all
+// agree on what counts as a real vs. test lead.
 
 type RecentWorkItem =
   | { kind: "experiment"; id: number; name: string; status: string; testType: string; variantCount: number; slug: string; updatedAt: string; isTemplate?: false; author?: string | null }

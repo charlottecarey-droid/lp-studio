@@ -1,7 +1,9 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Request } from "express";
-import { eq, desc, gte, and } from "drizzle-orm";
+import { eq, desc, gte, and, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { isTestLead, leadName, leadEmail } from "@workspace/lead-utils";
+import { withDbRetry } from "../../lib/dbResilience";
 import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable } from "@workspace/db";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
@@ -515,6 +517,9 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
   const page = parseInt(req.query.page as string || "1", 10);
   const limit = Math.min(parseInt(req.query.limit as string || "50", 10), 200);
   const offset = (page - 1) * limit;
+  // Suspected test/junk leads are hidden by default so day-to-day numbers
+  // reflect real activity; "?includeTest=1" reveals them (flagged client-side).
+  const includeTest = req.query.includeTest === "1" || req.query.includeTest === "true";
 
   const dateFrom = req.query.dateFrom as string | undefined;
 
@@ -526,7 +531,10 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
     }
   }
 
-  const rows = await db
+  // The test-lead heuristic is a JS rule (not expressible in SQL), so fetch the
+  // tenant+page rows newest-first and filter/paginate in memory. Per-page lead
+  // volume is small enough that this stays cheap.
+  const allRows = await withDbRetry(() => db
     .select({
       id: lpLeadsTable.id,
       pageId: lpLeadsTable.pageId,
@@ -540,11 +548,70 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
     .from(lpLeadsTable)
     .leftJoin(lpVariantsTable, eq(lpLeadsTable.variantId, lpVariantsTable.id))
     .where(and(...conditions))
-    .orderBy(desc(lpLeadsTable.createdAt))
-    .limit(limit)
-    .offset(offset);
+    .orderBy(desc(lpLeadsTable.createdAt)));
 
-  res.json({ leads: rows, page, limit });
+  const withFlags = allRows.map(r => ({ ...r, isTest: isTestLead(r.fields as Record<string, unknown>) }));
+  const filtered = includeTest ? withFlags : withFlags.filter(r => !r.isTest);
+  const total = filtered.length;
+  const rows = filtered.slice(offset, offset + limit);
+
+  res.json({ leads: rows, page, limit, total });
+});
+
+// Master "All Leads" list — every lead across every page in the tenant,
+// newest-first, joined with its page title/slug. Supports a search term that
+// matches the lead's name/email and the page title, optional page filtering,
+// and a flag to include suspected test leads (excluded by default). Filtering
+// and pagination happen in memory because the test-lead + search heuristics
+// aren't expressible in SQL.
+router.get("/lp/leads/all", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+  const page = Math.max(1, parseInt(req.query.page as string || "1", 10) || 1);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit as string || "50", 10) || 50), 200);
+  const offset = (page - 1) * limit;
+  const includeTest = req.query.includeTest === "1" || req.query.includeTest === "true";
+  const search = (req.query.search as string || "").trim().toLowerCase();
+  const pageIdRaw = parseInt(req.query.pageId as string, 10);
+  const pageId = isNaN(pageIdRaw) ? null : pageIdRaw;
+
+  const conditions = [eq(lpLeadsTable.tenantId, tenantId)];
+  if (pageId !== null) conditions.push(eq(lpLeadsTable.pageId, pageId));
+
+  const allRows = await withDbRetry(() => db
+    .select({
+      id: lpLeadsTable.id,
+      pageId: lpLeadsTable.pageId,
+      pageTitle: lpPagesTable.title,
+      pageSlug: lpPagesTable.slug,
+      variantId: lpLeadsTable.variantId,
+      variantName: lpVariantsTable.name,
+      fields: lpLeadsTable.fields,
+      createdAt: lpLeadsTable.createdAt,
+    })
+    .from(lpLeadsTable)
+    .leftJoin(lpPagesTable, eq(lpLeadsTable.pageId, lpPagesTable.id))
+    .leftJoin(lpVariantsTable, eq(lpLeadsTable.variantId, lpVariantsTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(lpLeadsTable.createdAt)));
+
+  const withFlags = allRows.map(r => ({ ...r, isTest: isTestLead(r.fields as Record<string, unknown>) }));
+  let filtered = includeTest ? withFlags : withFlags.filter(r => !r.isTest);
+
+  if (search) {
+    filtered = filtered.filter(r => {
+      const fields = r.fields as Record<string, unknown>;
+      const name = (leadName(fields) ?? "").toLowerCase();
+      const email = leadEmail(fields).toLowerCase();
+      const title = (r.pageTitle ?? "").toLowerCase();
+      return name.includes(search) || email.includes(search) || title.includes(search);
+    });
+  }
+
+  const total = filtered.length;
+  const rows = filtered.slice(offset, offset + limit);
+
+  res.json({ leads: rows, page, limit, total });
 });
 
 // Most recent leads across every page in the tenant — used by the
@@ -653,11 +720,15 @@ router.get("/lp/leads/export", async (req, res): Promise<void> => {
 
 router.get("/lp/leads/summary", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  // Suspected test leads are excluded from the per-page counts by default so
+  // the summary cards reflect real activity; "?includeTest=1" counts them too.
+  const includeTest = req.query.includeTest === "1" || req.query.includeTest === "true";
   const pages = await db.select().from(lpPagesTable).where(eq(lpPagesTable.tenantId, tenantId)).orderBy(lpPagesTable.title);
   const leads = await db.select().from(lpLeadsTable).where(eq(lpLeadsTable.tenantId, tenantId));
 
   const countByPage: Record<number, number> = {};
   for (const lead of leads) {
+    if (!includeTest && isTestLead(lead.fields as Record<string, unknown>)) continue;
     countByPage[lead.pageId] = (countByPage[lead.pageId] ?? 0) + 1;
   }
 
@@ -670,6 +741,61 @@ router.get("/lp/leads/summary", async (req, res): Promise<void> => {
   }));
 
   res.json(result);
+});
+
+const BulkDeleteBody = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+});
+
+// Tenant-scoped bulk delete. Every id must belong to the current tenant — the
+// WHERE clause combines the id list with the tenant filter so a tenant can
+// never delete another tenant's leads. Fails closed on a null/missing tenant
+// (getTenantId already responds). Returns the count actually deleted.
+router.delete("/lp/leads", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const parsed = BulkDeleteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "ids must be a non-empty array of positive integers" });
+    return;
+  }
+  try {
+    const deleted = await withDbRetry(() => db
+      .delete(lpLeadsTable)
+      .where(and(eq(lpLeadsTable.tenantId, tenantId), inArray(lpLeadsTable.id, parsed.data.ids)))
+      .returning({ id: lpLeadsTable.id }));
+    res.json({ deleted: deleted.length });
+  } catch (err) {
+    console.error("[lp/leads] bulk delete failed", err);
+    res.status(500).json({ error: "Failed to delete leads" });
+  }
+});
+
+// Permanently delete every suspected test/junk lead for the tenant. The
+// heuristic is JS-only, so we load the tenant's leads, compute the test ids,
+// and delete just those (still tenant-scoped). Returns the count deleted.
+router.delete("/lp/leads/test", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const rows = await withDbRetry(() => db
+      .select({ id: lpLeadsTable.id, fields: lpLeadsTable.fields })
+      .from(lpLeadsTable)
+      .where(eq(lpLeadsTable.tenantId, tenantId)));
+    const testIds = rows
+      .filter(r => isTestLead(r.fields as Record<string, unknown>))
+      .map(r => r.id);
+    if (testIds.length === 0) {
+      res.json({ deleted: 0 });
+      return;
+    }
+    const deleted = await withDbRetry(() => db
+      .delete(lpLeadsTable)
+      .where(and(eq(lpLeadsTable.tenantId, tenantId), inArray(lpLeadsTable.id, testIds)))
+      .returning({ id: lpLeadsTable.id }));
+    res.json({ deleted: deleted.length });
+  } catch (err) {
+    console.error("[lp/leads] delete test leads failed", err);
+    res.status(500).json({ error: "Failed to delete test leads" });
+  }
 });
 
 export default router;
