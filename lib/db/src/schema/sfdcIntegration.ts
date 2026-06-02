@@ -2,6 +2,7 @@ import { pgTable, text, serial, timestamp, jsonb, integer, boolean, index } from
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
+import { salesContactsTable } from "./salesContacts";
 import { tenantsTable } from "./tenants";
 
 /**
@@ -92,7 +93,7 @@ export const sfdcLeadsTable = pgTable("sfdc_leads", {
   industry: text("industry"),
   rating: text("rating"),                              // Hot, Warm, Cold
   convertedAccountId: integer("converted_account_id").references(() => salesAccountsTable.id, { onDelete: "set null" }), // link to sales_accounts if converted
-  convertedContactId: integer("converted_contact_id"), // link to sales_contacts if converted
+  convertedContactId: integer("converted_contact_id").references(() => salesContactsTable.id, { onDelete: "set null" }), // link to sales_contacts if converted
   metadata: jsonb("metadata").default({}),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -32,3 +32,25 @@ ephemeral fresh-DB test (fresh DBs build cleanly from 0001).
 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS <col> <type>;` (matching the schema's
 nullable type) BEFORE the drop+recreate of the FK, so the constraint can always
 be created. Idempotent + a no-op where the column already exists.
+
+## Sibling landmine — deleting a sales_CONTACT (0067)
+
+A full audit of every FK in `lib/db/src/schema/sales*.ts` + `sfdcIntegration.ts`
+found that `sfdc_leads.converted_contact_id` was the LAST remaining implicit-
+RESTRICT FK. It was created in 0001 as `REFERENCES sales_contacts(id)` with no
+ON DELETE, and 0066 only healed its sibling `converted_account_id`. So deleting
+a `sales_contacts` row that was ever a lead's conversion target 500s the same
+way an account delete used to. Healed by 0067 (SET NULL) + a fail-closed
+self-heal, mirroring the 0066 approach.
+**Non-obvious:** an FK can live in the DB while being ABSENT from the drizzle
+schema — `converted_contact_id` was a plain `integer(...)` in the source (no
+`.references()`), so the landmine was invisible at the schema level. When
+auditing onDelete, the drizzle schema is NOT the source of truth for what FKs
+actually exist in prod; grep the migration SQL too.
+**Audit result:** every other sales/sfdc FK is already CASCADE (owned children:
+contacts/sends/hotlinks/briefings/field_mappings/sync_log) or SET NULL
+(historical: campaigns/opportunities/leads/inbound). Note also a separate, NON-
+failing drift: `sales_email_sends.contact_id`/`hotlink_id` and
+`sales_inbound_emails.contact_id`/`account_id` are declared as FKs in the schema
+but were never created as FKs in the DB (plain integers in 0000) — they leave
+orphans, not 500s, so they're out of scope for "deletion fails".
