@@ -6,6 +6,7 @@
  */
 
 import type { PageBlock } from "./block-types";
+import type { BlockRoleTag } from "@workspace/lp-template-engine";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -95,41 +96,44 @@ function hasAnyBlockType(blocks: PageBlock[], types: Set<string>): boolean {
 // they actually have, collapsing almost every page to a D/F grade. These sets
 // capture the real vocabulary so structurally complete pages are graded fairly.
 
-const HERO_TYPES = new Set([
+export const HERO_TYPES = new Set([
   "hero", "full-bleed-hero", "parallax-image-hero", "magazine-hero",
   "one-pager-hero", "dandy-product-hero", "dandy-hero-v7-s3",
   "dso-heartland-hero", "dso-practice-hero", "dso-scroll-story-hero",
   "event-landing-hero", "id-hero",
 ]);
 
-// Calls-to-action: explicit CTA strips and buttons.
-const CTA_TYPES = new Set([
+// Calls-to-action: explicit CTA strips, buttons, and interactive conversion
+// blocks (calculators, invitations) that drive the primary next step.
+export const CTA_TYPES = new Set([
   "bottom-cta", "cta-button", "dandy-cta-block", "dso-final-cta",
+  "roi-calculator", "id-invitation",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
-const LEAD_CAPTURE_TYPES = new Set([
+export const LEAD_CAPTURE_TYPES = new Set([
   "form", "dandy-form-right-alt", "dandy-conversion-panel-1",
   "dso-cta-capture", "id-form", "id-reservation-pass",
 ]);
 
 // Social proof: testimonials, customer stories, case studies, results galleries.
 // Kept DISTINCT from authority so a page earns each credit once, never double.
-const SOCIAL_PROOF_TYPES = new Set([
+export const SOCIAL_PROOF_TYPES = new Set([
   "testimonial", "case-studies", "story-hub", "dandy-video-testimonials",
   "dso-testimonials", "dso-success-stories", "dso-case-study",
   "before-after-gallery", "business-case-split", "business-case-premium",
-  "business-case-centered",
+  "business-case-centered", "dso-live-feed",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
-const AUTHORITY_TYPES = new Set([
+export const AUTHORITY_TYPES = new Set([
   "trust-bar", "stat-callout", "bento-showcase", "dso-stat-bar",
   "dso-stat-row", "dso-stat-showcase", "id-stats",
+  "dso-flow-canvas", "dso-particle-mesh",
 ]);
 
 // Structured content sections AI engines can extract organized answers from.
-const STRUCTURED_TYPES = new Set([
+export const STRUCTURED_TYPES = new Set([
   "how-it-works", "benefits-grid", "comparison", "product-grid",
   "zigzag-features", "product-showcase", "product-launch",
   "dandy-columns-v2", "dandy-columns-v3", "dandy-vertical-tabs",
@@ -141,16 +145,40 @@ const STRUCTURED_TYPES = new Set([
   "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
   "id-cinema-pillars", "id-system-flow", "id-grid", "id-spotlight",
   "id-parallax-showcase", "gradient-pricing", "editorial-carousel",
-  "speaker-grid",
+  "speaker-grid", "dandy-side-image-v6", "dso-network-map",
+  "dso-comparison", "horizontal-showcase", "scroll-assembly",
+  "spatial-tour", "storefront", "sticky-stack",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").
-const COMPARISON_TYPES = new Set([
-  "comparison", "dandy-versus", "dso-paradigm-shift",
+export const COMPARISON_TYPES = new Set([
+  "comparison", "dandy-versus", "dso-paradigm-shift", "dso-comparison",
 ]);
 
 // FAQ / Q&A blocks reinforce the question-answer GEO signal.
-const FAQ_TYPES = new Set(["dso-faq"]);
+export const FAQ_TYPES = new Set(["dso-faq"]);
+
+// ── Scorer ⇄ block-registry reconciliation contract ────────────────────────
+//
+// The vocabularies above must stay in sync with the block registry as new
+// block types are added. The semantic role tags in the shared
+// DEFAULT_BLOCK_TAGS map (@workspace/lp-template-engine) are the source of
+// truth for what structural role each block fills; these are the role tags a
+// block can carry that a page would expect to earn SEO/GEO credit for. If a
+// block carries one of these roles but appears in NONE of the vocabularies
+// above, the scorer silently ignores it and well-built pages grade lower than
+// they should. `seo-scoring.coverage.test.ts` enforces this — adding a block
+// type with a scoring-relevant role fails the test until it is categorized.
+export const SCORING_RELEVANT_ROLES: ReadonlySet<BlockRoleTag> = new Set<BlockRoleTag>([
+  "hero", "social-proof", "stats", "form", "cta", "faq", "comparison", "features",
+]);
+
+// Every block type the scorer recognizes in any category. Used by the
+// reconciliation test to verify scoring-relevant blocks are not invisible.
+export const SCORED_BLOCK_TYPES: ReadonlySet<string> = new Set<string>([
+  ...HERO_TYPES, ...CTA_TYPES, ...LEAD_CAPTURE_TYPES, ...SOCIAL_PROOF_TYPES,
+  ...AUTHORITY_TYPES, ...STRUCTURED_TYPES, ...COMPARISON_TYPES, ...FAQ_TYPES,
+]);
 
 // ── Rule-Based Scoring ─────────────────────────────────────────────────────
 
