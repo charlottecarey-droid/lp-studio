@@ -7,6 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 
 const API_BASE = "/api";
 
+// Generate links this many contacts at a time so a large audience never lands
+// in a single long-running (timeout-prone) request and progress stays visible.
+const BUILD_BATCH_SIZE = 250;
+
 interface LinkRow {
   contactId: number;
   firstName: string;
@@ -61,6 +65,7 @@ export function LinkExportPanel({ pageId, contactIds, onError }: Props) {
   const { toast } = useToast();
   const [building, setBuilding] = useState(false);
   const [build, setBuild] = useState<BuildResult | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
@@ -68,22 +73,48 @@ export function LinkExportPanel({ pageId, contactIds, onError }: Props) {
 
   const setErr = useCallback((m: string | null) => onError?.(m), [onError]);
 
+  // Build the links in batches rather than one giant request. A large audience
+  // (1000+ contacts) generates one hotlink per contact, which can be slow enough
+  // to time out a single request. Chunking keeps every request small, surfaces
+  // live progress, and streams rows into the list as each batch completes.
   const buildRows = useCallback(async () => {
     setBuilding(true);
     setErr(null);
+    setBuild(null);
+    const total = contactIds.length;
+    setProgress({ done: 0, total });
     try {
-      const r = await fetch(`${API_BASE}/sales/link-export/build`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId, contactIds }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error ?? "Failed to generate personalized links");
-      setBuild(data as BuildResult);
+      const accumulated: LinkRow[] = [];
+      let skippedNoEmail = 0;
+      let meta: { pageId: number; pageTitle: string; pageSlug: string } | null = null;
+      for (let i = 0; i < contactIds.length; i += BUILD_BATCH_SIZE) {
+        const chunk = contactIds.slice(i, i + BUILD_BATCH_SIZE);
+        const r = await fetch(`${API_BASE}/sales/link-export/build`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageId, contactIds: chunk }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error ?? "Failed to generate personalized links");
+        const res = data as BuildResult;
+        accumulated.push(...res.rows);
+        skippedNoEmail += res.skippedNoEmail ?? 0;
+        meta = { pageId: res.pageId, pageTitle: res.pageTitle, pageSlug: res.pageSlug };
+        setProgress({ done: Math.min(i + chunk.length, total), total });
+        // Stream rows into the list as each batch lands.
+        setBuild({ ...meta, skippedNoEmail, rows: [...accumulated] });
+      }
+      if (!meta) {
+        setBuild({ pageId: 0, pageTitle: "", pageSlug: "", skippedNoEmail: 0, rows: [] });
+      }
     } catch (e) {
+      // Drop any partially-accumulated rows so a failed run never reads as a
+      // complete result; the user can retry with Regenerate.
+      setBuild(null);
       setErr(e instanceof Error ? e.message : "Failed to generate personalized links");
     } finally {
       setBuilding(false);
+      setProgress(null);
     }
   }, [pageId, contactIds, setErr]);
 
@@ -166,7 +197,9 @@ export function LinkExportPanel({ pageId, contactIds, onError }: Props) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-sm text-muted-foreground">
           {building ? (
-            "Generating personalized links…"
+            progress && progress.total > 0
+              ? <>Generating personalized links… <span className="font-semibold text-foreground">{progress.done}</span> of {progress.total}</>
+              : "Generating personalized links…"
           ) : build ? (
             <>
               <span className="font-semibold text-foreground">{rows.length}</span>{" "}
@@ -187,10 +220,20 @@ export function LinkExportPanel({ pageId, contactIds, onError }: Props) {
         </Button>
       </div>
 
+      {/* Progress bar for large audiences */}
+      {building && progress && progress.total > BUILD_BATCH_SIZE && (
+        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden -mt-1">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+          />
+        </div>
+      )}
+
       {/* Link list */}
       <div className="border border-border rounded-xl overflow-hidden">
         <div className="max-h-[300px] overflow-y-auto divide-y divide-border">
-          {building ? (
+          {building && rows.length === 0 ? (
             <div className="p-4 space-y-2">
               <Skeleton className="h-5 w-full" />
               <Skeleton className="h-5 w-5/6" />

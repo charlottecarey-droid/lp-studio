@@ -103,22 +103,38 @@ export async function buildLinkRows(args: {
 
   const host = await getTenantOutboundOrigin(tenantId, req);
 
-  const rows: LinkExportRow[] = [];
-  for (const contact of usable) {
-    const created = await ensureHotlinkForContact(tenantId, contact.id, pageId, contact.salesforceId ?? null);
-    const firstName = contact.firstName ?? "";
-    const lastName = contact.lastName ?? "";
-    rows.push({
-      contactId: contact.id,
-      firstName,
-      lastName,
-      fullName: [firstName, lastName].filter(Boolean).join(" "),
-      email: contact.email!,
-      company: contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "",
-      title: contact.title ?? "",
-      link: `${host}/p/${created.token}`,
-    });
+  // Generate the per-contact hotlinks with bounded concurrency. Each
+  // ensureHotlinkForContact is one or two sequential DB roundtrips, so a large
+  // audience done strictly one-at-a-time can take long enough to risk a request
+  // timeout. A small worker pool keeps the wall-clock low while staying gentle
+  // on the connection pool. Results are written back by index so the row order
+  // matches the input audience regardless of completion order.
+  const rows: LinkExportRow[] = new Array<LinkExportRow>(usable.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    for (;;) {
+      const i = next++;
+      if (i >= usable.length) return;
+      const contact = usable[i];
+      const created = await ensureHotlinkForContact(tenantId, contact.id, pageId, contact.salesforceId ?? null);
+      const firstName = contact.firstName ?? "";
+      const lastName = contact.lastName ?? "";
+      rows[i] = {
+        contactId: contact.id,
+        firstName,
+        lastName,
+        fullName: [firstName, lastName].filter(Boolean).join(" "),
+        email: contact.email!,
+        company: contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "",
+        title: contact.title ?? "",
+        link: `${host}/p/${created.token}`,
+      };
+    }
   }
+  const HOTLINK_CONCURRENCY = 12;
+  await Promise.all(
+    Array.from({ length: Math.min(HOTLINK_CONCURRENCY, usable.length) }, () => worker()),
+  );
 
   return {
     pageId: page.id,
