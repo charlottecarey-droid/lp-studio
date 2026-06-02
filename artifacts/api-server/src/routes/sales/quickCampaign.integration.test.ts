@@ -205,4 +205,86 @@ describe("Quick Campaigns wizard backend (task #800)", () => {
     // …and the trailing period stays outside the link.
     expect(preview.html).toContain("/p/demo123</a>.");
   });
+
+  it("resolves {{microsite_url}} to a real /p/ link for a contact with a selected page (task #804)", async () => {
+    const { tenantId, sid } = await seedTenant();
+
+    // Seed an account → contact → published page so the preview path has a
+    // real recipient + landing page to mint a personalized hotlink for. This
+    // exercises ensureHotlinkForContact's INSERT ... ON CONFLICT on the
+    // (contact_id, page_id) partial unique index (migration 0017). Before that
+    // index existed on the DB, the insert threw 42P10, the caller swallowed it,
+    // and {{microsite_url}} rendered blank.
+    const accRes = await pool.query<{ id: number }>(
+      `INSERT INTO sales_accounts (tenant_id, name, status)
+       VALUES ($1, 'IT Hotlink Account', 'active') RETURNING id`,
+      [tenantId],
+    );
+    const accountId = accRes.rows[0].id;
+
+    const contactRes = await pool.query<{ id: number }>(
+      `INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, email, status)
+       VALUES ($1, $2, 'Pat', 'Recipient', 'pat@it-hotlink.example.com', 'active') RETURNING id`,
+      [tenantId, accountId],
+    );
+    const contactId = contactRes.rows[0].id;
+
+    const pageRes = await pool.query<{ id: number }>(
+      `INSERT INTO lp_pages (tenant_id, title, slug, status, mode)
+       VALUES ($1, 'IT Hotlink Page', $2, 'published', 'sales') RETURNING id`,
+      [tenantId, `it-hotlink-page-${Date.now()}-${Math.floor(Math.random() * 1e6)}`],
+    );
+    const pageId = pageRes.rows[0].id;
+
+    const tplRes = await authed(sid, "POST", "/sales/templates", {
+      name: "[Quick Campaign] IT microsite",
+      subject: "Hi {{first_name}}",
+      bodyHtml: '<p>See your page: <a href="{{microsite_url}}">View</a></p>',
+      bodyText: "",
+      format: "html",
+      category: "quick_campaign",
+    });
+    const tpl = tplRes.json as any;
+
+    // Target the seeded contact + page so the preview mints a hotlink.
+    const campRes = await authed(sid, "POST", "/sales/campaigns", {
+      name: "IT Microsite Campaign",
+      templateId: tpl.id,
+      status: "draft",
+      metadata: { contactIds: [contactId], pageId },
+    });
+    const camp = campRes.json as any;
+
+    const previewRes = await authed(sid, "POST", `/sales/campaigns/${camp.id}/preview`, {});
+    expect(previewRes.status).toBe(200);
+    const preview = previewRes.json as any;
+
+    // {{microsite_url}} must resolve to a real /p/<token> link, NOT an empty href.
+    const match = /href="([^"]*\/p\/[A-Za-z0-9_-]+)"/.exec(preview.html);
+    expect(match).not.toBeNull();
+    expect(match![1]).toMatch(/\/p\/[A-Za-z0-9_-]+$/);
+    expect(preview.html).not.toContain('href=""');
+
+    // The mint actually persisted a hotlink row for (contact, page).
+    const token = match![1].split("/p/")[1];
+    const hl = await pool.query<{ token: string; page_id: number; contact_id: number }>(
+      `SELECT token, page_id, contact_id FROM sales_hotlinks
+       WHERE tenant_id = $1 AND contact_id = $2 AND page_id = $3`,
+      [tenantId, contactId, pageId],
+    );
+    expect(hl.rows.length).toBe(1);
+    expect(hl.rows[0].token).toBe(token);
+
+    // Idempotency: a second preview reuses the SAME hotlink (ON CONFLICT path),
+    // never duplicating the (contact, page) row.
+    const previewRes2 = await authed(sid, "POST", `/sales/campaigns/${camp.id}/preview`, {});
+    expect(previewRes2.status).toBe(200);
+    const match2 = /href="([^"]*\/p\/[A-Za-z0-9_-]+)"/.exec((previewRes2.json as any).html);
+    expect(match2![1].split("/p/")[1]).toBe(token);
+    const hl2 = await pool.query(
+      `SELECT id FROM sales_hotlinks WHERE tenant_id = $1 AND contact_id = $2 AND page_id = $3`,
+      [tenantId, contactId, pageId],
+    );
+    expect(hl2.rows.length).toBe(1);
+  });
 });
