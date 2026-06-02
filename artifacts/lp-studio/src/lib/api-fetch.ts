@@ -40,7 +40,12 @@ const CSRF_ENDPOINT = "/api/auth/csrf";
  * transparent to every endpoint. Already-encoded bodies (the superadmin
  * notifications editor wraps its own) contain only base64 and won't re-match.
  */
-const WAF_TRIPPING_BODY = /href\s*=\s*["'][^"']*\{\{/i;
+// Matches the token-in-href pattern both as raw HTML (`href="{{`) and as it
+// appears inside a JSON.stringify'd payload, where the attribute quote is
+// backslash-escaped (`href=\"{{`). The optional `\\?` before the quote tolerates
+// that escaping; without it, serialized styled-email bodies were never wrapped
+// and got blocked at the edge.
+const WAF_TRIPPING_BODY = /href\s*=\s*\\?["'][^"']*\{\{/i;
 
 function encodeBodyForWaf(body: string): string {
   const bytes = new TextEncoder().encode(body);

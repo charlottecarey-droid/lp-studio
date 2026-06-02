@@ -951,6 +951,7 @@ function TemplatesTab() {
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiGenerateError, setAiGenerateError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [showTestEmail, setShowTestEmail] = useState(false);
   const [testEmailBody, setTestEmailBody] = useState<{ html?: string; text?: string }>({});
@@ -988,6 +989,7 @@ function TemplatesTab() {
     setName(""); setTplSubject(""); setBodyHtml(""); setBodyText("");
     setCategory("general"); setEmailFormat("plain"); setEditId(null);
     setShowBanner(true); setCtaText(""); setCtaUrl("{{microsite_url}}"); setShowSignature(true);
+    setSaveError(null);
     setTimeout(() => editorRef.current?.setContent(""), 0);
   }
 
@@ -1038,6 +1040,7 @@ function TemplatesTab() {
     e.preventDefault();
     if (!name || !tplSubject) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const payload: Record<string, unknown> = { name, subject: tplSubject, category, format: emailFormat };
       if (emailFormat === "styled") {
@@ -1064,7 +1067,12 @@ function TemplatesTab() {
         resetForm();
         setShowCreate(false);
         fetchTemplates();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setSaveError((data as { error?: string }).error ?? `Could not save the template (${res.status}). Please try again.`);
       }
+    } catch {
+      setSaveError("Network error — could not reach the server. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -1262,6 +1270,10 @@ function TemplatesTab() {
                   </Button>
                 )}
               </div>
+
+              {saveError && (
+                <p className="text-sm text-red-600 leading-snug">{saveError}</p>
+              )}
             </form>
 
             {/* Test email modal for template editor */}
