@@ -1026,34 +1026,42 @@ export const generatePilotOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawBrandLogo(doc, margin, 50, logoPng, 80, 28, b.wordmark);
+  // Header-region layout controls (editor sliders): nudge the header title left/
+  // right, and shift the whole logo cluster (Dandy logo, separator, partner
+  // logo/name) together. All default to 0 so saved layouts are unchanged.
+  const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
+  const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
+  const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
 
-  const logoEndX = margin + 90;
-  doc.setDrawColor(...pal.onPrimaryMuted);
-  doc.setLineWidth(0.75);
-  doc.line(logoEndX, 50, logoEndX, 78);
+  drawBrandLogo(doc, margin + logoGroupX, 50 + logoGroupY, logoPng, 80, 28, b.wordmark);
+
+  const logoEndX = margin + 90 + logoGroupX;
 
   if (prospectLogoData) {
+    // Separator line only renders when an actual partner logo image is present.
+    doc.setDrawColor(...pal.onPrimaryMuted);
+    doc.setLineWidth(0.75);
+    doc.line(logoEndX, 50 + logoGroupY, logoEndX, 78 + logoGroupY);
     try {
       const pScale = Math.max(0.3, Math.min(3, (hCfg.prospectLogoScale as number | undefined) ?? 1));
       const maxW = 135 * pScale, maxH = 36 * pScale;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
       const lw = prospectLogoDims.w * ratio;
       const lh = prospectLogoDims.h * ratio;
-      doc.addImage(prospectLogoData, "PNG", logoEndX + 12, 64 - lh / 2, lw, lh);
+      doc.addImage(prospectLogoData, "PNG", logoEndX + 12, 64 + logoGroupY - lh / 2, lw, lh);
     } catch { }
   } else {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(dsoName.length > 15 ? 12 : 16);
     doc.setTextColor(...white);
-    doc.text(dsoName, logoEndX + 12, 70);
+    doc.text(dsoName, logoEndX + 12, 70 + logoGroupY);
   }
 
   doc.setFont(headerTitleFont, headerTitleStyle("normal"));
   doc.setFontSize(dsoName.length > 15 ? 22 : ((hCfg.titleFontSize as number | undefined) ?? 28));
   doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize(`${b.productName} x ${dsoName}\n90-Day Pilot`, splitX - margin - 20);
-  doc.text(titleLines, margin, 120);
+  doc.text(titleLines, margin + headingOffsetX, 120);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11);
@@ -1335,36 +1343,42 @@ export const generateComparisonOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawBrandLogo(doc, margin, 22, logoPng, 70, 24, b.wordmark);
+  // Header-region layout controls (editor sliders): nudge the header title left/
+  // right, and shift the whole logo cluster (Dandy logo, separator, partner
+  // logo/name) together. All default to 0 so saved layouts are unchanged.
+  const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
+  const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
+  const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
+
+  drawBrandLogo(doc, margin + logoGroupX, 22 + logoGroupY, logoPng, 70, 24, b.wordmark);
 
   if (prospectLogoData) {
-    const logoEndX = margin + 80;
+    const logoEndX = margin + 80 + logoGroupX;
+    // Separator line only renders when an actual partner logo image is present.
     doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
-    doc.line(logoEndX, 22, logoEndX, 46);
+    doc.line(logoEndX, 22 + logoGroupY, logoEndX, 46 + logoGroupY);
     try {
       const pScale = Math.max(0.3, Math.min(3, (hCfg.prospectLogoScale as number | undefined) ?? 1));
       const maxW = 135 * pScale, maxH = 30 * pScale;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
       const lw = prospectLogoDims.w * ratio;
       const lh = prospectLogoDims.h * ratio;
-      doc.addImage(prospectLogoData, "PNG", logoEndX + 10, 34 - lh / 2, lw, lh);
+      doc.addImage(prospectLogoData, "PNG", logoEndX + 10, 34 + logoGroupY - lh / 2, lw, lh);
     } catch { }
   } else if (dsoName) {
-    const logoEndX = margin + 80;
-    doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
-    doc.line(logoEndX, 22, logoEndX, 46);
+    const logoEndX = margin + 80 + logoGroupX;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(dsoName.length > 15 ? 11 : 14);
     doc.setTextColor(...white);
-    doc.text(dsoName, logoEndX + 10, 40);
+    doc.text(dsoName, logoEndX + 10, 40 + logoGroupY);
   }
 
   const titleSize = (hCfg.titleFontSize as number | undefined) ?? 20;
   const titleLineSpacing = (hCfg.titleLineSpacing as number | undefined) ?? 1.32;
   const titleLineH = Math.round(titleSize * titleLineSpacing);
   doc.setFont(headerTitleFont, headerTitleStyle("normal")); doc.setFontSize(titleSize); doc.setTextColor(...white);
-  doc.text("Stronger Systems.", margin, 90);
-  doc.text("Better Outcomes.", margin, 90 + titleLineH);
+  doc.text("Stronger Systems.", margin + headingOffsetX, 90);
+  doc.text("Better Outcomes.", margin + headingOffsetX, 90 + titleLineH);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(...pal.onPrimaryMuted2);
   const subLines = doc.splitTextToSize(`See how ${b.productName} has matured to deliver more consistent clinical performance across practices.`, splitX - margin - 20);
   doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
@@ -1580,30 +1594,38 @@ export const generateNewPartnerOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawBrandLogo(doc, margin, 22, logoPng, 70, 24, b.wordmark);
+  // Header-region layout controls (editor sliders): nudge the header title left/
+  // right, and shift the whole logo cluster (Dandy logo, separator, partner
+  // logo/name) together. All default to 0 so saved layouts are unchanged. The
+  // existing partnerLogoOffsetX/Y still applies additively to the partner logo
+  // on top of this group offset.
+  const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
+  const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
+  const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
 
-  const logoSepX = margin + 78;
+  drawBrandLogo(doc, margin + logoGroupX, 22 + logoGroupY, logoPng, 70, 24, b.wordmark);
+
+  const logoSepX = margin + 78 + logoGroupX;
   const legacyPartnerScale = ((hCfg.partnerLogoScale as number | undefined) ?? 100) / 100;
   const newProspectScale = (hCfg.prospectLogoScale as number | undefined) ?? 1;
   const logoScale = Math.max(0.3, Math.min(3, legacyPartnerScale * newProspectScale));
   const logoOffX = (hCfg.partnerLogoOffsetX as number | undefined) ?? 0;
   const logoOffY = (hCfg.partnerLogoOffsetY as number | undefined) ?? 0;
   if (prospectLogoData) {
+    // Separator line only renders when an actual partner logo image is present.
     doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
-    doc.line(logoSepX, 20, logoSepX, 50);
+    doc.line(logoSepX, 20 + logoGroupY, logoSepX, 50 + logoGroupY);
     try {
       const maxW = 70 * logoScale, maxH = 26 * logoScale;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
       const lw = prospectLogoDims.w * ratio;
       const lh = prospectLogoDims.h * ratio;
       const format = prospectLogoData.startsWith("data:image/png") ? "PNG" : "JPEG";
-      doc.addImage(prospectLogoData, format, logoSepX + 10 + logoOffX, 35 - lh / 2 + logoOffY, lw, lh);
+      doc.addImage(prospectLogoData, format, logoSepX + 10 + logoOffX, 35 + logoGroupY - lh / 2 + logoOffY, lw, lh);
     } catch { }
   } else if (dsoName) {
-    doc.setDrawColor(...pal.onPrimaryMuted); doc.setLineWidth(0.75);
-    doc.line(logoSepX, 20, logoSepX, 50);
     doc.setFont("helvetica", "italic"); doc.setFontSize(10); doc.setTextColor(...white);
-    doc.text(dsoName, logoSepX + 10 + logoOffX, 38 + logoOffY);
+    doc.text(dsoName, logoSepX + 10 + logoOffX, 38 + logoGroupY + logoOffY);
   }
 
   const subtitleFontSize = (hCfg.subtitleFontSize as number | undefined) ?? 12;
@@ -1626,7 +1648,7 @@ export const generateNewPartnerOnePager = async (
     (hCfg as Record<string, unknown>).boldHeading === false ? "normal" : "bold";
   doc.setFont(headerTitleFont, headerTitleStyle(titleWeight)); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
-  doc.text(titleLines, margin, 65 + subtitleOffY + subtitleFontSize + 14);
+  doc.text(titleLines, margin + headingOffsetX, 65 + subtitleOffY + subtitleFontSize + 14);
 
   let y = headerH + 40;
 

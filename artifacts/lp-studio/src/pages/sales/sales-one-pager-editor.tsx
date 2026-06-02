@@ -93,6 +93,12 @@ interface HeaderConfig {
   subtitleShow?: boolean;
   subtitleOffsetX?: number;
   subtitleLineOffsetY?: number;
+  /** Header-region spacing controls. headingOffsetX nudges the big header title
+   *  left/right; logoGroupOffsetX/Y shift the whole logo cluster (Dandy logo,
+   *  separator, partner logo/name) together. All default to 0. */
+  headingOffsetX?: number;
+  logoGroupOffsetX?: number;
+  logoGroupOffsetY?: number;
 }
 interface BodyConfig {
   headlineText: string; headlineFontSize: number; introFontSize: number;
@@ -1141,6 +1147,9 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={14} max={40} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
                     <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={8} max={18} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
                     <SliderRow label="Subtitle Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <SliderRow label="Heading Offset X" value={headerCfg.headingOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, headingOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset X" value={headerCfg.logoGroupOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset Y" value={headerCfg.logoGroupOffsetY ?? 0} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetY: v }))} />
                     <ProspectLogoScaleRow value={headerCfg.prospectLogoScale} onChange={v => setHeaderCfg(p => ({ ...p, prospectLogoScale: v }))} />
                     <SliderRow label="Partner Logo Scale" value={headerCfg.partnerLogoScale} min={30} max={300} unit="%" onChange={v => setHeaderCfg(p => ({ ...p, partnerLogoScale: v }))} />
                     <SliderRow label="Partner Logo Offset X" value={headerCfg.partnerLogoOffsetX} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, partnerLogoOffsetX: v }))} />
@@ -1265,6 +1274,9 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Headline Line Spacing" value={headerCfg.titleLineSpacing} min={0.8} max={3.0} step={0.01} unit="×" onChange={v => setHeaderCfg(p => ({ ...p, titleLineSpacing: v }))} />
                     <SliderRow label="Subheadline Font Size" value={headerCfg.subtitleFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
                     <SliderRow label="Subheadline Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <SliderRow label="Heading Offset X" value={headerCfg.headingOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, headingOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset X" value={headerCfg.logoGroupOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset Y" value={headerCfg.logoGroupOffsetY ?? 0} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetY: v }))} />
                     <ProspectLogoScaleRow value={headerCfg.prospectLogoScale} onChange={v => setHeaderCfg(p => ({ ...p, prospectLogoScale: v }))} />
                     <div>
                       <span className="text-[11px] font-medium text-muted-foreground">Header Image</span>
@@ -1327,6 +1339,9 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={16} max={42} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
                     <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={8} max={24} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
                     <SliderRow label="Header Text Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
+                    <SliderRow label="Heading Offset X" value={headerCfg.headingOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, headingOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset X" value={headerCfg.logoGroupOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset Y" value={headerCfg.logoGroupOffsetY ?? 0} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetY: v }))} />
                     <div className="flex items-center justify-between pt-1">
                       <div>
                         <span className="text-[11px] font-medium text-muted-foreground">Show "Brand &amp; DSO" subtitle</span>
