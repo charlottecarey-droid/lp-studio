@@ -90,3 +90,4 @@
 - [Template thumbnail capture](template-thumbnail-capture.md) — gallery cards show thum.io screenshots (thumbnailUrl→ogImage→gradient); isPlaceholderTemplateLabel duplicated in templates.ts + backfill script; backfill is a deliberate prod job.
 - [Brand-import cache poisoning](brand-import-cache-poisoning.md) — brand-import results cache must never store/serve an all-failed payload, or one transient failure blocks re-scrape of that site for 24h ("won't even try to scrape").
 - [Published LP URL tenant host](lp-page-url-tenant-host.md) — getLpPageUrl must build from user.tenantHost (microsite→tenantHost/lp→origin), never window.location.origin; admin host has no tenant binding → 404.
+- [Conversion-score Page Speed](conversion-score-pagespeed.md) — Page Speed Impact prefers real PSI Lighthouse score via in-process TTL cache + non-blocking bg fetch (no schema/cron); falls back to block-count proxy; test/VITEST disables fetch.

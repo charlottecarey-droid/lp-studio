@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
+import { getMeasuredSpeedScore } from "../../lib/pageSpeedInsights";
 
 const router = Router();
 
@@ -392,8 +393,11 @@ export function computeConversionScore(input: {
   cvr: number;
   leadCount: number;
   avgScrollDepth: number;
-}): { categories: ScoringCategory[]; overallScore: number; quickWins: QuickWin[] } {
-  const { analysis, metaTitle, metaDescription, impressions, cvr, leadCount, avgScrollDepth } = input;
+  // Measured Lighthouse performance score (0-100) from PageSpeed Insights when
+  // available; null/undefined → fall back to the structural block-count proxy.
+  measuredSpeedScore?: number | null;
+}): { categories: ScoringCategory[]; overallScore: number; quickWins: QuickWin[]; speedMeasured: boolean } {
+  const { analysis, metaTitle, metaDescription, impressions, cvr, leadCount, avgScrollDepth, measuredSpeedScore } = input;
   const hasTraffic = impressions > 0;
   const hasScrollData = avgScrollDepth > 0;
   const hasConversionPath = analysis.hasForm || analysis.hasBooking;
@@ -446,8 +450,13 @@ export function computeConversionScore(input: {
     100,
   );
 
-  // Page Speed Impact: block/image-count proxy (unchanged — real metrics need PSI).
-  const speedScore = Math.max(100 - analysis.blockCount * 3 - analysis.imageCount * 5, 20);
+  // Page Speed Impact: prefer a real measured Lighthouse performance score from
+  // PageSpeed Insights; fall back to the structural block/image-count proxy when
+  // no measurement is available (drafts, fresh process, PSI unreachable).
+  const speedMeasured = typeof measuredSpeedScore === "number" && measuredSpeedScore >= 0;
+  const speedScore = speedMeasured
+    ? Math.max(0, Math.min(100, Math.round(measuredSpeedScore!)))
+    : Math.max(100 - analysis.blockCount * 3 - analysis.imageCount * 5, 20);
 
   // Mobile Responsiveness: scroll depth as a proxy once we have scroll data;
   // until then, assume the responsive block library renders well (structural).
@@ -520,8 +529,13 @@ export function computeConversionScore(input: {
       name: "Page Speed Impact",
       score: speedScore,
       grade: letterGrade(speedScore),
-      recommendation:
-        analysis.imageCount > 5
+      recommendation: speedMeasured
+        ? speedScore < 50
+          ? `Measured page speed is slow (${speedScore}/100) — compress images, lazy-load below-fold media, and trim heavy blocks`
+          : speedScore < 90
+            ? `Measured page speed is ${speedScore}/100 — lazy-load below-fold images and defer non-critical scripts to improve further`
+            : `Measured page speed is strong (${speedScore}/100)`
+        : analysis.imageCount > 5
           ? "Optimize images — consider lazy loading below-fold content"
           : analysis.blockCount > 15
             ? "Consider consolidating blocks to improve load time"
@@ -564,7 +578,7 @@ export function computeConversionScore(input: {
     }
   }
 
-  return { categories, overallScore, quickWins };
+  return { categories, overallScore, quickWins, speedMeasured };
 }
 
 // ─── GET /lp/conversion-scoring/pages — list tenant pages for the selector ─────
@@ -679,7 +693,16 @@ router.get("/lp/conversion-scoring/:pageId", async (req, res): Promise<void> => 
     const leadCount = leadStats?.count ?? 0;
 
     // 3. Compute category scores + overall + quick wins (pure)
-    const { categories, overallScore, quickWins } = computeConversionScore({
+    // Real measured page speed (PageSpeed Insights / Lighthouse) when available;
+    // non-blocking — schedules a background refresh and falls back to the
+    // structural proxy until a measurement lands.
+    const measuredSpeedScore = getMeasuredSpeedScore({
+      id: page.id,
+      tenantId: page.tenantId,
+      slug: page.slug,
+      status: page.status,
+    });
+    const { categories, overallScore, quickWins, speedMeasured } = computeConversionScore({
       analysis,
       metaTitle: page.metaTitle,
       metaDescription: page.metaDescription,
@@ -687,6 +710,7 @@ router.get("/lp/conversion-scoring/:pageId", async (req, res): Promise<void> => 
       cvr,
       leadCount,
       avgScrollDepth,
+      measuredSpeedScore,
     });
 
     res.json({
@@ -705,6 +729,9 @@ router.get("/lp/conversion-scoring/:pageId", async (req, res): Promise<void> => 
         avgScrollDepth,
         clicksPerSession: Math.round(clicksPerSession * 100) / 100,
         blockCount: analysis.blockCount,
+        // Page Speed Impact source: a real PageSpeed Insights measurement when
+        // available, otherwise the structural block/image-count estimate.
+        speedSource: speedMeasured ? "measured" : "estimated",
       },
     });
   } catch (err) {

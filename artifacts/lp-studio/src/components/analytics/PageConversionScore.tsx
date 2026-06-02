@@ -47,6 +47,8 @@ export interface ScoringResult {
     avgScrollDepth: number;
     clicksPerSession: number;
     blockCount: number;
+    // "measured" = real PageSpeed Insights score; "estimated" = structural proxy.
+    speedSource?: "measured" | "estimated";
   };
 }
 
@@ -254,7 +256,21 @@ export function PageConversionScore({ pageId }: { pageId: number }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{cat.name}</span>
+                      <span className="text-sm font-medium flex items-center gap-1.5">
+                        {cat.name}
+                        {cat.name === "Page Speed Impact" && result.metrics.speedSource && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] px-1 py-0 font-normal ${
+                              result.metrics.speedSource === "measured"
+                                ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+                                : "bg-muted text-muted-foreground border-border"
+                            }`}
+                          >
+                            {result.metrics.speedSource === "measured" ? "measured" : "estimated"}
+                          </Badge>
+                        )}
+                      </span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm font-bold ${scoreColor(cat.score)}`}>{cat.score}</span>
                         <Badge className={`text-[10px] px-1.5 py-0 ${gradeColor(cat.grade)}`}>

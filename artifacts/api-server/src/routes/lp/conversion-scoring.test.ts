@@ -218,6 +218,54 @@ describe("computeConversionScore — calibration", () => {
   });
 });
 
+describe("computeConversionScore — Page Speed Impact (measured vs proxy)", () => {
+  it("falls back to the structural proxy when no measurement is provided", () => {
+    const analysis = analyzeBlocks(COMPLETE_PAGE);
+    const { categories, speedMeasured } = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC });
+    expect(speedMeasured).toBe(false);
+    const speed = gradeOf("Page Speed Impact", categories);
+    // Proxy: 100 - blockCount*3 - imageCount*5, floored at 20.
+    const expected = Math.max(100 - analysis.blockCount * 3 - analysis.imageCount * 5, 20);
+    expect(speed.score).toBe(expected);
+    expect(speed.recommendation.toLowerCase()).not.toContain("measured");
+  });
+
+  it("uses the measured Lighthouse score when one is available", () => {
+    const analysis = analyzeBlocks(COMPLETE_PAGE);
+    const { categories, speedMeasured } = computeConversionScore({
+      analysis,
+      ...NO_META,
+      ...NO_TRAFFIC,
+      measuredSpeedScore: 42,
+    });
+    expect(speedMeasured).toBe(true);
+    const speed = gradeOf("Page Speed Impact", categories);
+    expect(speed.score).toBe(42);
+    expect(speed.recommendation.toLowerCase()).toContain("measured");
+    expect(speed.recommendation).toContain("42/100");
+  });
+
+  it("clamps a measured score into 0-100 and ignores a negative sentinel", () => {
+    const analysis = analyzeBlocks(COMPLETE_PAGE);
+    const high = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC, measuredSpeedScore: 130 });
+    expect(gradeOf("Page Speed Impact", high.categories).score).toBe(100);
+
+    // A negative value is treated as "no measurement" → structural proxy.
+    const neg = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC, measuredSpeedScore: -1 });
+    expect(neg.speedMeasured).toBe(false);
+  });
+
+  it("distinguishes a slow real page from a fast one with the same layout", () => {
+    const analysis = analyzeBlocks(COMPLETE_PAGE);
+    const slow = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC, measuredSpeedScore: 25 });
+    const fast = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC, measuredSpeedScore: 95 });
+    const slowScore = gradeOf("Page Speed Impact", slow.categories).score;
+    const fastScore = gradeOf("Page Speed Impact", fast.categories).score;
+    expect(slowScore).toBeLessThan(fastScore);
+    expect(slow.overallScore).toBeLessThan(fast.overallScore);
+  });
+});
+
 describe("letterGrade", () => {
   it("maps thresholds", () => {
     expect(letterGrade(95)).toBe("A");
