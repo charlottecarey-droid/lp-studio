@@ -226,39 +226,21 @@ router.post("/accounts/restore", async (req, res): Promise<void> => {
   }
 });
 
-// Delete ALL accounts for tenant (cascades to contacts, signals, briefings)
+// Delete ALL accounts for tenant.
+//
+// Every child relation of sales_accounts now carries an explicit ON DELETE rule
+// (CASCADE: sales_contacts/signals/briefings; SET NULL:
+// sales_email_campaigns.account_id, sfdc_opportunities.account_id,
+// sfdc_leads.converted_account_id + converted_contact_id, sales_inbound_emails.
+// account_id) — installed by migration 0066 + the converted_contact_id self-heal
+// and present in the drizzle schema. So we just delete the accounts and let the
+// constraints do the removal/nulling, exactly like DELETE /accounts/:id and
+// /accounts/bulk. (The previous hand-rolled UPDATE pass was redundant AND
+// referenced sfdc_leads.account_id — a column that doesn't exist — which 500'd
+// the whole clear once a lead was present.)
 router.delete("/accounts", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-
-    // Null out RESTRICT FK references before deleting accounts
-    // (sfdc tables have no tenant_id so we scope by account membership)
-    await db.execute(sql`
-      UPDATE sales_email_campaigns
-      SET account_id = NULL
-      WHERE tenant_id = ${tenantId} AND account_id IS NOT NULL
-    `);
-    await db.execute(sql`
-      UPDATE sfdc_opportunities
-      SET account_id = NULL
-      WHERE account_id IN (
-        SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
-      )
-    `);
-    await db.execute(sql`
-      UPDATE sfdc_leads
-      SET account_id = NULL,
-          converted_contact_id = NULL
-      WHERE account_id IN (
-        SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
-      )
-         OR converted_contact_id IN (
-        SELECT id FROM sales_contacts WHERE account_id IN (
-          SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
-        )
-      )
-    `);
-
     await db.delete(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId));
     res.json({ ok: true });
   } catch (err) {

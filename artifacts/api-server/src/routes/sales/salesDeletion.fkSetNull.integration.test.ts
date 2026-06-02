@@ -394,6 +394,22 @@ describe("sales account deletion — child FKs (regression for #781/#796)", () =
 
     await assertAccountDeleted(g);
   });
+
+  // The legacy clear-all path (DELETE /accounts, no id) used to hand-roll an
+  // in-code UPDATE pass that referenced sfdc_leads.account_id — a column that
+  // doesn't exist — so it 500'd the moment a converted lead was present. It now
+  // just deletes the accounts and relies on the same ON DELETE constraints, so it
+  // must reach the SAME end state as the two constraint-driven paths above
+  // (task #798).
+  it("DELETE /accounts (clear-all) succeeds; reaches the same end state as the id/bulk paths", async () => {
+    const g = await seedFullGraph("acct-clear-all");
+
+    const res = await injectSid({ method: "DELETE", url: `/accounts` });
+    expect(res.status).toBe(200);
+    expect((res.json as { ok?: boolean }).ok).toBe(true);
+
+    await assertAccountDeleted(g);
+  });
 });
 
 describe("sales contact deletion — child FKs (regression for #786/#796)", () => {
