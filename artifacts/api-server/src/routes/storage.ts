@@ -784,6 +784,84 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * List the reference sites this tenant has scraped images from, with per-host
+ * counts. Powers the "Reference sites" section of the media library so users
+ * can see which images were pulled in from a reference website during page
+ * generation and bulk-manage them by source host.
+ *
+ * Only counts rows the requester can mutate (own tenant + reciprocal sibling),
+ * since this list feeds the bulk-delete affordance — shared starter rows are
+ * never surfaced here.
+ */
+router.get("/lp/media/reference-sources", async (req: Request, res: Response) => {
+  try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
+    const rows = await db
+      .select({ tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(and(
+        libraryWritablePredicate(scope.ownedTenantIds),
+        eq(lpMediaTable.mediaType, "image"),
+        sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify(["scraped"])}::jsonb`,
+      ));
+
+    const hostMap = new Map<string, number>();
+    let total = 0;
+    let untagged = 0;
+    for (const row of rows) {
+      total++;
+      const tags = (row.tags as string[]) ?? [];
+      const hostTag = tags.find(t => typeof t === "string" && t.startsWith("refhost:"));
+      const host = hostTag ? hostTag.slice("refhost:".length) : "";
+      if (host) hostMap.set(host, (hostMap.get(host) ?? 0) + 1);
+      else untagged++;
+    }
+    const hosts = [...hostMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([host, count]) => ({ host, count }));
+    res.json({ total, hosts, untagged });
+  } catch (error) {
+    req.log.error({ err: error }, "Error listing reference sources");
+    res.status(500).json({ error: "Failed to list reference sources" });
+  }
+});
+
+/**
+ * Bulk-delete reference-sourced (scraped) images for this tenant.
+ *   - ?host=<host>  → delete only images scraped from that source host
+ *   - no host       → delete ALL reference-sourced images
+ *
+ * Tenant-scoped via libraryWritablePredicate (own + reciprocal sibling only),
+ * so shared starter rows and other tenants' rows can never be matched. Must be
+ * declared BEFORE `DELETE /lp/media/:id` or Express would route "reference"
+ * into the `:id` handler.
+ */
+router.delete("/lp/media/reference", async (req: Request, res: Response) => {
+  try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
+    const host = typeof req.query.host === "string" ? req.query.host.trim() : "";
+    const conditions = [
+      libraryWritablePredicate(scope.ownedTenantIds),
+      eq(lpMediaTable.mediaType, "image"),
+      sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify(["scraped"])}::jsonb`,
+    ];
+    if (host) {
+      conditions.push(sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify([`refhost:${host}`])}::jsonb`);
+    }
+    const result = await db
+      .delete(lpMediaTable)
+      .where(and(...conditions))
+      .returning({ id: lpMediaTable.id });
+    res.json({ deleted: result.length });
+  } catch (error) {
+    req.log.error({ err: error }, "Error bulk-deleting reference media");
+    res.status(500).json({ error: "Failed to delete reference media" });
+  }
+});
+
 /** Update tags for a media item */
 router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
   try {

@@ -9,8 +9,17 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ensureCsrfToken, clearCsrfToken } from "@/lib/api-fetch";
 import {
   Search, Upload, Loader2, X, Tag, Check, Pencil,
-  FolderOpen, ChevronLeft, ChevronRight, Film, Play, Link2, FileText, Trash2,
+  FolderOpen, ChevronLeft, ChevronRight, Film, Play, Link2, FileText, Trash2, Globe,
 } from "lucide-react";
+
+/** Internal reference-harvest tags (task #747); hidden from chips to avoid
+ *  flooding cards with per-image `refsrc:<hash>` values. */
+const isReferenceTag = (t: string): boolean =>
+  t === "scraped" || t === "page-reference" || t.startsWith("refhost:") || t.startsWith("refsrc:");
+const referenceHostOf = (tags: string[]): string => {
+  const t = tags.find(x => typeof x === "string" && x.startsWith("refhost:"));
+  return t ? t.slice("refhost:".length) : "";
+};
 
 // ─── Shared types ───────────────────────────────────────────────────────────
 
@@ -245,7 +254,7 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
                 {activeTag}<X className="w-2.5 h-2.5" />
               </Badge>
             )}
-            {tagCounts.filter(tc => tc.tag !== activeTag).map(tc => (
+            {tagCounts.filter(tc => tc.tag !== activeTag && !isReferenceTag(tc.tag)).map(tc => (
               <Badge key={tc.tag} variant="outline" className="cursor-pointer text-[11px] hover:bg-muted shrink-0" onClick={() => handleTagClick(tc.tag)}>
                 {tc.tag}<span className="ml-1 text-muted-foreground">{tc.count}</span>
               </Badge>
@@ -280,6 +289,18 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
                 <div className="aspect-video" onClick={() => onSelect(item.url)}>
                   <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 </div>
+                {item.tags.includes("scraped") && (() => {
+                  const host = referenceHostOf(item.tags);
+                  return (
+                    <div
+                      className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/65 text-white rounded-full pl-1.5 pr-2 py-0.5 max-w-[calc(100%-12px)] pointer-events-none"
+                      title={host ? `Pulled in from ${host}` : "Pulled in from a reference website"}
+                    >
+                      <Globe className="w-2.5 h-2.5 shrink-0" />
+                      <span className="text-[9px] font-medium truncate">{host || "Reference"}</span>
+                    </div>
+                  );
+                })()}
                 <div className="p-2">
                   <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
                   {editingTags === item.id ? (
@@ -289,10 +310,13 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
                     </div>
                   ) : (
                     <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      {item.tags.length > 0 ? item.tags.slice(0, 3).map(t => (
-                        <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
-                      )) : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>}
-                      {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
+                      {(() => {
+                        const shown = item.tags.filter(t => !isReferenceTag(t));
+                        return shown.length > 0 ? shown.slice(0, 3).map(t => (
+                          <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
+                        )) : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>;
+                      })()}
+                      {item.tags.filter(t => !isReferenceTag(t)).length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.filter(t => !isReferenceTag(t)).length - 3}</span>}
                       <button className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                         onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }} title="Edit tags">
                         <Pencil className="w-3 h-3" />

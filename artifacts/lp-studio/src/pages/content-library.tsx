@@ -382,7 +382,25 @@ interface TagCount {
   count: number;
 }
 
+interface ReferenceSource {
+  host: string;
+  count: number;
+}
+
 const MEDIA_PAGE_SIZE = 48;
+
+/** Tags applied by the reference-image harvest (task #747). These are internal
+ *  bookkeeping tags, surfaced through the dedicated "Reference sites" section
+ *  rather than the generic category list, so we hide them there to avoid noise
+ *  (especially the one-per-image `refsrc:<hash>` tags). */
+const isReferenceTag = (t: string): boolean =>
+  t === "scraped" || t === "page-reference" || t.startsWith("refhost:") || t.startsWith("refsrc:");
+
+/** Extract the source host of a scraped image from its `refhost:<host>` tag. */
+const referenceHostOf = (tags: string[]): string => {
+  const t = tags.find(x => typeof x === "string" && x.startsWith("refhost:"));
+  return t ? t.slice("refhost:".length) : "";
+};
 
 function MediaTab() {
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -402,6 +420,8 @@ function MediaTab() {
   const [reclassifying, setReclassifying] = useState(false);
   const [reclassifyMsg, setReclassifyMsg] = useState("");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [refSources, setRefSources] = useState<ReferenceSource[]>([]);
+  const [refTotal, setRefTotal] = useState(0);
   const [modalImage, setModalImage] = useState<MediaItem | null>(null);
   const [modalTagEdit, setModalTagEdit] = useState(false);
   const [modalTagValue, setModalTagValue] = useState("");
@@ -433,6 +453,21 @@ function MediaTab() {
   }, [query, activeTag, page]);
 
   useEffect(() => { fetchImages(page); }, [fetchImages, page]);
+
+  const fetchRefSources = useCallback(async () => {
+    try {
+      const res = await fetch("/api/lp/media/reference-sources");
+      if (!res.ok) throw new Error("Failed");
+      const data = (await res.json()) as { total: number; hosts: ReferenceSource[] };
+      setRefSources(Array.isArray(data.hosts) ? data.hosts : []);
+      setRefTotal(data.total ?? 0);
+    } catch {
+      setRefSources([]);
+      setRefTotal(0);
+    }
+  }, []);
+
+  useEffect(() => { fetchRefSources(); }, [fetchRefSources]);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = (value: string) => {
@@ -473,6 +508,7 @@ function MediaTab() {
       } catch { failed++; }
     }
     await fetchImages();
+    fetchRefSources();
     setUploadProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (folderInputRef.current) folderInputRef.current.value = "";
@@ -506,6 +542,7 @@ function MediaTab() {
     try {
       await fetch(`/api/lp/media/${id}`, { method: "DELETE" });
       fetchImages();
+      fetchRefSources();
     } catch { /* silent */ }
   };
 
@@ -536,6 +573,28 @@ function MediaTab() {
     setSelectMode(false);
     setDeleting(false);
     await fetchImages();
+    fetchRefSources();
+  };
+
+  // Bulk-remove reference-sourced images. With a host filter active, deletes
+  // only that site's images; otherwise wipes every reference-sourced image.
+  const handleDeleteReference = async (host: string) => {
+    const label = host || "every reference site";
+    const n = host
+      ? (refSources.find(s => s.host === host)?.count ?? total)
+      : refTotal;
+    if (!confirm(`Permanently delete ${n} image${n === 1 ? "" : "s"} pulled in from ${label}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const params = new URLSearchParams();
+      if (host) params.set("host", host);
+      await fetch(`/api/lp/media/reference?${params}`, { method: "DELETE" });
+    } catch { /* silent */ }
+    setDeleting(false);
+    setActiveTag("");
+    setPage(1);
+    await fetchRefSources();
+    await fetchImages(1);
   };
 
   const exitSelectMode = () => {
@@ -608,13 +667,18 @@ function MediaTab() {
   };
 
   const totalCount = tagCounts.reduce((sum, tc) => sum + tc.count, 0);
+  // Reference-harvest bookkeeping tags are surfaced through the dedicated
+  // "Reference sites" section below, so keep them out of the generic list.
+  const visibleTagCounts = tagCounts.filter(tc => !isReferenceTag(tc.tag));
+  const activeRefHost = activeTag.startsWith("refhost:") ? activeTag.slice("refhost:".length) : "";
+  const refFilterActive = activeTag === "scraped" || activeTag.startsWith("refhost:");
 
   return (
     <>
     <div className="flex gap-5 items-start min-h-0">
 
       {/* ── Category sidebar ── */}
-      {!selectMode && tagCounts.length > 0 && (
+      {!selectMode && (visibleTagCounts.length > 0 || refTotal > 0) && (
         <div className="w-44 shrink-0 sticky top-0 self-start">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-2">Categories</p>
           <div className="space-y-0.5">
@@ -631,11 +695,11 @@ function MediaTab() {
             {/* Each tag */}
             {(() => {
               const SIDEBAR_LIMIT = 10;
-              const activeIdx = tagCounts.findIndex(tc => tc.tag === activeTag);
+              const activeIdx = visibleTagCounts.findIndex(tc => tc.tag === activeTag);
               const mustExpand = activeIdx >= SIDEBAR_LIMIT;
               const showAll = sidebarExpanded || mustExpand;
-              const visible = showAll ? tagCounts : tagCounts.slice(0, SIDEBAR_LIMIT);
-              const hidden = tagCounts.length - SIDEBAR_LIMIT;
+              const visible = showAll ? visibleTagCounts : visibleTagCounts.slice(0, SIDEBAR_LIMIT);
+              const hidden = visibleTagCounts.length - SIDEBAR_LIMIT;
               return (
                 <>
                   {visible.map(tc => (
@@ -662,6 +726,53 @@ function MediaTab() {
               );
             })()}
           </div>
+
+          {/* ── Reference sites (task #747 harvested images) ── */}
+          {refTotal > 0 && (
+            <div className="mt-4 pt-3 border-t border-border">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-2 flex items-center gap-1">
+                <Globe className="w-3 h-3" /> Reference sites
+              </p>
+              <div className="space-y-0.5">
+                <button
+                  onClick={() => handleTagClick(activeTag === "scraped" ? "" : "scraped")}
+                  title="Images pulled in from reference websites during page generation"
+                  className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
+                    activeTag === "scraped" ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
+                  }`}
+                >
+                  <span className="truncate">All reference images</span>
+                  <span className={`text-[11px] ml-1 shrink-0 ${activeTag === "scraped" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{refTotal}</span>
+                </button>
+                {refSources.map(src => (
+                  <button
+                    key={src.host}
+                    onClick={() => handleTagClick(activeTag === `refhost:${src.host}` ? "" : `refhost:${src.host}`)}
+                    title={src.host}
+                    className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
+                      activeTag === `refhost:${src.host}` ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
+                    }`}
+                  >
+                    <span className="truncate">{src.host}</span>
+                    <span className={`text-[11px] ml-1 shrink-0 ${activeTag === `refhost:${src.host}` ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{src.count}</span>
+                  </button>
+                ))}
+                {refFilterActive && (
+                  <button
+                    onClick={() => handleDeleteReference(activeRefHost)}
+                    disabled={deleting}
+                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 mt-1 rounded-lg text-xs text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    title={activeRefHost ? `Delete all images from ${activeRefHost}` : "Delete all reference-sourced images"}
+                  >
+                    {deleting ? <Loader2 className="w-3 h-3 animate-spin shrink-0" /> : <Trash2 className="w-3 h-3 shrink-0" />}
+                    <span className="text-left leading-tight">
+                      {activeRefHost ? `Delete all from ${activeRefHost}` : "Delete all reference images"}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Classify existing images */}
           <div className="mt-4 pt-3 border-t border-border">
@@ -834,6 +945,19 @@ function MediaTab() {
                       </button>
                     )}
 
+                    {item.tags.includes("scraped") && (() => {
+                      const host = referenceHostOf(item.tags);
+                      return (
+                        <div
+                          className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-black/65 text-white rounded-full pl-1.5 pr-2 py-0.5 max-w-[calc(100%-12px)]"
+                          title={host ? `Pulled in from ${host}` : "Pulled in from a reference website"}
+                        >
+                          <Globe className="w-2.5 h-2.5 shrink-0" />
+                          <span className="text-[9px] font-medium truncate">{host || "Reference"}</span>
+                        </div>
+                      );
+                    })()}
+
                     <div className="p-2">
                       <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
                       {!selectMode && (
@@ -856,13 +980,17 @@ function MediaTab() {
                           </div>
                         ) : (
                           <div className="mt-1 flex items-center gap-1 flex-wrap">
-                            {item.tags.length > 0
-                              ? item.tags.slice(0, 3).map(t => (
+                          {(() => {
+                            const shownTags = item.tags.filter(t => !isReferenceTag(t));
+                            return (<>
+                            {shownTags.length > 0
+                              ? shownTags.slice(0, 3).map(t => (
                                 <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
                               ))
                               : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>
                             }
-                            {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
+                            {shownTags.length > 3 && <span className="text-[10px] text-muted-foreground">+{shownTags.length - 3}</span>}</>);
+                          })()}
                             <button
                               className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                               onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }}
@@ -1043,14 +1171,16 @@ function MediaTab() {
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {modalImage.tags.length > 0
-                    ? modalImage.tags.map(t => (
-                        <span key={t} className={`px-2 py-0.5 rounded-full text-[11px] border ${
-                          PURPOSES.includes(t) ? "bg-muted/50 text-muted-foreground border-dashed border-border" : "bg-muted text-slate-700 border-border"
-                        }`}>{t}</span>
-                      ))
-                    : <span className="text-xs text-muted-foreground italic">No tags</span>
-                  }
+                  {(() => {
+                    const shown = modalImage.tags.filter(t => !isReferenceTag(t));
+                    return shown.length > 0
+                      ? shown.map(t => (
+                          <span key={t} className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                            PURPOSES.includes(t) ? "bg-muted/50 text-muted-foreground border-dashed border-border" : "bg-muted text-slate-700 border-border"
+                          }`}>{t}</span>
+                        ))
+                      : <span className="text-xs text-muted-foreground italic">No tags</span>;
+                  })()}
                 </div>
               )}
             </div>
@@ -1069,6 +1199,17 @@ function MediaTab() {
                 <Calendar className="w-3.5 h-3.5 shrink-0" />
                 <span>{new Date(modalImage.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
               </div>
+              {modalImage.tags.includes("scraped") && (
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {(() => {
+                      const host = referenceHostOf(modalImage.tags);
+                      return host ? `Pulled in from ${host}` : "Pulled in from a reference website";
+                    })()}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Delete */}
