@@ -39,6 +39,7 @@ export type GatedFeature =
   | "salesConsole"
   | "aiImageGen"
   | "customDomain"
+  | "customEmailDomain"
   | "pages"
   | "forms"
   | "userSeats"
@@ -46,7 +47,7 @@ export type GatedFeature =
   | "heatmapSessionsPerMonth";
 
 /** Gates whose value is a boolean feature flag rather than a numeric cap. */
-const BOOLEAN_GATES = new Set<string>(["salesConsole", "aiImageGen", "customDomain"]);
+const BOOLEAN_GATES = new Set<string>(["salesConsole", "aiImageGen", "customDomain", "customEmailDomain"]);
 
 export interface UpgradePromptCopy {
   /** Headline shown above the bullets. */
@@ -79,6 +80,13 @@ const CUSTOM_DOMAIN_BULLETS = [
   'Removes the "Powered by LP Studio" badge from public pages',
   "More landing pages and forms",
   "Role-based access for your team",
+];
+
+const CUSTOM_EMAIL_DOMAIN_BULLETS = [
+  "Send email from your own domain (mail.yourbrand.com)",
+  "Self-serve DNS setup with live verification",
+  "Full deliverability control with your own SPF/DKIM",
+  "Everything in lower tiers",
 ];
 
 const PAGES_BULLETS = [
@@ -139,6 +147,11 @@ const GATE_COPY: Record<GatedFeature, GateDescriptor> = {
     label: "Custom domains",
     blurb: "publish on your own domain",
     bullets: CUSTOM_DOMAIN_BULLETS,
+  },
+  customEmailDomain: {
+    label: "Custom email domains",
+    blurb: "send email from your own domain",
+    bullets: CUSTOM_EMAIL_DOMAIN_BULLETS,
   },
   pages: {
     label: "landing pages",

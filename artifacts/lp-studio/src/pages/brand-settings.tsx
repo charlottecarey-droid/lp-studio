@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { resolveFeatures } from "@/lib/plan-features";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -968,6 +970,258 @@ function describeDomainVerification(v: DomainVerification | null): {
   }
 }
 
+interface EmailDomainWizardState {
+  domain: string | null;
+  domainId: string | null;
+  status: DomainVerificationState;
+  records: Array<{
+    record?: string; name?: string; type?: string; value?: string; ttl?: string; priority?: number; status?: string;
+  }>;
+  active: boolean;
+}
+
+/**
+ * Self-serve custom email-domain wizard (Task #771). Lets an Enterprise tenant
+ * register their OWN sending domain in Resend, publish DNS, poll verification,
+ * and remove it — all without an operator touching Resend. Backed by
+ * /api/lp/email-domain (Enterprise-gated). Routing stays fail-closed: until
+ * Resend reports verified, the foundation resolver keeps sending from the
+ * shared default. `onSync` mirrors the server-persisted domain/id back into the
+ * brand config state so a later "Save brand settings" never clobbers it.
+ */
+function EmailDomainWizard({
+  onSync,
+}: {
+  onSync: (sendingDomain: string | null, customEmailDomainId: string | null) => void;
+}) {
+  const { toast } = useToast();
+  const [state, setState] = useState<EmailDomainWizardState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [domainInput, setDomainInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const lastSynced = useRef<string | null>(null);
+
+  const applyState = useCallback((s: EmailDomainWizardState) => {
+    setState(s);
+    // Only push into brand config when the domain/id actually changed so the
+    // 15s verification poll doesn't keep marking the form dirty.
+    const key = `${s.domain ?? ""}|${s.domainId ?? ""}`;
+    if (key !== lastSynced.current) {
+      lastSynced.current = key;
+      onSync(s.domain, s.domainId);
+    }
+  }, [onSync]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${BASE}/api/lp/email-domain`);
+        if (!r.ok) return;
+        const data = (await r.json()) as EmailDomainWizardState;
+        if (!cancelled) applyState(data);
+      } catch {
+        // best-effort hydrate
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [applyState]);
+
+  const doVerify = useCallback(async (silent = false) => {
+    setVerifying(true);
+    try {
+      const r = await fetch(`${BASE}/api/lp/email-domain/verify`, { method: "POST" });
+      const data = await r.json();
+      if (!r.ok) {
+        if (!silent) toast({ title: "Couldn't check status", description: data?.error ?? "Try again.", variant: "destructive" });
+        return;
+      }
+      applyState(data as EmailDomainWizardState);
+      if (!silent) {
+        if ((data as EmailDomainWizardState).status === "verified") {
+          toast({ title: "Domain verified", description: "Email now sends from your own domain." });
+        } else {
+          toast({ title: "Still pending", description: "DNS hasn't fully propagated yet — give it a few minutes." });
+        }
+      }
+    } catch {
+      if (!silent) toast({ title: "Couldn't check status", description: "Network error.", variant: "destructive" });
+    } finally {
+      setVerifying(false);
+    }
+  }, [applyState, toast]);
+
+  // Auto-poll while a registered domain is still unverified.
+  useEffect(() => {
+    if (!state?.domainId || state.active || state.status === "verified") return;
+    const interval = window.setInterval(() => { void doVerify(true); }, 15000);
+    return () => window.clearInterval(interval);
+  }, [state?.domainId, state?.active, state?.status, doVerify]);
+
+  const doRegister = async () => {
+    const domain = domainInput.trim();
+    if (!domain) return;
+    setSubmitting(true);
+    try {
+      const r = await fetch(`${BASE}/api/lp/email-domain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast({ title: "Couldn't add domain", description: data?.error ?? "Try again.", variant: "destructive" });
+        return;
+      }
+      applyState(data as EmailDomainWizardState);
+      setDomainInput("");
+      toast({ title: "Domain added", description: "Publish the DNS records below, then verify." });
+    } catch {
+      toast({ title: "Couldn't add domain", description: "Network error.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const doRemove = async () => {
+    setRemoving(true);
+    try {
+      const r = await fetch(`${BASE}/api/lp/email-domain`, { method: "DELETE" });
+      const data = await r.json();
+      if (!r.ok) {
+        toast({ title: "Couldn't remove domain", description: data?.error ?? "Try again.", variant: "destructive" });
+        return;
+      }
+      applyState(data as EmailDomainWizardState);
+      toast({ title: "Domain removed", description: "Email now sends from the shared default domain." });
+    } catch {
+      toast({ title: "Couldn't remove domain", description: "Network error.", variant: "destructive" });
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const pill = describeDomainVerification(
+    state?.domainId
+      ? { status: state.status, domain: state.domain ?? "", checkedAt: Date.now(), provider: "resend" }
+      : null,
+  );
+  const pillClass =
+    pill.tone === "verified"
+      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+      : pill.tone === "pending"
+        ? "border-amber-300 bg-amber-50 text-amber-700"
+        : "border-slate-300 bg-slate-50 text-slate-600";
+
+  return (
+    <Card id="sales-console-custom-email-domain" className="p-6 space-y-5">
+      <div>
+        <h3 className="text-base font-semibold flex items-center gap-2">
+          <Globe className="w-4 h-4 text-primary" /> Custom Email Domain
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Send sales and notification email from your own domain. We register it with Resend and give you the DNS records to publish. Until it's verified, email keeps sending from the shared default — no broken sends.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+        </div>
+      ) : !state?.domainId ? (
+        // Step 1 — register a domain.
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm">Your sending domain</Label>
+            <div className="flex gap-2">
+              <Input
+                value={domainInput}
+                onChange={e => setDomainInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void doRegister(); } }}
+                placeholder="e.g. mail.yourbrand.com"
+                disabled={submitting}
+              />
+              <Button onClick={() => void doRegister()} disabled={submitting || !domainInput.trim()} className="gap-2 shrink-0">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Add domain
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Use a subdomain dedicated to sending (e.g. <code>mail.yourbrand.com</code>) so it doesn't collide with your main MX records.
+            </p>
+          </div>
+        </div>
+      ) : (
+        // Step 2/3 — verification + DNS records.
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{state.domain}</span>
+              <Badge variant="outline" className={`text-[10px] py-0 px-1.5 font-medium ${pillClass}`} title={pill.detail}>
+                {pill.label}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              {state.status !== "verified" && (
+                <Button variant="outline" size="sm" onClick={() => void doVerify(false)} disabled={verifying} className="gap-2">
+                  {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                  Check verification
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => void doRemove()} disabled={removing} className="gap-2 text-destructive hover:text-destructive">
+                {removing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Remove
+              </Button>
+            </div>
+          </div>
+
+          {state.status === "verified" ? (
+            <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>Your domain is verified. Sales and notification email now send from <strong>{state.domain}</strong>.</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{pill.detail} Add the records below to your DNS provider, then click <strong>Check verification</strong>. Email keeps sending from the shared default until this is verified.</span>
+              </div>
+              {state.records.length > 0 && (
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr className="text-left">
+                        <th className="px-3 py-2 font-medium">Type</th>
+                        <th className="px-3 py-2 font-medium">Name / Host</th>
+                        <th className="px-3 py-2 font-medium">Value</th>
+                        <th className="px-3 py-2 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {state.records.map((rec, i) => (
+                        <tr key={i} className="border-t align-top">
+                          <td className="px-3 py-2 whitespace-nowrap font-mono">{rec.type ?? "—"}</td>
+                          <td className="px-3 py-2 font-mono break-all">{rec.name ?? "—"}</td>
+                          <td className="px-3 py-2 font-mono break-all">{rec.value ?? "—"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{rec.status ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ChecklistRow({ done, label, hint, anchorId, actionLabel, actionHref }: {
   done: boolean; label: string; hint?: string; anchorId: string;
   actionLabel?: string; actionHref?: string;
@@ -1150,6 +1404,11 @@ function SalesConsoleSettings({
   setConfig: React.Dispatch<React.SetStateAction<BrandConfig>>;
 }) {
   const sc: SalesConsoleConfig = config.salesConsole ?? {};
+  const { user } = useAuth();
+  // Enterprise tenants manage their sending domain via the self-serve wizard
+  // (registers + verifies in Resend). Lower tiers keep the free-text field that
+  // expects an operator to have set the domain up in Resend manually.
+  const hasCustomEmailDomain = resolveFeatures(user).customEmailDomain;
 
   const patch = (changes: Partial<SalesConsoleConfig>) => {
     setConfig(c => ({ ...c, salesConsole: { ...(c.salesConsole ?? {}), ...changes } }));
@@ -1251,6 +1510,11 @@ function SalesConsoleSettings({
             />
             <p className="text-xs text-muted-foreground">Part before the @. Combined with the sending domain to form the From address.</p>
           </div>
+          {/* Enterprise tenants set the sending domain through the self-serve
+              wizard below (it registers + verifies in Resend); the free-text
+              field is only shown for lower tiers, where an operator configures
+              the domain in Resend manually. */}
+          {!hasCustomEmailDomain && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label className="text-sm">Sending domain</Label>
@@ -1289,6 +1553,7 @@ function SalesConsoleSettings({
               )}
             </p>
           </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-sm">Reply-to address</Label>
             <Input
@@ -1309,6 +1574,17 @@ function SalesConsoleSettings({
           </div>
         </div>
       </Card>
+
+      {hasCustomEmailDomain && (
+        <EmailDomainWizard
+          onSync={(sendingDomain, customEmailDomainId) =>
+            patch({
+              sendingDomain: sendingDomain ?? "",
+              customEmailDomainId: customEmailDomainId ?? undefined,
+            })
+          }
+        />
+      )}
 
       <Card className="p-6 space-y-5">
         <div>

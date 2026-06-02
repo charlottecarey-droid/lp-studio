@@ -455,6 +455,14 @@ export interface SalesConsoleConfig {
   senderName?: string;
   senderLocalPart?: string;
   sendingDomain?: string;
+  /**
+   * Resend domain id for the tenant's own custom sending domain, registered
+   * via the self-serve email-domain wizard (Enterprise `customEmailDomain`
+   * feature). Persisted alongside `sendingDomain` so the wizard can poll
+   * verification status by id. Routing still fails closed: the resolver only
+   * sends from this domain once Resend reports it verified. Cleared on remove.
+   */
+  customEmailDomainId?: string;
   replyTo?: string;
   notificationsLocalPart?: string;
   emailSignature?: string;

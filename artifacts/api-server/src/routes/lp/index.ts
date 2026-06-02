@@ -47,6 +47,7 @@ import extractGuestsRouter from "./extract-guests";
 import podcastAvailabilityRouter from "./podcast-availability";
 import renderedRouter from "./rendered";
 import planConfigRouter from "./plan-config";
+import emailDomainRouter from "./email-domain";
 
 const router = Router();
 
@@ -59,6 +60,7 @@ router.use(trackingRouter);
 // can take over.
 router.use(renderedRouter);
 router.use(planConfigRouter);
+router.use(emailDomainRouter);
 router.use(resultsRouter);
 router.use(brandRouter);
 router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/pages/:pageId catching /lp/pages/performance/batch
