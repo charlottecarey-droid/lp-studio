@@ -1,0 +1,369 @@
+# Prompt 4 — Critical-path smoke tests
+
+## Context
+
+The pre-launch test coverage audit found three zero-coverage critical paths. Each is a flow that, if it regresses silently, you'll only learn about when a customer reports it. This prompt scopes minimum smoke-test coverage for each — enough to catch a "this whole feature is broken" regression in CI, not enough to fully exercise edge cases.
+
+Reference: `/outputs/pre-launch-audit.md` item S7.
+
+**Branch:** work on `staging`.
+
+**Test framework:** use the existing patterns. Integration tests use Vitest + the `app_sessions`-writing DB pool. Look at `artifacts/api-server/src/routes/sales/linkExport.integration.test.ts` as the reference for the request style.
+
+---
+
+## Test 1 — `/sales/accounts/:id/generate-microsite` end-to-end smoke test
+
+### What's missing
+
+The headline feature has zero route-level integration coverage. Existing tests (`generate-microsite.tenantScope.integration.test.ts`, `generate-microsite.imagePipeline.test.ts`) only cover helper pieces. The actual POST endpoint — AI generation, audience segment selection, block assembly, draft page creation — is untested.
+
+### The smoke test
+
+Create `artifacts/api-server/src/routes/sales/generate-microsite.integration.test.ts`:
+
+```ts
+describe("POST /sales/accounts/:id/generate-microsite", () => {
+  let tenantId: number;
+  let accountId: number;
+  let userId: number;
+  
+  beforeEach(async () => {
+    // Set up a test tenant with brand kit
+    tenantId = await createTestTenant({ 
+      brandName: "Test Co", 
+      colors: { primary: "#000", accent: "#fff" } 
+    });
+    userId = await createTestUser({ tenantId, role: "admin" });
+    accountId = await createTestAccount({ tenantId, name: "Acme Corp" });
+  });
+  
+  it("generates a draft microsite with the expected structure", async () => {
+    const response = await testApp.inject({
+      method: "POST",
+      url: `/sales/accounts/${accountId}/generate-microsite`,
+      headers: await authHeaders({ userId, tenantId }),
+      body: { 
+        audienceSegment: "default", 
+        additionalInstructions: "Focus on Q4 expansion" 
+      },
+    });
+    
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    
+    // Verify a page was created
+    expect(body.pageId).toBeGreaterThan(0);
+    expect(body.status).toBe("draft");
+    
+    // Verify the page belongs to the right tenant
+    const page = await db.query.lpPages.findFirst({ 
+      where: eq(lpPages.id, body.pageId) 
+    });
+    expect(page?.tenantId).toBe(tenantId);
+    
+    // Verify it has blocks
+    expect(page?.blocks).toBeDefined();
+    expect((page!.blocks as any[]).length).toBeGreaterThan(0);
+    
+    // Verify at least one block references the account name
+    const blockJson = JSON.stringify(page!.blocks);
+    expect(blockJson).toContain("Acme");
+  });
+  
+  it("refuses to generate for an account belonging to another tenant", async () => {
+    const otherTenantId = await createTestTenant({ brandName: "Other" });
+    const otherAccountId = await createTestAccount({ 
+      tenantId: otherTenantId, 
+      name: "Other Account" 
+    });
+    
+    const response = await testApp.inject({
+      method: "POST",
+      url: `/sales/accounts/${otherAccountId}/generate-microsite`,
+      headers: await authHeaders({ userId, tenantId }), // userId from FIRST tenant
+      body: { audienceSegment: "default" },
+    });
+    
+    // Should 404 or 403, NOT 200
+    expect([403, 404]).toContain(response.statusCode);
+  });
+  
+  it("returns 400 if account doesn't exist", async () => {
+    const response = await testApp.inject({
+      method: "POST",
+      url: `/sales/accounts/9999999/generate-microsite`,
+      headers: await authHeaders({ userId, tenantId }),
+      body: { audienceSegment: "default" },
+    });
+    
+    expect([400, 404]).toContain(response.statusCode);
+  });
+});
+```
+
+**Important:** these tests will call the actual AI generation pipeline, which is slow and costs money. Either:
+- Mock the AI client to return a deterministic fixture block array, OR
+- Mark these tests as `it.skipIf(!process.env.RUN_EXPENSIVE_TESTS)` so they only run on demand
+
+I recommend mocking. The point of the smoke test is to verify the route plumbing works end-to-end, not to test the AI quality.
+
+### Acceptance criteria
+- [ ] Three tests pass in CI.
+- [ ] AI client is mocked (return a fixture block array).
+- [ ] Tenant isolation is verified (no cross-tenant generate).
+- [ ] Verify the test fails loudly if the route is unmounted or returns 500.
+
+---
+
+## Test 2 — Hotlink redirect endpoint (`/h/:token`)
+
+### What's missing
+
+The `/h/:token` (or whatever the hotlink redirect endpoint is — search for it in `routes/sales/hotlinks.ts` or similar) has no coverage. This is the endpoint that resolves a tokenized URL back to a contact + page, increments visit counters, fires tracking events, and redirects to the published page. Critical to the "you know who's looking" claim.
+
+### The smoke test
+
+Find the existing route. Likely lives in `artifacts/api-server/src/routes/sales/hotlinks.ts` or a similar path. Look for a route that matches `/h/:token` or `/hotlink/:token` or similar.
+
+Create `artifacts/api-server/src/routes/sales/hotlinks.redirect.integration.test.ts`:
+
+```ts
+describe("GET /h/:token (hotlink redirect)", () => {
+  let tenantId: number;
+  let pageId: number;
+  let contactId: number;
+  let token: string;
+  
+  beforeEach(async () => {
+    tenantId = await createTestTenant({ brandName: "Test" });
+    pageId = await createTestPage({ tenantId, status: "published", slug: "demo" });
+    contactId = await createTestContact({ tenantId, email: "demo@example.com" });
+    
+    const hotlink = await ensureHotlinkForContact(tenantId, contactId, pageId, null);
+    token = hotlink.token;
+  });
+  
+  it("redirects to the published page URL", async () => {
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/h/${token}`,
+    });
+    
+    expect(response.statusCode).toBe(302); // or 301
+    expect(response.headers.location).toContain("/lp/demo"); // or whatever the published URL pattern is
+  });
+  
+  it("logs a visit event with resolved contact identity", async () => {
+    await testApp.inject({ method: "GET", url: `/h/${token}` });
+    
+    // Verify a visit event was created with contact_id resolved
+    const events = await db.query.lpEvents.findMany({ 
+      where: eq(lpEvents.pageId, pageId) 
+    });
+    expect(events.length).toBeGreaterThan(0);
+    
+    // Find the visit event we just created
+    const visit = events.find(e => e.eventType === "page_view" || e.eventType === "hotlink_click");
+    expect(visit).toBeDefined();
+    
+    // The contact_id should be resolved from the token (this is the deterministic identity claim)
+    expect(visit?.metadata).toMatchObject({ contactId: contactId });
+  });
+  
+  it("returns 404 for an unknown token", async () => {
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/h/totallyfaketoken123`,
+    });
+    
+    expect([404, 410]).toContain(response.statusCode);
+  });
+  
+  it("returns 404 (or appropriate) for a soft-deleted token", async () => {
+    await db.update(salesHotlinks)
+      .set({ isActive: false })
+      .where(eq(salesHotlinks.token, token));
+    
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/h/${token}`,
+    });
+    
+    expect([404, 410]).toContain(response.statusCode);
+  });
+  
+  it("survives concurrent clicks on the same token", async () => {
+    // Fire 5 parallel requests
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () => 
+        testApp.inject({ method: "GET", url: `/h/${token}` })
+      )
+    );
+    
+    // All should succeed (redirect)
+    for (const r of responses) {
+      expect(r.statusCode).toBe(302);
+    }
+    
+    // Verify 5 visit events were recorded (or however the dedup logic works — verify it's deterministic)
+    const events = await db.query.lpEvents.findMany({ 
+      where: and(eq(lpEvents.pageId, pageId), eq(lpEvents.eventType, "page_view")) 
+    });
+    expect(events.length).toBeGreaterThanOrEqual(1);
+    // If your tracking dedupes same-token-same-second, the count might be 1
+    // If it records every click, the count should be 5
+    // Either is valid — test whichever your impl chose
+  });
+});
+```
+
+### Acceptance criteria
+- [ ] Five tests pass in CI.
+- [ ] Redirect target matches the published page URL.
+- [ ] Visit event has the contact_id resolved from the token.
+- [ ] Unknown / soft-deleted tokens return appropriate error status.
+- [ ] Concurrent clicks don't crash or corrupt state.
+
+---
+
+## Test 3 — Visits endpoint (`GET /api/analytics/pages/:pageId/visits`)
+
+### What's missing
+
+The Page Detail view's Visits Table calls a visits endpoint that's currently broken in prod (see Prompt 3 Fix 1). Once that's fixed, it needs a regression test.
+
+### The smoke test
+
+Create `artifacts/api-server/src/routes/lp/page-visits.integration.test.ts` (or in whatever path is canonical for the page-detail routes):
+
+```ts
+describe("GET /api/analytics/pages/:pageId/visits", () => {
+  let tenantId: number;
+  let pageId: number;
+  let contactId: number;
+  let userId: number;
+  
+  beforeEach(async () => {
+    tenantId = await createTestTenant({ brandName: "Test" });
+    userId = await createTestUser({ tenantId, role: "admin" });
+    pageId = await createTestPage({ tenantId, status: "published" });
+    contactId = await createTestContact({ tenantId, email: "demo@example.com" });
+    
+    // Seed some events: 3 tokenized visits, 2 anonymous
+    const hotlink = await ensureHotlinkForContact(tenantId, contactId, pageId, null);
+    for (let i = 0; i < 3; i++) {
+      await db.insert(lpEvents).values({
+        pageId,
+        eventType: "page_view",
+        metadata: { contactId, token: hotlink.token, scrollDepth: 80 + i * 5 },
+        createdAt: new Date(Date.now() - (i + 1) * 60000),
+      });
+    }
+    for (let i = 0; i < 2; i++) {
+      await db.insert(lpEvents).values({
+        pageId,
+        eventType: "page_view",
+        metadata: { token: null, location: "US-CA" },
+        createdAt: new Date(Date.now() - (i + 10) * 60000),
+      });
+    }
+  });
+  
+  it("returns paginated visits with resolved identity", async () => {
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/api/analytics/pages/${pageId}/visits?limit=50`,
+      headers: await authHeaders({ userId, tenantId }),
+    });
+    
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    
+    expect(body.visits.length).toBe(5);
+    
+    // Tokenized visits should have resolved contact
+    const tokenized = body.visits.filter((v: any) => v.contactId);
+    expect(tokenized.length).toBe(3);
+    expect(tokenized[0].contactName).toBeDefined();
+    expect(tokenized[0].email).toBe("demo@example.com");
+    
+    // Anonymous visits should NOT have contact
+    const anon = body.visits.filter((v: any) => !v.contactId);
+    expect(anon.length).toBe(2);
+    expect(anon[0].contactName).toBeNull();
+  });
+  
+  it("returns empty array when no visits in range", async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/api/analytics/pages/${pageId}/visits?from=${futureDate}`,
+      headers: await authHeaders({ userId, tenantId }),
+    });
+    
+    expect(response.statusCode).toBe(200);
+    expect(response.json().visits).toEqual([]);
+  });
+  
+  it("filters to known contacts only when ?knownOnly=true", async () => {
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/api/analytics/pages/${pageId}/visits?knownOnly=true`,
+      headers: await authHeaders({ userId, tenantId }),
+    });
+    
+    expect(response.statusCode).toBe(200);
+    expect(response.json().visits.length).toBe(3); // only tokenized
+  });
+  
+  it("refuses to return visits from another tenant's page", async () => {
+    const otherTenantId = await createTestTenant({ brandName: "Other" });
+    const otherUserId = await createTestUser({ tenantId: otherTenantId, role: "admin" });
+    
+    const response = await testApp.inject({
+      method: "GET",
+      url: `/api/analytics/pages/${pageId}/visits`,
+      headers: await authHeaders({ userId: otherUserId, tenantId: otherTenantId }),
+    });
+    
+    expect([403, 404]).toContain(response.statusCode);
+  });
+});
+```
+
+### Acceptance criteria
+- [ ] Four tests pass in CI.
+- [ ] Resolved-identity visits include contact name + email + account.
+- [ ] Anonymous visits have null contact but valid location.
+- [ ] Empty state returns 200 + empty array, not 404 or 500.
+- [ ] Tenant isolation enforced.
+
+---
+
+## How to run
+
+```bash
+cd /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+pnpm test src/routes/sales/generate-microsite.integration.test.ts
+pnpm test src/routes/sales/hotlinks.redirect.integration.test.ts
+pnpm test src/routes/lp/page-visits.integration.test.ts
+```
+
+All three should be added to whatever CI matrix runs integration tests.
+
+## What NOT to do
+
+- **Don't** test AI output quality — mock the AI client. Smoke tests verify plumbing, not generation.
+- **Don't** test every possible filter combination on the visits endpoint. Cover the happy path + tenant isolation + empty state. Edge cases can come later.
+- **Don't** modify the routes being tested. If a route is missing or buggy, file it separately (or reference Prompt 3 Fix 1). These tests should reveal bugs, not fix them.
+- **Don't** use real Marketo or Stripe credentials in these tests. They're isolated to internal routes.
+
+## Why this set, this depth
+
+These three flows are the load-bearing pillars of the demo and the launch claim:
+- **Generate microsite** is the headline feature.
+- **Hotlink redirect** is what makes the "deterministic identity" claim true.
+- **Visits endpoint** is what surfaces the identity back to the user.
+
+A regression in any one of them makes the launch story collapse. The tests above are deliberately shallow — enough to catch "this whole thing is broken" — because deeper coverage is a post-launch hardening sprint, not pre-launch work.

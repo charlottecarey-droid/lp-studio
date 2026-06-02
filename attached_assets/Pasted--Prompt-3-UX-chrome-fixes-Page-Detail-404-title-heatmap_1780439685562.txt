@@ -1,0 +1,270 @@
+# Prompt 3 — UX + chrome fixes (Page Detail, 404, title, heatmap)
+
+## Context
+
+Frontend polish fixes from the pre-launch audit. All are visible to launch-day users and three of them came up in live click-throughs of the app. Reference: `/outputs/pre-launch-audit.md` items S3, P3, P4, P11 + task #57.
+
+**Branch:** work on `staging`.
+
+---
+
+## Fix 1 — Visits Table loading error on Page Detail view (HIGHEST PRIORITY)
+
+### The bug
+
+`/analytics/pages/:pageId` renders "Could not load visits." with a warning triangle, no retry button, no error detail. The Visits Table is the marquee component of the entire view — it's the thing that makes the "you know who's looking" pitch real. With it broken, the screenshot needed for marketing-site #52 ("Know who's looking" section) doesn't exist.
+
+### Diagnostic
+
+Open browser DevTools → Network tab → reload `/analytics/pages/256`. Look for the failing request to whatever the visits endpoint is (likely `/api/analytics/pages/:pageId/visits` or similar). The response code tells you which kind of bug:
+
+- **500** → query bug. Check the server logs for the SQL error. Likely a join against `contacts`/`accounts` that fails when the token doesn't resolve to a known contact, or a missing column.
+- **401/403** → auth scope wrong. Verify the route requires the right role.
+- **404** → endpoint not deployed. Verify the route is mounted in `routes/index.ts` or wherever Analytics routes are wired.
+
+### Likely cause
+
+Based on the schema audit, the visits query probably joins `lp_events` (or `lp_page_visits`) → `sales_hotlinks` (via URL token) → `sales_contacts` → `sales_accounts`. Common failure modes:
+
+- The token-to-contact lookup uses a `LEFT JOIN` correctly but a downstream column accesses a contact field without null-handling.
+- `lp_events.page_id` isn't indexed (see Prompt 2 Fix 4) so the query times out under prod data volume.
+- The `ANY()` operator on `WHERE page_id = ANY($1)` was changed but a stale deployment still has the old code (commit `8dcb4b5de` apparently fixed an `ANY()` bug — verify it actually deployed).
+
+### The fix
+
+1. **Identify the failing endpoint and the actual error.** Run the live request, capture the stack trace.
+2. **Fix the underlying query.** Ensure all joins handle null contacts/accounts gracefully (anonymous tokenless visits should show as "Anonymous visitor" + location, not crash the query).
+3. **Add a retry button on the error state UI** at minimum — even after fixing the query, users will encounter transient errors and need a recovery path:
+   ```tsx
+   {error && (
+     <div className="...">
+       <AlertTriangle />
+       <p>Could not load visits.</p>
+       <p className="text-sm text-muted-foreground">{error.message}</p>
+       <Button onClick={refetch}>Retry</Button>
+     </div>
+   )}
+   ```
+4. **Add an integration test** covering the happy path + the "no visits yet" empty state + a token that doesn't resolve to a known contact.
+
+### Acceptance criteria
+- [ ] `/analytics/pages/256` loads the Visits Table without error.
+- [ ] Tokenized visits show resolved contact name + account.
+- [ ] Untokenized visits show "Anonymous visitor" + geo location.
+- [ ] Empty state ("no visits in date range") renders a clean message.
+- [ ] Error state has a Retry button + readable error message.
+- [ ] Integration test covers the three states above.
+
+---
+
+## Fix 2 — Heatmap container height capped
+
+### The bug
+
+`artifacts/lp-studio/src/components/heatmap/HeatmapOverlay.tsx:274`:
+```tsx
+<div className="…" style={{ minHeight: 400, aspectRatio: "1/3" }}>
+```
+
+On a typical 1200px-wide content column, this renders a **3,600px-tall** container. The Page Detail view becomes multi-viewport empty pale-blue space with only a single faded heat point visible. Users scroll, see nothing, give up.
+
+### The fix
+
+Replace the fixed 1:3 aspect ratio with either (a) a cap on max height, or (b) the actual page snapshot height:
+
+**Option A (simpler, ship this first):**
+```tsx
+<div 
+  className="…" 
+  style={{ 
+    minHeight: 400, 
+    maxHeight: 1200,
+    aspectRatio: "1/3",
+  }}
+>
+```
+The aspect ratio still applies up to the cap, then scrolls internally if needed.
+
+**Option B (better long-term):** measure or know the page snapshot's natural height and size the container to that. Render the page screenshot behind the heatmap layer so the user can see what they're looking at. This is the design intent — heatmaps overlay on screenshots, not on empty space.
+
+For pre-launch ship Option A. Option B is a follow-up.
+
+### Acceptance criteria
+- [ ] On the Page Detail view at `/analytics/pages/256`, the Heatmap section is at most 1200px tall.
+- [ ] On a page with one heat point, the container doesn't render as a giant empty box.
+- [ ] On a page with many heat points, the points are clearly visible.
+- [ ] Internal scroll appears if heat data extends beyond the cap.
+
+---
+
+## Fix 3 — Page Detail breadcrumb + trend indicators
+
+### The bug
+
+Two minor UX issues on Page Detail view (`artifacts/lp-studio/src/pages/page-detail.tsx`):
+
+**(a) Missing middle "Pages" crumb.** Header shows `← Analytics` only. The spec called for `Analytics › Pages › [Page Name]`.
+
+**(b) Trend indicator inconsistency.** On the 6-card summary strip, Visits shows `+461%` in green and Unique Visitors shows `-70%` in red, but Leads / CVR / Avg Scroll / Clicks-per-session all show em-dashes (`—`) for trend because their prior-period value was zero. Visually reads like "two cards have working trends and four are broken."
+
+### The fix
+
+**(a) Breadcrumb.** Add a proper breadcrumb component to the header. Pattern that matches the rest of the app:
+```tsx
+<Breadcrumb>
+  <BreadcrumbItem href="/analytics">Analytics</BreadcrumbItem>
+  <BreadcrumbSeparator />
+  <BreadcrumbItem href="/analytics/pages">Pages</BreadcrumbItem>
+  <BreadcrumbSeparator />
+  <BreadcrumbItem>{page.name}</BreadcrumbItem>
+</Breadcrumb>
+```
+
+**(b) Trend indicators.** In `TrendBadge` (around line 181-205), when `deltaPct === null` (prior period was zero), render either "New" or just hide the slot entirely rather than an em-dash. Hiding is better:
+```tsx
+{value === null ? null : (
+  <span className={trendClasses}>
+    {value > 0 ? '↑' : '↓'} {formatPct(value)}
+  </span>
+)}
+```
+
+If you want to keep some indicator, use "—" but mute the visual treatment so it doesn't read as a colored badge:
+```tsx
+{value === null ? (
+  <span className="text-xs text-muted-foreground/50">no prior data</span>
+) : (...)}
+```
+
+### Acceptance criteria
+- [ ] Breadcrumb renders three levels: Analytics › Pages › [Page Name].
+- [ ] Middle crumb links to `/analytics/pages`.
+- [ ] Cards with no comparable prior period either hide the trend slot or show muted "no prior data" text, not an em-dash badge.
+
+---
+
+## Fix 4 — Static HTML `<title>` tenant-aware default
+
+### The bug
+
+`artifacts/lp-studio/index.html:43`:
+```html
+<title>Meet Dandy | The Modern Operating System for Dentistry</title>
+```
+
+This is hardcoded. The inline JS at lines 54-87 swaps it for `lpstudio.ai` hosts to "LP Studio — AI Landing Pages for Revenue Teams" — but:
+- The swap only fires *after* the inline script runs, so there's a flash of "Meet Dandy."
+- Tenant subdomains and custom domains (other than the hardcoded `ent.meetdandy.com` and `partners.meetdandy.com`) fall through to the static default.
+- Crawlers, social-preview snapshotters, and most performance tools read the static `<title>` before JS executes.
+- Same fixture lives at `artifacts/api-server/src/lib/__fixtures__/lp-studio-index.html` — same default.
+
+Per-page `injectPageMeta` correctly overrides for published pages, but the app shell does not.
+
+### The fix
+
+**Step 1:** Change the static default to neutral text:
+```html
+<title>Loading…</title>
+```
+or:
+```html
+<title>Landing Page Studio</title>
+```
+
+**Step 2:** Extend the host-switching JS to handle the "anything else" case using `domainContext` (similar pattern to what `not-found.tsx` does with `useAuth().domainContext`):
+
+```js
+const host = window.location.hostname;
+let title;
+
+if (host === "lpstudio.ai" || host === "www.lpstudio.ai") {
+  title = "LP Studio — AI Landing Pages for Revenue Teams";
+} else if (host === "ent.meetdandy.com" || host === "partners.meetdandy.com") {
+  title = "Meet Dandy | The Modern Operating System for Dentistry";
+} else {
+  // Tenant custom domain or unknown — set neutral, let React/router 
+  // update with tenant-aware title once domainContext loads
+  title = "Workspace";
+}
+
+document.title = title;
+```
+
+**Step 3:** Update the React app to set a tenant-aware title once `domainContext` is available. Use `react-helmet-async` (or whatever's already in use) to dynamically set `<title>` based on the current tenant's brand name. Pattern:
+```tsx
+<Helmet>
+  <title>{tenant?.brandName ? `${tenant.brandName} — Workspace` : 'Workspace'}</title>
+</Helmet>
+```
+
+**Step 4:** Apply the same change to `artifacts/api-server/src/lib/__fixtures__/lp-studio-index.html`.
+
+### Acceptance criteria
+- [ ] Static HTML loaded from `lpstudio.ai` shows "LP Studio — AI Landing Pages for Revenue Teams".
+- [ ] Static HTML loaded from `ent.meetdandy.com` shows "Meet Dandy | The Modern Operating System for Dentistry".
+- [ ] Static HTML loaded from any other tenant host shows the neutral default, and updates to a tenant-aware title once the React app loads.
+- [ ] Curl-ing the page (no JS) doesn't return the Dandy positioning string for non-Dandy hosts.
+- [ ] Fixture HTML matches the main HTML.
+
+---
+
+## Fix 5 — AppNotFound renders in auth shell when signed in
+
+### The bug
+
+`artifacts/lp-studio/src/pages/not-found.tsx:234-274`. The in-app 404 (`AppNotFound`) deliberately omits the app shell because the shell needs auth context. But for users who ARE signed in (the common case), they get a barren 404 with no navigation, no way back to their workspace.
+
+### The fix
+
+Branch on auth state inside `AppNotFound`:
+```tsx
+function AppNotFound() {
+  const { user } = useAuth();
+  
+  const content = (
+    <div className="...">
+      <h1>Page not found</h1>
+      <p>The page you're looking for doesn't exist.</p>
+      <div className="flex gap-2">
+        <Button onClick={() => navigate("/")}>Back to dashboard</Button>
+        <Button variant="ghost" onClick={() => window.history.back()}>Go back</Button>
+      </div>
+    </div>
+  );
+  
+  // Signed in: wrap in app shell so sidebar + topnav are available
+  if (user) {
+    return <AppShell>{content}</AppShell>;
+  }
+  
+  // Not signed in: render bare (no shell needed; user can't navigate to most things anyway)
+  return content;
+}
+```
+
+If `AppShell` requires more than just `user` (e.g. it loads brand kit, tenant info, etc.), make sure those don't throw when called for a 404 page — the shell should be tolerant of "you're on a page that doesn't exist."
+
+### Acceptance criteria
+- [ ] Navigate to any non-existent route (e.g. `/asdf123`) while signed in → sidebar + topnav appear, "Back to dashboard" works.
+- [ ] Navigate to a non-existent route while signed out → bare 404 card (current behavior).
+- [ ] The previously-broken case I hit during the live audit (`/forms-leads`) now renders with shell.
+
+---
+
+## Ordering
+
+These are independent — can ship in any order or in parallel.
+
+**Priority order if shipping serially:**
+1. Fix 1 (Visits Table) — blocks the marketing-site screenshot from #52
+2. Fix 4 (HTML title) — visible to every tenant on every page, biggest brand-leak surface
+3. Fix 5 (AppNotFound shell) — quality-of-life for any user who hits a broken link
+4. Fix 2 (Heatmap height) — cosmetic but very visible
+5. Fix 3 (breadcrumb + trends) — minor polish
+
+## What NOT to do
+
+- **Don't** add new functionality. These are bug fixes / polish. Resist the urge to refactor adjacent code.
+- **Don't** rebuild the Heatmap component. Just cap the height.
+- **Don't** change the host-detection logic in the static HTML beyond adding the `else` branch. The lpstudio.ai and meetdandy.com mappings stay exactly as they are.
+- **Don't** change the Visits Table data shape or columns — only fix the loading bug and add the retry affordance.
