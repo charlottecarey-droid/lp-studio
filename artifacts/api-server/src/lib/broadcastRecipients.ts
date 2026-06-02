@@ -72,7 +72,7 @@ export const BROADCAST_ALERT_TYPES: readonly BroadcastAlertTypeDef[] = [
     type: "custom_domain_status",
     category: "account_billing",
     name: "Custom domain status",
-    description: "Notifies when a custom domain goes live or gets stuck during setup.",
+    description: "Notifies when a custom domain or email sending domain goes live or gets stuck during setup.",
   },
 ] as const;
 

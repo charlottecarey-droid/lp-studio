@@ -1137,3 +1137,74 @@ export async function sendCustomDomainStuckEmail(payload: CustomDomainStuckPaylo
     return false;
   }
 }
+
+// ─── Custom email sending-domain verified notification (task #783) ───────────
+
+export interface EmailDomainVerifiedPayload {
+  recipientEmail: string;
+  tenantName: string;
+  domain: string;          // e.g. mail.acme.com — the verified sending domain
+  settingsUrl: string;     // link back to Settings → Email domain
+}
+
+/**
+ * Heads-up email fired once when a tenant's self-registered custom EMAIL sending
+ * domain transitions to `verified` in Resend (detected out-of-band by the
+ * emailDomainPoller, not just via the open Settings wizard). Returns true iff
+ * Resend accepted the email — the poller uses this to decide whether to keep its
+ * "already notified" claim or release it for a retry next scan.
+ */
+export async function sendEmailDomainVerifiedEmail(payload: EmailDomainVerifiedPayload): Promise<boolean> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn("RESEND_API_KEY not set — skipping email domain verified email");
+    return false;
+  }
+  const { recipientEmail, tenantName, domain, settingsUrl } = payload;
+  const fromAddress = platformFromAddress();
+  const headline = `Your sending domain ${escapeHtml(domain)} is verified`;
+
+  const contentHtml = `              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+                Good news — <strong>${escapeHtml(domain)}</strong> is now verified in our email provider. From now on, email for <strong>${escapeHtml(tenantName)}</strong> sends from your own domain instead of the shared default, which improves deliverability and brand trust.
+              </p>
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#374151">
+                No further action is needed. New sends will use the verified domain automatically.
+              </p>
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(settingsUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      Open email settings →
+                    </a>
+                  </td>
+                </tr>
+              </table>`;
+  const html = buildLpEmailShell({
+    headline: `Your sending domain is verified`,
+    contentHtml,
+    footerNote: `You're receiving this because you're an admin on ${tenantName}.`,
+  });
+
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        reply_to: platformReplyTo(),
+        to: [recipientEmail],
+        subject: `${domain} is verified — your email now sends from your own domain`,
+        html,
+      }),
+    });
+    logger.info({ recipientEmail, tenantName, domain }, "Email domain verified email sent");
+    return true;
+  } catch (err) {
+    logger.error({ err, recipientEmail, domain }, "Failed to send email domain verified email");
+    return false;
+  }
+}

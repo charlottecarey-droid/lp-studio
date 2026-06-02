@@ -23,6 +23,7 @@ import {
 import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
 import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
+import { startEmailDomainPoller } from "./lib/emailDomainPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -522,6 +523,13 @@ const httpServer = app.listen(port, (err) => {
   // admins when (a) TLS goes active or (b) the domain has been pending
   // for 24h+ (likely DNS misconfig). Production-only (see poller).
   startCustomDomainPoller();
+
+  // Task #783 — periodic custom EMAIL sending-domain verification poller.
+  // Watches every tenant with a self-registered sending domain and emails
+  // tenant admins once Resend flips the domain to `verified`, so they learn
+  // mail now sends from their own domain even with the wizard closed.
+  // Production-only (see poller).
+  startEmailDomainPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

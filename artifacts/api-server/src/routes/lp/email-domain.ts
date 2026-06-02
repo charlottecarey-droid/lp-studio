@@ -109,6 +109,19 @@ async function persistEmailDomain(
   if (fields.customEmailDomainId === null || fields.customEmailDomainId === "") delete sc.customEmailDomainId;
   else sc.customEmailDomainId = fields.customEmailDomainId;
 
+  // Re-arm the verification heads-up (Task #783): clearing or changing the
+  // registered domain drops the "already notified" marker so a later
+  // verification of a newly-registered domain fires again. The marker is also
+  // keyed by id, so a fresh Resend id self-re-arms even without this — but
+  // clearing it on remove keeps the config tidy.
+  if (
+    fields.customEmailDomainId === null ||
+    fields.customEmailDomainId === "" ||
+    sc.customEmailDomainVerifiedNotifiedId !== fields.customEmailDomainId
+  ) {
+    delete sc.customEmailDomainVerifiedNotifiedId;
+  }
+
   const nextConfig = { ...config, salesConsole: sc };
 
   if (rowId === null) {
