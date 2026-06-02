@@ -3246,6 +3246,7 @@ export function GenerateMicrositeModal({
   accountName,
   accountId,
   contactId,
+  contactName,
   onCreated,
 }: {
   open: boolean;
@@ -3253,9 +3254,11 @@ export function GenerateMicrositeModal({
   accountName: string;
   accountId: string;
   contactId?: number;
+  contactName?: string;
   onCreated: () => void;
 }) {
   const [, navigate] = useLocation();
+  const { domainContext } = useAuth();
   const [segments, setSegments] = useState<PickerSegment[]>([]);
   const [segmentId, setSegmentId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -3269,6 +3272,15 @@ export function GenerateMicrositeModal({
   const [ctaUrl, setCtaUrl] = useState("");
   const [salesReps, setSalesReps] = useState<SalesRep[]>([]);
   const [selectedRepId, setSelectedRepId] = useState<number | null>(null);
+  // Single personalized link for the targeted contact (contact-page generation)
+  const [contactLinkToken, setContactLinkToken] = useState<string | null>(null);
+  const [contactLinkCopied, setContactLinkCopied] = useState(false);
+
+  function getHotlinkBase() {
+    const partnerDomain = domainContext?.micrositeDomain;
+    if (partnerDomain) return `https://${partnerDomain}`;
+    return window.location.origin;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -3304,6 +3316,8 @@ export function GenerateMicrositeModal({
     setCtaUrl("");
     setSalesReps([]);
     setSelectedRepId(null);
+    setContactLinkToken(null);
+    setContactLinkCopied(false);
   }
 
   function handleClose() {
@@ -3351,16 +3365,30 @@ export function GenerateMicrositeModal({
 
       setCreatedPageId(pageId);
 
-      // Bulk-create hotlinks for all contacts with email
       setStep("linking");
-      const linkRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/microsites`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId }),
-      });
-      if (!linkRes.ok) throw new Error("Failed to create hotlinks");
-      const { totalCount } = await linkRes.json();
-      setHotlinkCount(totalCount);
+      if (contactId != null) {
+        // Contact-page generation: create (or reuse) a single personalized
+        // link for the targeted contact, surfaced immediately on success.
+        const linkRes = await fetch(`${API_BASE}/sales/hotlinks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId, pageId }),
+        });
+        if (!linkRes.ok) throw new Error("Failed to create personalized link");
+        const hotlink = await linkRes.json();
+        setContactLinkToken(hotlink.token ?? null);
+        setHotlinkCount(hotlink.token ? 1 : 0);
+      } else {
+        // Account-page generation: bulk-create hotlinks for all contacts with email
+        const linkRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/microsites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageId }),
+        });
+        if (!linkRes.ok) throw new Error("Failed to create hotlinks");
+        const { totalCount } = await linkRes.json();
+        setHotlinkCount(totalCount);
+      }
 
       setStep("done");
       onCreated();
@@ -3399,11 +3427,39 @@ export function GenerateMicrositeModal({
             <div>
               <p className="font-semibold text-foreground">Microsite created!</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {hotlinkCount > 0
-                  ? `${hotlinkCount} personalised hotlink${hotlinkCount !== 1 ? "s" : ""} created for contacts with email.`
-                  : "No contacts with email found — add contacts to generate hotlinks."}
+                {contactId != null
+                  ? (contactLinkToken
+                      ? `Personalised link ready${contactName ? ` for ${contactName}` : ""}.`
+                      : "Microsite created — add an email to this contact to generate a personalised link.")
+                  : (hotlinkCount > 0
+                      ? `${hotlinkCount} personalised hotlink${hotlinkCount !== 1 ? "s" : ""} created for contacts with email.`
+                      : "No contacts with email found — add contacts to generate hotlinks.")}
               </p>
             </div>
+
+            {/* Single personalized link — contact-page generation */}
+            {contactId != null && contactLinkToken && (
+              <div className="w-full flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                <Link2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span className="flex-1 text-xs text-foreground truncate text-left font-mono">
+                  {getHotlinkBase()}/p/{contactLinkToken}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1.5 flex-shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${getHotlinkBase()}/p/${contactLinkToken}`).then(() => {
+                      setContactLinkCopied(true);
+                      setTimeout(() => setContactLinkCopied(false), 2000);
+                    });
+                  }}
+                >
+                  {contactLinkCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  {contactLinkCopied ? "Copied" : "Copy"}
+                </Button>
+              </div>
+            )}
 
             {/* Workflow nudge — next steps */}
             <div className="w-full rounded-lg bg-muted/40 border border-border/50 px-4 py-3 text-left">
@@ -3458,8 +3514,13 @@ export function GenerateMicrositeModal({
           <>
           <div className="flex flex-col gap-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="text-sm text-muted-foreground">
-              AI will create a personalised landing page for <strong>{accountName}</strong> and
-              generate unique hotlinks for each contact with an email address.
+              {contactId != null ? (
+                <>AI will create a personalised landing page for <strong>{accountName}</strong> and
+                generate a single personalised link{contactName ? <> for <strong>{contactName}</strong></> : <> for this contact</>}.</>
+              ) : (
+                <>AI will create a personalised landing page for <strong>{accountName}</strong> and
+                generate unique hotlinks for each contact with an email address.</>
+              )}
             </div>
 
             {/* Marketing Templates (optional starting point) — collapsible dropdown */}
@@ -3630,7 +3691,9 @@ export function GenerateMicrositeModal({
             {busy && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                {step === "generating" ? "Generating personalised copy…" : "Creating contact hotlinks…"}
+                {step === "generating"
+                  ? "Generating personalised copy…"
+                  : contactId != null ? "Creating personalised link…" : "Creating contact hotlinks…"}
               </div>
             )}
           </div>

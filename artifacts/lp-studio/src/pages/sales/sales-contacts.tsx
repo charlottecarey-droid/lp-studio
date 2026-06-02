@@ -1976,6 +1976,7 @@ function ContactDetailView({ id }: { id: string }) {
           accountName={accountName || "this account"}
           accountId={String(contact.accountId)}
           contactId={contact.id}
+          contactName={`${contact.firstName} ${contact.lastName}`.trim()}
           onCreated={fetchData}
         />
       )}
