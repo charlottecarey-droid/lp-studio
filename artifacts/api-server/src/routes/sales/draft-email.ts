@@ -3,7 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable, lpPagesTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
-import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 
@@ -104,6 +104,348 @@ async function firecrawlScrape(apiKey: string, domain: string): Promise<string> 
   }
 }
 
+// ─── Pure prompt builder (extracted so brand framing is unit-testable) ──
+// Mirrors person-brief.ts: the route loads + tenant-scopes the contact,
+// account, briefing, research, and microsite state, then hands them here.
+// Brand framing is strictly per-tenant — no "Dandy" string is hardcoded.
+// Dandy (tenant 1) renders its old copy only because its Sales Console
+// config seeds brandName "Dandy" + briefBlurb; other tenants supply their
+// own, and a no-config tenant gets brand-neutral phrasing with no gaps.
+
+export interface DraftEmailContactFields {
+  firstName: string;
+  lastName: string;
+  title: string;
+  titleLevel: string;
+  contactRole: string;
+  department: string;
+  linkedinUrl: string;
+  buyerPersona: string;
+  contactTier: string;
+}
+
+export interface DraftEmailAccountFields {
+  accountName: string;
+  domain: string;
+  industry: string;
+  segment: string;
+  dsoSize: string;
+  privateEquityFirm: string;
+  numLocations: number | null;
+  abmTier: string;
+  abmStage: string;
+  practiceSegment: string;
+  msaSigned: string;
+  enterprisePilot: string;
+  city: string;
+  state: string;
+  accountNotes: string;
+}
+
+export interface DraftEmailResearch {
+  person: string;
+  company: string;
+  linkedin: string;
+  site: string;
+}
+
+export interface DraftEmailPromptArgs {
+  brandCtx: SalesBrandContext;
+  contact: DraftEmailContactFields;
+  account: DraftEmailAccountFields;
+  briefing: BriefingData | null;
+  research: DraftEmailResearch;
+  /** Whether a published microsite hotlink exists for this contact. */
+  hasMicrosite: boolean;
+  /** Injected for deterministic dates in tests; defaults to now. */
+  now?: Date;
+}
+
+export const DRAFT_EMAIL_SYSTEM_MSG =
+  "You are a senior cold email copywriter. Your emails follow one rule above all: every sentence advances a single argument. Problem → Proof → Ask, all on the same theme. No tangents. Output only the email as requested.";
+
+export function buildDraftEmailPrompt(args: DraftEmailPromptArgs): {
+  systemMsg: string;
+  prompt: string;
+} {
+  const { brandCtx, contact, account, briefing, research, hasMicrosite } = args;
+
+  // ─── Brand-derived framing (per-tenant; never hardcodes "Dandy") ───
+  const tenantBrandName = brandCtx.brandName || "our team";
+  const tenantBrandBlurb = brandCtx.briefBlurb
+    ? `${tenantBrandName} — ${brandCtx.briefBlurb}`
+    : tenantBrandName;
+  const tenantIntroLine = brandCtx.salesIntroLine
+    || `You write short, human cold emails for ${tenantBrandBlurb}.`;
+  const valuePropPairs = Array.isArray(brandCtx.valuePropPairs) ? brandCtx.valuePropPairs : [];
+
+  const {
+    firstName, lastName, title, titleLevel, contactRole,
+    department, linkedinUrl, buyerPersona, contactTier,
+  } = contact;
+  const {
+    accountName, domain, industry, segment, dsoSize, privateEquityFirm,
+    numLocations, abmTier, abmStage, practiceSegment, msaSigned,
+    enterprisePilot, city, state, accountNotes,
+  } = account;
+  const {
+    person: personResearch,
+    company: companyResearch,
+    linkedin: linkedinResearch,
+    site: siteResearch,
+  } = research;
+
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "the contact";
+
+  const micrositeNote = hasMicrosite
+    ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how ${tenantBrandName} would work for ${accountName} — [MICROSITE_URL]". Do NOT invent a URL — always use the literal placeholder [MICROSITE_URL]; the system will swap it for the real link.`
+    : "No microsite exists for this contact yet. Do NOT mention a microsite, a page, a link, or anything the recipient should click on. Do NOT include the placeholder [MICROSITE_URL] anywhere.";
+
+  const noPersonInfo = !personResearch || personResearch.includes("No person-level information found");
+  const noCompanyNews = !companyResearch || companyResearch.includes("No recent company news found");
+  const noLinkedIn = !linkedinResearch || linkedinResearch.includes("No LinkedIn") || linkedinResearch.includes("no public");
+  const researchIsWeak = noPersonInfo && noCompanyNews && noLinkedIn;
+
+  const researchBlock = [
+    researchIsWeak
+      ? `⚠️ RESEARCH WAS THIN — web searches returned very little about ${fullName} or ${accountName}. Rely on the ACCOUNT INTELLIGENCE briefing below and default to a role-specific pain point hook. Do NOT invent facts or cite unverified sources.`
+      : "",
+    `=== PERSON RESEARCH: ${fullName} ===`,
+    noPersonInfo
+      ? `No public information found for ${fullName}. Do NOT invent person-level hooks.`
+      : personResearch,
+    "",
+    `=== LINKEDIN / PROFESSIONAL PRESENCE: ${fullName} ===`,
+    noLinkedIn
+      ? `No LinkedIn activity found for ${fullName}.`
+      : linkedinResearch,
+    "",
+    `=== COMPANY NEWS: ${accountName} ===`,
+    noCompanyNews
+      ? `No recent company news found for ${accountName} (last 6 months). Use a pain point hook instead.`
+      : companyResearch,
+    "",
+    siteResearch
+      ? `=== COMPANY WEBSITE (${domain}) ===\n${siteResearch}`
+      : domain
+        ? `=== COMPANY WEBSITE ===\nCould not retrieve content from ${domain}.`
+        : "",
+  ].filter(Boolean).join("\n");
+
+  // ─── Build contact/account context ────────────────────────
+  const locationStr = [city, state].filter(Boolean).join(", ");
+  const accountContext = [
+    `Company: ${accountName}`,
+    industry          && `Industry: ${industry}`,
+    segment           && `Segment: ${segment}`,
+    practiceSegment   && `Practice Profile: ${practiceSegment}`,
+    dsoSize           && `DSO Size: ${dsoSize}`,
+    numLocations      && `Locations: ${numLocations}`,
+    privateEquityFirm && `PE-backed by: ${privateEquityFirm}`,
+    locationStr       && `HQ: ${locationStr}`,
+    abmTier           && `ABM Tier: ${abmTier}`,
+    abmStage          && `ABM Stage: ${abmStage}`,
+    (msaSigned === "1" || /closed.?won/i.test(abmStage)) && `MSA Status: Enterprise MSA already signed`,
+    enterprisePilot === "1" && `Pilot Status: Enterprise pilot already underway`,
+    domain            && `Website: ${domain}`,
+    accountNotes      && `Notes: ${accountNotes}`,
+  ].filter(Boolean).join("\n");
+
+  const contactContext = [
+    `Name: ${fullName}`,
+    title             && `Title: ${title}`,
+    titleLevel        && `Seniority: ${titleLevel}`,
+    contactRole       && `Functional Role: ${contactRole}`,
+    department        && `Department: ${department}`,
+    buyerPersona      && `Buyer Persona: ${buyerPersona}`,
+    contactTier       && `ABM Contact Tier: ${contactTier}`,
+    linkedinUrl       && `LinkedIn: ${linkedinUrl}`,
+  ].filter(Boolean).join("\n");
+
+  // ─── Build briefing block ──────────────────────────────────
+  const briefingBlock = (() => {
+    if (!briefing) return null;
+    const parts: string[] = [];
+    if (briefing.overview) parts.push(`Overview: ${briefing.overview}`);
+    const sl = briefing.sizeAndLocations;
+    if (sl) {
+      if (sl.locationCount) parts.push(`Locations: ${sl.locationCount}`);
+      if (sl.headquarters)  parts.push(`HQ: ${sl.headquarters}`);
+      if (sl.regions?.length) parts.push(`Regions: ${sl.regions.join(", ")}`);
+      if (sl.ownership)     parts.push(`Ownership structure: ${sl.ownership}`);
+    }
+    if (briefing.organizationalModel) parts.push(`Org model: ${briefing.organizationalModel}`);
+    if (briefing.leadership?.length) {
+      parts.push(`Leadership: ${briefing.leadership.map(l => `${l.name} (${l.title})`).join(", ")}`);
+    }
+    if (briefing.recentNews?.length) {
+      parts.push("\nRECENT NEWS (only use if < 6 months old):");
+      briefing.recentNews.slice(0, 3).forEach(n => {
+        parts.push(`- ${n.headline}${n.date ? ` (${n.date})` : ""}: ${n.summary}`);
+      });
+    }
+    const fit = briefing.fitAnalysis;
+    if (fit) {
+      if (fit.primaryValueProp)   parts.push(`\nPrimary value prop for this account: ${fit.primaryValueProp}`);
+      if (fit.keyPainPoints?.length) parts.push(`Key pain points: ${fit.keyPainPoints.join(" | ")}`);
+      if (fit.proofPoints?.length)   parts.push(`Proof points: ${fit.proofPoints.join(" | ")}`);
+      if (fit.recommendedApproach)   parts.push(`Recommended approach: ${fit.recommendedApproach}`);
+    }
+    if (briefing.talkingPoints?.length) {
+      parts.push(`\nTalking points:\n${briefing.talkingPoints.map(t => `- ${t}`).join("\n")}`);
+    }
+    if (briefing.buyingCommittee?.length) {
+      const persona = [titleLevel, contactRole, title].filter(Boolean).join(" ").toLowerCase();
+      let matched = briefing.buyingCommittee[0];
+      for (const m of briefing.buyingCommittee) {
+        if (persona && m.role.toLowerCase().split(/[\s,/]+/).some(w => persona.includes(w))) {
+          matched = m;
+          break;
+        }
+      }
+      parts.push(`\nFor this persona (${matched.role}):`);
+      parts.push(`  Pain points: ${matched.painPoints}`);
+      parts.push(`  Recommended message: ${matched.recommendedMessage}`);
+    }
+    return parts.join("\n");
+  })();
+
+  // ─── Dates ────────────────────────────────────────────────
+  const today = args.now ?? new Date();
+  const cutoff = new Date(today);
+  cutoff.setMonth(cutoff.getMonth() - 6);
+  const todayStr  = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const cutoffStr = cutoff.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+  // Build the THEME OPTIONS section from this tenant's configured
+  // pain/proof pairs. If a tenant hasn't seeded any, we fall back to a
+  // generic prompt-time instruction that tells the model to pick a
+  // role-appropriate pain/proof itself based on the account briefing —
+  // never leaking another tenant's customer names or stats.
+  const themeOptionsSection = valuePropPairs.length > 0
+    ? [
+        "THEME OPTIONS (pick exactly one — match the role; if no exact role match, pick the closest):",
+        "",
+        ...valuePropPairs.flatMap(p => {
+          const rolesLine = (p.roles ?? []).filter(Boolean).join(" / ");
+          const header = rolesLine
+            ? `For ${rolesLine} → Theme: "${p.theme}"`
+            : `Theme: "${p.theme}"`;
+          return [header, `  Pain: ${p.pain}`, `  Proof: ${p.proof}`, ""];
+        }),
+      ].join("\n").trimEnd()
+    : [
+        "THEME GUIDANCE:",
+        "Pick ONE pain point relevant to this person's role and ONE proof point that directly answers it.",
+        "Draw the proof point only from the ACCOUNT INTELLIGENCE briefing or verified research above.",
+        "Do NOT invent customer names, statistics, or case studies.",
+      ].join("\n");
+
+  const prompt = `${tenantIntroLine}
+
+⚠️ RECENCY RULE — READ THIS BEFORE LOOKING AT THE RESEARCH:
+Today's date is ${todayStr}. The 6-month cutoff is ${cutoffStr}.
+ANY news, event, quote, hire, or announcement that occurred BEFORE ${cutoffStr} must be completely ignored as a hook.
+If you are not certain something happened after ${cutoffStr}, do NOT use it as a hook.
+When in doubt, lead with a pain point tailored to their role instead.
+This rule is absolute — do not use old information even if it seems relevant.
+
+⚠️ LOCATION MILESTONE RULE:
+Our database shows ${accountName} currently has ${numLocations ?? "an unknown number of"} locations.
+If research mentions them "opening their Nth location" and N is less than or equal to ${numLocations ?? 0}, that milestone is CLEARLY OLD — they've grown past it. Do NOT use it as a hook under any circumstances. Treat it as outdated regardless of how it's dated.
+
+⚠️ LINKEDIN PROFILE RULE:
+LinkedIn profile pages are NOT news sources. Career history, "About" sections, job descriptions, and company milestones listed on a LinkedIn profile are biographical, not current events — they can be years old.
+Do NOT use a LinkedIn profile page as evidence that something happened recently.
+Only use LinkedIn as a source if the research contains a specific, dated post or article by the person published after ${cutoffStr}.
+
+The research below was gathered before writing. Only use items that clearly fall after ${cutoffStr}.
+
+HOOK PRIORITY ORDER (always follow this):
+1. BEST: A specific, recent (post-${cutoffStr}) fact about ${firstName} personally — a talk they gave, a quote, a post, a career move, a published article
+2. GOOD: A specific, recent (post-${cutoffStr}) company event — acquisition, expansion, new market, leadership hire
+3. FALLBACK: A pain point directly relevant to their role — use this if research yields nothing recent and verifiable
+
+Do NOT mix these levels. If you found a person-level hook, use that. Do not also mention company news.
+
+=== RESEARCH FINDINGS ===
+${researchBlock}
+${briefingBlock ? `\n=== ACCOUNT INTELLIGENCE (pre-generated briefing) ===\n${briefingBlock}` : ""}
+
+=== CONTACT ===
+${contactContext}
+
+=== ACCOUNT ===
+${accountContext}
+
+=== HOW TO WRITE THIS EMAIL ===
+
+You are writing a 3-sentence cold email. The #1 rule: EVERY SENTENCE MUST ADVANCE ONE SINGLE ARGUMENT. The email should read like one connected thought — not three unrelated ideas stitched together.
+
+STEP 1 — PICK ONE THEME
+Before writing anything, choose ONE theme that connects a pain point to a proof point. The theme is the throughline of the entire email. Every sentence must serve this theme.
+
+Pick the theme based on this person's role:
+
+${themeOptionsSection}
+
+STEP 2 — WRITE THREE SENTENCES, ALL ON-THEME
+
+Sentence 1 (THE PROBLEM): Name the specific pain from your chosen theme. If you have recent research about this person or company that relates to this theme, weave it in. Otherwise, state the pain plainly as it applies to their role at ${accountName}.
+
+Sentence 2 (THE PROOF): State the ONE proof point from your chosen theme. This sentence should feel like the natural answer to sentence 1. It should make the reader think "oh, someone already solved this."
+
+Sentence 3 (THE ASK): A low-pressure CTA that connects back to the theme. Reference ${accountName} by name. If a microsite exists, the CTA should include the [MICROSITE_URL] placeholder.
+
+THE COHERENCE TEST — Read your three sentences back. If you removed the greeting and sign-off, would a stranger understand what single argument you're making? If any sentence feels like it belongs in a different email, rewrite it.
+
+=== ROLE RELEVANCE RULE ===
+Before choosing a theme, ask: "Is this directly relevant to what THIS PERSON cares about in THEIR ROLE?"
+- A same-store revenue stat is NOT relevant to an IT Manager
+- An acquisition hook is NOT relevant to a CDO unless it creates a clinical challenge
+- A financial metric is NOT relevant to a Clinical Director
+- If research is company-level but not relevant to THIS person's function, lead with a role-specific pain point instead
+
+=== EMAIL FORMAT ===
+Subject: [short subject line that reflects your chosen theme — 6 words max]
+
+Hi ${firstName || "[First Name]"},
+
+[Sentence 1: the problem]
+
+[Sentence 2: the proof]
+
+[Sentence 3: the ask]
+
+Best,
+
+=== EMAIL RULES ===
+- 3 sentences max in the body. One sentence per line. Blank line between each.
+- Every sentence must serve the same theme. No tangents, no bonus stats, no "also."
+- ONE proof point per email. Never stack multiple numbers or combine stats.
+- Sound like a real person texting a colleague, not a sales rep reading a script
+- Keep it under 60 words in the body (excluding greeting and sign-off)
+- RECENCY RULE: Only use research as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — use the pain point from your theme instead.
+- Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
+- No buzzwords: leverage, synergy, streamline, revolutionize, game-changer, innovative solution, transform, empower, robust, cutting-edge
+- Don't over-explain ${tenantBrandName} — one clause about what they do is plenty
+- If a microsite exists, use the placeholder [MICROSITE_URL] exactly once in sentence 3
+- CTA should be low-commitment ("Worth a quick call?" / "Happy to share how?" / "Open to a 15-min chat?")
+- End with "Best,"
+- Do NOT say "I saw on LinkedIn", "according to LinkedIn", or attribute any source in the email body. State facts plainly.
+- Do NOT attribute a fact to LinkedIn unless a linkedin.com URL is actually present in the research sources.
+
+${micrositeNote}
+
+After "Best," on a new line, write exactly:
+HOOK_SOURCE: [paste the full URL of the specific page you used for the opening hook, or write "pain point" if you used a role-based pain point instead of research]
+THEME: [write the theme you chose, e.g. "Remakes are silently destroying margin"]
+
+Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.`;
+
+  return { systemMsg: DRAFT_EMAIL_SYSTEM_MSG, prompt };
+}
+
 // POST /sales/draft-email — rich cold email using all account/contact fields + Perplexity research + Firecrawl site crawl
 router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -129,13 +471,6 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     // Sales Console. When unset we fall back to generic phrasing so we
     // never accidentally leak another tenant's brand.
     const brandCtx = await getSalesBrandContext(tenantId);
-    const tenantBrandName = brandCtx.brandName || "our team";
-    const tenantBrandBlurb = brandCtx.briefBlurb
-      ? `${tenantBrandName} — ${brandCtx.briefBlurb}`
-      : tenantBrandName;
-    const tenantIntroLine = brandCtx.salesIntroLine
-      || `You write short, human cold emails for ${tenantBrandBlurb}.`;
-    const valuePropPairs = Array.isArray(brandCtx.valuePropPairs) ? brandCtx.valuePropPairs : [];
 
     // ─── 1. Load contact ────────────────────────────────────────
     let firstName = "";
@@ -251,9 +586,6 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     }
 
     const fullName = [firstName, lastName].filter(Boolean).join(" ") || "the contact";
-    const micrositeNote = hasMicrosite
-      ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how ${tenantBrandName} would work for ${accountName} — [MICROSITE_URL]". Do NOT invent a URL — always use the literal placeholder [MICROSITE_URL]; the system will swap it for the real link.`
-      : "No microsite exists for this contact yet. Do NOT mention a microsite, a page, a link, or anything the recipient should click on. Do NOT include the placeholder [MICROSITE_URL] anywhere.";
 
     // ─── 5. Research: Perplexity (news + LinkedIn) + Firecrawl (site) — all parallel ────
     const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
@@ -347,245 +679,28 @@ Be factual and specific. Only include what's on the site.`;
 
     const noPersonInfo = !personResearch || personResearch.includes("No person-level information found");
     const noCompanyNews = !companyResearch || companyResearch.includes("No recent company news found");
-    const noLinkedIn = !linkedinResearch || linkedinResearch.includes("No LinkedIn") || linkedinResearch.includes("no public");
-    const researchIsWeak = noPersonInfo && noCompanyNews && noLinkedIn;
 
-    const researchBlock = [
-      researchIsWeak
-        ? `⚠️ RESEARCH WAS THIN — web searches returned very little about ${fullName} or ${accountName}. Rely on the ACCOUNT INTELLIGENCE briefing below and default to a role-specific pain point hook. Do NOT invent facts or cite unverified sources.`
-        : "",
-      `=== PERSON RESEARCH: ${fullName} ===`,
-      noPersonInfo
-        ? `No public information found for ${fullName}. Do NOT invent person-level hooks.`
-        : personResearch,
-      "",
-      `=== LINKEDIN / PROFESSIONAL PRESENCE: ${fullName} ===`,
-      noLinkedIn
-        ? `No LinkedIn activity found for ${fullName}.`
-        : linkedinResearch,
-      "",
-      `=== COMPANY NEWS: ${accountName} ===`,
-      noCompanyNews
-        ? `No recent company news found for ${accountName} (last 6 months). Use a pain point hook instead.`
-        : companyResearch,
-      "",
-      siteResearch
-        ? `=== COMPANY WEBSITE (${domain}) ===\n${siteResearch}`
-        : domain
-          ? `=== COMPANY WEBSITE ===\nCould not retrieve content from ${domain}.`
-          : "",
-    ].filter(Boolean).join("\n");
-
-    // ─── 6. Build contact/account context ────────────────────────
-    const locationStr = [city, state].filter(Boolean).join(", ");
-    const accountContext = [
-      `Company: ${accountName}`,
-      industry          && `Industry: ${industry}`,
-      segment           && `Segment: ${segment}`,
-      practiceSegment   && `Practice Profile: ${practiceSegment}`,
-      dsoSize           && `DSO Size: ${dsoSize}`,
-      numLocations      && `Locations: ${numLocations}`,
-      privateEquityFirm && `PE-backed by: ${privateEquityFirm}`,
-      locationStr       && `HQ: ${locationStr}`,
-      abmTier           && `ABM Tier: ${abmTier}`,
-      abmStage          && `ABM Stage: ${abmStage}`,
-      (msaSigned === "1" || /closed.?won/i.test(abmStage)) && `MSA Status: Enterprise MSA already signed`,
-      enterprisePilot === "1" && `Pilot Status: Enterprise pilot already underway`,
-      domain            && `Website: ${domain}`,
-      accountNotes      && `Notes: ${accountNotes}`,
-    ].filter(Boolean).join("\n");
-
-    const contactContext = [
-      `Name: ${fullName}`,
-      title             && `Title: ${title}`,
-      titleLevel        && `Seniority: ${titleLevel}`,
-      contactRole       && `Functional Role: ${contactRole}`,
-      department        && `Department: ${department}`,
-      buyerPersona      && `Buyer Persona: ${buyerPersona}`,
-      contactTier       && `ABM Contact Tier: ${contactTier}`,
-      linkedinUrl       && `LinkedIn: ${linkedinUrl}`,
-    ].filter(Boolean).join("\n");
-
-    // ─── 7. Build briefing block ──────────────────────────────────
-    const briefingBlock = (() => {
-      if (!briefing) return null;
-      const parts: string[] = [];
-      if (briefing.overview) parts.push(`Overview: ${briefing.overview}`);
-      const sl = briefing.sizeAndLocations;
-      if (sl) {
-        if (sl.locationCount) parts.push(`Locations: ${sl.locationCount}`);
-        if (sl.headquarters)  parts.push(`HQ: ${sl.headquarters}`);
-        if (sl.regions?.length) parts.push(`Regions: ${sl.regions.join(", ")}`);
-        if (sl.ownership)     parts.push(`Ownership structure: ${sl.ownership}`);
-      }
-      if (briefing.organizationalModel) parts.push(`Org model: ${briefing.organizationalModel}`);
-      if (briefing.leadership?.length) {
-        parts.push(`Leadership: ${briefing.leadership.map(l => `${l.name} (${l.title})`).join(", ")}`);
-      }
-      if (briefing.recentNews?.length) {
-        parts.push("\nRECENT NEWS (only use if < 6 months old):");
-        briefing.recentNews.slice(0, 3).forEach(n => {
-          parts.push(`- ${n.headline}${n.date ? ` (${n.date})` : ""}: ${n.summary}`);
-        });
-      }
-      const fit = briefing.fitAnalysis;
-      if (fit) {
-        if (fit.primaryValueProp)   parts.push(`\nPrimary value prop for this account: ${fit.primaryValueProp}`);
-        if (fit.keyPainPoints?.length) parts.push(`Key pain points: ${fit.keyPainPoints.join(" | ")}`);
-        if (fit.proofPoints?.length)   parts.push(`Proof points: ${fit.proofPoints.join(" | ")}`);
-        if (fit.recommendedApproach)   parts.push(`Recommended approach: ${fit.recommendedApproach}`);
-      }
-      if (briefing.talkingPoints?.length) {
-        parts.push(`\nTalking points:\n${briefing.talkingPoints.map(t => `- ${t}`).join("\n")}`);
-      }
-      if (briefing.buyingCommittee?.length) {
-        const persona = [titleLevel, contactRole, title].filter(Boolean).join(" ").toLowerCase();
-        let matched = briefing.buyingCommittee[0];
-        for (const m of briefing.buyingCommittee) {
-          if (persona && m.role.toLowerCase().split(/[\s,/]+/).some(w => persona.includes(w))) {
-            matched = m;
-            break;
-          }
-        }
-        parts.push(`\nFor this persona (${matched.role}):`);
-        parts.push(`  Pain points: ${matched.painPoints}`);
-        parts.push(`  Recommended message: ${matched.recommendedMessage}`);
-      }
-      return parts.join("\n");
-    })();
-
-    // ─── 8. Build the prompt ──────────────────────────────────────
-    const today = new Date();
-    const cutoff = new Date(today);
-    cutoff.setMonth(cutoff.getMonth() - 6);
-    const todayStr  = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-    const cutoffStr = cutoff.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-
-    // Build the THEME OPTIONS section from this tenant's configured
-    // pain/proof pairs. If a tenant hasn't seeded any, we fall back to a
-    // generic prompt-time instruction that tells the model to pick a
-    // role-appropriate pain/proof itself based on the account briefing —
-    // never leaking another tenant's customer names or stats.
-    const themeOptionsSection = valuePropPairs.length > 0
-      ? [
-          "THEME OPTIONS (pick exactly one — match the role; if no exact role match, pick the closest):",
-          "",
-          ...valuePropPairs.flatMap(p => {
-            const rolesLine = (p.roles ?? []).filter(Boolean).join(" / ");
-            const header = rolesLine
-              ? `For ${rolesLine} → Theme: "${p.theme}"`
-              : `Theme: "${p.theme}"`;
-            return [header, `  Pain: ${p.pain}`, `  Proof: ${p.proof}`, ""];
-          }),
-        ].join("\n").trimEnd()
-      : [
-          "THEME GUIDANCE:",
-          "Pick ONE pain point relevant to this person's role and ONE proof point that directly answers it.",
-          "Draw the proof point only from the ACCOUNT INTELLIGENCE briefing or verified research above.",
-          "Do NOT invent customer names, statistics, or case studies.",
-        ].join("\n");
-
-    const prompt = `${tenantIntroLine}
-
-⚠️ RECENCY RULE — READ THIS BEFORE LOOKING AT THE RESEARCH:
-Today's date is ${todayStr}. The 6-month cutoff is ${cutoffStr}.
-ANY news, event, quote, hire, or announcement that occurred BEFORE ${cutoffStr} must be completely ignored as a hook.
-If you are not certain something happened after ${cutoffStr}, do NOT use it as a hook.
-When in doubt, lead with a pain point tailored to their role instead.
-This rule is absolute — do not use old information even if it seems relevant.
-
-⚠️ LOCATION MILESTONE RULE:
-Our database shows ${accountName} currently has ${numLocations ?? "an unknown number of"} locations.
-If research mentions them "opening their Nth location" and N is less than or equal to ${numLocations ?? 0}, that milestone is CLEARLY OLD — they've grown past it. Do NOT use it as a hook under any circumstances. Treat it as outdated regardless of how it's dated.
-
-⚠️ LINKEDIN PROFILE RULE:
-LinkedIn profile pages are NOT news sources. Career history, "About" sections, job descriptions, and company milestones listed on a LinkedIn profile are biographical, not current events — they can be years old.
-Do NOT use a LinkedIn profile page as evidence that something happened recently.
-Only use LinkedIn as a source if the research contains a specific, dated post or article by the person published after ${cutoffStr}.
-
-The research below was gathered before writing. Only use items that clearly fall after ${cutoffStr}.
-
-HOOK PRIORITY ORDER (always follow this):
-1. BEST: A specific, recent (post-${cutoffStr}) fact about ${firstName} personally — a talk they gave, a quote, a post, a career move, a published article
-2. GOOD: A specific, recent (post-${cutoffStr}) company event — acquisition, expansion, new market, leadership hire
-3. FALLBACK: A pain point directly relevant to their role — use this if research yields nothing recent and verifiable
-
-Do NOT mix these levels. If you found a person-level hook, use that. Do not also mention company news.
-
-=== RESEARCH FINDINGS ===
-${researchBlock}
-${briefingBlock ? `\n=== ACCOUNT INTELLIGENCE (pre-generated briefing) ===\n${briefingBlock}` : ""}
-
-=== CONTACT ===
-${contactContext}
-
-=== ACCOUNT ===
-${accountContext}
-
-=== HOW TO WRITE THIS EMAIL ===
-
-You are writing a 3-sentence cold email. The #1 rule: EVERY SENTENCE MUST ADVANCE ONE SINGLE ARGUMENT. The email should read like one connected thought — not three unrelated ideas stitched together.
-
-STEP 1 — PICK ONE THEME
-Before writing anything, choose ONE theme that connects a pain point to a proof point. The theme is the throughline of the entire email. Every sentence must serve this theme.
-
-Pick the theme based on this person's role:
-
-${themeOptionsSection}
-
-STEP 2 — WRITE THREE SENTENCES, ALL ON-THEME
-
-Sentence 1 (THE PROBLEM): Name the specific pain from your chosen theme. If you have recent research about this person or company that relates to this theme, weave it in. Otherwise, state the pain plainly as it applies to their role at ${accountName}.
-
-Sentence 2 (THE PROOF): State the ONE proof point from your chosen theme. This sentence should feel like the natural answer to sentence 1. It should make the reader think "oh, someone already solved this."
-
-Sentence 3 (THE ASK): A low-pressure CTA that connects back to the theme. Reference ${accountName} by name. If a microsite exists, the CTA should include the [MICROSITE_URL] placeholder.
-
-THE COHERENCE TEST — Read your three sentences back. If you removed the greeting and sign-off, would a stranger understand what single argument you're making? If any sentence feels like it belongs in a different email, rewrite it.
-
-=== ROLE RELEVANCE RULE ===
-Before choosing a theme, ask: "Is this directly relevant to what THIS PERSON cares about in THEIR ROLE?"
-- A same-store revenue stat is NOT relevant to an IT Manager
-- An acquisition hook is NOT relevant to a CDO unless it creates a clinical challenge
-- A financial metric is NOT relevant to a Clinical Director
-- If research is company-level but not relevant to THIS person's function, lead with a role-specific pain point instead
-
-=== EMAIL FORMAT ===
-Subject: [short subject line that reflects your chosen theme — 6 words max]
-
-Hi ${firstName || "[First Name]"},
-
-[Sentence 1: the problem]
-
-[Sentence 2: the proof]
-
-[Sentence 3: the ask]
-
-Best,
-
-=== EMAIL RULES ===
-- 3 sentences max in the body. One sentence per line. Blank line between each.
-- Every sentence must serve the same theme. No tangents, no bonus stats, no "also."
-- ONE proof point per email. Never stack multiple numbers or combine stats.
-- Sound like a real person texting a colleague, not a sales rep reading a script
-- Keep it under 60 words in the body (excluding greeting and sign-off)
-- RECENCY RULE: Only use research as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — use the pain point from your theme instead.
-- Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
-- No buzzwords: leverage, synergy, streamline, revolutionize, game-changer, innovative solution, transform, empower, robust, cutting-edge
-- Don't over-explain ${tenantBrandName} — one clause about what they do is plenty
-- If a microsite exists, use the placeholder [MICROSITE_URL] exactly once in sentence 3
-- CTA should be low-commitment ("Worth a quick call?" / "Happy to share how?" / "Open to a 15-min chat?")
-- End with "Best,"
-- Do NOT say "I saw on LinkedIn", "according to LinkedIn", or attribute any source in the email body. State facts plainly.
-- Do NOT attribute a fact to LinkedIn unless a linkedin.com URL is actually present in the research sources.
-
-${micrositeNote}
-
-After "Best," on a new line, write exactly:
-HOOK_SOURCE: [paste the full URL of the specific page you used for the opening hook, or write "pain point" if you used a role-based pain point instead of research]
-THEME: [write the theme you chose, e.g. "Remakes are silently destroying margin"]
-
-Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.`;
+    // ─── 6-8. Build the brand-aware prompt (per-tenant; extracted) ──
+    const { systemMsg, prompt } = buildDraftEmailPrompt({
+      brandCtx,
+      contact: {
+        firstName, lastName, title, titleLevel, contactRole,
+        department, linkedinUrl, buyerPersona, contactTier,
+      },
+      account: {
+        accountName, domain, industry, segment, dsoSize, privateEquityFirm,
+        numLocations, abmTier, abmStage, practiceSegment, msaSigned,
+        enterprisePilot, city, state, accountNotes,
+      },
+      briefing,
+      research: {
+        person: personResearch,
+        company: companyResearch,
+        linkedin: linkedinResearch,
+        site: siteResearch,
+      },
+      hasMicrosite,
+    });
 
     // ─── 9. Call AI ───────────────────────────────────────────────
     const response = await fetchWithTimeout(
@@ -599,7 +714,7 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
         body: JSON.stringify({
           model: "gpt-5",
           messages: [
-            { role: "system", content: "You are a senior cold email copywriter. Your emails follow one rule above all: every sentence advances a single argument. Problem → Proof → Ask, all on the same theme. No tangents. Output only the email as requested." },
+            { role: "system", content: systemMsg },
             { role: "user", content: prompt },
           ],
         }),
@@ -626,7 +741,7 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
               model: "gemini-2.5-flash",
               temperature: 0.85,
               messages: [
-                { role: "system", content: "You are a senior cold email copywriter. Your emails follow one rule above all: every sentence advances a single argument. Problem → Proof → Ask, all on the same theme. No tangents. Output only the email as requested." },
+                { role: "system", content: systemMsg },
                 { role: "user", content: prompt },
               ],
             }),

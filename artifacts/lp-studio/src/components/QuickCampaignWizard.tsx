@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import { MultiSelectChip } from "@/components/MultiSelectChip";
 import { EmailWYSIWYGEditor } from "@/components/EmailWYSIWYGEditor";
 
@@ -127,6 +128,11 @@ const EDITOR_MERGE_VARS = [
   { label: "Microsite link", variable: "microsite_url" },
 ];
 
+// Built-in Dandy banner fallback for the styled editor's banner tool, mirroring
+// FollowUpEmailSection. Tenants override via Brand Settings → Email banner.
+const DANDY_BANNER_URL =
+  "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-email-banner.png";
+
 // When a landing page is attached we default to a short, page-centric email so
 // the user isn't forced into a full template.
 const PAGE_DEFAULT_SUBJECT = "We built something for {{company}}";
@@ -153,6 +159,8 @@ type Step = 1 | 2 | 3 | 4;
 
 export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: Props) {
   const { user } = useAuth();
+  const { brand } = useBrandConfig();
+  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -991,10 +999,11 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
                         initialContent={styledBody}
                         onChange={setStyledBody}
                         mergeVars={EDITOR_MERGE_VARS}
-                        showCampaignTools={false}
+                        dandyBannerUrl={bannerUrl}
+                        showCampaignTools
                       />
                       <p className="text-[11px] text-muted-foreground mt-1.5">
-                        Use the toolbar to format text and add images, and the chips above the editor to insert merge variables. We'll show you exactly what each recipient sees in the next step.
+                        Use the toolbar to format text, add images, and insert merge variables or the microsite link. We'll show you exactly what each recipient sees in the next step.
                       </p>
                     </div>
                   ) : (
