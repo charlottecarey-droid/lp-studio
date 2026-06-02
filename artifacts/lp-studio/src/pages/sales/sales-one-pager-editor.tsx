@@ -713,6 +713,7 @@ export default function SalesOnePagerEditor() {
         } else if (editorTemplate === "partner") {
           doc = await generateNewPartnerOnePager(
             dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl,
+            teamContacts, phoneNumber, customLinkText, customLinkUrl,
             { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
             undefined, brandContext, oneAssets,
           );
@@ -909,7 +910,7 @@ export default function SalesOnePagerEditor() {
         doc = await generateComparisonOnePager(dsoName, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, { ...override, comparisonRows, stats: comparisonStats }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_Evolution_${dsoName.replace(/\s+/g, "_")}.pdf`);
       } else if (editorTemplate === "partner") {
-        doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, teamContacts, phoneNumber, customLinkText, customLinkUrl, { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.replace(/\s+/g, "_")}_Partner.pdf`);
       } else if (editorTemplate === "agreement-summary") {
         doc = await generateAgreementSummaryOnePager({

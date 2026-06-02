@@ -360,6 +360,10 @@ export const generateNewPartnerOnePager = async (
   prospectLogoData: string | null,
   prospectLogoDims: { w: number; h: number },
   qrUrl: string,
+  teamContacts: TeamContact[],
+  phoneNumber: string,
+  customLinkText: string | undefined,
+  customLinkUrl: string | undefined,
   layoutOverride?: Record<string, unknown>,
   prospectLogoScale?: number,
   brand?: BrandContext,
@@ -401,7 +405,10 @@ export const generateNewPartnerOnePager = async (
     footerLink: (saved.footerCfg as { link?: string } | undefined)?.link,
   };
 
-  const opts: NewPartnerOpts = { logoPng, headerImgData, layoutOverrides: saved, content, brand };
+  const opts: NewPartnerOpts = {
+    logoPng, headerImgData, layoutOverrides: saved, content, brand,
+    teamContacts, phoneNumber, customLinkText, customLinkUrl,
+  };
   return sharedGenerateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, qrUrl, {}, opts);
 };
 
@@ -962,10 +969,10 @@ const SalesOnePager = () => {
         doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${isDandy ? "Dandy_Evolution" : `${brandSlug}_Before_After`}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
       } else if (template === "new-partner") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", teamContacts, phoneNumber, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
       } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
+        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", teamContacts, phoneNumber, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +

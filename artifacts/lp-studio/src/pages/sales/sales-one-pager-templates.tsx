@@ -744,7 +744,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
         else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || groupLabel, audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined, undefined, undefined, brandContextWithFonts, oneAssets);
         else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || groupLabel, [], phone, null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, brandContextWithFonts, oneAssets);
         else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(agreement, brandContextWithFonts, oneAssets);
-        else doc = await generateNewPartnerOnePager(dsoName || groupLabel, null, { w: 0, h: 0 }, qrUrl, undefined, undefined, brandContextWithFonts, oneAssets);
+        else doc = await generateNewPartnerOnePager(dsoName || groupLabel, null, { w: 0, h: 0 }, qrUrl, [], "", undefined, undefined, undefined, undefined, brandContextWithFonts, oneAssets);
         const baseName = isAgreement ? (agreement.headline || "Agreement_Summary") : (dsoName || builtinId);
         doc.save(`${baseName.replace(/\s+/g, "_")}_OnePager.pdf`);
       } else if (tpl) {
@@ -2186,7 +2186,7 @@ export default function SalesOnePagerTemplates() {
       else if (builtinId === "pilot") doc = await generatePilotOnePager(" ", "executive", [], "", null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined, undefined, undefined, previewBrandContextWithFonts, previewOneAssets);
       else if (builtinId === "comparison") doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, undefined, undefined, undefined, undefined, previewBrandContextWithFonts, previewOneAssets);
       else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent, previewBrandContextWithFonts, previewOneAssets);
-      else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, previewQrFallback, undefined, undefined, previewBrandContextWithFonts, previewOneAssets);
+      else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, previewQrFallback, [], "", undefined, undefined, undefined, undefined, previewBrandContextWithFonts, previewOneAssets);
 
       const pdfBlob = doc.output("blob");
       const pdfjsLib = await import("pdfjs-dist");

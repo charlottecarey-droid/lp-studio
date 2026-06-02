@@ -1500,9 +1500,14 @@ export interface NewPartnerOpts {
   headerImgData?: string | null;
   content?: NewPartnerContent;
   brand?: BrandContext;
+  teamContacts?: TeamContact[];
+  phoneNumber?: string;
+  customLinkText?: string;
+  customLinkUrl?: string;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     bodyCfg?: Record<string, unknown>;
+    teamCfg?: Record<string, unknown>;
     footerCfg?: Record<string, unknown>;
   };
 }
@@ -1710,11 +1715,66 @@ export const generateNewPartnerOnePager = async (
   });
   y += statH + 30 + sectionExtra;
 
-  if ((fCfg.show as boolean | undefined) !== false) {
-    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...textMuted);
-    doc.text(footerLink, w / 2, y, { align: "center" });
+  // ─── Team section ───────────────────────────────────────────────
+  // Render "Your dedicated team" exactly like Pilot/Comparison: gated on the
+  // team `show` toggle and only when there is at least one named contact.
+  const tCfg = opts?.layoutOverrides?.teamCfg ?? {};
+  const teamContacts = opts?.teamContacts ?? [];
+  const showTeam = (tCfg.show as boolean | undefined) !== false;
+  const filteredContacts = teamContacts.filter(c => c.name.trim());
+  if (showTeam && filteredContacts.length > 0) {
+    drawSep(doc, margin, y, contentW, lineColor);
+    y += 29;
+    doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
+    doc.text("Your dedicated team", w / 2, y, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
+    doc.text("Meet your contacts for training, clinical support, and check-ins.", w / 2, y + 15, { align: "center" });
+    y += 39;
+    const contactColW = contentW / Math.max(filteredContacts.length, 1);
+    let maxContactBottom = y;
+    filteredContacts.forEach((contact, i) => {
+      const cx = margin + contactColW * i + contactColW / 2;
+      doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.nameFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
+      doc.text(contact.name, cx, y, { align: "center" });
+      let contactY = y + 14;
+      if (contact.title) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
+        doc.text(contact.title, cx, contactY, { align: "center" });
+        contactY += 14;
+      }
+      if (contact.contactInfo) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...textMuted);
+        doc.text(contact.contactInfo, cx, contactY, { align: "center" });
+        contactY += 12;
+      }
+      maxContactBottom = Math.max(maxContactBottom, contactY);
+    });
+    y = maxContactBottom + 10;
   }
-  void h;
+
+  // ─── Footer anchored to bottom of page ──────────────────────────
+  // Match Pilot/Comparison: draw the footer band at `h - footerH` so it never
+  // slides off when the body is long, gated on the footer `show` toggle and
+  // honoring the footer font size + custom CTA link controls.
+  const customLinkText = opts?.customLinkText;
+  const customLinkUrl = opts?.customLinkUrl;
+  const phoneNumber = opts?.phoneNumber ?? "";
+  const showFooter = (fCfg.show as boolean | undefined) !== false;
+  const hasCustomLink = !!(customLinkText?.trim() && customLinkUrl?.trim());
+  const footerH = showFooter ? (hasCustomLink ? 56 : 44) : 0;
+  const footerY = h - footerH;
+  if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
+  if (showFooter) {
+    doc.setFillColor(...pal.primary);
+    doc.rect(0, footerY, w, footerH, "F");
+    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...white);
+    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : footerLink;
+    if (footerText) doc.text(footerText, w / 2, footerY + (hasCustomLink ? 20 : 28), { align: "center" });
+    if (hasCustomLink) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerY + 38, { url: customLinkUrl! });
+    }
+  }
 
   return doc;
 };
