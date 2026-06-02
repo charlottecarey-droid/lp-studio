@@ -31,21 +31,23 @@ const THEME_DEFAULTS: Required<EventPageTheme> = {
 function ColorRow({ label, value, fallback, onChange }: { label: string; value: string | undefined; fallback: string; onChange: (v: string) => void }) {
   const v = (value && value.trim()) || fallback;
   return (
-    <div className="flex items-center gap-2">
-      <Label className="text-xs flex-1">{label}</Label>
-      <Input
-        type="color"
-        value={v}
-        onChange={e => onChange(e.target.value)}
-        className="h-7 w-10 p-0.5 cursor-pointer"
-      />
-      <Input
-        value={value ?? ""}
-        onChange={e => onChange(e.target.value)}
-        placeholder={fallback}
-        className="text-xs h-7 w-24 font-mono"
-      />
-      <BrandSwatches className="basis-full justify-end" current={value} onPick={onChange} />
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Label className="text-xs flex-1">{label}</Label>
+        <Input
+          type="color"
+          value={v}
+          onChange={e => onChange(e.target.value)}
+          className="h-7 w-10 p-0.5 cursor-pointer"
+        />
+        <Input
+          value={value ?? ""}
+          onChange={e => onChange(e.target.value)}
+          placeholder={fallback}
+          className="text-xs h-7 w-24 font-mono"
+        />
+      </div>
+      <BrandSwatches className="justify-start" current={value} onPick={onChange} />
     </div>
   );
 }
