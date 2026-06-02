@@ -14,6 +14,7 @@ import {
   FlaskConical,
   X,
   Sparkles,
+  Link2,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
 import { MultiSelectChip } from "@/components/MultiSelectChip";
 import { EmailWYSIWYGEditor } from "@/components/EmailWYSIWYGEditor";
+import { LinkExportPanel } from "@/components/LinkExportPanel";
+
+type DeliveryMode = "email" | "links";
 
 const API_BASE = "/api";
 
@@ -168,6 +172,9 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
   // Step 1 — basics
   const [name, setName] = useState("");
   const [accountId, setAccountId] = useState<string>("");
+  // Delivery mode: "email" = classic send; "links" = generate personalized
+  // microsite links only (no email) and export them to a destination.
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("email");
 
   // Step 1 — landing page (optional). When set, the send path generates a
   // per-contact tracking link and resolves {{microsite_url}}.
@@ -225,6 +232,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
       setError(null);
       setName(initialPage ? `Launch: ${initialPage.title}` : "");
       setAccountId("");
+      setDeliveryMode("email");
       setPageId(initialPage ? String(initialPage.id) : "");
       setSelectedContactIds(new Set());
       setSelectedAudienceId("");
@@ -435,8 +443,15 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
 
   // ─── Validation per step ────────────────────────────────
   function canAdvance(): boolean {
-    if (step === 1) return name.trim().length > 0;
+    if (step === 1) {
+      if (name.trim().length === 0) return false;
+      // Link-only delivery requires a published page — there's nothing to link to otherwise.
+      if (deliveryMode === "links" && !pageId) return false;
+      return true;
+    }
     if (step === 2) return selectedContactIds.size > 0;
+    // Link-only mode skips email content; step 4 is the export panel (always reachable).
+    if (deliveryMode === "links" && step === 4) return true;
     if (step === 3) {
       if (composeMode === "template") return !!templateId;
       if (!quickSubject.trim()) return false;
@@ -586,6 +601,12 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
   async function handleNext() {
     setError(null);
     if (step < 4) {
+      // Link-only mode skips the email-content step — jump from recipients
+      // straight to the links/export panel (no draft/preview needed).
+      if (deliveryMode === "links" && step === 2) {
+        setStep(4);
+        return;
+      }
       // Entering step 4 — create draft + load preview
       if (step === 3) {
         setSubmitting(true);
@@ -603,6 +624,11 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
   function handleBack() {
     setError(null);
     setConfirmedUnresolved(false);
+    // In link-only mode step 3 doesn't exist, so go back to recipients.
+    if (deliveryMode === "links" && step === 4) {
+      setStep(2);
+      return;
+    }
     if (step > 1) setStep((step - 1) as Step);
   }
 
@@ -685,12 +711,20 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
   }
 
   // ─── Render ─────────────────────────────────────────────
-  const steps: { n: Step; label: string; icon: typeof Mail }[] = [
-    { n: 1, label: "Basics", icon: Mail },
-    { n: 2, label: "Recipients", icon: Users },
-    { n: 3, label: "Email", icon: FileText },
-    { n: 4, label: "Preview & Send", icon: Eye },
-  ];
+  // Link-only mode skips the email-content step (3): the user goes straight
+  // from picking recipients to generating + exporting links.
+  const steps: { n: Step; label: string; icon: typeof Mail }[] = deliveryMode === "links"
+    ? [
+        { n: 1, label: "Basics", icon: Mail },
+        { n: 2, label: "Recipients", icon: Users },
+        { n: 4, label: "Links & Export", icon: Link2 },
+      ]
+    : [
+        { n: 1, label: "Basics", icon: Mail },
+        { n: 2, label: "Recipients", icon: Users },
+        { n: 3, label: "Email", icon: FileText },
+        { n: 4, label: "Preview & Send", icon: Eye },
+      ];
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -731,6 +765,37 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
           {step === 1 && (
             <div className="flex flex-col gap-5">
               <div>
+                <label className="text-xs font-semibold text-foreground mb-1.5 block">How do you want to deliver this?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMode("email")}
+                    className={`flex items-start gap-2 rounded-lg border p-3 text-left transition ${
+                      deliveryMode === "email" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-input hover:bg-muted/40"
+                    }`}
+                  >
+                    <Mail className={`w-4 h-4 mt-0.5 shrink-0 ${deliveryMode === "email" ? "text-primary" : "text-muted-foreground"}`} />
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Send email</div>
+                      <div className="text-[11px] text-muted-foreground">Email each recipient with their personalized link.</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMode("links")}
+                    className={`flex items-start gap-2 rounded-lg border p-3 text-left transition ${
+                      deliveryMode === "links" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-input hover:bg-muted/40"
+                    }`}
+                  >
+                    <Link2 className={`w-4 h-4 mt-0.5 shrink-0 ${deliveryMode === "links" ? "text-primary" : "text-muted-foreground"}`} />
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Generate links only</div>
+                      <div className="text-[11px] text-muted-foreground">No email — get a personalized link per contact to copy or export.</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <div>
                 <label className="text-xs font-semibold text-foreground mb-1.5 block">Campaign name *</label>
                 <Input
                   value={name}
@@ -741,7 +806,9 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
                 <p className="text-[11px] text-muted-foreground mt-1.5">Only visible to your team. Recipients won't see this.</p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-foreground mb-1.5 block">Landing page</label>
+                <label className="text-xs font-semibold text-foreground mb-1.5 block">
+                  Landing page{deliveryMode === "links" ? " *" : ""}
+                </label>
                 {initialPage ? (
                   <div className="flex items-center gap-2 h-10 rounded-md border border-input bg-muted/40 px-3 text-sm">
                     <FileText className="w-4 h-4 text-primary shrink-0" />
@@ -753,12 +820,16 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
                     onChange={e => handlePageChange(e.target.value)}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
-                    <option value="">No page — send email only</option>
+                    <option value="">
+                      {deliveryMode === "links" ? "Choose a published page…" : "No page — send email only"}
+                    </option>
                     {pages.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                   </select>
                 )}
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Each recipient gets a personalized <code className="font-mono">{"{{microsite_url}}"}</code> tracking link to this page. Only published pages can be sent.
+                  {deliveryMode === "links"
+                    ? "Required — each contact gets a personalized tracking link to this published page."
+                    : <>Each recipient gets a personalized <code className="font-mono">{"{{microsite_url}}"}</code> tracking link to this page. Only published pages can be sent.</>}
                 </p>
               </div>
               <div>
@@ -1041,8 +1112,17 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
             </div>
           )}
 
+          {/* Step 4 (link-only) — Generate & Export personalized links */}
+          {step === 4 && deliveryMode === "links" && (
+            <LinkExportPanel
+              pageId={Number(pageId)}
+              contactIds={Array.from(selectedContactIds)}
+              onError={setError}
+            />
+          )}
+
           {/* Step 4 — Preview & Send */}
-          {step === 4 && (
+          {step === 4 && deliveryMode === "email" && (
             <div className="flex flex-col gap-4">
               {/* Sample-recipient selector + test */}
               <div className="flex items-center gap-3 flex-wrap">
@@ -1197,7 +1277,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
             <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
               <X className="w-3.5 h-3.5 mr-1" /> Cancel
             </Button>
-            {step === 4 && (
+            {step === 4 && deliveryMode === "email" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1216,6 +1296,11 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
               >
                 {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Next <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            ) : deliveryMode === "links" ? (
+              // Link-only mode: export actions live in the panel; footer just closes.
+              <Button size="sm" onClick={onClose} className="gap-1.5">
+                <Check className="w-3.5 h-3.5" /> Done
               </Button>
             ) : (
               <Button

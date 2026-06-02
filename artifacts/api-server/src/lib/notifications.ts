@@ -930,6 +930,140 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
   }
 }
 
+export interface MarketoLinkLead {
+  email: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  link: string;
+}
+
+export interface MarketoStaticListResult {
+  created: number;
+  failed: number;
+  addedToList: number;
+  reasons: string[];
+}
+
+/**
+ * Fetch the set of valid Lead REST field API names from a Marketo instance.
+ * Used to validate the personalized-link field BEFORE sending any records, so
+ * an unmapped/typo'd field name can never poison the whole createOrUpdate batch
+ * (Marketo rejects the entire request when a field name is unknown).
+ */
+async function getMarketoLeadFieldNames(config: MarketoConfig, token: string): Promise<Set<string>> {
+  const res = await retryFetch(
+    `https://${config.munchkinId}.mktorest.com/rest/v1/leads/describe.json`,
+    { headers: { "Authorization": `Bearer ${token}` } },
+  );
+  const body = await res.json().catch(() => null) as {
+    result?: Array<{ rest?: { name?: string } }>;
+  } | null;
+  const names = new Set<string>();
+  for (const f of body?.result ?? []) {
+    if (f.rest?.name) names.add(f.rest.name);
+  }
+  return names;
+}
+
+/**
+ * Push a set of contacts (with their personalized microsite links) to Marketo:
+ * createOrUpdate each lead by email — storing the link on a mapped field — then
+ * add the successfully-synced records to an existing static list.
+ *
+ * Fail-closed: the link field is validated against the instance's field schema
+ * up front; an invalid field name throws WITHOUT sending any records, so a
+ * single bad mapping never poisons the whole sync. Per-record rejections are
+ * counted as failed and excluded from the list-add step. Reuses the existing
+ * Marketo auth/token cache and retry helpers.
+ */
+export async function syncLinksToMarketoStaticList(
+  config: MarketoConfig,
+  args: { rows: MarketoLinkLead[]; listId: string; linkFieldName: string },
+): Promise<MarketoStaticListResult> {
+  const token = await getMarketoToken(config.munchkinId, config.clientId, config.clientSecret);
+  const linkField = args.linkFieldName.trim();
+  if (!linkField) throw new Error("A Marketo field for the personalized link is required.");
+
+  // Validate the link field exists before sending anything (fail-closed).
+  const validFields = await getMarketoLeadFieldNames(config, token);
+  if (validFields.size > 0 && !validFields.has(linkField)) {
+    throw new Error(`Marketo has no lead field named "${linkField}". Check the field's REST API name and try again.`);
+  }
+
+  const reasons: string[] = [];
+  let created = 0;
+  let failed = 0;
+  const syncedLeadIds: number[] = [];
+
+  // createOrUpdate in batches (Marketo caps at 300 records per request).
+  const BATCH = 300;
+  for (let i = 0; i < args.rows.length; i += BATCH) {
+    const slice = args.rows.slice(i, i + BATCH);
+    const input = slice.map(r => ({
+      email: r.email,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      company: r.company,
+      [linkField]: r.link,
+    }));
+    const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "createOrUpdate", lookupField: "email", input }),
+    });
+    const body = await res.json().catch(() => null) as {
+      success?: boolean;
+      errors?: Array<{ code: string; message: string }>;
+      result?: Array<{ id?: number; status?: string; reasons?: Array<{ code: string; message: string }> }>;
+    } | null;
+    if (!body || body.success === false) {
+      const msg = body?.errors?.map(e => e.message).join("; ") || "Marketo rejected the request";
+      throw new Error(`Marketo leads API failed: ${msg}`);
+    }
+    const results = body.result ?? [];
+    for (let j = 0; j < results.length; j++) {
+      const rec = results[j];
+      if (rec.id && (!rec.reasons || rec.reasons.length === 0)) {
+        created++;
+        syncedLeadIds.push(rec.id);
+      } else {
+        failed++;
+        for (const reason of rec.reasons ?? []) reasons.push(reason.message);
+      }
+    }
+  }
+
+  // Add the synced records to the static list (chunk ids into the query string).
+  let addedToList = 0;
+  const ID_CHUNK = 100;
+  for (let i = 0; i < syncedLeadIds.length; i += ID_CHUNK) {
+    const ids = syncedLeadIds.slice(i, i + ID_CHUNK);
+    const qs = ids.map(id => `id=${id}`).join("&");
+    const res = await retryFetch(
+      `https://${config.munchkinId}.mktorest.com/rest/v1/lists/${encodeURIComponent(args.listId)}/leads.json?${qs}`,
+      { method: "POST", headers: { "Authorization": `Bearer ${token}` } },
+    );
+    const body = await res.json().catch(() => null) as {
+      success?: boolean;
+      errors?: Array<{ code: string; message: string }>;
+      result?: Array<{ id?: number; status?: string }>;
+    } | null;
+    if (!body || body.success === false) {
+      const msg = body?.errors?.map(e => e.message).join("; ") || "unknown error";
+      throw new Error(`Marketo could not add leads to list ${args.listId}: ${msg}`);
+    }
+    for (const rec of body.result ?? []) {
+      if (rec.status === "added" || rec.status === "memberof") addedToList++;
+    }
+  }
+
+  // De-duplicate reasons for a compact summary.
+  const uniqueReasons = [...new Set(reasons)].slice(0, 5);
+  logger.info({ created, failed, addedToList, listId: args.listId }, "Personalized links synced to Marketo static list");
+  return { created, failed, addedToList, reasons: uniqueReasons };
+}
+
 const sfTokenCache = new Map<string, { token: string; instanceUrl: string; expiresAt: number }>();
 
 async function getSalesforceToken(config: SalesforceConfig): Promise<{ token: string; instanceUrl: string }> {
