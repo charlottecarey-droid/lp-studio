@@ -11,6 +11,7 @@ import { BrandSwatches } from "@/components/BrandSwatches";
 import { FontSelect } from "@/components/FontSelect";
 import { suggestCopy } from "@/lib/copy-api";
 import { episodeSlug } from "@/blocks/BlockContentSeries";
+import { ModalFormSourcePanel } from "./ModalFormSourcePanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type {
   ContentSeriesBlockProps,
@@ -259,9 +260,63 @@ interface Props {
   props: ContentSeriesBlockProps;
   onChange: (props: ContentSeriesBlockProps) => void;
   brandVoiceSet?: boolean;
+  /** Current page id — required for the "Notify subscribers" feature. */
+  pageId?: number;
 }
 
-export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props) {
+const slugifyEpisodeKey = (s: string) =>
+  s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+const episodeKeyOf = (ep: ContentSeriesEpisode) =>
+  (ep.slug?.trim() || ep.rssGuid?.trim() || slugifyEpisodeKey(ep.title ?? ""));
+
+export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet, pageId }: Props) {
+  const [notifyBusy, setNotifyBusy] = useState<Record<string, boolean>>({});
+  const [notifyMsg, setNotifyMsg] = useState<Record<string, string>>({});
+
+  const handleNotify = async (ep: ContentSeriesEpisode) => {
+    if (pageId == null) return;
+    const key = episodeKeyOf(ep);
+    if (!key) return;
+    setNotifyBusy(b => ({ ...b, [key]: true }));
+    setNotifyMsg(m => ({ ...m, [key]: "" }));
+    try {
+      const statusRes = await fetch(
+        `/api/lp/content-series/notify-status?pageId=${pageId}&episodeKey=${encodeURIComponent(key)}`,
+      );
+      if (!statusRes.ok) throw new Error("status");
+      const status = (await statusRes.json()) as {
+        totalSubscribers: number; optedOut: number; alreadyNotified: number; pending: number;
+      };
+      if (status.pending === 0) {
+        setNotifyMsg(m => ({
+          ...m,
+          [key]: status.totalSubscribers === 0
+            ? "No subscribers yet."
+            : `Everyone's already been notified (${status.alreadyNotified} sent${status.optedOut ? `, ${status.optedOut} opted out` : ""}).`,
+        }));
+        return;
+      }
+      const ok = window.confirm(
+        `Email ${status.pending} subscriber${status.pending === 1 ? "" : "s"} about “${ep.title}”?` +
+          (status.alreadyNotified ? ` ${status.alreadyNotified} already notified.` : "") +
+          (status.optedOut ? ` ${status.optedOut} opted out.` : ""),
+      );
+      if (!ok) return;
+      const res = await fetch(`/api/lp/content-series/notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId, episodeKey: key }),
+      });
+      if (!res.ok) throw new Error("notify");
+      const r = (await res.json()) as { sent: number; failed: number; alreadyNotified: number };
+      setNotifyMsg(m => ({ ...m, [key]: `Sent ${r.sent}${r.failed ? `, ${r.failed} failed` : ""}.` }));
+    } catch {
+      setNotifyMsg(m => ({ ...m, [key]: "Failed — try again." }));
+    } finally {
+      setNotifyBusy(b => ({ ...b, [key]: false }));
+    }
+  };
+
   const [open, setOpen] = useState<Record<string, boolean>>({
     visibility: false,
     theme: false,
@@ -978,6 +1033,25 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
                 <Input value={p.subscribeButtonLabel ?? ""} onChange={e => set({ subscribeButtonLabel: e.target.value || undefined })} className="text-xs h-7" placeholder="Subscribe" />
               </Field>
               <div className="border-t border-border pt-3 mt-3 space-y-3">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Form Source</Label>
+                <ModalFormSourcePanel
+                  value={{
+                    modalFormSource: p.subscribeFormSource,
+                    modalFormId: p.subscribeLinkedFormId,
+                    modalMarketoBaseUrl: p.subscribeMarketoBaseUrl,
+                    modalMarketoMunchkinId: p.subscribeMarketoMunchkinId,
+                    modalMarketoFormId: p.subscribeMarketoFormId,
+                  }}
+                  onChange={next => set({
+                    subscribeFormSource: next.modalFormSource,
+                    subscribeLinkedFormId: next.modalFormId,
+                    subscribeMarketoBaseUrl: next.modalMarketoBaseUrl,
+                    subscribeMarketoMunchkinId: next.modalMarketoMunchkinId,
+                    subscribeMarketoFormId: next.modalMarketoFormId,
+                  })}
+                />
+              </div>
+              <div className="border-t border-border pt-3 mt-3 space-y-3">
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Modal Copy</Label>
                 <Field label="Eyebrow">
                   <AiTextField type="input" value={p.subscribeFormEyebrow ?? ""} onChange={v => set({ subscribeFormEyebrow: v })} fieldLabel="Subscribe Eyebrow" brandVoiceSet={brandVoiceSet}
@@ -1056,6 +1130,41 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet }: Props)
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="border-t border-border pt-3 mt-3 space-y-3">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Email Subscribers</Label>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Subscribers are people who signed up via the built-in Subscribe form on this page. Email them when a new episode goes live.
+                </p>
+                <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={p.subscribeNotifyAutoSend === true}
+                    onChange={e => set({ subscribeNotifyAutoSend: e.target.checked })}
+                    className="w-3.5 h-3.5"
+                  />
+                  Auto-email subscribers when a new episode is published
+                </label>
+                {pageId == null ? (
+                  <p className="text-[10px] text-muted-foreground italic">Save &amp; publish this page first to notify subscribers.</p>
+                ) : episodes.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">Add episodes above to notify subscribers.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {episodes.map((ep, i) => {
+                      const key = episodeKeyOf(ep);
+                      return (
+                        <div key={i} className="flex items-center gap-2 border border-border rounded p-1.5">
+                          <span className="text-xs flex-1 truncate" title={ep.title}>{ep.title || "Untitled episode"}</span>
+                          {notifyMsg[key] && <span className="text-[10px] text-muted-foreground shrink-0">{notifyMsg[key]}</span>}
+                          <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs shrink-0" disabled={notifyBusy[key]} onClick={() => handleNotify(ep)}>
+                            {notifyBusy[key] ? "Sending…" : "Notify"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </>
           )}

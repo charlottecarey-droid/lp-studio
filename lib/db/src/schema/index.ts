@@ -69,3 +69,6 @@ export * from "./tenantEmailShells";
 export * from "./emailTemplateEditLog";
 export * from "./broadcastAlertRecipients";
 export * from "./broadcastRecipientGroups";
+
+// Content Series block — episode-notification bookkeeping (subscribers, dedupe)
+export * from "./contentSeriesNotifications";

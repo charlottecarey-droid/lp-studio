@@ -14,6 +14,7 @@ import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import crypto from "node:crypto";
 import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/triggerPublishedRender";
+import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
 
 const router = Router();
@@ -724,6 +725,9 @@ router.post("/lp/pages/:pageId/approve", async (req, res): Promise<void> => {
   // Task #364: approve = first time the page becomes publicly published.
   // Kick off prerender so visitors get static HTML w/ per-page OG meta.
   triggerPublishedRender({ pageId: id, requestHost: getRequestHost(req) });
+  // Task #806: notify Content Series subscribers about newly-added episodes
+  // (best-effort, fire-and-forget — never block the publish response).
+  void handlePagePublishNotifications({ tenantId, pageId: id, requestHost: getRequestHost(req) });
   res.json({ page: updated, asanaWarning });
 });
 
@@ -928,6 +932,12 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
       }
       if (isPublished) {
         triggerPublishedRender({ pageId: page.id, requestHost: getRequestHost(req) });
+        // Task #806: fire-and-forget Content Series episode notifications.
+        void handlePagePublishNotifications({
+          tenantId: page.tenantId,
+          pageId: page.id,
+          requestHost: getRequestHost(req),
+        });
       } else if (wasPublished) {
         triggerPublishedDelete(page.tenantId, page.slug);
       }

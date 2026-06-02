@@ -45,6 +45,7 @@ import pageDetailRouter from "./page-detail";
 import rssSyncRouter from "./rss-sync";
 import extractGuestsRouter from "./extract-guests";
 import podcastAvailabilityRouter from "./podcast-availability";
+import contentSeriesRouter from "./content-series";
 import renderedRouter from "./rendered";
 import planConfigRouter from "./plan-config";
 import emailDomainRouter from "./email-domain";
@@ -105,6 +106,7 @@ router.use(adMapRouter);
 router.use(rssSyncRouter);
 router.use(extractGuestsRouter);
 router.use(podcastAvailabilityRouter);
+router.use(contentSeriesRouter);
 router.use(testSentryErrorRouter);
 
 export default router;

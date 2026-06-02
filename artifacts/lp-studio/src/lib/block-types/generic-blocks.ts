@@ -1513,6 +1513,24 @@ export interface ContentSeriesBlockProps {
    *  subscribeSubmitUrl chain. */
   subscribeFormSubmitUrl?: string;
 
+  /** Source for the Subscribe modal form. "simple" (default) uses the built-in
+   *  subscribeFormSteps; "linked" embeds a global form by id; "marketo" embeds a
+   *  Marketo form. Only the built-in source captures local subscribers that can
+   *  be notified about new episodes — linked/Marketo subscribers live in those
+   *  systems. */
+  subscribeFormSource?: "simple" | "linked" | "marketo";
+  /** Linked global form id (required when subscribeFormSource === "linked"). */
+  subscribeLinkedFormId?: number;
+  /** Marketo embed config (required when subscribeFormSource === "marketo"). */
+  subscribeMarketoBaseUrl?: string;
+  subscribeMarketoMunchkinId?: string;
+  subscribeMarketoFormId?: number;
+
+  /** When true, publishing the page automatically emails built-in subscribers
+   *  about any newly added episodes (at most once per episode per subscriber).
+   *  Defaults to false — episode notifications are opt-in. */
+  subscribeNotifyAutoSend?: boolean;
+
   /** Optional RSS feed URL. When set, the panel "Sync from RSS" button can pull episodes;
    *  if rssAutoSync is also true, the published page also fetches the feed on render and
    *  merges newly published items into the displayed list (manual edits win on conflicts). */

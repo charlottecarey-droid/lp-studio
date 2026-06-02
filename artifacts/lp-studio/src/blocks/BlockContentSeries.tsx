@@ -36,6 +36,7 @@ import type {
 } from "@/lib/block-types";
 import type { FormStep, FormField } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 import { getDtrParams } from "@/lib/dtr";
 
@@ -3208,9 +3209,30 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
         {(safeProps.showForm !== false) && (safeProps.showCta !== false) && <SectionTransition C={C} />}
         {(safeProps.showCta !== false) && <CtaSection p={effective} C={C} onSubscribe={openSubscribeForm} />}
       </div>
-      {formModalState.open && (
+      {formModalState.open && formModalState.kind === "subscribe" && effective.subscribeFormSource && effective.subscribeFormSource !== "simple" ? (
+        <EmailCaptureModal
+          open
+          onClose={closeForm}
+          email={formModalState.initial.email ?? ""}
+          mode="form"
+          formSource={effective.subscribeFormSource}
+          {...(effective.subscribeLinkedFormId != null ? { linkedFormId: effective.subscribeLinkedFormId } : {})}
+          {...(effective.subscribeMarketoBaseUrl ? { marketoBaseUrl: effective.subscribeMarketoBaseUrl } : {})}
+          {...(effective.subscribeMarketoMunchkinId ? { marketoMunchkinId: effective.subscribeMarketoMunchkinId } : {})}
+          {...(effective.subscribeMarketoFormId != null ? { marketoFormId: effective.subscribeMarketoFormId } : {})}
+          formConfig={{
+            headline: effective.subscribeFormHeadline ?? "Never Miss an Episode",
+            subheadline: effective.subscribeFormSubheadline ?? "Get new episodes delivered to your inbox.",
+            successMessage: effective.subscribeSuccessMessage ?? "You're in. Watch your inbox.",
+          }}
+          primaryColor={C.primary}
+          {...(brand ? { brand } : {})}
+          {...(pageId != null ? { pageId } : {})}
+          source="content-series-subscribe"
+        />
+      ) : formModalState.open ? (
         <FormModal config={modalConfig} p={effective} C={C} onClose={closeForm} initialFormData={formModalState.initial} pageId={pageId} sessionId={sessionId} />
-      )}
+      ) : null}
     </ContentSeriesErrorBoundary>
   );
 }

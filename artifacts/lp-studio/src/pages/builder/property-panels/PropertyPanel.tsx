@@ -5724,7 +5724,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         );
       }
       case "content-series":
-        return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
+        return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} pageId={pageId} />;
       case "blog-series":
         return <BlogSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
       case "storefront":
