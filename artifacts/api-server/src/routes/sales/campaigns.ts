@@ -1,7 +1,7 @@
 import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, inArray } from "drizzle-orm";
-import { createHmac } from "crypto";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
+import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import {
   salesEmailCampaignsTable,
@@ -31,34 +31,79 @@ const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 // 1x1 transparent GIF pixel for open tracking
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
 
+// How long a campaign may sit in status='sending' before its claim is treated
+// as stale (crashed mid-send) and a fresh send is allowed to reclaim it.
+const SENDING_STALE_MS = 15 * 60 * 1000;
+// While a send loop is actively running we refresh the sendingStartedAt marker
+// at this cadence (a heartbeat) so a long but healthy send is never mistaken for
+// a crashed one and reclaimed mid-flight. Must be << SENDING_STALE_MS.
+const SENDING_HEARTBEAT_MS = 2 * 60 * 1000;
+
 // ─── Unsubscribe token helpers ─────────────────────────────
-const UNSUB_SECRET = process.env.UNSUB_SECRET ?? process.env.RESEND_API_KEY ?? "dandy-unsub-secret";
+// SECURITY: no hardcoded fallback secret. In production the server refuses to
+// boot without UNSUB_SECRET (see server.ts), so the real, stable secret is
+// always present there. In dev/test we mint an ephemeral per-process random
+// secret — tokens stay non-forgeable but reset on restart (fine, since dev
+// doesn't send durable unsubscribe links). The old `RESEND_API_KEY` /
+// `"dandy-unsub-secret"` fallbacks are gone: they let anyone who knew the
+// constant forge an unsubscribe for any contact.
+const UNSUB_SECRET: string = process.env.UNSUB_SECRET ?? randomBytes(32).toString("hex");
 const UNSUB_TOKEN_EXPIRY_DAYS = 30;
 
-function makeUnsubToken(contactId: number): string {
+// New tokens bind tenantId into the HMAC so a token for tenant A can never be
+// replayed to unsubscribe a contact id that belongs to tenant B. The unsubscribe
+// route also re-scopes its UPDATE to this tenantId. Format (base64url of):
+//   `${tenantId}.${contactId}.${expiresAt}.${mac}`  (4 parts)
+// Legacy tokens (3 parts, no tenant) are still honored within a grace window so
+// links already in inboxes keep working through the rollout.
+function makeUnsubToken(tenantId: number, contactId: number): string {
   const expiresAt = Math.floor(Date.now() / 1000) + (UNSUB_TOKEN_EXPIRY_DAYS * 24 * 60 * 60);
-  const mac = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
-  return Buffer.from(`${contactId}.${expiresAt}.${mac}`).toString("base64url");
+  const mac = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${expiresAt}`).digest("hex");
+  return Buffer.from(`${tenantId}.${contactId}.${expiresAt}.${mac}`).toString("base64url");
 }
 
-function verifyUnsubToken(token: string): number | null {
+// Constant-time HMAC comparison — never short-circuit on the first mismatched
+// byte (timing side-channel). Both args are lowercase hex of equal length when
+// the token is well-formed; a length mismatch is an immediate reject.
+function macEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+function verifyUnsubToken(token: string): { tenantId: number | null; contactId: number } | null {
   try {
     const decoded = Buffer.from(token, "base64url").toString("utf8");
     const parts = decoded.split(".");
-    if (parts.length !== 3) return null;
-
-    const [idStr, expiryStr, mac] = parts;
-    const contactId = parseInt(idStr, 10);
-    const expiresAt = parseInt(expiryStr, 10);
-
-    if (isNaN(contactId) || isNaN(expiresAt)) return null;
-
-    // Check if token has expired
     const now = Math.floor(Date.now() / 1000);
-    if (now > expiresAt) return null;
 
-    const expected = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
-    return mac === expected ? contactId : null;
+    if (parts.length === 4) {
+      // Current format: tenant-bound.
+      const [tenantStr, idStr, expiryStr, mac] = parts;
+      const tenantId = parseInt(tenantStr, 10);
+      const contactId = parseInt(idStr, 10);
+      const expiresAt = parseInt(expiryStr, 10);
+      if (isNaN(tenantId) || isNaN(contactId) || isNaN(expiresAt)) return null;
+      if (now > expiresAt) return null;
+      const expected = createHmac("sha256", UNSUB_SECRET).update(`${tenantId}.${contactId}.${expiresAt}`).digest("hex");
+      return macEquals(mac, expected) ? { tenantId, contactId } : null;
+    }
+
+    if (parts.length === 3) {
+      // Legacy format (no tenant) — grace window for links already in inboxes.
+      const [idStr, expiryStr, mac] = parts;
+      const contactId = parseInt(idStr, 10);
+      const expiresAt = parseInt(expiryStr, 10);
+      if (isNaN(contactId) || isNaN(expiresAt)) return null;
+      if (now > expiresAt) return null;
+      const expected = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
+      return macEquals(mac, expected) ? { tenantId: null, contactId } : null;
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -71,15 +116,21 @@ router.get("/unsubscribe", async (req, res): Promise<void> => {
     res.status(400).send("<h2>Invalid unsubscribe link.</h2>");
     return;
   }
-  const contactId = verifyUnsubToken(token);
-  if (!contactId) {
+  const verified = verifyUnsubToken(token);
+  if (!verified) {
     res.status(400).send("<h2>Invalid or expired unsubscribe link.</h2>");
     return;
   }
+  const { tenantId, contactId } = verified;
   try {
+    // Scope the UPDATE to the token's tenant when present (current 4-part
+    // tokens). Legacy 3-part tokens carry no tenant, so they fall back to the
+    // contact id alone within their grace window.
     await db.update(salesContactsTable)
       .set({ status: "unsubscribed" })
-      .where(eq(salesContactsTable.id, contactId));
+      .where(tenantId !== null
+        ? and(eq(salesContactsTable.id, contactId), eq(salesContactsTable.tenantId, tenantId))
+        : eq(salesContactsTable.id, contactId));
     res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
 <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafb}
 .box{text-align:center;padding:48px;max-width:400px}h1{color:#003A30;margin-bottom:12px}p{color:#555;line-height:1.6}</style></head>
@@ -541,8 +592,11 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         eq(salesEmailSendsTable.status, "sent"),
       ));
     const alreadySentIds = new Set(existingSends.map(s => s.contactId));
-    const sendable = withEmail.filter(c => !alreadySentIds.has(c.id));
-    const skippedCount = withEmail.length - sendable.length;
+    // `sendable`/`skippedCount` are re-derived UNDER the claim lock below (this
+    // pre-claim snapshot can go stale if a concurrent send commits between here
+    // and the claim), so they are mutable.
+    let sendable = withEmail.filter(c => !alreadySentIds.has(c.id));
+    let skippedCount = withEmail.length - sendable.length;
     if (sendable.length === 0) {
       res.status(400).json({ error: `All ${withEmail.length} contacts have already been sent to in this campaign` });
       return;
@@ -589,10 +643,76 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       : [];
     const accountNameById = new Map(allAccounts.map(a => [a.id, a.name]));
 
-    // Mark campaign as sending
-    await db.update(salesEmailCampaignsTable)
-      .set({ status: "sending", recipientCount: sendable.length })
-      .where(eq(salesEmailCampaignsTable.id, campaignId));
+    // Concurrency + crash-recovery claim. Two simultaneous send requests for the
+    // same campaign would BOTH pass the per-contact idempotency filter above
+    // (there's no unique (campaign, contact) constraint) and double-send, so we
+    // serialize them with a short claim transaction:
+    //   - take a transaction-scoped advisory lock keyed on the campaign id
+    //     (pg_advisory_xact_lock auto-releases on commit — safe on the Neon
+    //     pooler, unlike session locks which leak),
+    //   - re-read the campaign status UNDER the lock,
+    //   - reject with 409 if it's already 'sending' with a FRESH marker (another
+    //     send is genuinely in flight),
+    //   - otherwise stamp status='sending' + metadata.sendingStartedAt so a crash
+    //     leaves a STALE marker that a later retry is allowed to reclaim,
+    //   - and RE-READ the already-sent set under the same lock to drop any
+    //     contacts a concurrent send finished between our pre-claim snapshot and
+    //     this claim — this is what actually makes the send race-free.
+    const claim = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('sales_campaign_send'), ${campaignId}::int)`);
+      const [fresh] = await tx.select({
+        status: salesEmailCampaignsTable.status,
+        metadata: salesEmailCampaignsTable.metadata,
+      })
+        .from(salesEmailCampaignsTable)
+        .where(eq(salesEmailCampaignsTable.id, campaignId));
+      const startedAtRaw = (fresh?.metadata as Record<string, unknown> | null)?.["sendingStartedAt"];
+      const startedAt = typeof startedAtRaw === "string" ? Date.parse(startedAtRaw) : NaN;
+      const inFlight =
+        fresh?.status === "sending" && !isNaN(startedAt) && (Date.now() - startedAt) < SENDING_STALE_MS;
+      if (inFlight) return { claimed: false as const };
+      // Re-derive the sendable set under the lock so a concurrent (or just-
+      // finished) send's rows are honored — closes the snapshot-staleness window.
+      const sentRows = await tx.select({ contactId: salesEmailSendsTable.contactId })
+        .from(salesEmailSendsTable)
+        .where(and(
+          eq(salesEmailSendsTable.campaignId, campaignId),
+          eq(salesEmailSendsTable.status, "sent"),
+        ));
+      const sentNow = new Set(sentRows.map(r => r.contactId));
+      const remaining = sendable.filter(c => !sentNow.has(c.id));
+      await tx.update(salesEmailCampaignsTable)
+        .set({
+          status: "sending",
+          recipientCount: remaining.length,
+          metadata: {
+            ...((fresh?.metadata as Record<string, unknown> | null) ?? {}),
+            sendingStartedAt: new Date().toISOString(),
+          },
+        })
+        .where(eq(salesEmailCampaignsTable.id, campaignId));
+      return { claimed: true as const, remaining };
+    });
+    if (!claim.claimed) {
+      res.status(409).json({
+        error: "This campaign is already being sent. Wait for the in-progress send to finish before sending again.",
+      });
+      return;
+    }
+    // Adopt the lock-checked recipient list. Any contacts dropped here were
+    // already sent by a concurrent run, so count them as skipped.
+    skippedCount += sendable.length - claim.remaining.length;
+    sendable = claim.remaining;
+    if (sendable.length === 0) {
+      // A concurrent send finished every remaining contact between our snapshot
+      // and the claim. Release the marker back to 'sent' and report nothing sent.
+      await withDbRetry(() => db.update(salesEmailCampaignsTable)
+        .set({ status: "sent", sentAt: new Date() })
+        .where(eq(salesEmailCampaignsTable.id, campaignId)));
+      res.json({ sent: 0, failed: 0, skipped: skippedCount, total: withEmail.length });
+      return;
+    }
+    let lastHeartbeat = Date.now();
 
     const host = await getTenantOutboundOrigin(tenantId, req);
     const brandCtx = await getSalesBrandContext(tenantId);
@@ -613,13 +733,9 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     const campaignPreviewText = ((campaign.metadata as any)?.previewText ?? "") as string;
 
     let sent = 0, failed = 0;
-    const sendRecords: Array<{
-      campaignId: number; contactId: number; hotlinkId: number | null;
-      email: string; status: string; sentAt: Date | null; metadata: Record<string, unknown>;
-    }> = [];
 
     for (const contact of sendable) {
-      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`;
+      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id)}`;
       const companyName = contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "";
       const vars: Record<string, string> = {
         "{{first_name}}": contact.firstName ?? "",
@@ -681,17 +797,26 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
       const result = await sendViaResend(payload);
 
-      sendRecords.push({
-        campaignId,
-        contactId: contact.id,
-        hotlinkId: hotlink?.id ?? null,
-        email: contact.email!,
-        status: result.ok ? "sent" : "failed",
-        sentAt: result.ok ? new Date() : null,
-        metadata: result.ok
-          ? (result.resendId ? { resendId: result.resendId } : {})
-          : { error: result.error },
-      });
+      // Durable per-contact record. Persist IMMEDIATELY (autocommit, not batched
+      // at the end) so a crash mid-loop leaves a 'sent' row for every contact we
+      // already emailed — the idempotency filter above then skips them on retry
+      // instead of double-sending. A failed insert after a successful send is
+      // logged but does not abort the loop (the email already went out).
+      try {
+        await withDbRetry(() => db.insert(salesEmailSendsTable).values({
+          campaignId,
+          contactId: contact.id,
+          hotlinkId: hotlink?.id ?? null,
+          email: contact.email!,
+          status: result.ok ? "sent" : "failed",
+          sentAt: result.ok ? new Date() : null,
+          metadata: result.ok
+            ? (result.resendId ? { resendId: result.resendId } : {})
+            : { error: result.error },
+        }));
+      } catch (insErr) {
+        logger.error({ err: insErr, contactId: contact.id, campaignId }, "send-record insert failed (email status unchanged)");
+      }
 
       if (result.ok) {
         sent++;
@@ -733,12 +858,22 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       if (sendable.length > 10) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
+
+      // Heartbeat: refresh the sendingStartedAt marker while we're actively
+      // working so a long-but-healthy send is never seen as stale and reclaimed
+      // by a concurrent request. Best-effort — a failed heartbeat just risks an
+      // earlier stale-reclaim, which the under-lock re-filter already guards.
+      if (Date.now() - lastHeartbeat > SENDING_HEARTBEAT_MS) {
+        lastHeartbeat = Date.now();
+        try {
+          await db.execute(sql`UPDATE sales_email_campaigns SET metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{sendingStartedAt}', to_jsonb(${new Date().toISOString()}::text)) WHERE id = ${campaignId}`);
+        } catch (hbErr) {
+          logger.warn({ err: hbErr, campaignId }, "campaign send heartbeat update failed");
+        }
+      }
     }
 
-    // Batch insert send records
-    if (sendRecords.length > 0) {
-      await withDbRetry(() => db.insert(salesEmailSendsTable).values(sendRecords));
-    }
+    // Send records are persisted per-contact inside the loop above (durable).
 
     // Mark campaign as sent
     await withDbRetry(() => db.update(salesEmailCampaignsTable)
@@ -1231,7 +1366,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
       "{{company}}": companyName,
       "{{sender_name}}": fromName,
       "{{email}}": contact.email,
-      "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`,
+      "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id)}`,
     };
 
     // Check for hotlink — only published microsites; never send a dead link.
@@ -1415,7 +1550,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
           "{{company}}": companyName,
           "{{sender_name}}": fromName,
           "{{email}}": contact.email ?? to,
-          "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`,
+          "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id)}`,
           "{{microsite_url}}": testToken ? `${host}/p/${testToken}` : "",
         };
       }

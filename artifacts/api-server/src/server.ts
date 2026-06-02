@@ -405,6 +405,36 @@ if (
   );
 }
 
+// Fail-fast in production when the unsubscribe-token signing secret isn't set.
+// UNSUB_SECRET signs the one-click unsubscribe links in every outbound sales
+// email. Without it the code would otherwise fall back to a per-process random
+// (links break on restart) or — historically — a hardcoded constant that let
+// anyone forge an unsubscribe for any contact. Refuse to boot so the missing
+// secret is caught at deploy time. No-op outside production.
+if (process.env.NODE_ENV === "production" && !process.env.UNSUB_SECRET) {
+  throw new Error(
+    "UNSUB_SECRET is not set on the production deployment. It signs the " +
+      "one-click unsubscribe links in outbound sales emails; without a stable " +
+      "secret those links are forgeable / break across restarts. Set the secret " +
+      "and redeploy.",
+  );
+}
+
+// Fail-fast in production when the Resend webhook signing secret isn't set.
+// RESEND_WEBHOOK_SECRET verifies the HMAC signature on inbound Resend delivery
+// / bounce / complaint webhooks, which mutate send + signal state. Without it
+// the verifier fails closed (rejects every webhook), so delivery status would
+// silently stop updating on a live deploy. Refuse to boot so the missing secret
+// is caught at deploy time. No-op outside production.
+if (process.env.NODE_ENV === "production" && !process.env.RESEND_WEBHOOK_SECRET) {
+  throw new Error(
+    "RESEND_WEBHOOK_SECRET is not set on the production deployment. It verifies " +
+      "the signature on inbound Resend webhooks (delivery / bounce / complaint); " +
+      "without it every webhook is rejected and send status stops updating. Set " +
+      "the secret and redeploy.",
+  );
+}
+
 // Bind the port and immediately mark ready — schema setup ran in the
 // dedicated `pnpm migrate` step before this process started (see
 // `src/migrate.ts` and the production build hook in

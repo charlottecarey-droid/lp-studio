@@ -1021,30 +1021,39 @@ export async function syncLinksToMarketoStaticList(
       company: r.company,
       [linkField]: r.link,
     }));
-    const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "createOrUpdate", lookupField: "email", input }),
-    });
-    const body = await res.json().catch(() => null) as {
-      success?: boolean;
-      errors?: Array<{ code: string; message: string }>;
-      result?: Array<{ id?: number; status?: string; reasons?: Array<{ code: string; message: string }> }>;
-    } | null;
-    if (!body || body.success === false) {
-      const msg = body?.errors?.map(e => e.message).join("; ") || "Marketo rejected the request";
-      throw new Error(`Marketo leads API failed: ${msg}`);
-    }
-    const results = body.result ?? [];
-    for (let j = 0; j < results.length; j++) {
-      const rec = results[j];
-      if (rec.id && (!rec.reasons || rec.reasons.length === 0)) {
-        created++;
-        syncedLeadIds.push(rec.id);
-      } else {
-        failed++;
-        for (const reason of rec.reasons ?? []) reasons.push(reason.message);
+    try {
+      const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "createOrUpdate", lookupField: "email", input }),
+      });
+      const body = await res.json().catch(() => null) as {
+        success?: boolean;
+        errors?: Array<{ code: string; message: string }>;
+        result?: Array<{ id?: number; status?: string; reasons?: Array<{ code: string; message: string }> }>;
+      } | null;
+      if (!body || body.success === false) {
+        const msg = body?.errors?.map(e => e.message).join("; ") || "Marketo rejected the request";
+        throw new Error(`Marketo leads API failed: ${msg}`);
       }
+      const results = body.result ?? [];
+      for (let j = 0; j < results.length; j++) {
+        const rec = results[j];
+        if (rec.id && (!rec.reasons || rec.reasons.length === 0)) {
+          created++;
+          syncedLeadIds.push(rec.id);
+        } else {
+          failed++;
+          for (const reason of rec.reasons ?? []) reasons.push(reason.message);
+        }
+      }
+    } catch (err) {
+      // A whole createOrUpdate batch failed (network/HTTP/rejection). Record
+      // the reason and count the slice as failed, then keep going so one bad
+      // batch never aborts the entire sync — the successfully-synced records
+      // from other batches still get added to the static list below.
+      failed += slice.length;
+      reasons.push(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -1054,21 +1063,28 @@ export async function syncLinksToMarketoStaticList(
   for (let i = 0; i < syncedLeadIds.length; i += ID_CHUNK) {
     const ids = syncedLeadIds.slice(i, i + ID_CHUNK);
     const qs = ids.map(id => `id=${id}`).join("&");
-    const res = await retryFetch(
-      `https://${config.munchkinId}.mktorest.com/rest/v1/lists/${encodeURIComponent(args.listId)}/leads.json?${qs}`,
-      { method: "POST", headers: { "Authorization": `Bearer ${token}` } },
-    );
-    const body = await res.json().catch(() => null) as {
-      success?: boolean;
-      errors?: Array<{ code: string; message: string }>;
-      result?: Array<{ id?: number; status?: string }>;
-    } | null;
-    if (!body || body.success === false) {
-      const msg = body?.errors?.map(e => e.message).join("; ") || "unknown error";
-      throw new Error(`Marketo could not add leads to list ${args.listId}: ${msg}`);
-    }
-    for (const rec of body.result ?? []) {
-      if (rec.status === "added" || rec.status === "memberof") addedToList++;
+    try {
+      const res = await retryFetch(
+        `https://${config.munchkinId}.mktorest.com/rest/v1/lists/${encodeURIComponent(args.listId)}/leads.json?${qs}`,
+        { method: "POST", headers: { "Authorization": `Bearer ${token}` } },
+      );
+      const body = await res.json().catch(() => null) as {
+        success?: boolean;
+        errors?: Array<{ code: string; message: string }>;
+        result?: Array<{ id?: number; status?: string }>;
+      } | null;
+      if (!body || body.success === false) {
+        const msg = body?.errors?.map(e => e.message).join("; ") || "unknown error";
+        throw new Error(`Marketo could not add leads to list ${args.listId}: ${msg}`);
+      }
+      for (const rec of body.result ?? []) {
+        if (rec.status === "added" || rec.status === "memberof") addedToList++;
+      }
+    } catch (err) {
+      // The leads were already created/updated above — a failure to add this
+      // chunk to the static list is a partial failure, not a total one. Record
+      // it and continue so the remaining chunks still get added.
+      reasons.push(err instanceof Error ? err.message : String(err));
     }
   }
 

@@ -38,24 +38,50 @@ export async function ensureHotlinkForContact(
   }
   // Insert with ON CONFLICT on the partial unique index `(contact_id, page_id)`
   // (migration 0017). The DO UPDATE is a no-op SET that still returns the
-  // existing row so concurrent callers all see the same token.
-  let token = "";
+  // existing row so concurrent callers racing on the SAME (contact, page) all
+  // see the same token.
+  //
+  // The `token` column has its OWN unique constraint, which ON CONFLICT does
+  // NOT absorb (its target is the contact/page index). A SELECT-then-INSERT
+  // uniqueness check has a TOCTOU race — two callers can pick the same unused
+  // token between the SELECT and the INSERT — so instead we attempt the insert
+  // directly and, on a unique violation (23505, the token collision), regenerate
+  // a fresh candidate and retry. Astronomically unlikely with random tokens,
+  // but now correct under concurrency rather than racy.
+  let lastErr: unknown = null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const candidate = randomBytes(12).toString("base64url").slice(0, 16);
-    const [clash] = await db.select({ id: salesHotlinksTable.id })
-      .from(salesHotlinksTable)
-      .where(eq(salesHotlinksTable.token, candidate))
-      .limit(1);
-    if (!clash) { token = candidate; break; }
+    try {
+      const [row] = await db.insert(salesHotlinksTable)
+        .values({ tenantId, token: candidate, contactId, sfdcContactId, pageId })
+        .onConflictDoUpdate({
+          target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId],
+          targetWhere: sql`contact_id IS NOT NULL`,
+          set: { isActive: true },
+        })
+        .returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
+      return { id: row.id, token: row.token };
+    } catch (err) {
+      // Only a unique violation is retryable here — and since the contact/page
+      // conflict is already absorbed by ON CONFLICT, a 23505 reaching us is a
+      // token collision. Regenerate and retry; rethrow anything else.
+      if (isUniqueViolation(err)) { lastErr = err; continue; }
+      throw err;
+    }
   }
-  if (!token) throw new Error("Failed to generate unique hotlink token");
-  const [row] = await db.insert(salesHotlinksTable)
-    .values({ tenantId, token, contactId, sfdcContactId, pageId })
-    .onConflictDoUpdate({
-      target: [salesHotlinksTable.contactId, salesHotlinksTable.pageId],
-      targetWhere: sql`contact_id IS NOT NULL`,
-      set: { isActive: true },
-    })
-    .returning({ id: salesHotlinksTable.id, token: salesHotlinksTable.token });
-  return { id: row.id, token: row.token };
+  throw new Error("Failed to generate a unique hotlink token after multiple attempts", { cause: lastErr });
+}
+
+/**
+ * True for a Postgres unique-constraint violation (SQLSTATE 23505). Drizzle
+ * wraps driver errors in a `DrizzleQueryError` whose `.code` is undefined and
+ * carries the real pg error on `.cause`, so we walk the cause chain rather than
+ * only inspecting the top-level error (which would never match → no retry).
+ */
+function isUniqueViolation(err: unknown): boolean {
+  for (let cur: unknown = err, depth = 0; cur != null && depth < 5; depth++) {
+    if (typeof cur === "object" && (cur as { code?: unknown }).code === "23505") return true;
+    cur = typeof cur === "object" ? (cur as { cause?: unknown }).cause : null;
+  }
+  return false;
 }

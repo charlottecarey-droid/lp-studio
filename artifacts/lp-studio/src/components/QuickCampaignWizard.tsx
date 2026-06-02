@@ -682,7 +682,15 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to send campaign");
+        // 409 = a send for this campaign is already in flight (server serializes
+        // concurrent sends to prevent double-emailing). Surface it as-is so the
+        // user knows to wait rather than re-clicking.
+        throw new Error(
+          err.error ??
+            (r.status === 409
+              ? "This campaign is already being sent. Please wait for it to finish."
+              : "Failed to send campaign"),
+        );
       }
       const result = await r.json();
       onCreated?.(draftId);
