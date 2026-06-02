@@ -127,6 +127,31 @@ function replaceVars(text: string, vars: Record<string, string>): string {
 }
 
 /**
+ * Escape a plain-text email body for safe HTML embedding AND turn any http(s)
+ * URL into a clickable <a> link. Plain-text campaigns/templates resolve
+ * `{{microsite_url}}` (and any other URL) to a bare string; without this the
+ * personalized page link would render as inert text inside the
+ * `white-space:pre-wrap` div. Linkifying here matches the styled (HTML) path
+ * where the link is already wrapped in `<a href="{{microsite_url}}">`.
+ *
+ * Escaping runs first; the URL match therefore includes entity-encoded
+ * characters (e.g. `&amp;` from a query string), which are valid inside an
+ * href attribute. Trailing punctuation is kept outside the anchor.
+ */
+function escapeAndLinkifyPlainText(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped.replace(/https?:\/\/[^\s<]+/g, (match) => {
+    const m = /^(.*?)([.,;:!?)]*)$/s.exec(match);
+    const url = m ? m[1] : match;
+    const trailing = m ? m[2] : "";
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+  });
+}
+
+/**
  * Find any `{{...}}` tokens in `text` whose normalised key is NOT in the
  * provided vars map. Used to warn users before sending a campaign with
  * unresolved tokens.
@@ -689,12 +714,10 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         : "";
       if (template.format === "plain") {
         const plainText = replaceVars(template.bodyText ?? "", vars);
-        // Convert plain text to HTML preserving line breaks (escape HTML entities first)
-        const escaped = plainText
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        emailHtml = `${preheaderHtml}<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${escaped}</div>`;
+        // Escape HTML entities AND linkify URLs so the personalized microsite
+        // link renders as a real clickable <a>, matching the styled path.
+        const rendered = escapeAndLinkifyPlainText(plainText);
+        emailHtml = `${preheaderHtml}<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${rendered}</div>`;
       } else {
         // Inject preheader into styled template after <body tag
         let html = replaceVars(template.bodyHtml, vars);
@@ -918,8 +941,8 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
     let renderedHtml: string;
     if (template.format === "plain") {
       const plainText = replaceVars(template.bodyText ?? "", vars);
-      const escaped = plainText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      renderedHtml = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${escaped}</div>`;
+      const rendered = escapeAndLinkifyPlainText(plainText);
+      renderedHtml = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${rendered}</div>`;
     } else {
       renderedHtml = replaceVars(template.bodyHtml, vars);
     }
@@ -1287,7 +1310,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
     // Support both HTML and plain-text bodies
     const htmlBody = bodyHtml
       ? replaceVars(bodyHtml, vars)
-      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${replaceVars(bodyText, vars)}</div>`;
+      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${escapeAndLinkifyPlainText(replaceVars(bodyText, vars))}</div>`;
     const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
@@ -1455,7 +1478,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
     const renderedSubject = `[TEST] ${replaceVars(subject, vars)}`;
     const htmlBody = bodyHtml
       ? replaceVars(bodyHtml, vars)
-      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${replaceVars(bodyText, vars)}</div>`;
+      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${escapeAndLinkifyPlainText(replaceVars(bodyText, vars))}</div>`;
     const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({

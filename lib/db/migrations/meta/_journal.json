@@ -69,6 +69,7 @@
     { "idx": 64, "version": "7", "when": 1751800000000, "tag": "0064_email_shell_templates_physical_address", "breakpoints": false },
     { "idx": 65, "version": "7", "when": 1751900000000, "tag": "0065_plan_config_email_tiers",            "breakpoints": false },
     { "idx": 66, "version": "7", "when": 1752000000000, "tag": "0066_sales_account_fk_set_null",          "breakpoints": false },
-    { "idx": 67, "version": "7", "when": 1752100000000, "tag": "0067_sfdc_leads_converted_contact_fk_set_null", "breakpoints": false }
+    { "idx": 67, "version": "7", "when": 1752100000000, "tag": "0067_sfdc_leads_converted_contact_fk_set_null", "breakpoints": false },
+    { "idx": 68, "version": "7", "when": 1752200000000, "tag": "0068_sales_email_tenant_scoping",         "breakpoints": false }
   ]
 }

@@ -100,3 +100,4 @@
 - [plan-config feature flag composite dist](plan-config-composite-dist.md) — new PlanFeatures boolean needs `tsc -b lib/db --force` + `tsc -b lib/plan-config --force` or consumer tsc reports phantom "property does not exist".
 - [Hermetic ephemeral-PG tests](hermetic-ephemeral-pg-tests.md) — DB/FK tests must spin up local PG + set env BEFORE @workspace/db import; build schema via drizzle-kit push (migrations aren't blank-DB replayable); pg_ctl needs -l; bg vitest log looks hung but isn't.
 - [Branded email subdomain tiers](branded-email-subdomain-tiers.md) — 3 sending tiers; Tier2 branded = platform-managed DNS in OUR CF zone (auto), Tier3 custom = tenant's zone (wizard); resolver custom>branded>shared, fails closed.
+- [sales_hotlinks ON CONFLICT index missing](sales-hotlink-onconflict-index.md) — ensureHotlinkForContact's ON CONFLICT (contact_id,page_id) throws 42P10 on shared Neon (partial unique index absent); microsite_url silently blank.
