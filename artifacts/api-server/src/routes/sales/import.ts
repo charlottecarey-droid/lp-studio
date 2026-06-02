@@ -215,26 +215,36 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
   const toUpdate = upsertRows.filter(r => existingContactMap.has(r.sfdcContactId!));
   const toInsertFromUpsert = upsertRows.filter(r => !existingContactMap.has(r.sfdcContactId!));
 
+  // Build a partial update set that only overwrites columns the import actually
+  // provides. Blank/missing CSV fields are omitted so a partial re-import (a
+  // "refresh") never wipes existing contact data. Values are already trimmed to
+  // `undefined` when empty during row normalization above.
+  const buildContactUpdate = (r: ValidRow, accountId: number) => {
+    const set: Partial<typeof salesContactsTable.$inferInsert> = {
+      accountId,
+      firstName: r.firstName,
+      lastName: r.lastName,
+    };
+    if (r.email !== undefined) set.email = r.email;
+    if (r.title !== undefined) set.title = r.title;
+    if (r.role !== undefined) set.role = r.role;
+    if (r.phone !== undefined) set.phone = r.phone;
+    if (r.tier !== undefined) set.tier = r.tier;
+    if (r.titleLevel !== undefined) set.titleLevel = r.titleLevel;
+    if (r.contactRole !== undefined) set.contactRole = r.contactRole;
+    if (r.department !== undefined) set.department = r.department;
+    if (r.linkedinUrl !== undefined) set.linkedinUrl = r.linkedinUrl;
+    if (r.sfdcContactId) set.salesforceId = r.sfdcContactId;
+    return set;
+  };
+
   for (const batch of chunk(toUpdate, 50)) {
     await Promise.all(batch.map(r => {
       const accountId = accountIdMap.get(r.accountKey);
       if (!accountId) { results.skipped++; return Promise.resolve(); }
       return db
         .update(salesContactsTable)
-        .set({
-          accountId,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          email: r.email ?? null,
-          title: r.title ?? null,
-          role: r.role ?? null,
-          phone: r.phone ?? null,
-          tier: r.tier ?? null,
-          titleLevel: r.titleLevel ?? null,
-          contactRole: r.contactRole ?? null,
-          department: r.department ?? null,
-          linkedinUrl: r.linkedinUrl ?? null,
-        })
+        .set(buildContactUpdate(r, accountId))
         .where(eq(salesContactsTable.id, existingContactMap.get(r.sfdcContactId!)!))
         .then(() => { results.updated++; });
     }));
@@ -286,21 +296,7 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
       if (!accountId) { results.skipped++; return Promise.resolve(); }
       return db
         .update(salesContactsTable)
-        .set({
-          accountId,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          email: r.email ?? null,
-          title: r.title ?? null,
-          role: r.role ?? null,
-          phone: r.phone ?? null,
-          tier: r.tier ?? null,
-          titleLevel: r.titleLevel ?? null,
-          contactRole: r.contactRole ?? null,
-          department: r.department ?? null,
-          linkedinUrl: r.linkedinUrl ?? null,
-          ...(r.sfdcContactId ? { salesforceId: r.sfdcContactId } : {}),
-        })
+        .set(buildContactUpdate(r, accountId))
         .where(eq(salesContactsTable.id, existingId))
         .then(() => { results.updated++; });
     }));
@@ -358,21 +354,7 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
       const existingId = nameContactMap.get(key)!;
       return db
         .update(salesContactsTable)
-        .set({
-          accountId,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          email: r.email ?? null,
-          title: r.title ?? null,
-          role: r.role ?? null,
-          phone: r.phone ?? null,
-          tier: r.tier ?? null,
-          titleLevel: r.titleLevel ?? null,
-          contactRole: r.contactRole ?? null,
-          department: r.department ?? null,
-          linkedinUrl: r.linkedinUrl ?? null,
-          ...(r.sfdcContactId ? { salesforceId: r.sfdcContactId } : {}),
-        })
+        .set(buildContactUpdate(r, accountId))
         .where(eq(salesContactsTable.id, existingId))
         .then(() => { results.updated++; });
     }));
