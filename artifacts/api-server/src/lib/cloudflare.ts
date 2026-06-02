@@ -291,57 +291,6 @@ export interface DnsRecord {
   proxied?: boolean;
 }
 
-export interface DnsRecordInput {
-  type: string;
-  /** Fully-qualified record name, e.g. `send.acme.lpstudio.ai`. */
-  name: string;
-  content: string;
-  /** Required for MX records; ignored otherwise. */
-  priority?: number;
-  /** Defaults to 1 ("automatic") when omitted. */
-  ttl?: number;
-}
-
-/**
- * Create a single DNS record on the zone. Email records (TXT/MX/CNAME for
- * SPF/DKIM) are never proxied — `proxied:false` is forced. TTL defaults to 1
- * (Cloudflare "automatic"). MX records carry their `priority`.
- */
-export async function createDnsRecord(input: DnsRecordInput): Promise<DnsRecord> {
-  const { zoneId } = getConfig();
-  const body: Record<string, unknown> = {
-    type: input.type,
-    name: input.name,
-    content: input.content,
-    ttl: input.ttl ?? 1,
-    proxied: false,
-  };
-  if (input.type.toUpperCase() === "MX" && typeof input.priority === "number") {
-    body.priority = input.priority;
-  }
-  return cfFetch<DnsRecord>(`/zones/${zoneId}/dns_records`, {
-    method: "POST",
-    body,
-  });
-}
-
-/**
- * Delete a DNS record by id. Returns silently on 404 so deprovisioning is
- * idempotent — a record removed manually (or in a prior partial cleanup)
- * doesn't block the rest of the teardown.
- */
-export async function deleteDnsRecord(recordId: string): Promise<void> {
-  const { zoneId } = getConfig();
-  try {
-    await cfFetch<unknown>(`/zones/${zoneId}/dns_records/${recordId}`, {
-      method: "DELETE",
-    });
-  } catch (err) {
-    if (err instanceof CloudflareError && err.status === 404) return;
-    throw err;
-  }
-}
-
 /**
  * Find DNS records by exact (case-insensitive) name, optionally filtered by
  * type. Used as a fallback cleanup path when the stored record ids are
@@ -435,5 +384,89 @@ export async function deprovisionCustomDomain(
     const first = errors[0];
     if (first instanceof Error) throw first;
     throw new Error("Cloudflare deprovisioning failed");
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// DNS record management (Task #784 — branded email subdomain).
+//
+// Tier 2 auto-provisions a branded sending subdomain (e.g.
+// `mail.<slug>.lpstudio.ai`) under the platform's OWN apex zone. Because we
+// control that zone, we can publish the SPF/DKIM/MX records Resend requires
+// directly into Cloudflare — the tenant never touches DNS. (Contrast Tier 3,
+// where the tenant owns the domain and publishes the records themselves.)
+//
+// The record ids we create are persisted on the tenant's brand config so the
+// "remove" flow can delete exactly what we added — no fuzzy name matching.
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface CloudflareDnsRecord {
+  id: string;
+  type: string;
+  name: string;
+  content: string;
+  ttl?: number;
+  priority?: number;
+}
+
+export interface DnsRecordInput {
+  type: string;
+  name: string;
+  content: string;
+  /** Cloudflare TTL in seconds; 1 = automatic. Defaults to 1. */
+  ttl?: number;
+  /** Required for MX records. */
+  priority?: number;
+  /** Optional note shown in the Cloudflare dashboard. */
+  comment?: string;
+}
+
+/**
+ * Create a single DNS record on the lpstudio.ai zone. Email records (TXT/MX)
+ * are never proxied. Returns the created record (with its id).
+ */
+export async function createDnsRecord(input: DnsRecordInput): Promise<CloudflareDnsRecord> {
+  const { zoneId } = getConfig();
+  const body: Record<string, unknown> = {
+    type: input.type,
+    name: input.name,
+    content: input.content,
+    ttl: input.ttl ?? 1,
+    proxied: false,
+  };
+  if (typeof input.priority === "number") body.priority = input.priority;
+  if (input.comment) body.comment = input.comment;
+  return cfFetch<CloudflareDnsRecord>(`/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    body,
+  });
+}
+
+/**
+ * Find DNS records on the zone matching the given exact name (and optionally
+ * type). Used to make provisioning idempotent — if a record already exists
+ * (e.g. a retried provision) we reuse it instead of creating a duplicate.
+ */
+export async function findDnsRecords(
+  params: { name: string; type?: string },
+): Promise<CloudflareDnsRecord[]> {
+  const { zoneId } = getConfig();
+  const qs = new URLSearchParams({ name: params.name, per_page: "100" });
+  if (params.type) qs.set("type", params.type);
+  return cfFetch<CloudflareDnsRecord[]>(`/zones/${zoneId}/dns_records?${qs.toString()}`);
+}
+
+/**
+ * Delete a DNS record by id. Idempotent: a 404 (already gone) resolves
+ * silently so the "remove subdomain" flow can run even if a record was
+ * deleted manually.
+ */
+export async function deleteDnsRecord(id: string): Promise<void> {
+  const { zoneId } = getConfig();
+  try {
+    await cfFetch<unknown>(`/zones/${zoneId}/dns_records/${id}`, { method: "DELETE" });
+  } catch (err) {
+    if (err instanceof CloudflareError && err.status === 404) return;
+    throw err;
   }
 }

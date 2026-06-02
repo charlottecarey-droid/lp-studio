@@ -464,17 +464,19 @@ export interface SalesConsoleConfig {
    */
   customEmailDomainId?: string;
   /**
-   * Auto-provisioned Tier 2 branded email subdomain ({slug}.lpstudio.ai).
-   * Managed entirely by the server (Resend + Cloudflare) — these fields are
-   * NOT edited directly in the brand-config form; the "Branded email domain"
-   * control in Sales Console settings provisions/deprovisions them via the
-   * /api/sales/branded-email endpoints. Distinct from `sendingDomain` (the
-   * Tier 3 bring-your-own custom domain).
+   * Tier 2 auto-provisioned branded sending subdomain (Growth/Scale
+   * `brandedEmailSubdomain` feature), e.g. `mail.<slug>.lpstudio.ai`. Unlike
+   * the custom domain (Tier 3), its DNS is published into the platform's own
+   * Cloudflare zone automatically — the tenant does no DNS work. Routing fails
+   * closed: the resolver only sends from it once Resend reports it verified.
+   * These three fields are managed exclusively by the branded-subdomain route;
+   * the UI never edits them directly.
    */
-  brandedSubdomain?: string;
-  brandedSubdomainResendId?: string;
-  brandedSubdomainDnsRecordIds?: string[];
-  brandedSubdomainActive?: boolean;
+  brandedEmailSubdomain?: string;
+  /** Resend domain id for the branded subdomain, used to poll status by id. */
+  brandedEmailSubdomainId?: string;
+  /** Cloudflare DNS record ids we created, so removal deletes exactly those. */
+  brandedEmailSubdomainDnsRecordIds?: string[];
   replyTo?: string;
   notificationsLocalPart?: string;
   emailSignature?: string;

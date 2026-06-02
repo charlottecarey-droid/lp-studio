@@ -40,6 +40,7 @@ export type GatedFeature =
   | "aiImageGen"
   | "customDomain"
   | "customEmailDomain"
+  | "brandedEmailSubdomain"
   | "pages"
   | "forms"
   | "userSeats"
@@ -47,7 +48,7 @@ export type GatedFeature =
   | "heatmapSessionsPerMonth";
 
 /** Gates whose value is a boolean feature flag rather than a numeric cap. */
-const BOOLEAN_GATES = new Set<string>(["salesConsole", "aiImageGen", "customDomain", "customEmailDomain"]);
+const BOOLEAN_GATES = new Set<string>(["salesConsole", "aiImageGen", "customDomain", "customEmailDomain", "brandedEmailSubdomain"]);
 
 export interface UpgradePromptCopy {
   /** Headline shown above the bullets. */
@@ -86,6 +87,13 @@ const CUSTOM_EMAIL_DOMAIN_BULLETS = [
   "Send email from your own domain (mail.yourbrand.com)",
   "Self-serve DNS setup with live verification",
   "Full deliverability control with your own SPF/DKIM",
+  "Everything in lower tiers",
+];
+
+const BRANDED_EMAIL_SUBDOMAIN_BULLETS = [
+  "A branded sending subdomain (mail.yourbrand.lpstudio.ai)",
+  "One-click provisioning — no DNS setup required",
+  "Better deliverability than the shared sending domain",
   "Everything in lower tiers",
 ];
 
@@ -152,6 +160,11 @@ const GATE_COPY: Record<GatedFeature, GateDescriptor> = {
     label: "Custom email domains",
     blurb: "send email from your own domain",
     bullets: CUSTOM_EMAIL_DOMAIN_BULLETS,
+  },
+  brandedEmailSubdomain: {
+    label: "Branded email subdomain",
+    blurb: "send email from a branded subdomain with one-click setup",
+    bullets: BRANDED_EMAIL_SUBDOMAIN_BULLETS,
   },
   pages: {
     label: "landing pages",

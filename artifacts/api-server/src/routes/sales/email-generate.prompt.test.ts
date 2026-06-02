@@ -14,6 +14,7 @@ function makeBrandCtx(overrides: Partial<SalesBrandContext> = {}): SalesBrandCon
     senderName: "",
     senderLocalPart: "",
     sendingDomain: "",
+    brandedEmailSubdomain: "",
     replyTo: "",
     notificationsLocalPart: "notifications",
     emailSignature: "",

@@ -48,6 +48,7 @@ import podcastAvailabilityRouter from "./podcast-availability";
 import renderedRouter from "./rendered";
 import planConfigRouter from "./plan-config";
 import emailDomainRouter from "./email-domain";
+import brandedEmailSubdomainRouter from "./branded-email-subdomain";
 
 const router = Router();
 
@@ -61,6 +62,7 @@ router.use(trackingRouter);
 router.use(renderedRouter);
 router.use(planConfigRouter);
 router.use(emailDomainRouter);
+router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);
 router.use(brandRouter);
 router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/pages/:pageId catching /lp/pages/performance/batch

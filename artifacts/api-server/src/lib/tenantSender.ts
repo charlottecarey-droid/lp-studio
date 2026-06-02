@@ -38,6 +38,31 @@ import { logger } from "./logger";
  */
 export const SHARED_SENDING_DOMAIN = "mail.lpstudio.ai";
 
+/**
+ * The platform apex zone, derived from the shared sending domain
+ * (`mail.lpstudio.ai` → `lpstudio.ai`). Tier 2 branded subdomains live under
+ * this apex so we can publish their DNS into our own Cloudflare zone.
+ */
+export const PLATFORM_APEX = SHARED_SENDING_DOMAIN.split(".").slice(1).join(".");
+
+/**
+ * Derive the Tier 2 branded sending subdomain for a tenant:
+ * `mail.<label>.<apex>` (e.g. `mail.acme.lpstudio.ai`). The label is a safe,
+ * single DNS label sanitized from the slug (lowercase [a-z0-9-], no dots,
+ * trimmed hyphens, ≤63 chars), falling back to `tenant-{id}` so the result is
+ * always a valid, unique hostname.
+ */
+export function deriveBrandedSubdomain(slug: string | null | undefined, tenantId: number): string {
+  let label = clean(slug)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!label) label = `tenant-${tenantId}`;
+  if (label.length > 63) label = label.slice(0, 63).replace(/-+$/g, "");
+  return `mail.${label}.${PLATFORM_APEX}`;
+}
+
 export type SenderKind = "sales" | "notifications";
 
 /**
@@ -197,35 +222,64 @@ export async function resolveTenantSender(
 ): Promise<ResolvedSender> {
   const ctx = opts.ctx ?? (await getSalesBrandContext(tenantId));
 
-  const customDomain = clean(ctx.sendingDomain).toLowerCase();
-  let customDomainVerified = false;
-  if (customDomain) {
+  const customDomain = clean(ctx.sendingDomain).toLowerCase();          // Tier 3
+  const brandedSubdomain = clean(ctx.brandedEmailSubdomain).toLowerCase(); // Tier 2
+
+  const isVerified = async (domain: string): Promise<boolean> => {
     try {
-      const status = await getResendDomainStatus(tenantId, customDomain);
-      customDomainVerified = status.status === "verified";
+      const status = await getResendDomainStatus(tenantId, domain);
+      return status.status === "verified";
     } catch (err) {
       // Couldn't verify → fail closed to the shared default.
-      logger.warn({ err, tenantId, domain: customDomain }, "resolveTenantSender: domain status check failed");
-      customDomainVerified = false;
+      logger.warn({ err, tenantId, domain }, "resolveTenantSender: domain status check failed");
+      return false;
     }
+  };
+
+  // Precedence: a verified custom domain (Tier 3) wins; otherwise a verified
+  // branded subdomain (Tier 2); otherwise the Tier 1 shared default. We never
+  // emit an unverified domain — fail closed at every step.
+  let activeDomain = "";
+  let usingBranded = false;
+  if (customDomain && (await isVerified(customDomain))) {
+    activeDomain = customDomain;
+  } else if (brandedSubdomain && (await isVerified(brandedSubdomain))) {
+    activeDomain = brandedSubdomain;
+    usingBranded = true;
   }
 
-  // Slug is only needed for the shared default; owner email only when we have
-  // no configured reply-to to fall back on. Fetch both lazily/conditionally.
-  const needsSharedDefault = !(customDomain && customDomainVerified);
-  const slug = needsSharedDefault ? await getTenantSlug(tenantId) : null;
+  const needsSharedDefault = !activeDomain;
+  // Slug is needed for the shared-default local part AND for the branded
+  // subdomain's sales local-part default. Owner email only when we have no
+  // configured reply-to to fall back on. Fetch lazily/conditionally.
+  const slug = needsSharedDefault || usingBranded ? await getTenantSlug(tenantId) : null;
   const ownerEmail =
     needsSharedDefault && !clean(opts.overrides?.replyTo) && !clean(ctx.replyTo)
       ? await getTenantOwnerEmail(tenantId)
       : null;
 
+  // Present the chosen domain to the pure builder via ctx.sendingDomain so its
+  // verified-custom-domain branch handles both Tier 2 and Tier 3 uniformly.
+  const effectiveCtx = activeDomain && activeDomain !== customDomain
+    ? { ...ctx, sendingDomain: activeDomain }
+    : ctx;
+
+  // The branded subdomain is zero-config, so give it a sensible sales local
+  // part (the slug) when the tenant hasn't set one — otherwise the builder's
+  // "no usable local part" guard would drop sales mail back to the shared
+  // default. (Notifications already default to "notifications".)
+  let overrides = opts.overrides;
+  if (usingBranded && kind === "sales" && !clean(overrides?.senderLocalPart) && !clean(ctx.senderLocalPart)) {
+    overrides = { ...(overrides ?? {}), senderLocalPart: deriveSlugLocalPart(slug, tenantId) };
+  }
+
   return buildSenderIdentity({
     kind,
-    ctx,
+    ctx: effectiveCtx,
     slug,
     tenantId,
-    customDomainVerified,
+    customDomainVerified: !!activeDomain,
     ownerEmail,
-    ...(opts.overrides ? { overrides: opts.overrides } : {}),
+    ...(overrides ? { overrides } : {}),
   });
 }

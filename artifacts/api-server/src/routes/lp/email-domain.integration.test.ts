@@ -136,6 +136,7 @@ function ctxFor(tenantId: number, sendingDomain: string): SalesBrandContext {
     senderName: "Acme Ent",
     senderLocalPart: "sales",
     sendingDomain,
+    brandedEmailSubdomain: "",
     replyTo: "",
     notificationsLocalPart: "notifications",
     emailSignature: "",

@@ -38,14 +38,12 @@ export interface SalesBrandContext {
   senderLocalPart: string;            // local part of sending address
   sendingDomain: string;              // verified domain (e.g. ent.meetdandy.com)
   /**
-   * The auto-provisioned branded subdomain ({slug}.lpstudio.ai), empty when
-   * not provisioned. Distinct from `sendingDomain` so the UI/status endpoint
-   * can tell a Tier 2 branded subdomain apart from a Tier 3 BYO custom domain.
-   * The Tier 3 `sendingDomain` (if set) always wins as the effective domain.
+   * Tier 2 auto-provisioned branded sending subdomain (e.g.
+   * mail.<slug>.lpstudio.ai). Empty when not provisioned. Routing fails
+   * closed: the resolver only sends from it once Resend reports it verified,
+   * and a verified custom `sendingDomain` (Tier 3) takes precedence.
    */
-  brandedSubdomain?: string;
-  /** Resend domain id for the branded subdomain — empty when not provisioned. */
-  brandedSubdomainResendId?: string;
+  brandedEmailSubdomain: string;
   replyTo: string;                    // reply-to address
   notificationsLocalPart: string;     // local part for visit-alert emails
   emailSignature: string;
@@ -183,26 +181,6 @@ export async function getSalesBrandContext(tenantId: number): Promise<SalesBrand
     valuePropPairs = deriveValuePropsFromBrand(nestedBrand, brandTop);
   }
 
-  // Tier 2 branded subdomain ({slug}.lpstudio.ai). Distinct from the Tier 3
-  // BYO `sendingDomain`. The effective sending domain prefers an explicit
-  // Tier 3 domain; otherwise the branded subdomain (when provisioned) becomes
-  // the effective domain. The sender resolver still fail-closes on the LIVE
-  // Resend verification status, so until DNS verifies the tenant keeps the
-  // Tier 1 shared default — exposing the subdomain here is safe pre-verify.
-  const brandedSubdomain = asString(sales["brandedSubdomain"]).trim().toLowerCase();
-  const brandedSubdomainResendId = asString(sales["brandedSubdomainResendId"]).trim();
-  const explicitSendingDomain = asString(sales["sendingDomain"]);
-  const explicitLocalPart = asString(sales["senderLocalPart"]);
-  const usingBrandedSubdomain = !explicitSendingDomain.trim() && brandedSubdomain.length > 0;
-  const effectiveSendingDomain = explicitSendingDomain.trim()
-    ? explicitSendingDomain
-    : (brandedSubdomain || "");
-  // Branded subdomains never require the tenant to pick a sales local part —
-  // default to a friendly one so the resolver's sales branch doesn't fall
-  // back to the shared default purely for a missing local part.
-  const effectiveLocalPart = explicitLocalPart
-    || (usingBrandedSubdomain ? "hello" : "");
-
   return {
     tenantId,
     brandName,
@@ -211,10 +189,9 @@ export async function getSalesBrandContext(tenantId: number): Promise<SalesBrand
     defaultCtaUrl: pickBrandStr("defaultCtaUrl"),
     chilipiperUrl: pickBrandStr("chilipiperUrl"),
     senderName:             asString(sales["senderName"]),
-    senderLocalPart:        effectiveLocalPart,
-    sendingDomain:          effectiveSendingDomain,
-    brandedSubdomain,
-    brandedSubdomainResendId,
+    senderLocalPart:        asString(sales["senderLocalPart"]),
+    sendingDomain:          asString(sales["sendingDomain"]),
+    brandedEmailSubdomain:  asString(sales["brandedEmailSubdomain"]),
     replyTo:                asString(sales["replyTo"]),
     notificationsLocalPart: asString(sales["notificationsLocalPart"], "notifications"),
     emailSignature:         asString(sales["emailSignature"]),
