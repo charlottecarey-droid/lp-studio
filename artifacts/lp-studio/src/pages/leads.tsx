@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { useToast } from "@/hooks/use-toast";
+import { toastUndoableDelete } from "@/lib/undo-delete";
 import { leadName, leadEmail } from "@workspace/lead-utils";
 import { useAuth } from "@/context/AuthContext";
 import { ArrowLeft, Download, Users, RefreshCw, Trash2, Search, FlaskConical } from "lucide-react";
@@ -57,7 +58,12 @@ function usePageSummary() {
   return { pages, loading, reload: load };
 }
 
-async function bulkDeleteLeads(ids: number[]): Promise<number> {
+interface LeadDeleteResult {
+  deleted: number;
+  restore: { leads: unknown[] };
+}
+
+async function bulkDeleteLeads(ids: number[]): Promise<LeadDeleteResult> {
   const res = await fetch(`${API_BASE}/lp/leads`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
@@ -65,14 +71,14 @@ async function bulkDeleteLeads(ids: number[]): Promise<number> {
   });
   if (!res.ok) throw new Error("Failed to delete leads");
   const data = await res.json();
-  return data.deleted ?? 0;
+  return { deleted: data.deleted ?? 0, restore: data.restore ?? { leads: [] } };
 }
 
-async function deleteAllTestLeads(): Promise<number> {
+async function deleteAllTestLeads(): Promise<LeadDeleteResult> {
   const res = await fetch(`${API_BASE}/lp/leads/test`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete test leads");
   const data = await res.json();
-  return data.deleted ?? 0;
+  return { deleted: data.deleted ?? 0, restore: data.restore ?? { leads: [] } };
 }
 
 // Shared selection + bulk-delete toolbar used by both the master and per-page
@@ -184,12 +190,21 @@ function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewPr
   const doDeleteSelected = async () => {
     setDeleting(true);
     try {
-      const n = await bulkDeleteLeads(Array.from(selected));
-      toast({ title: `Deleted ${n} ${n === 1 ? "lead" : "leads"}` });
+      const { deleted: n, restore } = await bulkDeleteLeads(Array.from(selected));
       setSelected(new Set());
       setConfirmOpen(false);
       load();
       onChanged();
+      if (n === 0) {
+        toast({ title: "No leads deleted" });
+      } else {
+        toastUndoableDelete({
+          message: `Deleted ${n} ${n === 1 ? "lead" : "leads"}`,
+          restorePath: "/lp/leads/restore",
+          restorePayload: restore,
+          onRestored: () => { load(); onChanged(); },
+        });
+      }
     } catch {
       toast({ title: "Couldn't delete leads", variant: "destructive" });
     } finally {
@@ -200,12 +215,21 @@ function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewPr
   const doDeleteAllTest = async () => {
     setDeleting(true);
     try {
-      const n = await deleteAllTestLeads();
-      toast({ title: `Deleted ${n} test ${n === 1 ? "lead" : "leads"}` });
+      const { deleted: n, restore } = await deleteAllTestLeads();
       setSelected(new Set());
       setConfirmTestOpen(false);
       load();
       onChanged();
+      if (n === 0) {
+        toast({ title: "No test leads to delete" });
+      } else {
+        toastUndoableDelete({
+          message: `Deleted ${n} test ${n === 1 ? "lead" : "leads"}`,
+          restorePath: "/lp/leads/restore",
+          restorePayload: restore,
+          onRestored: () => { load(); onChanged(); },
+        });
+      }
     } catch {
       toast({ title: "Couldn't delete test leads", variant: "destructive" });
     } finally {
@@ -407,12 +431,21 @@ function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
   const doDeleteSelected = async () => {
     setDeleting(true);
     try {
-      const n = await bulkDeleteLeads(Array.from(selected));
-      toast({ title: `Deleted ${n} ${n === 1 ? "lead" : "leads"}` });
+      const { deleted: n, restore } = await bulkDeleteLeads(Array.from(selected));
       setSelected(new Set());
       setConfirmOpen(false);
       load();
       onChanged();
+      if (n === 0) {
+        toast({ title: "No leads deleted" });
+      } else {
+        toastUndoableDelete({
+          message: `Deleted ${n} ${n === 1 ? "lead" : "leads"}`,
+          restorePath: "/lp/leads/restore",
+          restorePayload: restore,
+          onRestored: () => { load(); onChanged(); },
+        });
+      }
     } catch {
       toast({ title: "Couldn't delete leads", variant: "destructive" });
     } finally {

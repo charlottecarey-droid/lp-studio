@@ -1,6 +1,6 @@
 ---
 name: Undo-delete restore approach
-description: How "Undo" for hard deletes works across Sales (Accounts/Contacts/Signals) and Page Reviews.
+description: How "Undo" for hard deletes works across Sales (Accounts/Contacts/Signals), Page Reviews, and LP Leads.
 ---
 
 Undo for hard deletes uses **capture-and-reinsert**, not soft-delete — no schema/migration, no read-path changes.
@@ -15,4 +15,5 @@ Undo for hard deletes uses **capture-and-reinsert**, not soft-delete — no sche
 - Account restore covers account + contacts + signals only. Derived/regenerable data (briefings, contact_briefings, emails) is cascade-deleted and NOT restored. Hotlinks are SET NULL (survive).
 - Restore in dependency order: accounts → contacts → signals (cascade FKs).
 - The existing review-delete endpoint has no tenant check; the restore path matched that posture and only forces pageId.
+- LP Leads: both `DELETE /lp/leads` (bulk) and `DELETE /lp/leads/test` return `restore: { leads }` (full rows via `.returning()`), and `POST /lp/leads/restore` re-inserts via `restoreRows(lpLeadsTable, leads, { tenantId })`. `createdAt` is a tz timestamp → round-trips as Date; jsonb `fields` passes through; serial id reinsert is safe.
 - Drizzle generic insert: `db.insert(table).values(clean as never)` — `clean` is `Record<string,unknown>[]` (sanitized to real columns at runtime) and won't match the table's static insert type without the cast.

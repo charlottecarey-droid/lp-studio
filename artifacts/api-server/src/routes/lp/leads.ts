@@ -4,6 +4,7 @@ import { eq, desc, gte, and, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { isTestLead, leadName, leadEmail } from "@workspace/lead-utils";
 import { withDbRetry } from "../../lib/dbResilience";
+import { restoreRows } from "../../lib/restoreRows";
 import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable } from "@workspace/db";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
@@ -759,11 +760,13 @@ router.delete("/lp/leads", async (req, res): Promise<void> => {
     return;
   }
   try {
+    // Return the full deleted rows under `restore` so the client can offer an
+    // Undo affordance that re-inserts them (capture-and-reinsert pattern).
     const deleted = await withDbRetry(() => db
       .delete(lpLeadsTable)
       .where(and(eq(lpLeadsTable.tenantId, tenantId), inArray(lpLeadsTable.id, parsed.data.ids)))
-      .returning({ id: lpLeadsTable.id }));
-    res.json({ deleted: deleted.length });
+      .returning());
+    res.json({ deleted: deleted.length, restore: { leads: deleted } });
   } catch (err) {
     console.error("[lp/leads] bulk delete failed", err);
     res.status(500).json({ error: "Failed to delete leads" });
@@ -790,11 +793,27 @@ router.delete("/lp/leads/test", async (req, res): Promise<void> => {
     const deleted = await withDbRetry(() => db
       .delete(lpLeadsTable)
       .where(and(eq(lpLeadsTable.tenantId, tenantId), inArray(lpLeadsTable.id, testIds)))
-      .returning({ id: lpLeadsTable.id }));
-    res.json({ deleted: deleted.length });
+      .returning());
+    res.json({ deleted: deleted.length, restore: { leads: deleted } });
   } catch (err) {
     console.error("[lp/leads] delete test leads failed", err);
     res.status(500).json({ error: "Failed to delete test leads" });
+  }
+});
+
+// Restore leads deleted via Undo. Re-inserts the captured rows with their
+// original ids/timestamps preserved (capture-and-reinsert). restoreRows forces
+// the trusted tenantId onto every row so a tampered payload can never land a
+// lead in another tenant, and onConflictDoNothing makes it idempotent.
+router.post("/lp/leads/restore", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const { leads } = req.body as { leads?: unknown[] };
+    const restored = await restoreRows(lpLeadsTable, leads, { tenantId });
+    res.json({ restored });
+  } catch (err) {
+    console.error("[lp/leads] restore failed", err);
+    res.status(500).json({ error: "Failed to restore leads" });
   }
 });
 
