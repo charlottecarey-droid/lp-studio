@@ -18,6 +18,8 @@ interface SalesResolveResponse {
   firstName: string;
   lastName: string;
   company: string;
+  companyName: string;
+  practiceCount: string;
   contactName: string | null;
   token: string;
   hotlinkId: number;
@@ -56,8 +58,13 @@ export default function PersonalizedLinkResolver() {
           // Store personalization vars in sessionStorage — keeps the URL clean.
           const vars: Record<string, string> = {};
           if (data.company) vars["{{company}}"] = data.company;
+          // Business-case microsite templates use {{company_name}}/{{practice_count}}
+          // (baked at generation time); fill the same tokens here so per-contact
+          // hotlinks to those pages personalize at view time too.
+          if (data.companyName) vars["{{company_name}}"] = data.companyName;
           if (data.firstName) vars["{{first_name}}"] = data.firstName;
           if (data.lastName) vars["{{last_name}}"] = data.lastName;
+          if (data.practiceCount) vars["{{practice_count}}"] = data.practiceCount;
           if (Object.keys(vars).length > 0) {
             sessionStorage.setItem(`pv:${data.pageSlug}`, JSON.stringify(vars));
           }

@@ -18,6 +18,7 @@ import {
   aiFillEmptyImages,
 } from "../lp/generate-page";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
+import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 
 const router = Router();
@@ -1378,12 +1379,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // guaranteeing a complete, on-brand, personalised page.
       if (templateBlocks.length === 1 && isBusinessCaseType(templateBlocks[0]?.type)) {
         const tmpl = templateBlocks[0];
-        const companyName = (account.displayName ?? account.name ?? "").trim();
-        const sizeAndLocations = briefingData?.sizeAndLocations as Record<string, unknown> | undefined;
-        const rawCount = sizeAndLocations?.locationCount;
-        const practiceCount = rawCount != null && String(rawCount).trim() !== ""
-          ? String(rawCount).trim()
-          : "multiple";
+        const companyName = deriveCompanyName(account);
+        const practiceCount = derivePracticeCount(briefingData, account);
         const aiProps = (normalizedBlocks[0]?.props ?? {}) as Record<string, unknown>;
         const mergedProps = substituteAccountVars(
           mergeAuthored((tmpl.props ?? {}) as Record<string, unknown>, aiProps),

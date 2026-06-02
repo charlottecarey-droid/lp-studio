@@ -8,9 +8,11 @@ import {
   salesHotlinksTable,
   salesContactsTable,
   salesAccountsTable,
+  salesBriefingsTable,
   salesSignalsTable,
   lpPagesTable,
 } from "@workspace/db";
+import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
@@ -595,13 +597,36 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
       contact = contactResult[0];
     }
 
-    // Get account info for company name
+    // Get account info for company/personalization vars. `companyName` and
+    // `practiceCount` mirror what generate-microsite bakes into business-case
+    // templates ({{company_name}} / {{practice_count}}), so view-time hotlink
+    // personalization fills the SAME tokens those pages actually use — not just
+    // the {{company}} alias.
     let company = "";
+    let companyName = "";
+    let practiceCount = "";
     if (contact?.accountId) {
-      const [account] = await db.select({ name: salesAccountsTable.name })
+      const [account] = await db.select({
+        name: salesAccountsTable.name,
+        displayName: salesAccountsTable.displayName,
+        numLocations: salesAccountsTable.numLocations,
+      })
         .from(salesAccountsTable)
         .where(eq(salesAccountsTable.id, contact.accountId));
       company = account?.name ?? "";
+      companyName = deriveCompanyName(account);
+      const [briefing] = await db.select({ briefingData: salesBriefingsTable.briefingData })
+        .from(salesBriefingsTable)
+        .where(and(
+          eq(salesBriefingsTable.tenantId, page.tenantId),
+          eq(salesBriefingsTable.accountId, contact.accountId),
+        ))
+        .orderBy(desc(salesBriefingsTable.updatedAt))
+        .limit(1);
+      practiceCount = derivePracticeCount(
+        briefing?.briefingData as Record<string, unknown> | undefined,
+        account,
+      );
     }
 
     // Create page_view signal
@@ -662,6 +687,8 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
       firstName: contact?.firstName ?? "",
       lastName: contact?.lastName ?? "",
       company,
+      companyName,
+      practiceCount,
       contactName: contact ? `${contact.firstName} ${contact.lastName}` : null,
       token,
       hotlinkId: hotlink.id,
