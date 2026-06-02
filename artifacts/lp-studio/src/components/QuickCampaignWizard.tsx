@@ -23,6 +23,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { MultiSelectChip } from "@/components/MultiSelectChip";
+import { EmailWYSIWYGEditor } from "@/components/EmailWYSIWYGEditor";
 
 const API_BASE = "/api";
 
@@ -106,6 +107,7 @@ interface Props {
   initialPage?: { id: number; title: string } | null;
 }
 
+// Plain-text compose chips insert the literal {{token}} string into a textarea.
 const MERGE_VARS = [
   { label: "First name", token: "{{first_name}}" },
   { label: "Last name", token: "{{last_name}}" },
@@ -114,10 +116,21 @@ const MERGE_VARS = [
   { label: "Microsite link", token: "{{microsite_url}}" },
 ];
 
+// The WYSIWYG editor expects BARE variable names (e.g. "first_name") and
+// renders the {{…}} wrapper itself. Passing a "{{…}}"-wrapped value here would
+// double the braces, and an empty value renders as empty "{{}}".
+const EDITOR_MERGE_VARS = [
+  { label: "First name", variable: "first_name" },
+  { label: "Last name", variable: "last_name" },
+  { label: "Company", variable: "company" },
+  { label: "Sender name", variable: "sender_name" },
+  { label: "Microsite link", variable: "microsite_url" },
+];
+
 // When a landing page is attached we default to a short, page-centric email so
-// the user isn't forced into a full template. Plain text — quick compose sends
-// bodyText with format "plain".
+// the user isn't forced into a full template.
 const PAGE_DEFAULT_SUBJECT = "We built something for {{company}}";
+// Plain-text variant — quick compose sends bodyText with format "plain".
 const PAGE_DEFAULT_BODY = `Hi {{first_name}},
 
 I put together a personalized page specifically for {{company}} — it shows exactly how we can help your team.
@@ -128,6 +141,13 @@ Happy to walk through it together if that would be helpful.
 
 Best,
 {{sender_name}}`;
+// Styled (HTML) variant — sent as format "html". The href stays a raw
+// {{microsite_url}} so it resolves to the per-contact tracking link at send time.
+const PAGE_DEFAULT_BODY_HTML = `<p>Hi {{first_name}},</p>
+<p>I put together a personalized page specifically for {{company}} — it shows exactly how we can help your team.</p>
+<p><a href="{{microsite_url}}">View your personalized page</a></p>
+<p>Happy to walk through it together if that would be helpful.</p>
+<p>Best,<br/>{{sender_name}}</p>`;
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -161,11 +181,12 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
 
   // Step 3 — content
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [composeMode, setComposeMode] = useState<"template" | "quick">("template");
+  const [composeMode, setComposeMode] = useState<"styled" | "plain" | "template">("styled");
   const [templateId, setTemplateId] = useState<string>("");
-  // Quick-compose
+  // Compose — "styled" and "plain" share the subject; each has its own body.
   const [quickSubject, setQuickSubject] = useState("");
-  const [quickBody, setQuickBody] = useState("");
+  const [quickBody, setQuickBody] = useState("");   // plain-text body (format "plain")
+  const [styledBody, setStyledBody] = useState(""); // styled HTML body (format "html")
 
   // Step 4 — preview & send
   const [preview, setPreview] = useState<PreviewResult | null>(null);
@@ -202,12 +223,13 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
       setContactSearch("");
       setTierFilter([]);
       setTitleLevelFilter([]);
-      // With a page attached, default to a short page-centric email instead of
-      // forcing the user into a full saved template.
-      setComposeMode(initialPage ? "quick" : "template");
+      // Default to the styled editor (HTML + merge variables), like the old
+      // Launch wizard. With a page attached, seed a short page-centric email.
+      setComposeMode("styled");
       setTemplateId("");
       setQuickSubject(initialPage ? PAGE_DEFAULT_SUBJECT : "");
       setQuickBody(initialPage ? PAGE_DEFAULT_BODY : "");
+      setStyledBody(initialPage ? PAGE_DEFAULT_BODY_HTML : "");
       setPreview(null);
       setPreviewContactId("");
       setSentTest(false);
@@ -396,10 +418,10 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
   // user hasn't written anything yet — so they aren't forced into a template.
   function handlePageChange(val: string) {
     setPageId(val);
-    if (val && composeMode === "template" && !templateId && !quickSubject.trim() && !quickBody.trim()) {
-      setComposeMode("quick");
+    if (val && composeMode !== "template" && !quickSubject.trim() && !quickBody.trim() && !styledBody.trim()) {
       setQuickSubject(PAGE_DEFAULT_SUBJECT);
       setQuickBody(PAGE_DEFAULT_BODY);
+      setStyledBody(PAGE_DEFAULT_BODY_HTML);
     }
   }
 
@@ -409,7 +431,10 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
     if (step === 2) return selectedContactIds.size > 0;
     if (step === 3) {
       if (composeMode === "template") return !!templateId;
-      return quickSubject.trim().length > 0 && quickBody.trim().length > 0;
+      if (!quickSubject.trim()) return false;
+      if (composeMode === "plain") return quickBody.trim().length > 0;
+      // styled — ignore HTML tags when checking for real content
+      return styledBody.replace(/<[^>]*>/g, "").trim().length > 0;
     }
     if (step === 4) {
       if (!preview) return false;
@@ -433,16 +458,26 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
       if (composeMode === "template") {
         effectiveTemplateId = Number(templateId);
       } else {
-        // Quick compose — create (or update) a hidden template for this campaign
+        // Styled or plain compose — create (or update) a hidden template that
+        // backs this campaign. Styled sends HTML; plain sends text.
         const tplName = `[Quick Campaign] ${name}`;
-        const tplPayload = {
-          name: tplName,
-          subject: quickSubject.trim(),
-          bodyText: quickBody,
-          bodyHtml: "",
-          format: "plain",
-          category: "quick_campaign",
-        };
+        const tplPayload = composeMode === "styled"
+          ? {
+              name: tplName,
+              subject: quickSubject.trim(),
+              bodyText: "",
+              bodyHtml: styledBody,
+              format: "html",
+              category: "quick_campaign",
+            }
+          : {
+              name: tplName,
+              subject: quickSubject.trim(),
+              bodyText: quickBody,
+              bodyHtml: "",
+              format: "plain",
+              category: "quick_campaign",
+            };
         if (draftId) {
           // Reuse: find existing template via current draft & PATCH it
           const r = await fetch(`${API_BASE}/sales/campaigns/${draftId}`);
@@ -575,7 +610,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
       const subject = tpl?.subject ?? quickSubject;
       const bodyPayload = tpl
         ? (tpl.format === "plain" ? { bodyText: tpl.bodyText ?? "" } : { bodyHtml: tpl.bodyHtml })
-        : { bodyText: quickBody };
+        : (composeMode === "styled" ? { bodyHtml: styledBody } : { bodyText: quickBody });
       const r = await fetch(`${API_BASE}/sales/send-test-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -586,6 +621,7 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
           senderEmail,
           replyTo,
           contactId: previewContactId ? Number(previewContactId) : undefined,
+          ...(pageId ? { pageId: Number(pageId) } : {}),
           ...bodyPayload,
         }),
       });
@@ -879,20 +915,28 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
             <div className="flex flex-col gap-5">
               <div className="flex gap-2 p-1 bg-muted/50 rounded-lg w-fit">
                 <button
+                  onClick={() => setComposeMode("styled")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    composeMode === "styled" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Styled email
+                </button>
+                <button
+                  onClick={() => setComposeMode("plain")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    composeMode === "plain" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Plain text
+                </button>
+                <button
                   onClick={() => setComposeMode("template")}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                     composeMode === "template" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Use a saved template
-                </button>
-                <button
-                  onClick={() => setComposeMode("quick")}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                    composeMode === "quick" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Quick compose
+                  Saved template
                 </button>
               </div>
 
@@ -940,34 +984,49 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
                       placeholder="e.g. Quick idea for {{company}}"
                     />
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-foreground">Message *</label>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {MERGE_VARS.map(mv => (
-                          <button
-                            key={mv.token}
-                            type="button"
-                            onClick={() => insertToken(mv.token)}
-                            className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition-colors"
-                            title={`Insert ${mv.token}`}
-                          >
-                            + {mv.label}
-                          </button>
-                        ))}
-                      </div>
+                  {composeMode === "styled" ? (
+                    <div>
+                      <label className="text-xs font-semibold text-foreground mb-1.5 block">Message *</label>
+                      <EmailWYSIWYGEditor
+                        initialContent={styledBody}
+                        onChange={setStyledBody}
+                        mergeVars={EDITOR_MERGE_VARS}
+                        showCampaignTools={false}
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        Use the toolbar to format text and add images, and the chips above the editor to insert merge variables. We'll show you exactly what each recipient sees in the next step.
+                      </p>
                     </div>
-                    <Textarea
-                      value={quickBody}
-                      onChange={e => setQuickBody(e.target.value)}
-                      placeholder={"Hi {{first_name}},\n\nSaw {{company}} is exploring…"}
-                      rows={10}
-                      className="font-mono text-sm leading-relaxed"
-                    />
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
-                      Click a chip above to insert a merge variable. We'll show you exactly what each recipient sees in the next step.
-                    </p>
-                  </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-foreground">Message *</label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {MERGE_VARS.map(mv => (
+                            <button
+                              key={mv.token}
+                              type="button"
+                              onClick={() => insertToken(mv.token)}
+                              className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition-colors"
+                              title={`Insert ${mv.token}`}
+                            >
+                              + {mv.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <Textarea
+                        value={quickBody}
+                        onChange={e => setQuickBody(e.target.value)}
+                        placeholder={"Hi {{first_name}},\n\nSaw {{company}} is exploring…"}
+                        rows={10}
+                        className="font-mono text-sm leading-relaxed"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        Click a chip above to insert a merge variable. We'll show you exactly what each recipient sees in the next step.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

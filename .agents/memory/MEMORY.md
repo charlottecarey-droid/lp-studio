@@ -1,5 +1,6 @@
 - [Dev env source](dev-env-source.md) — dev workflows read env from `.replit` `[userenv]` + gitignored `.env`; Replit Secrets are agent/deploy-only, NOT injected into workflow shells.
 - [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
+- [EmailWYSIWYGEditor mergeVars contract](email-wysiwyg-mergevars-bare.md) — editor mergeVars/insertMergeVar need BARE names (it wraps {{…}} itself); wrapped/empty values cause the empty-{{}} bug; plain-text chips keep wrapped tokens.
 - [Workspace login branding](workspace-login-branding.md) — tenant logins must read as LP Studio (logo+wordmark), Dandy is the sole white-label exception; no custom tenant logo, no "powered by".
 - [LP Studio dev marketing host](lp-studio-dev-marketing-host.md) — in dev, '/' renders the marketing site; E2E tests needing the SaaS shell must use '/?preview=app'.
 - [LP_PUBLIC auth hydration](lp-public-auth-hydration.md) — auth-conditional logic on LP_PUBLIC routes needs `optionalAuth` middleware or `req.authUser` is always undefined.
