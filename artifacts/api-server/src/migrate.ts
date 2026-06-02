@@ -631,6 +631,61 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the sales_accounts child-FK ON DELETE actions
+    // (Task #781). Deleting a sales account 500s with a Postgres FK violation
+    // when the account has ever had an email campaign, an SFDC opportunity, or
+    // a converted SFDC lead, because three FKs into sales_accounts default to
+    // RESTRICT/NO ACTION in prod:
+    //   1. sales_email_campaigns.account_id — 0008 declares ON DELETE SET NULL,
+    //      but 0008 is journaled BELOW the prod DB's migration high-water mark
+    //      (the same drift trap as the notifications/0041 case), so drizzle
+    //      silently skipped it forever; the live constraint still has no ON
+    //      DELETE action.
+    //   2. sfdc_opportunities.account_id — never had an ON DELETE clause.
+    //   3. sfdc_leads.converted_account_id — never had an ON DELETE clause and
+    //      the FK isn't even declared in the drizzle schema (plain integer).
+    // These are historical/reporting rows that should outlive the account, so
+    // all three must become ON DELETE SET NULL. Re-applying 0066 here is
+    // independent of drizzle's high-water-mark dedup and self-heals any drifted
+    // DB. It is safe on every DB: the file is DROP CONSTRAINT IF EXISTS +
+    // ADD CONSTRAINT, so it reconciles the constraints where missing and is a
+    // no-op everywhere else. The .sql stays the single source of truth.
+    //
+    // Fails CLOSED: account deletion is broken until all three FKs carry
+    // ON DELETE SET NULL, so after running we assert each constraint exists with
+    // confdeltype = 'n' (SET NULL) and abort the release otherwise. The SQL is
+    // idempotent, so a retry on the next deploy is always safe.
+    await runStep("sales_accounts child-FK ON DELETE SET NULL self-heal (0066)", async () => {
+      const fkSetNullSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0066_sales_account_fk_set_null.sql"),
+        "utf8",
+      );
+      await pool.query(fkSetNullSql);
+      // Post-step assertion: each FK into sales_accounts must now SET NULL on
+      // delete (pg_constraint.confdeltype = 'n'). Anything else still blocks the
+      // delete, so fail the release loudly rather than ship a broken delete.
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM pg_constraint c
+           JOIN pg_class child ON child.oid = c.conrelid
+           JOIN pg_class parent ON parent.oid = c.confrelid
+          WHERE c.contype = 'f'
+            AND c.confdeltype = 'n'
+            AND parent.relname = 'sales_accounts'
+            AND (
+              (child.relname = 'sales_email_campaigns' AND c.conname = 'sales_email_campaigns_account_id_fkey')
+              OR (child.relname = 'sfdc_opportunities' AND c.conname = 'sfdc_opportunities_account_id_fkey')
+              OR (child.relname = 'sfdc_leads' AND c.conname = 'sfdc_leads_converted_account_id_fkey')
+            )`,
+      );
+      const present = rows[0]?.present ?? 0;
+      if (present < 3) {
+        throw new Error(
+          `sales_accounts child-FK self-heal did not produce all three ON DELETE SET NULL constraints (found ${present}/3) — aborting release`,
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

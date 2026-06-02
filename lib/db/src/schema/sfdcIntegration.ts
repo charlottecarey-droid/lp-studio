@@ -91,7 +91,7 @@ export const sfdcLeadsTable = pgTable("sfdc_leads", {
   leadSource: text("lead_source"),
   industry: text("industry"),
   rating: text("rating"),                              // Hot, Warm, Cold
-  convertedAccountId: integer("converted_account_id"), // link to sales_accounts if converted
+  convertedAccountId: integer("converted_account_id").references(() => salesAccountsTable.id, { onDelete: "set null" }), // link to sales_accounts if converted
   convertedContactId: integer("converted_contact_id"), // link to sales_contacts if converted
   metadata: jsonb("metadata").default({}),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
@@ -110,7 +110,7 @@ export const sfdcOpportunitiesTable = pgTable("sfdc_opportunities", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
   salesforceId: text("salesforce_id").notNull().unique(),
-  accountId: integer("account_id").references(() => salesAccountsTable.id),
+  accountId: integer("account_id").references(() => salesAccountsTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   amount: text("amount"),                              // stored as text to avoid precision issues
   stageName: text("stage_name"),                       // Prospecting, Negotiation, Closed Won, etc.
