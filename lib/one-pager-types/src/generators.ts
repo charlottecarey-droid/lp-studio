@@ -491,6 +491,13 @@ export interface AgreementSummaryContent {
    */
   sectionsOffsetY?: number;        // default 0
   /**
+   * Vertical gap (in pt) between section rows at natural spacing. Larger
+   * values loosen clustered rows; smaller values tighten them. The divider
+   * line stays centered in the gap. Clamped to a sane range. Default 16
+   * (the historical hardcoded ROW_GAP) so existing layouts are unchanged.
+   */
+  sectionRowGap?: number;          // default 16
+  /**
    * Maximum width of the headline/subheadline as a percent of the page
    * width (clamped 30–90). Lowering this forces the text to wrap sooner so
    * it doesn't overlap the scanner image on the right. Default: 58.
@@ -554,6 +561,7 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   subheadlineOffsetX: 0,
   subheadlineOffsetY: 0,
   sectionsOffsetY: 0,
+  sectionRowGap: 16,
   headlineMaxWidthPct: 58,
   logoWidth: 78,
   showSectionDividers: true,
@@ -726,7 +734,7 @@ export const generateAgreementSummaryOnePager = async (
   // centered between the header and footer at its natural height — rather than
   // stretching every row to fill all available space, which left uneven gaps
   // (especially once the final divider is dropped).
-  const ROW_GAP = 16; // even vertical gap between rows at natural spacing
+  const ROW_GAP = clamp(content.sectionRowGap ?? 16, 0, 80); // user-tunable vertical gap between rows at natural spacing
   const measured = sections.map((section) => {
     doc.setFont(headingFont, headingStyle);
     doc.setFontSize(labelPt);
