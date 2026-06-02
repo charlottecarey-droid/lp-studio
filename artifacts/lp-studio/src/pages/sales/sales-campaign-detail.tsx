@@ -129,6 +129,22 @@ interface CampaignDetail {
   account: Account | null;
 }
 
+interface EmailPreview {
+  subject: string;
+  html: string;
+  contact: {
+    id: number;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    company: string;
+    hasHotlink: boolean;
+  } | null;
+  unresolvedTokens: string[];
+  emptyTokens: string[];
+  isSample: boolean;
+}
+
 // ─── Status helpers ─────────────────────────────────────────
 
 function statusIcon(status: string) {
@@ -247,6 +263,12 @@ export default function SalesCampaignDetail() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [pages, setPages] = useState<Array<{ id: number; title: string; slug: string; status: string }>>([]);
 
+  // Email Content preview — server-rendered with a representative contact's
+  // real merge values (matches the actual send-path replaceVars output).
+  const [emailPreview, setEmailPreview] = useState<EmailPreview | null>(null);
+  const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
+  const [emailPreviewError, setEmailPreviewError] = useState<string | null>(null);
+
   const fetchCampaign = useCallback(async () => {
     if (!campaignId) return;
     try {
@@ -304,6 +326,37 @@ export default function SalesCampaignDetail() {
       });
     });
   }, [fetchCampaign]);
+
+  // Render the Email Content preview with a representative contact's real merge
+  // values. Re-runs whenever the campaign reloads (e.g. after saving sender,
+  // recipients, or template) so the preview stays in sync with the send path.
+  useEffect(() => {
+    if (!campaignId || !campaign?.template) {
+      setEmailPreview(null);
+      setEmailPreviewError(null);
+      return;
+    }
+    let cancelled = false;
+    setEmailPreviewLoading(true);
+    setEmailPreviewError(null);
+    fetch(`${API_BASE}/sales/campaigns/${campaignId}/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+      .then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<EmailPreview>;
+      })
+      .then(data => { if (!cancelled) setEmailPreview(data); })
+      .catch(err => {
+        if (cancelled) return;
+        setEmailPreview(null);
+        setEmailPreviewError(err instanceof Error ? err.message : "Failed to render preview");
+      })
+      .finally(() => { if (!cancelled) setEmailPreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [campaignId, campaign]);
 
   // Initialize contact selection AND selected accounts from metadata when campaign loads
   useEffect(() => {
@@ -1206,14 +1259,46 @@ export default function SalesCampaignDetail() {
                 </Link>
               )}
             </div>
+            {/* Personalization context — who the preview's merge values come from. */}
+            {emailPreview && (
+              emailPreview.contact ? (
+                <div className="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  <span>
+                    Personalized for{" "}
+                    <span className="font-medium text-foreground">
+                      {[emailPreview.contact.firstName, emailPreview.contact.lastName].filter(Boolean).join(" ") || emailPreview.contact.email || "this contact"}
+                    </span>
+                    {emailPreview.contact.email ? <span className="text-muted-foreground"> ({emailPreview.contact.email})</span> : null}
+                    {emailPreview.contact.company ? <span className="text-muted-foreground"> · {emailPreview.contact.company}</span> : null}
+                  </span>
+                </div>
+              ) : (
+                <div className="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                  <span>Showing <span className="font-medium text-foreground">sample data</span> — add recipients to preview with a real contact.</span>
+                </div>
+              )
+            )}
             <div className="space-y-3">
               <div>
                 <span className="text-xs font-medium text-muted-foreground">Subject:</span>
-                <p className="text-sm text-foreground mt-0.5">{campaign.template.subject}</p>
+                <p className="text-sm text-foreground mt-0.5">{emailPreview ? emailPreview.subject : campaign.template.subject}</p>
               </div>
               <div>
                 <span className="text-xs font-medium text-muted-foreground">Body:</span>
-                {campaign.template.bodyHtml ? (
+                {emailPreviewLoading && !emailPreview ? (
+                  <div className="mt-1 space-y-2 border border-border/50 rounded-lg p-4 bg-muted/20">
+                    <Skeleton className="h-3 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </div>
+                ) : emailPreview && emailPreview.html ? (
+                  <div
+                    className="mt-1 text-sm text-foreground border border-border/50 rounded-lg p-4 bg-muted/20 max-h-60 overflow-y-auto"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(emailPreview.html) }}
+                  />
+                ) : campaign.template.bodyHtml ? (
                   <div
                     className="mt-1 text-sm text-foreground border border-border/50 rounded-lg p-4 bg-muted/20 max-h-60 overflow-y-auto"
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(campaign.template.bodyHtml) }}
@@ -1228,7 +1313,22 @@ export default function SalesCampaignDetail() {
                     This template has no body content.
                   </div>
                 )}
+                {emailPreviewError && (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Couldn't fill in contact details — showing the raw template. {emailPreviewError}
+                  </p>
+                )}
               </div>
+              {/* Unresolved / empty merge tokens so users know what won't fill in. */}
+              {emailPreview && (emailPreview.unresolvedTokens.length > 0 || emailPreview.emptyTokens.length > 0) && (
+                <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="font-medium">Won't fill in:</span>
+                  {[...emailPreview.unresolvedTokens, ...emailPreview.emptyTokens].map(tok => (
+                    <code key={tok} className="px-1 py-0.5 rounded bg-amber-100 text-[11px] font-mono">{`{{${tok.replace(/^\{\{|\}\}$/g, "")}}}`}</code>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         )}
