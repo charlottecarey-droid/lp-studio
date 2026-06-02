@@ -36,7 +36,7 @@ import { inject, type InjectResponse } from "../../test-utils/injectRequest";
 import { _clearResendDomainStatusCache, type ResendDnsRecord } from "../../lib/resendDomainStatus";
 import { resolveTenantSender, SHARED_SENDING_DOMAIN, deriveBrandedSubdomain } from "../../lib/tenantSender";
 import type { SalesBrandContext } from "../../lib/salesBrandContext";
-import brandedEmailSubdomainRouter from "../../routes/lp/branded-email-subdomain";
+import brandedEmailSubdomainRouter, { reconcileBrandedSubdomainDns } from "../../routes/lp/branded-email-subdomain";
 
 const SUFFIX = `${Date.now()}-${randomUUID().slice(0, 8)}`;
 const GROWTH_SLUG = `it-brandedsub-growth-${SUFFIX}`;
@@ -94,7 +94,14 @@ const fetchMock = vi.fn(async (input: unknown, init?: RequestInit): Promise<Resp
       const id = decodeURIComponent(byId[1]);
       const d = RESEND_REGISTERED.get(id);
       if (!d) return jsonResponse({ message: "Domain not found" }, 404);
-      return jsonResponse({ id: d.id, name: d.name, status: resendStatus, records: SAMPLE_RECORDS });
+      // Mirror the real API: each record's name carries the subdomain (so the
+      // reconcile path can match them against our published Cloudflare records).
+      const records = SAMPLE_RECORDS.map((r) => ({
+        ...r,
+        name: r.type === "MX" ? d.name : `resend._domainkey.${d.name}`,
+        status: resendStatus,
+      }));
+      return jsonResponse({ id: d.id, name: d.name, status: resendStatus, records });
     }
     if (byId && method === "DELETE") {
       RESEND_REGISTERED.delete(decodeURIComponent(byId[1]));
@@ -306,6 +313,66 @@ describe("branded email subdomain — verification (poll by id)", () => {
     expect(sender.usingCustomDomain).toBe(true);
     expect(sender.domain).toBe(expectedSubdomain);
     expect(sender.from).toContain(`@${expectedSubdomain}`);
+  });
+});
+
+describe("branded email subdomain — DNS drift reconcile", () => {
+  it("no-ops (zero repairs) when every required record is already live", async () => {
+    // After provision the two records are present in Cloudflare; reconcile
+    // should find them all in-sync and create nothing.
+    const before = CF_RECORDS.size;
+    const result = await reconcileBrandedSubdomainDns(growthTenantId);
+    expect(result.provisioned).toBe(true);
+    expect(result.skipped).toBeUndefined();
+    expect(result.checked).toBe(SAMPLE_RECORDS.length);
+    expect(result.repaired).toBe(0);
+    expect(CF_RECORDS.size).toBe(before);
+  });
+
+  it("re-creates a record deleted out-of-band and logs loudly", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // Simulate drift: a DKIM/TXT record is deleted directly in Cloudflare.
+      const txt = [...CF_RECORDS.values()].find((r) => r.type === "TXT");
+      expect(txt).toBeDefined();
+      CF_RECORDS.delete(txt!.id);
+      expect(CF_RECORDS.size).toBe(SAMPLE_RECORDS.length - 1);
+
+      const result = await reconcileBrandedSubdomainDns(growthTenantId);
+      expect(result.repaired).toBe(1);
+      expect(result.repairedRecords[0]).toContain("TXT");
+      // The missing record was re-published — full set restored, no duplicates.
+      expect(CF_RECORDS.size).toBe(SAMPLE_RECORDS.length);
+
+      // Drift was logged loudly.
+      expect(warn).toHaveBeenCalled();
+      const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
+      expect(logged).toContain("DNS drift detected");
+
+      // The reconciled id set was persisted (so remove still deletes what we own).
+      const persisted = await readPersisted(growthTenantId);
+      const ids = persisted.brandedEmailSubdomainDnsRecordIds as string[];
+      expect(ids.length).toBe(SAMPLE_RECORDS.length);
+      expect(new Set(ids).size).toBe(ids.length);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("is idempotent — a second pass repairs nothing and never duplicates", async () => {
+    const before = CF_RECORDS.size;
+    const result = await reconcileBrandedSubdomainDns(growthTenantId);
+    expect(result.repaired).toBe(0);
+    expect(result.checked).toBe(SAMPLE_RECORDS.length);
+    expect(CF_RECORDS.size).toBe(before);
+  });
+
+  it("skips (touches nothing) when Resend can't confirm the required records", async () => {
+    // No provisioned subdomain at all → a clean no-op, not a skip.
+    const result = await reconcileBrandedSubdomainDns(freeTenantId);
+    expect(result.provisioned).toBe(false);
+    expect(result.checked).toBe(0);
+    expect(result.repaired).toBe(0);
   });
 });
 

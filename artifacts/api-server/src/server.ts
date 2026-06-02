@@ -24,6 +24,7 @@ import { startSentryHeartbeat } from "./lib/sentryHeartbeat";
 import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { startEmailDomainPoller } from "./lib/emailDomainPoller";
+import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReconcilePoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -530,6 +531,13 @@ const httpServer = app.listen(port, (err) => {
   // mail now sends from their own domain even with the wizard closed.
   // Production-only (see poller).
   startEmailDomainPoller();
+
+  // Task #794 — periodic branded email-subdomain DNS drift reconcile. Tier 2
+  // publishes a tenant's Resend records into our own Cloudflare zone; if they
+  // are ever edited/deleted out-of-band, sending silently breaks. This sweep
+  // re-publishes any missing/changed records, self-healing deliverability.
+  // Production-only (dev shares the prod CF zone — see poller).
+  startBrandedSubdomainReconcilePoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

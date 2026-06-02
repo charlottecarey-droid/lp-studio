@@ -148,16 +148,27 @@ function parseTtl(raw: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
+interface SyncOutcome {
+  /** Cloudflare record ids that now back the subdomain (reused + created). */
+  ids: string[];
+  /** Human-readable "<TYPE> <name>" of records we had to (re-)create. */
+  created: string[];
+}
+
 /**
- * Publish the DNS records Resend returned for the subdomain into our
- * Cloudflare zone. Idempotent per record: if a matching (name+type) record
- * already exists with the same content we reuse it instead of duplicating.
- * Returns the ids of all records that now exist for the subdomain (created or
- * reused) so the remove flow can delete exactly what we own. Throws on the
- * first hard failure — the caller rolls back.
+ * Reconcile a set of Resend-required DNS records against what's live in our
+ * Cloudflare zone, creating any that are missing. Idempotent per record: if a
+ * matching (name+type) record already exists with the SAME content we reuse it
+ * instead of duplicating; otherwise we create it and record the repair. A
+ * content mismatch (a record edited out-of-band) is treated as "missing the
+ * required record" — we re-publish the correct one rather than mutating or
+ * deleting the unknown existing record (non-destructive; Resend only needs the
+ * required record present to verify). Throws on the first hard Cloudflare
+ * failure so the provision path can roll back.
  */
-async function publishRecords(records: ResendDnsRecord[]): Promise<string[]> {
+async function syncRecords(records: ResendDnsRecord[]): Promise<SyncOutcome> {
   const ids: string[] = [];
+  const created: string[] = [];
   for (const rec of records) {
     const type = (rec.type ?? "").toUpperCase();
     const name = (rec.name ?? "").trim();
@@ -170,7 +181,7 @@ async function publishRecords(records: ResendDnsRecord[]): Promise<string[]> {
       ids.push(match.id);
       continue;
     }
-    const created = await createDnsRecord({
+    const rec2 = await createDnsRecord({
       type,
       name,
       content,
@@ -178,9 +189,109 @@ async function publishRecords(records: ResendDnsRecord[]): Promise<string[]> {
       ...(typeof rec.priority === "number" ? { priority: rec.priority } : {}),
       comment: "LP Studio branded email subdomain (auto-provisioned)",
     });
-    ids.push(created.id);
+    ids.push(rec2.id);
+    created.push(`${type} ${name}`);
   }
-  return ids;
+  return { ids, created };
+}
+
+/**
+ * Publish the DNS records Resend returned for the subdomain into our
+ * Cloudflare zone. Returns the ids of all records that now exist for the
+ * subdomain (created or reused) so the remove flow can delete exactly what we
+ * own. Throws on the first hard failure — the caller rolls back.
+ */
+async function publishRecords(records: ResendDnsRecord[]): Promise<string[]> {
+  return (await syncRecords(records)).ids;
+}
+
+/**
+ * Result of a single tenant's branded-subdomain DNS reconcile.
+ */
+export interface BrandedSubdomainReconcileResult {
+  tenantId: number;
+  /** True when the tenant has a branded subdomain registered (else a no-op). */
+  provisioned: boolean;
+  /** Number of required DNS records examined (0 when skipped). */
+  checked: number;
+  /** Number of records (re-)created to repair drift. */
+  repaired: number;
+  /** "<TYPE> <name>" of each repaired record (for logging/inspection). */
+  repairedRecords: string[];
+  /** Set when reconcile was skipped without checking (e.g. Resend unavailable). */
+  skipped?: string;
+}
+
+/**
+ * Detect and repair drifted DNS for a tenant's branded email subdomain.
+ *
+ * Tier 2 publishes a tenant's Resend SPF/DKIM/MX records into OUR Cloudflare
+ * zone at provision time. If those records are later edited or deleted
+ * out-of-band (or a provision partially failed), sending silently breaks with
+ * no self-healing. This routine re-derives the required records from Resend
+ * (the source of truth — fetched live by the persisted domain id), compares
+ * them against what's live in Cloudflare, and re-publishes any that are
+ * missing/changed.
+ *
+ * Safe to run repeatedly: each required record is reused when already correct
+ * and only created when absent, so it never duplicates a healthy record. Loud
+ * when it repairs drift. Fails CLOSED on a Resend outage — if we can't
+ * determine the required records we skip (touching nothing) rather than risk
+ * tearing down good records.
+ */
+export async function reconcileBrandedSubdomainDns(
+  tenantId: number,
+): Promise<BrandedSubdomainReconcileResult> {
+  const { subdomain, domainId, dnsRecordIds } = await readConfig(tenantId);
+  if (!domainId) {
+    return { tenantId, provisioned: false, checked: 0, repaired: 0, repairedRecords: [] };
+  }
+
+  // Resend is the source of truth for which records MUST exist. Fetch live so
+  // a record-set change on Resend's side (e.g. key rotation) is picked up too.
+  const live = await getResendDomainById(domainId);
+  if (!live.available || !live.domain) {
+    return {
+      tenantId,
+      provisioned: true,
+      checked: 0,
+      repaired: 0,
+      repairedRecords: [],
+      skipped: live.error || "Resend domain unavailable",
+    };
+  }
+
+  const required = live.domain.records ?? [];
+  const { ids, created } = await syncRecords(required);
+
+  if (created.length > 0) {
+    console.warn(
+      `[lp/branded-email-subdomain] DNS drift detected for tenant ${tenantId} ` +
+        `(${subdomain || live.domain.name}): re-published ${created.length} ` +
+        `missing/changed record(s): ${created.join(", ")}`,
+    );
+  }
+
+  // Persist the reconciled id set only when it actually changed, so the remove
+  // flow can still delete exactly what we own after a repair — and we avoid a
+  // needless write on every clean (no-drift) pass.
+  const changed =
+    ids.length !== dnsRecordIds.length || ids.some((id, i) => id !== dnsRecordIds[i]);
+  if (changed) {
+    await persist(tenantId, {
+      subdomain: subdomain || live.domain.name,
+      domainId,
+      dnsRecordIds: ids,
+    });
+  }
+
+  return {
+    tenantId,
+    provisioned: true,
+    checked: ids.length,
+    repaired: created.length,
+    repairedRecords: created,
+  };
 }
 
 /** Best-effort delete of every DNS record we created for the subdomain. */
