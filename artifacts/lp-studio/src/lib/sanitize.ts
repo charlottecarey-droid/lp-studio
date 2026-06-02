@@ -22,3 +22,23 @@ export function sanitizeHtml(dirty: string): string {
     FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
   });
 }
+
+/**
+ * Escape HTML entities and linkify bare URLs in plain text, mirroring the
+ * server send path (`escapeAndLinkifyPlainText` in the campaigns route). Used
+ * so plain-format email templates (content stored in `bodyText`) preview the
+ * same way they actually send. Caller should render the result inside a
+ * container with `white-space: pre-wrap` to preserve line breaks/whitespace.
+ */
+export function escapeAndLinkifyPlainText(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped.replace(/https?:\/\/[^\s<]+/g, (match) => {
+    const m = /^(.*?)([.,;:!?)]*)$/s.exec(match);
+    const url = m ? m[1] : match;
+    const trailing = m ? m[2] : "";
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+  });
+}

@@ -43,7 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeHtml, escapeAndLinkifyPlainText } from "@/lib/sanitize";
 
 const API_BASE = "/api";
 
@@ -1213,10 +1213,21 @@ export default function SalesCampaignDetail() {
               </div>
               <div>
                 <span className="text-xs font-medium text-muted-foreground">Body:</span>
-                <div
-                  className="mt-1 text-sm text-foreground border border-border/50 rounded-lg p-4 bg-muted/20 max-h-60 overflow-y-auto"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(campaign.template.bodyHtml) }}
-                />
+                {campaign.template.bodyHtml ? (
+                  <div
+                    className="mt-1 text-sm text-foreground border border-border/50 rounded-lg p-4 bg-muted/20 max-h-60 overflow-y-auto"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(campaign.template.bodyHtml) }}
+                  />
+                ) : campaign.template.bodyText ? (
+                  <div
+                    className="mt-1 text-sm text-foreground border border-border/50 rounded-lg p-4 bg-muted/20 max-h-60 overflow-y-auto whitespace-pre-wrap break-words"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(escapeAndLinkifyPlainText(campaign.template.bodyText)) }}
+                  />
+                ) : (
+                  <div className="mt-1 text-sm text-muted-foreground italic border border-border/50 rounded-lg p-4 bg-muted/20">
+                    This template has no body content.
+                  </div>
+                )}
               </div>
             </div>
           </Card>
