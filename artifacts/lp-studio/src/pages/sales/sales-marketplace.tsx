@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
-import { DEFAULT_BRAND, getBrandStyleVars } from "@/lib/brand-config";
+import { getBrandStyleVars } from "@/lib/brand-config";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import type { PageBlock } from "@/lib/block-types";
 import {
   type TemplateTypeFilter,
@@ -147,6 +148,10 @@ type SortOption = "Newest" | "Name" | "Recently Used";
 
 export default function SalesMarketplace() {
   const { toast } = useToast();
+  // Render previews with the tenant's actual brand (Dandy's palette/fonts for
+  // Dandy tenants) so var(--brand-*) resolve to the real colors, matching the
+  // builder — not the neutral DEFAULT_BRAND slate/blue.
+  const { brand } = useBrandConfig();
   const [, navigate] = useLocation();
   const [templates, setTemplates] = useState<TemplatePage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -614,12 +619,12 @@ export default function SalesMarketplace() {
               </div>
             )}
             {!previewLoading && !previewError && previewBlocks && previewBlocks.length > 0 && (
-              <div className="template-preview-root" style={getBrandStyleVars(DEFAULT_BRAND)}>
+              <div className="template-preview-root" style={getBrandStyleVars(brand)}>
                 {previewBlocks.map((block, i) => (
                   <BlockRenderer
                     key={(block as { id?: string }).id ?? i}
                     block={block}
-                    brand={DEFAULT_BRAND}
+                    brand={brand}
                     animationsEnabled={false}
                   />
                 ))}
