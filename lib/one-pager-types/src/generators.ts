@@ -945,6 +945,42 @@ export const defaultAudienceContent: Record<Audience, AudienceContent> = {
   },
 };
 
+// ── Footer height slider ───────────────────────────────────────────────
+// The sales one-pager editor's "Footer Height" control saves
+// `footerCfg.height` (default FOOTER_HEIGHT_DEFAULT). Each template has its own
+// per-template baseline footer band height; we treat the slider as a delta over
+// that baseline so a page sitting at the default value renders byte-identically
+// to before, while moving the slider visibly grows/shrinks the band. Text inside
+// the band is re-centered on the band so it stays vertically centered at any
+// slider value (see footerTextY).
+const FOOTER_HEIGHT_DEFAULT = 36;
+
+// Resolve the rendered footer band height for a template whose original
+// hardcoded height was `baseline`. Returns baseline when the slider is at its
+// default (or unset), and baseline ± the slider's delta otherwise. Clamped to a
+// small minimum so the band never collapses below the footer text.
+const resolveFooterBand = (
+  fCfg: Record<string, unknown>,
+  baseline: number,
+): number => {
+  const raw = fCfg.height;
+  const value =
+    typeof raw === "number" && Number.isFinite(raw) ? raw : FOOTER_HEIGHT_DEFAULT;
+  return Math.max(16, baseline + (value - FOOTER_HEIGHT_DEFAULT));
+};
+
+// Vertical baseline for a footer text line so it stays centered in the resized
+// band. `footerY` is the band top, `footerH` the (possibly resized) band height,
+// `baseline` the template's original band height, and `origOffset` the line's
+// original offset from the band top. At the default height this reproduces the
+// original `footerY + origOffset`; as the band grows the line tracks the center.
+const footerTextY = (
+  footerY: number,
+  footerH: number,
+  baseline: number,
+  origOffset: number,
+): number => footerY + footerH / 2 + (origOffset - baseline / 2);
+
 // ── Pilot One-Pager ────────────────────────────────────────────────────
 export interface PilotOpts {
   logoPng?: string | null;
@@ -1226,7 +1262,9 @@ export const generatePilotOnePager = async (
   }
 
   const showFooter = (fCfg.show as boolean | undefined) !== false;
-  const footerH = showFooter ? (customLinkText?.trim() && customLinkUrl?.trim() ? 56 : 44) : 0;
+  const hasFooterLink = !!(customLinkText?.trim() && customLinkUrl?.trim());
+  const footerBaseline = hasFooterLink ? 56 : 44;
+  const footerH = showFooter ? resolveFooterBand(fCfg, footerBaseline) : 0;
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
@@ -1234,10 +1272,10 @@ export const generatePilotOnePager = async (
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
-    if (footerText) doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 20 : 28), { align: "center" });
-    if (customLinkText?.trim() && customLinkUrl?.trim()) {
+    if (footerText) doc.text(footerText, w / 2, footerTextY(footerY, footerH, footerBaseline, hasFooterLink ? 20 : 28), { align: "center" });
+    if (hasFooterLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...pal.onPrimaryMuted);
-      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 38, { url: customLinkUrl });
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerTextY(footerY, footerH, footerBaseline, 38), { url: customLinkUrl! });
     }
   }
 
@@ -1468,17 +1506,19 @@ export const generateComparisonOnePager = async (
   }
 
   const showFooter = (fCfg.show as boolean | undefined) !== false;
-  const footerH = showFooter ? (customLinkText?.trim() && customLinkUrl?.trim() ? 38 : 30) : 0;
+  const hasFooterLink = !!(customLinkText?.trim() && customLinkUrl?.trim());
+  const footerBaseline = hasFooterLink ? 38 : 30;
+  const footerH = showFooter ? resolveFooterBand(fCfg, footerBaseline) : 0;
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
     doc.setFillColor(...pal.primary); doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : b.footerUrl;
-    if (footerText) doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 16 : 24), { align: "center" });
-    if (customLinkText?.trim() && customLinkUrl?.trim()) {
+    if (footerText) doc.text(footerText, w / 2, footerTextY(footerY, footerH, footerBaseline, hasFooterLink ? 16 : 24), { align: "center" });
+    if (hasFooterLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...pal.onPrimaryMuted);
-      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 28, { url: customLinkUrl });
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerTextY(footerY, footerH, footerBaseline, 28), { url: customLinkUrl! });
     }
   }
 
@@ -1783,7 +1823,8 @@ export const generateNewPartnerOnePager = async (
   const phoneNumber = opts?.phoneNumber ?? "";
   const showFooter = (fCfg.show as boolean | undefined) !== false;
   const hasCustomLink = !!(customLinkText?.trim() && customLinkUrl?.trim());
-  const footerH = showFooter ? (hasCustomLink ? 56 : 44) : 0;
+  const footerBaseline = hasCustomLink ? 56 : 44;
+  const footerH = showFooter ? resolveFooterBand(fCfg, footerBaseline) : 0;
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
   if (showFooter) {
@@ -1791,10 +1832,10 @@ export const generateNewPartnerOnePager = async (
     doc.rect(0, footerY, w, footerH, "F");
     doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...white);
     const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : footerLink;
-    if (footerText) doc.text(footerText, w / 2, footerY + (hasCustomLink ? 20 : 28), { align: "center" });
+    if (footerText) doc.text(footerText, w / 2, footerTextY(footerY, footerH, footerBaseline, hasCustomLink ? 20 : 28), { align: "center" });
     if (hasCustomLink) {
       doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);
-      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerY + 38, { url: customLinkUrl! });
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText!) / 2, footerTextY(footerY, footerH, footerBaseline, 38), { url: customLinkUrl! });
     }
   }
 
@@ -1953,7 +1994,8 @@ export const generateROIOnePager = async (
   y += 105 + 20;
 
   // Quote block fills remaining page height
-  const footerH = 36;
+  const footerBaseline = 36;
+  const footerH = resolveFooterBand(fCfg, footerBaseline);
   const quoteBlockH = h - footerH - y - 20;
   doc.setFillColor(...pal.primaryMid); doc.roundedRect(margin, y, contentW, quoteBlockH, 6, 6, "F");
   doc.setFont("helvetica", "italic"); doc.setFontSize(9.5);
@@ -1970,17 +2012,18 @@ export const generateROIOnePager = async (
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...pal.onPrimaryMuted); doc.text("  —  Oasis Modern Dentistry", margin + 50 + doc.getTextWidth("Dr. Tania Arthur "), attrY);
 
   // Page 1 footer
-  doc.setFillColor(...pal.primary); doc.rect(0, h - footerH, w, footerH, "F");
+  const footer1Y = h - footerH;
+  doc.setFillColor(...pal.primary); doc.rect(0, footer1Y, w, footerH, "F");
   if (logoPng) {
-    try { doc.addImage(logoPng, "PNG", margin, h - footerH + 10, 48, 17); } catch {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
+    try { doc.addImage(logoPng, "PNG", margin, footerTextY(footer1Y, footerH, footerBaseline, 10), 48, 17); } catch {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, footerTextY(footer1Y, footerH, footerBaseline, 24));
     }
   } else {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, footerTextY(footer1Y, footerH, footerBaseline, 24));
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(160, 185, 175);
-  if (b.footerUrl) doc.text(b.footerUrl, w / 2, h - footerH + 22, { align: "center" });
-  doc.setTextColor(...pal.accentOnDark); doc.text(`Prepared for ${dsoName}  •  Page 1 of 2`, w - margin, h - footerH + 22, { align: "right" });
+  if (b.footerUrl) doc.text(b.footerUrl, w / 2, footerTextY(footer1Y, footerH, footerBaseline, 22), { align: "center" });
+  doc.setTextColor(...pal.accentOnDark); doc.text(`Prepared for ${dsoName}  •  Page 1 of 2`, w - margin, footerTextY(footer1Y, footerH, footerBaseline, 22), { align: "right" });
 
   // PAGE 2
   doc.addPage();
@@ -2089,17 +2132,18 @@ export const generateROIOnePager = async (
   doc.text(b.footerUrl ? `Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis at ${b.footerUrl}` : "Start a risk-free pilot with 5–10 locations. Get a custom ROI analysis.", margin + 20, y + 38);
 
   // Page 2 footer
-  doc.setFillColor(...pal.primary); doc.rect(0, h - footerH, w, footerH, "F");
+  const footer2Y = h - footerH;
+  doc.setFillColor(...pal.primary); doc.rect(0, footer2Y, w, footerH, "F");
   if (logoPng) {
-    try { doc.addImage(logoPng, "PNG", margin, h - footerH + 10, 48, 17); } catch {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
+    try { doc.addImage(logoPng, "PNG", margin, footerTextY(footer2Y, footerH, footerBaseline, 10), 48, 17); } catch {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, footerTextY(footer2Y, footerH, footerBaseline, 24));
     }
   } else {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, h - footerH + 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...white); doc.text(b.wordmark, margin, footerTextY(footer2Y, footerH, footerBaseline, 24));
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(160, 185, 175);
-  if (b.footerUrl) doc.text(b.footerUrl, w / 2, h - footerH + 22, { align: "center" });
-  doc.setTextColor(...pal.accentOnDark); doc.text(`Prepared for ${dsoName}  •  Page 2 of 2`, w - margin, h - footerH + 22, { align: "right" });
+  if (b.footerUrl) doc.text(b.footerUrl, w / 2, footerTextY(footer2Y, footerH, footerBaseline, 22), { align: "center" });
+  doc.setTextColor(...pal.accentOnDark); doc.text(`Prepared for ${dsoName}  •  Page 2 of 2`, w - margin, footerTextY(footer2Y, footerH, footerBaseline, 22), { align: "right" });
 
   return doc;
 };
