@@ -735,6 +735,81 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017).
+    // Campaign send / preview / test paths call ensureHotlinkForContact, which mints
+    // one personalized hotlink per (contact, page) via INSERT ... ON CONFLICT
+    // (contact_id, page_id) WHERE contact_id IS NOT NULL for concurrency safety. That
+    // ON CONFLICT requires the PARTIAL unique index created by migration 0017. On DBs
+    // where 0017 is journaled below the migration high-water mark, drizzle skips it
+    // forever (same drift trap as 0041/0066/0067), so the index is missing and every
+    // hotlink mint throws 42P10 ("no unique or exclusion constraint matching the ON
+    // CONFLICT specification") — silently breaking {{microsite_url}} personalization
+    // in campaigns. Re-create it here independent of drizzle's high-water-mark dedup.
+    //
+    // A unique index can't be built while duplicate (contact_id, page_id) rows exist
+    // (these accumulate precisely because the ON CONFLICT was failing), so first
+    // collapse duplicates to the oldest row (lowest id) before creating the index.
+    // The index SQL is idempotent (CREATE UNIQUE INDEX IF NOT EXISTS), so retries are
+    // safe. Fails CLOSED: campaign personalization is broken without it, so we assert
+    // the index exists afterward and abort the release otherwise.
+    await runStep("sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)", async () => {
+      // Observability before any mutation: log how many (contact_id, page_id)
+      // duplicate rows we're about to collapse and which ids lose their token, so
+      // any impact is traceable. Duplicates are expected to be rare/zero — while
+      // the index was missing every ON CONFLICT insert threw 42P10, so no new rows
+      // accrued; any survivors are historical. Hard-deleting the newer duplicates
+      // is safe: the click route redirects to the destination URL carried in the
+      // link's query string regardless of whether the hotlink row exists, and
+      // sales_email_sends.n -> sales_hotlinks.id is ON DELETE SET NULL (no orphan
+      // crash). Keeping the OLDEST row (lowest id) preserves the earliest-minted,
+      // most-likely-already-shared token.
+      const { rows: dupRows } = await pool.query<{ id: number; token: string }>(`
+        SELECT a.id, a.token
+          FROM sales_hotlinks a
+          JOIN sales_hotlinks b
+            ON a.contact_id = b.contact_id
+           AND a.page_id = b.page_id
+           AND a.id > b.id
+         WHERE a.contact_id IS NOT NULL
+      `);
+      if (dupRows.length > 0) {
+        logger.warn(
+          { count: dupRows.length, removedIds: dupRows.map((r) => r.id) },
+          "sales_hotlinks contact_page self-heal: collapsing duplicate (contact_id,page_id) rows before unique index",
+        );
+        await pool.query(`
+          DELETE FROM sales_hotlinks a
+          USING sales_hotlinks b
+          WHERE a.contact_id IS NOT NULL
+            AND a.contact_id = b.contact_id
+            AND a.page_id = b.page_id
+            AND a.id > b.id
+        `);
+      }
+      const indexSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0017_sales_hotlinks_contact_page_unique.sql"),
+        "utf8",
+      );
+      await pool.query(indexSql);
+      // Post-step assertion: the index ensureHotlinkForContact's ON CONFLICT targets
+      // must now exist AND be a UNIQUE index with the exact partial predicate
+      // (contact_id IS NOT NULL). A name-only check could pass on a drifted/wrong
+      // definition, so validate indisunique + the predicate text; otherwise hotlink
+      // minting stays broken, so fail the release loudly.
+      const { rows } = await pool.query<{ is_unique: boolean; def: string }>(
+        `SELECT i.indisunique AS is_unique, pg_get_indexdef(i.indexrelid) AS def
+           FROM pg_index i
+           JOIN pg_class c ON c.oid = i.indexrelid
+          WHERE c.relname = 'sales_hotlinks_contact_page_unique'`,
+      );
+      const heal = rows[0];
+      if (!heal || !heal.is_unique || !/contact_id IS NOT NULL/i.test(heal.def)) {
+        throw new Error(
+          `sales_hotlinks contact_page unique index self-heal produced an unexpected definition (unique=${heal?.is_unique ?? "missing"}, def=${heal?.def ?? "none"}) — aborting release`,
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

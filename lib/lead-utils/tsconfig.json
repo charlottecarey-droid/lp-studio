@@ -8,5 +8,6 @@
     "rootDir": "src",
     "lib": ["es2022", "dom"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }
