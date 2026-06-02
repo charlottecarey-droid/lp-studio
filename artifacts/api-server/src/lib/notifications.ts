@@ -28,7 +28,7 @@ function interpolatePlainText(tpl: string, vars: Record<string, string>): string
  * The action URL is passed in `vars.ctaUrl` and is HTML-escaped on substitution,
  * so the magic-link / reset / verify URL is preserved verbatim inside the href.
  */
-async function renderSystemEmail(
+export async function renderSystemEmail(
   key: string,
   vars: Record<string, string>,
   tenantId?: number | null,
