@@ -42,7 +42,9 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { getResendDomainById } from "./resendDomainStatus";
 import { sendEmailDomainVerifiedEmail } from "./notifications";
-import { resolveBroadcastRecipients } from "./broadcastRecipients";
+import { resolveBroadcastRecipients, type ResolvedRecipient } from "./broadcastRecipients";
+import { dispatchNotification } from "./notificationDispatcher";
+import { WILDCARD_BASE_HOSTS } from "./tenantHosts";
 
 export const EMAIL_DOMAIN_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -57,22 +59,43 @@ const EMAIL_SETTINGS_URL = "https://app.lpstudio.ai/settings/email";
 type PendingDomainRow = {
   tenant_id: number;
   tenant_name: string;
+  tenant_slug: string;
+  tenant_domain: string | null;
   sending_domain: string | null;
   domain_id: string;
 };
 
-async function loadAdminEmails(tenantId: number): Promise<string[]> {
+async function loadAdminRecipients(tenantId: number): Promise<ResolvedRecipient[]> {
   try {
     // Recipients are per-tenant configurable (Task #614). Unconfigured = legacy
     // default (all admins); a configured-but-empty config fails open to all
     // admins (handled inside resolveBroadcastRecipients). Reuses the same
-    // domain-status audience as the microsite custom-domain poller.
-    const recipients = await resolveBroadcastRecipients(tenantId, "custom_domain_status");
-    return recipients.map((r) => r.email).filter(Boolean);
+    // domain-status audience as the microsite custom-domain poller. The full
+    // recipient (with appUserId) is kept so the in-app inbox item (Task #792)
+    // can be delivered alongside the email.
+    return await resolveBroadcastRecipients(tenantId, "custom_domain_status");
   } catch (err) {
     logger.error({ err, tenantId }, "emailDomainPoller: admin lookup failed");
     return [];
   }
+}
+
+/**
+ * Build the tenant's own "/settings/email" deep link for the in-app inbox
+ * item's CTA — the custom-domain branch of Settings where the verified domain
+ * shows. Prefers the tenant's attached custom domain, falling back to its
+ * `<slug>.<wildcard-host>` workspace URL. Returns null when no host is known so
+ * the inbox item simply renders without a CTA. Mirrors trialLifecycle's
+ * workspace-URL derivation.
+ */
+function buildSettingsEmailUrl(row: PendingDomainRow): string | null {
+  const baseHost = WILDCARD_BASE_HOSTS.find((h) => !h.startsWith("app.")) ?? WILDCARD_BASE_HOSTS[0] ?? null;
+  const base = row.tenant_domain
+    ? `https://${row.tenant_domain.toLowerCase()}`
+    : baseHost
+      ? `https://${row.tenant_slug.toLowerCase()}.${baseHost}`
+      : null;
+  return base ? `${base}/settings/email` : null;
 }
 
 /**
@@ -176,6 +199,8 @@ async function runEmailDomainPollLocked(): Promise<void> {
     const result = await pool.query<PendingDomainRow>(
       `SELECT lbs.tenant_id AS tenant_id,
               t.name AS tenant_name,
+              t.slug AS tenant_slug,
+              t.domain AS tenant_domain,
               lbs.config->'salesConsole'->>'sendingDomain' AS sending_domain,
               lbs.config->'salesConsole'->>'customEmailDomainId' AS domain_id
          FROM lp_brand_settings lbs
@@ -229,14 +254,22 @@ async function tryFireVerified(row: PendingDomainRow): Promise<void> {
   }
   if (!claimed) return; // someone else got there first, or already notified
 
-  const admins = await loadAdminEmails(row.tenant_id);
-  if (admins.length === 0) {
-    // Keep the claim — nobody to email, no point re-checking next scan.
+  const recipients = await loadAdminRecipients(row.tenant_id);
+  if (recipients.length === 0) {
+    // Keep the claim — nobody to notify, no point re-checking next scan.
     logger.info({ tenantId: row.tenant_id, domainId: row.domain_id }, "email domain verified: no admins to notify");
     return;
   }
 
   const domain = (row.sending_domain ?? "").trim() || row.domain_id;
+
+  // In-app inbox item (Task #792) so admins who don't check email (or whose
+  // email send fails) still get the signal. It's deduped INSIDE the dispatcher
+  // by a domain-id-keyed dedupe_key, so even if the email-driven claim is later
+  // released and this whole branch retried, the inbox item is posted only once.
+  await dispatchVerifiedInApp(row, recipients, domain);
+
+  const admins = recipients.map((r) => r.email).filter(Boolean);
   let sent = 0;
   try {
     const results = await Promise.all(admins.map((email) =>
@@ -255,7 +288,9 @@ async function tryFireVerified(row: PendingDomainRow): Promise<void> {
   }
 
   if (sent === 0) {
-    // Every recipient failed — release the claim so we retry next scan.
+    // Every email failed — release the claim so we retry next scan. The in-app
+    // item already posted above survives the retry (dispatcher dedupe), so the
+    // admin keeps the in-product signal even while email keeps retrying.
     await releaseClaim(row.tenant_id, row.domain_id);
     logger.warn(
       { tenantId: row.tenant_id, domain, attempted: admins.length },
@@ -268,6 +303,42 @@ async function tryFireVerified(row: PendingDomainRow): Promise<void> {
     { tenantId: row.tenant_id, domain, sent, attempted: admins.length },
     "email domain verified email sent",
   );
+}
+
+/**
+ * Post the "your sending domain is verified" in-app inbox item to every admin
+ * with a workspace account (recipients without an appUserId are skipped inside
+ * the dispatcher). Best-effort: a failure here is logged and swallowed so it
+ * never blocks the verification email that follows.
+ */
+async function dispatchVerifiedInApp(
+  row: PendingDomainRow,
+  recipients: ResolvedRecipient[],
+  domain: string,
+): Promise<void> {
+  try {
+    await dispatchNotification({
+      templateKey: "email_domain_verified",
+      tenantId: row.tenant_id,
+      recipients,
+      // dispatchInApp uses `workspaceUrl` as the inbox item's CTA target; point
+      // it at the tenant's own /settings/email page where the domain shows.
+      context: {
+        tenantName: row.tenant_name,
+        domain,
+        workspaceUrl: buildSettingsEmailUrl(row),
+      },
+      // Domain-id-keyed so re-registering a domain (fresh Resend id) re-fires,
+      // and a claim release+retry never posts a second inbox item.
+      dedupeBase: `email_domain_verified:tenant:${row.tenant_id}:${row.domain_id}`,
+      channels: ["in_app"],
+    });
+  } catch (err) {
+    logger.error(
+      { err, tenantId: row.tenant_id, domainId: row.domain_id },
+      "emailDomainPoller: in-app verified dispatch failed (non-fatal)",
+    );
+  }
 }
 
 /**

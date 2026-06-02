@@ -92,8 +92,10 @@ async function ensureFixture(): Promise<void> {
 
 async function teardownFixture(): Promise<void> {
   if (!tenantId) return;
+  await pool.query(`DELETE FROM notification_sends WHERE tenant_id = $1`, [tenantId]).catch(() => {});
   await pool.query(`DELETE FROM tenant_members WHERE tenant_id = $1`, [tenantId]).catch(() => {});
   await pool.query(`DELETE FROM tenant_roles WHERE tenant_id = $1`, [tenantId]).catch(() => {});
+  await pool.query(`DELETE FROM app_users WHERE tenant_id = $1`, [tenantId]).catch(() => {});
   await pool.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [tenantId]).catch(() => {});
   await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]).catch(() => {});
 }
@@ -138,9 +140,22 @@ beforeAll(async () => {
 afterAll(async () => {
   await teardownFixture();
 });
-beforeEach(() => {
+beforeEach(async () => {
   sendVerifiedMock.mockReset().mockResolvedValue(true);
   getByIdMock.mockReset();
+  // Release any advisory lock leaked by a prior poll through the Neon pooler.
+  // The poller takes a SESSION-level pg_try_advisory_lock(783,1) on a pooled
+  // connection, but the matching pg_advisory_unlock can land on a different
+  // backend, orphaning the lock on a pooled connection. The next scan then
+  // sees `locked=false`, skips the whole pass, and the test sees 0 sends.
+  // Terminating the orphan holder (idle in the pool) releases the lock so each
+  // test starts from a clean slate. Production is unaffected — this is purely
+  // test-suite isolation against the shared Neon pooler.
+  await pool.query(
+    `SELECT pg_terminate_backend(pid) FROM pg_locks
+      WHERE locktype = 'advisory' AND classid = 783 AND objid = 1
+        AND pid <> pg_backend_pid()`,
+  ).catch(() => {});
 });
 
 // ── Tests ───────────────────────────────────────────────────────────
@@ -222,5 +237,50 @@ describe("emailDomainPoller — exactly-once delivery (task #783)", () => {
       claimEmailDomainNotification(tenantId, FIXTURE_DOMAIN_ID),
     ]);
     expect(results.filter(Boolean).length).toBe(1);
+  });
+
+  // ── In-app inbox item (task #792) ──────────────────────────────────
+  // Admins with a workspace account also get the verified event in the in-app
+  // notification inbox, deduped with the email under the same id-keyed claim.
+  it("posts the verified event to the admin's in-app inbox exactly once", async () => {
+    // Give the fixture admin a real workspace account so the in-app inbox
+    // (which needs an app_user_id) has a target. Added here, not in the shared
+    // fixture, so the email-only tests above keep their single-recipient counts.
+    const adminEmail = `emaildomain-poller-inapp-${Date.now()}@example.com`;
+    const userRes = await pool.query<{ id: number }>(
+      `INSERT INTO app_users (tenant_id, email, name) VALUES ($1, $2, 'Inbox Admin') RETURNING id`,
+      [tenantId, adminEmail],
+    );
+    const appUserId = userRes.rows[0].id;
+    await pool.query(
+      `INSERT INTO tenant_members (tenant_id, role_id, user_id, email, accepted_at)
+       VALUES ($1, $2, $3, $4, now())`,
+      [tenantId, roleId, appUserId, adminEmail],
+    );
+
+    const IN_APP_DOMAIN_ID = "rd_emaildomain_poller_inapp";
+    await setDomainConfig({ domainId: IN_APP_DOMAIN_ID });
+    getByIdMock.mockResolvedValue(domainResult("verified", IN_APP_DOMAIN_ID));
+
+    await runEmailDomainPoll();
+
+    const first = await pool.query<{ id: number; title: string; cta_url: string | null }>(
+      `SELECT id, title, cta_url FROM notification_sends
+        WHERE tenant_id = $1 AND app_user_id = $2
+          AND template_key = 'email_domain_verified' AND channel = 'in_app'`,
+      [tenantId, appUserId],
+    );
+    expect(first.rowCount).toBe(1);
+    expect(first.rows[0].title).toContain("verified");
+
+    // A second scan must not post a duplicate inbox item (dispatcher dedupe).
+    await runEmailDomainPoll();
+    const second = await pool.query<{ count: string }>(
+      `SELECT count(*) AS count FROM notification_sends
+        WHERE tenant_id = $1 AND app_user_id = $2
+          AND template_key = 'email_domain_verified' AND channel = 'in_app'`,
+      [tenantId, appUserId],
+    );
+    expect(Number(second.rows[0].count)).toBe(1);
   });
 });

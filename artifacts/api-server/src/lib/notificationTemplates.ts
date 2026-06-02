@@ -308,6 +308,32 @@ const BASE_TEMPLATES: Record<string, BaseTemplateDef> = {
     },
     enabled: true,
   },
+  email_domain_verified: {
+    key: "email_domain_verified",
+    name: "Email sending domain verified",
+    description:
+      "In-app heads-up when a tenant's custom email sending domain finishes DNS verification.",
+    // Operational account heads-up. Category is lifecycle for consistency with
+    // the other workspace alerts, but it never reaches the email preference
+    // center because that lists only lifecycle templates with an EMAIL channel.
+    category: "lifecycle",
+    // In-app ONLY. The verification EMAIL is still sent separately by the
+    // email-domain poller (lib/notifications.sendEmailDomainVerifiedEmail); this
+    // template adds the in-product inbox signal for admins who don't check email.
+    channels: ["in_app"],
+    emailSubject: "Your email sending domain is verified",
+    emailIntro: "Your custom email sending domain is verified.",
+    // Reused as the in-app inbox item's CTA label (dispatchInApp).
+    emailCtaLabel: "View email settings",
+    inAppTitle: "Your email sending domain is verified",
+    inAppBody:
+      "{{domain}} is verified. Emails to your contacts will now send from your own domain.",
+    previewData: {
+      domain: "mail.acme.com",
+      tenantName: "Acme",
+    },
+    enabled: true,
+  },
 };
 
 // Registry-wide default sample values for live preview / test-send.
