@@ -39,6 +39,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getLpPageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { PageConversionScore } from "@/components/analytics/PageConversionScore";
 import { PageSpeedPanel } from "@/components/analytics/PageSpeedPanel";
@@ -702,10 +703,8 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
 /*  Header — copyable URL + last-edited + publish/unpublish            */
 /* ------------------------------------------------------------------ */
 
-function CopyUrlButton({ slug }: { slug: string }) {
+function CopyUrlButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
-  const url =
-    typeof window !== "undefined" ? `${window.location.origin}/lp/${slug}` : `/lp/${slug}`;
 
   async function copy() {
     try {
@@ -864,6 +863,9 @@ function fmtLastEdited(iso?: string): string | null {
 export default function PageDetail() {
   const [, params] = useRoute("/analytics/pages/:pageId");
   const pageId = params?.pageId ? parseInt(params.pageId, 10) : NaN;
+  const { domainContext, user } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
   const [days, setDays] = useState(30);
   const [customOpen, setCustomOpen] = useState(false);
   const [customInput, setCustomInput] = useState("30");
@@ -927,7 +929,11 @@ export default function PageDetail() {
                 </h1>
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                {page?.slug && <p className="text-sm text-muted-foreground">/lp/{page.slug}</p>}
+                {page?.slug && (
+                  <p className="text-sm text-muted-foreground">
+                    {micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}
+                  </p>
+                )}
                 {fmtLastEdited(page?.updatedAt) && (
                   <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -937,9 +943,9 @@ export default function PageDetail() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {page?.slug && <CopyUrlButton slug={page.slug} />}
+              {page?.slug && <CopyUrlButton url={getLpPageUrl(page.slug, micrositeDomain, tenantHost)} />}
               {page?.slug && (
-                <a href={`/lp/${page.slug}`} target="_blank" rel="noreferrer">
+                <a href={getLpPageUrl(page.slug, micrositeDomain, tenantHost)} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">
                     <Eye className="w-4 h-4 mr-1.5" />
                     View live

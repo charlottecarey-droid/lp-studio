@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -353,6 +354,8 @@ function TrafficChart({ data, loading }: { data: TrafficDay[]; loading: boolean 
 
 function PagesTable({ pages, loading }: { pages: PageMetrics[]; loading: boolean }) {
   const [, setLocation] = useLocation();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   if (loading) {
     return (
       <Card>
@@ -407,7 +410,7 @@ function PagesTable({ pages, loading }: { pages: PageMetrics[]; loading: boolean
                 <td className="px-5 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate max-w-xs">{p.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">/lp/{p.slug}</p>
+                    <p className="text-xs text-muted-foreground truncate">{micrositeDomain ? `/${p.slug}` : `/lp/${p.slug}`}</p>
                   </div>
                 </td>
                 <td className="text-right px-4 py-3 text-sm tabular-nums font-medium">
@@ -696,6 +699,8 @@ function ConversionFunnel({ overview, pages, ghostSubmits, loading }: { overview
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload } = useAnalytics(days);
 
   const totalVisits = countries.reduce((s, r) => s + r.count, 0);
@@ -815,7 +820,7 @@ export default function AnalyticsPage() {
                         <BarRow
                           key={p.pageId}
                           label={p.title}
-                          sub={`/lp/${p.slug}`}
+                          sub={micrositeDomain ? `/${p.slug}` : `/lp/${p.slug}`}
                           count={p.visits}
                           max={pages[0]?.visits ?? 1}
                         />

@@ -394,6 +394,15 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           .map((r) => r.session_id as string),
       ),
     );
+    // Bind the session ids as a real Postgres text[] for `= ANY(...)`. Drizzle
+    // expands a bare JS array into a parenthesised param tuple `($1, $2, …)`,
+    // which is valid for `IN (...)` but NOT for `ANY(...)` — the latter throws
+    // and surfaced to users as "Could not load visits" on any page that has
+    // anonymous traffic (i.e. a non-empty sessionIds list).
+    const sessionIdArray = sql`ARRAY[${sql.join(
+      sessionIds.map((s) => sql`${s}`),
+      sql`, `,
+    )}]::text[]`;
 
     const engagementBySession = new Map<
       string,
@@ -408,7 +417,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
           count(*) FILTER (WHERE event_type = 'click')::int AS clicks,
           mode() WITHIN GROUP (ORDER BY device) AS device
         FROM lp_heatmap_events
-        WHERE page_id = ${pageId} AND session_id = ANY(${sessionIds})
+        WHERE page_id = ${pageId} AND session_id = ANY(${sessionIdArray})
         GROUP BY session_id
       `);
       for (const r of heat.rows as {
@@ -452,7 +461,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
             PARTITION BY session_id, event_type ORDER BY created_at
           ) AS rn
           FROM lp_heatmap_events
-          WHERE page_id = ${pageId} AND session_id = ANY(${sessionIds})
+          WHERE page_id = ${pageId} AND session_id = ANY(${sessionIdArray})
         ) t
         WHERE rn <= 60
         ORDER BY session_id, created_at

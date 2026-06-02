@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { useToast } from "@/hooks/use-toast";
 import { leadName, leadEmail } from "@workspace/lead-utils";
+import { useAuth } from "@/context/AuthContext";
 import { ArrowLeft, Download, Users, RefreshCw, Trash2, Search, FlaskConical } from "lucide-react";
 
 const API_BASE = "/api";
@@ -119,6 +120,8 @@ interface MasterLeadsViewProps {
 
 function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewProps) {
   const { toast } = useToast();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -283,7 +286,7 @@ function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewPr
                     <td className="px-4 py-2.5 max-w-xs truncate text-muted-foreground">{email}</td>
                     <td className="px-4 py-2.5 max-w-[14rem] truncate">
                       {lead.pageSlug ? (
-                        <Link href={`/pages`} className="hover:underline">{lead.pageTitle ?? `/lp/${lead.pageSlug}`}</Link>
+                        <Link href={`/pages`} className="hover:underline">{lead.pageTitle ?? (micrositeDomain ? `/${lead.pageSlug}` : `/lp/${lead.pageSlug}`)}</Link>
                       ) : (lead.pageTitle ?? "—")}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{new Date(lead.createdAt).toLocaleString()}</td>
@@ -337,6 +340,8 @@ interface PageLeadsViewProps {
 
 function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
   const { toast } = useToast();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -425,7 +430,7 @@ function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold truncate">{page.title}</h1>
-          <p className="text-sm text-muted-foreground">/lp/{page.slug}</p>
+          <p className="text-sm text-muted-foreground">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={exportCsv}>
           <Download className="w-4 h-4" /> Export CSV
@@ -533,6 +538,8 @@ function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
 }
 
 export function LeadsContent() {
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const { pages, loading, reload } = usePageSummary();
   const [selectedPage, setSelectedPage] = useState<PageSummary | null>(null);
   const [showAllLeads, setShowAllLeads] = useState(false);
@@ -624,7 +631,7 @@ export function LeadsContent() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm truncate">{page.title}</div>
-                    <div className="text-xs text-muted-foreground">/lp/{page.slug}</div>
+                    <div className="text-xs text-muted-foreground">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</div>
                   </div>
                   <div className="flex items-center gap-4 shrink-0 ml-4">
                     <div className="text-right">

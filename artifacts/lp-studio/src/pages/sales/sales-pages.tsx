@@ -44,6 +44,7 @@ import { NewMicrositeModal } from "@/components/NewMicrositeModal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
+import { getLpPageUrl } from "@/lib/utils";
 
 const API_BASE = "/api";
 
@@ -135,7 +136,9 @@ function initials(name: string | null | undefined) {
 
 export default function SalesPages() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user, domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const tenantHost = user?.tenantHost ?? null;
   const [overview, setOverview] = useState<AccountEntry[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1154,7 +1157,7 @@ export default function SalesPages() {
 
                           {/* Page actions */}
                           <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
-                            <a href={`/lp/${page.pageSlug}`} target="_blank" rel="noopener noreferrer">
+                            <a href={getLpPageUrl(page.pageSlug, micrositeDomain, tenantHost)} target="_blank" rel="noopener noreferrer">
                               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Preview"><ExternalLink className="w-3.5 h-3.5" /></Button>
                             </a>
                             <Link href={`/builder/${page.pageId}`}>
