@@ -91,6 +91,22 @@ export class ObjectStorageService {
     return `/objects/uploads/${objectId}`;
   }
 
+  /**
+   * Delete a stored object given its serve path (e.g. "/objects/uploads/<id>").
+   * Best-effort: silently ignores a path that doesn't point at a stored object
+   * and treats an already-missing file as success, so callers can reclaim
+   * storage on row delete without worrying about double-deletes or external URLs.
+   */
+  async deleteObjectEntity(objectPath: string): Promise<void> {
+    if (!objectPath.startsWith("/objects/")) return;
+    const entityId = objectPath.slice("/objects/".length);
+    let dir = getPrivateObjectDir();
+    if (!dir.endsWith("/")) dir = `${dir}/`;
+    const { bucketName, objectName } = parseObjectPath(`${dir}${entityId}`);
+    const file = storageClient.bucket(bucketName).file(objectName);
+    await file.delete({ ignoreNotFound: true });
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) throw new ObjectNotFoundError();
     const entityId = objectPath.slice("/objects/".length);

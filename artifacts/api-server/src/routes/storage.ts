@@ -88,6 +88,27 @@ function libraryWritablePredicate(ownedTenantIds: number[]): SQL<unknown> {
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
+/**
+ * Best-effort deletion of the underlying stored object backing a media row's
+ * URL. Media URLs are stored as "/api/storage/objects/uploads/<id>"; we strip
+ * the "/api/storage" serve prefix to recover the "/objects/..." path the
+ * storage service understands. URLs that don't point at a stored object
+ * (external/preloaded/legacy) are skipped, and a missing file is treated as
+ * success — so reclaiming storage never blocks or fails the row delete.
+ */
+async function deleteStoredObjectForUrl(
+  url: string | null | undefined,
+  log: Request["log"],
+): Promise<void> {
+  if (!url || !url.startsWith("/api/storage/objects/")) return;
+  const objectPath = url.slice("/api/storage".length);
+  try {
+    await objectStorageService.deleteObjectEntity(objectPath);
+  } catch (err) {
+    log.warn({ err, url }, "Failed to delete stored object for media row");
+  }
+}
+
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp",
   "image/avif", "image/heic", "image/heif", "image/svg+xml",
@@ -854,7 +875,10 @@ router.delete("/lp/media/reference", async (req: Request, res: Response) => {
     const result = await db
       .delete(lpMediaTable)
       .where(and(...conditions))
-      .returning({ id: lpMediaTable.id });
+      .returning({ id: lpMediaTable.id, url: lpMediaTable.url });
+    // Reclaim the underlying stored objects best-effort, in parallel — a
+    // failed/missing object never blocks the row delete that already succeeded.
+    await Promise.all(result.map(r => deleteStoredObjectForUrl(r.url, req.log)));
     res.json({ deleted: result.length });
   } catch (error) {
     req.log.error({ err: error }, "Error bulk-deleting reference media");
@@ -898,8 +922,10 @@ router.delete("/lp/media/:id", async (req: Request, res: Response) => {
     const result = await db
       .delete(lpMediaTable)
       .where(and(eq(lpMediaTable.id, id), libraryWritablePredicate(scope.ownedTenantIds)))
-      .returning({ id: lpMediaTable.id });
+      .returning({ id: lpMediaTable.id, url: lpMediaTable.url });
     if (result.length === 0) { res.status(404).json({ error: "Not found" }); return; }
+    // Reclaim the underlying stored object best-effort — never fails the delete.
+    await deleteStoredObjectForUrl(result[0].url, req.log);
     res.json({ success: true });
   } catch (error) {
     req.log.error({ err: error }, "Error deleting media");
