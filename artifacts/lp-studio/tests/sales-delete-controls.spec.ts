@@ -179,7 +179,9 @@ test.describe("Sales delete controls — end-to-end", () => {
     await expect(dialog.getByText("Delete account?")).toBeVisible();
     await confirmDeleteButton(page).click();
 
-    await expect(page.getByText(`Deleted ${name}`)).toBeVisible({ timeout: 15_000 });
+    // exact:true so the success toast is matched, not the new in-app
+    // notification aria-live region that also mirrors "Deleted <name>…Undo".
+    await expect(page.getByText(`Deleted ${name}`, { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(name, { exact: true })).toHaveCount(0);
     await expect(page.getByText("No accounts yet")).toBeVisible();
 
@@ -219,7 +221,9 @@ test.describe("Sales delete controls — end-to-end", () => {
     ).toBeVisible();
     await confirmDeleteButton(page).click();
 
-    await expect(page.getByText("Deleted 2 accounts")).toBeVisible({ timeout: 15_000 });
+    // exact:true so the success toast is matched, not the new in-app
+    // notification aria-live region that also mirrors "Deleted 2 accountsUndo".
+    await expect(page.getByText("Deleted 2 accounts", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(synced, { exact: true })).toHaveCount(0);
     await expect(page.getByText(csv, { exact: true })).toHaveCount(0);
 
@@ -242,7 +246,9 @@ test.describe("Sales delete controls — end-to-end", () => {
     await expect(dialog.getByText("Delete contact?")).toBeVisible();
     await confirmDeleteButton(page).click();
 
-    await expect(page.getByText(`Deleted ${fullName}`)).toBeVisible({ timeout: 15_000 });
+    // exact:true so the success toast is matched, not the new in-app
+    // notification aria-live region that also mirrors "Deleted <name>…Undo".
+    await expect(page.getByText(`Deleted ${fullName}`, { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(fullName, { exact: true })).toHaveCount(0);
 
     await context.close();
@@ -274,7 +280,9 @@ test.describe("Sales delete controls — end-to-end", () => {
     ).toBeVisible();
     await confirmDeleteButton(page).click();
 
-    await expect(page.getByText("Deleted 2 contacts")).toBeVisible({ timeout: 15_000 });
+    // exact:true so the success toast is matched, not the new in-app
+    // notification aria-live region that also mirrors "Deleted 2 contactsUndo".
+    await expect(page.getByText("Deleted 2 contacts", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(`${syncedName} Synced`, { exact: true })).toHaveCount(0);
     await expect(page.getByText(`${csvName} Plain`, { exact: true })).toHaveCount(0);
 
@@ -317,7 +325,9 @@ test.describe("Sales delete controls — end-to-end", () => {
     await expect(dialog.getByText("Delete 2 review links?")).toBeVisible();
     await confirmDeleteButton(page).click();
 
-    await expect(page.getByText("Review links deleted")).toBeVisible({ timeout: 15_000 });
+    // Toast text is now "Deleted N review links" (undoable-delete style);
+    // exact:true avoids matching the notification aria-live mirror.
+    await expect(page.getByText("Deleted 2 review links", { exact: true })).toBeVisible({ timeout: 15_000 });
     // Page row remains (only its review links were removed) but the delete
     // affordance is gone now that the page has zero reviews.
     await expect(page.getByText(pageTitle, { exact: true })).toBeVisible();

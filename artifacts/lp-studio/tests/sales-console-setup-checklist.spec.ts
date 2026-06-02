@@ -81,7 +81,12 @@ test.describe("Sales Console setup checklist (task #333)", () => {
     await assertApiHealthy();
     pool = new Pool({ connectionString: getDatabaseUrl(), max: 4 });
     await purgeStaleRoyalTenants(pool);
-    tenant = await createRoyalTenant(pool);
+    // Seed on the "starter" tier: the free-text "Sending domain" field this
+    // test fills only renders for tiers WITHOUT the self-serve branded
+    // email-subdomain feature. Growth/Scale (the fixture default) replace it
+    // with the auto-provisioned BrandedSubdomainCard, so the field is gated
+    // away and fillByLabel("Sending domain") can't find it.
+    tenant = await createRoyalTenant(pool, { plan: "starter" });
     // The Royal fixture seeds NEUTRAL_BRAND_CONFIG which has no
     // `salesConsole` key, so the tenant starts with an empty checklist —
     // exactly the state we want to exercise.
