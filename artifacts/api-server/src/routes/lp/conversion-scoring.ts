@@ -692,6 +692,24 @@ router.get("/lp/conversion-scoring/:pageId", async (req, res): Promise<void> => 
       .where(and(eq(lpLeadsTable.pageId, pageId), sql`${lpLeadsTable.createdAt} > ${dateFilter}`));
     const leadCount = leadStats?.count ?? 0;
 
+    // Displayed conversions/CVR. A landing page's conversions are its form-fill
+    // leads PLUS any non-form tracked conversions (Chili Piper bookings, CTA
+    // conversions). Form submits already create an lp_leads row AND may emit an
+    // lp_events 'conversion' carrying a form_id, so we only add events WITHOUT a
+    // form_id to avoid double-counting leads. This is page-scoped (not variant-
+    // scoped) so pages with no A/B variants still report their conversions.
+    const [pageConvStats] = await db
+      .select({
+        nonFormConversions: sql<number>`count(*) filter (where ${lpEventsTable.eventType} = 'conversion' and ${lpEventsTable.formId} is null)::int`,
+      })
+      .from(lpEventsTable)
+      .where(and(eq(lpEventsTable.pageId, pageId), sql`${lpEventsTable.createdAt} > ${dateFilter}`));
+    const nonFormConversions = pageConvStats?.nonFormConversions ?? 0;
+    const displayConversions = leadCount + nonFormConversions;
+    // CVR over real visits (impressions are an ad-only signal and are 0 for
+    // organically-visited pages — dividing by them always yielded 0%).
+    const displayCvr = totalVisits > 0 ? (displayConversions / totalVisits) * 100 : 0;
+
     // 3. Compute category scores + overall + quick wins (pure)
     // Real measured page speed (PageSpeed Insights / Lighthouse) when available;
     // non-blocking — schedules a background refresh and falls back to the
@@ -719,9 +737,9 @@ router.get("/lp/conversion-scoring/:pageId", async (req, res): Promise<void> => 
       pageSlug: page.slug,
       overallScore,
       totalVisits,
-      conversions,
+      conversions: displayConversions,
       impressions,
-      cvr: Math.round(cvr * 100) / 100,
+      cvr: Math.round(displayCvr * 100) / 100,
       leadCount,
       categories,
       quickWins,
