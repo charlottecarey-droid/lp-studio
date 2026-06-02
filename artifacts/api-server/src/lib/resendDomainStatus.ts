@@ -267,3 +267,138 @@ export async function checkSenderDomain(rawFrom: string): Promise<SenderDomainCh
   }
   return { allowed: domains.includes(domain), domain, available, allowedDomains: domains };
 }
+
+// ---------------------------------------------------------------------------
+// Resend Domains write API (create / get-by-id / delete)
+//
+// Groundwork for the downstream domain-provisioning tasks (auto branded
+// subdomain + self-serve custom-domain wizard). Each wrapper fails OPEN to a
+// non-throwing `{ available: false }` shape when RESEND_API_KEY is missing or
+// the API errors, so callers in dev (no key) never crash — they treat the
+// result as "couldn't provision" instead.
+// ---------------------------------------------------------------------------
+
+/** A single DNS record Resend wants set for a domain (SPF / DKIM / etc). */
+export interface ResendDnsRecord {
+  record?: string;
+  name?: string;
+  type?: string;
+  value?: string;
+  ttl?: string;
+  priority?: number;
+  status?: string;
+}
+
+/** Normalized domain object returned by the Resend Domains API. */
+export interface ResendDomain {
+  id: string;
+  name: string;
+  status: ResendDomainVerificationState;
+  records: ResendDnsRecord[];
+}
+
+/**
+ * Result envelope for the write wrappers. `available` is false when we
+ * couldn't reach the API (no key / network / non-2xx); inspect `error` then.
+ * On success `available` is true and `domain` is populated (except delete,
+ * which only returns `available`).
+ */
+export interface ResendDomainWriteResult {
+  available: boolean;
+  domain?: ResendDomain;
+  error?: string;
+}
+
+function normalizeDomainPayload(raw: unknown): ResendDomain | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as { id?: unknown; name?: unknown; status?: unknown; records?: unknown };
+  if (typeof r.id !== "string" || typeof r.name !== "string") return undefined;
+  return {
+    id: r.id,
+    name: r.name.toLowerCase(),
+    status: normalizeStatus(r.status),
+    records: Array.isArray(r.records) ? (r.records as ResendDnsRecord[]) : [],
+  };
+}
+
+/**
+ * Register a new sending domain in Resend. Returns the created domain (with
+ * the DNS records the caller must publish). Fails open to
+ * `{ available: false }` when there's no API key or the call errors.
+ */
+export async function createResendDomain(name: string): Promise<ResendDomainWriteResult> {
+  const normalized = (name ?? "").trim().toLowerCase();
+  if (!normalized) return { available: false, error: "empty domain name" };
+
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) return { available: false, error: "no RESEND_API_KEY" };
+
+  try {
+    const resp = await fetch("https://api.resend.com/domains", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: normalized }),
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      return { available: false, error: `Resend create failed (${resp.status}): ${body}` };
+    }
+    const domain = normalizeDomainPayload(await resp.json());
+    return domain ? { available: true, domain } : { available: false, error: "malformed Resend response" };
+  } catch (err) {
+    return { available: false, error: String(err) };
+  }
+}
+
+/**
+ * Fetch a single domain (and its current DNS-record verification states) by
+ * its Resend id. Fails open to `{ available: false }`.
+ */
+export async function getResendDomainById(id: string): Promise<ResendDomainWriteResult> {
+  const domainId = (id ?? "").trim();
+  if (!domainId) return { available: false, error: "empty domain id" };
+
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) return { available: false, error: "no RESEND_API_KEY" };
+
+  try {
+    const resp = await fetch(`https://api.resend.com/domains/${encodeURIComponent(domainId)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      return { available: false, error: `Resend get failed (${resp.status}): ${body}` };
+    }
+    const domain = normalizeDomainPayload(await resp.json());
+    return domain ? { available: true, domain } : { available: false, error: "malformed Resend response" };
+  } catch (err) {
+    return { available: false, error: String(err) };
+  }
+}
+
+/**
+ * Delete a domain from Resend by id. Returns `{ available: true }` on success.
+ * Fails open to `{ available: false }` when there's no key or the call errors.
+ */
+export async function deleteResendDomain(id: string): Promise<ResendDomainWriteResult> {
+  const domainId = (id ?? "").trim();
+  if (!domainId) return { available: false, error: "empty domain id" };
+
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) return { available: false, error: "no RESEND_API_KEY" };
+
+  try {
+    const resp = await fetch(`https://api.resend.com/domains/${encodeURIComponent(domainId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      return { available: false, error: `Resend delete failed (${resp.status}): ${body}` };
+    }
+    return { available: true };
+  } catch (err) {
+    return { available: false, error: String(err) };
+  }
+}

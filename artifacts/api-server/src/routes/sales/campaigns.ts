@@ -18,6 +18,7 @@ import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { resolveTenantSender } from "../../lib/tenantSender";
 import { isTransientDbError, withDbRetry } from "../../lib/dbResilience";
 
 const router = Router();
@@ -248,7 +249,7 @@ async function ensureHotlinkForContact(
 
 async function sendViaResend(payload: {
   from: string;
-  reply_to: string;
+  reply_to?: string;
   to: string[];
   subject: string;
   html?: string;
@@ -627,16 +628,20 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
     const host = await getTenantOutboundOrigin(tenantId, req);
     const brandCtx = await getSalesBrandContext(tenantId);
-    const senderName = (campaign.metadata as any)?.senderName ?? brandCtx.senderName;
-    const senderLocal = (campaign.metadata as any)?.senderEmail ?? brandCtx.senderLocalPart;
-    const replyToAddress = (campaign.metadata as any)?.replyTo ?? brandCtx.replyTo;
-    const senderDomain = brandCtx.sendingDomain;
-    if (!senderName || !senderLocal || !senderDomain || !replyToAddress) {
-      res.status(400).json({
-        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console before sending.",
-      });
-      return;
-    }
+    // Resolve the effective sender. Every tenant has a working default (Tier 1
+    // shared domain) so there's no "fully configured?" gate — unconfigured
+    // tenants send from {Brand} <{slug}@mail.lpstudio.ai>. Campaign metadata
+    // overrides are only honored on a verified custom domain.
+    const sender = await resolveTenantSender(tenantId, "sales", {
+      ctx: brandCtx,
+      overrides: {
+        senderName: (campaign.metadata as any)?.senderName ?? null,
+        senderLocalPart: (campaign.metadata as any)?.senderEmail ?? null,
+        replyTo: (campaign.metadata as any)?.replyTo ?? null,
+      },
+    });
+    const senderName =
+      (campaign.metadata as any)?.senderName ?? brandCtx.senderName ?? brandCtx.brandName ?? "";
     const campaignPreviewText = ((campaign.metadata as any)?.previewText ?? "") as string;
 
     let sent = 0, failed = 0;
@@ -700,8 +705,8 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       }
 
       const payload = {
-        from: `${senderName} <${senderLocal}@${senderDomain}>`,
-        reply_to: replyToAddress,
+        from: sender.from,
+        ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
         to: [contact.email!],
         subject,
         html: emailHtml,
@@ -1233,16 +1238,13 @@ router.post("/send-email", async (req, res): Promise<void> => {
     }
 
     const singleBrandCtx = await getSalesBrandContext(tenantId);
-    const fromName = senderName ?? singleBrandCtx.senderName;
-    const fromLocal = senderEmail ?? singleBrandCtx.senderLocalPart;
-    const replyToAddress = replyTo ?? singleBrandCtx.replyTo;
-    const sendDomain = singleBrandCtx.sendingDomain;
-    if (!fromName || !fromLocal || !sendDomain || !replyToAddress) {
-      res.status(400).json({
-        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
-      });
-      return;
-    }
+    // Every tenant has a working default sender (Tier 1 shared domain) so no
+    // "fully configured?" gate; per-request overrides apply on verified custom.
+    const sender = await resolveTenantSender(tenantId, "sales", {
+      ctx: singleBrandCtx,
+      overrides: { senderName: senderName ?? null, senderLocalPart: senderEmail ?? null, replyTo: replyTo ?? null },
+    });
+    const fromName = senderName ?? singleBrandCtx.senderName ?? singleBrandCtx.brandName ?? "";
 
     // Fetch account name for {{company}}
     let companyName = "";
@@ -1289,8 +1291,8 @@ router.post("/send-email", async (req, res): Promise<void> => {
     const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
-      from: `${fromName} <${fromLocal}@${sendDomain}>`,
-      reply_to: replyToAddress,
+      from: sender.from,
+      ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
       to: [contact.email],
       subject: renderedSubject,
       html: htmlBody,
@@ -1362,16 +1364,13 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
 
   try {
     const testBrandCtx = await getSalesBrandContext(tenantId);
-    const fromName = senderName ?? testBrandCtx.senderName;
-    const fromLocal = senderEmail ?? testBrandCtx.senderLocalPart;
-    const replyToAddress = replyTo ?? testBrandCtx.replyTo;
-    const sendDomain = testBrandCtx.sendingDomain;
-    if (!fromName || !fromLocal || !sendDomain || !replyToAddress) {
-      res.status(400).json({
-        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
-      });
-      return;
-    }
+    // Every tenant has a working default sender (Tier 1 shared domain) so no
+    // "fully configured?" gate; per-request overrides apply on verified custom.
+    const sender = await resolveTenantSender(tenantId, "sales", {
+      ctx: testBrandCtx,
+      overrides: { senderName: senderName ?? null, senderLocalPart: senderEmail ?? null, replyTo: replyTo ?? null },
+    });
+    const fromName = senderName ?? testBrandCtx.senderName ?? testBrandCtx.brandName ?? "";
 
     const host = await getTenantOutboundOrigin(tenantId, req);
 
@@ -1460,8 +1459,8 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
     const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
-      from: `${fromName} <${fromLocal}@${sendDomain}>`,
-      reply_to: replyToAddress,
+      from: sender.from,
+      ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
       to: [to],
       subject: renderedSubject,
       html: htmlBody,

@@ -13,6 +13,7 @@ import {
 import { resolveContacts } from "./audiences";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { resolveTenantSender } from "../../lib/tenantSender";
 import { isTransientDbError, withDbRetry } from "../../lib/dbResilience";
 
 const router = Router();
@@ -39,7 +40,7 @@ function replaceVars(text: string, vars: Record<string, string>): string {
 
 async function sendViaResend(payload: {
   from: string;
-  reply_to: string;
+  reply_to?: string;
   to: string[];
   subject: string;
   html: string;
@@ -211,16 +212,19 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
     // unhandled throw that the client renders as a dead-end "Failed to launch
     // campaign" with no detail.
     const launchBrandCtx = await withDbRetry(() => getSalesBrandContext(tenantId));
-    const senderName = senderNameOverride ?? launchBrandCtx.senderName;
-    const senderEmail = senderEmailOverride ?? launchBrandCtx.senderLocalPart;
-    const SENDER_DOMAIN = launchBrandCtx.sendingDomain;
-    const DEFAULT_REPLY_TO = launchBrandCtx.replyTo;
-    if (sendEmails && (!senderName || !senderEmail || !SENDER_DOMAIN || !DEFAULT_REPLY_TO)) {
-      res.status(400).json({
-        error: "Sales Console isn't fully configured for this tenant. Set sender name, sending domain, and reply-to in Brand Settings → Sales Console.",
-      });
-      return;
-    }
+    // Every tenant has a working default sender (Tier 1 shared domain), so the
+    // launch no longer refuses on an unconfigured tenant — it sends from
+    // {Brand} <{slug}@mail.lpstudio.ai>. Per-launch overrides apply only on a
+    // verified custom domain. Resolver is retry-wrapped like the other launch
+    // DB reads so a transient timeout surfaces as a 503 via the catch.
+    const sender = await withDbRetry(() =>
+      resolveTenantSender(tenantId, "sales", {
+        ctx: launchBrandCtx,
+        overrides: { senderName: senderNameOverride ?? null, senderLocalPart: senderEmailOverride ?? null },
+      }),
+    );
+    const senderName =
+      senderNameOverride ?? launchBrandCtx.senderName ?? launchBrandCtx.brandName ?? "";
 
     if (!pageId) {
       res.status(400).json({ error: "pageId is required" });
@@ -295,8 +299,8 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
           html = html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
 
           const result = await sendViaResend({
-            from: `${senderName} <${senderEmail}@${SENDER_DOMAIN}>`,
-            reply_to: DEFAULT_REPLY_TO,
+            from: sender.from,
+            ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
             to: [contact.email!],
             subject,
             html,

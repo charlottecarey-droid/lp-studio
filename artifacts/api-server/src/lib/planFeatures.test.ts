@@ -81,9 +81,36 @@ describe("Dandy safeguard — protected enterprise slugs", () => {
     expect(ent.salesConsole).toBe(true);
     expect(ent.aiImageGen).toBe(true);
     expect(ent.customDomain).toBe(true);
+    expect(ent.brandedEmailSubdomain).toBe(true);
+    expect(ent.customEmailDomain).toBe(true);
     expect(ent.limits.pages).toBeNull();
     expect(ent.limits.forms).toBeNull();
     expect(ent.limits.userSeats).toBeNull();
+  });
+});
+
+describe("email sending tier flags per plan", () => {
+  it("brandedEmailSubdomain (Tier 2) is on for growth/scale/enterprise, off for free/starter", () => {
+    expect(PLAN_FEATURES.free.brandedEmailSubdomain).toBe(false);
+    expect(PLAN_FEATURES.starter.brandedEmailSubdomain).toBe(false);
+    expect(PLAN_FEATURES.growth.brandedEmailSubdomain).toBe(true);
+    expect(PLAN_FEATURES.scale.brandedEmailSubdomain).toBe(true);
+    expect(PLAN_FEATURES.enterprise.brandedEmailSubdomain).toBe(true);
+  });
+
+  it("customEmailDomain (Tier 3) is enterprise-only", () => {
+    expect(PLAN_FEATURES.free.customEmailDomain).toBe(false);
+    expect(PLAN_FEATURES.starter.customEmailDomain).toBe(false);
+    expect(PLAN_FEATURES.growth.customEmailDomain).toBe(false);
+    expect(PLAN_FEATURES.scale.customEmailDomain).toBe(false);
+    expect(PLAN_FEATURES.enterprise.customEmailDomain).toBe(true);
+  });
+
+  it("every tier exposes both email flags as booleans (Tier 1 shared default is always available regardless)", () => {
+    for (const p of PLANS) {
+      expect(typeof PLAN_FEATURES[p].brandedEmailSubdomain).toBe("boolean");
+      expect(typeof PLAN_FEATURES[p].customEmailDomain).toBe("boolean");
+    }
   });
 });
 

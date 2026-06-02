@@ -14,7 +14,7 @@ import {
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
-import { getSalesBrandContext, buildNotificationsFrom } from "../../lib/salesBrandContext";
+import { resolveTenantSender } from "../../lib/tenantSender";
 
 const router = Router();
 
@@ -30,12 +30,10 @@ async function sendVisitAlert(
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || recipients.length === 0) return;
-  const ctx = await getSalesBrandContext(opts.tenantId);
-  const fromAddr = buildNotificationsFrom(ctx) ?? process.env["RESEND_FROM_EMAIL"];
-  if (!fromAddr) {
-    logger.warn({ tenantId: opts.tenantId }, "Skipping visit alert: no sending domain configured");
-    return;
-  }
+  // Every tenant has a working default sender (Tier 1 shared domain), so this
+  // always resolves a usable from — no "is a domain configured?" guard needed.
+  const sender = await resolveTenantSender(opts.tenantId, "notifications");
+  const fromAddr = sender.from;
 
   const html = `
 <!DOCTYPE html>
@@ -79,6 +77,7 @@ async function sendVisitAlert(
       },
       body: JSON.stringify({
         from: fromAddr,
+        ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
         to: recipients,
         subject: `${opts.contactName} just viewed your page`,
         html,

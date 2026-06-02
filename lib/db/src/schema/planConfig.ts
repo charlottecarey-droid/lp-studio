@@ -27,6 +27,11 @@ export const planConfigTable = pgTable("plan_config", {
   salesConsole: boolean("sales_console").notNull().default(false),
   aiImageGen: boolean("ai_image_gen").notNull().default(false),
   customDomain: boolean("custom_domain").notNull().default(false),
+  // Email sending tiers (Tier 2 / Tier 3). Default off; the resolver always
+  // fails closed to the Tier 1 shared default sender when these are off or
+  // the custom domain isn't verified.
+  brandedEmailSubdomain: boolean("branded_email_subdomain").notNull().default(false),
+  customEmailDomain: boolean("custom_email_domain").notNull().default(false),
   // Numeric caps — null = unlimited
   capPages: integer("cap_pages"),
   capForms: integer("cap_forms"),

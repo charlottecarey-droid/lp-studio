@@ -38,6 +38,8 @@ interface PlanConfigRow {
   sales_console: boolean;
   ai_image_gen: boolean;
   custom_domain: boolean;
+  branded_email_subdomain: boolean;
+  custom_email_domain: boolean;
   cap_pages: number | null;
   cap_forms: number | null;
   cap_user_seats: number | null;
@@ -64,6 +66,8 @@ function rowToEntry(row: PlanConfigRow, fallback: PlanConfigEntry): PlanConfigEn
       salesConsole: row.sales_console,
       aiImageGen: row.ai_image_gen,
       customDomain: row.custom_domain,
+      brandedEmailSubdomain: row.branded_email_subdomain,
+      customEmailDomain: row.custom_email_domain,
       limits: {
         pages: row.cap_pages,
         forms: row.cap_forms,
@@ -88,6 +92,7 @@ async function loadFromDb(): Promise<Record<Plan, PlanConfigEntry>> {
     const r = await pool.query<PlanConfigRow>(
       `SELECT tier, display_name, price_monthly, price_annual, self_serve, sort_order,
               sales_console, ai_image_gen, custom_domain,
+              branded_email_subdomain, custom_email_domain,
               cap_pages, cap_forms, cap_user_seats,
               cap_ai_generations_per_month, cap_heatmap_sessions_per_month
          FROM plan_config`,

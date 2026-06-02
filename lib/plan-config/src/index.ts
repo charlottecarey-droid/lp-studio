@@ -69,12 +69,21 @@ export interface PlanLimits {
  *   salesConsole — entire /api/sales/* surface + Sales mode toggle
  *   aiImageGen   — custom-block & out-of-builder AI image generation
  *   customDomain — attaching `domain` / `microsite_domain` to a tenant
+ *   brandedEmailSubdomain — Tier 2 email sending: auto-provisioned branded
+ *                  subdomain under the platform apex (e.g. mail.<slug>.lpstudio.ai).
+ *                  Gates the auto-subdomain provisioning flow (separate task);
+ *                  always fails closed to the Tier 1 shared default sender.
+ *   customEmailDomain — Tier 3 email sending: the tenant's own fully custom
+ *                  sending domain via the self-serve wizard (separate task);
+ *                  also fails closed to the Tier 1 shared default sender.
  *   limits       — numeric caps (see PlanLimits)
  */
 export interface PlanFeatures {
   salesConsole: boolean;
   aiImageGen: boolean;
   customDomain: boolean;
+  brandedEmailSubdomain: boolean;
+  customEmailDomain: boolean;
   limits: PlanLimits;
 }
 
@@ -110,6 +119,8 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       salesConsole: false,
       aiImageGen: false,
       customDomain: false,
+      brandedEmailSubdomain: false,
+      customEmailDomain: false,
       limits: {
         pages: 1,
         forms: 1,
@@ -130,6 +141,8 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       salesConsole: false,
       aiImageGen: false,
       customDomain: true,
+      brandedEmailSubdomain: false,
+      customEmailDomain: false,
       limits: {
         pages: 10,
         forms: 5,
@@ -150,6 +163,8 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       salesConsole: true,
       aiImageGen: false,
       customDomain: true,
+      brandedEmailSubdomain: true,
+      customEmailDomain: false,
       limits: {
         pages: null,
         forms: null,
@@ -170,6 +185,8 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       salesConsole: true,
       aiImageGen: true,
       customDomain: true,
+      brandedEmailSubdomain: true,
+      customEmailDomain: false,
       limits: {
         pages: null,
         forms: null,
@@ -190,6 +207,8 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       salesConsole: true,
       aiImageGen: true,
       customDomain: true,
+      brandedEmailSubdomain: true,
+      customEmailDomain: true,
       limits: {
         pages: null,
         forms: null,
