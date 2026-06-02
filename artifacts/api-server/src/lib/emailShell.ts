@@ -25,6 +25,7 @@ interface ShellRow {
   logo_html: string | null;
   header_bg: string | null;
   footer_html: string | null;
+  physical_address: string | null;
 }
 
 /** Raw override row (nulls = "use code default"), for the shell editor screen. */
@@ -33,40 +34,52 @@ export interface EmailShellOverrides {
   logoHtml: string | null;
   headerBg: string | null;
   footerHtml: string | null;
+  /** Platform CAN-SPAM postal address (null/"" = no address line). */
+  physicalAddress: string | null;
+}
+
+/** Resolved platform shell plus the saved postal address for the footer token. */
+interface ResolvedPlatformShell {
+  shell: EmailShell;
+  /** Saved `{{physicalAddress}}` value ("" when unset). */
+  physicalAddress: string;
 }
 
 const CACHE_TTL_MS = 60_000;
-let cache: EmailShell | null = null;
+let cache: ResolvedPlatformShell | null = null;
 let cacheExpiresAt = 0;
-let inFlight: Promise<EmailShell> | null = null;
+let inFlight: Promise<ResolvedPlatformShell> | null = null;
 let generation = 0;
 
-function rowToShell(row: ShellRow | undefined): EmailShell {
-  if (!row) return { ...DEFAULT_EMAIL_SHELL };
+function rowToResolved(row: ShellRow | undefined): ResolvedPlatformShell {
+  if (!row) return { shell: { ...DEFAULT_EMAIL_SHELL }, physicalAddress: "" };
   return {
-    shellHtml: row.shell_html ?? PLATFORM_DEFAULT_SHELL,
-    logoHtml: row.logo_html ?? DEFAULT_LOGO_HTML,
-    headerBg: row.header_bg ?? DEFAULT_HEADER_BG,
-    footerHtml: row.footer_html ?? DEFAULT_FOOTER_HTML,
+    shell: {
+      shellHtml: row.shell_html ?? PLATFORM_DEFAULT_SHELL,
+      logoHtml: row.logo_html ?? DEFAULT_LOGO_HTML,
+      headerBg: row.header_bg ?? DEFAULT_HEADER_BG,
+      footerHtml: row.footer_html ?? DEFAULT_FOOTER_HTML,
+    },
+    physicalAddress: (row.physical_address ?? "").trim(),
   };
 }
 
-async function loadFromDb(): Promise<EmailShell> {
+async function loadFromDb(): Promise<ResolvedPlatformShell> {
   try {
     const r = await pool.query<ShellRow>(
-      `SELECT shell_html, logo_html, header_bg, footer_html
+      `SELECT shell_html, logo_html, header_bg, footer_html, physical_address
          FROM email_shell_templates WHERE id = $1`,
       [EMAIL_SHELL_ID],
     );
-    return rowToShell(r.rows[0]);
+    return rowToResolved(r.rows[0]);
   } catch (err) {
     console.error("[emailShell] DB load failed, using code default:", err);
-    return { ...DEFAULT_EMAIL_SHELL };
+    return { shell: { ...DEFAULT_EMAIL_SHELL }, physicalAddress: "" };
   }
 }
 
-/** Resolved shell (DB overrides merged over code defaults), cached 60s. */
-export async function getEmailShell(): Promise<EmailShell> {
+/** Resolved shell + saved address (DB overrides merged over code defaults), cached 60s. */
+async function getResolvedPlatformShell(): Promise<ResolvedPlatformShell> {
   const now = Date.now();
   if (cache && now < cacheExpiresAt) return cache;
   if (inFlight) return inFlight;
@@ -85,6 +98,21 @@ export async function getEmailShell(): Promise<EmailShell> {
   return inFlight;
 }
 
+/** Resolved shell (DB overrides merged over code defaults), cached 60s. */
+export async function getEmailShell(): Promise<EmailShell> {
+  return (await getResolvedPlatformShell()).shell;
+}
+
+/**
+ * The platform's saved CAN-SPAM postal address for the footer `{{physicalAddress}}`
+ * token ("" when unset). Shares the 60s shell cache. Injected into every
+ * platform-shell render path (auth/welcome/invite + superadmin preview/test-send)
+ * so the footer auto-fills the saved address instead of resolving empty.
+ */
+export async function getPlatformPhysicalAddress(): Promise<string> {
+  return (await getResolvedPlatformShell()).physicalAddress;
+}
+
 /**
  * Raw override row for the editor (nulls preserved so the UI can distinguish
  * "overridden" from "using default"). Bypasses the cache.
@@ -92,7 +120,7 @@ export async function getEmailShell(): Promise<EmailShell> {
 export async function getEmailShellOverrides(): Promise<EmailShellOverrides> {
   try {
     const r = await pool.query<ShellRow>(
-      `SELECT shell_html, logo_html, header_bg, footer_html
+      `SELECT shell_html, logo_html, header_bg, footer_html, physical_address
          FROM email_shell_templates WHERE id = $1`,
       [EMAIL_SHELL_ID],
     );
@@ -102,10 +130,11 @@ export async function getEmailShellOverrides(): Promise<EmailShellOverrides> {
       logoHtml: row?.logo_html ?? null,
       headerBg: row?.header_bg ?? null,
       footerHtml: row?.footer_html ?? null,
+      physicalAddress: row?.physical_address ?? null,
     };
   } catch (err) {
     console.error("[emailShell] overrides load failed:", err);
-    return { shellHtml: null, logoHtml: null, headerBg: null, footerHtml: null };
+    return { shellHtml: null, logoHtml: null, headerBg: null, footerHtml: null, physicalAddress: null };
   }
 }
 

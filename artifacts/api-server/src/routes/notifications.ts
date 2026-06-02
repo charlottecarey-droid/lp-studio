@@ -18,6 +18,7 @@ import {
   resolveTenantShell,
   getTenantEmailShellOverrides,
   bustTenantEmailShellCache,
+  ensureFooterAddress,
 } from "../lib/tenantEmailShell";
 import {
   buildLeadFieldsTable,
@@ -52,6 +53,7 @@ import { listWorkflowSendFailures } from "../lib/workflowSendFailures";
 import {
   getEmailShell,
   getEmailShellOverrides,
+  getPlatformPhysicalAddress,
   bustEmailShellCache,
   EMAIL_SHELL_ID,
 } from "../lib/emailShell";
@@ -739,10 +741,16 @@ router.post("/admin/notification-templates/:key/preview", requireSuperadmin, asy
       res.status(404).json({ error: "Unknown template" });
       return;
     }
-    const shell = await getEmailShell();
+    const baseShell = await getEmailShell();
+    const mergedPreview = { ...tpl.previewData, ...(b.previewData as object) };
+    const physicalAddress = addressForPreview(mergedPreview, await getPlatformPhysicalAddress());
+    // Mirror the live platform send: a saved custom footer that omits the token
+    // still carries the address, and the footer token resolves to it.
+    const shell = { ...baseShell, footerHtml: ensureFooterAddress(baseShell.footerHtml, physicalAddress) };
     const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
     const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
-    const vars = buildPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+    const vars = buildPreviewVars(mergedPreview);
+    vars["physicalAddress"] = physicalAddress;
     vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
     const html = renderEmail({ shell, bodyHtml, wrapInShell, vars });
     const subject = substitutePlain(
@@ -786,10 +794,14 @@ router.post(
         res.status(404).json({ error: "Unknown template" });
         return;
       }
-      const shell = await getEmailShell();
+      const baseShell = await getEmailShell();
+      const mergedPreview = { ...tpl.previewData, ...(b.previewData as object) };
+      const physicalAddress = addressForPreview(mergedPreview, await getPlatformPhysicalAddress());
+      const shell = { ...baseShell, footerHtml: ensureFooterAddress(baseShell.footerHtml, physicalAddress) };
       const bodyHtml = typeof b.bodyHtml === "string" ? b.bodyHtml : tpl.bodyHtml;
       const wrapInShell = typeof b.wrapInShell === "boolean" ? b.wrapInShell : tpl.wrapInShell;
-      const vars = buildPreviewVars({ ...tpl.previewData, ...(b.previewData as object) });
+      const vars = buildPreviewVars(mergedPreview);
+      vars["physicalAddress"] = physicalAddress;
       vars["preheaderText"] = resolvePreheader(b.preheaderText, tpl, vars);
       const html = renderEmail({ shell, bodyHtml, wrapInShell, vars });
       const subject = `[Test] ${substitutePlain(
@@ -848,21 +860,23 @@ router.patch("/admin/email-shell", requireSuperadmin, async (req, res): Promise<
   const has = (f: string): boolean => Object.prototype.hasOwnProperty.call(b, f);
   try {
     await pool.query(
-      `INSERT INTO email_shell_templates (id, shell_html, logo_html, header_bg, footer_html, updated_at, updated_by)
-       VALUES ($1,$2,$3,$4,$5, now(), $6)
+      `INSERT INTO email_shell_templates (id, shell_html, logo_html, header_bg, footer_html, physical_address, updated_at, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6, now(), $7)
        ON CONFLICT (id) DO UPDATE SET
-         shell_html  = $2,
-         logo_html   = $3,
-         header_bg   = $4,
-         footer_html = $5,
-         updated_at  = now(),
-         updated_by  = $6`,
+         shell_html      = $2,
+         logo_html       = $3,
+         header_bg       = $4,
+         footer_html     = $5,
+         physical_address = $6,
+         updated_at      = now(),
+         updated_by      = $7`,
       [
         EMAIL_SHELL_ID,
         longStr(b.shellHtml),
         longStr(b.logoHtml),
         shortStr(b.headerBg),
         longStr(b.footerHtml),
+        longStr(b.physicalAddress),
         editorEmail,
       ],
     );
@@ -872,7 +886,7 @@ router.patch("/admin/email-shell", requireSuperadmin, async (req, res): Promise<
       targetKey: EMAIL_SHELL_ID,
       editorEmail,
       action: "update",
-      diff: { fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml"].filter(has) },
+      diff: { fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml", "physicalAddress"].filter(has) },
     });
     const overrides = await getEmailShellOverrides();
     res.json({ overrides, defaults: DEFAULT_EMAIL_SHELL });
@@ -889,14 +903,23 @@ router.patch("/admin/email-shell", requireSuperadmin, async (req, res): Promise<
 router.post("/admin/email-shell/preview", requireSuperadmin, async (req, res): Promise<void> => {
   const b = req.body ?? {};
   try {
+    // The draft address (if the editor passed one) wins; otherwise fall back to
+    // the saved platform address so the preview matches a live send.
+    const physicalAddress =
+      typeof b.physicalAddress === "string"
+        ? b.physicalAddress.trim()
+        : await getPlatformPhysicalAddress();
+    const footerDraft =
+      typeof b.footerHtml === "string" ? b.footerHtml : DEFAULT_EMAIL_SHELL.footerHtml;
     const shell = {
       shellHtml: typeof b.shellHtml === "string" ? b.shellHtml : DEFAULT_EMAIL_SHELL.shellHtml,
       logoHtml: typeof b.logoHtml === "string" ? b.logoHtml : DEFAULT_EMAIL_SHELL.logoHtml,
       headerBg: typeof b.headerBg === "string" ? b.headerBg : DEFAULT_EMAIL_SHELL.headerBg,
-      footerHtml: typeof b.footerHtml === "string" ? b.footerHtml : DEFAULT_EMAIL_SHELL.footerHtml,
+      footerHtml: ensureFooterAddress(footerDraft, physicalAddress),
     };
     const sampleTpl = NOTIFICATION_TEMPLATES["trial_day_7"];
     const vars = buildPreviewVars();
+    vars["physicalAddress"] = physicalAddress;
     const html = renderEmail({
       shell,
       bodyHtml: sampleTpl?.bodyHtml ?? "<p>Sample email body</p>",

@@ -5,7 +5,7 @@ import {
   escapeHtml,
   type EmailShell,
 } from "./emailRender";
-import { getEmailShell } from "./emailShell";
+import { getEmailShell, getPlatformPhysicalAddress } from "./emailShell";
 
 /**
  * Resolve the SHELL a tenant's notification emails render into (Task #588).
@@ -131,6 +131,36 @@ function buildTenantFooterHtml(brand: TenantBrandForEmail): string {
         </table>`;
 }
 
+/**
+ * Guarantee a resolved footer carries the tenant's saved postal address.
+ *
+ * The brand-derived footer already prints the `{{physicalAddress}}` token, so the
+ * saved address flows in via `renderEmail`. But a tenant can SAVE a custom footer
+ * (footer_html override) that omits the token entirely — then the address never
+ * reaches the recipient even though it's set. This appends a CAN-SPAM-shaped
+ * address line (the same styling as the brand footer) ONLY when:
+ *   - the tenant actually has a saved address (blank → unchanged, clean omission), AND
+ *   - the resolved footer does NOT already reference `{{physicalAddress}}` (a footer
+ *     carrying the token gets its value from `renderEmail`, so we never double it).
+ * The address is escaped here (it is baked literally, not via a token), matching
+ * how the brand footer's other baked strings are handled.
+ */
+export function ensureFooterAddress(footerHtml: string, address: string): string {
+  const addr = (address ?? "").trim();
+  if (!addr) return footerHtml;
+  if (/\{\{\s*physicalAddress\s*\}\}/.test(footerHtml)) return footerHtml;
+  const line = `<table role="presentation" class="container" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;background:#F6F2E9;">
+          <tr>
+            <td class="px-pad" style="padding:0 56px 32px 56px;">
+              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">${escapeHtml(
+                addr,
+              )}</p>
+            </td>
+          </tr>
+        </table>`;
+  return footerHtml + line;
+}
+
 /** Compute a full brand-derived EmailShell from a tenant's brand config. */
 export function buildBrandDerivedShell(brand: TenantBrandForEmail): EmailShell {
   return {
@@ -209,15 +239,20 @@ async function loadShell(
     const row = shellRes.rows[0];
     if (row) {
       // Tenant overrides merge over the brand-derived shell (null = brand value).
+      const physicalAddress = (row.physical_address ?? "").trim();
+      const footerHtml = row.footer_html ?? derived.footerHtml;
       return {
         shell: {
           shellHtml: row.shell_html ?? derived.shellHtml,
           logoHtml: row.logo_html ?? derived.logoHtml,
           headerBg: row.header_bg ?? derived.headerBg,
-          footerHtml: row.footer_html ?? derived.footerHtml,
+          // A saved custom footer may omit {{physicalAddress}} — guarantee the
+          // address still reaches the recipient. The brand footer carries the
+          // token, so this is a no-op there.
+          footerHtml: ensureFooterAddress(footerHtml, physicalAddress),
         },
         source: "tenant",
-        physicalAddress: (row.physical_address ?? "").trim(),
+        physicalAddress,
       };
     }
     return { shell: derived, source: "brand", physicalAddress: "" };
@@ -370,8 +405,17 @@ export async function resolveEmailShellForEmail(opts: {
   ) {
     return resolveTenantShell(opts.tenantId);
   }
-  const shell = await getEmailShell();
-  // Platform shell carries its own baked LP Studio address; nothing tenant-scoped
-  // to inject here, so the address token resolves via expandEmailVars' default.
-  return { shell, source: "platform", physicalAddress: "" };
+  const [shell, physicalAddress] = await Promise.all([
+    getEmailShell(),
+    getPlatformPhysicalAddress(),
+  ]);
+  // Platform/auth/welcome/invite emails carry the saved PLATFORM mailing address
+  // (set in the superadmin shell editor). Blank → "" so the footer collapses the
+  // line cleanly. A saved platform footer that omits the token still gets the
+  // address appended, mirroring the tenant path.
+  return {
+    shell: { ...shell, footerHtml: ensureFooterAddress(shell.footerHtml, physicalAddress) },
+    source: "platform",
+    physicalAddress,
+  };
 }

@@ -374,6 +374,7 @@ interface ShellFields {
   logoHtml: string | null;
   headerBg: string | null;
   footerHtml: string | null;
+  physicalAddress: string | null;
 }
 
 function ShellEditor() {
@@ -399,6 +400,7 @@ function ShellEditor() {
         logoHtml: data.overrides.logoHtml ?? null,
         headerBg: data.overrides.headerBg ?? null,
         footerHtml: data.overrides.footerHtml ?? null,
+        physicalAddress: data.overrides.physicalAddress ?? null,
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load shell");
@@ -453,6 +455,7 @@ function ShellEditor() {
           logoHtml: draft.logoHtml ?? undefined,
           headerBg: draft.headerBg ?? undefined,
           footerHtml: draft.footerHtml ?? undefined,
+          physicalAddress: draft.physicalAddress ?? undefined,
         }),
       });
       setPreviewHtml(data.html as string);
@@ -533,6 +536,23 @@ function ShellEditor() {
           "HTML injected into the footer slot ({{footerHtml}}).",
           4,
         )}
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <Label className="text-[11px]">Mailing address</Label>
+          </div>
+          <Textarea
+            value={draft?.physicalAddress ?? overrides?.physicalAddress ?? ""}
+            onChange={(e) => setField("physicalAddress", e.target.value)}
+            rows={2}
+            className="font-mono text-xs"
+            spellCheck={false}
+            placeholder="123 Main St, Suite 100, San Francisco, CA 94105"
+          />
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Postal address shown in platform email footers ({"{{physicalAddress}}"}) —
+            auth, welcome, invite and superadmin emails. Leave blank to omit the line.
+          </p>
+        </div>
         {renderField(
           "shellHtml",
           "Full shell HTML (advanced)",

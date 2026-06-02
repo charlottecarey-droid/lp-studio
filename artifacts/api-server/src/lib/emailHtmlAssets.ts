@@ -200,10 +200,8 @@ export const MASTER_SHELL_FOOTER_HTML = `<table role="presentation" class="conta
                 &nbsp;·&nbsp;
                 <a href="{{workspaceUrl}}/settings/notifications" style="color:#5C5853;text-decoration:underline;">Email preferences</a>
               </p>
-              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">
-                LP Studio · {{physicalAddress}}<br>
-                © {{currentYear}} LP Studio. All rights reserved.
-              </p>
+              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">{{physicalAddress}}</p>
+              <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">© {{currentYear}} LP Studio. All rights reserved.</p>
             </td>
           </tr>
         </table>`;
@@ -468,6 +466,7 @@ export const MAGAZINE_WELCOME_HTML = `<!DOCTYPE html>
         <tr><td class="px-pad" style="padding:0 56px 48px 56px;">
           <div style="height:1px;background:rgba(26,24,21,0.15);line-height:1px;font-size:1px;margin-bottom:20px;">&nbsp;</div>
           <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.7;color:#8B857C;">Delivered to {{recipientEmail}}.<br><a href="{{unsubscribeUrl}}" style="color:#5C5853;text-decoration:underline;">Unsubscribe</a> · <a href="{{workspaceUrl}}/settings/notifications" style="color:#5C5853;text-decoration:underline;">Email preferences</a> · <a href="https://lpstudio.ai/" style="color:#5C5853;text-decoration:underline;">lpstudio.ai</a></p>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.7;color:#8B857C;">{{physicalAddress}}</p>
         </td></tr>
       </table>
 
@@ -613,7 +612,9 @@ export const WORKSPACE_INVITE_MAGAZINE_HTML = `<!DOCTYPE html>
         </td></tr>
         <tr><td class="px-pad" style="padding:24px 56px 48px 56px;">
           <div style="height:1px;background:rgba(26,24,21,0.08);line-height:1px;font-size:1px;margin-bottom:20px;">&nbsp;</div>
-          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">Delivered to {{recipientEmail}} · This is a one-time invitation email and is not subject to email preferences.<br>LP Studio · {{physicalAddress}}<br>© {{currentYear}} LP Studio. All rights reserved.</p>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">Delivered to {{recipientEmail}} · This is a one-time invitation email and is not subject to email preferences.</p>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">{{physicalAddress}}</p>
+          <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#B5AEA2;">© {{currentYear}} LP Studio. All rights reserved.</p>
         </td></tr>
       </table>
 

@@ -25,6 +25,9 @@ export const emailShellTemplatesTable = pgTable("email_shell_templates", {
   logoHtml: text("logo_html"),
   headerBg: text("header_bg"),
   footerHtml: text("footer_html"),
+  // Platform CAN-SPAM postal address shown in the footer ({{physicalAddress}}).
+  // null/"" = no address line (the footer collapses it cleanly).
+  physicalAddress: text("physical_address"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   updatedBy: text("updated_by"),
 });

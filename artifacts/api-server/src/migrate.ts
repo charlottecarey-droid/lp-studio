@@ -418,6 +418,38 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the email_shell_templates.physical_address column.
+    // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
+    // drizzle.__drizzle_migrations max created_at already sits ABOVE 0064's
+    // journal `when`, the node-postgres migrator records nothing and never runs
+    // 0064's DDL, leaving the column missing. The platform shell resolver SELECTs
+    // physical_address and the superadmin shell editor reads/writes it, so a
+    // missing column 500s the editor + breaks the address auto-fill on every
+    // platform/auth email. Re-applying the file here is independent of drizzle's
+    // dedup and idempotent (ADD COLUMN IF NOT EXISTS), so it adds the column where
+    // missing and is a no-op elsewhere. The .sql stays the single source of
+    // truth. Fails CLOSED: the column is feature-critical, so any error aborts the
+    // release; a retry is always safe.
+    await runStep("email_shell_templates physical_address self-heal (0064)", async () => {
+      const platformAddressSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0064_email_shell_templates_physical_address.sql"),
+        "utf8",
+      );
+      await pool.query(platformAddressSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'email_shell_templates'
+            AND column_name = 'physical_address'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "email_shell_templates physical_address self-heal did not produce the column — aborting release",
+        );
+      }
+    });
+
     // Durable self-heal for the trial phone-gating tables (Task #637). Same
     // high-water-mark hazard as the self-heals above: on a DB whose journal was
     // renumbered after it was migrated, drizzle can record 0055 as applied
