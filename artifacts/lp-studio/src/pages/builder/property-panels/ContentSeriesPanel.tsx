@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowUp, ArrowDown, Pin, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowUp, ArrowDown, Pin, Eye, EyeOff, Download, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -269,9 +269,64 @@ const slugifyEpisodeKey = (s: string) =>
 const episodeKeyOf = (ep: ContentSeriesEpisode) =>
   (ep.slug?.trim() || ep.rssGuid?.trim() || slugifyEpisodeKey(ep.title ?? ""));
 
+interface SubscriberRow {
+  email: string;
+  subscribedAt: string | null;
+  optedOut: boolean;
+}
+
 export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet, pageId }: Props) {
   const [notifyBusy, setNotifyBusy] = useState<Record<string, boolean>>({});
   const [notifyMsg, setNotifyMsg] = useState<Record<string, string>>({});
+
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [subsError, setSubsError] = useState<string | null>(null);
+  const [subsLoaded, setSubsLoaded] = useState(false);
+  const [subscribers, setSubscribers] = useState<SubscriberRow[]>([]);
+  const [subsExporting, setSubsExporting] = useState(false);
+
+  const loadSubscribers = async () => {
+    if (pageId == null) return;
+    setSubsLoading(true);
+    setSubsError(null);
+    try {
+      const res = await fetch(`/api/lp/content-series/subscribers?pageId=${pageId}`);
+      if (!res.ok) throw new Error("load");
+      const data = (await res.json()) as { subscribers?: SubscriberRow[] };
+      setSubscribers(data.subscribers ?? []);
+      setSubsLoaded(true);
+    } catch {
+      setSubsError("Couldn't load subscribers — try again.");
+    } finally {
+      setSubsLoading(false);
+    }
+  };
+
+  const exportSubscribersCsv = async () => {
+    if (pageId == null) return;
+    setSubsExporting(true);
+    setSubsError(null);
+    try {
+      const res = await fetch(`/api/lp/content-series/subscribers.csv?pageId=${pageId}`);
+      if (!res.ok) throw new Error("export");
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = /filename="([^"]+)"/.exec(cd);
+      const filename = match?.[1] || `content-series-subscribers-${pageId}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSubsError("Export failed — try again.");
+    } finally {
+      setSubsExporting(false);
+    }
+  };
 
   const handleNotify = async (ep: ContentSeriesEpisode) => {
     if (pageId == null) return;
@@ -1146,8 +1201,65 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet, pageId }
                   Auto-email subscribers when a new episode is published
                 </label>
                 {pageId == null ? (
-                  <p className="text-[10px] text-muted-foreground italic">Save &amp; publish this page first to notify subscribers.</p>
-                ) : episodes.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">Save &amp; publish this page first to view subscribers.</p>
+                ) : (
+                  <div className="space-y-2 border border-border rounded-md p-2.5 bg-muted/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs font-medium flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" />
+                        Subscribers{subsLoaded ? ` (${subscribers.length})` : ""}
+                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          disabled={subsLoading}
+                          onClick={loadSubscribers}
+                          title="Load the list of people subscribed to this Content Series."
+                        >
+                          <RefreshCw className={`w-3 h-3 mr-1 ${subsLoading ? "animate-spin" : ""}`} />
+                          {subsLoaded ? "Refresh" : subsLoading ? "Loading…" : "View list"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          disabled={subsExporting}
+                          onClick={exportSubscribersCsv}
+                          title="Download all subscribers as a CSV file."
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          {subsExporting ? "Exporting…" : "Export CSV"}
+                        </Button>
+                      </div>
+                    </div>
+                    {subsError && <p className="text-[11px] text-destructive">{subsError}</p>}
+                    {subsLoaded && subscribers.length === 0 && !subsError && (
+                      <p className="text-[11px] text-muted-foreground italic">No subscribers yet.</p>
+                    )}
+                    {subsLoaded && subscribers.length > 0 && (
+                      <div className="space-y-1 max-h-56 overflow-y-auto">
+                        {subscribers.map((s, i) => (
+                          <div key={`${s.email}-${i}`} className="flex items-center gap-2 text-[11px] border-b border-border/60 last:border-0 py-1">
+                            <span className="flex-1 truncate font-mono" title={s.email}>{s.email}</span>
+                            <span className="text-muted-foreground shrink-0 tabular-nums">
+                              {s.subscribedAt ? new Date(s.subscribedAt).toLocaleDateString() : "—"}
+                            </span>
+                            {s.optedOut && (
+                              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive font-medium">
+                                Opted out
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {pageId == null ? null : episodes.length === 0 ? (
                   <p className="text-[10px] text-muted-foreground italic">Add episodes above to notify subscribers.</p>
                 ) : (
                   <div className="space-y-1.5">

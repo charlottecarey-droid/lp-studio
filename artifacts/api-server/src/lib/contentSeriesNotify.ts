@@ -153,6 +153,57 @@ export async function getPageSubscribers(tenantId: number, pageId: number): Prom
   return [...byEmail.values()];
 }
 
+export interface SubscriberDetail {
+  email: string;
+  leadId: number;
+  subscribedAt: string | null;
+  optedOut: boolean;
+}
+
+/**
+ * Detailed subscriber list for the creator-facing view/export: each built-in
+ * Subscribe-form lead's email, the date they subscribed (earliest lead wins on
+ * dedupe), and whether they've opted out of episode emails. Sorted newest-first.
+ */
+export async function getPageSubscribersDetailed(
+  tenantId: number,
+  pageId: number,
+): Promise<SubscriberDetail[]> {
+  const [rows, optedOutSet] = await Promise.all([
+    db
+      .select({ id: lpLeadsTable.id, fields: lpLeadsTable.fields, createdAt: lpLeadsTable.createdAt })
+      .from(lpLeadsTable)
+      .where(and(eq(lpLeadsTable.tenantId, tenantId), eq(lpLeadsTable.pageId, pageId))),
+    loadOptedOut(tenantId, pageId),
+  ]);
+  const byEmail = new Map<string, SubscriberDetail>();
+  for (const r of rows) {
+    const fields = (r.fields ?? {}) as Record<string, unknown>;
+    if (fields._source !== SUBSCRIBE_SOURCE) continue;
+    if (isTestLead(fields as LeadFields)) continue;
+    const email = leadEmail(fields as LeadFields).trim().toLowerCase();
+    if (!email || !email.includes("@")) continue;
+    const subscribedAt = r.createdAt ? new Date(r.createdAt).toISOString() : null;
+    const existing = byEmail.get(email);
+    if (!existing) {
+      byEmail.set(email, {
+        email,
+        leadId: r.id,
+        subscribedAt,
+        optedOut: optedOutSet.has(email),
+      });
+    } else if (subscribedAt && (!existing.subscribedAt || subscribedAt < existing.subscribedAt)) {
+      // Keep the earliest subscribe date when an email signed up more than once.
+      existing.subscribedAt = subscribedAt;
+    }
+  }
+  return [...byEmail.values()].sort((a, b) => {
+    const at = a.subscribedAt ?? "";
+    const bt = b.subscribedAt ?? "";
+    return bt.localeCompare(at);
+  });
+}
+
 async function loadOptedOut(tenantId: number, pageId: number): Promise<Set<string>> {
   const rows = await db
     .select({ email: contentSeriesUnsubscribesTable.email })

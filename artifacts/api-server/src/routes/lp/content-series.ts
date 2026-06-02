@@ -12,6 +12,7 @@ import { getRequestHost } from "../../lib/requestHost";
 import {
   extractContentSeriesBlocks,
   getEpisodeNotifyStatus,
+  getPageSubscribersDetailed,
   sendEpisodeNotifications,
   verifyLeadUnsubToken,
   recordLeadUnsubscribe,
@@ -63,6 +64,82 @@ router.get("/lp/content-series/notify-status", async (req, res): Promise<void> =
   }
   const status = await getEpisodeNotifyStatus(tenantId, pageId, episodeKey);
   res.json(status);
+});
+
+const SubscribersQuery = z.object({
+  pageId: z.coerce.number().int().positive(),
+});
+
+/** Tenant-scope a page and 404 if it doesn't belong to the caller's tenant. */
+async function assertPageInTenant(tenantId: number, pageId: number): Promise<boolean> {
+  const [page] = await db
+    .select({ id: lpPagesTable.id })
+    .from(lpPagesTable)
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
+  return !!page;
+}
+
+router.get("/lp/content-series/subscribers", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+  const parsed = SubscribersQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { pageId } = parsed.data;
+  if (!(await assertPageInTenant(tenantId, pageId))) {
+    res.status(404).json({ error: "Page not found" });
+    return;
+  }
+  const subscribers = await getPageSubscribersDetailed(tenantId, pageId);
+  res.json({
+    total: subscribers.length,
+    optedOut: subscribers.filter((s) => s.optedOut).length,
+    subscribers: subscribers.map((s) => ({
+      email: s.email,
+      subscribedAt: s.subscribedAt,
+      optedOut: s.optedOut,
+    })),
+  });
+});
+
+/** RFC-4180-ish CSV cell: quote when needed, double embedded quotes. */
+function csvCell(value: string): string {
+  if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+router.get("/lp/content-series/subscribers.csv", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+  const parsed = SubscribersQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { pageId } = parsed.data;
+  if (!(await assertPageInTenant(tenantId, pageId))) {
+    res.status(404).json({ error: "Page not found" });
+    return;
+  }
+  const subscribers = await getPageSubscribersDetailed(tenantId, pageId);
+  const lines = ["Email,Subscribed At,Opted Out"];
+  for (const s of subscribers) {
+    lines.push(
+      [csvCell(s.email), csvCell(s.subscribedAt ?? ""), s.optedOut ? "Yes" : "No"].join(","),
+    );
+  }
+  // Prepend a UTF-8 BOM so Excel opens the file in the right encoding.
+  const csv = "\uFEFF" + lines.join("\r\n") + "\r\n";
+  res
+    .status(200)
+    .type("text/csv; charset=utf-8")
+    .setHeader(
+      "Content-Disposition",
+      `attachment; filename="content-series-subscribers-${pageId}.csv"`,
+    );
+  res.send(csv);
 });
 
 const NotifyBody = z.object({
