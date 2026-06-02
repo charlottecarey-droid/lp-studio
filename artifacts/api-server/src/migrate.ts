@@ -735,6 +735,61 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the sales_email_sends / sales_inbound_emails child
+    // FKs (Task #797). The drizzle schema declares relationships on
+    // sales_email_sends.contact_id / hotlink_id and sales_inbound_emails.
+    // contact_id / account_id, but migration 0000 created both tables with those
+    // columns as PLAIN integers (no REFERENCES clause) and no later migration
+    // ever added the FKs — so the live DB never enforced them. The drift is
+    // quiet: deleting a contact, campaign, or hotlink does NOT error, but it also
+    // does NOT clean up the related send / inbound rows, leaving orphans that
+    // point at IDs that no longer exist and pollute reporting data. 0070 adds the
+    // four missing FKs with the intended ON DELETE behavior (contact_id on sends
+    // CASCADE for owned rows; hotlink_id + both inbound columns SET NULL for
+    // historical/reporting rows) after first reconciling existing orphans so the
+    // constraints can be added. Re-applying 0070 here is independent of drizzle's
+    // high-water-mark dedup and self-heals any drifted DB. It is safe on every
+    // DB: orphan cleanup is bounded to dangling rows, and the FK reconciliation
+    // is DROP CONSTRAINT IF EXISTS + ADD CONSTRAINT, so it is a no-op everywhere
+    // the FKs already exist.
+    //
+    // Fails CLOSED: until all four FKs exist with their intended ON DELETE
+    // action, deletes leak orphans, so after running we assert each constraint
+    // exists with the expected confdeltype ('c' = CASCADE, 'n' = SET NULL) and
+    // abort the release otherwise. The SQL is idempotent, so a retry on the next
+    // deploy is always safe.
+    await runStep("sales_email_sends/inbound child-FK self-heal (0070)", async () => {
+      const fkSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0070_sales_email_sends_inbound_fks.sql"),
+        "utf8",
+      );
+      await pool.query(fkSql);
+      // Post-step assertion: each FK must exist with its intended ON DELETE
+      // action. contact_id on sales_email_sends is CASCADE (confdeltype 'c');
+      // the other three are SET NULL (confdeltype 'n'). Anything else still
+      // leaks orphans, so fail the release loudly rather than ship a broken
+      // cleanup path.
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM pg_constraint c
+           JOIN pg_class child ON child.oid = c.conrelid
+           JOIN pg_class parent ON parent.oid = c.confrelid
+          WHERE c.contype = 'f'
+            AND (
+              (child.relname = 'sales_email_sends' AND parent.relname = 'sales_contacts' AND c.conname = 'sales_email_sends_contact_id_fkey' AND c.confdeltype = 'c')
+              OR (child.relname = 'sales_email_sends' AND parent.relname = 'sales_hotlinks' AND c.conname = 'sales_email_sends_hotlink_id_fkey' AND c.confdeltype = 'n')
+              OR (child.relname = 'sales_inbound_emails' AND parent.relname = 'sales_contacts' AND c.conname = 'sales_inbound_emails_contact_id_fkey' AND c.confdeltype = 'n')
+              OR (child.relname = 'sales_inbound_emails' AND parent.relname = 'sales_accounts' AND c.conname = 'sales_inbound_emails_account_id_fkey' AND c.confdeltype = 'n')
+            )`,
+      );
+      const present = rows[0]?.present ?? 0;
+      if (present < 4) {
+        throw new Error(
+          `sales_email_sends/inbound child-FK self-heal did not produce all four FKs with their intended ON DELETE action (found ${present}/4) — aborting release`,
+        );
+      }
+    });
+
     // sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017).
     // Campaign send / preview / test paths call ensureHotlinkForContact, which mints
     // one personalized hotlink per (contact, page) via INSERT ... ON CONFLICT
