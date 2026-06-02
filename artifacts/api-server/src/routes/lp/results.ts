@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { lpTestsTable, lpVariantsTable, lpEventsTable, lpLeadsTable, lpPagesTable } from "@workspace/db";
 import { GetTestResultsParams } from "@workspace/api-zod";
+import { isTestLead } from "@workspace/lead-utils";
 import { eq, and, sql, gte, lte, desc } from "drizzle-orm";
 
 const router = Router();
@@ -78,13 +79,18 @@ router.get("/lp/tests/:testId/results", async (req, res): Promise<void> => {
     .filter((v) => v.builderPageId != null)
     .map((v) => v.builderPageId!);
 
+  // Suspected test/junk leads are excluded from the MQL counts by default so
+  // experiment results reconcile with the Submissions tab; "?includeTest=1"
+  // (or "true") counts them. The heuristic is a JS rule (not expressible in
+  // SQL), so fetch the per-variant rows and tally in memory.
+  const includeTest = req.query.includeTest === "1" || req.query.includeTest === "true";
   const leadCountMap = new Map<number, number>();
   if (variantPageIds.length > 0 || variants.length > 0) {
     // Leads can be linked by variantId directly
-    const leadCounts = await db
+    const leadRows = await db
       .select({
         variantId: lpLeadsTable.variantId,
-        count: sql<number>`count(*)::int`,
+        fields: lpLeadsTable.fields,
       })
       .from(lpLeadsTable)
       .where(
@@ -92,13 +98,12 @@ router.get("/lp/tests/:testId/results", async (req, res): Promise<void> => {
           variants.map((v) => sql`${v.id}`),
           sql`, `
         )})`
-      )
-      .groupBy(lpLeadsTable.variantId);
+      );
 
-    for (const row of leadCounts) {
-      if (row.variantId != null) {
-        leadCountMap.set(row.variantId, row.count);
-      }
+    for (const row of leadRows) {
+      if (row.variantId == null) continue;
+      if (!includeTest && isTestLead(row.fields as Record<string, unknown>)) continue;
+      leadCountMap.set(row.variantId, (leadCountMap.get(row.variantId) ?? 0) + 1);
     }
   }
 

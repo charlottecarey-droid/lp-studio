@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   MapPin, Globe, TrendingUp, TrendingDown, RefreshCw,
   BarChart3, Users, FileText, ArrowUpRight, ArrowDownRight, Minus,
-  Eye, MousePointerClick, Target,
+  Eye, MousePointerClick, Target, FlaskConical,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,7 +92,7 @@ interface GhostSubmitRow {
   failures: number;
 }
 
-function useAnalytics(days: number) {
+function useAnalytics(days: number, includeTest: boolean) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [traffic, setTraffic] = useState<TrafficDay[]>([]);
   const [pages, setPages] = useState<PageMetrics[]>([]);
@@ -105,10 +105,14 @@ function useAnalytics(days: number) {
   const load = () => {
     setLoading(true);
     setError(null);
+    // Lead counts hide suspected test/junk submissions by default (matching the
+    // Submissions tab); the "Show test leads" toggle passes includeTest=1 so
+    // overview, traffic and per-page lead totals all count them.
+    const testParam = includeTest ? "&includeTest=1" : "";
     Promise.all([
-      fetch(`${API_BASE}/lp/analytics/overview?days=${days}`).then(r => r.json()),
-      fetch(`${API_BASE}/lp/analytics/traffic?days=${days}`).then(r => r.json()),
-      fetch(`${API_BASE}/lp/analytics/pages?days=${days}`).then(r => r.json()),
+      fetch(`${API_BASE}/lp/analytics/overview?days=${days}${testParam}`).then(r => r.json()),
+      fetch(`${API_BASE}/lp/analytics/traffic?days=${days}${testParam}`).then(r => r.json()),
+      fetch(`${API_BASE}/lp/analytics/pages?days=${days}${testParam}`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/locations`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/countries`).then(r => r.json()),
       fetch(`${API_BASE}/lp/analytics/ghost-submits?days=${days}`).then(r => r.json()),
@@ -125,7 +129,7 @@ function useAnalytics(days: number) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [days]);
+  useEffect(() => { load(); }, [days, includeTest]);
   return { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload: load };
 }
 
@@ -701,7 +705,8 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
-  const { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload } = useAnalytics(days);
+  const [showTest, setShowTest] = useState(false);
+  const { overview, traffic, pages, cities, countries, ghostSubmits, loading, error, reload } = useAnalytics(days, showTest);
 
   const totalVisits = countries.reduce((s, r) => s + r.count, 0);
   const topCities = cities.slice(0, 20);
@@ -737,6 +742,19 @@ export default function AnalyticsPage() {
                 </button>
               ))}
             </div>
+            <button
+              onClick={() => setShowTest(v => !v)}
+              aria-pressed={showTest}
+              title="Test/junk leads are hidden from lead counts by default. Toggle to count them."
+              className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                showTest
+                  ? "bg-foreground text-background border-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              {showTest ? "Hide test leads" : "Show test leads"}
+            </button>
             <button
               onClick={reload}
               disabled={loading}

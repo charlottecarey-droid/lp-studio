@@ -11,10 +11,14 @@ directly (no dist runtime), so there's no composite-dist drift — but its
 `references` + package.json deps.
 
 **Rule:** Never re-inline an `isTestLead` / `leadName` / `fieldAccessor` copy in
-a page or route. All four surfaces must agree: dashboard "Recent leads" widget,
-the master `/lp/leads/all` list, the per-page `/lp/leads` list, and the
-`/lp/leads/summary` counts. Test-lead filtering is JS-only (not expressible in
-SQL), so list/summary endpoints load tenant rows and filter/paginate in memory.
+a page or route. EVERY lead-count surface must agree: dashboard "Recent leads"
+widget, the master `/lp/leads/all` list, the per-page `/lp/leads` list, the
+`/lp/leads/summary` counts, AND the analytics lead totals
+(`/lp/analytics/overview` totalLeads + leadsTrend + cvr, `/lp/analytics/traffic`
+daily leads, `/lp/analytics/pages` per-page leads) and A/B `/lp/tests/:id/results`
+MQL counts. Test-lead filtering is JS-only (not expressible in SQL), so any
+endpoint that counts leads must load the `fields` rows and tally in memory
+(can't use SQL `count(*)`).
 
 **Why:** Divergent copies caused QA traffic to inflate some counts but not
 others. The gibberish-name detection (keyboard mash / no-vowel / 5+ consonant

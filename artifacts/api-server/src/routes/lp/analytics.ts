@@ -2,7 +2,15 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { lpSessionsTable, lpPageVisitsTable, lpPagesTable, lpLeadsTable, lpEventsTable, lpVariantsTable, lpTestsTable, lpFormsTable } from "@workspace/db";
 import { sql, eq, and, inArray } from "drizzle-orm";
+import { isTestLead } from "@workspace/lead-utils";
 import { getTenantId } from "../../middleware/requireAuth";
+
+// Suspected test/junk leads are excluded from lead counts by default so the
+// Analytics numbers reconcile with the Submissions tab (which hides them too).
+// "?includeTest=1" (or "true") counts them, mirroring the leads list pattern.
+function wantsTestLeads(req: { query: Record<string, unknown> }): boolean {
+  return req.query.includeTest === "1" || req.query.includeTest === "true";
+}
 
 const router = Router();
 
@@ -215,25 +223,28 @@ router.get("/lp/analytics/traffic", async (req, res): Promise<void> => {
       .groupBy(sql`${lpPageVisitsTable.createdAt}::date`)
       .orderBy(sql`${lpPageVisitsTable.createdAt}::date`);
 
-    // Get daily lead counts
-    let leadsByDay: { date: string; leads: number }[] = [];
-    {
-      leadsByDay = await db
-        .select({
-          date: sql<string>`to_char(${lpLeadsTable.createdAt}::date, 'YYYY-MM-DD')`,
-          leads: sql<number>`count(*)::int`,
-        })
-        .from(lpLeadsTable)
-        .where(and(
-          eq(lpLeadsTable.tenantId, tenantId),
-          sql`${lpLeadsTable.createdAt} > ${dateFilter}`,
-        ))
-        .groupBy(sql`${lpLeadsTable.createdAt}::date`)
-        .orderBy(sql`${lpLeadsTable.createdAt}::date`);
-    }
+    // Get daily lead counts. The test-lead heuristic is a JS rule (not
+    // expressible in SQL), so fetch the in-window rows and bucket by UTC day
+    // in memory, excluding suspected test/junk leads by default.
+    const includeTest = wantsTestLeads(req);
+    const leadRows = await db
+      .select({
+        fields: lpLeadsTable.fields,
+        createdAt: lpLeadsTable.createdAt,
+      })
+      .from(lpLeadsTable)
+      .where(and(
+        eq(lpLeadsTable.tenantId, tenantId),
+        sql`${lpLeadsTable.createdAt} > ${dateFilter}`,
+      ));
 
     // Merge into a single timeline
-    const leadsMap = new Map(leadsByDay.map(r => [r.date, r.leads]));
+    const leadsMap = new Map<string, number>();
+    for (const r of leadRows) {
+      if (!includeTest && isTestLead(r.fields as Record<string, unknown>)) continue;
+      const dateStr = r.createdAt.toISOString().split("T")[0];
+      leadsMap.set(dateStr, (leadsMap.get(dateStr) ?? 0) + 1);
+    }
 
     // Fill in gaps to create complete timeline
     const result: { date: string; visits: number; uniqueVisitors: number; leads: number }[] = [];
@@ -300,21 +311,27 @@ router.get("/lp/analytics/pages", async (req, res): Promise<void> => {
 
     const visitsByPage = new Map(visitRows.map(r => [r.pageId, { visits: r.visits, unique: r.uniqueVisitors }]));
 
-    // Leads per page
-    const leadRows = await db
+    // Leads per page. The test-lead heuristic is a JS rule (not expressible
+    // in SQL), so fetch the in-window rows and count per page in memory,
+    // excluding suspected test/junk leads by default.
+    const includeTest = wantsTestLeads(req);
+    const leadFieldRows = await db
       .select({
         pageId: lpLeadsTable.pageId,
-        leads: sql<number>`count(*)::int`,
+        fields: lpLeadsTable.fields,
       })
       .from(lpLeadsTable)
       .where(and(
         eq(lpLeadsTable.tenantId, tenantId),
         inArray(lpLeadsTable.pageId, pageIds),
         sql`${lpLeadsTable.createdAt} > ${dateFilter}`,
-      ))
-      .groupBy(lpLeadsTable.pageId);
+      ));
 
-    const leadsByPage = new Map(leadRows.map(r => [r.pageId, r.leads]));
+    const leadsByPage = new Map<number, number>();
+    for (const r of leadFieldRows) {
+      if (!includeTest && isTestLead(r.fields as Record<string, unknown>)) continue;
+      leadsByPage.set(r.pageId, (leadsByPage.get(r.pageId) ?? 0) + 1);
+    }
 
     // Impressions + conversions per page (via variants → events)
     const variants = await db
@@ -422,28 +439,35 @@ router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
         sql`${lpPageVisitsTable.createdAt} <= ${dateFilter}`,
       ));
 
-    // Current period leads
-    const [currentLeads] = await db
+    // Leads for both the current AND previous window in one read. The
+    // test-lead heuristic is a JS rule (not expressible in SQL), so we fetch
+    // the rows spanning both periods (createdAt > prevDateFilter) and bucket
+    // them in memory, excluding suspected test/junk leads by default so these
+    // totals reconcile with the Submissions tab.
+    const includeTest = wantsTestLeads(req);
+    const leadWindowRows = await db
       .select({
-        total: sql<number>`count(*)::int`,
-      })
-      .from(lpLeadsTable)
-      .where(and(
-        eq(lpLeadsTable.tenantId, tenantId),
-        sql`${lpLeadsTable.createdAt} > ${dateFilter}`,
-      ));
-
-    // Previous period leads
-    const [prevLeads] = await db
-      .select({
-        total: sql<number>`count(*)::int`,
+        fields: lpLeadsTable.fields,
+        // Bucket each lead against the SAME DB `now()` boundary used by the
+        // visits queries, so the current/previous split can't drift from the
+        // SQL window because of app-clock vs DB-clock skew.
+        isCurrent: sql<boolean>`(${lpLeadsTable.createdAt} > ${dateFilter})`,
       })
       .from(lpLeadsTable)
       .where(and(
         eq(lpLeadsTable.tenantId, tenantId),
         sql`${lpLeadsTable.createdAt} > ${prevDateFilter}`,
-        sql`${lpLeadsTable.createdAt} <= ${dateFilter}`,
       ));
+
+    let currentLeadCount = 0;
+    let prevLeadCount = 0;
+    for (const r of leadWindowRows) {
+      if (!includeTest && isTestLead(r.fields as Record<string, unknown>)) continue;
+      if (r.isCurrent) currentLeadCount++;
+      else prevLeadCount++;
+    }
+    const currentLeads = { total: currentLeadCount };
+    const prevLeads = { total: prevLeadCount };
 
     // Total published pages
     const [pageCount] = await db
