@@ -271,6 +271,109 @@ export async function deleteWorkerRoute(routeId: string): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DNS record CRUD on the lpstudio.ai zone.
+//
+// Used by the branded-email-subdomain provisioner: Resend hands back a set of
+// SPF/DKIM/MX records (relative to `{slug}.lpstudio.ai`) that must be written
+// into our own Cloudflare zone for verification to succeed. These are plain
+// authoritative DNS records (never proxied — email records can't ride the
+// Cloudflare proxy) on the same zone the custom-hostname code already uses.
+// ---------------------------------------------------------------------------
+
+export interface DnsRecord {
+  id: string;
+  type: string;
+  name: string;
+  content: string;
+  priority?: number;
+  ttl: number;
+  proxied?: boolean;
+}
+
+export interface DnsRecordInput {
+  type: string;
+  /** Fully-qualified record name, e.g. `send.acme.lpstudio.ai`. */
+  name: string;
+  content: string;
+  /** Required for MX records; ignored otherwise. */
+  priority?: number;
+  /** Defaults to 1 ("automatic") when omitted. */
+  ttl?: number;
+}
+
+/**
+ * Create a single DNS record on the zone. Email records (TXT/MX/CNAME for
+ * SPF/DKIM) are never proxied — `proxied:false` is forced. TTL defaults to 1
+ * (Cloudflare "automatic"). MX records carry their `priority`.
+ */
+export async function createDnsRecord(input: DnsRecordInput): Promise<DnsRecord> {
+  const { zoneId } = getConfig();
+  const body: Record<string, unknown> = {
+    type: input.type,
+    name: input.name,
+    content: input.content,
+    ttl: input.ttl ?? 1,
+    proxied: false,
+  };
+  if (input.type.toUpperCase() === "MX" && typeof input.priority === "number") {
+    body.priority = input.priority;
+  }
+  return cfFetch<DnsRecord>(`/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    body,
+  });
+}
+
+/**
+ * Delete a DNS record by id. Returns silently on 404 so deprovisioning is
+ * idempotent — a record removed manually (or in a prior partial cleanup)
+ * doesn't block the rest of the teardown.
+ */
+export async function deleteDnsRecord(recordId: string): Promise<void> {
+  const { zoneId } = getConfig();
+  try {
+    await cfFetch<unknown>(`/zones/${zoneId}/dns_records/${recordId}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof CloudflareError && err.status === 404) return;
+    throw err;
+  }
+}
+
+/**
+ * Find DNS records by exact (case-insensitive) name, optionally filtered by
+ * type. Used as a fallback cleanup path when the stored record ids are
+ * missing — the (zone, name, type) tuple still lets us locate and remove
+ * leaked records. Pagination-aware up to a generous cap.
+ */
+export async function findDnsRecordsByName(
+  name: string,
+  type?: string,
+): Promise<DnsRecord[]> {
+  const { zoneId } = getConfig();
+  const target = name.trim().toLowerCase().replace(/\.$/, "");
+  const perPage = 100;
+  const matches: DnsRecord[] = [];
+  for (let page = 1; page <= 200; page++) {
+    const qs = new URLSearchParams({
+      name: target,
+      per_page: String(perPage),
+      page: String(page),
+    });
+    if (type) qs.set("type", type.toUpperCase());
+    const records = await cfFetch<DnsRecord[]>(
+      `/zones/${zoneId}/dns_records?${qs.toString()}`,
+    );
+    for (const r of records) {
+      if ((r.name ?? "").toLowerCase().replace(/\.$/, "") === target) matches.push(r);
+    }
+    if (records.length < perPage) break;
+  }
+  return matches;
+}
+
 /**
  * Provision BOTH the Custom Hostname and the Worker Route. If the
  * Worker Route step fails, the Custom Hostname is deleted before

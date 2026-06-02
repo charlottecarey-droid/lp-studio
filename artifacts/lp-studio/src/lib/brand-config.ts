@@ -463,6 +463,18 @@ export interface SalesConsoleConfig {
    * sends from this domain once Resend reports it verified. Cleared on remove.
    */
   customEmailDomainId?: string;
+  /**
+   * Auto-provisioned Tier 2 branded email subdomain ({slug}.lpstudio.ai).
+   * Managed entirely by the server (Resend + Cloudflare) — these fields are
+   * NOT edited directly in the brand-config form; the "Branded email domain"
+   * control in Sales Console settings provisions/deprovisions them via the
+   * /api/sales/branded-email endpoints. Distinct from `sendingDomain` (the
+   * Tier 3 bring-your-own custom domain).
+   */
+  brandedSubdomain?: string;
+  brandedSubdomainResendId?: string;
+  brandedSubdomainDnsRecordIds?: string[];
+  brandedSubdomainActive?: boolean;
   replyTo?: string;
   notificationsLocalPart?: string;
   emailSignature?: string;

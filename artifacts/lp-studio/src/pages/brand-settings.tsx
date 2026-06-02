@@ -20,7 +20,7 @@ import {
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
   Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload, Globe,
-  CircleDashed, CheckCircle2, Check, Wand2, Code2, Camera,
+  CircleDashed, CheckCircle2, Check, Wand2, Code2, Camera, Mail,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -1396,6 +1396,174 @@ function SetupStatusCard({
   );
 }
 
+interface BrandedEmailStatus {
+  enabled: boolean;
+  host?: string;
+  status?: DomainVerificationState;
+  verified?: boolean;
+  active?: boolean;
+}
+
+/**
+ * Tier 2 branded email subdomain control. Shown only to plans with the
+ * `brandedEmailSubdomain` feature. Provisions `{slug}.lpstudio.ai` as a
+ * verified Resend sending domain (DNS published automatically into our
+ * Cloudflare zone) with one click — the tenant never edits DNS. Until Resend
+ * verifies, sends stay on the shared default, so enabling is non-breaking.
+ */
+function BrandedEmailDomainCard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const eligible = resolveFeatures(user).brandedEmailSubdomain === true;
+
+  const [status, setStatus] = useState<BrandedEmailStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetch("/api/sales/branded-email");
+      if (!r.ok) {
+        setStatus({ enabled: false });
+        return;
+      }
+      setStatus((await r.json()) as BrandedEmailStatus);
+    } catch {
+      setStatus({ enabled: false });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!eligible) return;
+    void refresh();
+  }, [eligible, refresh]);
+
+  // Poll while provisioned-but-not-yet-verified so the pill flips to
+  // "Verified" without a manual reload once DNS propagates (minutes).
+  useEffect(() => {
+    if (!eligible) return;
+    if (!status?.enabled || status.verified) return;
+    const t = window.setInterval(() => void refresh(), 15000);
+    return () => window.clearInterval(t);
+  }, [eligible, status?.enabled, status?.verified, refresh]);
+
+  const enable = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/sales/branded-email", { method: "POST" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast({
+          title: "Couldn't enable branded email",
+          description: (data as { error?: string }).error ?? "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setStatus(data as BrandedEmailStatus);
+      toast({
+        title: "Branded email domain enabled",
+        description: "We're verifying DNS now. Your emails keep sending from the shared address until it's live.",
+      });
+    } catch {
+      toast({ title: "Couldn't enable branded email", description: "Network error.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disable = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/sales/branded-email", { method: "DELETE" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast({
+          title: "Couldn't disable branded email",
+          description: (data as { error?: string }).error ?? "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setStatus({ enabled: false });
+      toast({ title: "Branded email domain removed" });
+    } catch {
+      toast({ title: "Couldn't disable branded email", description: "Network error.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!eligible) return null;
+
+  const verification: DomainVerification | null =
+    status?.enabled && status.host && status.status
+      ? { status: status.status, domain: status.host, checkedAt: Date.now(), provider: "resend" }
+      : null;
+  const pill = describeDomainVerification(verification);
+  const pillClass =
+    pill.tone === "verified"
+      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+      : pill.tone === "pending"
+        ? "border-amber-300 bg-amber-50 text-amber-700"
+        : "border-slate-300 bg-slate-50 text-slate-600";
+
+  return (
+    <Card id="sales-console-branded-email" className="p-6 space-y-5">
+      <div>
+        <h3 className="text-base font-semibold flex items-center gap-2">
+          <Mail className="w-4 h-4 text-primary" /> Branded email domain
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Send from your own <code className="text-[11px]">yourbrand.lpstudio.ai</code> address. We register the
+          domain and publish the DNS records for you — no setup required. Until it's verified, emails keep sending
+          from the shared address so nothing breaks.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> Checking status…
+        </div>
+      ) : status?.enabled ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2.5">
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">{status.host}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">{pill.detail}</p>
+            </div>
+            <Badge
+              variant="outline"
+              className={`text-[10px] py-0 px-1.5 font-medium shrink-0 ${pillClass}`}
+              title={pill.detail}
+            >
+              {pill.label}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            {!status.verified && (
+              <Button type="button" variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Refresh status
+              </Button>
+            )}
+            <Button type="button" variant="ghost" size="sm" onClick={() => void disable()} disabled={busy}>
+              {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
+              Remove
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" onClick={() => void enable()} disabled={busy} size="sm">
+          {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+          Enable branded email domain
+        </Button>
+      )}
+    </Card>
+  );
+}
+
 function SalesConsoleSettings({
   config,
   setConfig,
@@ -1481,6 +1649,8 @@ function SalesConsoleSettings({
         serverSummary={serverSummary}
         domainVerification={domainVerification}
       />
+
+      <BrandedEmailDomainCard />
 
       <Card id="sales-console-sender-identity" className="p-6 space-y-5">
         <div>

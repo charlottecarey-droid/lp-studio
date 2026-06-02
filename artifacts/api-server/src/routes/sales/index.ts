@@ -21,6 +21,7 @@ import webOnePagerRouter from "./web-one-pager";
 import resendWebhookRouter from "./resend-webhook";
 import brandContextRouter from "./brand-context";
 import brandFontRouter from "./brand-font";
+import brandedEmailRouter from "./branded-email";
 import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 
 const router = Router();
@@ -69,5 +70,6 @@ router.use(onePagerTemplatesRouter);
 router.use(webOnePagerRouter);
 router.use("/webhooks", resendWebhookRouter);
 router.use(brandContextRouter);
+router.use(brandedEmailRouter);
 
 export default router;
