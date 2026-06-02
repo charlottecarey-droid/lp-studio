@@ -25,6 +25,7 @@ import { initNotificationStreamBroker } from "./lib/notificationStream";
 import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { startEmailDomainPoller } from "./lib/emailDomainPoller";
 import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReconcilePoller";
+import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -538,6 +539,13 @@ const httpServer = app.listen(port, (err) => {
   // re-publishes any missing/changed records, self-healing deliverability.
   // Production-only (dev shares the prod CF zone — see poller).
   startBrandedSubdomainReconcilePoller();
+
+  // Task #787 — periodic branded email-subdomain retirement sweep. Refreshes
+  // every provisioned Tier 2 subdomain's verification status out-of-band (so it
+  // stays fresh with the wizard closed) and auto-retires any that never verify
+  // past the staleness threshold, reusing the wizard's deprovision path so no
+  // Resend/Cloudflare resources leak. Production-only (see poller).
+  startBrandedEmailSubdomainPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

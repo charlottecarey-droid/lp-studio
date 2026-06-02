@@ -107,3 +107,4 @@
 - [Drizzle ANY(array) vs IN](drizzle-any-array-not-in.md) — bare JS array expands to `($1,$2)` tuple: OK for IN, INVALID for `=ANY()`; throws only on non-empty arrays; fix via `sql\`ARRAY[...]::text[]\``.
 - [Page-path display microsite-aware](lp-path-display-microsite-aware.md) — many scattered callsites hardcode `/lp/<slug>`; microsite tenants serve at root; labels use micrositeDomain ternary, live links use getLpPageUrl, each component needs its own useAuth.
 - [Composite lib test-file exclude](composite-lib-test-exclude.md) — consumer TS6305 (stale dist) = the lib's dist didn't emit; cause is a sibling *.test.ts importing node:test (base types:[]) blocking `tsc -b`; add `exclude:["src/**/*.test.ts"]`.
+- [Branded subdomain lifecycle](branded-subdomain-lifecycle.md) — Tier 2 branded email subdomains: ONE shared deprovisionBrandedEmailSubdomain() for wizard+sweep; pollers convention advisory-lock=taskNum (415/783/787); retire fails-closed.

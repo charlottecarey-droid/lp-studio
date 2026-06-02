@@ -35,9 +35,9 @@
  * All routes are gated by `requirePlanFeature("brandedEmailSubdomain")` (402
  * for ineligible tiers; superadmin bypasses, matching the rest of the gate).
  */
-import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, lpBrandSettingsTable } from "@workspace/db";
+import { Router } from "express";
 import { getTenantId } from "../../middleware/requireAuth";
 import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 import { deriveBrandedSubdomain, getTenantSlug } from "../../lib/tenantSender";
@@ -45,15 +45,17 @@ import {
   createResendDomain,
   getResendDomainById,
   deleteResendDomain,
-  type ResendDnsRecord,
   type ResendDomainVerificationState,
+  type ResendDnsRecord,
 } from "../../lib/resendDomainStatus";
+import { CloudflareError, createDnsRecord, findDnsRecords, deleteDnsRecord } from "../../lib/cloudflare";
 import {
-  createDnsRecord,
-  findDnsRecords,
-  deleteDnsRecord,
-  CloudflareError,
-} from "../../lib/cloudflare";
+  readBrandedSubdomainConfig,
+  persistBrandedSubdomain,
+  publishBrandedSubdomainRecords,
+  unpublishBrandedSubdomainRecords,
+  deprovisionBrandedEmailSubdomain,
+} from "../../lib/brandedEmailSubdomain";
 
 const router = Router();
 
@@ -70,76 +72,6 @@ interface BrandedSubdomainState {
   status: ResendDomainVerificationState;
   active: boolean;
   provisioned: boolean;
-}
-
-type SalesConsoleSlice = {
-  brandedEmailSubdomain?: unknown;
-  brandedEmailSubdomainId?: unknown;
-  brandedEmailSubdomainDnsRecordIds?: unknown;
-  [k: string]: unknown;
-};
-
-interface PersistedConfig {
-  rowId: number | null;
-  config: Record<string, unknown>;
-  subdomain: string;
-  domainId: string;
-  dnsRecordIds: string[];
-}
-
-/** Read the tenant's brand config + the branded-subdomain fields off salesConsole. */
-async function readConfig(tenantId: number): Promise<PersistedConfig> {
-  const rows = await db
-    .select()
-    .from(lpBrandSettingsTable)
-    .where(eq(lpBrandSettingsTable.tenantId, tenantId))
-    .limit(1);
-  if (rows.length === 0) {
-    return { rowId: null, config: {}, subdomain: "", domainId: "", dnsRecordIds: [] };
-  }
-  const config = (rows[0].config as Record<string, unknown>) ?? {};
-  const sc = (config.salesConsole as SalesConsoleSlice) ?? {};
-  const ids = Array.isArray(sc.brandedEmailSubdomainDnsRecordIds)
-    ? sc.brandedEmailSubdomainDnsRecordIds.filter((x): x is string => typeof x === "string")
-    : [];
-  return {
-    rowId: rows[0].id,
-    config,
-    subdomain: typeof sc.brandedEmailSubdomain === "string" ? sc.brandedEmailSubdomain : "",
-    domainId: typeof sc.brandedEmailSubdomainId === "string" ? sc.brandedEmailSubdomainId : "",
-    dnsRecordIds: ids,
-  };
-}
-
-/**
- * Read-merge-write the branded-subdomain fields into config.salesConsole,
- * leaving every other brand/salesConsole field untouched.
- */
-async function persist(
-  tenantId: number,
-  fields: { subdomain: string | null; domainId: string | null; dnsRecordIds: string[] | null },
-): Promise<void> {
-  const { rowId, config } = await readConfig(tenantId);
-  const sc: Record<string, unknown> = { ...((config.salesConsole as Record<string, unknown>) ?? {}) };
-
-  if (!fields.subdomain) delete sc.brandedEmailSubdomain;
-  else sc.brandedEmailSubdomain = fields.subdomain;
-
-  if (!fields.domainId) delete sc.brandedEmailSubdomainId;
-  else sc.brandedEmailSubdomainId = fields.domainId;
-
-  if (!fields.dnsRecordIds || fields.dnsRecordIds.length === 0) delete sc.brandedEmailSubdomainDnsRecordIds;
-  else sc.brandedEmailSubdomainDnsRecordIds = fields.dnsRecordIds;
-
-  const nextConfig = { ...config, salesConsole: sc };
-  if (rowId === null) {
-    await db.insert(lpBrandSettingsTable).values({ tenantId, config: nextConfig });
-  } else {
-    await db
-      .update(lpBrandSettingsTable)
-      .set({ config: nextConfig, updatedAt: new Date() })
-      .where(and(eq(lpBrandSettingsTable.tenantId, tenantId), eq(lpBrandSettingsTable.id, rowId)));
-  }
 }
 
 /** Parse a Resend TTL string ("Auto" / "86400") into a Cloudflare TTL (1 = auto). */
@@ -196,16 +128,6 @@ async function syncRecords(records: ResendDnsRecord[]): Promise<SyncOutcome> {
 }
 
 /**
- * Publish the DNS records Resend returned for the subdomain into our
- * Cloudflare zone. Returns the ids of all records that now exist for the
- * subdomain (created or reused) so the remove flow can delete exactly what we
- * own. Throws on the first hard failure — the caller rolls back.
- */
-async function publishRecords(records: ResendDnsRecord[]): Promise<string[]> {
-  return (await syncRecords(records)).ids;
-}
-
-/**
  * Result of a single tenant's branded-subdomain DNS reconcile.
  */
 export interface BrandedSubdomainReconcileResult {
@@ -242,7 +164,7 @@ export interface BrandedSubdomainReconcileResult {
 export async function reconcileBrandedSubdomainDns(
   tenantId: number,
 ): Promise<BrandedSubdomainReconcileResult> {
-  const { subdomain, domainId, dnsRecordIds } = await readConfig(tenantId);
+  const { subdomain, domainId, dnsRecordIds } = await readBrandedSubdomainConfig(tenantId);
   if (!domainId) {
     return { tenantId, provisioned: false, checked: 0, repaired: 0, repairedRecords: [] };
   }
@@ -278,7 +200,7 @@ export async function reconcileBrandedSubdomainDns(
   const changed =
     ids.length !== dnsRecordIds.length || ids.some((id, i) => id !== dnsRecordIds[i]);
   if (changed) {
-    await persist(tenantId, {
+    await persistBrandedSubdomain(tenantId, {
       subdomain: subdomain || live.domain.name,
       domainId,
       dnsRecordIds: ids,
@@ -292,17 +214,6 @@ export async function reconcileBrandedSubdomainDns(
     repaired: created.length,
     repairedRecords: created,
   };
-}
-
-/** Best-effort delete of every DNS record we created for the subdomain. */
-async function unpublishRecords(ids: string[]): Promise<void> {
-  for (const id of ids) {
-    try {
-      await deleteDnsRecord(id);
-    } catch (err) {
-      console.warn(`[lp/branded-email-subdomain] DNS record delete failed (${id}):`, err);
-    }
-  }
 }
 
 /**
@@ -334,7 +245,7 @@ router.get("/lp/branded-email-subdomain", async (req, res): Promise<void> => {
   try {
     const slug = await getTenantSlug(tenantId);
     const derived = deriveBrandedSubdomain(slug, tenantId);
-    const { subdomain, domainId } = await readConfig(tenantId);
+    const { subdomain, domainId } = await readBrandedSubdomainConfig(tenantId);
     if (!domainId) {
       res.json({
         subdomain: subdomain || derived,
@@ -359,7 +270,7 @@ router.post("/lp/branded-email-subdomain", async (req, res): Promise<void> => {
     const slug = await getTenantSlug(tenantId);
     const subdomain = deriveBrandedSubdomain(slug, tenantId);
 
-    const existing = await readConfig(tenantId);
+    const existing = await readBrandedSubdomainConfig(tenantId);
     // Idempotent re-provision: already registered → return live state.
     if (existing.domainId && existing.subdomain.toLowerCase() === subdomain) {
       res.json(await buildStateFromId(subdomain, existing.domainId));
@@ -378,9 +289,9 @@ router.post("/lp/branded-email-subdomain", async (req, res): Promise<void> => {
     // the records we created AND the Resend domain so nothing leaks.
     let dnsRecordIds: string[] = [];
     try {
-      dnsRecordIds = await publishRecords(created.domain.records ?? []);
+      dnsRecordIds = await publishBrandedSubdomainRecords(created.domain.records ?? []);
     } catch (dnsErr) {
-      await unpublishRecords(dnsRecordIds);
+      await unpublishBrandedSubdomainRecords(dnsRecordIds);
       const del = await deleteResendDomain(created.domain.id);
       if (!del.available) {
         console.warn(`[lp/branded-email-subdomain] rollback: Resend delete failed: ${del.error}`);
@@ -392,10 +303,14 @@ router.post("/lp/branded-email-subdomain", async (req, res): Promise<void> => {
       return;
     }
 
-    await persist(tenantId, {
+    // Stamp the provision time (the background sweep's staleness clock) and the
+    // last-observed verified state so the retirement poller has a baseline.
+    await persistBrandedSubdomain(tenantId, {
       subdomain: created.domain.name,
       domainId: created.domain.id,
       dnsRecordIds,
+      provisionedAt: new Date().toISOString(),
+      active: created.domain.status === "verified",
     });
 
     res.status(201).json({
@@ -415,7 +330,7 @@ router.post("/lp/branded-email-subdomain/verify", async (req, res): Promise<void
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
   try {
-    const { subdomain, domainId } = await readConfig(tenantId);
+    const { subdomain, domainId } = await readBrandedSubdomainConfig(tenantId);
     if (!domainId) {
       res.status(400).json({ error: "No branded subdomain is provisioned" });
       return;
@@ -431,17 +346,10 @@ router.delete("/lp/branded-email-subdomain", async (req, res): Promise<void> => 
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
   try {
-    const { domainId, dnsRecordIds } = await readConfig(tenantId);
-    // Best-effort teardown — clearing config is the safety-critical step, so
-    // we always reach it even if the Resend/Cloudflare deletes fail.
-    await unpublishRecords(dnsRecordIds);
-    if (domainId) {
-      const del = await deleteResendDomain(domainId);
-      if (!del.available) {
-        console.warn(`[lp/branded-email-subdomain] Resend delete failed for tenant ${tenantId}: ${del.error}`);
-      }
-    }
-    await persist(tenantId, { subdomain: null, domainId: null, dnsRecordIds: null });
+    // Best-effort teardown via the single shared deprovision path (also used by
+    // the background retirement sweep) — clearing config is the safety-critical
+    // step, so we always reach it even if the Resend/Cloudflare deletes fail.
+    await deprovisionBrandedEmailSubdomain(tenantId);
 
     const slug = await getTenantSlug(tenantId);
     res.json({
