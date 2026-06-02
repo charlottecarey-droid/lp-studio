@@ -4,9 +4,46 @@ import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { callAIChat, aiErrorMessage } from "../../lib/ai-utils";
-import { getSalesBrandContext } from "../../lib/salesBrandContext";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
+
+// ─── Pure prompt builder (extracted so brand framing is unit-testable) ──
+// Mirrors draft-email.ts / person-brief.ts: the route loads + tenant-scopes
+// the Sales Console brand context and microsite intent, then hands them here.
+// Brand framing is strictly per-tenant — no "Dandy" string is hardcoded.
+// Dandy (tenant 1) renders its original framing only because its Sales
+// Console config seeds brandName "Dandy" + briefBlurb; other tenants supply
+// their own, and a no-config tenant gets brand-neutral phrasing with no gaps.
+
+export interface GenerateEmailPromptArgs {
+  brandCtx: SalesBrandContext;
+  /** Whether to include a CTA linking to the recipient's microsite. */
+  includesMicrositeLink: boolean;
+}
+
+export function buildGenerateEmailSystemPrompt(args: GenerateEmailPromptArgs): string {
+  const { brandCtx, includesMicrositeLink } = args;
+
+  // ─── Brand-derived framing (per-tenant; never hardcodes "Dandy") ───
+  const brandName = brandCtx.brandName || "our team";
+  const brandIntro = brandCtx.salesIntroLine
+    || (brandCtx.briefBlurb
+      ? `You are a sales email copywriter for ${brandName} — ${brandCtx.briefBlurb}.`
+      : `You are a sales email copywriter for ${brandName}.`);
+
+  return [
+    brandIntro,
+    "Write concise, personalized B2B sales emails that feel human and genuine — never spammy.",
+    "Use merge variables where appropriate: {{first_name}}, {{last_name}}, {{company}}, {{microsite_url}}, {{sender_name}}.",
+    "CRITICAL: Only ever use these exact variable names. NEVER write {{null}}, {{undefined}}, or any other placeholder. If you don't know the recipient's name, omit the variable entirely.",
+    "Return JSON with exactly these fields: { subject: string, bodyHtml: string }",
+    "The bodyHtml should be clean HTML suitable for email (no <html>/<head>/<body> tags — just the content).",
+    "Use <p>, <br>, <strong>, <a> tags. Keep paragraphs short (2-3 sentences max).",
+    includesMicrositeLink ? 'Include a natural CTA linking to {{microsite_url}} — e.g. "I put together a quick page with some relevant info: {{microsite_url}}"' : "",
+    "Sign off with {{sender_name}}.",
+  ].filter(Boolean).join("\n");
+}
 
 router.post("/generate-email", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
@@ -50,23 +87,10 @@ router.post("/generate-email", requireAuth, async (req, res): Promise<void> => {
     // Pull this tenant's Sales Console context so the prompt reflects
     // *their* brand, not Dandy.
     const genBrandCtx = await getSalesBrandContext(tenantId);
-    const genBrandName = genBrandCtx.brandName || "our team";
-    const genBrandIntro = genBrandCtx.salesIntroLine
-      || (genBrandCtx.briefBlurb
-        ? `You are a sales email copywriter for ${genBrandName} — ${genBrandCtx.briefBlurb}.`
-        : `You are a sales email copywriter for ${genBrandName}.`);
-
-    const systemPrompt = [
-      genBrandIntro,
-      "Write concise, personalized B2B sales emails that feel human and genuine — never spammy.",
-      "Use merge variables where appropriate: {{first_name}}, {{last_name}}, {{company}}, {{microsite_url}}, {{sender_name}}.",
-      "CRITICAL: Only ever use these exact variable names. NEVER write {{null}}, {{undefined}}, or any other placeholder. If you don't know the recipient's name, omit the variable entirely.",
-      "Return JSON with exactly these fields: { subject: string, bodyHtml: string }",
-      "The bodyHtml should be clean HTML suitable for email (no <html>/<head>/<body> tags — just the content).",
-      "Use <p>, <br>, <strong>, <a> tags. Keep paragraphs short (2-3 sentences max).",
-      includesMicrositeLink ? 'Include a natural CTA linking to {{microsite_url}} — e.g. "I put together a quick page with some relevant info: {{microsite_url}}"' : "",
-      "Sign off with {{sender_name}}.",
-    ].filter(Boolean).join("\n");
+    const systemPrompt = buildGenerateEmailSystemPrompt({
+      brandCtx: genBrandCtx,
+      includesMicrositeLink: Boolean(includesMicrositeLink),
+    });
 
     const userPrompt = [
       `Purpose: ${purpose ?? "intro outreach"}`,
