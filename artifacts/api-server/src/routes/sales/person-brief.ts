@@ -32,26 +32,31 @@ function checkAIRateLimit(key: string): boolean {
 
 type ResearchText = { person?: string; linkedin?: string; company?: string; site?: string };
 
-/**
- * Pure brief generator — given a contact + account (already loaded and
- * tenant-scoped) and optional web-research text, returns markdown call-prep
- * brief text. Throws on hard failure.
- *
- * Pulled out of the original POST handler so both the legacy
- * /person-brief route (called from DraftEmailModal with rich research)
- * and the new contact-detail panel (no research, leans on account
- * briefing) can share the same prompt + LLM fallback chain.
- */
-async function generateContactBriefText(args: {
+export interface ContactBriefPromptArgs {
   contact: typeof salesContactsTable.$inferSelect;
   account: typeof salesAccountsTable.$inferSelect;
   briefing: BriefingData | null;
   researchText?: ResearchText;
   brandCtx: SalesBrandContext;
-}): Promise<string> {
-  const ai = getAIClient();
-  if (!ai) throw new Error("No AI client configured");
+}
 
+/**
+ * Pure prompt builder — given a contact + account (already loaded and
+ * tenant-scoped), optional web-research text, and the tenant's Sales
+ * Console brand context, returns the system + user messages handed to
+ * the LLM. Extracted from generateContactBriefText so the brand-aware
+ * framing can be unit-tested without hitting the live LLM.
+ *
+ * Brand framing is strictly per-tenant: no "Dandy" string is ever
+ * hardcoded here. Dandy (tenant 1) renders its old copy only because
+ * its Sales Console config seeds brandName "Dandy" + the parenthetical
+ * briefBlurb; other tenants supply their own, and a no-config tenant
+ * gets brand-neutral phrasing with no empty gaps.
+ */
+export function buildContactBriefPrompt(args: ContactBriefPromptArgs): {
+  systemMsg: string;
+  prompt: string;
+} {
   const { contact, account, briefing, researchText, brandCtx } = args;
   const firstName = contact.firstName ?? "";
   const lastName  = contact.lastName  ?? "";
@@ -227,6 +232,24 @@ Rules:
 - Output only the brief. No intro, no outro.`;
 
   const systemMsg = "You are a sales intelligence analyst. Output only the brief as requested. Nothing else.";
+  return { systemMsg, prompt };
+}
+
+/**
+ * Pure brief generator — given a contact + account (already loaded and
+ * tenant-scoped) and optional web-research text, returns markdown call-prep
+ * brief text. Throws on hard failure.
+ *
+ * Pulled out of the original POST handler so both the legacy
+ * /person-brief route (called from DraftEmailModal with rich research)
+ * and the new contact-detail panel (no research, leans on account
+ * briefing) can share the same prompt + LLM fallback chain.
+ */
+async function generateContactBriefText(args: ContactBriefPromptArgs): Promise<string> {
+  const ai = getAIClient();
+  if (!ai) throw new Error("No AI client configured");
+
+  const { systemMsg, prompt } = buildContactBriefPrompt(args);
   const messages = [
     { role: "system", content: systemMsg },
     { role: "user", content: prompt },
