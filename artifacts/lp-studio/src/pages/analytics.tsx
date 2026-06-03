@@ -701,7 +701,25 @@ function ConversionFunnel({ overview, pages, ghostSubmits, loading }: { overview
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function AnalyticsPage({ initialTab }: { initialTab?: string } = {}) {
+const ANALYTICS_TABS = ["overview", "pages", "locations", "conversions"] as const;
+type AnalyticsTab = (typeof ANALYTICS_TABS)[number];
+
+/** Derive the active tab from the current URL path (e.g. `/analytics/locations`). */
+function tabFromPath(path: string): AnalyticsTab {
+  const segment = path.replace(/^\/analytics\/?/, "").split("/")[0];
+  return (ANALYTICS_TABS as readonly string[]).includes(segment)
+    ? (segment as AnalyticsTab)
+    : "overview";
+}
+
+/** Build the canonical URL for a tab. Overview lives at the bare `/analytics`. */
+function pathForTab(tab: string): string {
+  return tab === "overview" ? "/analytics" : `/analytics/${tab}`;
+}
+
+export default function AnalyticsPage() {
+  const [location, setLocation] = useLocation();
+  const activeTab = tabFromPath(location);
   const [days, setDays] = useState(30);
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
@@ -772,8 +790,9 @@ export default function AnalyticsPage({ initialTab }: { initialTab?: string } = 
           </div>
         )}
 
-        {/* Tabs */}
-        <Tabs defaultValue={initialTab ?? "overview"}>
+        {/* Tabs — active tab is URL-driven so each view is linkable and
+            browser back/forward moves between tabs. */}
+        <Tabs value={activeTab} onValueChange={(v) => setLocation(pathForTab(v))}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="pages">Pages</TabsTrigger>
