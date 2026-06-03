@@ -7,13 +7,16 @@
  * sales route calls (the Dandy gate + asset wiring live in the route and are
  * covered separately):
  *
- *   1. ASSET-GATED — `split` only appears when a hero image exists; the video
+ *   1. ASSET-GATED — `split` and asset-backed full-bleed (a photo/clip BEHIND
+ *      the copy) only appear when the matching asset exists; the split video
  *      layouts only when a video exists; with no assets the only outcome is the
  *      polished `full-bleed` gradient default (never a broken/empty layout).
  *   2. DETERMINISTIC — the same account (seed) always resolves to the same
  *      layout, but different accounts spread across the available pool.
  *   3. CORRECT WIRING — the chosen layout sets the matching asset field
- *      (heroImageUrl / heroVideoUrl) drawn only from the supplied library.
+ *      (heroImageUrl / heroVideoUrl / backgroundImageUrl / backgroundVideoUrl)
+ *      drawn only from the supplied library; asset-backed full-bleed sets a
+ *      moderate base overlay (the renderer scrim guarantees legibility).
  *   4. NO-OP — a block list without a `dso-heartland-hero` is returned
  *      untouched (other segments use different hero blocks).
  */
@@ -121,13 +124,47 @@ describe("applyDandyHeroVariability — asset wiring", () => {
     expect(props.videoAutoplay).toBe(true);
   });
 
-  it("full-bleed keeps the gradient default — no forced background image", () => {
+  it("full-bleed with NO assets keeps the gradient default — no forced background / overlay", () => {
     const out = applyDandyHeroVariability(heroBlocks(), [], [], "any:Co");
     const props = heroOf(out).props as Block;
     expect(props.layout).toBe("full-bleed");
     expect(props.backgroundImageUrl).toBeUndefined();
+    expect(props.backgroundVideoUrl).toBeUndefined();
     expect(props.heroImageUrl).toBeUndefined();
     expect(props.heroVideoUrl).toBeUndefined();
+    // The curated gradient default must not be dimmed by a forced overlay.
+    expect(props.overlayOpacity).toBeUndefined();
+  });
+
+  it("asset-backed full-bleed (image) puts a library photo BEHIND the copy with a moderate overlay", () => {
+    // A full-bleed result that carries a backgroundImageUrl is the photo-behind-
+    // headline treatment (legibility guaranteed by the renderer scrim).
+    let bg: Block | null = null;
+    for (let i = 0; i < 300 && !bg; i++) {
+      const props = heroOf(applyDandyHeroVariability(heroBlocks(), IMAGES, [], `fbi-${i}:Co`)).props as Block;
+      if (props.layout === "full-bleed" && props.backgroundImageUrl) bg = props;
+    }
+    expect(bg).not.toBeNull();
+    expect(IMAGES).toContain(bg!.backgroundImageUrl);
+    expect(bg!.backgroundVideoUrl).toBeUndefined();
+    // Moderate base tint so the photo still reads; the scrim handles contrast.
+    expect(typeof bg!.overlayOpacity).toBe("number");
+    expect(bg!.overlayOpacity as number).toBeGreaterThan(0);
+    expect(bg!.overlayOpacity as number).toBeLessThan(55);
+  });
+
+  it("asset-backed full-bleed (video) puts a library clip BEHIND the copy with a moderate overlay", () => {
+    let bg: Block | null = null;
+    for (let i = 0; i < 300 && !bg; i++) {
+      const props = heroOf(applyDandyHeroVariability(heroBlocks(), [], VIDEOS, `fbv-${i}:Co`)).props as Block;
+      if (props.layout === "full-bleed" && props.backgroundVideoUrl) bg = props;
+    }
+    expect(bg).not.toBeNull();
+    expect(VIDEOS).toContain(bg!.backgroundVideoUrl);
+    expect(bg!.backgroundImageUrl).toBeUndefined();
+    expect(typeof bg!.overlayOpacity).toBe("number");
+    expect(bg!.overlayOpacity as number).toBeGreaterThan(0);
+    expect(bg!.overlayOpacity as number).toBeLessThan(55);
   });
 
   it("preserves the existing hero copy props", () => {

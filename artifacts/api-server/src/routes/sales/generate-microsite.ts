@@ -163,16 +163,31 @@ function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>
 //   • DETERMINISTIC per account (hash of account id + name) so the same account
 //     stays stable across regenerations while different accounts get visibly
 //     different treatments — never random (random can repeat or churn).
-//   • Only already-designed layouts/configs are used. No new combinations and
-//     no background image forced onto full-bleed (contrast/legibility is out of
-//     scope, handled separately). The curated supporting-block ORDER is kept
-//     intact; only the hero treatment (layout + which side the media sits on)
-//     varies, so the funnel narrative is never disturbed.
+//   • Only already-designed layouts/configs are used. Asset-backed full-bleed
+//     (a real photo or clip BEHIND the headline) is now part of the rotation:
+//     the hero's full-bleed branch lays a legibility scrim over the asset so the
+//     copy stays readable for light photos / busy clips, with a moderate base
+//     overlay so the asset still reads. A no-asset account still gets the
+//     curated gradient default (no regression). The curated supporting-block
+//     ORDER is kept intact; only the hero treatment (layout + background asset +
+//     which side a split media column sits on) varies, so the funnel narrative
+//     is never disturbed.
 //
 // Scoped to Dandy by the caller's isDandyTenant gate. No-op when there is no
 // `dso-heartland-hero` block (the Private Practice / DSO Practice segments use
 // different hero blocks) or when a fixed template layout was requested.
 export type HeroLayout = "full-bleed" | "split" | "split-video" | "stacked-video";
+
+// Internal selection tokens for the variability pass. The "*-bg" tokens map to
+// the full-bleed LAYOUT with a real asset behind the copy (the renderer scrim
+// keeps text legible); the others map 1:1 to a HeroLayout.
+type HeroTreatment = HeroLayout | "full-bleed-image-bg" | "full-bleed-video-bg";
+
+// Base brand-tint overlay opacity (%) for asset-backed full-bleed treatments.
+// Moderate on purpose: the directional legibility scrim in the hero renderer
+// does the heavy lifting where the copy sits, so the asset stays visible
+// elsewhere instead of being crushed by a heavy flat tint.
+const FULLBLEED_BG_OVERLAY_OPACITY = 40;
 
 /**
  * Stable 32-bit hash so layout selection is deterministic per account. FNV-1a
@@ -205,31 +220,49 @@ export function applyDandyHeroVariability(
   if (heroIdx < 0) return blocks;
 
   // Asset-gated candidate pool. full-bleed (gradient default) is always safe.
-  const pool: HeroLayout[] = ["full-bleed"];
-  if (heroImageUrls.length > 0) pool.push("split");
-  if (videoUrls.length > 0) pool.push("split-video", "stacked-video");
+  // The "*-bg" treatments map to the full-bleed LAYOUT with a real asset behind
+  // the copy; the hero's full-bleed branch lays a legibility scrim over the
+  // asset so text stays readable for light photos / busy clips.
+  const pool: HeroTreatment[] = ["full-bleed"];
+  if (heroImageUrls.length > 0) pool.push("split", "full-bleed-image-bg");
+  if (videoUrls.length > 0) pool.push("split-video", "stacked-video", "full-bleed-video-bg");
 
   const seed = hashSeed(seedKey);
-  const layout = pool[seed % pool.length];
+  const treatment = pool[seed % pool.length];
   // Independent bit of the seed drives which side the media column sits on.
   const side: "left" | "right" = ((seed >>> 5) & 1) === 0 ? "left" : "right";
 
   const hero = { ...blocks[heroIdx] };
   const props = { ...((hero.props ?? {}) as Record<string, unknown>) };
-  props.layout = layout;
 
-  if (layout === "split") {
+  if (treatment === "split") {
+    props.layout = "split";
     props.heroImageUrl = heroImageUrls[seed % heroImageUrls.length];
     props.heroImageSide = side;
-  } else if (layout === "split-video") {
+  } else if (treatment === "split-video") {
+    props.layout = "split-video";
     props.heroVideoUrl = videoUrls[seed % videoUrls.length];
     props.heroImageSide = side;
     props.videoAutoplay = true;
-  } else if (layout === "stacked-video") {
+  } else if (treatment === "stacked-video") {
+    props.layout = "stacked-video";
     props.heroVideoUrl = videoUrls[seed % videoUrls.length];
     props.videoAutoplay = true;
+  } else if (treatment === "full-bleed-image-bg") {
+    // Real photo behind the headline. Moderate base overlay keeps the photo
+    // visible while the renderer's directional scrim guarantees legibility.
+    props.layout = "full-bleed";
+    props.backgroundImageUrl = heroImageUrls[seed % heroImageUrls.length];
+    props.overlayOpacity = FULLBLEED_BG_OVERLAY_OPACITY;
+  } else if (treatment === "full-bleed-video-bg") {
+    // Busy clip behind the headline — same scrim-backed legibility guarantee.
+    props.layout = "full-bleed";
+    props.backgroundVideoUrl = videoUrls[seed % videoUrls.length];
+    props.overlayOpacity = FULLBLEED_BG_OVERLAY_OPACITY;
+  } else {
+    // full-bleed: keep the polished gradient default — no forced background asset.
+    props.layout = "full-bleed";
   }
-  // full-bleed: keep the polished gradient default — no forced background image.
 
   hero.props = props;
   const next = blocks.slice();

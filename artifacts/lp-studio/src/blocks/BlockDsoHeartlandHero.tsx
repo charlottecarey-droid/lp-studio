@@ -27,6 +27,22 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 
+// Legibility scrim for the full-bleed layout when a real background image/video
+// is shown behind the (left-aligned, vertically-centred) hero copy. The base
+// `overlayColor`/`overlayOpacity` tint dims the whole asset uniformly, but a
+// flat tint alone cannot guarantee readable text over a *light* photo or a
+// *busy* clip without crushing the asset everywhere. This scrim concentrates
+// extra darkening exactly where the text sits — the left edge (headline /
+// sub / CTAs) and the bottom (CTAs / stats / scroll cue) — while fading to fully
+// transparent toward the top-right so the imagery still reads. It is a pure
+// black gradient (brand-neutral) layered ABOVE the brand tint, so it adapts the
+// effective contrast for any asset without the user having to hand-tune the
+// overlay per-image. Rendered only on the asset-backed full-bleed branches; the
+// curated gradient default never gets it (no regression).
+const FULLBLEED_LEGIBILITY_SCRIM =
+  "linear-gradient(90deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.40) 34%, rgba(0,0,0,0.12) 64%, rgba(0,0,0,0) 90%), " +
+  "linear-gradient(0deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.10) 34%, rgba(0,0,0,0) 60%)";
+
 
 export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId }: Props) {
   const submitMode = p.submitMode ?? "navigate";
@@ -1019,6 +1035,12 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
 
   /* ── FULL-BLEED LAYOUT (default) ──────────────────────────── */
   const overlayOpacity = ((p.overlayOpacity ?? 55) / 100).toFixed(2);
+  // When a real photo/clip sits BEHIND the copy, the muted-grey subheadline is
+  // the weakest element over a light/busy asset (the headline is large white +
+  // shadow, and the scrim darkens its region). Brighten the secondary copy in
+  // that case only — the curated gradient default keeps the muted tone.
+  const hasFullBleedAsset = !!(p.backgroundVideoUrl || p.backgroundImageUrl);
+  const fullBleedSubColor = hasFullBleedAsset ? "rgba(255,255,255,0.86)" : MUTED_FG;
   return (
     <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
       <section
@@ -1044,6 +1066,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
                 opacity: overlayOpacity,
               }}
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: FULLBLEED_LEGIBILITY_SCRIM }}
             />
           </div>
         ) : p.backgroundImageUrl ? (
@@ -1073,6 +1099,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
                 opacity: overlayOpacity,
               }}
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: FULLBLEED_LEGIBILITY_SCRIM }}
             />
           </div>
             );
@@ -1123,7 +1153,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             </motion.h1>
 
             {p.subheadline && (
-              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: MUTED_FG, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
+              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }} style={{ marginTop: "1.5rem", fontSize: "1.0625rem", color: fullBleedSubColor, lineHeight: 1.7, maxWidth: 520, fontFamily: BODY }}>
                 {p.subheadline}
               </motion.p>
             )}

@@ -15,21 +15,30 @@ NOT via the AI system prompt — prompt-steering can't reliably honor asset gati
   the generic / white-label path is untouched.
 - **Skipped for fixed templates** (`!templateBlocks`) — a template's hero is an
   explicit choice.
-- **Asset-gated candidate pool:** `full-bleed` (gradient default) always; add
-  `split` only if a `lp-hero`-tagged image exists; add `split-video` +
-  `stacked-video` only if a tenant video exists. No assets ⇒ only full-bleed, so
-  a broken/empty layout is never produced.
+- **Asset-gated candidate pool:** `full-bleed` (gradient default) always; if a
+  `lp-hero`-tagged image exists add `split` + `full-bleed-image-bg`; if a tenant
+  video exists add `split-video` + `stacked-video` + `full-bleed-video-bg`. No
+  assets ⇒ only the gradient `full-bleed`, so a broken/empty layout is never
+  produced. The `*-bg` tokens map to layout `full-bleed` with the asset set as
+  `backgroundImageUrl`/`backgroundVideoUrl` + a moderate base `overlayOpacity`
+  (FULLBLEED_BG_OVERLAY_OPACITY ≈ 40).
 - **Deterministic per account** via a hash of `accountId + company name` so the
   same account is stable across regenerations but different accounts spread.
   NEVER random (would churn/repeat).
-- **No new combos.** Only the four already-designed layouts. Do NOT force a
-  background image onto full-bleed — contrast/legibility is a separate scope and
-  the gradient default is the safe premium look.
+- **Legibility is now handled** (was a deferred scope): the hero full-bleed
+  branch lays a directional black `FULLBLEED_LEGIBILITY_SCRIM` over any
+  `backgroundImageUrl`/`backgroundVideoUrl` (heavier left+bottom where the copy
+  sits, fading top-right so the asset still reads) ABOVE the brand tint, and
+  brightens the muted subheadline to `rgba(255,255,255,0.86)` only when a bg
+  asset is present. The gradient default gets NEITHER (no regression). This is
+  what made forcing a bg asset onto full-bleed safe.
 - **Curated supporting-block order is preserved** — only the hero treatment
-  (layout + `heroImageSide`) varies, so the funnel narrative stays intact.
+  (layout + background asset + `heroImageSide`) varies, so the funnel narrative
+  stays intact.
 
 **Why:** the hero component already shipped 4 premium layouts that were never
-used; variety had to be added without re-opening copy/contrast/order scope.
+used; variety was added first (layout only), then a follow-up pass added the
+scrim + bg-asset full-bleed treatments so "text over imagery" stays legible.
 
 ## Hash gotcha (reused lesson)
 `hashSeed` = FNV-1a **plus a Murmur3 fmix32 avalanche**. The finalizer is load-
