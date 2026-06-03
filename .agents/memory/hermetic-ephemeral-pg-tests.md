@@ -27,6 +27,15 @@ reads the drizzle schema (the forward source of truth that GENERATES migrations
 and carries the same `onDelete` rules a fix-migration installs on drifted prod),
 so it's the right thing to guard against FK-regression anyway.
 
+**Legacy migration-only tables:** a delete/cleanup chain may touch tables that
+exist in prod (created by raw SQL migrations) but are NOT in the drizzle schema
+(`lib/db/src/schema`), so `push` never creates them on the blank DB → 42P01 at
+runtime. Stub each with a minimal `CREATE TABLE IF NOT EXISTS <t> (id serial
+PRIMARY KEY, tenant_id integer)` after the import if the code only filters them
+by `tenant_id`. Examples seen in the superadmin tenant-delete chain:
+`lp_personalized_links`, `lp_block_defaults`, `lp_brand_presets`,
+`lp_custom_blocks`, `lp_integrations`, `lp_library_items`, `sales_audiences`.
+
 **Gotchas:**
 - `pg_ctl start` MUST get `-l <logfile>`; otherwise the daemonized postmaster
   inherits spawnSync's stdio pipes, never sends EOF, and spawnSync hangs forever.

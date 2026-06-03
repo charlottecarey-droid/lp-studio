@@ -1236,17 +1236,13 @@ router.delete("/superadmin/tenants/:id", requireSuperadmin, async (req, res): Pr
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // 1. sfdc tables: reference sales_accounts/contacts via NO ACTION — must go first
-    await client.query(
-      `DELETE FROM sfdc_leads
-       WHERE account_id IN (SELECT id FROM sales_accounts WHERE tenant_id = $1)
-          OR converted_contact_id IN (SELECT id FROM sales_contacts WHERE tenant_id = $1)`,
-      [tenantId]
-    );
-    await client.query(
-      `DELETE FROM sfdc_opportunities WHERE account_id IN (SELECT id FROM sales_accounts WHERE tenant_id = $1)`,
-      [tenantId]
-    );
+    // 1. sfdc tables are tenant-scoped (tenant_id FK CASCADEs on tenant delete);
+    //    delete them directly by tenant_id rather than via sales_accounts/contacts.
+    //    The old code filtered sfdc_leads by a non-existent `account_id` column
+    //    (the real column is `converted_account_id`), which threw Postgres 42703
+    //    and 500'd the whole delete the moment a tenant had any synced lead.
+    await client.query(`DELETE FROM sfdc_leads WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM sfdc_opportunities WHERE tenant_id = $1`, [tenantId]);
     // 2. sales_email_campaigns: NO ACTION on both tenants and sales_accounts
     await client.query(`DELETE FROM sales_email_campaigns WHERE tenant_id = $1`, [tenantId]);
     await client.query(`DELETE FROM sales_email_templates WHERE tenant_id = $1`, [tenantId]);
