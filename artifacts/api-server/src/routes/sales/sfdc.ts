@@ -4,6 +4,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable } from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
+import { encryptCredential } from "../../lib/encryption";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
@@ -118,8 +119,8 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
         .update(sfdcConnectionsTable)
         .set({
           instanceUrl: tokenData.instance_url,
-          accessToken: tokenData.access_token,
-          refreshToken: tokenData.refresh_token,
+          accessToken: encryptCredential(tokenData.access_token),
+          refreshToken: encryptCredential(tokenData.refresh_token),
           tokenExpiresAt: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000),
           status: "connected",
         })
@@ -132,8 +133,8 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
           tenantId,
           instanceUrl: tokenData.instance_url,
           orgId,
-          accessToken: tokenData.access_token,
-          refreshToken: tokenData.refresh_token,
+          accessToken: encryptCredential(tokenData.access_token),
+          refreshToken: encryptCredential(tokenData.refresh_token),
           tokenExpiresAt: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000),
           status: "connected",
           syncEnabled: true,

@@ -2,6 +2,7 @@ import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfd
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { logger } from "./logger";
+import { encryptCredential, decryptCredential } from "./encryption";
 
 const SFDC_AUTH_URL = "https://login.salesforce.com";
 const SFDC_API_VERSION = "v59.0";
@@ -141,7 +142,7 @@ export class SfdcService {
         grant_type: "refresh_token",
         client_id: this.clientId,
         client_secret: this.clientSecret,
-        refresh_token: connection.refreshToken,
+        refresh_token: decryptCredential(connection.refreshToken),
       });
 
       const response = await fetch(`${SFDC_AUTH_URL}/services/oauth2/token`, {
@@ -162,7 +163,7 @@ export class SfdcService {
       await db
         .update(sfdcConnectionsTable)
         .set({
-          accessToken: data.access_token,
+          accessToken: encryptCredential(data.access_token),
           tokenExpiresAt: newExpiresAt,
         })
         .where(eq(sfdcConnectionsTable.id, connectionId));
@@ -194,11 +195,14 @@ export class SfdcService {
       const expiryBuffer = 5 * 60 * 1000;
       if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt).getTime() < now + expiryBuffer) {
         logger.info({ connectionId }, "Token expiring soon, refreshing...");
+        // refreshAccessToken returns the plaintext access token (and stores the
+        // encrypted form), so the returned connection already carries plaintext.
         const newToken = await this.refreshAccessToken(connectionId);
         return { ...connection, accessToken: newToken };
       }
 
-      return connection;
+      // Decrypt the stored token so every downstream caller gets plaintext.
+      return { ...connection, accessToken: decryptCredential(connection.accessToken) };
     } catch (err) {
       logger.error({ connectionId, err }, "Error retrieving connection with valid token");
       throw err;
