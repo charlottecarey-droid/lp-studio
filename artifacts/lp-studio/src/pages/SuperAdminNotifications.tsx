@@ -1226,6 +1226,21 @@ function WorkflowEditor({
   );
 }
 
+const AUDIENCE_ROLES: AudienceRole[] = ["everyone", "superadmin", "admin", "member"];
+
+/** Reconstruct the audience filter from a trigger's stored wire config so the
+ * list can describe a saved trigger with the same wording as the composer. */
+function configToAudienceFilter(config: Record<string, unknown> | null | undefined): AudienceFilterState {
+  const c = config ?? {};
+  const role = AUDIENCE_ROLES.includes(c.role as AudienceRole) ? (c.role as AudienceRole) : "member";
+  const plan = typeof c.plan === "string" && c.plan in PLAN_LABELS ? (c.plan as Plan) : "";
+  const tenantId = typeof c.tenantId === "number" ? c.tenantId : "";
+  const roleNames = Array.isArray(c.role_names)
+    ? (c.role_names as unknown[]).filter((r): r is string => typeof r === "string")
+    : [];
+  return { role, plan, tenantId, roleNames };
+}
+
 /** A short human description of the audience a filter targets. */
 function describeAudience(filter: AudienceFilterState, options: AudienceOptions | null): string {
   const parts: string[] = [ROLE_LABELS[filter.role].toLowerCase()];
@@ -1490,6 +1505,10 @@ function TriggersPanel({
       <div className="space-y-1.5">
         {triggers.map((t) => {
           const summary = t.trigger_type === "scheduled" ? scheduleSummary(t.config) : null;
+          const audience =
+            t.trigger_type === "scheduled" || t.trigger_type === "audience"
+              ? describeAudience(configToAudienceFilter(t.config), options)
+              : null;
           return (
           <div key={t.key} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
             <div className="min-w-0">
@@ -1499,6 +1518,7 @@ function TriggersPanel({
                 {summary ?? t.trigger_type}
                 {t.event_key ? ` · ${t.event_key}` : ""}
               </span>
+              {audience && <p className="mt-0.5 text-xs text-muted-foreground">To {audience}</p>}
             </div>
             <div className="flex items-center gap-2">
               {t.is_system ? (
