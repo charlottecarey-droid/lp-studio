@@ -450,6 +450,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         { src: "https://images.unsplash.com/photo-1584515933487-779824d29309?q=80&w=600&fit=crop", alt: "Smile transformation" },
       ],
       grayscale: false,
+      revealColorOnHover: false,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

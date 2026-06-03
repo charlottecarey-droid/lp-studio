@@ -110,6 +110,19 @@ export function PhotoStripPanel({ props, onChange }: Props) {
         />
       </div>
 
+      {props.grayscale === true && (
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-foreground">Reveal color on hover</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Fade each image back to full color when hovered</p>
+          </div>
+          <Switch
+            checked={props.revealColorOnHover === true}
+            onCheckedChange={v => set("revealColorOnHover", v)}
+          />
+        </div>
+      )}
+
       <Separator />
       <p className={LABEL}>Images</p>
 

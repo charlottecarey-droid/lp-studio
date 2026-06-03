@@ -36,6 +36,7 @@ export function BlockPhotoStrip({ props, onFieldChange }: Props) {
   const speed = props.speed ?? "normal";
   const duration = SPEED_S[speed];
   const grayscale = props.grayscale === true;
+  const revealColorOnHover = grayscale && props.revealColorOnHover === true;
 
   const doubled = [...props.images, ...props.images];
 
@@ -65,6 +66,7 @@ export function BlockPhotoStrip({ props, onFieldChange }: Props) {
               src={img.src}
               alt={img.alt}
               loading="lazy"
+              className={revealColorOnHover ? "transition-[filter] duration-500 ease-out hover:!filter-none" : undefined}
               style={{
                 height: "100%",
                 width: size === "xs" || size === "sm" ? "auto" : `${heightPx * 1.2}px`,
