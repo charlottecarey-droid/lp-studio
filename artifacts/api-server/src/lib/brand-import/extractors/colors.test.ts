@@ -134,6 +134,22 @@ describe("extractColors", () => {
     expect(result.data?.ctaBackground).toBe("#F97316");
   });
 
+  it("skips brown/beige product-photo tones and decouples CTA from primary on photo-heavy sites", async () => {
+    const { client } = mockOpenAI({ respondWith: "{}" });
+    // Muddy product-photo brown (#988878) is the most frequent tone, but the
+    // brand's real accent is the red-orange. Primary must not be the brown, and
+    // the CTA background must not silently collapse onto primary.
+    const evidence = makeEvidence({
+      sampledPalette: ["#988878", "#FFFFFF", "#1A1A1A", "#E63946"],
+    });
+
+    const result = await extractColors(evidence, client);
+
+    expect(result.status).not.toBe("failed");
+    expect(result.data?.primary).not.toBe("#988878");
+    expect(result.data?.ctaBackground).not.toBe(result.data?.primary);
+  });
+
   it("returns status 'failed' with no color evidence and never calls the LLM", async () => {
     const { client, calls } = mockOpenAI({ throwOnCall: true });
     const evidence = makeEvidence({ sampledPalette: [], cssVarPaletteHints: [] });

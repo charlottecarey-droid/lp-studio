@@ -302,17 +302,51 @@ async function samplePaletteFromBuffer(buf: Buffer): Promise<string[]> {
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    const out: string[] = [];
+
+    const keyToRgb = (key: number): [number, number, number] => [
+      Math.min(255, Math.round(((key >> 8) & 0xf) * STEP + STEP / 2)),
+      Math.min(255, Math.round(((key >> 4) & 0xf) * STEP + STEP / 2)),
+      Math.min(255, Math.round((key & 0xf) * STEP + STEP / 2)),
+    ];
+    const toHex = ([r, g, b]: [number, number, number]): string =>
+      `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+    const satOf = ([r, g, b]: [number, number, number]): number => {
+      const max = Math.max(r, g, b);
+      return max === 0 ? 0 : (max - Math.min(r, g, b)) / max;
+    };
+    // Salience = saturation × chroma. A pure frequency histogram on a
+    // photo-heavy homepage surfaces muddy product-photo tones and buries the
+    // brand accent, so re-rank the frequent buckets to float chromatic colors.
+    const salienceOf = (rgb: [number, number, number]): number =>
+      satOf(rgb) * (Math.max(...rgb) - Math.min(...rgb));
+
+    // Keep the most-frequent distinct buckets (the original window), then
+    // re-rank them by salience so the brand accent leads the returned list.
+    const kept: { hex: string; salience: number }[] = [];
     const seen = new Set<string>();
     for (const [key] of sorted) {
-      const r = ((key >> 8) & 0xf) * STEP + STEP / 2;
-      const g = ((key >> 4) & 0xf) * STEP + STEP / 2;
-      const b = (key & 0xf) * STEP + STEP / 2;
-      const hex = `#${[r, g, b].map((c) => Math.min(255, Math.round(c)).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+      const rgb = keyToRgb(key);
+      const hex = toHex(rgb);
       if (seen.has(hex)) continue;
       seen.add(hex);
-      out.push(hex);
-      if (out.length >= 12) break;
+      kept.push({ hex, salience: salienceOf(rgb) });
+      if (kept.length >= 12) break;
+    }
+    kept.sort((a, b) => b.salience - a.salience);
+    const out = kept.map((k) => k.hex);
+
+    // Hard floor: if a strongly-saturated color (saturation > 0.55) exists
+    // among the most-frequent buckets, surface it to the front even when it is
+    // comparatively infrequent and fell outside the kept window.
+    for (const [key] of sorted.slice(0, 48)) {
+      const rgb = keyToRgb(key);
+      if (satOf(rgb) <= 0.55) continue;
+      const hex = toHex(rgb);
+      const idx = out.indexOf(hex);
+      if (idx === 0) break;
+      if (idx > 0) out.splice(idx, 1);
+      out.unshift(hex);
+      break;
     }
     return out;
   } catch {

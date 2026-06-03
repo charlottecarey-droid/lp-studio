@@ -24,10 +24,36 @@ function saturation([r, g, b]: [number, number, number]): number {
   if (max === 0) return 0;
   return (max - min) / max;
 }
+function hue([r, g, b]: [number, number, number]): number {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  if (d === 0) return 0;
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h *= 60;
+  return h < 0 ? h + 360 : h;
+}
 function isNearGrey(hex: string): boolean {
   const rgb = hexToRgb(hex);
   if (!rgb) return true;
   return saturation(rgb) < 0.12;
+}
+// Hue-aware "weak color" test: a color is unsuitable for primary/accent/CTA if
+// it is near-grey (the original isNearGrey behavior) OR it sits in the
+// brown/beige band — low-to-mid saturation warm tones (~20–60°). On
+// photo-heavy homepages (e-commerce, hospitality, food, interiors) the most
+// frequent pixels are muddy product-photo wood/beige/ceramic tones; without
+// this they pass the old saturation-only filter and hijack the brand slots.
+function isWeakColor(hex: string): boolean {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return true;
+  const s = saturation(rgb);
+  if (s < 0.12) return true;
+  const h = hue(rgb);
+  if (s < 0.35 && h >= 20 && h <= 60) return true;
+  return false;
 }
 
 const SLOT_FIELDS: (keyof ColorsData)[] = [
@@ -112,31 +138,40 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   };
 
   // Find a likely primary from CSS vars if LLM whiffed
-  const primaryVar = cssVars.find((v) => /primary|brand(?!-bg)/i.test(v.name) && !isNearGrey(v.value));
-  const accentVar = cssVars.find((v) => /accent/i.test(v.name) && !isNearGrey(v.value));
-  const saturated = palette.filter((h) => !isNearGrey(h));
+  const primaryVar = cssVars.find((v) => /primary|brand(?!-bg)/i.test(v.name) && !isWeakColor(v.value));
+  const accentVar = cssVars.find((v) => /accent/i.test(v.name) && !isWeakColor(v.value));
+  const saturated = palette.filter((h) => !isWeakColor(h));
   const fallbackPrimary = primaryVar?.value ?? saturated[0] ?? darkest;
   const fallbackAccent = accentVar?.value ?? saturated[1] ?? saturated[0] ?? fallbackPrimary;
 
   let primary = safe(slots.primary, fallbackPrimary);
   let accent = safe(slots.accent, fallbackAccent);
-  // Deterministic post-filter: refuse near-grey primary/accent
-  if (isNearGrey(primary)) {
-    errors.push(`LLM proposed near-grey primary (${primary}); using saturated fallback`);
+  // Deterministic post-filter: refuse weak (near-grey or brown/beige) primary/accent
+  if (isWeakColor(primary)) {
+    errors.push(`LLM proposed weak primary (${primary}); using saturated fallback`);
     primary = saturated[0] ?? primary;
   }
-  if (isNearGrey(accent)) {
+  if (isWeakColor(accent)) {
     accent = saturated.find((h) => h.toUpperCase() !== primary.toUpperCase()) ?? accent;
   }
 
-  const ctaBg = safe(slots.ctaBackground, primary);
+  // Decouple the CTA background from primary: when the LLM omits it, prefer a
+  // distinct saturated palette candidate; otherwise pick a distinct neutral
+  // (e.g. a dark button) and only collapse onto primary as a last resort. This
+  // stops photo-heavy sites from landing the same muddy tone in both slots.
+  const distinctSaturatedCta = saturated.find((h) => h.toUpperCase() !== primary.toUpperCase());
+  const distinctPaletteCta = [...palette]
+    .sort((a, b) => luminance(hexToRgb(a) ?? [0, 0, 0]) - luminance(hexToRgb(b) ?? [0, 0, 0]))
+    .find((h) => h.toUpperCase() !== primary.toUpperCase());
+  const ctaFallback = distinctSaturatedCta ?? distinctPaletteCta ?? primary;
+  const ctaBg = safe(slots.ctaBackground, ctaFallback);
   // Bias rule: when the LLM/CSS-var-derived primary is near-grey but the
   // CTA slot is saturated (e.g. Notion's near-black primary vs the orange
   // CTA; Stripe's pink-from-hero primary vs the violet CTA), prefer the
   // CTA color for `primary`. The CTA is almost always the brand's
   // intended action color, which is what `primary` is consumed as in
   // downstream LP templates.
-  if (isNearGrey(primary) && !isNearGrey(ctaBg) && ctaBg.toUpperCase() !== primary.toUpperCase()) {
+  if (isWeakColor(primary) && !isWeakColor(ctaBg) && ctaBg.toUpperCase() !== primary.toUpperCase()) {
     errors.push(`primary (${primary}) was achromatic; promoting saturated ctaBackground (${ctaBg}) to primary`);
     primary = ctaBg;
   }
@@ -180,4 +215,4 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   return { status, data, confidence: overallConf, errors };
 }
 
-export { isNearGrey, luminance, hexToRgb, rgbToHex };
+export { isNearGrey, isWeakColor, luminance, hexToRgb, rgbToHex };
