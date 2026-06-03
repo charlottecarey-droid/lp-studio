@@ -120,3 +120,4 @@
 - [One Pager mobile paddingX](one-pager-mobile-paddingx.md) — make the fixed block side-padding responsive at the CSS layer only, scoped to the One Pager sheet; never touch stored paddingX or API defaults.
 - [E2E royal-tenant teardown sales poison](e2e-tenant-teardown-sales-poison.md) — DELETE FROM tenants in royal-tenant teardown must first clear NO-ACTION tenant-FK children (sales_*); one Sales Console orphan poisons the whole shared-Neon suite via purgeStaleRoyalTenants beforeAll.
 - [Design intensity + brand fonts in AI gen](design-intensity-ai-gen.md) — density axis inferred from tone & enforced in code not prompt; api-server mirrors lp-studio font/bg helpers (keep "display"/"text" out of font weight-words).
+- [Link-export connected-dest E2E](link-export-connected-dest-e2e.md) — links-only export deliver runs SERVER-side; can't browser-stub; needs MARKETO_FAKE_MODE (Asana precedent) + lp_integrations seed; verify via isolated single-spec run.

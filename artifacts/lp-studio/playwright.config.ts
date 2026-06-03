@@ -70,6 +70,11 @@ export default defineConfig({
         // Page-review workflow (task #108): the spec asserts task creation
         // without hitting the real Asana API.
         ASANA_FAKE_MODE: "1",
+        // Connected link-export destination (task #838): the spec drives the
+        // "Push to Marketo static list" success path. None of Marketo's REST
+        // hosts (*.mktorest.com) resolve in the sandboxed E2E environment, so
+        // fake mode bypasses the real sync and returns a synthetic success.
+        MARKETO_FAKE_MODE: "1",
         // Trial phone gate (task #637): the e2e api-server inherits the parent
         // process env, which now carries the real Twilio secrets. Force them
         // empty so twilioConfigured() is false and signup keeps its legacy

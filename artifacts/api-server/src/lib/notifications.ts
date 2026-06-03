@@ -1095,6 +1095,20 @@ export async function syncLinksToMarketoStaticList(
   config: MarketoConfig,
   args: { rows: MarketoLinkLead[]; listId: string; linkFieldName: string },
 ): Promise<MarketoStaticListResult> {
+  // Test mode (mirrors ASANA_FAKE_MODE): when MARKETO_FAKE_MODE === "1" the real
+  // Marketo REST calls (token, field describe, createOrUpdate, list-add) are
+  // bypassed and a synthetic success is returned. Lets the Playwright suite drive
+  // the connected-destination export path end-to-end without a live Marketo
+  // instance — none of those hosts resolve in the sandboxed E2E environment.
+  if (process.env.MARKETO_FAKE_MODE === "1") {
+    const created = args.rows.length;
+    logger.info(
+      { created, listId: args.listId, linkField: args.linkFieldName },
+      "MARKETO_FAKE_MODE: skipping real Marketo sync, returning synthetic success",
+    );
+    return { created, failed: 0, addedToList: created, reasons: [] };
+  }
+
   const token = await getMarketoToken(config.munchkinId, config.clientId, config.clientSecret);
   const linkField = args.linkFieldName.trim();
   if (!linkField) throw new Error("A Marketo field for the personalized link is required.");

@@ -78,6 +78,7 @@ test.afterEach(async () => {
   if (!tenant) return;
   await clearSalesRows(tenant.tenantId);
   await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [tenant.tenantId]);
+  await pool.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [tenant.tenantId]);
 });
 
 test.afterAll(async () => {
@@ -120,6 +121,23 @@ async function seedPublishedPage(title: string): Promise<number> {
     [tenant.tenantId, title, slug],
   );
   return rows[0].id;
+}
+
+// Seed an enabled Marketo integration so the "Push to Marketo static list"
+// destination resolves as CONNECTED (isConfigured() only checks these three
+// config fields exist). The api-server webServer config sets MARKETO_FAKE_MODE=1,
+// so the real REST sync is bypassed — these credentials are dummies that never
+// leave the process. Cleared in afterEach via the lp_integrations teardown.
+async function seedMarketoIntegration(): Promise<void> {
+  await pool.query(
+    `INSERT INTO lp_integrations (tenant_id, provider, config, enabled, updated_at)
+     VALUES ($1, 'marketo', $2::jsonb, true, now())
+     ON CONFLICT (tenant_id, provider) DO UPDATE SET config = EXCLUDED.config, enabled = true`,
+    [
+      tenant.tenantId,
+      JSON.stringify({ munchkinId: "123-ABC-456", clientId: "fake-client", clientSecret: "fake-secret" }),
+    ],
+  );
 }
 
 // ─── Browser helpers ──────────────────────────────────────────────────────
@@ -276,6 +294,76 @@ test.describe("Quick Campaign — generate links only", () => {
     // ── Step 4: Preview & Send renders a live preview + the send action ──
     await expect(dialog.getByText("Previewing as")).toBeVisible({ timeout: 30_000 });
     await expect(dialog.getByText("Send now (1)")).toBeVisible();
+
+    await context.close();
+  });
+
+  test("a CONNECTED Marketo destination enables Send → pushes links → success toast", async ({ browser, baseURL }) => {
+    expect(baseURL).toBeTruthy();
+    // Mark Marketo as connected for this workspace; the real REST sync is stubbed
+    // server-side via MARKETO_FAKE_MODE=1 (set in playwright.config.ts).
+    await seedMarketoIntegration();
+
+    const accId = await seedAccount(`Mkto Co ${TAG}`);
+    const c1First = `Ada${TAG}`;
+    const c2First = `Alan${TAG}`;
+    await seedContact(accId, c1First, "Lovelace", `ada-mkto-${TAG}@acme.test`);
+    await seedContact(accId, c2First, "Turing", `alan-mkto-${TAG}@acme.test`);
+    const pageTitle = `Mkto Page ${TAG}`;
+    await seedPublishedPage(pageTitle);
+
+    const { context, page } = await openApp(browser, baseURL!, "/sales/campaign-pages");
+    const dialog = await openWizard(page);
+
+    // ── Step 1: links mode + name + published page ──
+    await dialog.getByRole("button", { name: /Generate links only/ }).click();
+    await dialog.getByPlaceholder("e.g. Q2 DSO outreach").fill(`Mkto Run ${TAG}`);
+    const pageSelect = dialog.locator("select").filter({ hasText: pageTitle });
+    await expect(pageSelect).toHaveCount(1, { timeout: 30_000 });
+    await pageSelect.selectOption({ label: pageTitle });
+    const next = dialog.getByRole("button", { name: "Next" });
+    await expect(next).toBeEnabled();
+    await next.click();
+
+    // ── Step 2: recipients ──
+    await expect(dialog.getByText(`${c1First} Lovelace`, { exact: true })).toBeVisible({ timeout: 30_000 });
+    await dialog.getByRole("button", { name: "Select all visible" }).click();
+    await dialog.getByRole("button", { name: "Next" }).click();
+
+    // ── Step "Links & Export": wait for both links to build ──
+    await expect(dialog.getByText(/2\s+personalized links for/)).toBeVisible({ timeout: 30_000 });
+
+    // The Marketo destination card is CONNECTED — no "Not connected" warning,
+    // and it exposes its two required option inputs.
+    const marketoCard = dialog
+      .locator("div.rounded-lg")
+      .filter({ hasText: "Push to Marketo static list" });
+    await expect(marketoCard).toHaveCount(1);
+    await expect(marketoCard.getByText("Not connected for this workspace.")).toHaveCount(0);
+
+    // Fill the required options (list id + REST field name) the wizard collects.
+    await marketoCard.getByPlaceholder("e.g. 1042").fill("1042");
+    await marketoCard.getByPlaceholder("e.g. lpMicrositeUrl").fill("lpMicrositeUrl");
+
+    // Send is enabled for a connected destination once links are built.
+    const sendBtn = marketoCard.getByRole("button", { name: "Send" });
+    await expect(sendBtn).toBeEnabled();
+
+    // Click Send → POST /api/sales/link-export/marketo returns 200 and the
+    // success toast surfaces the synthetic sync result.
+    const [resp] = await Promise.all([
+      page.waitForResponse(
+        r => r.url().includes("/api/sales/link-export/marketo") && r.request().method() === "POST",
+      ),
+      sendBtn.click(),
+    ]);
+    expect(resp.status()).toBe(200);
+
+    // The toast renders at the page root (outside the dialog). Its description
+    // is the server's success message echoing the contact count + list id.
+    await expect(
+      page.getByText(/Synced 2 contacts to Marketo and added 2 to list 1042/),
+    ).toBeVisible({ timeout: 15_000 });
 
     await context.close();
   });
