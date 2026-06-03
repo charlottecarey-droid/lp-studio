@@ -1,19 +1,91 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoCaseFlowBlockProps } from "@/lib/block-types";
-import { getBgStyle } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg, type BackgroundStyle } from "@/lib/bg-styles";
+import {
+  DEFAULT_BRAND,
+  isValidHex,
+  pickContrastingColor,
+  relativeLuminance,
+  type BrandConfig,
+} from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 const DISPLAY = DISPLAY_FONT;
-const P     = "var(--brand-primary, #003A30)";
-const PFG   = "var(--brand-heading-on-dark, hsl(48,100%,96%))";
-const AW    = "var(--brand-accent, hsl(68,60%,52%))";
-const CARD  = "rgba(255,255,255,0.05)";
-const BORDER = "rgba(255,255,255,0.10)";
-const MUTED = "hsla(48,100%,96%,0.48)";
+
+// ── Dark-background treatment (the block's original premium look) ──────────
+// Light heading, lime/brand accent, translucent-white cards. Read via CSS
+// variables so the tenant's brand tokens (and Dandy's lime/forest defaults)
+// flow through. Used verbatim whenever the resolved section background is dark.
+const HEADING_DARK = "var(--brand-heading-on-dark, hsl(48,100%,96%))";
+const ACCENT_DARK  = "var(--brand-accent, hsl(68,60%,52%))";
+const BODY_DARK    = "hsla(48,100%,96%,0.48)";
+const CARD_DARK    = "rgba(255,255,255,0.05)";
+const BORDER_DARK  = "rgba(255,255,255,0.10)";
+
+/**
+ * Resolve a representative solid hex for a section background preset, honoring
+ * tenant per-preset color overrides. The legacy "dandy-green" preset resolves
+ * via the brand primary; "gradient" fades into black so it is treated as a dark
+ * surface. Falls back to the historical preset default.
+ */
+function resolveSectionBgHex(brand: BrandConfig, style: BackgroundStyle): string {
+  const override = brand.backgroundPresetColors?.[style];
+  if (override && isValidHex(override)) return override;
+  switch (style) {
+    case "white":       return "#ffffff";
+    case "light-gray":  return "#f8fafc";
+    case "muted":       return "#f6f4ef";
+    case "dark":        return "#1a1a1a";
+    case "black":       return "#000000";
+    case "dandy-green": return isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+    case "gradient":    return "#000000";
+    default:            return "#ffffff";
+  }
+}
+
+/**
+ * Resolve every foreground color the block needs from its *actual* resolved
+ * background, so the block is legible on any backgroundStyle (the default
+ * "muted" off-white included). On dark surfaces it returns the original
+ * light-on-dark treatment unchanged; on light surfaces it derives WCAG-safe
+ * dark-on-light colors via the brand palette.
+ */
+function resolveCaseFlowColors(brand: BrandConfig, style: BackgroundStyle) {
+  const bgHex = resolveSectionBgHex(brand, style);
+  // Canonical dark presets stay dark; a light preset a tenant recolored dark
+  // is also treated as dark (luminance check), so the fix is robust either way.
+  const dark = isDarkBg(style) || relativeLuminance(bgHex) < 0.4;
+
+  if (dark) {
+    return {
+      heading:    HEADING_DARK,
+      body:       BODY_DARK,
+      accentText: ACCENT_DARK,
+      accentDeco: ACCENT_DARK,
+      card:       CARD_DARK,
+      border:     BORDER_DARK,
+      dark,
+    };
+  }
+
+  const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const accent  = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;
+  return {
+    heading:    pickContrastingColor(primary, bgHex, ["#0f172a", "#000000"], 4.5),
+    body:       pickContrastingColor("#475569", bgHex, ["#334155", "#1e293b", "#0f172a"], 4.5),
+    // Accent for text-sized elements (eyebrow, metric numbers, stage number,
+    // icons) needs AA text contrast; decorative lines only need UI contrast.
+    accentText: pickContrastingColor(accent, bgHex, [primary, "#0f172a"], 4.5),
+    accentDeco: pickContrastingColor(accent, bgHex, [primary, "#0f172a"], 3.0),
+    card:       "rgba(15,23,42,0.03)",
+    border:     "rgba(15,23,42,0.12)",
+    dark,
+  };
+}
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies a richer 4-step flow; this is only used in isolated previews or
@@ -85,10 +157,11 @@ const DEFAULT_STAGES = [
 
 interface Props {
   props: DsoCaseFlowBlockProps;
+  brand?: BrandConfig;
   onFieldChange?: (updated: DsoCaseFlowBlockProps) => void;
 }
 
-export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
+export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow = "How it works",
     headline = "From request to delivery, in days.",
@@ -96,6 +169,7 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
     stages,
     backgroundStyle = "muted",
   } = props;
+  const colors = resolveCaseFlowColors(brand ?? DEFAULT_BRAND, (backgroundStyle ?? "muted") as BackgroundStyle);
   const field = (key: keyof DsoCaseFlowBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoCaseFlowBlockProps[typeof key] }) : undefined;
   const baseStages = stages && stages.length > 0 ? stages : DEFAULT_STAGES;
@@ -124,18 +198,18 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
       <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1rem", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 10 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5 }} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: colors.accentText, marginBottom: "1rem", fontFamily: BODY }}>
             <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 18 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.65, delay: 0.08 }}
-            style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(2rem,4.5vw,3.5rem)", fontWeight: 700, color: PFG, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1rem" }}
+            style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(2rem,4.5vw,3.5rem)", fontWeight: 700, color: colors.heading, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1rem" }}
           >
             <InlineText as="span" value={headline} onUpdate={field("headline")} multiline style={{ fontFamily: DISPLAY }}/>
           </motion.h2>
-          <motion.p initial={{ opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.15 }} style={{ fontSize: "1.0625rem", color: MUTED, lineHeight: 1.68, maxWidth: 540, margin: "0 auto", fontFamily: BODY }}>
+          <motion.p initial={{ opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.55, delay: 0.15 }} style={{ fontSize: "1.0625rem", color: colors.body, lineHeight: 1.68, maxWidth: 540, margin: "0 auto", fontFamily: BODY }}>
             <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
           </motion.p>
         </div>
@@ -148,13 +222,17 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
             style={{ position: "absolute", top: "3.5rem", left: "calc(12.5% + 1rem)", right: "calc(12.5% + 1rem)", height: 2, overflow: "hidden", zIndex: 0 }}
           >
             <motion.div
-              style={{ height: "100%", background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376))`, transformOrigin: "left" }}
+              style={{ height: "100%", background: colors.dark
+                ? `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), ${ACCENT_DARK}, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376))`
+                : `linear-gradient(90deg, transparent, ${colors.accentDeco}, transparent)`, transformOrigin: "left" }}
               initial={{ scaleX: 0 }}
               animate={inView ? { scaleX: 1 } : {}}
               transition={{ duration: 1.2, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
             />
             {/* Glow overlay */}
-            <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.188), rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), rgb(var(--brand-accent-rgb, 199 231 56) / 0.188))`, filter: "blur(4px)" }} />
+            <div style={{ position: "absolute", inset: 0, background: colors.dark
+              ? `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.188), rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), rgb(var(--brand-accent-rgb, 199 231 56) / 0.188))`
+              : `linear-gradient(90deg, transparent, ${colors.accentDeco}, transparent)`, filter: "blur(4px)" }} />
           </div>
 
           {/* Data packets on the line */}
@@ -166,9 +244,9 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
                   style={{
                     position: "absolute",
                     width: 8, height: 8, borderRadius: "50%",
-                    background: AW,
+                    background: colors.accentDeco,
                     top: 1,
-                    filter: `drop-shadow(0 0 4px ${AW})`,
+                    filter: `drop-shadow(0 0 4px ${colors.accentDeco})`,
                   }}
                   animate={{ left: ["0%", "100%"] }}
                   transition={{ duration: 3.5, delay: i * 1.2, repeat: Infinity, ease: "linear" }}
@@ -188,8 +266,8 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.65, delay: 0.5 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
                 style={{
-                  background: CARD,
-                  border: `1px solid ${BORDER}`,
+                  background: colors.card,
+                  border: `1px solid ${colors.border}`,
                   borderRadius: "1.25rem",
                   padding: "2rem 1.5rem",
                   display: "flex",
@@ -201,7 +279,7 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
               >
                 {/* Active lime top border */}
                 <motion.div
-                  style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: AW, transformOrigin: "left" }}
+                  style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: colors.accentDeco, transformOrigin: "left" }}
                   initial={{ scaleX: 0 }}
                   animate={inView ? { scaleX: 1 } : {}}
                   transition={{ duration: 0.6, delay: 0.8 + i * 0.18, ease: "easeOut" }}
@@ -209,10 +287,10 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
 
                 {/* Stage number + icon row */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontFamily: DISPLAY_FONT, fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", color: AW }}>
+                  <span style={{ fontFamily: DISPLAY_FONT, fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", color: colors.accentText }}>
                     {stage.number ?? String(i + 1).padStart(2, "0")}
                   </span>
-                  <div style={{ color: AW, opacity: 0.85 }}>
+                  <div style={{ color: colors.accentText, opacity: 0.85 }}>
                     {stage.icon ?? (
                       <svg viewBox="0 0 28 28" width={28} height={28} fill="none">
                         <circle cx="14" cy="14" r="8" stroke="currentColor" strokeWidth="2" />
@@ -223,21 +301,21 @@ export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
 
                 {/* Metric */}
                 <div>
-                  <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.75rem,3vw,2.5rem)", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: "0.25rem" }}>
+                  <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.75rem,3vw,2.5rem)", fontWeight: 800, color: colors.accentText, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: "0.25rem" }}>
                     <InlineText as="span" value={stage.metric} onUpdate={updateStage ? (v) => updateStage(i, { metric: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                   </p>
-                  <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, fontFamily: BODY }}>
+                  <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: colors.body, fontFamily: BODY }}>
                     <InlineText as="span" value={stage.metricLabel} onUpdate={updateStage ? (v) => updateStage(i, { metricLabel: v }) : undefined} style={{ fontFamily: BODY }}/>
                   </p>
                 </div>
 
                 {/* Label */}
-                <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.0625rem", fontWeight: 600, color: PFG, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.0625rem", fontWeight: 600, color: colors.heading, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                   <InlineText as="span" value={stage.label} onUpdate={updateStage ? (v) => updateStage(i, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                 </p>
 
                 {/* Body */}
-                <p style={{ fontSize: "0.875rem", lineHeight: 1.65, color: MUTED, flexGrow: 1, fontFamily: BODY }}>
+                <p style={{ fontSize: "0.875rem", lineHeight: 1.65, color: colors.body, flexGrow: 1, fontFamily: BODY }}>
                   <InlineText as="span" value={stage.body} onUpdate={updateStage ? (v) => updateStage(i, { body: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                 </p>
               </motion.div>

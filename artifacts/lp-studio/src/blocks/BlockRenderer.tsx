@@ -769,7 +769,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
           />
         );
       case "dso-case-flow":
-        return <BlockDsoCaseFlow props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoCaseFlow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-live-feed":
         return <BlockDsoLiveFeed props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-particle-mesh":
