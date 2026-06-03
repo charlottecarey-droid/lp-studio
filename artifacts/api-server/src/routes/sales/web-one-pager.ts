@@ -72,6 +72,21 @@ function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+// Default per-block style settings baked onto every freshly generated web
+// One Pager so it reads with comfortable, consistent padding and slightly
+// smaller type out of the box. Editors can still override these per block
+// from the Block Layout / Text Size controls in the builder.
+//
+// - `textScale: "90"` renders all type at 90% of the base size.
+// - `paddingX: "md"` (40px) on the content sections combines with each
+//   section's own 24px inner padding to inset readable content ~64px from the
+//   sheet edge — matching the hero band's internal 64px text inset (see
+//   BlockOnePagerHero), so the hero and the sections below it line up.
+const CONTENT_SETTINGS = { textScale: "90", paddingX: "md" } as const;
+// The hero is a full-bleed band: it must reach the sheet edges, so it takes
+// the text scale but NO paddingX (its own internal padding insets the text).
+const HERO_SETTINGS = { textScale: "90" } as const;
+
 router.post("/web-one-pager", async (req, res): Promise<void> => {
   try {
     const {
@@ -134,6 +149,10 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       {
         id: `one-pager-hero-${makeId()}`,
         type: "one-pager-hero",
+        // Render the headline/body one notch smaller by default. The hero is a
+        // full-bleed band, so it gets NO paddingX (the band must reach the sheet
+        // edges); its internal padding handles the text inset instead.
+        blockSettings: HERO_SETTINGS,
         props: {
           partnerName: dsoName,
           tagline: "Your custom partnership overview",
@@ -145,6 +164,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       {
         id: `benefits-grid-${makeId()}`,
         type: "benefits-grid",
+        blockSettings: CONTENT_SETTINGS,
         props: {
           headline: "What to expect during your pilot",
           columns: 3,
@@ -154,6 +174,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       {
         id: `dso-meet-team-${makeId()}`,
         type: "dso-meet-team",
+        blockSettings: CONTENT_SETTINGS,
         props: {
           eyebrow: "Your Dedicated Team",
           headline: "Meet your contacts for training, support, and pilot check-ins.",
@@ -170,6 +191,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       {
         id: `dso-pilot-steps-${makeId()}`,
         type: "dso-pilot-steps",
+        blockSettings: CONTENT_SETTINGS,
         props: {
           eyebrow: "Your Pilot",
           headline: "90 days. No long-term commitment.",
@@ -212,6 +234,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       {
         id: `bottom-cta-${makeId()}`,
         type: "bottom-cta",
+        blockSettings: CONTENT_SETTINGS,
         props: {
           headline: bottomHeadline,
           subheadline: "Start a risk-free 90-day pilot. No long-term commitment required.",

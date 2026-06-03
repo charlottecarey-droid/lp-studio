@@ -14,7 +14,7 @@ const MOBILE_STYLES = `
   }
   .one-pager-hero__left {
     flex: 0 0 55%;
-    padding: 3rem 3.5rem 2.5rem;
+    padding: 3.5rem 4rem 3.25rem;
   }
   .one-pager-hero__right {
     flex: 0 0 45%;
