@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import type { BuildLinkRowsResult, LinkExportRow } from "./linkExport";
 import { appendPersonalizedLinkRows, type SheetsConfig } from "./google-sheets";
 import { syncLinksToMarketoStaticList, type MarketoConfig } from "./notifications";
+import { decryptConfigCredentials } from "./encryption";
 
 /**
  * Pluggable export-destination abstraction.
@@ -43,11 +44,19 @@ export interface ExportDestination {
 }
 
 // ─── Shared integration reader ──────────────────────────────────────────────
+// Returns DECRYPTED config so isConfigured() + the deliver() push paths read
+// the live secret. Legacy plaintext values pass through unchanged.
 async function getIntegration(provider: string, tenantId: number): Promise<{ config: unknown; enabled: boolean } | null> {
   const rows = await db.execute(sql`
     SELECT config, enabled FROM lp_integrations WHERE provider = ${provider} AND tenant_id = ${tenantId}
   `);
-  return (rows.rows[0] as { config: unknown; enabled: boolean } | undefined) ?? null;
+  const row = (rows.rows[0] as { config: unknown; enabled: boolean } | undefined) ?? null;
+  if (!row) return null;
+  const config =
+    row.config && typeof row.config === "object"
+      ? decryptConfigCredentials(provider, row.config as Record<string, unknown>)
+      : row.config;
+  return { config, enabled: row.enabled };
 }
 
 // ─── CSV helpers ────────────────────────────────────────────────────────────

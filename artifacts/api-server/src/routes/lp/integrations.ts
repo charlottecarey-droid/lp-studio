@@ -4,23 +4,39 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { testSheetsConnection, type SheetsConfig } from "../../lib/google-sheets";
 import type { MarketoConfig, SalesforceConfig, LeadPayload } from "../../lib/notifications";
+import { decryptConfigCredentials, encryptConfigCredentials } from "../../lib/encryption";
 
 const router = Router();
 const MASKED = "••••••••";
 
+// Reads always return DECRYPTED config so every consumer (GET masking, PUT
+// merge, /test handlers, and the syncLead* helpers below) works with the live
+// secret. Decrypting here is also what keeps the PUT merge → upsert re-encrypt
+// from double-encrypting (`v1:v1:…`) the preserved-on-masked secret.
 async function getIntegration(provider: string, tenantId: number) {
   const rows = await db.execute(sql`
     SELECT config, enabled FROM lp_integrations WHERE provider = ${provider} AND tenant_id = ${tenantId}
   `);
-  return (rows.rows[0] as { config: unknown; enabled: boolean } | undefined) ?? null;
+  const row = (rows.rows[0] as { config: unknown; enabled: boolean } | undefined) ?? null;
+  if (!row) return null;
+  const config =
+    row.config && typeof row.config === "object"
+      ? decryptConfigCredentials(provider, row.config as Record<string, unknown>)
+      : row.config;
+  return { config, enabled: row.enabled };
 }
 
+// Writes always ENCRYPT the whitelisted credential fields before persisting.
 async function upsertIntegration(provider: string, config: unknown, enabled: boolean, tenantId: number) {
+  const toStore =
+    config && typeof config === "object"
+      ? encryptConfigCredentials(provider, config as Record<string, unknown>)
+      : config;
   await db.execute(sql`
     INSERT INTO lp_integrations (tenant_id, provider, config, enabled, updated_at)
-    VALUES (${tenantId}, ${provider}, ${JSON.stringify(config)}::jsonb, ${enabled}, now())
+    VALUES (${tenantId}, ${provider}, ${JSON.stringify(toStore)}::jsonb, ${enabled}, now())
     ON CONFLICT (tenant_id, provider) DO UPDATE
-      SET config = ${JSON.stringify(config)}::jsonb,
+      SET config = ${JSON.stringify(toStore)}::jsonb,
           enabled = ${enabled},
           updated_at = now()
   `);

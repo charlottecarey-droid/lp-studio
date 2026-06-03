@@ -14,8 +14,8 @@ export const sfdcConnectionsTable = pgTable("sfdc_connections", {
   tenantId: integer("tenant_id").references(() => tenantsTable.id, { onDelete: "cascade" }),
   instanceUrl: text("instance_url").notNull(),        // e.g. https://na1.salesforce.com
   orgId: text("org_id").notNull(),                    // Salesforce org ID (018...)
-  accessToken: text("access_token").notNull(),         // plaintext — NOT encrypted at rest
-  refreshToken: text("refresh_token").notNull(),       // plaintext — NOT encrypted at rest
+  accessToken: text("access_token").notNull(),         // plaintext — NOT encrypted at rest; SFDC OAuth not yet live, wrap with encryptCredential() before storing any real token
+  refreshToken: text("refresh_token").notNull(),       // plaintext — NOT encrypted at rest; SFDC OAuth not yet live, wrap with encryptCredential() before storing any real token
   tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
   status: text("status").notNull().default("connected"),  // connected | disconnected | error
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),

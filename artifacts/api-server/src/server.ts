@@ -11,6 +11,7 @@
 // open the port, mark ready, schedule the periodic jobs.
 import app from "./app";
 import { logger } from "./lib/logger";
+import { assertEncryptionKeyValid } from "./lib/encryption";
 import { pool } from "@workspace/db";
 import { invalidateTenantHostCache, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 import { sendSlugRedirectExpiryWarning } from "./lib/notifications";
@@ -433,6 +434,29 @@ if (process.env.NODE_ENV === "production" && !process.env.RESEND_WEBHOOK_SECRET)
       "without it every webhook is rejected and send status stops updating. Set " +
       "the secret and redeploy.",
   );
+}
+
+// Task #860 — fail-fast in production when the credential-encryption key isn't
+// set. CREDENTIAL_ENCRYPTION_KEY (32 bytes, base64) is the master key that
+// encrypts integration secrets (Marketo/Salesforce clientSecret, Google Sheets
+// privateKey, Asana PAT) at rest in lp_integrations.config. Without it the
+// encryption helper would fall back to a deterministic dev key, so secrets
+// would be "encrypted" with a publicly-known key — i.e. not protected at all.
+// Refuse to boot so the missing secret is caught at deploy time. No-op outside
+// production (dev/test run on the loud dev fallback on purpose).
+if (process.env.NODE_ENV === "production") {
+  if (!process.env.CREDENTIAL_ENCRYPTION_KEY) {
+    throw new Error(
+      "CREDENTIAL_ENCRYPTION_KEY is not set on the production deployment. It " +
+        "encrypts stored integration credentials at rest; without it secrets fall " +
+        "back to a deterministic dev key and are effectively unprotected. Generate " +
+        "with `openssl rand -base64 32`, set the secret (and back it up out-of-band), " +
+        "and redeploy.",
+    );
+  }
+  // Eagerly decode + length-check the key so a malformed value (wrong length,
+  // bad base64) fails at boot instead of on the first credential write.
+  assertEncryptionKeyValid();
 }
 
 // Bind the port and immediately mark ready — schema setup ran in the

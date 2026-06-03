@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { decryptConfigCredentials } from "./encryption";
 
 /**
  * Asana integration helpers (task #108).
@@ -65,8 +66,11 @@ export async function getAsanaConfig(tenantId: number): Promise<AsanaConfig | nu
   `);
   const row = rows.rows[0] as { config: AsanaConfig | null; enabled: boolean } | undefined;
   if (!row || !row.enabled || !row.config) return null;
-  if (!row.config.pat || !row.config.projectId) return null;
-  return row.config;
+  // Decrypt the PAT (and any future credential fields) before returning so
+  // callers hold the live token. Legacy plaintext passes through unchanged.
+  const config = decryptConfigCredentials("asana", row.config as unknown as Record<string, unknown>) as unknown as AsanaConfig;
+  if (!config.pat || !config.projectId) return null;
+  return config;
 }
 
 export interface AsanaResult {
