@@ -152,17 +152,20 @@ export function PageConversionScore({ pageId }: { pageId: number }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Score + Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div className="@container space-y-6">
+      {/* Score + Metrics Row.
+          Container-query breakpoints (not viewport) because this panel is often
+          rendered inside a half-width lg:grid-cols-2 parent — viewport md: would
+          force 4 cramped cards into half the screen. */}
+      <div className="grid grid-cols-1 @sm:grid-cols-2 @3xl:grid-cols-4 gap-4">
         {/* Overall Score */}
-        <Card className="p-6 flex flex-col items-center justify-center">
+        <Card className="p-4 flex flex-col items-center justify-center">
           <p className="text-sm font-medium text-muted-foreground mb-3">Overall Score</p>
           <ScoreRing score={result.overallScore} />
         </Card>
 
         {/* Key Metrics */}
-        <Card className="p-6">
+        <Card className="p-4">
           <p className="text-sm font-medium text-muted-foreground mb-4">Traffic</p>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
@@ -180,7 +183,7 @@ export function PageConversionScore({ pageId }: { pageId: number }) {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4">
           <p className="text-sm font-medium text-muted-foreground mb-4">Conversion</p>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
@@ -198,7 +201,7 @@ export function PageConversionScore({ pageId }: { pageId: number }) {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4">
           <p className="text-sm font-medium text-muted-foreground mb-4">Engagement</p>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
@@ -245,7 +248,7 @@ export function PageConversionScore({ pageId }: { pageId: number }) {
       {/* Category Breakdown Grid */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Category Breakdown</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-4">
           {result.categories.map((cat) => {
             const Icon = CATEGORY_ICONS[cat.name] || BarChart2;
             return (
