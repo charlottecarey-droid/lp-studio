@@ -237,6 +237,69 @@ export function applyDandyHeroVariability(
   return next;
 }
 
+// ── Dandy-only supporting-section style variability ───────────────────────
+// Companion to applyDandyHeroVariability: the hero already varies per account,
+// but every supporting block below it still renders in the same fixed style on
+// every microsite, so whole pages still feel templated. This pass adds the same
+// light, controlled, deterministic-per-account variation to the SUPPORTING
+// sections.
+//
+// Invariants (keep these if you touch it — they mirror the hero pass):
+//   • Only ALREADY-DESIGNED presets are used. We swap a section's
+//     `backgroundStyle` among the three interchangeable LIGHT NEUTRAL presets
+//     (white / light-gray / muted) ONLY. They all pair dark text on a light
+//     fill (see bg-styles MAP), so swapping among them can never break
+//     legibility/contrast — that scope is handled separately.
+//   • Dark / accent sections (dark, dandy-green, black, gradient) are left
+//     UNTOUCHED. Those are deliberate contrast moments in the curated funnel
+//     (e.g. the dandy-green success-stories band, the dark bottom CTA) and the
+//     hero is varied by its own pass — so it is skipped here too.
+//   • A per-account scheme picks an ALTERNATING rhythm between two distinct
+//     neutrals and walks it across the neutral sections in order, so adjacent
+//     light sections always differ (better visual separation) while the same
+//     account stays stable across regenerations and different accounts spread.
+//   • Curated block ORDER is never changed — only `backgroundStyle` on the
+//     already-light sections varies.
+const DANDY_LIGHT_NEUTRAL_BGS = ["white", "light-gray", "muted"] as const;
+type LightNeutralBg = (typeof DANDY_LIGHT_NEUTRAL_BGS)[number];
+
+// Already-designed alternating rhythms between two distinct light neutrals. The
+// pass cycles through the chosen scheme so consecutive light sections differ.
+const DANDY_SUPPORTING_BG_SCHEMES: LightNeutralBg[][] = [
+  ["white", "muted"],
+  ["muted", "white"],
+  ["white", "light-gray"],
+  ["light-gray", "white"],
+  ["muted", "light-gray"],
+  ["light-gray", "muted"],
+];
+
+function isLightNeutralBg(v: unknown): v is LightNeutralBg {
+  return typeof v === "string" && (DANDY_LIGHT_NEUTRAL_BGS as readonly string[]).includes(v);
+}
+
+export function applyDandySupportingVariability(
+  blocks: AiBlock[],
+  seedKey: string,
+): AiBlock[] {
+  // Namespaced seed so the scheme choice is independent of the hero layout
+  // choice (both derive from the same account key but must not correlate).
+  const seed = hashSeed(`${seedKey}::supporting`);
+  const scheme = DANDY_SUPPORTING_BG_SCHEMES[seed % DANDY_SUPPORTING_BG_SCHEMES.length];
+
+  let neutralIdx = 0;
+  return blocks.map(block => {
+    // The hero is varied by applyDandyHeroVariability — never touch it here.
+    if ((block?.type as string) === "dso-heartland-hero") return block;
+    const props = (block?.props ?? {}) as Record<string, unknown>;
+    if (!isLightNeutralBg(props.backgroundStyle)) return block;
+    const next = scheme[neutralIdx % scheme.length];
+    neutralIdx++;
+    if (next === props.backgroundStyle) return block;
+    return { ...block, props: { ...props, backgroundStyle: next } };
+  });
+}
+
 function getOpenAIClient(): OpenAI | null {
   const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -1501,6 +1564,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         videoUrls,
         seedKey,
       );
+      // …and vary the supporting sections' background styling per account so
+      // whole pages feel distinct, not just the hero. Light/controlled: swaps
+      // only among already-designed light-neutral presets, leaves accent/dark
+      // sections and the curated order untouched.
+      normalizedBlocks = applyDandySupportingVariability(normalizedBlocks, seedKey);
     }
 
     // AI image-gen / Unsplash fallback for slots the library couldn't fill —
