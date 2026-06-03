@@ -86,6 +86,13 @@ export interface DsoHeartlandHeroBlockProps {
   backgroundVideoUrl?: string;
   overlayColor?: string;
   overlayOpacity?: number;
+  /** Strength (%) of the full-bleed legibility scrim — the directional black
+   *  gradient layered above the flat `overlayColor`/`overlayOpacity` tint to keep
+   *  the left-aligned hero copy readable over a background photo/clip. 100 (the
+   *  default) = the built-in safe scrim; lower it for very dark assets that
+   *  already read well, raise it for light/busy assets. Only applies to the
+   *  asset-backed full-bleed layout; the curated gradient default is unaffected. */
+  scrimStrength?: number;
   layout?: "full-bleed" | "split" | "split-video" | "stacked-video";
   heroImageUrl?: string;
   heroImageSide?: "left" | "right";

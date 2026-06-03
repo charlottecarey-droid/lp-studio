@@ -2619,6 +2619,22 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                         className="w-full accent-primary"
                       />
                     </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Background dimming</Label>
+                        <span className="text-xs text-muted-foreground tabular-nums">{p.scrimStrength ?? 100}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={150}
+                        step={5}
+                        value={p.scrimStrength ?? 100}
+                        onChange={e => onChange({ ...block, props: { ...p, scrimStrength: Number(e.target.value) } })}
+                        className="w-full accent-primary"
+                      />
+                      <p className="text-[11px] text-muted-foreground">Extra dimming behind the headline and CTAs to keep text readable. Lower it for already-dark photos; raise it for light or busy ones.</p>
+                    </div>
                   </div>
                 )}
               </>

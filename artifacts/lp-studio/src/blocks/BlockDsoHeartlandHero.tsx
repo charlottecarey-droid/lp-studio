@@ -39,9 +39,30 @@ const DISPLAY_FONT = BRAND_DISPLAY_STACK;
 // effective contrast for any asset without the user having to hand-tune the
 // overlay per-image. Rendered only on the asset-backed full-bleed branches; the
 // curated gradient default never gets it (no regression).
-const FULLBLEED_LEGIBILITY_SCRIM =
-  "linear-gradient(90deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.40) 34%, rgba(0,0,0,0.12) 64%, rgba(0,0,0,0) 90%), " +
-  "linear-gradient(0deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.10) 34%, rgba(0,0,0,0) 60%)";
+// Base alpha stops for the legibility scrim at full (100%) strength. The
+// `buildFullBleedScrim` helper scales these by an editor-controlled multiplier
+// so tenants can lighten the scrim over already-dark assets or strengthen it
+// over light/busy ones, without losing the safe default.
+const FULLBLEED_SCRIM_HORIZONTAL_STOPS: [number, number][] = [
+  [0.62, 0],
+  [0.4, 34],
+  [0.12, 64],
+  [0, 90],
+];
+const FULLBLEED_SCRIM_VERTICAL_STOPS: [number, number][] = [
+  [0.42, 0],
+  [0.1, 34],
+  [0, 60],
+];
+
+function buildFullBleedScrim(strength: number): string {
+  const s = Math.max(0, strength);
+  const stop = (alpha: number, pos: number) =>
+    `rgba(0,0,0,${Math.min(1, +(alpha * s).toFixed(3))}) ${pos}%`;
+  const horizontal = FULLBLEED_SCRIM_HORIZONTAL_STOPS.map(([a, p]) => stop(a, p)).join(", ");
+  const vertical = FULLBLEED_SCRIM_VERTICAL_STOPS.map(([a, p]) => stop(a, p)).join(", ");
+  return `linear-gradient(90deg, ${horizontal}), linear-gradient(0deg, ${vertical})`;
+}
 
 
 export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId }: Props) {
@@ -1041,6 +1062,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   // that case only — the curated gradient default keeps the muted tone.
   const hasFullBleedAsset = !!(p.backgroundVideoUrl || p.backgroundImageUrl);
   const fullBleedSubColor = hasFullBleedAsset ? "rgba(255,255,255,0.86)" : MUTED_FG;
+  // Editor-tunable legibility scrim. Defaults to 100% = the built-in safe scrim.
+  const fullBleedScrim = buildFullBleedScrim((p.scrimStrength ?? 100) / 100);
   return (
     <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
       <section
@@ -1069,7 +1092,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             />
             <div
               className="absolute inset-0 pointer-events-none"
-              style={{ background: FULLBLEED_LEGIBILITY_SCRIM }}
+              style={{ background: fullBleedScrim }}
             />
           </div>
         ) : p.backgroundImageUrl ? (
@@ -1102,7 +1125,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             />
             <div
               className="absolute inset-0 pointer-events-none"
-              style={{ background: FULLBLEED_LEGIBILITY_SCRIM }}
+              style={{ background: fullBleedScrim }}
             />
           </div>
             );
