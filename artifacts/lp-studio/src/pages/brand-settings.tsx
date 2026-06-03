@@ -1254,6 +1254,11 @@ function BrandedSubdomainCard() {
   const [provisioning, setProvisioning] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [removing, setRemoving] = useState(false);
+  // Auto-poll bookkeeping: count attempts so we can back off and eventually
+  // pause (so we don't poll Resend forever for a subdomain whose DNS may never
+  // verify). The manual "Check verification" button resumes from a paused state.
+  const [pollAttempts, setPollAttempts] = useState(0);
+  const [pollPaused, setPollPaused] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1286,6 +1291,9 @@ function BrandedSubdomainCard() {
         if ((data as BrandedSubdomainState).status === "verified") {
           toast({ title: "Subdomain verified", description: "Email now sends from your branded subdomain." });
         } else {
+          // A manual re-check restarts the auto-poll window (it may have paused).
+          setPollAttempts(0);
+          setPollPaused(false);
           toast({ title: "Still pending", description: "DNS is still propagating — this can take a few minutes." });
         }
       }
@@ -1296,12 +1304,26 @@ function BrandedSubdomainCard() {
     }
   }, [toast]);
 
-  // Auto-poll while the subdomain is provisioned but not yet verified.
+  // Auto-poll while the subdomain is provisioned but not yet verified, with a
+  // gentle backoff (15s → 30s → 60s) and a hard cap so we don't poll Resend
+  // forever. Once the cap is reached we pause and let the tenant resume via the
+  // manual "Check verification" button (DNS that hasn't propagated after this
+  // window usually needs human attention).
+  const POLL_MAX_ATTEMPTS = 40; // ~28 min of checks with the backoff below (8×15s + 12×30s + 20×60s)
   useEffect(() => {
-    if (!state?.provisioned || state.active || state.status === "verified") return;
-    const interval = window.setInterval(() => { void doVerify(true); }, 15000);
-    return () => window.clearInterval(interval);
-  }, [state?.provisioned, state?.active, state?.status, doVerify]);
+    const pending = !!state?.provisioned && !state.active && state.status !== "verified";
+    if (!pending || pollPaused) return;
+    if (pollAttempts >= POLL_MAX_ATTEMPTS) {
+      setPollPaused(true);
+      return;
+    }
+    const delay = pollAttempts < 8 ? 15000 : pollAttempts < 20 ? 30000 : 60000;
+    const t = window.setTimeout(() => {
+      setPollAttempts((n) => n + 1);
+      void doVerify(true);
+    }, delay);
+    return () => window.clearTimeout(t);
+  }, [state?.provisioned, state?.active, state?.status, pollAttempts, pollPaused, doVerify]);
 
   const doProvision = async () => {
     setProvisioning(true);
@@ -1313,6 +1335,9 @@ function BrandedSubdomainCard() {
         return;
       }
       setState(data as BrandedSubdomainState);
+      // Fresh provision → restart the auto-poll window from the top.
+      setPollAttempts(0);
+      setPollPaused(false);
       toast({ title: "Subdomain provisioned", description: "We're verifying DNS — this usually takes a few minutes." });
     } catch {
       toast({ title: "Couldn't set up subdomain", description: "Network error.", variant: "destructive" });
@@ -1408,7 +1433,13 @@ function BrandedSubdomainCard() {
           ) : (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>{pill.detail} We're verifying the DNS automatically — no action needed. Email keeps sending from the shared default until this is verified.</span>
+              <span>
+                {pill.detail}{" "}
+                {pollPaused
+                  ? "Automatic checking has paused — DNS can take a while to propagate. Use \u201CCheck verification\u201D to re-check."
+                  : "We're verifying the DNS automatically — no action needed."}{" "}
+                Email keeps sending from the shared default until this is verified.
+              </span>
             </div>
           )}
         </div>
