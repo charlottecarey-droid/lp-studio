@@ -31,6 +31,8 @@ export interface PageSpeedResult {
   slug: string;
   score: number;
   status: "passing" | "needs-work" | "failing";
+  speedSource?: "measured" | "estimated";
+  estimatedScore?: number;
   blockCount: number;
   imageCount: number;
   videoCount: number;
@@ -154,9 +156,26 @@ export function PageSpeedPanel({ pageId }: { pageId: number }) {
           <div className="flex items-center gap-4 mb-4">
             <ScoreRing score={selectedPage.score} size={80} />
             <div>
-              <Badge className={getStatusColor(selectedPage.status)}>
-                {getStatusLabel(selectedPage.status)}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge className={getStatusColor(selectedPage.status)}>
+                  {getStatusLabel(selectedPage.status)}
+                </Badge>
+                {selectedPage.speedSource && (
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] px-1.5 py-0 font-normal ${
+                      selectedPage.speedSource === "measured"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-slate-100 text-slate-500 border-slate-200"
+                    }`}
+                  >
+                    {selectedPage.speedSource === "measured" ? "measured" : "estimated"}
+                  </Badge>
+                )}
+              </div>
+              {selectedPage.speedSource === "measured" && typeof selectedPage.estimatedScore === "number" && (
+                <p className="text-xs text-slate-500 mt-1">Structural estimate: {selectedPage.estimatedScore}</p>
+              )}
               <p className="text-xs text-slate-500 mt-1">~{selectedPage.estimatedDomNodes} DOM nodes</p>
             </div>
           </div>

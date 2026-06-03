@@ -3,6 +3,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { getMeasuredSpeedScore } from "../../lib/pageSpeedInsights";
 
 const router = Router();
 
@@ -29,6 +30,13 @@ interface PageSpeedResult {
   slug: string;
   score: number;
   status: "passing" | "needs-work" | "failing";
+  // Whether `score` is a real PageSpeed Insights (Lighthouse) measurement or the
+  // structural block-count estimate. "measured" only for published pages with a
+  // cached PSI result; otherwise "estimated".
+  speedSource: "measured" | "estimated";
+  // The structural block-count estimate, always present, so the UI can surface
+  // it even when `score` reflects a real measurement.
+  estimatedScore: number;
   blockCount: number;
   imageCount: number;
   videoCount: number;
@@ -312,6 +320,48 @@ function getStatus(score: number): "passing" | "needs-work" | "failing" {
   return "failing";
 }
 
+/**
+ * Build a full PageSpeedResult for a page. The structural block analysis (issues,
+ * counts, DOM estimate) always comes from the page's blocks. The headline `score`
+ * prefers a real measured PageSpeed Insights (Lighthouse) score for published
+ * pages and falls back to the structural estimate when no measurement is
+ * available — keeping this report's number consistent with the conversion
+ * scorer's "Page Speed Impact" category.
+ */
+function buildPageSpeedResult(
+  page: { id: number; title: string; slug: string; blocks: unknown; status: string },
+  tenantId: number,
+): PageSpeedResult {
+  const blocks = Array.isArray(page.blocks) ? page.blocks : [];
+  const analysis = analyzePageBlocks(blocks);
+  const estimatedScore = computeScore(blocks.length, analysis);
+
+  // Real measured page speed (non-blocking; schedules a background refresh and
+  // returns whatever is cached). Only published pages can ever be measured.
+  const measured = getMeasuredSpeedScore({
+    id: page.id,
+    tenantId,
+    slug: page.slug,
+    status: page.status,
+  });
+  const speedMeasured = typeof measured === "number" && measured >= 0;
+  const score = speedMeasured
+    ? Math.max(0, Math.min(100, Math.round(measured!)))
+    : estimatedScore;
+
+  return {
+    pageId: page.id,
+    name: page.title,
+    slug: page.slug,
+    score,
+    status: getStatus(score),
+    speedSource: speedMeasured ? "measured" : "estimated",
+    estimatedScore,
+    blockCount: blocks.length,
+    ...analysis,
+  };
+}
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 /** GET /lp/page-speed — Analyze all pages for the tenant */
@@ -331,21 +381,7 @@ router.get("/lp/page-speed", async (req, res): Promise<void> => {
       .from(lpPagesTable)
       .where(eq(lpPagesTable.tenantId, tenantId));
 
-    const results: PageSpeedResult[] = pages.map(page => {
-      const blocks = Array.isArray(page.blocks) ? page.blocks : [];
-      const analysis = analyzePageBlocks(blocks);
-      const score = computeScore(blocks.length, analysis);
-
-      return {
-        pageId: page.id,
-        name: page.title,
-        slug: page.slug,
-        score,
-        status: getStatus(score),
-        blockCount: blocks.length,
-        ...analysis,
-      };
-    });
+    const results: PageSpeedResult[] = pages.map(page => buildPageSpeedResult(page, tenantId));
 
     // Sort: failing first, then needs-work, then passing (worst scores on top)
     results.sort((a, b) => a.score - b.score);
@@ -389,19 +425,7 @@ router.get("/lp/page-speed/:pageId", async (req, res): Promise<void> => {
       return;
     }
 
-    const blocks = Array.isArray(page.blocks) ? page.blocks : [];
-    const analysis = analyzePageBlocks(blocks);
-    const score = computeScore(blocks.length, analysis);
-
-    res.json({
-      pageId: page.id,
-      name: page.title,
-      slug: page.slug,
-      score,
-      status: getStatus(score),
-      blockCount: blocks.length,
-      ...analysis,
-    });
+    res.json(buildPageSpeedResult(page, tenantId));
   } catch (err) {
     console.error("Page speed detail error:", err);
     res.status(500).json({ error: "Failed to analyze page" });

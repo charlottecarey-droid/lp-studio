@@ -30,6 +30,8 @@ interface PageSpeedResult {
   slug: string;
   score: number;
   status: "passing" | "needs-work" | "failing";
+  speedSource?: "measured" | "estimated";
+  estimatedScore?: number;
   blockCount: number;
   imageCount: number;
   videoCount: number;
@@ -240,6 +242,18 @@ export default function PageSpeed() {
                                 <Badge className={getStatusColor(page.status)}>
                                   {getStatusLabel(page.status)}
                                 </Badge>
+                                {page.speedSource && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] px-1.5 py-0 font-normal ${
+                                      page.speedSource === "measured"
+                                        ? "bg-green-50 text-green-700 border-green-200"
+                                        : "bg-slate-100 text-slate-500 border-slate-200"
+                                    }`}
+                                  >
+                                    {page.speedSource === "measured" ? "measured" : "estimated"}
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-xs text-slate-500">/{page.slug}</p>
                             </div>
