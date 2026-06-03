@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { tenantsTable } from "./tenants";
 
 /**
  * Sales One-Pager Templates — custom templates created by admins in LP Studio.
@@ -9,7 +10,7 @@ import { z } from "zod/v4";
  */
 export const salesOnePagerTemplatesTable = pgTable("sales_one_pager_templates", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   backgroundUrl: text("background_url").notNull().default(""),
   orientation: text("orientation").notNull().default("portrait"),

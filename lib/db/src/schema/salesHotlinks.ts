@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesContactsTable } from "./salesContacts";
 import { lpPagesTable } from "./lpPages";
+import { tenantsTable } from "./tenants";
 
 /**
  * Sales Hotlinks — tracked links per contact per page.
@@ -14,7 +15,7 @@ import { lpPagesTable } from "./lpPages";
  */
 export const salesHotlinksTable = pgTable("sales_hotlinks", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull(),
+  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   contactId: integer("contact_id").references(() => salesContactsTable.id, { onDelete: "set null" }),
   sfdcContactId: text("sfdc_contact_id"),   // stable SFDC Contact ID (e.g. 003xxx)

@@ -1,4 +1,5 @@
 import { pgTable, serial, integer, text, boolean, timestamp, date, index } from "drizzle-orm/pg-core";
+import { tenantsTable } from "./tenants";
 
 // Task #256 — first-class, tenant-scoped proof-point library. Separate from
 // per-segment stats so a single approval (and source URL / date) can flow
@@ -7,7 +8,7 @@ export const lpProofPointsTable = pgTable(
   "lp_proof_points",
   {
     id: serial("id").primaryKey(),
-    tenantId: integer("tenant_id").notNull(),
+    tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
     value: text("value").notNull().default(""),
     label: text("label").notNull().default(""),
     sourceUrl: text("source_url").notNull().default(""),
