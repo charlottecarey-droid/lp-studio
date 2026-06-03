@@ -718,7 +718,7 @@ export default function TemplateMarketplace() {
           </DialogTitle>
 
           {/* Header bar */}
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b bg-background shrink-0">
+          <div className="relative z-10 flex items-center justify-between gap-3 px-5 py-3 border-b bg-background shrink-0">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-base truncate">
@@ -752,7 +752,7 @@ export default function TemplateMarketplace() {
           {/* Scrollable preview body. The inner wrapper uses a white background
               so blocks designed for a real landing page (which assume a page
               background) render correctly inside the dialog. */}
-          <div className="flex-1 overflow-y-auto bg-white">
+          <div className="relative isolate flex-1 overflow-y-auto bg-white">
             {previewLoading && (
               <div className="h-full grid place-items-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

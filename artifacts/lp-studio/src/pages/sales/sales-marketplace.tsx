@@ -568,7 +568,7 @@ export default function SalesMarketplace() {
             {previewTemplate?.templateLabel ?? "Template preview"}
           </DialogTitle>
 
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b bg-background shrink-0">
+          <div className="relative z-10 flex items-center justify-between gap-3 px-5 py-3 border-b bg-background shrink-0">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-base truncate">
@@ -599,7 +599,7 @@ export default function SalesMarketplace() {
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-white">
+          <div className="relative isolate flex-1 overflow-y-auto bg-white">
             {previewLoading && (
               <div className="h-full grid place-items-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

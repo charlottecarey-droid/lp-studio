@@ -444,16 +444,25 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   Template marketplace preview: disable in-page sticky headers (e.g.
-   BlockDsoPracticeNav, BlockNavHeader) so they don't escape the dialog
-   body and overlap the marketplace's own header / "Use this template"
-   button. Real public landing pages keep their sticky behavior; this
-   override is scoped to the .template-preview-root wrapper.
+   Template marketplace preview: disable in-page sticky/fixed headers and
+   decorative overlays (e.g. BlockDsoPracticeNav, BlockNavHeader,
+   BlockFullBleedHero, Inside Dandy overlays) so they don't escape the
+   dialog body and overlap the marketplace's own header / "Use this
+   template" button. In addition to neutralizing `position`, the elevated
+   `z-index` (e.g. z-50/z-60) is reset so these elements can never paint
+   above the modal chrome. Real public landing pages keep their
+   sticky/fixed behavior; this override is scoped to the
+   .template-preview-root wrapper. The preview body is also its own
+   stacking context (Tailwind `isolate`) so even stray z-index inside the
+   template can't escape it.
    ───────────────────────────────────────────────────────────────────── */
 .template-preview-root .sticky,
-.template-preview-root [class*="sticky top-"] {
+.template-preview-root .fixed,
+.template-preview-root [class*="sticky top-"],
+.template-preview-root [class*="fixed"] {
   position: relative !important;
   top: auto !important;
+  z-index: auto !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
