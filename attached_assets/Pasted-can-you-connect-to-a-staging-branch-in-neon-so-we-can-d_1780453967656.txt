@@ -1,0 +1,46 @@
+can you connect to a staging branch in neon so we can do this safely postgresql://neondb_owner:npg_nARXHf3g7Pbi@ep-calm-morning-amno7q26-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+2 hours ago
+
+Show less
+
+Planning secure connection string handling (12 seconds)
+The user gave us a Neon staging branch — exactly what we need to do this safely. Before touching any env/secret, I must handle that connection string carefully (it contains live credentials — I won't echo, log, or commit it). Let me read the environment-secrets skill and check how the dev workflow currently resolves its DB URL.
+
+
+2 actions
+The skill is clear on the key constraint: NEON_DATABASE_URL is a global secret used by both dev and prod, and I can't safely repoint it (changing it would risk pointing production at staging on the next deploy). I also can't set secrets directly — and a connection string with a password should be a secret, not a plaintext env var.
+
+So the safe approach is to store your staging URL as a separate secret, STAGING_DATABASE_URL, and run all Prompt 2 migrations and validation explicitly against that — production's NEON_DATABASE_URL stays completely untouched. Let me request it securely (I won't write the credential into any file or echo it).
+
+Please paste the Neon STAGING branch connection string here (the postgresql://...ep-calm-morning... URL you just shared). Storing it as STAGING_DATABASE_URL lets us run all the Prompt 2 migrations and integrity fixes against staging only — production's NEON_DATABASE_URL stays completely untouched. (Tip: since this URL was shared in chat, consider rotating the staging branch password afterward.)
+
+1 secret requested
+•
+
+See all secrets
+STAGING_DATABASE_URL
+
+Worked for 1 minute
+
+2 messages & 8 actions
+
+Pasted--Prompt-2-v2-Database-integrity-post-audit-scoped-down-_1780447402587.txt
+here is an updated prompt 2 spec from claude
+
+2 hours ago
+
+25 messages & 56 actions
+I found 129 leftover rows (13 in lp_proof_points, 116 in sales_one_pager_templates) that belong to deleted tenants. Do you approve me writing the cleanup migration (0072) to delete these 129 orphan rows and add the tenant foreign keys so this can't happen again?
+
+Approve — write the 0072 cleanup
+2 hours ago
+
+Checkpoint made
+2 hours ago
+
+Worked for 16 minutes
+
+21 messages & 45 actions
+
+Worked for 12 minutes
