@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft,
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
@@ -37,6 +44,7 @@ import {
   Send,
   Upload,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getLpPageUrl } from "@/lib/utils";
@@ -179,8 +187,10 @@ function statusVariant(status: string): "default" | "secondary" | "outline" {
 }
 
 function TrendBadge({ value, suffix = "%" }: { value: number | null; suffix?: string }) {
+  // No comparable prior period (prev was zero): hide the slot entirely rather
+  // than render an em-dash that reads like a broken/colored trend badge.
   if (value === null) {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    return null;
   }
   if (Math.abs(value) < 0.01) {
     return (
@@ -491,7 +501,7 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const limit = 50;
 
-  const { data, isLoading, isError, isFetching } = useQuery({
+  const { data, isLoading, isError, isFetching, error, refetch } = useQuery({
     queryKey: ["page-visits", pageId, days, page, search, convertedOnly, knownOnly],
     queryFn: async (): Promise<VisitsResponse> => {
       const params = new URLSearchParams({
@@ -558,6 +568,20 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
         <div className="text-center py-8">
           <AlertTriangle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Could not load visits.</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            {error instanceof Error ? error.message : "Something went wrong."}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Retrying…" : "Retry"}
+          </Button>
         </div>
       ) : isLoading ? (
         <div className="space-y-2">
@@ -887,6 +911,15 @@ export default function PageDetail() {
     enabled: Number.isFinite(pageId),
   });
 
+  // Tenant-aware document title (the static index.html title is a pre-hydration
+  // fallback; once the SaaS shell knows the tenant we reflect it here so the tab
+  // never reads as another tenant's brand).
+  useEffect(() => {
+    const brand = domainContext?.tenantName?.trim() || "LP Studio";
+    const pageTitle = summary?.page?.title?.trim();
+    document.title = pageTitle ? `${pageTitle} · ${brand}` : `Analytics · ${brand}`;
+  }, [domainContext?.tenantName, summary?.page?.title]);
+
   if (!Number.isFinite(pageId)) {
     return (
       <AppLayout>
@@ -908,12 +941,27 @@ export default function PageDetail() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Header */}
         <div className="space-y-3">
-          <Link href="/analytics">
-            <a className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              Analytics
-            </a>
-          </Link>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <Link href="/analytics">
+                  <BreadcrumbLink>Analytics</BreadcrumbLink>
+                </Link>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <Link href="/analytics/pages">
+                  <BreadcrumbLink>Pages</BreadcrumbLink>
+                </Link>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="truncate max-w-[260px]">
+                  {page?.title || `Page ${pageId}`}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               {isLoading ? (

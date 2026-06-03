@@ -270,13 +270,18 @@ export function HeatmapOverlay({ pageId, days: externalDays }: { pageId: number;
 
       {hasData && viewMode === "click" && (
         <>
-          {/* Click heatmap visualization */}
-          <div className="relative bg-slate-100 rounded-lg overflow-hidden border" style={{ minHeight: 400, aspectRatio: "1/3" }}>
-            <ClickHeatmapCanvas data={data!.clickData} maxCount={maxClickCount} />
-            <div className="absolute bottom-2 right-2 flex gap-1 text-[9px] text-slate-500">
-              <span className="px-1 rounded" style={{ background: "rgba(0,100,255,0.3)" }}>Low</span>
-              <span className="px-1 rounded" style={{ background: "rgba(255,200,0,0.5)" }}>Med</span>
-              <span className="px-1 rounded" style={{ background: "rgba(255,0,0,0.5)" }}>High</span>
+          {/* Click heatmap visualization. Cap the visible height (~1200px) so a
+              tall 1:3 snapshot doesn't render multiple viewports of empty pale
+              space; the inner box keeps its natural aspect ratio and the outer
+              container scrolls internally when the heat data extends past the cap. */}
+          <div className="relative bg-slate-100 rounded-lg overflow-y-auto border" style={{ maxHeight: 1200 }}>
+            <div className="relative w-full" style={{ minHeight: 400, aspectRatio: "1/3" }}>
+              <ClickHeatmapCanvas data={data!.clickData} maxCount={maxClickCount} />
+              <div className="absolute bottom-2 right-2 flex gap-1 text-[9px] text-slate-500">
+                <span className="px-1 rounded" style={{ background: "rgba(0,100,255,0.3)" }}>Low</span>
+                <span className="px-1 rounded" style={{ background: "rgba(255,200,0,0.5)" }}>Med</span>
+                <span className="px-1 rounded" style={{ background: "rgba(255,0,0,0.5)" }}>High</span>
+              </div>
             </div>
           </div>
 

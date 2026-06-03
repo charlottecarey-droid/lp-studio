@@ -39,18 +39,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <meta http-equiv="cache-control" content="no-store">
     <meta http-equiv="pragma" content="no-cache">
     <meta http-equiv="expires" content="0">
-    <title>LP Studio — Build landing pages your revenue team will actually use</title>
+    <title>Landing Page Studio</title>
     <link rel="icon" type="image/svg+xml" href="/lpstudio-favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&amp;display=swap" rel="stylesheet">
-    <!-- Domain-specific metadata: swap title/OG tags per domain -->
+    <!-- Domain-specific metadata: swap title/OG tags per domain.
+         Any lpstudio.ai host (apex, www, app, and any tenant subdomain) gets
+         the LP Studio default set; meetdandy.com hosts keep their existing
+         Dandy values. Published tenant pages still override per-page via the
+         prerender injection pipeline (injectPageMeta) — this is only the
+         fallback shown before/without page-specific meta. -->
     <script>
       (function () {
         var h = location.hostname;
         var sel = function (s) { return document.querySelector(s); };
         var set = function (el, v) { if (el) el.setAttribute('content', v); };
-        if (h === 'ent.meetdandy.com') {
+        // Any lpstudio.ai host: the apex, www, app, and any *.lpstudio.ai
+        // tenant subdomain. Matches exact apex or any subdomain of it.
+        var isLpStudio = h === 'lpstudio.ai' || /(^|\.)lpstudio\.ai$/.test(h);
+        if (isLpStudio) {
+          var LP_TITLE = 'LP Studio — AI Landing Pages for Revenue Teams';
+          var LP_DESC = 'Skip the brief, ship the page. On-brand landing pages and ABM microsites for every account in minutes — no designer, no dev. Enterprise ABM results, without the enterprise price.';
+          document.title = LP_TITLE;
+          set(sel('meta[name="description"]'),       LP_DESC);
+          set(sel('meta[property="og:title"]'),      LP_TITLE);
+          set(sel('meta[property="og:description"]'),LP_DESC);
+          set(sel('meta[property="og:url"]'),        location.origin);
+          set(sel('meta[property="og:image"]'),      'https://lpstudio.ai/opengraph.jpg');
+        } else if (h === 'ent.meetdandy.com') {
           document.title = 'Meet Dandy | The Modern Operating System for Dentistry';
           set(sel('meta[name="description"]'),       'Meet Dandy | The Modern Operating System for Dentistry');
           set(sel('meta[property="og:title"]'),      'Meet Dandy | The Modern Operating System for Dentistry');

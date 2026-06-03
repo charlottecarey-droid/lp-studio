@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { useAuth, type DomainContext } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { AppLayout } from "@/components/layout/app-layout";
 import { Home, ArrowLeft } from "lucide-react";
 
 const FG   = "hsl(152,40%,13%)";
@@ -231,12 +232,14 @@ function MicrositeNotFound({ dc }: { dc: DomainContext | null }) {
  * follow a stale link land here — always with a way back to the dashboard
  * and to the previous page, so they're never stranded.
  */
-function AppNotFound() {
+function NotFoundCard({ showWordmark }: { showWordmark: boolean }) {
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center bg-background px-6 py-16 text-center">
-      <div className="text-sm font-semibold tracking-tight text-muted-foreground mb-10">
-        LP Studio
-      </div>
+    <div className="min-h-[60vh] w-full flex flex-col items-center justify-center px-6 py-16 text-center">
+      {showWordmark && (
+        <div className="text-sm font-semibold tracking-tight text-muted-foreground mb-10">
+          LP Studio
+        </div>
+      )}
 
       <div className="w-full max-w-md rounded-2xl border bg-card p-10 shadow-sm">
         <div className="font-display text-6xl font-bold tracking-tight text-primary mb-3 leading-none">
@@ -269,6 +272,27 @@ function AppNotFound() {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AppNotFound() {
+  const { user } = useAuth();
+
+  // Signed-in members get the full app shell (sidebar + topnav) so a mistyped
+  // route never strands them outside their workspace navigation. Signed-out
+  // visitors get the bare card — the shell would have nothing useful to show.
+  if (user) {
+    return (
+      <AppLayout>
+        <NotFoundCard showWordmark={false} />
+      </AppLayout>
+    );
+  }
+
+  return (
+    <div className="min-h-[100dvh] w-full bg-background">
+      <NotFoundCard showWordmark />
     </div>
   );
 }

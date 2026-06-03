@@ -701,7 +701,7 @@ function ConversionFunnel({ overview, pages, ghostSubmits, loading }: { overview
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ initialTab }: { initialTab?: string } = {}) {
   const [days, setDays] = useState(30);
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
@@ -773,7 +773,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="overview">
+        <Tabs defaultValue={initialTab ?? "overview"}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="pages">Pages</TabsTrigger>
