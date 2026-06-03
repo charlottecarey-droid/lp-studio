@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { getTenantId } from "../../middleware/requireAuth";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, lpLeadsTable } from "@workspace/db";
+import { sql, and, eq, isNotNull } from "drizzle-orm";
+import { fieldAccessor, leadName, leadEmail } from "@workspace/lead-utils";
 import { logger } from "../../lib/logger";
 
 const router = Router();
@@ -302,15 +303,77 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
   const curStart = new Date(now.getTime() - days * 86_400_000);
 
   try {
+    // De-anonymize page visits (Task #910). A visitor whose session later (or
+    // earlier) submitted a lead form on this page is actually known. We persist
+    // the tracking session id on each lead (see lp_leads.session_id), so resolve
+    // each lead's identity here via the shared lead-utils accessors (the name /
+    // email / company live under arbitrary keys in the fields JSON, so they can
+    // only be extracted in JS, not SQL) and feed the resolved tuples back into
+    // the combined CTE as a `lead_identity` VALUES table. LEFT-joining the
+    // anonymous page-visit rows to it means contact_name/company/email are
+    // populated IN SQL, so the contact-search, known-only filters and the count
+    // query all operate over the enriched rows and pagination stays correct.
+    const leadIdentityRows = await db
+      .select({ sessionId: lpLeadsTable.sessionId, fields: lpLeadsTable.fields })
+      .from(lpLeadsTable)
+      .where(
+        and(
+          eq(lpLeadsTable.pageId, pageId),
+          eq(lpLeadsTable.tenantId, tenantId),
+          isNotNull(lpLeadsTable.sessionId),
+        ),
+      );
+
+    // Build one resolved identity per session id. Iterating in insertion (id)
+    // order means a session's first non-empty value wins for each field, which
+    // keeps a single visitor's identity stable across multiple submissions.
+    const identityBySession = new Map<
+      string,
+      { name: string | null; company: string | null; email: string | null }
+    >();
+    for (const row of leadIdentityRows) {
+      const sid = row.sessionId;
+      if (!sid) continue;
+      const fields = (row.fields ?? {}) as Record<string, unknown>;
+      const get = fieldAccessor(fields as Record<string, string>);
+      const name = leadName(fields as Record<string, string>) || null;
+      const email = leadEmail(fields as Record<string, string>) || null;
+      const company = get("company", "companyName", "organization", "organisation", "businessName") || null;
+      if (!name && !email && !company) continue;
+      const prev = identityBySession.get(sid);
+      identityBySession.set(sid, {
+        name: prev?.name ?? name,
+        company: prev?.company ?? company,
+        email: prev?.email ?? email,
+      });
+    }
+
+    // The `lead_identity(session_id, contact_name, company, email)` CTE. When no
+    // visitor is resolvable, a typed empty SELECT keeps the LEFT JOIN valid (and
+    // every anonymous row stays "Anonymous" as before).
+    const identityValues = Array.from(identityBySession.entries()).map(
+      ([sid, v]) =>
+        sql`(${sid}::text, ${v.name}::text, ${v.company}::text, ${v.email}::text)`,
+    );
+    const leadIdentityCte =
+      identityValues.length > 0
+        ? sql`lead_identity(session_id, contact_name, company, email) AS (
+            VALUES ${sql.join(identityValues, sql`, `)}
+          )`
+        : sql`lead_identity(session_id, contact_name, company, email) AS (
+            SELECT NULL::text, NULL::text, NULL::text, NULL::text WHERE false
+          )`;
+
     const combinedCte = sql`
-      WITH combined AS (
+      WITH ${leadIdentityCte},
+      combined AS (
         SELECT
           'pv-' || pv.id AS id,
           'anonymous' AS source,
           pv.created_at AS visited_at,
-          NULL::text AS contact_name,
-          NULL::text AS company,
-          NULL::text AS email,
+          li.contact_name,
+          li.company,
+          li.email,
           pv.city, pv.region, pv.country, pv.country_code,
           pv.utm_source, pv.utm_medium, pv.utm_campaign,
           pv.session_id,
@@ -321,6 +384,7 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
             WHERE e.session_id = pv.session_id AND e.page_id = ${pageId} AND e.event_type = 'conversion'
           ) AS converted
         FROM lp_page_visits pv
+        LEFT JOIN lead_identity li ON li.session_id = pv.session_id
         WHERE pv.page_id = ${pageId} AND pv.created_at > ${curStart}
         UNION ALL
         SELECT
@@ -341,7 +405,14 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
     `;
 
     const conds = [sql`1 = 1`];
-    if (knownOnly) conds.push(sql`source = 'personalized'`);
+    // "Known only" now matches both personalized (hotlink) visits AND anonymous
+    // page visits we resolved to a lead identity above (contact_name/company/
+    // email populated by the lead_identity join).
+    if (knownOnly) {
+      conds.push(
+        sql`(source = 'personalized' OR contact_name IS NOT NULL OR company IS NOT NULL OR email IS NOT NULL)`,
+      );
+    }
     if (convertedOnly) conds.push(sql`converted = true`);
     if (contactSearch) {
       const like = `%${contactSearch}%`;
@@ -507,9 +578,14 @@ router.get("/lp/analytics/pages/:pageId/visits", async (req, res): Promise<void>
       const clicks = isAnon ? eng?.clicks ?? 0 : Number(r.clicks ?? 0) || 0;
       const device = isAnon ? eng?.device ?? null : null;
       const detail = isAnon && r.session_id ? detailBySession.get(r.session_id) : undefined;
+      // An anonymous page visit we matched to a submitted lead is actually a
+      // known visitor — surface that so the UI labels the row "Lead" and shows
+      // the resolved name instead of "Anonymous".
+      const resolved = isAnon && Boolean(r.contact_name || r.company || r.email);
       return {
         id: r.id,
         source: r.source,
+        resolved,
         visitedAt: r.visited_at,
         contactName: r.contact_name,
         company: r.company,

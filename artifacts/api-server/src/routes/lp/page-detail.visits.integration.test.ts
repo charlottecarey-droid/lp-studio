@@ -42,6 +42,7 @@ const createdPageIds: number[] = [];
 interface VisitRow {
   id: string;
   source: "anonymous" | "personalized";
+  resolved?: boolean;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -123,6 +124,24 @@ async function seedConversion(pageId: number, sessionId: string): Promise<void> 
   await pool.query(
     `INSERT INTO lp_events (session_id, page_id, event_type) VALUES ($1, $2, 'conversion')`,
     [sessionId, pageId],
+  );
+}
+
+/**
+ * Seed a lead-form submission carrying a tracking session id. This is the
+ * de-anonymization signal (Task #910): an anonymous lp_page_visits row whose
+ * session_id matches a lead's session_id should reveal that lead's identity.
+ */
+async function seedLead(
+  tenantId: number,
+  pageId: number,
+  sessionId: string,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO lp_leads (tenant_id, page_id, session_id, fields)
+     VALUES ($1, $2, $3, $4)`,
+    [tenantId, pageId, sessionId, JSON.stringify(fields)],
   );
 }
 
@@ -247,6 +266,62 @@ describe("GET /lp/analytics/pages/:pageId/visits", () => {
       expect(v.email).toBeNull();
       expect(v.converted).toBe(false);
     }
+  });
+
+  it("de-anonymizes an anonymous visit whose session later submitted a lead form", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const pageId = await seedPage(tenantId);
+    const knownSession = `it-sess-${randomUUID()}`;
+    const unknownSession = `it-sess-${randomUUID()}`;
+
+    // Two anonymous visits; only `knownSession` later submits a lead form.
+    await seedAnonVisit(pageId, knownSession, 10);
+    await seedAnonVisit(pageId, unknownSession, 20);
+    await seedLead(tenantId, pageId, knownSession, {
+      firstName: "Riley",
+      lastName: "Known",
+      company: "Globex",
+      email: "riley@globex.test",
+    });
+
+    const res = await authed(sid, `/lp/analytics/pages/${pageId}/visits`);
+    expect(res.status).toBe(200);
+    const body = res.json as VisitsBody;
+
+    expect(body.total).toBe(2);
+    const known = body.visits.find((v) => v.contactName !== null);
+    const unknown = body.visits.find((v) => v.contactName === null);
+    expect(known).toBeTruthy();
+    expect(unknown).toBeTruthy();
+
+    // The resolved row stays an anonymous-source row but reveals the lead.
+    expect(known!.source).toBe("anonymous");
+    expect(known!.resolved).toBe(true);
+    expect(known!.contactName).toBe("Riley Known");
+    expect(known!.company).toBe("Globex");
+    expect(known!.email).toBe("riley@globex.test");
+
+    // The unmatched anonymous row remains anonymous and unresolved.
+    expect(unknown!.source).toBe("anonymous");
+    expect(unknown!.resolved).toBeFalsy();
+
+    // "Known only" now includes the resolved anonymous row.
+    const knownOnlyRes = await authed(
+      sid,
+      `/lp/analytics/pages/${pageId}/visits?knownOnly=true`,
+    );
+    const knownBody = knownOnlyRes.json as VisitsBody;
+    expect(knownBody.total).toBe(1);
+    expect(knownBody.visits[0].contactName).toBe("Riley Known");
+
+    // Contact search matches the resolved identity's fields.
+    const searchRes = await authed(
+      sid,
+      `/lp/analytics/pages/${pageId}/visits?contactSearch=Globex`,
+    );
+    const searchBody = searchRes.json as VisitsBody;
+    expect(searchBody.total).toBe(1);
+    expect(searchBody.visits[0].company).toBe("Globex");
   });
 
   it("rejects unauthenticated requests", async () => {

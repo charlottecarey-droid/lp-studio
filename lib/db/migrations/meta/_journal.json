@@ -76,6 +76,7 @@
     { "idx": 71, "version": "7", "when": 1752500000000, "tag": "0071_lp_integrations_tenant_scoping",       "breakpoints": false },
     { "idx": 73, "version": "7", "when": 1752600000000, "tag": "0073_lp_events_page_id_index",              "breakpoints": false },
     { "idx": 72, "version": "7", "when": 1752700000000, "tag": "0072_tenant_fk_constraints",                "breakpoints": false },
-    { "idx": 74, "version": "7", "when": 1752800000000, "tag": "0074_tenant_email_shells_brand_invite_emails", "breakpoints": false }
+    { "idx": 74, "version": "7", "when": 1752800000000, "tag": "0074_tenant_email_shells_brand_invite_emails", "breakpoints": false },
+    { "idx": 75, "version": "7", "when": 1752900000000, "tag": "0075_lp_leads_session_id",                   "breakpoints": false }
   ]
 }

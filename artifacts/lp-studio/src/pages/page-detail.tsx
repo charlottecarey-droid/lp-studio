@@ -140,6 +140,9 @@ interface AdMapping {
 interface VisitRow {
   id: string;
   source: "anonymous" | "personalized";
+  // True when an anonymous page visit was matched to a submitted lead, so a
+  // real name is available even though the row originated as an anonymous visit.
+  resolved?: boolean;
   visitedAt: string;
   contactName: string | null;
   company: string | null;
@@ -412,8 +415,17 @@ function VisitDetail({ visit: v }: { visit: VisitRow }) {
             timeStyle: "short",
           })}
         />
-        <DetailField label="Type" value={v.source === "personalized" ? "Known contact" : "Anonymous"} />
-        {v.source === "personalized" && (
+        <DetailField
+          label="Type"
+          value={
+            v.source === "personalized"
+              ? "Known contact"
+              : v.resolved
+                ? "Lead"
+                : "Anonymous"
+          }
+        />
+        {(v.source === "personalized" || v.resolved) && (
           <>
             <DetailField label="Contact" value={v.contactName || "—"} />
             <DetailField label="Company" value={v.company || "—"} />
@@ -612,8 +624,9 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
             </thead>
             <tbody>
               {visits.map(v => {
+                const isKnown = v.source === "personalized" || !!v.resolved;
                 const identity =
-                  v.contactName || v.company || v.email || (v.source === "personalized" ? "Known visitor" : "Anonymous");
+                  v.contactName || v.company || v.email || (isKnown ? "Known visitor" : "Anonymous");
                 const loc = [v.city, v.region, v.country].filter(Boolean).join(", ");
                 const expanded = expandedId === v.id;
                 return (
@@ -639,8 +652,8 @@ function VisitsTable({ pageId, days }: { pageId: number; days: number }) {
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <Badge variant={v.source === "personalized" ? "default" : "secondary"}>
-                          {v.source === "personalized" ? "Known" : "Anonymous"}
+                        <Badge variant={isKnown ? "default" : "secondary"}>
+                          {v.source === "personalized" ? "Known" : v.resolved ? "Lead" : "Anonymous"}
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5 text-muted-foreground">

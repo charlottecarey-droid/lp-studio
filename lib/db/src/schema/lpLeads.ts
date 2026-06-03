@@ -10,6 +10,12 @@ export const lpLeadsTable = pgTable("lp_leads", {
   pageId: integer("page_id").notNull().references(() => lpPagesTable.id, { onDelete: "cascade" }),
   variantId: integer("variant_id"),
   fields: jsonb("fields").notNull().default({}),
+  // The tracking session id captured at submit time. Persisting it lets the
+  // page-detail visits table link an otherwise-anonymous lp_page_visits row
+  // back to the lead this visitor submitted, so the row can show a real name
+  // instead of "Anonymous" (Task #910). NULL for legacy/historical leads and
+  // submissions that arrived without a session id.
+  sessionId: text("session_id"),
   ip: text("ip"),
   userAgent: text("user_agent"),
   utmSource: text("utm_source"),

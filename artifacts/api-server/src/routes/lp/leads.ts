@@ -299,6 +299,10 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       pageId,
       variantId: variantId ?? null,
       fields,
+      // Persist the tracking session id so the page-detail visits table can
+      // link this lead back to the visitor's anonymous page visits and show a
+      // real name instead of "Anonymous" (Task #910).
+      sessionId: bodySessionId ?? null,
       ip,
       userAgent,
       ...utmFields,
@@ -311,6 +315,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       pageId,
       variantId: variantId ?? null,
       fields,
+      sessionId: bodySessionId ?? null,
       ip,
       userAgent,
       ...utmFields,
