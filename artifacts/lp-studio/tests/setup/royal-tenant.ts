@@ -216,6 +216,35 @@ export async function createRoyalTenant(
   }
 }
 
+/**
+ * Delete the tenant-scoped sales rows that hold a NON-cascade (NO ACTION)
+ * `tenant_id` foreign key on `tenants`, so the subsequent `DELETE FROM tenants`
+ * can't raise a 23503. Sales Console specs (sales-delete-controls,
+ * sales-console-*) insert into sales_accounts / sales_contacts / sales_signals
+ * etc. under a royal-test tenant; those FKs are `ON DELETE NO ACTION`, so a
+ * leftover sales row blocks the tenant delete and poisons every subsequent
+ * spec's `purgeStaleRoyalTenants` beforeAll (which deletes ALL royal-test
+ * tenants) — turning one orphan into a whole-suite cascade.
+ *
+ * Order matters because of intra-sales FKs:
+ *   - sales_email_campaigns.template_id -> sales_email_templates is NO ACTION,
+ *     so campaigns must go before templates.
+ *   - sales_email_campaigns.account_id -> sales_accounts is SET NULL, so
+ *     deleting accounts does NOT remove campaigns — delete them explicitly.
+ *   - sales_accounts CASCADEs to sales_contacts / sales_briefings /
+ *     sales_signals, and sales_contacts CASCADEs to sales_email_sends /
+ *     sales_contact_briefings; the trailing explicit deletes mop up any
+ *     account-less rows. sales_hotlinks / sales_briefings cascade on tenant_id.
+ */
+async function deleteTenantSalesRows(client: pg.PoolClient, tenantId: number): Promise<void> {
+  await client.query(`DELETE FROM sales_email_campaigns WHERE tenant_id = $1`, [tenantId]);
+  await client.query(`DELETE FROM sales_email_templates WHERE tenant_id = $1`, [tenantId]);
+  await client.query(`DELETE FROM sales_accounts WHERE tenant_id = $1`, [tenantId]);
+  await client.query(`DELETE FROM sales_contacts WHERE tenant_id = $1`, [tenantId]);
+  await client.query(`DELETE FROM sales_signals WHERE tenant_id = $1`, [tenantId]);
+  await client.query(`DELETE FROM sales_audiences WHERE tenant_id = $1`, [tenantId]);
+}
+
 export async function cleanupRoyalTenant(pool: pg.Pool, t: RoyalTenant): Promise<void> {
   const client = await pool.connect();
   try {
@@ -225,6 +254,8 @@ export async function cleanupRoyalTenant(pool: pg.Pool, t: RoyalTenant): Promise
     await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [t.tenantId]);
+    // Sales rows carry a NO ACTION tenant_id FK; clear them before the tenant.
+    await deleteTenantSalesRows(client, t.tenantId);
     await client.query(`DELETE FROM app_users WHERE id = $1`, [t.userId]);
     await client.query(`DELETE FROM tenants WHERE id = $1`, [t.tenantId]);
   } finally {
@@ -371,6 +402,11 @@ export async function purgeStaleRoyalTenants(pool: pg.Pool): Promise<void> {
       // tenant row itself, otherwise DELETE FROM tenants raises a 23503 and
       // poisons every subsequent test in the same run.
       await client.query(`DELETE FROM lp_forms WHERE tenant_id = $1`, [row.id]);
+      // Sales rows carry a NO ACTION tenant_id FK on tenants — a leftover
+      // sales_account from a crashed/failed Sales Console spec holds the FK and
+      // blocks the tenant DELETE below, cascading a 23503 into every later
+      // spec's beforeAll. Clear them before the tenant row itself.
+      await deleteTenantSalesRows(client, row.id);
       await client.query(`DELETE FROM app_users WHERE tenant_id = $1`, [row.id]);
       await client.query(`DELETE FROM tenants WHERE id = $1`, [row.id]);
     }
