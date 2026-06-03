@@ -444,6 +444,15 @@ export default function SalesOnePagerEditor() {
   const [agreementLogoWidth, setAgreementLogoWidth] = useState<number>(
     defaultAgreementSummaryContent.logoWidth ?? 78
   );
+  const [agreementHeadingOffsetX, setAgreementHeadingOffsetX] = useState<number>(
+    defaultAgreementSummaryContent.headingOffsetX ?? 0
+  );
+  const [agreementLogoGroupOffsetX, setAgreementLogoGroupOffsetX] = useState<number>(
+    defaultAgreementSummaryContent.logoGroupOffsetX ?? 0
+  );
+  const [agreementLogoGroupOffsetY, setAgreementLogoGroupOffsetY] = useState<number>(
+    defaultAgreementSummaryContent.logoGroupOffsetY ?? 0
+  );
   const [agreementShowDividers, setAgreementShowDividers] = useState<boolean>(
     defaultAgreementSummaryContent.showSectionDividers !== false
   );
@@ -575,6 +584,9 @@ export default function SalesOnePagerEditor() {
       setAgreementSectionRowGap(defaultAgreementSummaryContent.sectionRowGap ?? 16);
       setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
       setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
+      setAgreementHeadingOffsetX(defaultAgreementSummaryContent.headingOffsetX ?? 0);
+      setAgreementLogoGroupOffsetX(defaultAgreementSummaryContent.logoGroupOffsetX ?? 0);
+      setAgreementLogoGroupOffsetY(defaultAgreementSummaryContent.logoGroupOffsetY ?? 0);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
@@ -602,6 +614,9 @@ export default function SalesOnePagerEditor() {
         if (typeof saved.sectionRowGap === "number") setAgreementSectionRowGap(saved.sectionRowGap);
         if (typeof saved.headlineMaxWidthPct === "number") setAgreementHeadlineMaxWidthPct(saved.headlineMaxWidthPct);
         if (typeof saved.logoWidth === "number") setAgreementLogoWidth(saved.logoWidth);
+        if (typeof saved.headingOffsetX === "number") setAgreementHeadingOffsetX(saved.headingOffsetX);
+        if (typeof saved.logoGroupOffsetX === "number") setAgreementLogoGroupOffsetX(saved.logoGroupOffsetX);
+        if (typeof saved.logoGroupOffsetY === "number") setAgreementLogoGroupOffsetY(saved.logoGroupOffsetY);
         if (typeof saved.showSectionDividers === "boolean") setAgreementShowDividers(saved.showSectionDividers);
         if (typeof saved.footerLinkText === "string") setAgreementFooterLinkText(saved.footerLinkText);
         if (typeof saved.footerLinkUrl === "string") setAgreementFooterLinkUrl(saved.footerLinkUrl);
@@ -746,6 +761,9 @@ export default function SalesOnePagerEditor() {
             sectionRowGap: agreementSectionRowGap,
             headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
             logoWidth: agreementLogoWidth,
+            headingOffsetX: agreementHeadingOffsetX,
+            logoGroupOffsetX: agreementLogoGroupOffsetX,
+            logoGroupOffsetY: agreementLogoGroupOffsetY,
             showSectionDividers: agreementShowDividers,
             footerLinkText: agreementFooterLinkText,
             footerLinkUrl: agreementFooterLinkUrl,
@@ -781,6 +799,7 @@ export default function SalesOnePagerEditor() {
     agreementSubheadlineOffsetX, agreementSubheadlineOffsetY,
     agreementSectionsOffsetY, agreementSectionRowGap,
     agreementHeadlineMaxWidthPct, agreementLogoWidth,
+    agreementHeadingOffsetX, agreementLogoGroupOffsetX, agreementLogoGroupOffsetY,
     agreementShowDividers,
     agreementFooterLinkText, agreementFooterLinkUrl,
     agreementHeaderImage,
@@ -846,6 +865,9 @@ export default function SalesOnePagerEditor() {
           sectionRowGap: agreementSectionRowGap,
           headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
           logoWidth: agreementLogoWidth,
+          headingOffsetX: agreementHeadingOffsetX,
+          logoGroupOffsetX: agreementLogoGroupOffsetX,
+          logoGroupOffsetY: agreementLogoGroupOffsetY,
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
@@ -895,6 +917,9 @@ export default function SalesOnePagerEditor() {
       setAgreementSectionRowGap(defaultAgreementSummaryContent.sectionRowGap ?? 16);
       setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
       setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
+      setAgreementHeadingOffsetX(defaultAgreementSummaryContent.headingOffsetX ?? 0);
+      setAgreementLogoGroupOffsetX(defaultAgreementSummaryContent.logoGroupOffsetX ?? 0);
+      setAgreementLogoGroupOffsetY(defaultAgreementSummaryContent.logoGroupOffsetY ?? 0);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
@@ -941,6 +966,9 @@ export default function SalesOnePagerEditor() {
           sectionRowGap: agreementSectionRowGap,
           headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
           logoWidth: agreementLogoWidth,
+          headingOffsetX: agreementHeadingOffsetX,
+          logoGroupOffsetX: agreementLogoGroupOffsetX,
+          logoGroupOffsetY: agreementLogoGroupOffsetY,
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
@@ -1442,6 +1470,9 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Header Height" value={headerCfg.height} min={100} max={280} step={4} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, height: v }))} />
                     <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={10} max={34} step={1} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
                     <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={7} max={18} step={0.5} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
+                    <SliderRow label="Heading Offset X" value={headerCfg.headingOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, headingOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset X" value={headerCfg.logoGroupOffsetX ?? 0} min={-80} max={80} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetX: v }))} />
+                    <SliderRow label="Logo Group Offset Y" value={headerCfg.logoGroupOffsetY ?? 0} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, logoGroupOffsetY: v }))} />
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Subtitle Text</label>
                       <input
@@ -1574,6 +1605,27 @@ export default function SalesOnePagerEditor() {
                     />
                     <p className="text-[10px] text-muted-foreground -mt-2 leading-snug">
                       Width of the Dandy wordmark in the top-left. Height auto-adjusts to keep the original aspect ratio.
+                    </p>
+                    <SliderRow
+                      label="Heading Offset X"
+                      value={agreementHeadingOffsetX}
+                      min={-80} max={80} step={1} unit="pt"
+                      onChange={v => setAgreementHeadingOffsetX(v)}
+                    />
+                    <SliderRow
+                      label="Logo Group Offset X"
+                      value={agreementLogoGroupOffsetX}
+                      min={-80} max={80} step={1} unit="pt"
+                      onChange={v => setAgreementLogoGroupOffsetX(v)}
+                    />
+                    <SliderRow
+                      label="Logo Group Offset Y"
+                      value={agreementLogoGroupOffsetY}
+                      min={-60} max={60} step={1} unit="pt"
+                      onChange={v => setAgreementLogoGroupOffsetY(v)}
+                    />
+                    <p className="text-[10px] text-muted-foreground -mt-2 leading-snug">
+                      Nudge the headline (Heading Offset X) and the whole wordmark logo (Logo Group Offset X/Y) to fine-tune the header spacing.
                     </p>
                   </EditorSection>
 

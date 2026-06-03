@@ -509,6 +509,16 @@ export interface AgreementSummaryContent {
    * is never distorted. Clamped 30–200. Default: 78.
    */
   logoWidth?: number;
+  /**
+   * Header-region spacing controls mirroring the other one-pagers. All default
+   * to 0 so existing saved layouts render unchanged. `headingOffsetX` nudges the
+   * headline horizontally (additive to `headlineOffsetX`); `logoGroupOffsetX/Y`
+   * shift the Dandy wordmark logo cluster. The Agreement Summary header has no
+   * partner logo / separator line, so there is no separator to gate.
+   */
+  headingOffsetX?: number;         // default 0
+  logoGroupOffsetX?: number;       // default 0
+  logoGroupOffsetY?: number;       // default 0
   /** Show the thin horizontal divider beneath each section row. Default: true. */
   showSectionDividers?: boolean;
   /**
@@ -564,6 +574,9 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   sectionRowGap: 16,
   headlineMaxWidthPct: 58,
   logoWidth: 78,
+  headingOffsetX: 0,
+  logoGroupOffsetX: 0,
+  logoGroupOffsetY: 0,
   showSectionDividers: true,
   footerLinkText: "Dandy Practice Agreement",
   footerLinkUrl: "https://meetdandy.com/practice-agreement",
@@ -631,21 +644,31 @@ export const generateAgreementSummaryOnePager = async (
   // typed "dandy" in the heading font). Width is user-tunable; height
   // auto-derives from the original 78×28 aspect ratio so the logo never
   // gets stretched. The fallback "dandy" text scales proportionally too.
+  // Header-region spacing controls mirroring the other one-pagers. All default
+  // to 0 so existing saved layouts render unchanged. logoGroupOffsetX/Y shift
+  // the whole wordmark logo cluster; headingOffsetX nudges the headline (applied
+  // additively to headlineOffsetX below). The Agreement Summary header has no
+  // partner logo / separator line, so there is no separator to gate.
+  const headingOffsetX = clamp(content.headingOffsetX ?? 0, -80, 80);
+  const logoGroupOffsetX = clamp(content.logoGroupOffsetX ?? 0, -80, 80);
+  const logoGroupOffsetY = clamp(content.logoGroupOffsetY ?? 0, -60, 60);
+  const logoX = margin + logoGroupOffsetX;
+  const logoTopY = 38 + logoGroupOffsetY;
   const logoW = clamp(content.logoWidth ?? 78, 30, 200);
   const logoH = logoW * (28 / 78);
   if (logoPng) {
-    try { doc.addImage(logoPng, "PNG", margin, 38, logoW, logoH); }
+    try { doc.addImage(logoPng, "PNG", logoX, logoTopY, logoW, logoH); }
     catch {
       doc.setFont(headingFont, headingStyle);
       doc.setFontSize(26 * (logoW / 78));
       doc.setTextColor(...white);
-      doc.text(b.wordmark, margin, 38 + logoH * 0.78);
+      doc.text(b.wordmark, logoX, logoTopY + logoH * 0.78);
     }
   } else {
     doc.setFont(headingFont, headingStyle);
     doc.setFontSize(26 * (logoW / 78));
     doc.setTextColor(...white);
-    doc.text(b.wordmark, margin, 38 + logoH * 0.78);
+    doc.text(b.wordmark, logoX, logoTopY + logoH * 0.78);
   }
 
   // Headline — large serif, wraps to multiple lines. Confine width to ~58%
@@ -663,7 +686,7 @@ export const generateAgreementSummaryOnePager = async (
   doc.setTextColor(...white);
   const headlineLines = doc.splitTextToSize(content.headline, headlineMaxW);
   const headlineLineH = headlinePt * 1.09;
-  const headlineX = margin + headlineOffsetX;
+  const headlineX = margin + headlineOffsetX + headingOffsetX;
   const headlineY = 130 + headlineOffsetY;
   doc.text(headlineLines, headlineX, headlineY);
   const headlineBottom = headlineY + (headlineLines.length - 1) * headlineLineH;
@@ -1906,15 +1929,23 @@ export const generateROIOnePager = async (
     doc.rect(0, 0, imgX + imgW * 0.05, headerH, "F");
   }
 
-  drawBrandLogo(doc, margin, Math.round(headerH * 0.225), logoPng, 80, 28, b.wordmark);
+  // Header-region layout controls (editor sliders): nudge the header title
+  // left/right and shift the brand logo cluster. All default to 0 so saved
+  // layouts are unchanged. The ROI header has no partner logo / separator line,
+  // so there is nothing to gate on a partner-logo presence here.
+  const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
+  const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
+  const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
+
+  drawBrandLogo(doc, margin + logoGroupX, Math.round(headerH * 0.225) + logoGroupY, logoPng, 80, 28, b.wordmark);
 
   const defaultNameSize = dsoName.length > 15 ? 16 : 22;
   const roiNameSize = (hCfg.titleFontSize as number | undefined) ?? defaultNameSize;
   const titleY = Math.round(headerH * 0.575);
   doc.setFont(headerTitleFont, headerTitleStyle("normal")); doc.setFontSize(roiNameSize); doc.setTextColor(...white);
-  doc.text("& ", margin, titleY);
+  doc.text("& ", margin + headingOffsetX, titleY);
   const ampWidth = doc.getTextWidth("& ");
-  doc.text(dsoName, margin + ampWidth, titleY);
+  doc.text(dsoName, margin + headingOffsetX + ampWidth, titleY);
   const subtitleText = (hCfg.subtitleText as string | undefined) ?? "Your custom partnership overview — built for scale, savings & growth";
   const subtitleY = Math.round(headerH * 0.8);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);
