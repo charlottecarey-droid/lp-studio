@@ -20,6 +20,7 @@ import {
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
+import { isDandyTenant } from "../../lib/planFeatures";
 
 const router = Router();
 
@@ -145,6 +146,95 @@ function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>
     b.props = props;
     return b;
   });
+}
+
+// ── Dandy-only hero & layout variability ───────────────────────────────────
+// Every Dandy microsite used to lead with the same `dso-heartland-hero` in the
+// same default treatment, so generated pages all felt templated. The hero
+// component already ships four premium, hand-polished layouts
+// (full-bleed, split, split-video, stacked-video) — this picks among them
+// per-account so pages differ visibly while staying premium and on-brand:
+//
+//   • GATED on assets actually present in the tenant media library — `split`
+//     only when a real hero image exists; the video layouts only when a real
+//     hero video exists; `full-bleed` (the polished gradient default) is always
+//     in the pool as the safe fallback. So an account with no media simply
+//     keeps the existing default (no broken/empty layout is ever produced).
+//   • DETERMINISTIC per account (hash of account id + name) so the same account
+//     stays stable across regenerations while different accounts get visibly
+//     different treatments — never random (random can repeat or churn).
+//   • Only already-designed layouts/configs are used. No new combinations and
+//     no background image forced onto full-bleed (contrast/legibility is out of
+//     scope, handled separately). The curated supporting-block ORDER is kept
+//     intact; only the hero treatment (layout + which side the media sits on)
+//     varies, so the funnel narrative is never disturbed.
+//
+// Scoped to Dandy by the caller's isDandyTenant gate. No-op when there is no
+// `dso-heartland-hero` block (the Private Practice / DSO Practice segments use
+// different hero blocks) or when a fixed template layout was requested.
+export type HeroLayout = "full-bleed" | "split" | "split-video" | "stacked-video";
+
+/**
+ * Stable 32-bit hash so layout selection is deterministic per account. FNV-1a
+ * accumulation followed by a Murmur3 fmix32 avalanche — the finalizer is what
+ * makes the LOW bits well-distributed (plain FNV-1a low bits correlate badly
+ * for structured seeds like "acct-7:Company 7", which `% pool.length` reads).
+ */
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // Murmur3 fmix32 avalanche.
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+export function applyDandyHeroVariability(
+  blocks: AiBlock[],
+  heroImageUrls: string[],
+  videoUrls: string[],
+  seedKey: string,
+): AiBlock[] {
+  const heroIdx = blocks.findIndex(b => (b?.type as string) === "dso-heartland-hero");
+  if (heroIdx < 0) return blocks;
+
+  // Asset-gated candidate pool. full-bleed (gradient default) is always safe.
+  const pool: HeroLayout[] = ["full-bleed"];
+  if (heroImageUrls.length > 0) pool.push("split");
+  if (videoUrls.length > 0) pool.push("split-video", "stacked-video");
+
+  const seed = hashSeed(seedKey);
+  const layout = pool[seed % pool.length];
+  // Independent bit of the seed drives which side the media column sits on.
+  const side: "left" | "right" = ((seed >>> 5) & 1) === 0 ? "left" : "right";
+
+  const hero = { ...blocks[heroIdx] };
+  const props = { ...((hero.props ?? {}) as Record<string, unknown>) };
+  props.layout = layout;
+
+  if (layout === "split") {
+    props.heroImageUrl = heroImageUrls[seed % heroImageUrls.length];
+    props.heroImageSide = side;
+  } else if (layout === "split-video") {
+    props.heroVideoUrl = videoUrls[seed % videoUrls.length];
+    props.heroImageSide = side;
+    props.videoAutoplay = true;
+  } else if (layout === "stacked-video") {
+    props.heroVideoUrl = videoUrls[seed % videoUrls.length];
+    props.videoAutoplay = true;
+  }
+  // full-bleed: keep the polished gradient default — no forced background image.
+
+  hero.props = props;
+  const next = blocks.slice();
+  next[heroIdx] = hero;
+  return next;
 }
 
 function getOpenAIClient(): OpenAI | null {
@@ -1393,6 +1483,24 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           props: mergedProps,
         }];
       }
+    }
+
+    // Dandy-only: vary the lead hero treatment per account so generated
+    // microsites don't all look identical. Asset-gated + deterministic per
+    // account (see applyDandyHeroVariability). Skipped for fixed-template
+    // layouts (the template's hero is an explicit choice) and for non-Dandy
+    // tenants (the generic / white-label path is unchanged).
+    if (!templateBlocks && (await isDandyTenant(tenantId))) {
+      const heroImageUrls = images
+        .filter(i => (i.tags ?? []).some(t => t.toLowerCase() === "lp-hero"))
+        .map(i => i.url);
+      const seedKey = `${accountId ?? ""}:${deriveCompanyName(account)}`;
+      normalizedBlocks = applyDandyHeroVariability(
+        normalizedBlocks,
+        heroImageUrls,
+        videoUrls,
+        seedKey,
+      );
     }
 
     // AI image-gen / Unsplash fallback for slots the library couldn't fill —
