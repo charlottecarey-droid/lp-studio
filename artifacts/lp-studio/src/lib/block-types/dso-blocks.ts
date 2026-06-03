@@ -375,6 +375,37 @@ export interface DsoCaseFlowStage {
   icon?: React.ReactNode;
 }
 
+// Serializable (text-only, no icons/numbers) default stages shared by the
+// renderer fallback and the property panel, so panel editing always starts
+// from the same content the block displays by default. Numbers are omitted so
+// the renderer auto-numbers by position (stable across add/remove/reorder).
+export const DSO_CASE_FLOW_DEFAULT_STAGES: DsoCaseFlowStage[] = [
+  {
+    label: "Submit",
+    metric: "< 1 min",
+    metricLabel: "avg submission time",
+    body: "Kick off a request from any location with a streamlined intake form.",
+  },
+  {
+    label: "Validate",
+    metric: "Real-time",
+    metricLabel: "automated checks",
+    body: "Built-in validation catches issues before they propagate downstream.",
+  },
+  {
+    label: "Route",
+    metric: "Auto",
+    metricLabel: "routing",
+    body: "Requests are routed to the right team based on rules you control.",
+  },
+  {
+    label: "Deliver",
+    metric: "Days",
+    metricLabel: "typical turnaround",
+    body: "Track every step end-to-end with full visibility into status and SLA.",
+  },
+];
+
 export interface DsoCaseFlowBlockProps {
   eyebrow?: string;
   headline?: string;

@@ -257,6 +257,7 @@ export type {
   BusinessCaseTestimonial,
   BusinessCasePlanStep,
 } from "./dso-blocks";
+export { DSO_CASE_FLOW_DEFAULT_STAGES } from "./dso-blocks";
 
 // Utility block types
 export type {

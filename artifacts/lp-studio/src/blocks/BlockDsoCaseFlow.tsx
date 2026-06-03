@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import type { DsoCaseFlowBlockProps } from "@/lib/block-types";
+import { DSO_CASE_FLOW_DEFAULT_STAGES, type DsoCaseFlowBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, type BackgroundStyle } from "@/lib/bg-styles";
 import {
   DEFAULT_BRAND,
@@ -87,73 +87,54 @@ function resolveCaseFlowColors(brand: BrandConfig, style: BackgroundStyle) {
   };
 }
 
+// Built-in stage icons, applied positionally over the shared text defaults.
+// Custom stages added via the panel reuse these by position (and fall back to
+// the generic circle below for any stage beyond the 4th).
+const STAGE_ICONS: React.ReactNode[] = [
+  (
+    <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
+      <motion.path d="M4 16 C4 9.4 9.4 4 16 4 C22.6 4 28 9.4 28 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.5 }} />
+      <motion.path d="M10 16 L13 21 L16 13 L19 19 L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9, delay: 0.9 }} />
+    </svg>
+  ),
+  (
+    <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
+      <motion.circle cx="16" cy="16" r="7" stroke="currentColor" strokeWidth="2"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, delay: 0.5 }} />
+      <motion.path d="M4 16H9M23 16H28M16 4V9M16 23V28" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.8 }} />
+      <motion.path d="M13 16l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 1.3 }} />
+    </svg>
+  ),
+  (
+    <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
+      <motion.path d="M16 4 L26 10 L26 22 L16 28 L6 22 L6 10 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.0, delay: 0.5 }} />
+      <motion.path d="M16 4 L16 28M6 10 L26 10M6 22 L26 22" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 1.2 }} />
+    </svg>
+  ),
+  (
+    <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
+      <motion.path d="M6 17 L12 23 L26 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.5 }} />
+      <motion.circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.35"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1, delay: 0.2 }} />
+    </svg>
+  ),
+];
+
 // Neutral component-level fallback. Catalog default_props (industry='generic')
 // supplies a richer 4-step flow; this is only used in isolated previews or
-// when no catalog row matches. Previously this leaked Dandy/dental copy.
-const DEFAULT_STAGES = [
-  {
-    number: "01",
-    label: "Submit",
-    metric: "< 1 min",
-    metricLabel: "avg submission time",
-    body: "Kick off a request from any location with a streamlined intake form.",
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-        <motion.path d="M4 16 C4 9.4 9.4 4 16 4 C22.6 4 28 9.4 28 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.5 }} />
-        <motion.path d="M10 16 L13 21 L16 13 L19 19 L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9, delay: 0.9 }} />
-      </svg>
-    ),
-  },
-  {
-    number: "02",
-    label: "Validate",
-    metric: "Real-time",
-    metricLabel: "automated checks",
-    body: "Built-in validation catches issues before they propagate downstream.",
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-        <motion.circle cx="16" cy="16" r="7" stroke="currentColor" strokeWidth="2"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, delay: 0.5 }} />
-        <motion.path d="M4 16H9M23 16H28M16 4V9M16 23V28" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.8 }} />
-        <motion.path d="M13 16l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 1.3 }} />
-      </svg>
-    ),
-  },
-  {
-    number: "03",
-    label: "Route",
-    metric: "Auto",
-    metricLabel: "routing",
-    body: "Requests are routed to the right team based on rules you control.",
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-        <motion.path d="M16 4 L26 10 L26 22 L16 28 L6 22 L6 10 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.0, delay: 0.5 }} />
-        <motion.path d="M16 4 L16 28M6 10 L26 10M6 22 L26 22" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 1.2 }} />
-      </svg>
-    ),
-  },
-  {
-    number: "04",
-    label: "Deliver",
-    metric: "Days",
-    metricLabel: "typical turnaround",
-    body: "Track every step end-to-end with full visibility into status and SLA.",
-    icon: (
-      <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
-        <motion.path d="M6 17 L12 23 L26 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, delay: 0.5 }} />
-        <motion.circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.35"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1, delay: 0.2 }} />
-      </svg>
-    ),
-  },
-];
+// when no catalog row matches. Built from the shared text defaults so the
+// property panel seeds editing from the exact same content.
+const DEFAULT_STAGES = DSO_CASE_FLOW_DEFAULT_STAGES.map((s, i) => ({
+  ...s,
+  icon: STAGE_ICONS[i],
+}));
 
 interface Props {
   props: DsoCaseFlowBlockProps;

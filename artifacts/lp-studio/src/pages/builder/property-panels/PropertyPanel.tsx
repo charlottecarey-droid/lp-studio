@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PageBlock, BlockSettings, CtaMode } from "@/lib/block-types";
+import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage } from "@/lib/block-types";
+import { DSO_CASE_FLOW_DEFAULT_STAGES } from "@/lib/block-types";
 import { getBgOptions, type BackgroundStyle } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockSettingsPanel, ColorField } from "./BlockSettingsPanel";
@@ -751,6 +752,98 @@ function StatsReorderList<T extends { value: string; label: string }>({
                 placeholder="Label"
                 value={s.label}
                 onChange={e => onUpdate(i, "label", e.target.value)}
+              />
+            </div>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 mt-1 text-muted-foreground hover:text-destructive" onClick={() => onRemove(i)}>
+              ×
+            </Button>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function StageReorderList({
+  stages,
+  onReorder,
+  onUpdate,
+  onRemove,
+}: {
+  stages: DsoCaseFlowStage[];
+  onReorder: (from: number, to: number) => void;
+  onUpdate: (i: number, field: "label" | "metric" | "metricLabel" | "body", val: string) => void;
+  onRemove: (i: number) => void;
+}) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  return (
+    <>
+      {stages.map((s, i) => {
+        const isDragging = dragIndex === i;
+        const isOver = overIndex === i && dragIndex !== null && dragIndex !== i;
+        const overflow = i >= 4;
+        return (
+          <div
+            key={i}
+            draggable={dragIndex === i}
+            onDragOver={e => {
+              if (dragIndex === null) return;
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+              if (overIndex !== i) setOverIndex(i);
+            }}
+            onDrop={e => {
+              e.preventDefault();
+              if (dragIndex !== null && dragIndex !== i) onReorder(dragIndex, i);
+              setDragIndex(null);
+              setOverIndex(null);
+            }}
+            onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+            className={`flex gap-2 items-start bg-muted/40 rounded-lg p-2 transition-all ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary" : ""} ${overflow ? "ring-1 ring-amber-400/70" : ""}`}
+          >
+            <button
+              type="button"
+              aria-label="Drag to reorder"
+              onMouseDown={() => setDragIndex(i)}
+              onMouseUp={() => { if (dragIndex === i) setDragIndex(null); }}
+              onTouchStart={() => setDragIndex(i)}
+              onTouchEnd={() => { if (dragIndex === i) setDragIndex(null); }}
+              className="cursor-grab active:cursor-grabbing touch-none mt-1.5 p-0.5 text-muted-foreground/60 hover:text-muted-foreground"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex-1 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stage {i + 1}</span>
+                {overflow && <span className="text-[10px] font-medium text-amber-600">Not shown (max 4)</span>}
+              </div>
+              <Input
+                className="h-7 text-xs"
+                placeholder="Label (e.g. Submit)"
+                value={s.label}
+                onChange={e => onUpdate(i, "label", e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-1">
+                <Input
+                  className="h-7 text-xs"
+                  placeholder="Metric (e.g. < 1 min)"
+                  value={s.metric}
+                  onChange={e => onUpdate(i, "metric", e.target.value)}
+                />
+                <Input
+                  className="h-7 text-xs"
+                  placeholder="Metric label"
+                  value={s.metricLabel}
+                  onChange={e => onUpdate(i, "metricLabel", e.target.value)}
+                />
+              </div>
+              <Textarea
+                className="text-xs min-h-[3rem]"
+                rows={2}
+                placeholder="Body text"
+                value={s.body}
+                onChange={e => onUpdate(i, "body", e.target.value)}
               />
             </div>
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 mt-1 text-muted-foreground hover:text-destructive" onClick={() => onRemove(i)}>
@@ -3859,6 +3952,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "dso-case-flow": {
         const p = block.props;
+        // Seed from the block's own stages, or the renderer's built-in defaults
+        // when none are set, so editing always starts from the visible content.
+        const stages: DsoCaseFlowStage[] = (p.stages && p.stages.length > 0) ? p.stages : DSO_CASE_FLOW_DEFAULT_STAGES;
+        const writeStages = (next: DsoCaseFlowStage[]) => onChange({ ...block, props: { ...p, stages: next } });
+        const updateStage = (i: number, field: "label" | "metric" | "metricLabel" | "body", val: string) =>
+          writeStages(stages.map((s, idx) => idx === i ? { ...s, [field]: val } : s));
+        const addStage = () => writeStages([...stages, { label: "", metric: "", metricLabel: "", body: "" }]);
+        const removeStage = (i: number) => writeStages(stages.filter((_, idx) => idx !== i));
+        const reorderStage = (from: number, to: number) => {
+          const next = stages.slice();
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved);
+          writeStages(next);
+        };
         return (
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
@@ -3893,7 +4000,18 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
-            <p className="text-xs text-muted-foreground italic">Stage cards use built-in defaults. Custom stage editing coming soon.</p>
+            <div className="space-y-2 border-t pt-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Stage cards (up to 4 shown)</Label>
+                {stages.length < 4 && (
+                  <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 px-2" onClick={addStage}>
+                    <Plus className="w-3 h-3" /> Add
+                  </Button>
+                )}
+              </div>
+              <StageReorderList stages={stages} onReorder={reorderStage} onUpdate={updateStage} onRemove={removeStage} />
+              <p className="text-[11px] text-muted-foreground">Drag to reorder. The block displays the first 4 stages.</p>
+            </div>
           </div>
         );
       }
