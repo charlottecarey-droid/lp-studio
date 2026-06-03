@@ -709,7 +709,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       await withDbRetry(() => db.update(salesEmailCampaignsTable)
         .set({ status: "sent", sentAt: new Date() })
         .where(eq(salesEmailCampaignsTable.id, campaignId)));
-      res.json({ sent: 0, failed: 0, skipped: skippedCount, total: withEmail.length });
+      res.json({ sent: 0, failed: 0, skipped: skippedCount, linkFailures: 0, total: withEmail.length });
       return;
     }
     let lastHeartbeat = Date.now();
@@ -733,6 +733,12 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     const campaignPreviewText = ((campaign.metadata as any)?.previewText ?? "") as string;
 
     let sent = 0, failed = 0;
+    // Count recipients who were actually emailed but went out with an empty
+    // {{microsite_url}} because their personalized hotlink could not be minted.
+    // Counted only on a successful send (see micrositeLinkBlank below) so a
+    // separate send failure isn't double-reported. Surfaced in the response so
+    // the sender knows some links were blank.
+    let linkFailures = 0;
 
     for (const contact of sendable) {
       const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(tenantId, contact.id)}`;
@@ -764,6 +770,10 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       if (hotlink) {
         vars["{{microsite_url}}"] = `${host}/p/${hotlink.token}`;
       }
+      // The template uses {{microsite_url}} but we couldn't mint a link for this
+      // recipient — they'll get a blank link. Only counted below if the email
+      // actually goes out, so a separate send failure isn't double-reported.
+      const micrositeLinkBlank = needsMicrosite && !hotlink;
 
       const subject = replaceVars(template.subject, vars);
 
@@ -820,6 +830,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
       if (result.ok) {
         sent++;
+        if (micrositeLinkBlank) linkFailures++;
         // Create signal for email sent. The email already went out, so a
         // transient DB hiccup here must not abort the rest of the send —
         // retry then swallow (best-effort), keeping the send counted.
@@ -880,7 +891,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       .set({ status: "sent", sentAt: new Date() })
       .where(eq(salesEmailCampaignsTable.id, campaignId)));
 
-    res.json({ sent, failed, skipped: skippedCount, total: sendable.length + skippedCount });
+    res.json({ sent, failed, skipped: skippedCount, linkFailures, total: sendable.length + skippedCount });
   } catch (err) {
     logger.error({ err, campaignId, tenantId }, "POST /sales/campaigns/:id/send error");
     if (isTransientDbError(err)) {
@@ -963,6 +974,10 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
     // Build vars — real values if we have a contact, otherwise clearly-labelled samples
     let companyName = "";
     let hotlinkToken: string | null = null;
+    // True only when a page IS selected but minting the personalized hotlink
+    // failed — distinguishes a broken link from the "no page selected" case
+    // (where {{microsite_url}} is legitimately blank).
+    let micrositeLinkFailed = false;
     if (contact?.accountId) {
       const [acc] = await db.select({ name: salesAccountsTable.name })
         .from(salesAccountsTable)
@@ -980,6 +995,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
           hotlinkToken = created.token;
         } catch (err) {
           logger.error({ err, contactId: contact.id, pageId: previewPageId }, "Failed to ensure hotlink for preview");
+          micrositeLinkFailed = true;
         }
       } else {
         // Legacy fallback: any existing published-page hotlink for this contact.
@@ -1032,10 +1048,14 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
     const rawCombined = `${template.subject}\n${template.bodyHtml ?? ""}\n${template.bodyText ?? ""}`;
     const unresolvedTokens = findUnresolvedTokens(rawCombined, vars);
 
-    // Also surface tokens whose value resolves to empty (e.g. missing first_name)
+    // Also surface tokens whose value resolves to empty (e.g. missing first_name).
+    // When the microsite link specifically failed to mint, exclude it here so it
+    // isn't reported as generic "missing contact data" — the dedicated
+    // micrositeLinkFailed flag below drives a distinct, stronger warning instead.
     const emptyTokens: string[] = [];
     for (const [k, v] of Object.entries(vars)) {
       if (v === "" && rawCombined.includes(k)) {
+        if (k === "{{microsite_url}}" && micrositeLinkFailed) continue;
         emptyTokens.push(k.replace(/^\{\{|\}\}$/g, ""));
       }
     }
@@ -1053,6 +1073,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
       } : null,
       unresolvedTokens,
       emptyTokens,
+      micrositeLinkFailed,
       isSample: !contact,
     });
   } catch (err) {
@@ -1478,6 +1499,10 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
 
     const host = await getTenantOutboundOrigin(tenantId, req);
 
+    // True only when a page IS selected but minting the personalized hotlink
+    // failed — lets the caller distinguish a broken link from "no page selected".
+    let micrositeLinkFailed = false;
+
     // Build merge vars — use real contact data if contactId provided, otherwise sample values
     let vars: Record<string, string> = {
       "{{first_name}}": "Sarah",
@@ -1529,6 +1554,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
             testToken = created.token;
           } catch (err) {
             logger.error({ err, contactId: contact.id, pageId }, "Failed to ensure hotlink for test email");
+            micrositeLinkFailed = true;
           }
         } else {
           const [hotlink] = await db
@@ -1581,7 +1607,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
       return;
     }
 
-    res.json({ ok: true });
+    res.json({ ok: true, micrositeLinkFailed });
   } catch (err) {
     logger.error({ err }, "POST /sales/send-test-email error");
     res.status(500).json({ error: "Failed to send test email" });

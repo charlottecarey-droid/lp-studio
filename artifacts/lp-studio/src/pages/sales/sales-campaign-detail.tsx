@@ -142,6 +142,7 @@ interface EmailPreview {
   } | null;
   unresolvedTokens: string[];
   emptyTokens: string[];
+  micrositeLinkFailed?: boolean;
   isSample: boolean;
 }
 
@@ -456,7 +457,14 @@ export default function SalesCampaignDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metadata: updatedMeta }),
       });
-      await fetch(`${API_BASE}/sales/campaigns/${campaign.id}/send`, { method: "POST" });
+      const sendRes = await fetch(`${API_BASE}/sales/campaigns/${campaign.id}/send`, { method: "POST" });
+      const sendData = await sendRes.json().catch(() => ({}));
+      const linkFailures = Number(sendData?.linkFailures ?? 0);
+      if (sendRes.ok && linkFailures > 0 && typeof window !== "undefined") {
+        window.alert(
+          `Campaign sent, but ${linkFailures} recipient${linkFailures === 1 ? "" : "s"} went out with an empty personalized link (the link couldn't be generated).`,
+        );
+      }
       fetchCampaign();
     } finally {
       setSendingCampaign(false);
@@ -1327,6 +1335,17 @@ export default function SalesCampaignDetail() {
                   {[...emailPreview.unresolvedTokens, ...emailPreview.emptyTokens].map(tok => (
                     <code key={tok} className="px-1 py-0.5 rounded bg-amber-100 text-[11px] font-mono">{`{{${tok.replace(/^\{\{|\}\}$/g, "")}}}`}</code>
                   ))}
+                </div>
+              )}
+              {/* Distinct from "no page selected": the page IS set but the
+                  personalized link couldn't be minted, so it'll be blank. */}
+              {emailPreview?.micrositeLinkFailed && (
+                <div className="flex items-start gap-1.5 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-[12px] text-red-900">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <span className="font-medium">Personalized link couldn't be generated.</span>{" "}
+                    The <code className="px-1 py-0.5 rounded bg-red-100 text-[11px] font-mono">{"{{microsite_url}}"}</code> link will be empty for recipients. Try sending again — if it persists, re-check the selected landing page.
+                  </span>
                 </div>
               )}
             </div>

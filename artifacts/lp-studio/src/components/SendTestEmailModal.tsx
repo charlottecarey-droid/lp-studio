@@ -52,11 +52,13 @@ export function SendTestEmailModal({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkWarning, setLinkWarning] = useState(false);
 
   async function handleSend() {
     if (!to || !subject || (!bodyHtml && !bodyText)) return;
     setSending(true);
     setError(null);
+    setLinkWarning(false);
     try {
       const payload: Record<string, unknown> = {
         to,
@@ -78,11 +80,15 @@ export function SendTestEmailModal({
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const linkFailed = !!(data as { micrositeLinkFailed?: boolean }).micrositeLinkFailed;
+        setLinkWarning(linkFailed);
         setSent(true);
+        // Keep the dialog open a touch longer when there's a warning to read.
         setTimeout(() => {
           setSent(false);
-          onClose();
-        }, 2000);
+          if (!linkFailed) onClose();
+        }, linkFailed ? 3500 : 2000);
       } else {
         const data = await res.json().catch(() => ({}));
         setError((data as { error?: string }).error ?? "Failed to send test email");
@@ -98,6 +104,7 @@ export function SendTestEmailModal({
     if (!open) {
       setError(null);
       setSent(false);
+      setLinkWarning(false);
       onClose();
     }
   }
@@ -161,6 +168,13 @@ export function SendTestEmailModal({
 
           {error && (
             <p className="text-sm text-red-600 leading-snug">{error}</p>
+          )}
+
+          {linkWarning && (
+            <p className="text-xs text-red-700 leading-snug rounded-md border border-red-300 bg-red-50 px-3 py-2">
+              <span className="font-medium">Test sent, but the personalized link couldn't be generated.</span>{" "}
+              The <code className="font-mono">{"{{microsite_url}}"}</code> link is empty in this email — try again, and re-check the selected landing page if it persists.
+            </p>
           )}
         </div>
 

@@ -91,6 +91,7 @@ interface PreviewResult {
   } | null;
   unresolvedTokens: string[];
   emptyTokens: string[];
+  micrositeLinkFailed?: boolean;
   isSample: boolean;
 }
 
@@ -663,6 +664,10 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
         const err = await r.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to send test");
       }
+      const testData = await r.json().catch(() => ({}));
+      if (testData?.micrositeLinkFailed && typeof window !== "undefined") {
+        window.alert("Test sent, but the personalized link couldn't be generated — the {{microsite_url}} link is empty in this email.");
+      }
       setSentTest(true);
       setTimeout(() => setSentTest(false), 2500);
     } catch (e) {
@@ -698,7 +703,11 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
       // Reset draft so the next wizard run creates a fresh campaign
       setDraftId(null);
       if (typeof window !== "undefined") {
-        alert(`Campaign sent! ${result.sent} delivered${result.failed > 0 ? `, ${result.failed} failed` : ""}.`);
+        const linkFailures = Number(result.linkFailures ?? 0);
+        const linkNote = linkFailures > 0
+          ? `\n\n⚠️ ${linkFailures} recipient${linkFailures === 1 ? "" : "s"} went out with an empty personalized link (the link couldn't be generated).`
+          : "";
+        alert(`Campaign sent! ${result.sent} delivered${result.failed > 0 ? `, ${result.failed} failed` : ""}.${linkNote}`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send campaign");
@@ -1208,6 +1217,18 @@ export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: P
                       <code key={t} className="px-1 py-0.5 mx-0.5 bg-white border border-sky-200 rounded font-mono">{t}</code>
                     ))}
                     . The tag will be blank in their email. Other recipients may have this data.
+                  </div>
+                </div>
+              )}
+
+              {preview && preview.micrositeLinkFailed && (
+                <div className="flex items-start gap-3 p-3 rounded-xl border border-red-300 bg-red-50 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-red-900 leading-relaxed">
+                    <strong>Personalized link couldn't be generated</strong> for{" "}
+                    <strong>{preview.contact?.firstName || preview.contact?.email}</strong>. Their{" "}
+                    <code className="px-1 py-0.5 mx-0.5 bg-white border border-red-200 rounded font-mono">{"{{microsite_url}}"}</code>{" "}
+                    will be empty in the email. Try sending again — if it keeps happening, re-check the selected landing page.
                   </div>
                 </div>
               )}
