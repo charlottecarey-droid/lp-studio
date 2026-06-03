@@ -42,8 +42,22 @@ import { getDtrParams, applyDtr } from "@/lib/dtr";
 // across wide screens. We avoid `overflow-hidden` here so any block using
 // position:sticky inside the sheet keeps working.
 const ONE_PAGER_BLOCK_TYPES = new Set(["one-pager-hero"]);
-function hasOnePagerBlock(blocks: { type: string }[]): boolean {
-  return blocks.some((b) => ONE_PAGER_BLOCK_TYPES.has(b.type));
+// Page-chrome blocks that may legitimately precede the hero without changing
+// the page's layout identity (a nav / sticky bar above a one-pager hero still
+// makes a one-pager).
+const ONE_PAGER_LEADING_CHROME = new Set([
+  "nav-header", "sticky-header", "sticky-bar", "popup", "dandy-site-header",
+]);
+// A page reads as an interactive one-pager only when it LEADS with the
+// one-pager hero — the structural signature of a generated / sales one-pager.
+// The `one-pager-hero` block carries the generic "hero" role tag, so the AI
+// page builder can drop it into a regular landing page as a mid-page section.
+// We must NOT treat those landing pages as one-pagers (doing so squeezes their
+// full-bleed design into the centered PDF-like sheet). Only the leading content
+// block decides the layout; a buried one-pager-hero leaves the page full-bleed.
+function isOnePagerLayout(blocks: { type: string }[]): boolean {
+  const lead = blocks.find((b) => !ONE_PAGER_LEADING_CHROME.has(b.type));
+  return !!lead && ONE_PAGER_BLOCK_TYPES.has(lead.type);
 }
 function OnePagerFrame({ active, bg, children }: { active: boolean; bg?: string; children: ReactNode }) {
   if (!active) return <>{children}</>;
@@ -842,7 +856,7 @@ export default function LandingPageViewer() {
     // (salesConsole.onePager*Color) so the override reaches BOTH the CSS-var
     // layer and any block reading the brand prop directly. Landing pages are
     // untouched (renderBrand === brand).
-    const isOnePagerPage = hasOnePagerBlock(blocks);
+    const isOnePagerPage = isOnePagerLayout(blocks);
     const renderBrand = isOnePagerPage ? resolveOnePagerColors(brand) : brand;
 
     return (
@@ -967,7 +981,7 @@ export default function LandingPageViewer() {
       safeNavigate(dest, "_blank");
     };
 
-    const isOnePagerPage = hasOnePagerBlock(blocks);
+    const isOnePagerPage = isOnePagerLayout(blocks);
     const renderBrand = isOnePagerPage ? resolveOnePagerColors(brand) : brand;
 
     return (
