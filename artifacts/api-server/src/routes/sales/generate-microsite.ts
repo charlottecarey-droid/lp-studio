@@ -16,6 +16,11 @@ import {
   validateAndDedupeAIImages,
   fillEmptyImages,
   aiFillEmptyImages,
+  inferDesignIntensity,
+  buildTypographySection,
+  buildDesignIntensitySection,
+  applyDesignIntensityBackgrounds,
+  type DesignIntensity,
 } from "../lp/generate-page";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
@@ -1195,6 +1200,21 @@ function buildSystemPrompt(
   const chilipiperUrl = brand.chilipiperUrl as string | undefined;
   const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
 
+  // Task #900 — typography + design-intensity context, shared with the
+  // marketing generator. Fonts only emit when set; design intensity is
+  // inferred from tone signals (explicit override wins) and always emits.
+  const typographySection = buildTypographySection({
+    displayFont: brand.displayFont as string | undefined,
+    bodyFont: brand.bodyFont as string | undefined,
+    numbersFont: brand.numbersFont as string | undefined,
+  });
+  const designIntensity = inferDesignIntensity({
+    designIntensity: brand.designIntensity as DesignIntensity | undefined,
+    toneOfVoice: tone,
+    toneKeywords,
+    voiceProfile: brand.voiceProfile as { profile?: { tone?: string[]; summary?: string } } | undefined,
+  });
+
   const brandSection = [
     tone              ? `VOICE: ${tone}` : null,
     toneKeywords?.length ? `Style words — your copy should feel: ${toneKeywords.join(", ")}` : null,
@@ -1202,6 +1222,8 @@ function buildSystemPrompt(
     taglines?.length  ? `Brand taglines (reference these, don't repeat them verbatim): ${taglines.join(" | ")}` : null,
     copyExamples?.length ? `Copy that nails the voice — study these and write in this register:\n${copyExamples.map(e => `  "${e}"`).join("\n")}` : null,
     copyInstructions?.trim() ? copyInstructions.trim() : null,
+    typographySection || null,
+    buildDesignIntensitySection(designIntensity),
     chilipiperUrl ? `Chili Piper booking URL: "${chilipiperUrl}" — use this as ctaUrl for ALL blocks; set ctaMode: "chilipiper" on every block with ctaText/ctaUrl props` : null,
     !chilipiperUrl && defaultCtaUrl ? `Default CTA URL: "${defaultCtaUrl}" — use this as ctaUrl on EVERY block that has a ctaUrl prop. Never leave ctaUrl as "#".` : null,
   ].filter(Boolean).join("\n");
@@ -1573,6 +1595,18 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
+
+    // Task #900 — deterministic backgroundStyle post-pass. Re-infer the design
+    // intensity (deterministic; matches what buildSystemPrompt used) and enforce
+    // the density rhythm structurally rather than trusting the LLM. Runs before
+    // the image pipeline since it only touches `backgroundStyle`.
+    const micrositeDesignIntensity = inferDesignIntensity({
+      designIntensity: brand.designIntensity as DesignIntensity | undefined,
+      toneOfVoice: brand.toneOfVoice as string | undefined,
+      toneKeywords: brand.toneKeywords as string[] | undefined,
+      voiceProfile: brand.voiceProfile as { profile?: { tone?: string[]; summary?: string } } | undefined,
+    });
+    normalizedBlocks = applyDesignIntensityBackgrounds(normalizedBlocks, micrositeDesignIntensity) as AiBlock[];
 
     // ── Image pipeline (parity with the marketing generator) ──────────────
     // Page-level topic context biases image scoring toward on-topic library

@@ -14,6 +14,12 @@ export type ButtonPaddingY = "compact" | "regular" | "spacious";
 export type ButtonFontWeight = "normal" | "medium" | "semibold" | "bold";
 export type ButtonTextCase = "uppercase" | "capitalize" | "normal";
 export type ButtonLetterSpacing = "tight" | "normal" | "wide" | "wider";
+/** Task #900 — design-density axis fed into AI page/microsite generation. */
+export type DesignIntensity =
+  | "editorial-dense"
+  | "airy-minimal"
+  | "energetic-visual"
+  | "balanced";
 export type SectionPadding = "compact" | "comfortable" | "spacious";
 export type HeadingWeight = "semibold" | "bold" | "extrabold" | "black";
 export type HeadingLetterSpacing = "tight" | "normal" | "wide";
@@ -255,6 +261,11 @@ export interface BrandConfig {
   messagingPillars: MessagingPillar[];
   toneOfVoice: string;
   toneKeywords: string[];
+  /** Task #900 — design-density axis fed into AI page/microsite generation.
+   *  Inferred server-side from tone keywords today (no UI control yet — that's
+   *  a follow-up); typed here for type-safety and the future picker. Defaults
+   *  to "balanced" when unset. */
+  designIntensity?: DesignIntensity;
   avoidPhrases: string[];
   targetAudience: string;
   copyExamples: string[];

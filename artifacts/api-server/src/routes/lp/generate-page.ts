@@ -49,6 +49,22 @@ interface ProductLine {
   keywords: string[];
 }
 
+/** Task #900 — the design-density axis fed into AI page generation. Inferred
+ *  server-side from tone-of-voice keywords (no UI yet) and enforced via a
+ *  deterministic post-pass. Defaults to "balanced". */
+export type DesignIntensity =
+  | "editorial-dense"
+  | "airy-minimal"
+  | "energetic-visual"
+  | "balanced";
+
+const DESIGN_INTENSITY_VALUES: readonly DesignIntensity[] = [
+  "editorial-dense",
+  "airy-minimal",
+  "energetic-visual",
+  "balanced",
+] as const;
+
 interface BrandConfig {
   brandName?: string;
   toneOfVoice?: string;
@@ -62,6 +78,22 @@ interface BrandConfig {
   accentColor?: string;
   ctaBackground?: string;
   ctaTextColor?: string;
+  /** Task #900 — brand typography family names (heading / body / numbers).
+   *  Fed into the AI prompt's TYPOGRAPHY section so the model picks hero and
+   *  headline blocks that complement the brand's fonts. The frontend
+   *  `BrandFontLoader` still owns actual font *loading*; we only pass the
+   *  family-name strings into the LLM context. `numbersFont` falls back to
+   *  `displayFont` when unset. */
+  displayFont?: string;
+  bodyFont?: string;
+  numbersFont?: string;
+  /** Task #900 — design-density axis. Inferred at request time from tone
+   *  keywords when not explicitly set; defaults to "balanced". */
+  designIntensity?: DesignIntensity;
+  /** Task #900 — imported voice profile; its `profile.tone` / `profile.summary`
+   *  text is read by the design-intensity inference so it works regardless of
+   *  which voice field the brand populated. Only the consumed shape is typed. */
+  voiceProfile?: { profile?: { tone?: string[]; summary?: string } };
   productLines?: ProductLine[];
   /** Task #253 — minimal mirror of the client `AudienceSegment` shape so we
    *  can pull approved per-segment stats into the strict-mode pool. Only the
@@ -96,6 +128,204 @@ const STRICT_FACTS_INSTRUCTION =
   "or number that is not provided, write \"X\"; if it would require a case " +
   "study or quote that is not provided, write \"Add a quote in brand settings\". " +
   "Write nothing else in those slots.";
+
+// ── Brand typography & design-intensity helpers (Task #900) ───────────────
+
+/** Trailing weight / style tokens stripped from a raw font-family string so
+ *  the prompt names a clean family (e.g. "Inter Bold Italic" → "Inter").
+ *  Local mirror of lp-studio's `cleanFamilyName` — the api-server is a
+ *  separate artifact and cannot import from the web app. */
+const FONT_WEIGHT_STYLE_WORDS = new Set([
+  "thin", "hairline", "extralight", "ultralight", "light",
+  "regular", "normal", "book", "medium",
+  "semibold", "demibold", "bold", "extrabold", "ultrabold", "heavy", "black",
+  "italic", "oblique",
+  "condensed", "narrow", "compressed", "extended", "expanded",
+  "roman", "std", "lt", "rg", "bd",
+]);
+
+/** Normalize a brand font-family string for the AI prompt: strip surrounding
+ *  quotes and trailing weight/style words. Returns "" for blank/undefined. */
+export function cleanFamilyName(family: string | undefined | null): string {
+  if (!family) return "";
+  const trimmed = family.replace(/^['"]+|['"]+$/g, "").trim();
+  if (!trimmed) return "";
+  const tokens = trimmed.split(/\s+/);
+  while (tokens.length > 1) {
+    const last = tokens[tokens.length - 1]!.toLowerCase();
+    if (FONT_WEIGHT_STYLE_WORDS.has(last)) {
+      tokens.pop();
+      continue;
+    }
+    break;
+  }
+  return tokens.join(" ");
+}
+
+/** Infer the brand's design-intensity from its tone-of-voice signals.
+ *
+ *  An explicit `brand.designIntensity` always wins. Otherwise we scan every
+ *  available tone field — `toneOfVoice`, `toneKeywords`, and the imported
+ *  `voiceProfile` (tone[] + summary) — so inference works regardless of which
+ *  field the brand populated, and map keywords to an axis value:
+ *    luxury / premium / editorial / sophisticated → editorial-dense
+ *    clean / minimal / airy / calm                → airy-minimal
+ *    bold / playful / energetic                   → energetic-visual
+ *  Anything else (or no signal) → balanced. */
+export function inferDesignIntensity(brand: {
+  designIntensity?: DesignIntensity;
+  toneOfVoice?: string;
+  toneKeywords?: string[];
+  voiceProfile?: { profile?: { tone?: string[]; summary?: string } };
+}): DesignIntensity {
+  if (brand.designIntensity && DESIGN_INTENSITY_VALUES.includes(brand.designIntensity)) {
+    return brand.designIntensity;
+  }
+  const haystack = [
+    brand.toneOfVoice ?? "",
+    ...(brand.toneKeywords ?? []),
+    ...(brand.voiceProfile?.profile?.tone ?? []),
+    brand.voiceProfile?.profile?.summary ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (/\b(luxur|premium|editorial|sophisticat|elegant|refined|upscale)/.test(haystack)) {
+    return "editorial-dense";
+  }
+  if (/\b(clean|minimal|airy|calm|simple|understated|serene)/.test(haystack)) {
+    return "airy-minimal";
+  }
+  if (/\b(bold|playful|energetic|vibrant|dynamic|fun|lively)/.test(haystack)) {
+    return "energetic-visual";
+  }
+  return "balanced";
+}
+
+/** Per-value AI guidance emitted in the DESIGN INTENSITY prompt section. */
+const DESIGN_INTENSITY_GUIDANCE: Record<DesignIntensity, string> = {
+  "editorial-dense":
+    "Pack the page with content. Favor magazine-style heroes, dense multi-column grids, and longer-form sections. Long copy is OK. Use darker, richer section backgrounds for a premium, editorial feel.",
+  "airy-minimal":
+    "Maximize whitespace. Lead with a single, focused message in the hero. Use fewer blocks, short copy, and light backgrounds throughout. Restraint is the point — never crowd a section.",
+  "energetic-visual":
+    "Make it vibrant and photo-heavy. Use big numbers, prominent social proof, and punchy, high-energy copy. Lean on accent-colored sections and bold imagery to create momentum.",
+  "balanced":
+    "Use a standard, modern SaaS rhythm — alternating light and dark sections, clear hierarchy, moderate copy length, and a comfortable amount of whitespace.",
+};
+
+/** Build the TYPOGRAPHY prompt section from the brand's font families.
+ *  Returns "" when no font is set (so the prompt stays clean). */
+export function buildTypographySection(brand: {
+  displayFont?: string;
+  bodyFont?: string;
+  numbersFont?: string;
+}): string {
+  const heading = cleanFamilyName(brand.displayFont);
+  const body = cleanFamilyName(brand.bodyFont);
+  const numbers = cleanFamilyName(brand.numbersFont);
+  if (!heading && !body && !numbers) return "";
+  const lines: string[] = ["TYPOGRAPHY — the brand's fonts are already loaded on the page:"];
+  if (heading) lines.push(`- Headings / display: "${heading}"`);
+  if (body) lines.push(`- Body text: "${body}"`);
+  if (numbers) lines.push(`- Big numeric values (stats): "${numbers}"`);
+  lines.push(
+    "Choose hero and headline blocks whose visual style complements this typography (e.g. a serif/display heading font pairs with an editorial, magazine-style hero; a clean geometric sans pairs with a minimal, modern hero). Do NOT pick hero/headline blocks that fight the brand's type — avoid mismatched, off-brand picks.",
+  );
+  return lines.join("\n");
+}
+
+/** Build the DESIGN INTENSITY prompt section for the resolved axis value. */
+export function buildDesignIntensitySection(intensity: DesignIntensity): string {
+  return `DESIGN INTENSITY: ${intensity}\n${DESIGN_INTENSITY_GUIDANCE[intensity]}`;
+}
+
+/** Background-style keys (mirror of lp-studio's bg-styles BACKGROUND_STYLE_KEYS). */
+type GenBackgroundStyle =
+  | "white"
+  | "light-gray"
+  | "muted"
+  | "dark"
+  | "dandy-green"
+  | "black"
+  | "gradient";
+
+/** Blocks that render light-on-dark text and therefore MUST keep a dark
+ *  background — never force these to white/light in the airy-minimal pass. */
+const DARK_REQUIRED_BLOCK_TYPES = new Set([
+  "dso-problem", "dso-ai-feature", "dso-stat-showcase",
+]);
+
+/** Deterministic post-pass: nudge block `backgroundStyle` to match the
+ *  resolved design intensity. Mirrors the ctaColor / accentColor injection
+ *  loop — we enforce density structurally instead of trusting the LLM.
+ *  Mutates and returns the same blocks array.
+ *
+ *    editorial-dense  → at least 2 of the first 5 blocks get a dark background
+ *    airy-minimal     → all backgrounds forced to white (except dark-required)
+ *    energetic-visual → at least 1 of the first 3 blocks gets an accent bg
+ *    balanced         → no change
+ */
+export function applyDesignIntensityBackgrounds(
+  blocks: unknown[],
+  intensity: DesignIntensity,
+): unknown[] {
+  if (intensity === "balanced") return blocks;
+
+  const getProps = (block: unknown): Record<string, unknown> | null => {
+    const b = block as Record<string, unknown>;
+    if (b && b.props && typeof b.props === "object") return b.props as Record<string, unknown>;
+    return null;
+  };
+  const blockType = (block: unknown): string =>
+    typeof (block as Record<string, unknown>)?.type === "string"
+      ? ((block as Record<string, unknown>).type as string)
+      : "";
+  const supportsBg = (props: Record<string, unknown> | null): props is Record<string, unknown> =>
+    !!props && "backgroundStyle" in props;
+
+  if (intensity === "airy-minimal") {
+    const light: GenBackgroundStyle = "white";
+    for (const block of blocks) {
+      if (DARK_REQUIRED_BLOCK_TYPES.has(blockType(block))) continue;
+      const props = getProps(block);
+      if (supportsBg(props)) props.backgroundStyle = light;
+    }
+    return blocks;
+  }
+
+  if (intensity === "editorial-dense") {
+    const dark: GenBackgroundStyle = "dark";
+    const window = blocks.slice(0, 5);
+    let darkCount = window.filter((block) => {
+      const props = getProps(block);
+      return supportsBg(props) && ["dark", "black", "dandy-green", "gradient"].includes(String(props.backgroundStyle));
+    }).length;
+    for (const block of window) {
+      if (darkCount >= 2) break;
+      const props = getProps(block);
+      if (!supportsBg(props)) continue;
+      if (["dark", "black", "dandy-green", "gradient"].includes(String(props.backgroundStyle))) continue;
+      props.backgroundStyle = dark;
+      darkCount++;
+    }
+    return blocks;
+  }
+
+  // energetic-visual — ensure at least one accent-colored block in the first 3.
+  const accent: GenBackgroundStyle = "dandy-green"; // resolves to --brand-primary
+  const window = blocks.slice(0, 3);
+  const hasAccent = window.some((block) => {
+    const props = getProps(block);
+    return supportsBg(props) && String(props.backgroundStyle) === accent;
+  });
+  if (!hasAccent) {
+    const target = window.find((block) => supportsBg(getProps(block)));
+    const props = getProps(target);
+    if (supportsBg(props)) props.backgroundStyle = accent;
+  }
+  return blocks;
+}
 
 // ── Media library helpers ────────────────────────────────────────────────
 
@@ -1109,10 +1339,16 @@ async function fetchBrand(tenantId: number | null): Promise<BrandConfig> {
   }
 }
 
-function buildBrandContext(brand: BrandConfig): string {
+function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity): string {
   const parts: string[] = [];
   if (brand.brandName) parts.push(`Brand: ${brand.brandName}`);
   if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}`);
+  // Task #900 — name the brand's fonts so the model picks hero/headline blocks
+  // that complement the typography (emitted only when a font is set).
+  const typographySection = buildTypographySection(brand);
+  if (typographySection) parts.push(typographySection);
+  // Task #900 — always emit the resolved design-intensity guidance.
+  parts.push(buildDesignIntensitySection(designIntensity));
   const ctaHex = brand.ctaBackground || brand.accentColor || brand.primaryColor;
   if (ctaHex) parts.push(`CTA button color: "${ctaHex}" — use this exact hex for ALL ctaColor props`);
   if (brand.chilipiperUrl) parts.push(`Chili Piper booking URL: "${brand.chilipiperUrl}" — use this for ctaUrl on ALL DSO blocks; set ctaMode: "chilipiper" on every DSO block that has ctaText/ctaUrl props`);
@@ -2410,7 +2646,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const visionSection = visionImage
     ? `VISUAL REFERENCE (the attached image): Study the layout, color palette, typography hierarchy, information density, and overall aesthetic of this screenshot. Identify the feel — premium/editorial vs scrappy/casual, dense vs airy, dark vs light, modern minimal vs decorative — and let it inform which block types you pick and how dense the content sits in each block. The screenshot sets visual style; copy comes from the REFERENCE PAGE markdown above (when present), the BRAND CONTEXT, or the USER REQUEST.`
     : "";
-  const brandContext = buildBrandContext(brand);
+  // Task #900 — resolve the design-intensity axis once (explicit override or
+  // inferred from tone), then thread it through both the prompt context and the
+  // deterministic backgroundStyle post-pass below.
+  const designIntensity = inferDesignIntensity(brand);
+  const brandContext = buildBrandContext(brand, designIntensity);
   // Task #253 / #255 — case studies are always surfaced in the prompt so the
   // AI can reference real customer stories. When Strict Facts Mode is ON we
   // fetch ONLY the rows flagged `approved_for_ai` and badge the section as
@@ -3172,6 +3412,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
       return b;
     });
+
+    // Task #900 — deterministic backgroundStyle post-pass. Enforce the brand's
+    // design intensity structurally (mirroring the ctaColor/accentColor loop
+    // above) instead of trusting the LLM to honor the prompt guidance.
+    parsed.blocks = applyDesignIntensityBackgrounds(parsed.blocks, designIntensity);
 
     // Sanitize AI-assigned image URLs: clear any that match EXCLUDE_TAGS
     // (OG images, social, ad creatives) so fillEmptyImages can replace them
