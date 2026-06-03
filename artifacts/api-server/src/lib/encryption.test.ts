@@ -6,7 +6,35 @@ import {
   decryptConfigCredentials,
   isCredentialField,
   assertEncryptionKeyValid,
+  rotateCredential,
+  rotateConfigCredentials,
 } from "./encryption";
+
+// Two random 32-byte keys, base64-encoded, for exercising key rotation.
+const KEY_A = Buffer.alloc(32, 1).toString("base64");
+const KEY_B = Buffer.alloc(32, 2).toString("base64");
+
+/** Run `fn` with the given active/previous key env, restoring env after. */
+function withKeys(
+  active: string | undefined,
+  previous: string | undefined,
+  fn: () => void,
+): void {
+  const savedActive = process.env.CREDENTIAL_ENCRYPTION_KEY;
+  const savedPrev = process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
+  try {
+    if (active === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
+    else process.env.CREDENTIAL_ENCRYPTION_KEY = active;
+    if (previous === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
+    else process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = previous;
+    fn();
+  } finally {
+    if (savedActive === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
+    else process.env.CREDENTIAL_ENCRYPTION_KEY = savedActive;
+    if (savedPrev === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
+    else process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = savedPrev;
+  }
+}
 
 describe("encryption", () => {
   it("round-trips a string", () => {
@@ -120,5 +148,120 @@ describe("encryption", () => {
       if (saved === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
       else process.env.CREDENTIAL_ENCRYPTION_KEY = saved;
     }
+  });
+
+  it("assertEncryptionKeyValid rejects a malformed previous (rotation) key", () => {
+    withKeys(KEY_A, Buffer.from("too-short").toString("base64"), () => {
+      expect(() => assertEncryptionKeyValid()).toThrow(/CREDENTIAL_ENCRYPTION_KEY_PREVIOUS.*32 bytes/);
+    });
+    // A valid previous key passes.
+    withKeys(KEY_A, KEY_B, () => {
+      expect(() => assertEncryptionKeyValid()).not.toThrow();
+    });
+  });
+});
+
+describe("key rotation", () => {
+  it("decrypts ciphertext under the previous key via the active→previous fallback", () => {
+    // Encrypted under the OLD key (active = KEY_B at write time)...
+    let underOldKey = "";
+    withKeys(KEY_B, undefined, () => {
+      underOldKey = encryptCredential("rotate-me");
+    });
+    // ...is still readable after rotation (active = KEY_A, previous = KEY_B).
+    withKeys(KEY_A, KEY_B, () => {
+      expect(decryptCredential(underOldKey)).toBe("rotate-me");
+    });
+  });
+
+  it("fails to decrypt old-key ciphertext once the previous key is removed", () => {
+    let underOldKey = "";
+    withKeys(KEY_B, undefined, () => {
+      underOldKey = encryptCredential("rotate-me");
+    });
+    // No previous key set + active key can't decrypt → throws (steady state
+    // before rotation completes proves the fallback is required).
+    withKeys(KEY_A, undefined, () => {
+      expect(() => decryptCredential(underOldKey)).toThrow();
+    });
+  });
+
+  it("rotateCredential re-encrypts old-key values under the active key", () => {
+    let underOldKey = "";
+    withKeys(KEY_B, undefined, () => {
+      underOldKey = encryptCredential("rotate-me");
+    });
+
+    withKeys(KEY_A, KEY_B, () => {
+      const result = rotateCredential(underOldKey);
+      expect(result.rotated).toBe(true);
+      expect(result.value).not.toBe(underOldKey);
+      // The rotated envelope decrypts with the active key ALONE.
+      withKeys(KEY_A, undefined, () => {
+        expect(decryptCredential(result.value)).toBe("rotate-me");
+      });
+    });
+  });
+
+  it("rotateCredential is a no-op for values already under the active key", () => {
+    withKeys(KEY_A, KEY_B, () => {
+      const underActive = encryptCredential("already-current");
+      const result = rotateCredential(underActive);
+      expect(result.rotated).toBe(false);
+      expect(result.value).toBe(underActive);
+    });
+  });
+
+  it("rotateCredential passes through empty / plaintext values", () => {
+    withKeys(KEY_A, KEY_B, () => {
+      expect(rotateCredential("")).toEqual({ value: "", rotated: false });
+      expect(rotateCredential(null)).toEqual({ value: "", rotated: false });
+      expect(rotateCredential(undefined)).toEqual({ value: "", rotated: false });
+      expect(rotateCredential("legacy-plaintext")).toEqual({
+        value: "legacy-plaintext",
+        rotated: false,
+      });
+    });
+  });
+
+  it("rotateCredential throws when a value is undecryptable by either key", () => {
+    let underOldKey = "";
+    withKeys(KEY_B, undefined, () => {
+      underOldKey = encryptCredential("rotate-me");
+    });
+    // Active = KEY_A, no previous key → can't decrypt the old-key value.
+    withKeys(KEY_A, undefined, () => {
+      expect(() => rotateCredential(underOldKey)).toThrow(/not decryptable/);
+    });
+  });
+
+  it("rotateConfigCredentials rotates only old-key credential fields and is idempotent", () => {
+    let oldConfig: Record<string, unknown> = {};
+    withKeys(KEY_B, undefined, () => {
+      oldConfig = encryptConfigCredentials("marketo", {
+        munchkinId: "123-ABC",
+        clientId: "cid",
+        clientSecret: "the-secret",
+      });
+    });
+
+    withKeys(KEY_A, KEY_B, () => {
+      const first = rotateConfigCredentials("marketo", oldConfig);
+      expect(first.rotated).toBe(1);
+      // Non-credential fields untouched.
+      expect(first.config.munchkinId).toBe("123-ABC");
+      expect(first.config.clientId).toBe("cid");
+      expect(first.config.clientSecret).not.toBe(oldConfig.clientSecret);
+
+      // Re-running is a clean no-op (resumable / idempotent).
+      const second = rotateConfigCredentials("marketo", first.config);
+      expect(second.rotated).toBe(0);
+      expect(second.config.clientSecret).toBe(first.config.clientSecret);
+
+      // Rotated secret decrypts under the active key alone.
+      withKeys(KEY_A, undefined, () => {
+        expect(decryptConfigCredentials("marketo", first.config).clientSecret).toBe("the-secret");
+      });
+    });
   });
 });

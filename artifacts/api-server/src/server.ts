@@ -455,7 +455,10 @@ if (process.env.NODE_ENV === "production") {
     );
   }
   // Eagerly decode + length-check the key so a malformed value (wrong length,
-  // bad base64) fails at boot instead of on the first credential write.
+  // bad base64) fails at boot instead of on the first credential write. This
+  // also validates CREDENTIAL_ENCRYPTION_KEY_PREVIOUS when set (the decrypt-only
+  // key used during a rotation; task #862), so a typo in it can't silently
+  // disable the rotation decrypt fallback and strand secrets under the old key.
   assertEncryptionKeyValid();
 }
 

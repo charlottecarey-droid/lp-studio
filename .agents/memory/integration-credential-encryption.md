@@ -35,7 +35,25 @@ non-prod (running with the dev fallback would write undecryptable data).
 
 **Boot guard:** in production, startup fails if the key is unset, AND eagerly
 decodes + length-checks it so a malformed key fails at boot, not on first write.
-Dev/test run on a loud deterministic dev fallback key on purpose.
+Dev/test run on a loud deterministic dev fallback key on purpose. The boot guard
+also validates `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` (length) when set.
+
+**Key rotation (two-key, no envelope change):** `CREDENTIAL_ENCRYPTION_KEY` =
+active key (encrypts everything, tried first on decrypt);
+`CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` = old key, decrypt-only, used as a fallback
+when the active key's auth tag fails. Procedure: (1) set active=new, previous=old,
+redeploy — reads keep working via fallback; (2) run
+`scripts/rotate-encrypt-integrations.ts` to re-wrap every secret under the active
+key (idempotent: a value already decryptable by the active key is skipped, so
+re-runs/resume are no-ops; non-zero exit + per-row FAILED log if any value is
+undecryptable by either key); (3) remove previous key, redeploy. The envelope is
+still `v1:` with no key id — which key encrypted a value is discovered by trying
+(GCM auth tag makes a wrong-key decrypt throw, never return garbage).
+**Why:** rotating `CREDENTIAL_ENCRYPTION_KEY` alone would orphan all existing
+`v1:` ciphertext. **How to apply:** `rotateCredential`/`rotateConfigCredentials`
+are the rotation primitives; never re-encrypt by decrypt-then-encryptConfig
+(encryptConfig skips `v1:` values, so it can't re-key — it only backfills
+plaintext).
 
 **Test-mounting gotcha:** the lp index router's handlers already declare full
 `/lp/...` paths, so an in-process inject() test must mount it at ROOT, not under

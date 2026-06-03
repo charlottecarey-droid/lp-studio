@@ -9,9 +9,23 @@ import { randomBytes, createCipheriv, createDecipheriv, type CipherGCMTypes } fr
  *
  * Stored envelope format: `"v1:" + base64(iv ‖ ciphertext ‖ authTag)`.
  *
- * Loss of `CREDENTIAL_ENCRYPTION_KEY` = inability to decrypt every stored
- * integration credential. Back it up out-of-band. Rotation is a future
- * capability — for v1 the key is static. NEVER log the key or secret values.
+ * Key rotation (task #862) — two-key procedure:
+ *   1. Generate a new key. Set `CREDENTIAL_ENCRYPTION_KEY` to the NEW key and
+ *      `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` to the OLD key, then redeploy.
+ *      Decrypt tries the active key first and transparently falls back to the
+ *      previous key, so reads keep working while ciphertext is still under the
+ *      old key.
+ *   2. Run `scripts/rotate-encrypt-integrations.ts` to re-encrypt every stored
+ *      credential under the active (new) key. Idempotent + re-runnable.
+ *   3. Once the script reports zero remaining rows under the old key, remove
+ *      `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` and redeploy.
+ *
+ * Because GCM is authenticated, decrypting with the wrong key throws (bad auth
+ * tag), so the active→previous fallback never returns garbage. The envelope
+ * carries no key id; which key encrypted a value is discovered by trying.
+ *
+ * Loss of BOTH keys = inability to decrypt every stored integration credential.
+ * Back them up out-of-band. NEVER log a key or a secret value.
  */
 
 const ALGO: CipherGCMTypes = "aes-256-gcm";
@@ -20,10 +34,11 @@ const IV_LENGTH = 12; // 96 bits, recommended for GCM
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
 /**
- * Master encryption key for stored credentials. 32 raw bytes, base64-encoded
- * in the env var. Generate with: `openssl rand -base64 32`.
+ * Active (master) encryption key for stored credentials. 32 raw bytes,
+ * base64-encoded in the env var. Generate with: `openssl rand -base64 32`.
+ * Used for ALL new encryption and tried first on decrypt.
  */
-function getKey(): Buffer {
+function getActiveKey(): Buffer {
   const raw = process.env.CREDENTIAL_ENCRYPTION_KEY;
   if (!raw) {
     if (process.env.NODE_ENV === "production") {
@@ -48,19 +63,62 @@ function getKey(): Buffer {
   return key;
 }
 
+/**
+ * Previous encryption key, used DECRYPT-ONLY during a key rotation. Set
+ * `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` to the old key while the active key holds
+ * the new one; decrypt falls back to this when the active key fails. Returns
+ * null when unset (the steady state outside a rotation window). Throws on a
+ * malformed value so a typo in the previous key fails loudly at boot rather
+ * than silently disabling the decrypt fallback.
+ */
+function getPreviousKey(): Buffer | null {
+  const raw = process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS;
+  if (!raw) return null;
+  const key = Buffer.from(raw, "base64");
+  if (key.length !== 32) {
+    throw new Error(
+      `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS must be 32 bytes (base64-encoded). Got ${key.length} bytes.`,
+    );
+  }
+  return key;
+}
+
+/**
+ * Decrypt a `v1:` envelope with a specific key. Throws on a bad auth tag (wrong
+ * key) or malformed envelope. Internal helper for the active→previous fallback.
+ */
+function decryptEnvelopeWithKey(value: string, key: Buffer): string {
+  const envelope = Buffer.from(value.slice(VERSION.length + 1), "base64");
+  if (envelope.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+    throw new Error("decryptCredential: envelope too short");
+  }
+
+  const iv = envelope.subarray(0, IV_LENGTH);
+  const authTag = envelope.subarray(envelope.length - AUTH_TAG_LENGTH);
+  const ciphertext = envelope.subarray(IV_LENGTH, envelope.length - AUTH_TAG_LENGTH);
+
+  const decipher = createDecipheriv(ALGO, key, iv);
+  decipher.setAuthTag(authTag);
+  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return plaintext.toString("utf8");
+}
+
 /** True when a value already carries the encrypted-envelope version prefix. */
 function isEncrypted(value: string): boolean {
   return value.startsWith(`${VERSION}:`);
 }
 
 /**
- * Eagerly validate the encryption key at boot. Forces the same presence (prod),
- * base64-decode, and 32-byte length checks that `getKey()` runs lazily on first
- * encrypt/decrypt, so a missing or malformed key fails at startup instead of on
- * the first credential write. Throws on invalid configuration.
+ * Eagerly validate the encryption key(s) at boot. Forces the same presence
+ * (prod), base64-decode, and 32-byte length checks that `getActiveKey()` runs
+ * lazily on first encrypt/decrypt, so a missing or malformed key fails at
+ * startup instead of on the first credential write. Also validates the optional
+ * previous (decrypt-only) rotation key when present, so a typo in it can't
+ * silently disable the rotation decrypt fallback. Throws on invalid config.
  */
 export function assertEncryptionKeyValid(): void {
-  getKey();
+  getActiveKey();
+  getPreviousKey();
 }
 
 /**
@@ -76,7 +134,7 @@ export function encryptCredential(plaintext: string): string {
   if (plaintext === "") return ""; // empty strings round-trip as-is
 
   const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGO, getKey(), iv);
+  const cipher = createCipheriv(ALGO, getActiveKey(), iv);
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const authTag = cipher.getAuthTag();
 
@@ -92,6 +150,10 @@ export function encryptCredential(plaintext: string): string {
  *
  * The plaintext fallback lets the decrypt-on-read code ship BEFORE the backfill
  * migration runs, so partial rollouts don't break.
+ *
+ * During a key rotation the active key is tried first; if it fails (bad auth
+ * tag → the value was encrypted under the OLD key) the previous key is tried.
+ * Outside a rotation window (no previous key set) only the active key is used.
  */
 export function decryptCredential(value: string | null | undefined): string {
   if (value == null || value === "") return value ?? "";
@@ -102,19 +164,19 @@ export function decryptCredential(value: string | null | undefined): string {
   // Legacy plaintext path — return as-is.
   if (!isEncrypted(value)) return value;
 
-  const envelope = Buffer.from(value.slice(VERSION.length + 1), "base64");
-  if (envelope.length < IV_LENGTH + AUTH_TAG_LENGTH) {
-    throw new Error("decryptCredential: envelope too short");
+  try {
+    return decryptEnvelopeWithKey(value, getActiveKey());
+  } catch (activeErr) {
+    const previous = getPreviousKey();
+    if (previous) {
+      try {
+        return decryptEnvelopeWithKey(value, previous);
+      } catch {
+        // fall through to throw the active-key error below
+      }
+    }
+    throw activeErr;
   }
-
-  const iv = envelope.subarray(0, IV_LENGTH);
-  const authTag = envelope.subarray(envelope.length - AUTH_TAG_LENGTH);
-  const ciphertext = envelope.subarray(IV_LENGTH, envelope.length - AUTH_TAG_LENGTH);
-
-  const decipher = createDecipheriv(ALGO, getKey(), iv);
-  decipher.setAuthTag(authTag);
-  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  return plaintext.toString("utf8");
 }
 
 /**
@@ -173,4 +235,75 @@ export function decryptConfigCredentials(
     }
   }
   return out;
+}
+
+/**
+ * Re-encrypt a single credential under the ACTIVE key (key rotation, task #862).
+ * Returns `{ value, rotated }`:
+ *   - `rotated: false` (value unchanged) when the input is empty, plaintext, or
+ *     already decryptable with the active key — i.e. nothing to do.
+ *   - `rotated: true` with a fresh envelope when the value was decryptable only
+ *     with the PREVIOUS key, so it gets re-wrapped under the active key.
+ *
+ * Throws if an encrypted value can't be decrypted by either key (so the rotation
+ * script fails loudly on an undecryptable row instead of silently dropping it).
+ *
+ * Idempotent: once a value is under the active key, re-running is a no-op, so the
+ * rotation script can be run repeatedly and resumed safely.
+ */
+export function rotateCredential(value: string | null | undefined): {
+  value: string;
+  rotated: boolean;
+} {
+  if (value == null || value === "") return { value: value ?? "", rotated: false };
+  if (typeof value !== "string") {
+    throw new Error("rotateCredential: input must be a string");
+  }
+
+  // Plaintext is out of scope for rotation (the backfill script handles that).
+  if (!isEncrypted(value)) return { value, rotated: false };
+
+  // Already under the active key → nothing to do (idempotent).
+  try {
+    decryptEnvelopeWithKey(value, getActiveKey());
+    return { value, rotated: false };
+  } catch {
+    // Not under the active key; try the previous key below.
+  }
+
+  const previous = getPreviousKey();
+  if (!previous) {
+    throw new Error(
+      "rotateCredential: value is not decryptable with the active key and no " +
+        "CREDENTIAL_ENCRYPTION_KEY_PREVIOUS is set to decrypt it.",
+    );
+  }
+
+  // Decryptable with the previous key → re-encrypt under the active key.
+  const plaintext = decryptEnvelopeWithKey(value, previous);
+  return { value: encryptCredential(plaintext), rotated: true };
+}
+
+/**
+ * Re-encrypt every credential field in a config under the active key. Returns a
+ * NEW object plus `rotated` = how many fields were actually re-wrapped (0 means
+ * the whole config was already under the active key — used by the rotation
+ * script to skip the DB write). Non-credential fields pass through unchanged.
+ */
+export function rotateConfigCredentials(
+  provider: string,
+  config: Record<string, unknown>,
+): { config: Record<string, unknown>; rotated: number } {
+  const credentialFields = CREDENTIAL_FIELDS_BY_PROVIDER[provider] ?? [];
+  const out: Record<string, unknown> = { ...config };
+  let rotated = 0;
+  for (const field of credentialFields) {
+    const value = config[field];
+    if (typeof value === "string" && value !== "") {
+      const result = rotateCredential(value);
+      out[field] = result.value;
+      if (result.rotated) rotated++;
+    }
+  }
+  return { config: out, rotated };
 }
