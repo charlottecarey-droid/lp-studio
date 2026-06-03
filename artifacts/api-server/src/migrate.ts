@@ -57,6 +57,51 @@ const MIGRATION_LOCK_KEY_BIGINT = BigInt(MIGRATION_ADVISORY_LOCK_KEY);
 export const MIGRATION_LOCK_CLASSID = Number(MIGRATION_LOCK_KEY_BIGINT >> 32n) >>> 0;
 export const MIGRATION_LOCK_OBJID = Number(MIGRATION_LOCK_KEY_BIGINT & 0xffffffffn) >>> 0;
 
+// Neon's pooled endpoint (the `-pooler` host) runs PgBouncer in transaction
+// mode, which keeps a server backend alive after our client disconnects. A
+// session-scoped advisory lock taken over that pooler can therefore SURVIVE
+// an interrupted migrate (a cancelled or killed publish): the backend lingers
+// holding the lock with state='active', which the production steal path
+// refuses to terminate, so every later deploy aborts until the backend is
+// manually killed (`pg_terminate_backend`).
+//
+// Holding the migration lock on the DIRECT (non-pooled) endpoint instead
+// means the lock is released the instant this process's TCP socket closes —
+// even on a hard kill — because there is no pooler keeping the backend alive.
+// This only rewrites the host used by the dedicated lock client; the
+// migration DDL itself still runs over the normal pooled `db`/`pool`, where
+// drizzle wraps the batch in a single (transaction-scoped) transaction that
+// the pooler releases on commit/rollback regardless.
+//
+// The rewrite is deliberately narrow: Neon encodes the pool marker as a
+// `-pooler` SUFFIX on the FIRST host label (the endpoint id), e.g.
+// `ep-x-123-pooler.<region>.aws.neon.tech` → direct `ep-x-123.<region>...`.
+// We only touch `*.neon.tech` hosts and only strip the suffix on that first
+// label, so non-Neon connection strings (and any incidental `-pooler` text
+// elsewhere in the host) are left untouched — a malformed rewrite here would
+// abort every deploy.
+function rewriteNeonHostToDirect(host: string): string {
+  if (!host.endsWith(".neon.tech")) return host;
+  const labels = host.split(".");
+  if (labels[0]?.endsWith("-pooler")) {
+    labels[0] = labels[0].slice(0, -"-pooler".length);
+  }
+  return labels.join(".");
+}
+
+export function toDirectConnectionString(connectionString: string): string {
+  try {
+    const url = new URL(connectionString);
+    url.hostname = rewriteNeonHostToDirect(url.hostname);
+    return url.toString();
+  } catch {
+    // Not a URL-style DSN (e.g. `host=... user=...`). Best-effort: strip the
+    // pooled suffix only when it directly precedes a Neon host, never a blind
+    // global replace.
+    return connectionString.replace(/-pooler(\.[^\s/]*\.neon\.tech)/, "$1");
+  }
+}
+
 // Minimal shape — @types/pg isn't reachable from this package, so we
 // can't import PoolClient directly. Only the two methods we actually use
 // are declared here; the runtime object is a full pg Client and
@@ -238,7 +283,10 @@ export async function runMigrationsLocked(): Promise<void> {
   if (!connectionString) {
     throw new Error("DATABASE_URL must be set for migrations");
   }
-  const lockClient = new pg.Client({ connectionString });
+  // Hold the lock on the DIRECT (non-pooled) Neon endpoint so it always
+  // releases when this process exits — see toDirectConnectionString above.
+  // No-op for non-Neon / non-pooled connection strings.
+  const lockClient = new pg.Client({ connectionString: toDirectConnectionString(connectionString) });
   await lockClient.connect();
   try {
     await acquireMigrationLock(lockClient as unknown as LockClient);

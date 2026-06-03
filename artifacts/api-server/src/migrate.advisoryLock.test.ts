@@ -47,6 +47,7 @@ import {
   acquireMigrationLock,
   isHolderProdStealEligible,
   looksLikeMigrationQuery,
+  toDirectConnectionString,
   MIGRATION_ADVISORY_LOCK_KEY,
   MIGRATION_LOCK_CLASSID,
   MIGRATION_LOCK_OBJID,
@@ -135,6 +136,54 @@ describe("migrate advisory lock helpers", () => {
     // Missing telemetry → fail closed
     expect(isHolderProdStealEligible({ ...baseHolder, state: null }, now)).toBe(false);
     expect(isHolderProdStealEligible({ ...baseHolder, state_change: null }, now)).toBe(false);
+  });
+});
+
+describe("toDirectConnectionString", () => {
+  it("strips the -pooler suffix from the first label of a Neon URL", () => {
+    const out = toDirectConnectionString(
+      "postgres://u:p@ep-cool-block-123-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require",
+    );
+    expect(new URL(out).hostname).toBe("ep-cool-block-123.us-east-2.aws.neon.tech");
+    expect(out).not.toContain("-pooler");
+  });
+
+  it("preserves percent-encoded credentials and query params", () => {
+    const out = toDirectConnectionString(
+      "postgres://neondb_owner:p%40ss%2Fword@ep-x-1-pooler.c-2.us-east-1.aws.neon.tech/db?sslmode=require",
+    );
+    expect(out).toContain("p%40ss%2Fword");
+    expect(out).toContain("sslmode=require");
+    expect(new URL(out).hostname).toBe("ep-x-1.c-2.us-east-1.aws.neon.tech");
+  });
+
+  it("only strips the first label — incidental -pooler elsewhere is left alone", () => {
+    const out = toDirectConnectionString(
+      "postgres://u:p@ep-x-1-pooler.foo-pooler-bar.aws.neon.tech/db",
+    );
+    expect(new URL(out).hostname).toBe("ep-x-1.foo-pooler-bar.aws.neon.tech");
+  });
+
+  it("leaves an already-direct Neon URL unchanged", () => {
+    const direct = "postgres://u:p@ep-x-1.c-2.us-east-1.aws.neon.tech/db?sslmode=require";
+    expect(toDirectConnectionString(direct)).toBe(direct);
+  });
+
+  it("leaves non-Neon hosts untouched even if they contain -pooler", () => {
+    const url = "postgres://u:p@my-pooler.example.com:5432/db";
+    expect(toDirectConnectionString(url)).toBe(url);
+  });
+
+  it("handles key=value DSNs via the best-effort fallback (Neon-scoped only)", () => {
+    expect(
+      toDirectConnectionString(
+        "host=ep-x-1-pooler.c-2.us-east-1.aws.neon.tech user=u password=p dbname=db",
+      ),
+    ).toBe("host=ep-x-1.c-2.us-east-1.aws.neon.tech user=u password=p dbname=db");
+    // Non-Neon DSN: untouched.
+    expect(
+      toDirectConnectionString("host=db-pooler.internal user=u dbname=db"),
+    ).toBe("host=db-pooler.internal user=u dbname=db");
   });
 });
 
