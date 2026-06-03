@@ -466,6 +466,37 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the tenant_email_shells.brand_invite_emails column
+    // (the self-serve "use my branded shell for seat-activation/invite emails"
+    // override). Same high-water-mark hazard as the self-heals above: on a
+    // drifted DB whose drizzle max created_at already sits ABOVE 0074's journal
+    // `when`, the migrator records nothing and never runs 0074's DDL. The tenant
+    // shell editor SELECTs and writes brand_invite_emails, so a missing column
+    // 500s the editor + the invite send path's flag lookup. Re-applying the file
+    // here is independent of drizzle's dedup and idempotent (ADD COLUMN IF NOT
+    // EXISTS), so it adds the column where missing and is a no-op elsewhere. The
+    // .sql stays the single source of truth. Fails CLOSED: any error aborts the
+    // release; a retry is always safe.
+    await runStep("tenant_email_shells brand_invite_emails self-heal (0074)", async () => {
+      const brandInviteSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0074_tenant_email_shells_brand_invite_emails.sql"),
+        "utf8",
+      );
+      await pool.query(brandInviteSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'tenant_email_shells'
+            AND column_name = 'brand_invite_emails'`,
+      );
+      if ((rows[0]?.present ?? 0) < 1) {
+        throw new Error(
+          "tenant_email_shells brand_invite_emails self-heal did not produce the column — aborting release",
+        );
+      }
+    });
+
     // Durable self-heal for the email_shell_templates.physical_address column.
     // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
     // drizzle.__drizzle_migrations max created_at already sits ABOVE 0064's

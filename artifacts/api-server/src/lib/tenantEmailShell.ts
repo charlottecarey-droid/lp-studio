@@ -193,6 +193,7 @@ interface TenantShellRow {
   header_bg: string | null;
   footer_html: string | null;
   physical_address: string | null;
+  brand_invite_emails?: boolean | null;
 }
 
 /** Raw override row for the editor (nulls preserved). */
@@ -203,6 +204,9 @@ export interface TenantEmailShellOverrides {
   footerHtml: string | null;
   /** Per-tenant CAN-SPAM postal address (null/"" = no address line). */
   physicalAddress: string | null;
+  /** Self-serve override: use the tenant's branded shell for seat-activation
+   *  (workspace invite) emails. null/false = platform default (default OFF). */
+  brandInviteEmails: boolean | null;
 }
 
 /** Resolved shell plus the tenant's saved postal address (for the footer token). */
@@ -297,7 +301,7 @@ export async function getTenantEmailShellOverrides(
   const derived = buildBrandDerivedShell(brand);
   try {
     const r = await pool.query<TenantShellRow>(
-      `SELECT shell_html, logo_html, header_bg, footer_html, physical_address
+      `SELECT shell_html, logo_html, header_bg, footer_html, physical_address, brand_invite_emails
          FROM tenant_email_shells WHERE tenant_id = $1`,
       [tenantId],
     );
@@ -309,6 +313,7 @@ export async function getTenantEmailShellOverrides(
         headerBg: row?.header_bg ?? null,
         footerHtml: row?.footer_html ?? null,
         physicalAddress: row?.physical_address ?? null,
+        brandInviteEmails: row?.brand_invite_emails ?? null,
       },
       derived,
     };
@@ -321,9 +326,32 @@ export async function getTenantEmailShellOverrides(
         headerBg: null,
         footerHtml: null,
         physicalAddress: null,
+        brandInviteEmails: null,
       },
       derived,
     };
+  }
+}
+
+/**
+ * Whether this tenant has opted in (self-serve, default OFF) to render its
+ * seat-activation ("workspace invite") emails into its OWN branded shell rather
+ * than the platform LP Studio shell. Fails CLOSED to `false` on any DB error so
+ * a lookup failure can never silently flip an invite onto the wrong chrome —
+ * the platform shell is always the safe default for an account-access email.
+ */
+export async function getTenantInviteBrandingEnabled(
+  tenantId: number,
+): Promise<boolean> {
+  try {
+    const r = await pool.query<{ brand_invite_emails: boolean | null }>(
+      `SELECT brand_invite_emails FROM tenant_email_shells WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    return r.rows[0]?.brand_invite_emails === true;
+  } catch (err) {
+    console.error("[tenantEmailShell] invite-branding flag load failed:", err);
+    return false;
   }
 }
 

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 
 /**
  * Per-tenant branded email shell (Task #588) — the wrapper a tenant's own
@@ -22,6 +22,11 @@ export const tenantEmailShellsTable = pgTable("tenant_email_shells", {
   // footer token of every tenant email. NULL/empty = the footer omits the
   // address line cleanly (no stray separators).
   physicalAddress: text("physical_address"),
+  // Self-serve override (default OFF): when true, this tenant's seat-activation
+  // ("workspace invite") emails render into the tenant's own branded shell
+  // instead of the platform LP Studio shell. NULL/false = platform default,
+  // preserving the anti-phishing default for auth/invite emails.
+  brandInviteEmails: boolean("brand_invite_emails"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   updatedBy: text("updated_by"),
 });

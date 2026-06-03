@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -261,6 +262,10 @@ function ShellEditor() {
   const [overrides, setOverrides] = useState<ShellFields | null>(null);
   const [defaults, setDefaults] = useState<ShellFields | null>(null);
   const [draft, setDraft] = useState<ShellFields | null>(null);
+  // Self-serve override (default OFF): use this branded shell for seat-activation
+  // (workspace invite) emails too. Kept as its own boolean since the text-field
+  // helpers below are string-typed.
+  const [brandInvite, setBrandInvite] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -282,6 +287,7 @@ function ShellEditor() {
         footerHtml: data.overrides.footerHtml ?? null,
         physicalAddress: data.overrides.physicalAddress ?? null,
       });
+      setBrandInvite(data.overrides.brandInviteEmails === true);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load shell");
     } finally {
@@ -312,16 +318,17 @@ function ShellEditor() {
     try {
       const data = await apiFetch("/api/tenant/email-shell", {
         method: "PATCH",
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, brandInviteEmails: brandInvite }),
       });
       setOverrides(data.overrides as ShellFields);
+      setBrandInvite(data.overrides.brandInviteEmails === true);
       setSavedAt(Date.now());
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
-  }, [draft]);
+  }, [draft, brandInvite]);
 
   const preview = useCallback(async () => {
     if (!draft) return;
@@ -440,6 +447,24 @@ function ShellEditor() {
           "Raw frame with {{logoHtml}}, {{headerBg}}, {{headline}}, {{body}}, {{footerHtml}} slots. Restore to use the brand-derived default.",
           8,
         )}
+      </div>
+
+      <div className="flex items-start justify-between gap-3 rounded-lg border bg-card p-3">
+        <div>
+          <span className="text-[11px] font-medium">
+            Use this shell for seat-activation emails
+          </span>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            When on, the "you've been added to this workspace" invitation email
+            sent to new members renders in your branded shell instead of the
+            default LP Studio one. Off by default.
+          </p>
+        </div>
+        <Switch
+          checked={brandInvite}
+          onCheckedChange={setBrandInvite}
+          aria-label="Use this shell for seat-activation emails"
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">

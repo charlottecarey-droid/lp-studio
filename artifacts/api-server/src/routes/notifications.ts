@@ -1876,17 +1876,24 @@ router.patch(
     const editorEmail = (req as Request & { authUser?: AuthUser }).authUser?.email ?? null;
     const has = (f: string): boolean => Object.prototype.hasOwnProperty.call(b, f);
     try {
+      // Self-serve invite-branding override (default OFF): store a real boolean
+      // (null = off) so a truthy read is safe. Absent in the body → null (off),
+      // matching how the text overrides clear when omitted; the editor always
+      // sends the full draft.
+      const brandInviteEmails =
+        typeof b.brandInviteEmails === "boolean" ? b.brandInviteEmails : null;
       await pool.query(
-        `INSERT INTO tenant_email_shells (tenant_id, shell_html, logo_html, header_bg, footer_html, physical_address, updated_at, updated_by)
-         VALUES ($1,$2,$3,$4,$5,$6, now(), $7)
+        `INSERT INTO tenant_email_shells (tenant_id, shell_html, logo_html, header_bg, footer_html, physical_address, brand_invite_emails, updated_at, updated_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7, now(), $8)
          ON CONFLICT (tenant_id) DO UPDATE SET
-           shell_html       = $2,
-           logo_html        = $3,
-           header_bg        = $4,
-           footer_html      = $5,
-           physical_address = $6,
-           updated_at       = now(),
-           updated_by       = $7`,
+           shell_html         = $2,
+           logo_html          = $3,
+           header_bg          = $4,
+           footer_html        = $5,
+           physical_address   = $6,
+           brand_invite_emails = $7,
+           updated_at         = now(),
+           updated_by         = $8`,
         [
           tenantId,
           longStr(b.shellHtml),
@@ -1894,6 +1901,7 @@ router.patch(
           shortStr(b.headerBg),
           longStr(b.footerHtml),
           shortStr(b.physicalAddress),
+          brandInviteEmails,
           editorEmail,
         ],
       );
@@ -1904,7 +1912,7 @@ router.patch(
         editorEmail,
         action: "update",
         diff: {
-          fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml", "physicalAddress"].filter(has),
+          fields: ["shellHtml", "logoHtml", "headerBg", "footerHtml", "physicalAddress", "brandInviteEmails"].filter(has),
         },
       });
       const { overrides, derived } = await getTenantEmailShellOverrides(tenantId);

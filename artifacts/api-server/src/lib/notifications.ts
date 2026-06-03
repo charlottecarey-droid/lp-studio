@@ -2,7 +2,11 @@ import { logger } from "./logger";
 import { renderEmail, expandEmailVars } from "./emailRender";
 import { getNotificationTemplate } from "./notificationTemplates";
 import { renderTenantEmail } from "./tenantEmailRender";
-import { resolveEmailShellForEmail } from "./tenantEmailShell";
+import {
+  resolveEmailShellForEmail,
+  resolveTenantShell,
+  getTenantInviteBrandingEnabled,
+} from "./tenantEmailShell";
 import { buildLeadFieldsTable, buildLeadVariantNote } from "./tenantEmailAssets";
 import { platformFromAddress, platformReplyTo } from "./platformSender";
 
@@ -96,6 +100,58 @@ export interface InvitePayload {
   isNewUser: boolean;
   signInUrl: string;
   fromEmail?: string;
+  /**
+   * The inviting workspace's tenant id. When present AND the tenant has opted in
+   * (self-serve `brand_invite_emails` flag, default OFF), the seat-activation
+   * email renders into the tenant's OWN branded shell instead of the platform
+   * LP Studio shell. Omitted/absent → unchanged platform-branded behavior.
+   */
+  tenantId?: number | null;
+}
+
+/**
+ * Body markup for a seat-activation invite rendered into a TENANT'S branded
+ * shell (the self-serve `brand_invite_emails` opt-in). The branded shell renders
+ * no headline of its own (its header is just the tenant logo + accent strip), so
+ * the body bakes the headline as an H1 — mirroring `buildDefaultBodyHtml`. Every
+ * dynamic value is inlined HTML-escaped here (the URL too), so the returned
+ * string carries NO `{{token}}` the shell render could blank, and `bodyText`
+ * (trusted HTML with `<strong>`) is passed through verbatim.
+ */
+function buildBrandedInviteBody(opts: {
+  headline: string;
+  bodyText: string;
+  ctaLabel: string;
+  signInUrl: string;
+  inviteeEmail: string;
+}): string {
+  const { headline, bodyText, ctaLabel, signInUrl, inviteeEmail } = opts;
+  const safeUrl = escapeHtml(signInUrl);
+  return `<h1 style="margin:0;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.12;font-weight:800;letter-spacing:-0.03em;color:#1A1815;">${escapeHtml(
+    headline,
+  )}</h1>
+              <p style="margin:20px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.62;color:#2A2722;">
+                ${bodyText}
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:30px;">
+                <tr>
+                  <td style="background:#1A1815;border-radius:6px;">
+                    <a href="${safeUrl}" target="_blank"
+                       style="display:inline-block;padding:14px 26px;font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;letter-spacing:-0.005em;color:#F6F2E9;text-decoration:none;border-radius:6px;">
+                      ${escapeHtml(ctaLabel)} →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:26px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#6B6660;">
+                Or paste this link into your browser:<br />
+                <a href="${safeUrl}" target="_blank" style="color:#6B6660;word-break:break-all;">${safeUrl}</a>
+              </p>
+              <p style="margin:16px 0 0 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#9A948C;">
+                Sign in using the account associated with ${escapeHtml(
+                  inviteeEmail,
+                )}. If you weren't expecting this invitation, you can safely ignore this email.
+              </p>`;
 }
 
 export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
@@ -131,25 +187,83 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
     ? `You've been invited to join ${tenantName} on LP Studio`
     : `You now have access to ${tenantName} on LP Studio`;
 
-  // Prefer the editable registry template; the variable sentence and CTA label
-  // ride along as tokens so one template covers both new-account and added-user
-  // cases. Falls back to the hardcoded invite above on any failure.
-  const tpl = await renderSystemEmail("workspace_invite", {
-    headline,
-    inviteBody: bodyText,
-    tenantName,
-    roleName,
-    inviterName,
-    ctaUrl: signInUrl,
-    acceptUrl: signInUrl,
-    ctaLabel: actionLabel,
-    recipientEmail: inviteeEmail,
-    recipientName: inviterName,
-    workspaceUrl: originOf(signInUrl),
-    workspaceHost: hostOf(signInUrl),
-  });
-  const subject = tpl?.subject ?? fallbackSubject;
-  const html = tpl?.html ?? fallbackHtml;
+  let subject = fallbackSubject;
+  let html = fallbackHtml;
+  let brandedSent = false;
+
+  // Self-serve opt-in: if the inviting workspace has turned ON `brand_invite_emails`,
+  // render the seat-activation email into the TENANT'S branded shell instead of
+  // the platform LP Studio chrome. Default OFF preserves the anti-phishing default
+  // (platform-branded) for account-access emails. Wrapped in try/catch and gated
+  // on the flag so any failure here falls through to the unchanged platform path
+  // below — a broken brand shell can never break invite delivery (hard fallback).
+  if (invite.tenantId != null) {
+    try {
+      if (await getTenantInviteBrandingEnabled(invite.tenantId)) {
+        const resolved = await resolveTenantShell(invite.tenantId);
+        const bodyHtml = buildBrandedInviteBody({
+          headline,
+          bodyText,
+          ctaLabel: actionLabel,
+          signInUrl,
+          inviteeEmail,
+        });
+        const rendered = renderEmail({
+          shell: resolved.shell,
+          bodyHtml,
+          wrapInShell: true,
+          vars: expandEmailVars({
+            headline,
+            subject: fallbackSubject,
+            physicalAddress: resolved.physicalAddress,
+            workspaceUrl: originOf(signInUrl),
+            workspaceHost: hostOf(signInUrl),
+          }),
+        });
+        // Hard fallback: an empty/blank shell override (shell_html can be saved
+        // as ""), or one whose body slot didn't survive, can render to nothing.
+        // Never send an empty invite — drop through to the platform path below.
+        if (rendered.replace(/<[^>]*>/g, "").trim().length === 0) {
+          throw new Error("branded invite rendered empty");
+        }
+        html = rendered;
+        // Brand-appropriate subject (the body chrome is the tenant's, so drop the
+        // platform name from the inbox line too).
+        subject = isNewUser
+          ? `You've been invited to join ${tenantName}`
+          : `You now have access to ${tenantName}`;
+        brandedSent = true;
+      }
+    } catch (err) {
+      logger.error(
+        { err, tenantId: invite.tenantId, inviteeEmail },
+        "Branded invite render failed; falling back to platform shell",
+      );
+      brandedSent = false;
+    }
+  }
+
+  if (!brandedSent) {
+    // Prefer the editable registry template; the variable sentence and CTA label
+    // ride along as tokens so one template covers both new-account and added-user
+    // cases. Falls back to the hardcoded invite above on any failure.
+    const tpl = await renderSystemEmail("workspace_invite", {
+      headline,
+      inviteBody: bodyText,
+      tenantName,
+      roleName,
+      inviterName,
+      ctaUrl: signInUrl,
+      acceptUrl: signInUrl,
+      ctaLabel: actionLabel,
+      recipientEmail: inviteeEmail,
+      recipientName: inviterName,
+      workspaceUrl: originOf(signInUrl),
+      workspaceHost: hostOf(signInUrl),
+    });
+    subject = tpl?.subject ?? fallbackSubject;
+    html = tpl?.html ?? fallbackHtml;
+  }
 
   try {
     await retryFetch("https://api.resend.com/emails", {

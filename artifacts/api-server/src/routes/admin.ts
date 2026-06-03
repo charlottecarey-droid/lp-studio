@@ -450,6 +450,7 @@ router.post("/superadmin/tenants/:id/members", requireSuperadmin, async (req, re
         isNewUser: userId === null,
         signInUrl,
         fromEmail,
+        tenantId,
       }).catch((err) => console.error("[superadmin] sendInviteEmail error:", err));
     }
 
@@ -1397,6 +1398,7 @@ router.post("/members", async (req, res): Promise<void> => {
       isNewUser: userId === null,
       signInUrl,
       fromEmail,
+      tenantId: req.authUser!.tenantId,
     }).catch((err) => console.error("[admin] sendInviteEmail error:", err));
 
     res.status(201).json(result.rows[0]);
@@ -3182,6 +3184,7 @@ router.post("/invite-test", async (req, res): Promise<void> => {
       roleName: "Member",
       isNewUser: true,
       signInUrl: process.env["APP_URL"] ?? "https://app.lpstudio.ai",
+      tenantId: req.authUser!.tenantId,
     });
     res.json({ ok: true });
   } catch (err) {
