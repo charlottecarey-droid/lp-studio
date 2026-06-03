@@ -34,6 +34,7 @@ import { validateDomain } from "../../lib/tenantHosts";
 import {
   createResendDomain,
   getResendDomainById,
+  getResendDomainByName,
   deleteResendDomain,
   type ResendDnsRecord,
   type ResendDomainVerificationState,
@@ -154,6 +155,19 @@ async function buildStateFromId(domain: string, domainId: string): Promise<Email
   };
 }
 
+/**
+ * Reuse a domain that already exists in our Resend account. Looks it up by name
+ * (the create call only tells us it exists, not its id), then builds the full
+ * wizard state by id — the list endpoint omits DNS records, so the by-id fetch
+ * is what gives the customer the records table + live verification status.
+ * Returns null when the lookup fails so the caller can surface a friendly error.
+ */
+async function reuseExistingResendDomain(domain: string): Promise<EmailDomainState | null> {
+  const found = await getResendDomainByName(domain);
+  if (!found.available || !found.domain) return null;
+  return buildStateFromId(found.domain.name || domain, found.domain.id);
+}
+
 // All routes Enterprise-gated. requirePlanFeature returns 402 plan_upgrade_required
 // for ineligible tenants (superadmin/no-authUser bypass per the middleware).
 router.use("/lp/email-domain", requirePlanFeature("customEmailDomain"));
@@ -211,6 +225,29 @@ router.post("/lp/email-domain", async (req, res): Promise<void> => {
 
     const created = await createResendDomain(domain);
     if (!created.available || !created.domain) {
+      // The domain already exists in our Resend account (e.g. from an earlier
+      // attempt). Reuse it instead of dead-ending: look it up by name, fetch
+      // its full record + live verification by id, persist, and return the
+      // normal success state — so the experience matches a fresh registration.
+      if (created.alreadyRegistered) {
+        const reused = await reuseExistingResendDomain(domain);
+        if (reused) {
+          // Routing stays gated on the live verified check in
+          // resolveTenantSender, so reusing a domain never starts unverified
+          // sends.
+          await persistEmailDomain(tenantId, {
+            sendingDomain: reused.domain,
+            customEmailDomainId: reused.domainId,
+          });
+          res.status(200).json(reused);
+          return;
+        }
+        res.status(502).json({
+          error:
+            "This domain is already registered with our email provider, but we couldn't load its details. Please try again in a moment.",
+        });
+        return;
+      }
       // No API key / Resend down / Resend rejected it. Nothing persisted, so
       // the tenant stays on the shared default — fail closed.
       res.status(502).json({ error: created.error || "Could not register the domain with Resend" });

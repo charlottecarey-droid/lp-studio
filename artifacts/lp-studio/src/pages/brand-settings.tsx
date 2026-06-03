@@ -1214,6 +1214,13 @@ function EmailDomainWizard({
                   </table>
                 </div>
               )}
+              {state.records.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  The <code>MX</code> record above is for bounce and complaint handling on your sending subdomain
+                  (<code>{state.domain}</code>) only. It does <strong>not</strong> turn on email receiving for your
+                  primary domain — your existing inbox and MX records are untouched.
+                </p>
+              )}
             </>
           )}
         </div>

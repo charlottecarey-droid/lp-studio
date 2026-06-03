@@ -307,6 +307,34 @@ export interface ResendDomainWriteResult {
   available: boolean;
   domain?: ResendDomain;
   error?: string;
+  /**
+   * Set on a failed create when Resend rejected the request because the domain
+   * already exists in our account ("domain has been registered already").
+   * Callers can treat this as a distinct outcome — look the domain up by name
+   * and reuse it — rather than a generic error.
+   */
+  alreadyRegistered?: boolean;
+}
+
+/**
+ * Detect Resend's "domain has been registered already" rejection. Resend
+ * returns a `validation_error` (HTTP 403) whose JSON body carries
+ * `name: "validation_error"` and a message mentioning it's already registered.
+ * We match on the message text (resilient to status-code changes) and fall back
+ * to scanning the raw body when it isn't JSON.
+ */
+function isAlreadyRegisteredError(body: string): boolean {
+  let name = "";
+  let message = "";
+  try {
+    const parsed = JSON.parse(body) as { name?: unknown; message?: unknown };
+    if (typeof parsed.name === "string") name = parsed.name.toLowerCase();
+    if (typeof parsed.message === "string") message = parsed.message.toLowerCase();
+  } catch {
+    message = body.toLowerCase();
+  }
+  const haystack = `${name} ${message}`;
+  return haystack.includes("registered already") || haystack.includes("has been registered");
 }
 
 function normalizeDomainPayload(raw: unknown): ResendDomain | undefined {
@@ -341,10 +369,52 @@ export async function createResendDomain(name: string): Promise<ResendDomainWrit
     });
     if (!resp.ok) {
       const body = await resp.text().catch(() => "(unreadable)");
+      if (isAlreadyRegisteredError(body)) {
+        // The domain already exists in our Resend account (e.g. from an
+        // earlier attempt). Surface a distinct outcome so the caller can look
+        // it up by name and reuse it instead of dead-ending on an error.
+        return { available: false, alreadyRegistered: true, error: "domain has been registered already" };
+      }
       return { available: false, error: `Resend create failed (${resp.status}): ${body}` };
     }
     const domain = normalizeDomainPayload(await resp.json());
     return domain ? { available: true, domain } : { available: false, error: "malformed Resend response" };
+  } catch (err) {
+    return { available: false, error: String(err) };
+  }
+}
+
+/**
+ * Find an existing domain in the Resend account by name (case-insensitive) via
+ * the list endpoint (`GET /domains`). Returns the normalized domain shape — the
+ * list omits per-domain DNS `records`, so callers that need them should follow
+ * up with `getResendDomainById`. Fails open to `{ available: false }` when
+ * there's no API key, the call errors, or no domain matches.
+ */
+export async function getResendDomainByName(name: string): Promise<ResendDomainWriteResult> {
+  const normalized = (name ?? "").trim().toLowerCase();
+  if (!normalized) return { available: false, error: "empty domain name" };
+
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) return { available: false, error: "no RESEND_API_KEY" };
+
+  try {
+    const resp = await fetch("https://api.resend.com/domains", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      return { available: false, error: `Resend list failed (${resp.status}): ${body}` };
+    }
+    const body = (await resp.json()) as { data?: unknown };
+    const list = Array.isArray(body?.data) ? body.data : [];
+    const match = list
+      .map((d) => normalizeDomainPayload(d))
+      .find((d): d is ResendDomain => !!d && d.name === normalized);
+    return match
+      ? { available: true, domain: match }
+      : { available: false, error: "domain not found in Resend account" };
   } catch (err) {
     return { available: false, error: String(err) };
   }

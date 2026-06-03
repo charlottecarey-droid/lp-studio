@@ -82,13 +82,22 @@ const fetchMock = vi.fn(async (input: unknown, init?: RequestInit): Promise<Resp
   if (u.pathname === "/domains" && method === "POST") {
     const body = JSON.parse(String(init?.body ?? "{}")) as { name?: string };
     const name = (body.name ?? "").toLowerCase();
+    // Resend rejects a create for a domain that already exists in the account.
+    const dup = [...REGISTERED.values()].find((d) => d.name === name);
+    if (dup) {
+      return jsonResponse(
+        { statusCode: 403, name: "validation_error", message: "domain has been registered already" },
+        403,
+      );
+    }
     const id = `dom-${SUFFIX}`;
     REGISTERED.set(id, { id, name });
     return jsonResponse({ id, name, status: "pending", records: SAMPLE_RECORDS }, 201);
   }
   if (u.pathname === "/domains" && method === "GET") {
-    // List endpoint — used by the resolver's name-based status check.
-    const data = [...REGISTERED.values()].map((d) => ({ name: d.name, status: resendStatus }));
+    // List endpoint — used by the resolver's name-based status check AND the
+    // reuse-on-conflict lookup (which reads id off this list, then GETs by id).
+    const data = [...REGISTERED.values()].map((d) => ({ id: d.id, name: d.name, status: resendStatus }));
     return jsonResponse({ data });
   }
   if (byId && method === "GET") {
@@ -311,6 +320,70 @@ describe("custom email-domain wizard — remove path", () => {
     });
     expect(sender.usingCustomDomain).toBe(false);
     expect(sender.domain).toBe(SHARED_SENDING_DOMAIN);
+  });
+});
+
+describe("custom email-domain wizard — reuse already-registered domain", () => {
+  const REUSE_DOMAIN = `reuse-${SUFFIX}.example.com`;
+
+  it("reuses the existing Resend domain instead of erroring, and persists its id", async () => {
+    resendStatus = "pending";
+    _clearResendDomainStatusCache();
+    // Simulate a domain that already exists in our Resend account from an
+    // earlier attempt, while the tenant config is clear (remove ran above).
+    REGISTERED.clear();
+    const existingId = `dom-reuse-${SUFFIX}`;
+    REGISTERED.set(existingId, { id: existingId, name: REUSE_DOMAIN });
+
+    const res = await injectAs(ENT_SID, {
+      method: "POST",
+      url: "/lp/email-domain",
+      body: { domain: REUSE_DOMAIN },
+    });
+
+    // No error — the screen reuses the existing domain.
+    expect(res.status).toBe(200);
+    expect((res.json as Record<string, any>).domain).toBe(REUSE_DOMAIN);
+    expect((res.json as Record<string, any>).domainId).toBe(existingId);
+    expect((res.json as Record<string, any>).status).toBe("pending");
+    expect((res.json as Record<string, any>).active).toBe(false);
+    expect(Array.isArray((res.json as Record<string, any>).records)).toBe(true);
+    expect((res.json as Record<string, any>).records.length).toBeGreaterThan(0);
+
+    // No duplicate domain created — the existing one is reused.
+    expect(REGISTERED.size).toBe(1);
+
+    // The reused id is persisted for the tenant.
+    const persisted = await readPersisted(entTenantId);
+    expect(persisted.sendingDomain).toBe(REUSE_DOMAIN);
+    expect(persisted.customEmailDomainId).toBe(existingId);
+  });
+
+  it("shows the verified state immediately when the existing domain is already verified", async () => {
+    resendStatus = "verified";
+    _clearResendDomainStatusCache();
+    REGISTERED.clear();
+    const existingId = `dom-reuse-verified-${SUFFIX}`;
+    const verifiedDomain = `reuse-verified-${SUFFIX}.example.com`;
+    REGISTERED.set(existingId, { id: existingId, name: verifiedDomain });
+    // Clear the prior reuse persistence so this isn't an idempotent re-register.
+    await injectAs(ENT_SID, { method: "DELETE", url: "/lp/email-domain" });
+    REGISTERED.clear();
+    REGISTERED.set(existingId, { id: existingId, name: verifiedDomain });
+
+    const res = await injectAs(ENT_SID, {
+      method: "POST",
+      url: "/lp/email-domain",
+      body: { domain: verifiedDomain },
+    });
+
+    expect(res.status).toBe(200);
+    expect((res.json as Record<string, any>).domain).toBe(verifiedDomain);
+    expect((res.json as Record<string, any>).status).toBe("verified");
+    expect((res.json as Record<string, any>).active).toBe(true);
+
+    // Cleanup so the gating test below sees a clean ent tenant.
+    await injectAs(ENT_SID, { method: "DELETE", url: "/lp/email-domain" });
   });
 });
 
