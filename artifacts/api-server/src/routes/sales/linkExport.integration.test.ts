@@ -96,6 +96,60 @@ async function seedContact(
   return r.rows[0].id;
 }
 
+/**
+ * Bulk-seed many contacts in a single round-trip (a 600+ row audience done with
+ * one INSERT-per-contact would dominate the test runtime). Emails may be null to
+ * exercise the skipped-no-email path. Returns a firstName→id map so callers can
+ * reconstruct the exact input order regardless of RETURNING order.
+ */
+async function seedContactsBulk(
+  tenantId: number,
+  accountId: number,
+  specs: Array<{ firstName: string; lastName: string; email: string | null; status?: string }>,
+): Promise<Map<string, number>> {
+  const firstNames = specs.map(s => s.firstName);
+  const lastNames = specs.map(s => s.lastName);
+  const emails = specs.map(s => s.email);
+  const statuses = specs.map(s => s.status ?? "active");
+  const r = await pool.query<{ id: number; first_name: string }>(
+    `INSERT INTO sales_contacts (tenant_id, account_id, first_name, last_name, email, status)
+     SELECT $1, $2, fn, ln, em, st
+     FROM unnest($3::text[], $4::text[], $5::text[], $6::text[]) AS t(fn, ln, em, st)
+     RETURNING id, first_name`,
+    [tenantId, accountId, firstNames, lastNames, emails, statuses],
+  );
+  return new Map(r.rows.map(row => [row.first_name, row.id]));
+}
+
+// Mirror the LinkExportPanel client: it builds a large audience in chunks of
+// BUILD_BATCH_SIZE rather than one giant request, accumulating rows + skipped
+// counts across batches. The test drives the same shape so multi-batch behavior
+// (the panel's real code path) is exercised end-to-end.
+const PANEL_BUILD_BATCH_SIZE = 250;
+
+async function runBatchedBuild(
+  sid: string,
+  pageId: number,
+  contactIds: number[],
+): Promise<{ rows: Array<{ contactId: number; link: string; company: string }>; skippedNoEmail: number; batches: number }> {
+  const rows: Array<{ contactId: number; link: string; company: string }> = [];
+  let skippedNoEmail = 0;
+  let batches = 0;
+  for (let i = 0; i < contactIds.length; i += PANEL_BUILD_BATCH_SIZE) {
+    const chunk = contactIds.slice(i, i + PANEL_BUILD_BATCH_SIZE);
+    const res = await authed(sid, "POST", "/sales/link-export/build", { pageId, contactIds: chunk });
+    expect(res.status).toBe(200);
+    const body = res.json as {
+      skippedNoEmail: number;
+      rows: Array<{ contactId: number; link: string; company: string }>;
+    };
+    rows.push(...body.rows);
+    skippedNoEmail += body.skippedNoEmail;
+    batches += 1;
+  }
+  return { rows, skippedNoEmail, batches };
+}
+
 function authed(sid: string, method: string, url: string, body?: unknown) {
   return inject(app, {
     method,
@@ -162,6 +216,85 @@ describe("Personalized link export flow", () => {
     const link1 = body.rows.find(r => r.contactId === c1)!.link;
     expect(link2).toBe(link1);
   });
+
+  it(
+    "builds reliable links for a large multi-batch audience: one link per active+emailed contact, stable order/tokens, accurate skips, idempotent re-build",
+    async () => {
+      const { tenantId, sid } = await seedTenant();
+      const pageId = await seedPage(tenantId, "published");
+      const accountId = await seedAccount(tenantId, "Big Audience Co");
+
+      // 630 contacts spanning three panel batches (250 + 250 + 130). Every 21st
+      // contact has no email (→ 30 skipped), the rest are active+emailed (→ 600
+      // links). The no-email contacts are interleaved so each batch carries a
+      // mix and the per-batch skip accounting must accumulate correctly.
+      const TOTAL = 630;
+      const specs = Array.from({ length: TOTAL }, (_, i) => {
+        const firstName = `Big${String(i).padStart(4, "0")}`;
+        const emailed = i % 21 !== 20;
+        return {
+          firstName,
+          lastName: "Audience",
+          email: emailed ? `${firstName.toLowerCase()}@big.test` : null,
+        };
+      });
+      const expectedSkipped = specs.filter(s => s.email === null).length;
+      const expectedLinks = TOTAL - expectedSkipped;
+      expect(expectedSkipped).toBe(30);
+      expect(expectedLinks).toBe(600);
+
+      const idByName = await seedContactsBulk(tenantId, accountId, specs);
+      // Input order = the spec order (interleaved emailed/no-email).
+      const allContactIds = specs.map(s => idByName.get(s.firstName)!);
+      const expectedUsableIdsInOrder = specs
+        .filter(s => s.email !== null)
+        .map(s => idByName.get(s.firstName)!);
+
+      // First build, batched exactly like the panel.
+      const first = await runBatchedBuild(sid, pageId, allContactIds);
+      expect(first.batches).toBe(3);
+      expect(first.skippedNoEmail).toBe(expectedSkipped);
+      expect(first.rows).toHaveLength(expectedLinks);
+
+      // Row ordering is preserved across the concurrency worker pool AND across
+      // batch boundaries: concatenated rows match the usable contacts in input
+      // order, with no duplicates or omissions.
+      const builtIds = first.rows.map(r => r.contactId);
+      expect(builtIds).toEqual(expectedUsableIdsInOrder);
+      expect(new Set(builtIds).size).toBe(expectedLinks);
+
+      for (const row of first.rows) {
+        expect(row.company).toBe("Big Audience Co");
+        expect(row.link).toMatch(/\/p\/[A-Za-z0-9_-]+$/);
+      }
+
+      // Exactly one hotlink row was created per usable contact — the bounded
+      // concurrency + ON CONFLICT find-or-create never double-inserts.
+      const countAfterFirst = await pool.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM sales_hotlinks WHERE tenant_id = $1`,
+        [tenantId],
+      );
+      expect(Number(countAfterFirst.rows[0].n)).toBe(expectedLinks);
+
+      // Re-build the whole audience again (find-or-create) — idempotent: same
+      // count of links, same skips, same token per contact, no new rows.
+      const linkByContact = new Map(first.rows.map(r => [r.contactId, r.link]));
+      const second = await runBatchedBuild(sid, pageId, allContactIds);
+      expect(second.skippedNoEmail).toBe(expectedSkipped);
+      expect(second.rows).toHaveLength(expectedLinks);
+      expect(second.rows.map(r => r.contactId)).toEqual(expectedUsableIdsInOrder);
+      for (const row of second.rows) {
+        expect(row.link).toBe(linkByContact.get(row.contactId));
+      }
+
+      const countAfterSecond = await pool.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM sales_hotlinks WHERE tenant_id = $1`,
+        [tenantId],
+      );
+      expect(Number(countAfterSecond.rows[0].n)).toBe(expectedLinks);
+    },
+    120_000,
+  );
 
   it("refuses to build links for an unpublished page", async () => {
     const { tenantId, sid } = await seedTenant();
