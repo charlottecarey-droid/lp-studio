@@ -1,0 +1,402 @@
+# Prompt 2 (v2) — Database integrity (post-audit, scoped down)
+
+## Context
+
+This is an updated version of the original Prompt 2. After running a read-only orphan and integrity audit against live Neon prod (Replit agent did this in the preceding session), we know exactly what's already there and what's missing. The work is significantly smaller than originally scoped.
+
+Reference: `/outputs/pre-launch-audit.md` items B4, B5, S6, P13. Reference: `/outputs/replit-prompt-2-database-integrity.md` (the original v1 prompt).
+
+**Branch:** work on `staging`.
+
+## Critical operational constraint (read first)
+
+**The Replit dev environment shares the prod Neon database via `NEON_DATABASE_URL`, and `api-server` runs `pnpm run migrate` on every boot.** This means every migration committed to this branch applies to PROD on the next app restart.
+
+Implications:
+
+1. **Every migration MUST be idempotent.** Use `IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS`, `ON CONFLICT DO NOTHING`. A migration that fails on a second run will break boot and prevent the app from starting.
+
+2. **Destructive operations require explicit human sign-off BEFORE the migration is committed.** The Fix 3 orphan cleanup deletes 129 production rows. Do NOT add the DELETE statements to the migration until Charlotte confirms the row list. The flow is: read-only audit → present rows to Charlotte → wait for OK → then commit the migration that does the deletion.
+
+3. **Fix 2 (baseline) MUST be validated on a fresh Neon branch before merging.** Do not commit the new `0000_baseline.sql` to staging until a fresh-DB replay produces a schema that diffs-clean against prod.
+
+If you're tempted to "just try it and see what happens," stop. Read the prod state first (the audit script can be re-run safely; it's SELECT-only), confirm the migration is a no-op against prod, and only then commit.
+
+---
+
+## Prod state (verified against live Neon)
+
+The audit confirmed these facts about prod as of the time of writing:
+
+- 23 tenants in `tenants` table
+- `lp_integrations` already has `tenant_id NOT NULL`, FK to `tenants`, `UNIQUE(tenant_id, provider)`, 0 null rows
+- ~35 tenant-scoped tables already have FK to `tenants` (many with `ON DELETE CASCADE`)
+- Only 4 tables still need the FK: `sales_hotlinks` (0 orphans), `lp_page_ad_copy_runs` (0 orphans), `lp_proof_points` (13 orphans), `sales_one_pager_templates` (116 orphans)
+- The orphans are dangling `tenant_id` pointers to tenants that have since been deleted (not nulls — the columns are already NOT NULL)
+- `lp_events` has 4,717 rows; the analytics index `(page_id, created_at)` is missing
+- Prod schema has drifted significantly beyond what the checked-in migrations alone would produce
+
+---
+
+## Fix 1 — `lp_integrations` tenant scoping (IDEMPOTENT)
+
+### Status
+
+Already correct in prod. Migration exists purely to give fresh DBs (preview, staging, DR) the same schema.
+
+### Migration
+
+New file: `lib/db/migrations/0071_lp_integrations_tenant_scoping.sql`
+
+```sql
+-- 0071_lp_integrations_tenant_scoping.sql
+-- Codifies the lp_integrations tenant scoping that already exists in prod.
+-- IDEMPOTENT: this is a no-op against prod (column, FK, and UNIQUE all exist).
+-- Required for fresh-DB parity (preview envs, DR, new regions).
+--
+-- Pre-flight (re-run anytime, read-only):
+--   SELECT COUNT(*) AS missing_tenant_id FROM lp_integrations WHERE tenant_id IS NULL;
+--   -- expected: 0 against prod
+
+BEGIN;
+
+-- Add tenant_id if missing (no-op on prod)
+ALTER TABLE lp_integrations 
+  ADD COLUMN IF NOT EXISTS tenant_id integer 
+  REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Defensively attribute any null rows to tenant 1 (Dandy) — this is a no-op on
+-- prod because there are 0 nulls, but matters for any pre-launch fresh DB that
+-- was hand-patched mid-development.
+UPDATE lp_integrations SET tenant_id = 1 WHERE tenant_id IS NULL;
+
+-- Enforce NOT NULL (no-op on prod — already enforced)
+ALTER TABLE lp_integrations ALTER COLUMN tenant_id SET NOT NULL;
+
+-- Drop the old provider-only UNIQUE constraint if present (already replaced on prod)
+ALTER TABLE lp_integrations DROP CONSTRAINT IF EXISTS lp_integrations_provider_key;
+
+-- Add composite UNIQUE on (tenant_id, provider) if missing (no-op on prod)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'lp_integrations'::regclass
+      AND contype = 'u'
+      AND conname = 'lp_integrations_tenant_provider_unique'
+  ) THEN
+    ALTER TABLE lp_integrations 
+      ADD CONSTRAINT lp_integrations_tenant_provider_unique 
+      UNIQUE (tenant_id, provider);
+  END IF;
+END $$;
+
+-- Index for the (tenant_id, provider) lookup pattern
+CREATE INDEX IF NOT EXISTS idx_lp_integrations_tenant_provider 
+  ON lp_integrations (tenant_id, provider);
+
+COMMIT;
+```
+
+### Drizzle schema update
+
+In `lib/db/src/schema/lpIntegrations.ts` (or wherever the schema lives), confirm the `tenantId` field has the FK declared:
+
+```ts
+tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
+```
+
+If the Drizzle schema is already correct, no change needed. If it's missing the `.references()`, add it.
+
+### Acceptance criteria
+- [ ] Migration runs cleanly on prod (no-op).
+- [ ] Migration runs cleanly on a fresh DB (creates the column + constraints).
+- [ ] Drizzle schema declares the FK.
+- [ ] Re-running the migration twice succeeds (idempotent).
+
+---
+
+## Fix 4 — `lp_events` analytics index (IDEMPOTENT)
+
+### Status
+
+Missing index. Easy fix, low risk. `lp_events` is small now (~4,717 rows) so the index build is sub-second, but use `CONCURRENTLY` anyway as best practice and to future-proof.
+
+### Migration
+
+New file: `lib/db/migrations/0073_lp_events_page_id_index.sql`
+
+```sql
+-- 0073_lp_events_page_id_index.sql
+-- Add composite index on (page_id, created_at DESC) for analytics queries.
+-- IDEMPOTENT via IF NOT EXISTS.
+-- CONCURRENTLY avoids locking the table during build (future-proofing — the
+-- table is small today but will grow with traffic).
+--
+-- Cannot be run inside a transaction (CONCURRENTLY restriction).
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS lp_events_page_id_created_at_idx 
+  ON lp_events (page_id, created_at DESC);
+```
+
+**Note:** `CREATE INDEX CONCURRENTLY` cannot run inside a transaction. If your migration runner wraps statements in `BEGIN/COMMIT` by default, this file needs to opt out (Drizzle has a flag for this, or use a `.no-transaction.sql` suffix convention if your runner supports it). Check the migration runner config before committing.
+
+### Acceptance criteria
+- [ ] Index created on prod.
+- [ ] `EXPLAIN ANALYZE` on `SELECT * FROM lp_events WHERE page_id = X ORDER BY created_at DESC LIMIT 50` shows index scan, not seq scan.
+- [ ] Re-running the migration succeeds (idempotent via `IF NOT EXISTS`).
+
+---
+
+## Fix 3 — Tenant FK constraints + orphan cleanup (TWO-STAGE)
+
+### Status
+
+4 tables lack the FK. 2 of them have orphan rows that must be deleted before the FK can be added (otherwise the `ADD CONSTRAINT` will fail with FK violation).
+
+**STOP before writing the destructive migration.** First, run a read-only audit to enumerate the orphan rows so Charlotte can review them. The audit query:
+
+```sql
+-- Orphan audit for lp_proof_points (expected: 13 rows across ~2 deleted tenants)
+SELECT 
+  pp.id, pp.tenant_id, pp.name, pp.created_at, pp.updated_at
+FROM lp_proof_points pp
+LEFT JOIN tenants t ON t.id = pp.tenant_id
+WHERE t.id IS NULL
+ORDER BY pp.tenant_id, pp.id;
+
+-- Orphan audit for sales_one_pager_templates (expected: 116 rows across many deleted tenants)
+SELECT 
+  sot.id, sot.tenant_id, sot.name, sot.template_kind, sot.created_at
+FROM sales_one_pager_templates sot
+LEFT JOIN tenants t ON t.id = sot.tenant_id
+WHERE t.id IS NULL
+ORDER BY sot.tenant_id, sot.created_at DESC;
+```
+
+Hand the results to Charlotte. She confirms the rows are genuinely dead (no business case to keep). ONLY AFTER explicit sign-off, commit the migration below.
+
+### Migration (after sign-off)
+
+New file: `lib/db/migrations/0072_tenant_fk_constraints.sql`
+
+```sql
+-- 0072_tenant_fk_constraints.sql
+-- Add ON DELETE CASCADE foreign key to tenants on the 4 tenant-scoped tables
+-- that currently lack one. Two tables have orphan rows from deleted tenants;
+-- those are cleaned up first.
+--
+-- IDEMPOTENT via IF EXISTS checks on constraints.
+-- PRE-AUDITED — orphan cleanup deletes exactly the rows Charlotte signed off on.
+--
+-- Audited counts (from read-only audit, [DATE]):
+--   sales_hotlinks: 0 orphans
+--   lp_page_ad_copy_runs: 0 orphans
+--   lp_proof_points: 13 orphans across 2 deleted tenants
+--   sales_one_pager_templates: 116 orphans across many deleted tenants
+
+BEGIN;
+
+-- ─── Cleanup dangling pointers ──────────────────────────────────────────────
+
+-- lp_proof_points: delete rows pointing to deleted tenants
+DELETE FROM lp_proof_points 
+WHERE tenant_id NOT IN (SELECT id FROM tenants);
+
+-- sales_one_pager_templates: delete rows pointing to deleted tenants
+DELETE FROM sales_one_pager_templates 
+WHERE tenant_id NOT IN (SELECT id FROM tenants);
+
+-- ─── Add foreign keys ───────────────────────────────────────────────────────
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conrelid = 'sales_hotlinks'::regclass 
+      AND conname = 'sales_hotlinks_tenant_id_fkey'
+  ) THEN
+    ALTER TABLE sales_hotlinks 
+      ADD CONSTRAINT sales_hotlinks_tenant_id_fkey 
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conrelid = 'lp_page_ad_copy_runs'::regclass 
+      AND conname = 'lp_page_ad_copy_runs_tenant_id_fkey'
+  ) THEN
+    ALTER TABLE lp_page_ad_copy_runs 
+      ADD CONSTRAINT lp_page_ad_copy_runs_tenant_id_fkey 
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conrelid = 'lp_proof_points'::regclass 
+      AND conname = 'lp_proof_points_tenant_id_fkey'
+  ) THEN
+    ALTER TABLE lp_proof_points 
+      ADD CONSTRAINT lp_proof_points_tenant_id_fkey 
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conrelid = 'sales_one_pager_templates'::regclass 
+      AND conname = 'sales_one_pager_templates_tenant_id_fkey'
+  ) THEN
+    ALTER TABLE sales_one_pager_templates 
+      ADD CONSTRAINT sales_one_pager_templates_tenant_id_fkey 
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+COMMIT;
+```
+
+### Drizzle schema updates
+
+For each of the 4 tables, update the Drizzle schema to declare the FK:
+
+```ts
+// lib/db/src/schema/salesHotlinks.ts (and the other three)
+tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
+```
+
+### Acceptance criteria
+- [ ] Pre-audit query results presented to Charlotte; explicit sign-off obtained.
+- [ ] 129 orphan rows deleted (13 from `lp_proof_points`, 116 from `sales_one_pager_templates`).
+- [ ] All 4 FK constraints added with `ON DELETE CASCADE`.
+- [ ] Drizzle schemas updated for all 4 tables.
+- [ ] Integration test: create a tenant with a row in each of the 4 tables, delete the tenant, verify all child rows are gone.
+- [ ] Re-running the migration succeeds (idempotent — orphans are gone, constraints exist).
+
+---
+
+## Fix 2 — Baseline schema from pg_dump (HIGHEST RISK, RUN LAST)
+
+### Status
+
+Real baseline still required. Audit confirmed prod has drifted significantly beyond what the checked-in migrations would produce. The new baseline must come from `pg_dump --schema-only` against the actual prod schema, not from replaying migrations.
+
+### Charlotte's workflow (NOT an agent task)
+
+This step requires prod DB credentials and human judgment. Do not delegate to a Replit agent. Steps:
+
+**Step 1 — Create a throwaway Neon branch from prod for the dump.**
+```bash
+# Use Neon's branching feature to create a copy-on-write snapshot at the current head.
+# This avoids load on the live prod DB during the dump.
+neon branches create --name pg-dump-source --parent main
+```
+
+**Step 2 — pg_dump that branch.**
+```bash
+pg_dump \
+  --schema-only \
+  --no-owner \
+  --no-privileges \
+  --no-comments \
+  --exclude-schema=drizzle \
+  --exclude-table=__drizzle_migrations \
+  "${NEON_PG_DUMP_SOURCE_URL}" \
+  > new-0000-baseline.sql
+```
+
+**Step 3 — Review the dump.** Look for:
+- `CREATE EXTENSION IF NOT EXISTS ...` statements that must be at the top
+- Sequence ownership statements that reference roles (strip them)
+- Default values using functions defined in later migrations (move forward or inline)
+- Indexes that should stay in their original migration files (remove from baseline)
+
+Reorder for determinism: extensions → tables → constraints → indexes.
+
+**Step 4 — Replay test on a SECOND fresh Neon branch.**
+```bash
+# Create a fresh branch from an empty state (not from prod)
+neon branches create --name migration-replay-test --parent main --type empty
+
+# Apply the new baseline + all subsequent migrations
+psql "${REPLAY_TEST_URL}" < new-0000-baseline.sql
+psql "${REPLAY_TEST_URL}" < lib/db/migrations/0001_*.sql
+# ... etc for all migrations 0001 through current
+
+# Dump the resulting schema
+pg_dump --schema-only ... "${REPLAY_TEST_URL}" > replayed-schema.sql
+
+# Compare to prod
+pg_dump --schema-only ... "${NEON_PG_DUMP_SOURCE_URL}" > prod-schema.sql
+diff prod-schema.sql replayed-schema.sql
+```
+
+**Step 5 — Zero diff = ship. Any diff = investigate.**
+
+If the diff is non-empty:
+- Anything in prod that's NOT in the replay: either add it to the new baseline (if it's intentional) or write a forward migration to apply it (if it should also apply to replays)
+- Anything in the replay that's NOT in prod: either remove from the baseline (if prod is correct) or apply to prod (if replay is correct)
+
+The goal is `diff prod-schema.sql replayed-schema.sql` returning zero lines. That's the only proof "fresh DB bootstraps cleanly."
+
+**Step 6 — Commit and merge.**
+Replace `lib/db/migrations/0000_initial_schema.sql` with `new-0000-baseline.sql`. Update `lib/db/migrations/meta/_journal.json` to reflect the new baseline hash. Tag the previous state in git: `git tag pre-baseline-rewrite-2026-06-XX`.
+
+**Step 7 — Clean up Neon branches.**
+```bash
+neon branches delete pg-dump-source
+neon branches delete migration-replay-test
+```
+
+### Acceptance criteria
+- [ ] `pg_dump --schema-only` produces deterministic, ordered output.
+- [ ] Replay on a fresh Neon branch produces a schema that diffs-clean against prod (zero lines of diff).
+- [ ] All existing integration tests pass against the freshly-built schema.
+- [ ] `meta/_journal.json` is consistent with the new baseline.
+- [ ] Old migration history is tagged in git for reference.
+- [ ] Documentation in `replit.md` updated to describe the new baseline approach.
+
+---
+
+## Order of operations
+
+1. **Fix 1 + Fix 4** — write together as the safe pair. Idempotent, zero data change, can be committed without ceremony. Both should be no-ops on prod.
+
+2. **Fix 3 stage A (audit)** — agent runs the read-only orphan query, presents results to Charlotte. Wait for sign-off.
+
+3. **Fix 3 stage B (cleanup + FKs)** — after sign-off, commit the migration with the DELETE + ADD CONSTRAINT statements.
+
+4. **Fix 2 (baseline)** — Charlotte does this herself, on her own time, after Fixes 1/3/4 are stable. Validated on a fresh Neon branch before merging.
+
+5. **Encryption comment fix** — separate from Prompt 2 but bundle it if it's easy. The misleading "encrypted at rest" comment in `lib/db/src/schema/sfdcIntegration.ts:17-18` should be corrected to reflect actual state regardless of the encryption decision. One-line change.
+
+---
+
+## What NOT to do
+
+- **Don't** combine all four fixes into one migration file. Keep them separate so each can be rolled back independently.
+- **Don't** make any migration non-idempotent. The shared-prod-dev environment means non-idempotent migrations will explode on the next boot.
+- **Don't** commit the Fix 3 DELETE statements until Charlotte has signed off on the row list.
+- **Don't** run Fix 2 by replaying migrations and dumping the result. The whole point is the migrations are INCOMPLETE — only `pg_dump` against actual prod will work.
+- **Don't** modify any existing migration files (0000–0070). New work goes in 0071, 0072, 0073.
+- **Don't** apply Fix 2 to prod without zero-diff confirmation from the replay test.
+
+---
+
+## Post-launch operational recommendation
+
+Once the launch dust settles, address the underlying shared-prod-DB-from-dev-env risk. Two options ranked by impact:
+
+**Option A (recommended): use a Neon branch for dev.** Point `NEON_DATABASE_URL` in the Replit dev environment at a long-lived branch that's reset weekly from prod. Migrations apply to the branch first. Promote to prod manually via an explicit deploy step.
+
+**Option B: remove migrate-on-boot.** Replace the boot-time `pnpm run migrate` with an explicit `pnpm run migrate:apply` that only runs when an engineer asks. Migrations become a deliberate operation rather than a deploy side-effect.
+
+Either is a 1-2 hour change, both eliminate the "every committed migration applies to prod on next restart" foot-gun. Do this in the first post-launch sprint.
