@@ -122,6 +122,7 @@ export interface PhotoStripBlockProps {
   showGradient?: boolean;
   objectFit?: "cover" | "contain";
   speed?: "slow" | "normal" | "fast";
+  grayscale?: boolean;
 }
 
 export interface BottomCtaBlockProps extends CtaModalConfig {

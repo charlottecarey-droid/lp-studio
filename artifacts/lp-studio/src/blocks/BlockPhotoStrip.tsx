@@ -35,6 +35,7 @@ export function BlockPhotoStrip({ props, onFieldChange }: Props) {
   const fit = props.objectFit ?? "cover";
   const speed = props.speed ?? "normal";
   const duration = SPEED_S[speed];
+  const grayscale = props.grayscale === true;
 
   const doubled = [...props.images, ...props.images];
 
@@ -70,6 +71,7 @@ export function BlockPhotoStrip({ props, onFieldChange }: Props) {
                 flexShrink: 0,
                 objectFit: fit,
                 marginRight: gap > 0 ? `${gap}px` : undefined,
+                filter: grayscale ? "grayscale(100%)" : undefined,
               }}
               wrapperClassName="h-full shrink-0"
               onUpdate={onFieldChange && isFirstCopy ? (url) => updateImageAt(originalIdx, url) : undefined}

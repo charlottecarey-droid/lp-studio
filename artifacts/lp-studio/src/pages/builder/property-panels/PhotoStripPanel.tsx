@@ -99,6 +99,17 @@ export function PhotoStripPanel({ props, onChange }: Props) {
         />
       </div>
 
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium text-foreground">Grayscale</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Desaturate all images to black &amp; white</p>
+        </div>
+        <Switch
+          checked={props.grayscale === true}
+          onCheckedChange={v => set("grayscale", v)}
+        />
+      </div>
+
       <Separator />
       <p className={LABEL}>Images</p>
 
