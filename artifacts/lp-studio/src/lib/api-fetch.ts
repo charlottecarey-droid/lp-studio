@@ -45,9 +45,9 @@ const CSRF_ENDPOINT = "/api/auth/csrf";
 // backslash-escaped (`href=\"{{`). The optional `\\?` before the quote tolerates
 // that escaping; without it, serialized styled-email bodies were never wrapped
 // and got blocked at the edge.
-const WAF_TRIPPING_BODY = /href\s*=\s*\\?["'][^"']*\{\{/i;
+export const WAF_TRIPPING_BODY = /href\s*=\s*\\?["'][^"']*\{\{/i;
 
-function encodeBodyForWaf(body: string): string {
+export function encodeBodyForWaf(body: string): string {
   const bytes = new TextEncoder().encode(body);
   let binary = "";
   bytes.forEach((b) => {
@@ -56,7 +56,23 @@ function encodeBodyForWaf(body: string): string {
   return JSON.stringify({ __encoded: btoa(binary) });
 }
 
-const originalFetch: typeof fetch = window.fetch.bind(window);
+/**
+ * The single source of truth for the detect-and-wrap decision: base64-wrap a
+ * string body that carries the WAF-tripping href-token pattern, and pass
+ * everything else (non-string bodies, plain-text, already-`__encoded` payloads)
+ * through untouched. The interceptor calls this so the detection logic is
+ * exercised by exactly one code path — and one unit test (api-fetch.test.ts).
+ */
+export function maybeEncodeBodyForWaf(
+  body: BodyInit | null | undefined,
+): BodyInit | null | undefined {
+  if (typeof body === "string" && WAF_TRIPPING_BODY.test(body)) {
+    return encodeBodyForWaf(body);
+  }
+  return body;
+}
+
+const originalFetch: typeof fetch = globalThis.fetch.bind(globalThis);
 
 let cachedToken: string | null = null;
 let pendingFetch: Promise<string | null> | null = null;
@@ -171,10 +187,7 @@ export function installCsrfFetchInterceptor(): void {
     // Base64-wrap bodies that carry the WAF-tripping href-token pattern so the
     // raw HTML never reaches the edge (see WAF_TRIPPING_BODY above). Only string
     // bodies are inspected; FormData/Blob/Request bodies pass through untouched.
-    let body = init?.body;
-    if (typeof body === "string" && WAF_TRIPPING_BODY.test(body)) {
-      body = encodeBodyForWaf(body);
-    }
+    const body = maybeEncodeBodyForWaf(init?.body);
     const newInit: RequestInit = { ...(init ?? {}), headers, credentials, body };
 
     const res = await originalFetch(input, newInit);
