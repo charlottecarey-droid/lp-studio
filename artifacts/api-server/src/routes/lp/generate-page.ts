@@ -1603,26 +1603,26 @@ You write pages that feel finished, not stub-grade demos. Every array MUST be po
 
 AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for verbosity and specificity):
 
-- "hero": Main hero section. Props: headline (5–12 words, specific to the topic — NOT a generic verb phrase), subheadline (15–32 words, expands the headline with a concrete outcome + audience), ctaText (2–5 words, action verb first), ctaUrl ("#"), ctaColor (hex), heroType ("static-image"|"none"), layout ("centered"|"split"|"minimal"), backgroundStyle ("white"|"dark"), showSocialProof (boolean), socialProofText (10–18 words, concrete proof — count + named audience, e.g. "Trusted by 10,000+ practices and 3 of the top 5 DSOs"), imageUrl (string), mediaUrl (string).
-  EXAMPLE: { headline: "Replace your scanner, lab, and aligner workflow with one Dandy platform", subheadline: "From digital impression to delivered crown, Dandy unifies the steps your practice already does — clinical quality stays in your hands while the manual work disappears.", ctaText: "Book a 20-min walkthrough", showSocialProof: true, socialProofText: "Trusted by 10,000+ US dental practices and 3 of the top 5 DSO networks", layout: "split", backgroundStyle: "white" }
+- "hero": Main hero section. Props: headline (5–12 words, specific to the topic — NOT a generic verb phrase), subheadline (15–32 words, expands the headline with a concrete outcome + audience), ctaText (2–5 words, action verb first), ctaUrl ("#"), ctaColor (hex), heroType ("static-image"|"none"), layout ("centered"|"split"|"minimal"), backgroundStyle ("white"|"dark"), showSocialProof (boolean), socialProofText (10–18 words, concrete proof — count + named audience, e.g. "Trusted by 8,000+ teams across retail, services, and logistics"), imageUrl (string), mediaUrl (string).
+  EXAMPLE (illustrative only — write copy for the brand and topic in BRAND CONTEXT / USER REQUEST, never reuse this domain): { headline: "Run your entire workflow from one place", subheadline: "From first request to final delivery, the platform unifies the steps your team already does — your data stays yours while the manual busywork disappears.", ctaText: "Book a 20-min walkthrough", showSocialProof: true, socialProofText: "Trusted by 8,000+ teams across retail, services, and logistics", layout: "split", backgroundStyle: "white" }
 
 - "trust-bar": Stat bar with metrics. Props: items (array of {value, label} — EXACTLY 4 items, value is a specific metric like "10,000+" or "98%" or "$2.4B" — never a vague word, label is 2–5 words naming a specific audience or outcome), countUpEnabled (boolean, default true).
-  EXAMPLE items: [{ value: "10,000+", label: "Practices on Dandy" }, { value: "96%", label: "First-time fit rate" }, { value: "5 days", label: "Average crown turnaround" }, { value: "$0", label: "Scanner capex required" }]
+  EXAMPLE items: [{ value: "8,000+", label: "Teams onboarded" }, { value: "98%", label: "Customer retention" }, { value: "2 days", label: "Average setup time" }, { value: "$0", label: "Upfront cost" }]
 
 - "pas-section": Problem-Agitate-Solve. Props: headline (6–14 words, names the problem directly), body (45–85 words, escalates the cost of inaction with a concrete scenario — money, time, or quality), bullets (string[], EXACTLY 3–5 items, each 8–16 words, each names a specific failure mode).
-  EXAMPLE bullets: ["Crown remakes cost your practice $480 in chair time per case, every time", "Patients drop off the schedule waiting two weeks for a single-unit case", "Lab quality varies by technician — your average is a coin flip"]
+  EXAMPLE bullets: ["Manual rework costs your team six hours of labor per week, every week", "Customers drop off while they wait days for a single reply", "Output quality varies by whoever happens to be on shift — your average is a coin flip"]
 
-- "comparison": Old way vs new way. Props: headline (6–12 words), ctaText (2–5 words), ctaUrl ("#"), oldWayLabel (2–4 words, e.g. "Traditional Lab"), oldWayBullets (string[], EXACTLY 4–5 items, each 6–12 words, each a SPECIFIC pain point — never one-word stubs), newWayLabel (2–4 words, e.g. "Dandy"), newWayBullets (string[], EXACTLY 4–5 items pairing 1:1 with oldWayBullets, each 6–12 words).
-  EXAMPLE: { oldWayLabel: "Traditional lab + scanner", oldWayBullets: ["Quality varies by technician — average is a coin flip", "Two-week crown turnarounds keep patients off the schedule", "Software costs $300/mo per operatory plus per-case fees", "No visibility into case status once it leaves your practice"], newWayLabel: "Dandy", newWayBullets: ["AI Scan Review catches issues before the case ships", "5-day average crown turnaround, guaranteed", "All-inclusive — no per-case fees, no per-seat software", "Real-time case dashboard for every clinician on your team"] }
+- "comparison": Old way vs new way. Props: headline (6–12 words), ctaText (2–5 words), ctaUrl ("#"), oldWayLabel (2–4 words, e.g. "The manual way"), oldWayBullets (string[], EXACTLY 4–5 items, each 6–12 words, each a SPECIFIC pain point — never one-word stubs), newWayLabel (2–4 words, e.g. "With us"), newWayBullets (string[], EXACTLY 4–5 items pairing 1:1 with oldWayBullets, each 6–12 words).
+  EXAMPLE: { oldWayLabel: "The manual way", oldWayBullets: ["Results vary by whoever does the work that day", "Multi-day turnarounds keep customers waiting", "Per-seat software costs stack up every month", "No visibility once a job leaves your hands"], newWayLabel: "The new way", newWayBullets: ["Automated checks catch issues before they ship", "Same-day average turnaround, guaranteed", "All-inclusive pricing — no per-seat or per-job fees", "Real-time dashboard for everyone on your team"] }
 
-- "stat-callout": Single big stat. Props: stat (a short, vivid metric phrase like "96% first-time fit rate" or "$8,400 saved per provider per year"), description (15–28 words, expands the stat with a concrete mechanism — what the stat measures, why it matters), footnote (6–14 words, attribution: source + timeframe, e.g. "Independent lab QA audit, Q4 2025 (n=1,240 crowns)"), countUpEnabled (boolean, default true).
+- "stat-callout": Single big stat. Props: stat (a short, vivid metric phrase like "98% on-time delivery" or "$8,400 saved per team per year"), description (15–28 words, expands the stat with a concrete mechanism — what the stat measures, why it matters), footnote (6–14 words, attribution: source + timeframe, e.g. "Independent customer audit, Q4 2025 (n=1,240 accounts)"), countUpEnabled (boolean, default true).
 
 - "benefits-grid": Feature/benefit cards. Props: headline (5–12 words), columns (2 or 3), items (array of {icon, title, description} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
-  EXAMPLE item: { icon: "ScanLine", title: "AI scan review on every case", description: "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches our lab — so issues get caught at chairside, not on delivery day." }
+  EXAMPLE item: { icon: "ScanLine", title: "Automated review on every job", description: "Every submission is auto-checked for errors, gaps, and missing details before it moves forward — so issues get caught up front, not after the work is delivered." }
   NEVER write: { title: "Quality", description: "Better quality." } — that is failure-grade output.
 
-- "testimonial": Customer quote. Props: quote (35–80 words, must name a specific outcome or metric — not generic praise), author (full name), role (specific title, e.g. "Director of Clinical Operations"), practiceName (real-sounding practice or DSO name).
-  EXAMPLE quote: "We switched to Dandy across 14 practices in February. By April our crown remake rate dropped from 11% to 3% and our staff stopped dreading delivery day. The first-time-fit math alone pays for the program."
+- "testimonial": Customer quote. Props: quote (35–80 words, must name a specific outcome or metric — not generic praise), author (full name), role (specific title, e.g. "Director of Operations"), practiceName (real-sounding company or team name).
+  EXAMPLE quote: "We rolled this out across 14 locations in February. By April our error rate dropped from 11% to 3% and our staff stopped dreading busy days. The time savings alone pays for the program."
 
 - "how-it-works": Numbered steps. Props: headline (5–10 words), steps (array of {number, title, description} — EXACTLY 3–5 steps, number formatted "01"/"02"/"03", title 3–6 words ACTION-oriented, description 18–32 words explaining what happens in concrete terms — who does what, with what tool, in what timeframe).
 
@@ -1632,10 +1632,10 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 
 - "form": Lead capture form. Props: headline (5–12 words), subheadline (12–24 words explaining what happens AFTER they submit — e.g. "We'll send a personalized 5-minute walkthrough by email within 24 hours"), multiStep (boolean), steps (array of {title, fields} — if multiStep: EXACTLY 2–3 steps, each with 2–4 fields; if single step: at least 3 fields), submitButtonText (2–4 words, specific outcome not "Submit"), successMessage (one sentence concrete next-step), redirectUrl ("#"), backgroundStyle ("white"|"light-gray"|"dark"). Use realistic field types (email, phone, text, select, textarea) with helpful placeholders.
 
-- "video-section": Video embed. Props: layout ("full-width"|"split-left"|"split-right"), headline (5–12 words framing the video — "Watch how a 14-location DSO standardised crown quality in 60 days" beats "Customer video"), subheadline (15–28 words, the takeaway someone gets if they DON'T watch — gives skim-readers the value), ctaText (2–5 words), ctaUrl ("#"), videoUrl (string), aspectRatio ("16/9"), backgroundStyle ("white"|"dark").
+- "video-section": Video embed. Props: layout ("full-width"|"split-left"|"split-right"), headline (5–12 words framing the video — "Watch how a 14-location operator cut errors in half in 60 days" beats "Customer video"), subheadline (15–28 words, the takeaway someone gets if they DON'T watch — gives skim-readers the value), ctaText (2–5 words), ctaUrl ("#"), videoUrl (string), aspectRatio ("16/9"), backgroundStyle ("white"|"dark").
 
 - "zigzag-features": Alternating image/text rows. Props: rows (array of {tag, headline, body, ctaText, ctaUrl, imageUrl} — EXACTLY 3–5 rows, tag 1–3 words category label, headline 5–10 words SPECIFIC capability, body 30–55 words with a concrete mechanism + outcome, ctaText 2–5 words deep-linking to the feature page when relevant).
-  EXAMPLE row: { tag: "Scan review", headline: "AI catches scan issues before the case ships", body: "Every impression goes through an automated review for prep depth, margin clarity, and undercuts. If something's off, you get a flagged screenshot at chairside so the patient stays in the chair instead of coming back for a re-scan two weeks later.", ctaText: "See how it works", ctaUrl: "#" }
+  EXAMPLE row: { tag: "Auto review", headline: "Issues get caught before the work ships", body: "Every submission runs through an automated check for errors, gaps, and missing details. If something's off, your team gets a flagged note right away — so problems get fixed up front instead of coming back days later.", ctaText: "See how it works", ctaUrl: "#" }
 
 - "photo-strip": Scrolling image gallery. Props: images (array of {src, alt} — EXACTLY 5–10 images, alt is a 4–10 word descriptive caption naming the subject + context).
 
@@ -1667,15 +1667,15 @@ EXAMPLE OF A FULLY-POPULATED benefits-grid BLOCK (mirror this density for every 
   "id": "block-benefits-grid-1",
   "type": "benefits-grid",
   "props": {
-    "headline": "Why DSOs standardise on Dandy across every location",
+    "headline": "Why growing teams standardize on one platform",
     "columns": 3,
     "items": [
-      { "icon": "ScanLine", "title": "AI scan review on every case", "description": "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches our lab — issues get caught at chairside, not on delivery day." },
-      { "icon": "BarChart2", "title": "Network-wide case dashboard", "description": "Real-time visibility into every case across every location: status, turnaround, remake rate, per-clinician quality. One report for your COO instead of 14." },
-      { "icon": "DollarSign", "title": "All-in pricing — no per-case fees", "description": "Flat monthly per-operatory pricing covers scanner, lab work, and software. No surprise invoices, no scanner CAPEX, no per-seat licensing math." },
-      { "icon": "Clock", "title": "5-day average crown turnaround", "description": "Crowns ship in 5 days on average, with guaranteed timeline visibility per case. Patients stay on the schedule and your treatment plan doesn't slip." },
-      { "icon": "HeadphonesIcon", "title": "Dedicated clinical support team", "description": "Named lead with 24/7 clinical escalations, weekly office hours, and quarterly business reviews. Real humans who know your network." },
-      { "icon": "Shield", "title": "FDA-cleared materials, every case", "description": "All restorations use FDA-cleared materials documented per case in your patient record — no chasing labs for documentation during audits." }
+      { "icon": "ScanLine", "title": "Automated review on every job", "description": "Every submission is auto-checked for errors, gaps, and missing details before it moves forward — issues get caught up front, not after delivery." },
+      { "icon": "BarChart2", "title": "One dashboard across every location", "description": "Real-time visibility into every job across every site: status, turnaround, error rate, per-person quality. One report for your ops lead instead of 14." },
+      { "icon": "DollarSign", "title": "All-in pricing — no per-job fees", "description": "Flat monthly per-seat pricing covers the tools, the work, and the software. No surprise invoices, no upfront cost, no per-seat licensing math." },
+      { "icon": "Clock", "title": "Same-day average turnaround", "description": "Jobs complete same-day on average, with guaranteed timeline visibility per job. Customers stay happy and your schedule doesn't slip." },
+      { "icon": "HeadphonesIcon", "title": "Dedicated support team", "description": "Named lead with 24/7 escalations, weekly office hours, and quarterly business reviews. Real humans who know your account." },
+      { "icon": "Shield", "title": "Compliant records, every job", "description": "Every job is documented automatically in your records — no chasing anyone for paperwork during audits." }
     ]
   }
 }
@@ -1693,13 +1693,13 @@ RULES:
    - hero imageUrl → use ONLY images from the "HERO & LIFESTYLE" section (lifestyle, people, clinic, results shots). NEVER use product-detail or close-up images in a hero.
    - zigzag-features imageUrl and photo-strip src → use images from "FEATURE IMAGES" section. "HERO & LIFESTYLE" is also acceptable here.
    - product-grid image → use images from "PRODUCT DETAIL" section. "FEATURE IMAGES" is also acceptable.
-   - Match images to the specific content topic (e.g. crown images for crown content, team photos for people-focused sections).
+   - Match images to the specific content topic (e.g. product images for product content, team photos for people-focused sections).
    - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 10a. TEXT COLOR: Never wrap headline, subheadline, eyebrow, label, body, or any text field in inline color styles (e.g. <span style="color:#...">). Heading and body text MUST inherit color from the block's backgroundStyle so contrast is always correct. Server-side post-processing will strip any inline color you set, so emitting them is wasted tokens. To emphasize a word, use <strong> or <em>, not color.
 10b. IMAGE URLS — STRICT: Every imageUrl, backgroundImageUrl, heroImageUrl, src, and image field MUST be either (a) a verbatim URL copied from the IMAGE LIBRARY section above, or (b) an empty string "". NEVER invent, guess, or fabricate URLs. NEVER use placeholder domains like "image-library.com", "example.com", "cdn.example.com", "images.unsplash.com", "via.placeholder.com", or any host not literally present in the IMAGE LIBRARY. If no library image fits a slot, leave the field as "" — the server will fill it in. Hallucinated URLs render as broken images on the live page.
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
-12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
+12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific product names from the BRAND CONTEXT. Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get more done in less time" (correct), "Get More Done In Less Time" (wrong — no title case), "get more done in less time" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
 14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", and "dso-heartland-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero" and "parallax-image-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
 15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
@@ -1872,7 +1872,7 @@ AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only t
 - "dso-flow-canvas": Animated orb canvas with big stat + quote. Props: eyebrow (string), quote (string), attribution (string), stat (string), statLabel (string), imageUrl (string)
 - "dso-bento-outcomes": Bento grid of outcomes. Props: eyebrow (string), headline (string), tiles (array 4–6 of one of: {type:"stat",value,label,description} | {type:"photo",imageUrl,caption} | {type:"feature",headline,body} | {type:"quote",quote,author})
 - "dso-challenges": Challenge cards. Props: eyebrow (string), headline (string), layout ("4-col"|"2-col"), challenges (array 4–8 of {title, desc})
-- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string, use "Dandy"), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array of EXACTLY 5–7 of {need, dandy, traditional} — MANDATORY, NEVER empty, NEVER fewer than 5). Each row must be SUBSTANTIVE: the "need" field is a full requirement phrase (6–12 words like "Consistent quality across every location"), the "dandy" field is a specific capability + proof point (8–14 words like "AI-driven quality control: 96% first-time right"), the "traditional" field is a concrete pain point (6–12 words like "Variable — depends on lab & technician"). NEVER use 1–3 word stubs. EXAMPLE ROW: { need: "Network-wide performance data", dandy: "Dandy Hub: real-time insights, benchmarking, alerts", traditional: "Siloed per-practice reporting or none" }
+- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string — use the SELLING brand's name from the BRAND CONTEXT section; if no brand name is given, leave it blank ""), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array of EXACTLY 5–7 of {need, dandy, traditional} — MANDATORY, NEVER empty, NEVER fewer than 5). Each row must be SUBSTANTIVE: the "need" field is a full requirement phrase (6–12 words like "Consistent quality across every location"), the "dandy" field is a specific capability + proof point (8–14 words like "AI-driven quality control: 96% first-time right"), the "traditional" field is a concrete pain point (6–12 words like "Variable — depends on lab & technician"). NEVER use 1–3 word stubs. EXAMPLE ROW: { need: "Network-wide performance data", dandy: "Dandy Hub: real-time insights, benchmarking, alerts", traditional: "Siloed per-practice reporting or none" }
 - "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array of EXACTLY 3 of {name, stat, label, quote, author, image} — never 2, never 4). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
@@ -2875,6 +2875,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     const brandAccentColor = brand.accentColor || brand.primaryColor || brand.ctaBackground;
     const brandChilipiperUrl = brand.chilipiperUrl;
 
+    // Subject-company name leak guard (task #863): the resolved selling-brand
+    // name to thread into blocks that carry a `companyName` prop (dso-heartland-
+    // hero, dso-comparison). The real Dandy tenant (slug "dandy" or brandName
+    // "Dandy") resolves to "Dandy"; every other tenant resolves to its own
+    // brandName, or "" (neutral) when none is set — NEVER a "Dandy" fallback.
+    const resolvedCompanyName =
+      (brand.brandName ?? "").trim() || (isDandyTenant ? "Dandy" : "");
+
     // DSO blocks that support optional ctaText/ctaUrl/ctaMode — ensure they get Chili Piper
     const DSO_CTA_BLOCKS = new Set([
       "dso-problem", "dso-ai-feature", "dso-stat-showcase",
@@ -2917,6 +2925,19 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       if (b.props && typeof b.props === "object") {
         const props = b.props as Record<string, unknown>;
         const btype = b.type as string;
+
+        // Subject-company name leak guard (task #863): a block's `companyName`
+        // names the SELLING brand. The AI tends to emit "Dandy" (prompt
+        // saturation) and sometimes leaves it blank. For non-Dandy tenants
+        // that is a leak, so normalize: replace an empty or literal-"Dandy"
+        // companyName with the resolved brand name (the tenant's own brandName,
+        // or "" when none is set). A real, prompt-derived name is left intact.
+        if ("companyName" in props) {
+          const cn = typeof props.companyName === "string" ? props.companyName.trim() : "";
+          if (cn === "" || cn.toLowerCase() === "dandy") {
+            props.companyName = resolvedCompanyName;
+          }
+        }
 
         // Inject Chili Piper URL into optional-CTA DSO blocks
         if (brandChilipiperUrl && DSO_CTA_BLOCKS.has(btype)) {
@@ -3186,7 +3207,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           id: "block-nav-header-0",
           type: "nav-header",
           props: {
-            logoText: brand.brandName ?? "Dandy",
+            // Subject-company name leak guard (task #863): the literal "Dandy"
+            // fallback may only stand in for the REAL Dandy tenant (slug
+            // "dandy" or brandName "Dandy"). For every other tenant an empty
+            // brandName must render a neutral (empty) logo, never "Dandy".
+            logoText:
+              (brand.brandName ?? "").trim() || (isDandyTenant ? "Dandy" : ""),
             logoUrl: "",
             navLinks: [
               { label: "Products", url: "#" },
@@ -3208,17 +3234,25 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       const footerIdx = blocks.findIndex(b => b.type === "footer");
       const insertAt = footerIdx !== -1 ? footerIdx : blocks.length;
       const brandNameForCta = (brand.brandName ?? "").trim();
+      // Subject-company name leak guard (task #863): Dandy-specific copy and
+      // meetdandy.com links may ONLY fire for the real Dandy tenant (slug
+      // "dandy" or brandName "Dandy"). A non-Dandy tenant with an empty
+      // brandName must fall back to neutral wording — never "Dandy".
       const isDandyBrandForCta =
-        brandNameForCta === "" || brandNameForCta.toLowerCase() === "dandy";
+        isDandyTenant || brandNameForCta.toLowerCase() === "dandy";
       const learnMoreUrl = isDandyBrandForCta
         ? "https://www.meetdandy.com/"
         : (brand.defaultCtaUrl?.trim() || "#");
       const bottomSubheadline = isDandyBrandForCta
         ? "Join thousands of dental practices already using Dandy."
-        : `Get started with ${brandNameForCta} today.`;
+        : brandNameForCta
+          ? `Get started with ${brandNameForCta} today.`
+          : "Get started with your team today.";
       const dsoSubheadline = isDandyBrandForCta
         ? "Book a personalized demo and see how Dandy can work for your team."
-        : `Book a personalized demo and see how ${brandNameForCta} can work for your team.`;
+        : brandNameForCta
+          ? `Book a personalized demo and see how ${brandNameForCta} can work for your team.`
+          : "Book a personalized demo and see how we can work for your team.";
       const ctaBlock = (useDso || useDsoPractices)
         ? {
             id: "block-dso-final-cta-injected",
@@ -3257,8 +3291,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     if (!hasFooter && !isSingleFullPage) {
       const year = new Date().getFullYear();
       const brandNameRaw = (brand.brandName ?? "").trim();
+      // Subject-company name leak guard (task #863): the hardcoded
+      // meetdandy.com footer columns may ONLY be emitted for the real Dandy
+      // tenant (slug "dandy" or brandName "Dandy"). A non-Dandy tenant with an
+      // empty brandName must get the brand-aware fallback footer below.
       const isDandyBrand =
-        brandNameRaw === "" || brandNameRaw.toLowerCase() === "dandy";
+        isDandyTenant || brandNameRaw.toLowerCase() === "dandy";
       if (isDandyBrand) {
         blocks.push({
           id: "block-footer-injected",
