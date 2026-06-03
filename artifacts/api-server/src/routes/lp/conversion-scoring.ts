@@ -55,6 +55,20 @@ export interface BlockAnalysis {
   // Whether ANY block carries imagery (incl. heroImageUrl / imageUrls[] /
   // bespoke *ImageUrl props) — used for Visual Hierarchy, so it stays broad.
   hasImagery: boolean;
+  // The block `type` slugs that contributed to each signal, so the UI can show
+  // "why this score" — which blocks earned each category its points. De-duped,
+  // empty type falls back to "section".
+  contributing: {
+    hero: string[];
+    cta: string[];
+    socialProof: string[];
+    form: string[];
+    booking: string[];
+    trust: string[];
+    faq: string[];
+    footer: string[];
+    imagery: string[];
+  };
 }
 
 // Social-proof block types the generator and catalog actually emit. Matched by
@@ -147,6 +161,21 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     headlineCount: 0,
     imageCount: 0,
     hasImagery: false,
+    contributing: {
+      hero: [],
+      cta: [],
+      socialProof: [],
+      form: [],
+      booking: [],
+      trust: [],
+      faq: [],
+      footer: [],
+      imagery: [],
+    },
+  };
+
+  const pushType = (arr: string[], t: string): void => {
+    if (t && !arr.includes(t)) arr.push(t);
   };
 
   for (const raw of blocks) {
@@ -155,14 +184,28 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     const props = (block.props || {}) as Record<string, unknown>;
     const propsStr = JSON.stringify(props).toLowerCase();
     const propEntries = Object.entries(props);
+    const blockLabel = type || "section";
+    // Per-block contribution flags — recorded at the end of the iteration so a
+    // block that satisfies a signal via ANY branch is attributed to it (the
+    // result.* booleans are cumulative across blocks and can't tell us which
+    // block flipped them).
+    let thisHero = false;
+    let thisCta = false;
+    let thisSocial = false;
+    let thisForm = false;
+    let thisBooking = false;
+    let thisTrust = false;
+    let thisFaq = false;
+    let thisFooter = false;
+    let thisImage = false;
 
     // ── Hero ───────────────────────────────────────────────────────
     // By type keyword OR by carrying hero content under bespoke prop names —
     // premium all-in-one blocks (e.g. `business-case-premium`) render a hero
     // via `heroHeadline` / `heroLayout` without "hero" in their type.
     const hasHeroProps = nonEmptyStr(props.heroHeadline) || nonEmptyStr(props.heroLayout);
-    if (type.includes("hero") || type.includes("header") || hasHeroProps) result.hasHero = true;
-    if (type.includes("cta") || type.includes("button") || propsStr.includes("cta")) result.hasCtaButton = true;
+    if (type.includes("hero") || type.includes("header") || hasHeroProps) { result.hasHero = true; thisHero = true; }
+    if (type.includes("cta") || type.includes("button") || propsStr.includes("cta")) { result.hasCtaButton = true; thisCta = true; }
 
     // ── Social proof ───────────────────────────────────────────────
     // Recognize the full vocabulary: testimonials, logo bars, reviews, trust /
@@ -178,6 +221,7 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       type.includes("success-stor")
     ) {
       result.hasSocialProof = true;
+      thisSocial = true;
     }
     // Props-based social proof — a block carrying credibility content is social
     // proof regardless of its type or the exact prop name. Premium all-in-one
@@ -190,10 +234,12 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       if (nonEmptyArray(value)) {
         if (lk.endsWith("stats") || value.some(isSocialProofObject)) {
           result.hasSocialProof = true;
+          thisSocial = true;
           break;
         }
       } else if (lk.includes("proof") && isSocialProofObject(value)) {
         result.hasSocialProof = true;
+        thisSocial = true;
         break;
       }
     }
@@ -204,6 +250,7 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
           const kind = valStr((t as Record<string, unknown>)?.kind) || valStr((t as Record<string, unknown>)?.type);
           if (kind === "quote" || kind === "stat") {
             result.hasSocialProof = true;
+            thisSocial = true;
             break;
           }
         }
@@ -213,6 +260,7 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
     // ── Forms ──────────────────────────────────────────────────────
     if (type.includes("form") || type.includes("lead") || type.includes("signup")) {
       result.hasForm = true;
+      thisForm = true;
       // Multi-step forms store fields under steps[].fields …
       const steps = props.steps;
       if (Array.isArray(steps)) {
@@ -246,6 +294,7 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       type === "dso-cta-capture"
     ) {
       result.hasBooking = true;
+      thisBooking = true;
     }
     // A dedicated final/conversion CTA block (bottom-cta, dso-final-cta,
     // dandy-conversion-panel, a standalone cta-button) IS the page's conversion
@@ -260,19 +309,22 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       type.includes("cta-capture");
     if (isConversionBlock && (valStr(props.ctaText) !== "" || valStr(props.primaryCtaText) !== "")) {
       result.hasBooking = true;
+      thisBooking = true;
     }
     if (type.includes("roi-calculator") && (props.ctaEnabled === true || valStr(props.ctaText) !== "")) {
       result.hasBooking = true;
+      thisBooking = true;
     }
     // A premium all-in-one block whose final-CTA band is enabled with a labeled
     // button (e.g. `business-case-premium`'s showFinalCta + finalCtaPrimaryText)
     // IS the page's conversion path, even without a dedicated final-cta block.
     if (props.showFinalCta !== false && nonEmptyStr(props.finalCtaPrimaryText)) {
       result.hasBooking = true;
+      thisBooking = true;
     }
 
-    if (type.includes("faq") || type.includes("accordion")) result.hasFaq = true;
-    if (type.includes("footer")) result.hasFooter = true;
+    if (type.includes("faq") || type.includes("accordion")) { result.hasFaq = true; thisFaq = true; }
+    if (type.includes("footer")) { result.hasFooter = true; thisFooter = true; }
     // ── Trust signals ──────────────────────────────────────────────
     // Kept DISTINCT from social proof (no "trust" substring, so the social-proof
     // "trust-bar" stat block is not double-counted here). Counted when a block
@@ -292,6 +344,7 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       type.includes("paradigm")
     ) {
       result.hasTrustSignals = true;
+      thisTrust = true;
     }
     if (
       nonEmptyArray(props.promises) ||
@@ -304,10 +357,12 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       nonEmptyStr(props.guaranteeText)
     ) {
       result.hasTrustSignals = true;
+      thisTrust = true;
     } else {
       for (const value of Object.values(props)) {
         if (nonEmptyArray(value) && value.some(isComparisonObject)) {
           result.hasTrustSignals = true;
+          thisTrust = true;
           break;
         }
       }
@@ -340,23 +395,34 @@ export function analyzeBlocks(blocks: unknown[]): BlockAnalysis {
       (Array.isArray(imagesArr) && imagesArr.length > 0)
     ) {
       result.imageCount++;
+      thisImage = true;
     }
     // hasImagery stays BROAD (it feeds Visual Hierarchy): any block carrying an
     // image reference under any prop name (heroImageUrl, backgroundImageUrl,
     // proofImageUrl, imageUrls[], imageKey …) counts, so image-rich pages are
     // not told to "add an image".
-    if (!result.hasImagery) {
-      if (result.imageCount > 0) {
-        result.hasImagery = true;
-      } else {
-        for (const [key, value] of propEntries) {
-          if (isImageKey(key) && (nonEmptyStr(value) || nonEmptyArray(value))) {
-            result.hasImagery = true;
-            break;
-          }
+    if (thisImage) {
+      result.hasImagery = true;
+    } else {
+      for (const [key, value] of propEntries) {
+        if (isImageKey(key) && (nonEmptyStr(value) || nonEmptyArray(value))) {
+          result.hasImagery = true;
+          thisImage = true;
+          break;
         }
       }
     }
+
+    // ── Record this block's contributions ──────────────────────────
+    if (thisHero) pushType(result.contributing.hero, blockLabel);
+    if (thisCta) pushType(result.contributing.cta, blockLabel);
+    if (thisSocial) pushType(result.contributing.socialProof, blockLabel);
+    if (thisForm) pushType(result.contributing.form, blockLabel);
+    if (thisBooking) pushType(result.contributing.booking, blockLabel);
+    if (thisTrust) pushType(result.contributing.trust, blockLabel);
+    if (thisFaq) pushType(result.contributing.faq, blockLabel);
+    if (thisFooter) pushType(result.contributing.footer, blockLabel);
+    if (thisImage) pushType(result.contributing.imagery, blockLabel);
   }
 
   return result;
@@ -367,6 +433,13 @@ export interface ScoringCategory {
   score: number;
   grade: string;
   recommendation: string;
+  // "Why this score" detail. `contributingBlocks` lists the block `type` slugs
+  // that earned this category its points (empty when the category is purely
+  // behavioral or no qualifying block was found). `addBlock` is present only
+  // when a structural gap can be closed by inserting a block — it deep-links the
+  // builder's insert panel pre-filtered to the relevant block via `search`.
+  contributingBlocks?: string[];
+  addBlock?: { label: string; search: string };
 }
 
 export interface QuickWin {
@@ -472,6 +545,17 @@ export function computeConversionScore(input: {
     100,
   );
 
+  // "Why this score" plumbing. `opt` collapses an empty contributing list to
+  // undefined (so the field is omitted), and `merge` de-dupes across signals
+  // (e.g. CTA draws from both cta + booking blocks).
+  const c = analysis.contributing;
+  const opt = (arr: string[]): string[] | undefined => (arr.length > 0 ? arr : undefined);
+  const merge = (...arrs: string[][]): string[] => {
+    const out: string[] = [];
+    for (const a of arrs) for (const t of a) if (!out.includes(t)) out.push(t);
+    return out;
+  };
+
   const categories: ScoringCategory[] = [
     {
       name: "Headline Clarity",
@@ -482,6 +566,8 @@ export function computeConversionScore(input: {
         : headlineScore < 70
           ? "Add a benefit-driven subheadline to your hero section"
           : "Headline structure looks solid",
+      contributingBlocks: opt(c.hero),
+      addBlock: !analysis.hasHero ? { label: "Add a hero block", search: "hero" } : undefined,
     },
     {
       name: "CTA Effectiveness",
@@ -493,6 +579,11 @@ export function computeConversionScore(input: {
           : hasTraffic && cvr < 2
             ? "Try action-oriented CTA copy and increase button contrast"
             : "CTA is in place — keep testing copy and placement",
+      contributingBlocks: opt(merge(c.cta, c.booking)),
+      addBlock:
+        !analysis.hasCtaButton && !analysis.hasBooking
+          ? { label: "Add a CTA button", search: "cta" }
+          : undefined,
     },
     {
       name: "Social Proof",
@@ -501,6 +592,10 @@ export function computeConversionScore(input: {
       recommendation: !analysis.hasSocialProof
         ? "Add testimonials, a stats/trust bar, or case studies to build credibility"
         : "Social proof is present — consider adding specific metrics or named quotes",
+      contributingBlocks: opt(c.socialProof),
+      addBlock: !analysis.hasSocialProof
+        ? { label: "Add a testimonial or stats block", search: "testimonial" }
+        : undefined,
     },
     {
       name: "Form Friction",
@@ -513,6 +608,10 @@ export function computeConversionScore(input: {
           : analysis.hasBooking && !analysis.hasForm
             ? "Low-friction booking flow detected — keep the booking CTA prominent"
             : "Form field count is optimized",
+      contributingBlocks: opt(merge(c.form, c.booking)),
+      addBlock: !hasConversionPath
+        ? { label: "Add a lead capture form", search: "form" }
+        : undefined,
     },
     {
       name: "Visual Hierarchy",
@@ -524,6 +623,10 @@ export function computeConversionScore(input: {
           : !analysis.hasImagery
             ? "Add at least one image or visual element"
             : "Visual structure looks good",
+      contributingBlocks: opt(merge(c.imagery, c.hero)),
+      addBlock: !analysis.hasImagery
+        ? { label: "Add an image block", search: "image" }
+        : undefined,
     },
     {
       name: "Page Speed Impact",
@@ -540,6 +643,7 @@ export function computeConversionScore(input: {
           : analysis.blockCount > 15
             ? "Consider consolidating blocks to improve load time"
             : "Page complexity is within recommended limits",
+      contributingBlocks: opt(c.imagery),
     },
     {
       name: "Mobile Responsiveness",
@@ -560,6 +664,10 @@ export function computeConversionScore(input: {
         : !analysis.hasFaq
           ? "Add an FAQ section to address common objections"
           : "Trust signals are well-placed",
+      contributingBlocks: opt(merge(c.trust, c.faq)),
+      addBlock: !analysis.hasTrustSignals
+        ? { label: "Add a trust or guarantee block", search: "guarantee" }
+        : undefined,
     },
   ];
 

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +15,7 @@ import {
   BarChart2,
   Layers,
   AlertTriangle,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +26,10 @@ interface ScoringCategory {
   score: number;
   grade: string;
   recommendation: string;
+  // "Why this score" detail from the scorer: which block types earned this
+  // category its points, plus an optional one-click way to add the missing block.
+  contributingBlocks?: string[];
+  addBlock?: { label: string; search: string };
 }
 
 interface QuickWin {
@@ -80,6 +86,16 @@ function gradeColor(grade: string): string {
   if (grade.startsWith("B")) return "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
   if (grade.startsWith("C")) return "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
   return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
+}
+
+// Turn a block `type` slug ("dso-stat-bar") into a readable label ("Dso Stat
+// Bar") for the "blocks that contributed" chips.
+function humanizeBlockType(type: string): string {
+  return type
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 // Circular score ring
@@ -291,6 +307,37 @@ export function PageConversionScore({ pageId }: { pageId: number }) {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">{cat.recommendation}</p>
+
+                    {/* Why this score — which blocks contributed */}
+                    {cat.contributingBlocks && cat.contributingBlocks.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mb-1">
+                          From these blocks
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {cat.contributingBlocks.map((bt) => (
+                            <Badge
+                              key={bt}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 font-normal bg-muted/50 text-muted-foreground border-border"
+                            >
+                              {humanizeBlockType(bt)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empty category — one-click jump to add the missing block */}
+                    {cat.addBlock && (
+                      <Link
+                        href={`/builder/${result.pageId}?addBlock=${encodeURIComponent(cat.addBlock.search)}`}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {cat.addBlock.label}
+                      </Link>
+                    )}
                   </div>
                 </div>
               </Card>

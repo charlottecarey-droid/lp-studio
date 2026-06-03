@@ -30,7 +30,17 @@ const COMPLETE_PAGE = [
 const NO_META = { metaTitle: null, metaDescription: null };
 const NO_TRAFFIC = { impressions: 0, cvr: 0, leadCount: 0, avgScrollDepth: 0 };
 
-function gradeOf(name: string, cats: { name: string; score: number; grade: string; recommendation: string }[]) {
+function gradeOf(
+  name: string,
+  cats: {
+    name: string;
+    score: number;
+    grade: string;
+    recommendation: string;
+    contributingBlocks?: string[];
+    addBlock?: { label: string; search: string };
+  }[],
+) {
   return cats.find((c) => c.name === name)!;
 }
 
@@ -263,6 +273,63 @@ describe("computeConversionScore — Page Speed Impact (measured vs proxy)", () 
     const fastScore = gradeOf("Page Speed Impact", fast.categories).score;
     expect(slowScore).toBeLessThan(fastScore);
     expect(slow.overallScore).toBeLessThan(fast.overallScore);
+  });
+});
+
+describe("analyzeBlocks — contributing block attribution", () => {
+  it("records which block types contributed to each signal", () => {
+    const a = analyzeBlocks(COMPLETE_PAGE);
+    expect(a.contributing.hero).toContain("dso-heartland-hero");
+    expect(a.contributing.socialProof).toEqual(
+      expect.arrayContaining(["trust-bar", "dso-stat-showcase", "dso-success-stories"]),
+    );
+    expect(a.contributing.booking).toEqual(expect.arrayContaining(["dso-heartland-hero", "dso-final-cta"]));
+    expect(a.contributing.faq).toContain("dso-faq");
+    expect(a.contributing.footer).toContain("footer");
+    expect(a.contributing.imagery).toContain("image");
+  });
+
+  it("de-dupes a block type that contributes to the same signal twice", () => {
+    const a = analyzeBlocks([
+      { type: "testimonial", props: {} },
+      { type: "testimonial", props: {} },
+    ]);
+    expect(a.contributing.socialProof).toEqual(["testimonial"]);
+  });
+
+  it("falls back to 'section' for a block with no type", () => {
+    const a = analyzeBlocks([{ props: { heroHeadline: "Hi" } }]);
+    expect(a.contributing.hero).toContain("section");
+  });
+});
+
+describe("computeConversionScore — why-this-score detail", () => {
+  it("attaches contributingBlocks to satisfied categories and no addBlock", () => {
+    const analysis = analyzeBlocks(COMPLETE_PAGE);
+    const { categories } = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC });
+    const social = gradeOf("Social Proof", categories);
+    expect(social.contributingBlocks?.length).toBeGreaterThan(0);
+    expect(social.addBlock).toBeUndefined();
+  });
+
+  it("offers an addBlock deep link for an empty structural category", () => {
+    // A page with only a long form — no social proof, no trust, no imagery.
+    const analysis = analyzeBlocks([{ type: "form", props: { fields: new Array(10).fill({}) } }]);
+    const { categories } = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC });
+    const social = gradeOf("Social Proof", categories);
+    expect(social.contributingBlocks).toBeUndefined();
+    expect(social.addBlock).toBeDefined();
+    expect(social.addBlock!.search).toBe("testimonial");
+    expect(social.addBlock!.label.length).toBeGreaterThan(0);
+
+    const trust = gradeOf("Trust Signals", categories);
+    expect(trust.addBlock?.search).toBe("guarantee");
+  });
+
+  it("never offers addBlock for behavioral-only Mobile Responsiveness", () => {
+    const analysis = analyzeBlocks(COMPLETE_PAGE);
+    const { categories } = computeConversionScore({ analysis, ...NO_META, ...NO_TRAFFIC });
+    expect(gradeOf("Mobile Responsiveness", categories).addBlock).toBeUndefined();
   });
 });
 

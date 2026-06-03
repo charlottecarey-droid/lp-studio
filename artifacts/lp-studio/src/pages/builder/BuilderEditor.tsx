@@ -656,9 +656,12 @@ interface InsertBlockDialogProps {
   /** When true, hide blocks that are not allowed as nested children
    *  (chrome blocks like nav-header/footer/popup/sticky-bar). */
   nestedTarget?: boolean;
+  /** Seeds the search box when the dialog opens — used by the conversion-score
+   *  "add the missing block" deep link (?addBlock=<search>). */
+  initialSearch?: string;
 }
 
-function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget }: InsertBlockDialogProps) {
+function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget, initialSearch }: InsertBlockDialogProps) {
   const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
   // Append any extra categories that exist in the (prefs-applied) catalog but
   // aren't in the default list, then sort the whole thing per tenant prefs.
@@ -667,7 +670,7 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlock
   for (const c of extras) seen.add(c);
   const categories = applyCategoryOrder([...defaultCategories, ...new Set(extras)], prefs);
   const [search, setSearch] = useState("");
-  useEffect(() => { if (open) setSearch(""); }, [open]);
+  useEffect(() => { if (open) setSearch(initialSearch ?? ""); }, [open, initialSearch]);
   const filteredCustom = search.trim()
     ? customBlocks.filter(b => b.name.toLowerCase().includes(search.trim().toLowerCase()))
     : customBlocks;
@@ -1095,6 +1098,9 @@ export default function BuilderEditor() {
 
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
+  // Seeds the Insert Block dialog search box when arriving from the conversion-
+  // score panel's "add the missing block" deep link (?addBlock=<search>).
+  const [insertInitialSearch, setInsertInitialSearch] = useState<string>("");
   // When set, the next "Insert Block" dialog confirmation drops the new block
   // into the given nested container slot instead of the page root.
   const [nestedInsertTarget, setNestedInsertTarget] = useState<
@@ -1253,6 +1259,22 @@ export default function BuilderEditor() {
   useEffect(() => {
     if (!isNaN(pageIdNum)) trackView("page", pageIdNum);
   }, [pageIdNum]);
+
+  // Conversion-score "add the missing block" deep link: ?addBlock=<search>
+  // opens the Insert Block dialog pre-filtered to the relevant block, then
+  // strips the param so a refresh/back doesn't re-open it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const addBlock = params.get("addBlock");
+    if (addBlock) {
+      setInsertInitialSearch(addBlock);
+      setInsertDialogOpen(true);
+      params.delete("addBlock");
+      const qs = params.toString();
+      navigate(`/builder/${pageId}${qs ? `?${qs}` : ""}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Task #254 — pull strict-mode mismatch list (if any) that the create
   // flow stashed in sessionStorage. consumeStrictMismatches removes the
@@ -2819,12 +2841,13 @@ export default function BuilderEditor() {
       {/* Insert Block Dialog */}
       <InsertBlockDialog
         open={insertDialogOpen}
-        onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); setNestedInsertTarget(null); }}
+        onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); setNestedInsertTarget(null); setInsertInitialSearch(""); }}
         onInsert={handleInsertBlock}
         customBlocks={visibleCustomBlocks}
         visibleBlocks={tenantCatalogBlocks}
         prefs={libraryPrefs}
         nestedTarget={nestedInsertTarget !== null}
+        initialSearch={insertInitialSearch}
       />
 
       <CustomizeBlockLibraryDialog
