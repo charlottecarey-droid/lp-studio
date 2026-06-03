@@ -16,7 +16,8 @@ import type { ChatCompletionContentPart } from "openai/resources/chat/completion
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
-import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS } from "@workspace/lp-template-engine";
+import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
+import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 
 const router = Router();
 
@@ -1832,6 +1833,211 @@ function buildBlockRoleTagGuide(
   ].join("\n");
 }
 
+/**
+ * The structural roles every complete generated landing page MUST cover. The
+ * role-tag taxonomy (block-tags.ts) describes what each block fills; this is
+ * the contract for which roles a finished page is required to contain.
+ */
+export const REQUIRED_PAGE_ROLES = [
+  "hero",
+  "cta",
+  "social-proof",
+  "stats",
+  "features",
+  "footer",
+] as const;
+
+type RequiredPageRole = (typeof REQUIRED_PAGE_ROLES)[number];
+
+/**
+ * Build a brand-aware default block for a missing required role. Block types
+ * are chosen so their role tags (block-tags.ts) include the target role; copy
+ * is intentionally neutral placeholder text the editor / downstream copy passes
+ * can refine.
+ */
+function buildDefaultRoleBlock(
+  role: RequiredPageRole,
+  ctx: { brandName: string; ctaUrl: string },
+): Record<string, unknown> | null {
+  const { brandName, ctaUrl } = ctx;
+  const year = new Date().getFullYear();
+  switch (role) {
+    case "hero":
+      return {
+        id: "block-hero-role-injected",
+        type: "hero",
+        props: {
+          headline: brandName ? `Built for ${brandName}` : "Built for the way you work",
+          subheadline:
+            "A clear, specific promise that names the concrete outcome and the audience it serves.",
+          ctaText: "Get Started",
+          ctaUrl,
+          layout: "centered",
+          backgroundStyle: "white",
+        },
+      };
+    case "features":
+      return {
+        id: "block-benefits-grid-role-injected",
+        type: "benefits-grid",
+        props: {
+          headline: "What you get",
+          columns: 3,
+          items: [
+            {
+              icon: "Zap",
+              title: "Faster turnaround",
+              description:
+                "Name the concrete mechanism that saves time and the team that benefits most from it.",
+            },
+            {
+              icon: "Shield",
+              title: "Built-in quality",
+              description:
+                "Describe the specific check or guarantee that removes risk for the customer.",
+            },
+            {
+              icon: "BarChart2",
+              title: "Measurable results",
+              description:
+                "State the outcome you can quantify and the timeframe in which it shows up.",
+            },
+          ],
+        },
+      };
+    case "social-proof":
+      return {
+        id: "block-testimonial-role-injected",
+        type: "testimonial",
+        props: {
+          quote:
+            "Replace with a real customer quote that names a specific, measurable outcome — not generic praise.",
+          author: "Customer name",
+          role: "Title",
+          practiceName: "Company",
+        },
+      };
+    case "stats":
+      return {
+        id: "block-trust-bar-role-injected",
+        type: "trust-bar",
+        props: {
+          items: [
+            { value: "10,000+", label: "Customers served" },
+            { value: "98%", label: "On-time delivery" },
+            { value: "4.9/5", label: "Average rating" },
+            { value: "24/7", label: "Support coverage" },
+          ],
+          countUpEnabled: true,
+        },
+      };
+    case "cta":
+      return {
+        id: "block-bottom-cta-role-injected",
+        type: "bottom-cta",
+        props: {
+          headline: "Ready to get started?",
+          subheadline: brandName
+            ? `Get started with ${brandName} today.`
+            : "Get started with your team today.",
+          ctaText: "Get Started",
+          ctaUrl,
+        },
+      };
+    case "footer":
+      return {
+        id: "block-footer-role-injected",
+        type: "footer",
+        props: {
+          copyrightText: brandName
+            ? `© ${year} ${brandName}. All rights reserved.`
+            : `© ${year} All rights reserved.`,
+          showSocialLinks: false,
+        },
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Enforce that the parsed block list covers every required structural role,
+ * auto-injecting a brand-aware default block for any missing role. Mutates and
+ * returns the same array. Idempotent: a page that already covers all roles is
+ * returned unchanged.
+ */
+export function enforceRequiredRoles(
+  blocks: Array<Record<string, unknown>>,
+  opts: {
+    dbTagsByType?: Map<string, unknown>;
+    brandName?: string;
+    ctaUrl?: string;
+  } = {},
+): Array<Record<string, unknown>> {
+  if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
+  const dbTagsByType = opts.dbTagsByType ?? new Map<string, unknown>();
+  const ctx = {
+    brandName: (opts.brandName ?? "").trim(),
+    ctaUrl: opts.ctaUrl?.trim() || "#",
+  };
+
+  const rolesOf = (block: Record<string, unknown> | undefined): BlockRoleTag[] => {
+    const type = typeof block?.type === "string" ? block.type : "";
+    return type ? resolveBlockTags(type, dbTagsByType.get(type)) : [];
+  };
+
+  const covered = new Set<string>();
+  for (const b of blocks) for (const tag of rolesOf(b)) covered.add(tag);
+
+  const missing = REQUIRED_PAGE_ROLES.filter((r) => !covered.has(r));
+  if (missing.length === 0) return blocks; // idempotent no-op
+
+  const firstIndexWithRole = (role: BlockRoleTag): number => {
+    for (let i = 0; i < blocks.length; i++) {
+      if (rolesOf(blocks[i]).includes(role)) return i;
+    }
+    return -1;
+  };
+
+  // Body roles (features, social-proof, stats) go before the closing CTA/footer
+  // region in a stable, readable order.
+  for (const role of ["features", "social-proof", "stats"] as const) {
+    if (!missing.includes(role)) continue;
+    const block = buildDefaultRoleBlock(role, ctx);
+    if (!block) continue;
+    const footerIdx = firstIndexWithRole("footer");
+    const ctaIdx = firstIndexWithRole("cta");
+    const anchor = footerIdx !== -1 ? footerIdx : ctaIdx !== -1 ? ctaIdx : blocks.length;
+    blocks.splice(anchor, 0, block);
+  }
+
+  // Closing CTA before any footer.
+  if (missing.includes("cta")) {
+    const block = buildDefaultRoleBlock("cta", ctx);
+    if (block) {
+      const footerIdx = firstIndexWithRole("footer");
+      blocks.splice(footerIdx !== -1 ? footerIdx : blocks.length, 0, block);
+    }
+  }
+
+  // Footer last.
+  if (missing.includes("footer")) {
+    const block = buildDefaultRoleBlock("footer", ctx);
+    if (block) blocks.push(block);
+  }
+
+  // Hero first, after any leading header block.
+  if (missing.includes("hero")) {
+    const block = buildDefaultRoleBlock("hero", ctx);
+    if (block) {
+      const leadingHeader = rolesOf(blocks[0]).includes("header");
+      blocks.splice(leadingHeader ? 1 : 0, 0, block);
+    }
+  }
+
+  return blocks;
+}
+
 const GENERAL_SYSTEM_PROMPT_TEMPLATE = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
 
 DENSITY DOCTRINE (the single most important rule — read first):
@@ -2925,7 +3131,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       }
 
       // Workstream B — banned-phrase post-validator (template path).
-      const bannedPhraseHits = findBannedPhrases(mergedBlocks, brand.avoidPhrases ?? []);
+      const bannedPhraseHits = findBannedPhrases(
+        mergedBlocks,
+        [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])],
+      );
       if (bannedPhraseHits.length > 0) {
         logger.warn(
           {
@@ -3106,6 +3315,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
+  userPromptParts.push(
+    getCopyPrinciplesSection({
+      brandName: brand.brandName,
+      matchedSegment: Boolean(segmentContext),
+      forbiddenList: [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])],
+    }),
+  );
   if (segmentSection) {
     userPromptParts.push(
       `AUDIENCE SEGMENT — IMPORTANT: You MUST tailor all copy, headlines, value props, personas, and CTAs specifically to this segment. Do NOT use generic messaging.\n${segmentSection}`
@@ -3753,6 +3969,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       }
     }
 
+    // Enforce required structural roles (hero, cta, social-proof, stats,
+    // features, footer), auto-injecting brand-aware defaults for any missing
+    // role. Skipped for self-contained full-page blocks, which render their own
+    // complete structure. Idempotent: a complete page is left unchanged.
+    if (!isSingleFullPage) {
+      enforceRequiredRoles(blocks, {
+        dbTagsByType,
+        brandName: brand.brandName,
+        ctaUrl: cpUrl,
+      });
+    }
+
     parsed.blocks = blocks;
 
     // Task #253 — strict mode: scrub any unapproved numeric stats from the
@@ -3778,7 +4006,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Workstream B — banned-phrase post-validator. Non-destructive: flag
     // clichés + brand-forbidden phrases that leaked past the prompt so the
     // editor (and Workstream C's critique pass) can target the worst blocks.
-    const bannedPhraseHits = findBannedPhrases(parsed.blocks, brand.avoidPhrases ?? []);
+    const bannedPhraseHits = findBannedPhrases(
+      parsed.blocks,
+      [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])],
+    );
     if (bannedPhraseHits.length > 0) {
       logger.warn(
         {

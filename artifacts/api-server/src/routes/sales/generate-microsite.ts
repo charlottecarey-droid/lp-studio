@@ -21,8 +21,10 @@ import {
   buildDesignIntensitySection,
   applyDesignIntensityBackgrounds,
   type DesignIntensity,
+  enforceRequiredRoles,
 } from "../lp/generate-page";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
+import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -1182,20 +1184,7 @@ function buildSystemPrompt(
   );
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
-  const coreForbidden = [
-    "cutting-edge", "state-of-the-art", "best-in-class", "world-class", "industry-leading",
-    "leverage", "utilize", "streamline", "synergy", "empower", "enable", "facilitate",
-    "revolutionize", "transformative", "game-changing", "innovative", "disruptive",
-    "seamless", "seamlessly", "effortlessly", "frictionless",
-    "comprehensive", "holistic", "robust", "scalable solutions", "end-to-end",
-    "in today's competitive landscape", "in the current climate", "now more than ever",
-    "take it to the next level", "elevate your practice", "transform your business",
-    "partner of choice", "trusted partner", "strategic partner",
-    "unique positioning", "competitive advantage",
-    "solution", "ecosystem", "Discover", "Unlock", "Unleash",
-    "optimize", "maximize" ,"best practices", "value-add",
-  ];
-  const forbiddenList = [...new Set([...coreForbidden, ...(avoidPhrases ?? [])])];
+  const forbiddenList = [...new Set([...getCoreForbiddenPhrases(), ...(avoidPhrases ?? [])])];
 
   const chilipiperUrl = brand.chilipiperUrl as string | undefined;
   const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
@@ -1228,56 +1217,11 @@ function buildSystemPrompt(
     !chilipiperUrl && defaultCtaUrl ? `Default CTA URL: "${defaultCtaUrl}" — use this as ctaUrl on EVERY block that has a ctaUrl prop. Never leave ctaUrl as "#".` : null,
   ].filter(Boolean).join("\n");
 
-  const copyPrinciples = `
-COPY QUALITY PRINCIPLES — follow every one of these without exception:
-
-1. Specific always beats vague. Every claim needs a number, a process, or a policy behind it.
-   BAD: "Faster turnaround times that improve efficiency"
-   GOOD: "5-day crown delivery with real-time case tracking"
-   BAD: "${brandName || "Our"}'s advanced technology ensures better outcomes"
-   GOOD: "96% first-time fit rate. If a case doesn't seat, we remake it for free."
-
-2. Lead with the customer's benefit — not ${brandName || "the seller"}'s features.
-   BAD: "${brandName || "We"} use AI-powered quality control on every case"
-   GOOD: "You get a better-fitting result without the back-and-forth phone calls"
-
-3. Write like one person talking directly to another across a desk. Not a press release. Not a brochure.
-   BAD: "Leveraging next-generation digital workflows to optimize practice efficiency"
-   GOOD: "Send a scan. Get a perfect-fit crown in 5 days."
-
-4. Short sentences. Active voice. One idea per sentence. If you can cut a word without losing meaning, cut it.
-
-5. Headlines are declarative and direct. No vague questions. No "How to..." or "Why...".
-   BAD: "Discover how ${brandName || "we"} can help your practice grow"
-   GOOD: "More cases. Zero lab drama."
-
-6. Every subheadline should deepen or add to the headline — not just restate it in different words.
-
-7. Reference this specific account — their name, their scale, their situation — naturally throughout. It should feel written for them, not filled in with a mail-merge.
-
-8. Never stack adjectives. One strong word beats three weak ones.
-   BAD: "Powerful, comprehensive, industry-leading digital solutions"
-   GOOD: "A lab that backs every case with a guarantee"
-
-${matchedSegment ? `9. VALIDATED FACTS ONLY — when this prompt includes a TARGET SEGMENT section with pre-validated stats, comparisons, and persona pain points, you MUST use ONLY those exact facts:
-   a) STATS: Pull every number, percentage, dollar amount, and time-frame ONLY from the "Pre-validated stats" list. Never invent statistics. Never round, embellish, or extrapolate. If no stat fits a slot, write a different sentence rather than fabricating a number.
-   b) COMPARISONS: In any comparison block (oldWayBullets/newWayBullets, comparison rows, "us vs them" tables), use ONLY the "Pre-validated comparisons" entries. Never invent contrasts.
-   c) PERSONA PAIN POINTS: When writing pain-section copy or addressing buyer concerns, use ONLY the pain points listed under "Key personas". Never fabricate a persona or invent a pain point not on the list.
-
-10. CAPITALIZATION — Two absolute rules that BOTH apply at all times:` : `9. CAPITALIZATION — Two absolute rules that BOTH apply at all times:`}
-   a) ALWAYS start every sentence, headline, eyebrow, bullet point, step title, card title, FAQ question, and label with a capital letter. Every piece of text that starts a new thought begins with a capital. Never begin any text with a lowercase letter.
-   b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official product names get capitals.
-   WRONG (all lowercase start): "more cases. zero lab drama." → WRONG: sentence starts with lowercase
-   WRONG (title case): "More Cases. Zero Lab Drama." → WRONG: mid-sentence words capitalized
-   CORRECT: "More cases. Zero lab drama."
-   WRONG: "send a scan. get a perfect-fit crown in 5 days." → WRONG
-   CORRECT: "Send a scan. Get a perfect-fit crown in 5 days."
-   WRONG: "join hundreds of practices already using ${(brandName || "us").toLowerCase()}" → WRONG: lowercase sentence start; brand names are proper nouns
-   CORRECT: "Join hundreds of practices already using ${brandName || "us"}."
-
-NEVER USE any of the following — not in headlines, not in body copy, not anywhere:
-${forbiddenList.map(p => `- "${p}"`).join("\n")}
-`.trim();
+  const copyPrinciples = getCopyPrinciplesSection({
+    brandName,
+    matchedSegment: Boolean(matchedSegment),
+    forbiddenList,
+  });
 
   // Build dynamic identity — use companyDescription if set, else compose from brandName + targetAudience
   const sellerIdentity = companyDescription?.trim()
@@ -1595,6 +1539,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
+
+    // Enforce required structural roles (hero, cta, social-proof, stats,
+    // features, footer), auto-injecting brand-aware defaults for any missing
+    // role. Skipped for fixed-template pages, whose layout is an explicit
+    // authored choice. Idempotent: a complete page is left unchanged. Runs
+    // before the design-intensity pass so any injected blocks also receive
+    // deterministic backgroundStyle treatment.
+    if (!templateBlocks) {
+      enforceRequiredRoles(normalizedBlocks as unknown as Array<Record<string, unknown>>, {
+        brandName: (brand.brandName as string | undefined) ?? "",
+        ctaUrl:
+          ctaOverride?.url ??
+          (brand.chilipiperUrl as string | undefined) ??
+          (brand.defaultCtaUrl as string | undefined),
+      });
+    }
 
     // Task #900 — deterministic backgroundStyle post-pass. Re-infer the design
     // intensity (deterministic; matches what buildSystemPrompt used) and enforce
