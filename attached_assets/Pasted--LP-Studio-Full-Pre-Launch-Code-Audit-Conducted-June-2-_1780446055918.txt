@@ -1,0 +1,262 @@
+# LP Studio — Full Pre-Launch Code Audit
+*Conducted June 2, 2026 · Five parallel agents covered security, stability, database, test coverage, and production readiness*
+
+---
+
+## Executive summary
+
+**The app is close to launch-ready but should not ship as-is.** There are six items I'd call genuine launch blockers — issues that have a real path to a customer-visible incident on day one. None are architectural; all are fixable in 1–3 days of focused work. After those are addressed, the rest of the findings are polish, hardening, and post-launch work.
+
+The foundations are sound. Auth coverage (previously zero) is now comprehensive. Tenant brand isolation has strong test coverage. Rate limiting, CSRF protection, Turnstile fail-fast at boot, SSRF defenses on URL imports, admin scoping, and logging hygiene are all in good shape. The recent ~60 commits show real maturity: per-tenant brand framing tests, FK landmine healing, deliverability tier work, and the link-export-to-Marketo pattern are all carefully built.
+
+The blockers are concentrated in three areas: **(1) the campaign send path has race conditions that can duplicate emails at scale**, **(2) several credential/HMAC handling paths fail open or use hardcoded fallbacks**, and **(3) the database has structural drift that means a fresh environment cannot bootstrap from the checked-in migrations**. The first two are 1–2 day fixes. The third is a half-day if you accept a "snapshot prod and ship as 0000_baseline" path.
+
+**Recommendation:** spend 3–5 focused engineering days on the launch blockers below. Hold the launch flat for those. Everything else is post-launch.
+
+---
+
+## 🔴 LAUNCH BLOCKERS
+
+### B1. Campaign send is not idempotent and has no mutex — duplicate emails at scale
+
+`artifacts/api-server/src/routes/sales/campaigns.ts:621-741`. Two distinct bugs in one path:
+
+**Bug A:** the send loop calls `sendViaResend` per recipient with 200ms pacing, but only writes `sales_email_sends` rows in a single batch insert *after* the entire loop completes (line 740). At 1,000 recipients = 200 seconds of wall time. If the request times out mid-loop, emails have already left Resend, but no `sales_email_sends` rows exist. Campaign status remains `"sending"`. The idempotency guard at line 537–543 (`WHERE status = 'sent'`) is therefore blind to those sends. Operator retries → **every recipient who already got the email gets it again.**
+
+**Bug B:** the "Send Now" button (`QuickCampaignWizard.tsx:675-700`) does not optimistically disable, and the server has no advisory lock. Two parallel requests both pass the idempotency check, both iterate `sendable`, both fire emails. Recipients receive each email twice.
+
+**Fix:** insert `sales_email_sends` per contact (or in small chunks) *before* the next send so the dedup set is durable. Add `pg_try_advisory_xact_lock(campaignId)` at the top of the send handler; 409 if not acquired. Disable button on click client-side.
+
+This is the single highest-probability customer-visible incident in the codebase. Marketing teams hit "send" twice on flaky networks all the time.
+
+### B2. Unsubscribe HMAC uses a hardcoded fallback secret in code
+
+`artifacts/api-server/src/routes/sales/campaigns.ts:35,61`:
+```ts
+UNSUB_SECRET = process.env.UNSUB_SECRET ?? process.env.RESEND_API_KEY ?? "dandy-unsub-secret"
+```
+
+If neither env var is set, the secret is **literal in the public repo**. Anyone can forge `/sales/unsubscribe?token=…` and unsubscribe arbitrary contacts at scale. Comparison is also `mac === expected` (timing-attack vulnerable). The contact UPDATE has no tenant scoping — acceptable only because HMAC binds contactId, but only if the secret holds.
+
+**Fix:** throw at boot if `UNSUB_SECRET` is missing. Use `crypto.timingSafeEqual` for comparison. Include `tenantId` in the HMAC payload as a belt-and-suspenders measure.
+
+### B3. Resend webhook signature verifier fails open when secret is missing
+
+`artifacts/api-server/src/routes/sales/resend-webhook.ts:17-18`:
+```ts
+if (!RESEND_WEBHOOK_SECRET || !signature) return !RESEND_WEBHOOK_SECRET;
+```
+
+If `RESEND_WEBHOOK_SECRET` is unset in prod, **any POST to `/sales/webhooks/resend` is accepted**. The route is in the `LP_PUBLIC` set. Forged events can flip campaign statuses, inject bounces and complaints into `sales_signals`, and poison sender reputation logic.
+
+**Fix:** fail closed when not configured, or hard-require at boot. Same pattern as `CSRF_SECRET` and `TURNSTILE_SECRET_KEY` already use.
+
+### B4. `lp_integrations` table is broken at the schema level
+
+`0000_initial_schema.sql:167-174` creates `lp_integrations` with `provider text NOT NULL UNIQUE, config jsonb, enabled boolean` — **no `tenant_id` column**. Yet `artifacts/api-server/src/routes/lp/integrations.ts:11-26` and `artifacts/api-server/src/lib/exportDestinations.ts:46-50` both query and write `WHERE provider = X AND tenant_id = Y` and `ON CONFLICT (tenant_id, provider)`.
+
+**Consequence:** any fresh database is broken on the first integration save. The current prod DB was hand-patched and there is no migration to reproduce that state. The just-shipped Marketo destination (the marquee Phase 1 work from #56) will fail on a clean install.
+
+**Fix:** new migration `ADD COLUMN tenant_id integer REFERENCES tenants(id) ON DELETE CASCADE`, drop `provider UNIQUE`, add `UNIQUE (tenant_id, provider)`, plus index. Roughly 1 hour of work.
+
+### B5. Fresh database cannot bootstrap from `lib/db/migrations/` alone
+
+`0000_initial_schema.sql:1` begins with `ALTER TABLE lp_sessions ADD COLUMN...` against tables it never creates. There is no checked-in DDL that creates `lp_pages`, `lp_sessions`, `tenants`, `sales_accounts`, `sfdc_*`, or `lp_brand_settings`. Only `scripts/migrate-sales-tables.sql` covers a subset.
+
+**Consequence:** preview environments can't be spun up cleanly. Disaster recovery can't rebuild. Any new region is broken.
+
+**Fix:** `pg_dump --schema-only` against current prod, check it in as the real `0000_baseline.sql`, reset the journal accordingly. Half a day.
+
+### B6. Marketo "fail-closed" validation has a silent-bypass hole
+
+`artifacts/api-server/src/lib/notifications.ts:990`:
+```ts
+if (validFields.size > 0 && !validFields.has(linkField)) { throw ... }
+```
+
+If `getMarketoLeadFieldNames` returns an empty set — Marketo describe API was rate-limited, returned a malformed body, or the auth token is silently wrong — the validation **bypasses entirely**. The exact poisoning the comment warns about (Marketo rejects the whole batch when a field name is unknown) then happens on the first real batch.
+
+**Fix:** `throw` when `validFields.size === 0`, not skip the check. One line.
+
+---
+
+## 🟡 STRONGLY RECOMMENDED (fix before launch, won't catastrophically break if you don't)
+
+### S1. SFDC OAuth tokens + Marketo `clientSecret` stored in plaintext
+
+`lib/db/src/schema/sfdcIntegration.ts:17-18` comments claim "encrypted at rest" but `artifacts/api-server/src/routes/sales/sfdc.ts:121-141` writes `tokenData.access_token` and `refresh_token` directly. No `encrypt()` helper exists in `artifacts/api-server/src/lib`. Marketo + Salesforce `clientSecret` in `lp_integrations.config` (jsonb) also raw.
+
+**Risk:** any DB backup leak, any insider, any successful SQLi anywhere = live Salesforce/Marketo access to every connected tenant.
+
+**Fix:** AES-GCM with a `*_TOKEN_ENCRYPTION_KEY` env var. Half-day per integration. If you can't ship encryption in time, at minimum (a) strip the misleading "encrypted at rest" comment, (b) document the remediation timeline, (c) confirm Neon's disk encryption story is documented.
+
+### S2. Turnstile still fails open when env unset
+
+`artifacts/api-server/src/lib/turnstile.ts:25-26` returns `{ ok: true, configured: false }` when `TURNSTILE_SECRET_KEY` is missing. This was previously flagged. The `server.ts:352` boot-time check throws if missing in production NODE_ENV — *that's good* — but if anyone removes the key at runtime or it's missing in a staging-like env that runs prod-like, anti-bot challenges silently pass.
+
+**Fix:** make the fail-open behavior conditional on `NODE_ENV !== "production"` only. One-line guard.
+
+### S3. Static HTML `<title>` defaults to "Meet Dandy" for every tenant
+
+`artifacts/lp-studio/index.html:43` — `<title>Meet Dandy | The Modern Operating System for Dentistry</title>` is hardcoded. Host-aware JS swaps it for `lpstudio.ai` hosts, but **tenant custom domains, the brief flash before JS runs, and crawler/social-preview snapshots all show "Meet Dandy"**. Per-page `injectPageMeta` only fires for published pages, not the app shell.
+
+**Fix:** neutral default in the static HTML (`"Loading…"` or `"Landing Page Studio"`) and add an `else` branch in the host switch that reads from `domainContext`. ~2 hours.
+
+### S4. Hotlink token race condition under concurrency
+
+`artifacts/api-server/src/lib/linkExport.ts:112-137` uses `HOTLINK_CONCURRENCY = 12` workers calling `ensureHotlinkForContact` in parallel. Inside `ensureHotlink.ts:42-50` the token uniqueness check is SELECT-then-INSERT (not atomic). Two workers generating the same 16-char base64url candidate both pass the "no clash" check and one fails with Postgres 23505, bubbling as a 500 from `link-export/build`. Probability is low (~2^-96 per pair) but the bigger issue: no retry around the INSERT itself.
+
+**Fix:** wrap the insert in try/catch, retry candidate generation on 23505, or rely on the existing `ON CONFLICT(contact, page)` and generate once. 1 hour.
+
+### S5. Marketo partial-batch failures silently lose successful upserts
+
+`artifacts/api-server/src/lib/notifications.ts:1001-1035`. Each 300-row batch is sent independently. If batch 2 of 5 throws (rate-limit, network blip), the function bubbles the error up via `throw` at line 1022. The `created` counter, `syncedLeadIds`, and the static-list POST step never run. **300 leads got upserted without being added to the list**, and the user sees an error with no indication of partial state.
+
+**Fix:** wrap each batch in try/catch, accumulate failed batches into `reasons`, proceed. 2 hours.
+
+### S6. Tenant FK constraints missing on core tables
+
+Drizzle schemas declare `tenantId: integer("tenant_id").notNull()` *without* `.references(tenants.id)` on `lpPages.ts:7`, `salesAccounts.ts:11`, `salesContacts.ts:11`, `salesHotlinks.ts:17`, plus several library/proof-point tables. Compare with `tenantMembers.ts:10` and `tenantRoles.ts:30` which do have `onDelete: "cascade"`. **Deleting a tenant leaves orphan rows.**
+
+**Fix:** one migration adding `FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE` to each, with orphan cleanup first. Half-day.
+
+### S7. Zero integration test coverage on the headline feature
+
+`/sales/accounts/:id/generate-microsite` (in `artifacts/api-server/src/routes/sales/generate-microsite.ts`) has no route-level integration test. Existing files only test helper pieces (media catalog tenant-scope, image-placement helpers). The actual AI generation, audience segment selection, block assembly, and publish flow are untested end-to-end.
+
+The sales hotlink redirect endpoint (`/h/:token` or wherever) and the visits API endpoint (currently broken in prod) also have zero coverage.
+
+**Fix:** at minimum add a smoke test that hits POST `/sales/accounts/:id/generate-microsite` with a fixture brand and asserts a draft page is created with the expected block structure. 1 day for the three critical paths.
+
+---
+
+## 🟢 IMPORTANT (post-launch within 30 days)
+
+### P1. CSP is in REPORT-ONLY mode with `unsafe-inline` + `unsafe-eval`
+`artifacts/api-server/src/app.ts:46` — `reportOnly: true` with comment promising to flip after a week of monitoring. That week needs to start now. Acceptable for soft launch; flip to enforce within 30 days with nonce plumbing.
+
+### P2. Sentry `tracesSampleRate` is 0
+`artifacts/api-server/src/lib/sentry.ts:50`. No performance traces, only error events. PII scrubbing (lines 64-141) is thorough — keep that. Raise to 0.05–0.1 for launch visibility on latency regressions. Verify FE Sentry is also wired or accept backend-only.
+
+### P3. AppNotFound doesn't render the auth shell when signed in
+`artifacts/lp-studio/src/pages/not-found.tsx:234-274`. The 404 intentionally omits the shell because shell needs auth context. Wrap in `AppShell` when `useAuth().user` is present so signed-in users keep navigation.
+
+### P4. Heatmap container fixed at 1:3 aspect = 3,600px tall
+`artifacts/lp-studio/src/components/heatmap/HeatmapOverlay.tsx:274` — `style={{ minHeight: 400, aspectRatio: "1/3" }}`. On a 1200px-wide column this renders 3,600px of empty space. Clamp `maxHeight: 1200` or use the actual page snapshot height.
+
+### P5. Marketo ghost-submit e2e tests all `.skip`'d
+Three e2e specs disabled: `marketo-ghost-submit.spec.ts`, `marketo-ghost-submit-failed.spec.ts`, `marketo-ghost-submit-attribution.spec.ts`. Marketo coverage actually running is just GTM dataLayer. End-to-end attribution flow + failure telemetry effectively unverified.
+
+### P6. Schema drift acknowledged in code comments
+Comments in `0066_sales_account_fk_set_null.sql:19-24` and `0070_sales_email_sends_inbound_fks.sql:5-15` explicitly state that early-push DBs had migrations replayed with hand-corrections. Combined with the master force-push, `__drizzle_migrations` and source-of-truth are out of sync in at least one env. Snapshot prod migration state and diff against `meta/_journal.json` post-launch.
+
+### P7. Cloudflare API token scope/rotation
+`artifacts/api-server/src/lib/cloudflare.ts:52-62` — bearer `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ZONE_ID`. Throws cleanly if missing. **Should be scoped to `lpstudio.ai` zone only.** Document rotation runbook; consider startup health-check that ping-tests the zone.
+
+### P8. "Auto-provision branded subdomain for paid tenants" is misnamed
+Commits `8a7aceedc` and `902e1c1fc`: only a manual POST endpoint, no webhook handler or plan-upgrade trigger. Marketing language overstates what shipped — customer expectation mismatch on launch day. Either wire the webhook or rename the feature.
+
+### P9. Slug-collision risk in branded subdomain
+`tenantSender.ts:55-64`. After sanitization, `"Foo Bar"` and `"foo-bar"` both → `foo-bar`. Two tenants race: second gets a hard 502 from Resend. Add a uniqueness guard or include `tenantId` suffix.
+
+### P10. Test coverage gaps — Stripe upgrades across paid tiers, trial-to-paid conversion, email verification
+Existing Stripe coverage is moderate (downgrades + dunning) but the 401 fix in `3e6635aae` isn't directly regression-tested. Tier-to-tier upgrade has only one test (`free → growth`). Email verification on signup has no coverage found.
+
+### P11. Page Detail UX nits (already tracked in #57)
+Breadcrumb missing "Pages" crumb. Trend indicators show em-dash when prior period is zero (should say "New" or hide the slot). Visits Table still broken in prod.
+
+### P12. Quick Campaign drafts pollute the template picker
+`QuickCampaignWizard.tsx:486-528` inserts a `sales_email_templates` row per draft with `category: "quick_campaign"`. No cleanup, no dedup. Filter `category = "quick_campaign"` out of `GET /sales/templates`. 30 minutes.
+
+### P13. Missing index on `lp_events (page_id, created_at)`
+Only a partial ghost-submit index exists. High-volume page-detail aggregations will seq-scan at scale. Add the index. 5 minutes.
+
+---
+
+## 🔵 NICE-TO-HAVE / OBSERVATIONS
+
+- **`getTenantId` superadmin override via `X-Tenant-Id`** (`requireAuth.ts:182-199`) is intentional and gated correctly. Consider audit-logging every cross-tenant override request.
+- **`optionalAuth` swallows DB errors silently** (`requireAuth.ts:63`) — promotes auth'd users to anonymous on session-DB outage. Low risk.
+- **`routes/lp/pages.ts:201-204` interpolates email strings into raw SQL** via manual escape — switch to `inArray()` or parametrize.
+- **`routes/sales/hotlinks.ts:617` logs raw `x-forwarded-for`** into `sales_signals.metadata` without normalization. Not a vuln, but spoofable and PII-tagged.
+- **The "Published your App" commits flood `git log`** — 819 of them, mostly empty. Replit auto-publish noise. Consider a publish hook that skips no-op commits.
+- **`sales_inbound_emails.tenant_id` left nullable** with fallback to tenant 1. Pre-launch fine; post-launch will leak cross-tenant inbound into Dandy's inbox.
+- **Frontend Sentry not confirmed wired.** Backend Sentry is solid; verify FE error reporting exists or accept backend-only coverage.
+- **`landing-page-viewer.tsx:425` has a typo** (single-slash comment). Probably harmless but worth a glance.
+
+---
+
+## What looks GOOD (don't change)
+
+These dimensions were specifically checked and look clean:
+
+- **Tenant isolation on multi-tenant tables in routes** — every spot-checked route (`sales/accounts`, `sales/hotlinks`, `sales/link-export`, `lib/linkExport`, `lp/pages`) consistently filters by `getTenantId()`. No bypass found. (The schema-level FK gap in S6 is the only remaining hole.)
+- **Admin/superadmin route scoping** is meticulous. Mount ordering in `routes/index.ts:96-111` correctly handles the wildcard collision. `requireRootSuperadmin` is correctly stricter than `requireSuperadmin` on roster routes.
+- **Auth route test coverage** — previously zero, now comprehensive across signup, register, OAuth state CSRF, phone trial gating, rate limiting, workspace finder. Prior gap closed.
+- **Stripe webhook receiver** mounted correctly *before* `express.json()` for raw-body signature verification. Entitlement decisions live in `planFeatures.ts`, not in the webhook.
+- **SSRF protection** in `routes/lp/brand-import-from-url.ts:33-71` — proper IPv4 + IPv6 private/reserved range blocking with DNS resolution before fetch.
+- **Form submission tenant safety** — `POST /lp/leads` derives `tenantId` from the page record, not the request. Rate-limited 10/min/IP.
+- **DSO router correctly NOT mounted** (`routes/index.ts:7-15` has an excellent comment explaining why).
+- **Rate limiting** is comprehensive on public endpoints (auth, leads, hotlinks, token-resolve, AI). `app.set("trust proxy", 1)` is set so `req.ip` is real client behind Cloudflare.
+- **Logging hygiene** — `notifications.ts` uses pino exclusively. Marketo `clientSecret` never appears in log arguments. Sentry `beforeSend` recursively scrubs PII keys (email/phone/address/names) and strips `authorization`, `cookie`, `x-forwarded-for` headers.
+- **CSRF_SECRET, TURNSTILE_SECRET_KEY, Stripe** all fail-fast at boot if missing in production.
+- **Robots noindex default** — `resolveRobots.ts` and `triggerPublishedRender.ts:132-143` enforce default-noindex for every tenant except protected enterprise slugs. Fails closed on tenant lookup error. Cloudflare worker stamps `X-Robots-Tag` from R2 customMetadata. The Google Safe Browsing fix is solid.
+- **R2/CDN cache strategy** on published pages — `Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400`. Republish overwrites R2 object. Reasonable.
+- **Multi-tenant brand isolation** has strong test coverage: sales console no-leak, generic catalog no-leak, Royal tenant builder + viewer scan, Dandy-gated builtins, PDF surface, tenant-image-acl, tenant-host-enforcement, webhook-tenant-routing, leads cross-tenant — comprehensive across surfaces.
+- **Page review workflow** — 11 tests including X-Tenant-Id override and cross-tenant queue isolation.
+- **Plan gates / tier features** thoroughly tested across config, features, gates, downgrade trial closure, no-trial guardrail.
+- **FK landmine cleanup** — the recent commits (`f5daef85a`, `fe9223f8e`, `37d3d5d53`, `0066`, `0067`, `0070`) addressed all in-schema `RESTRICT` issues. No remaining keyword usage found.
+- **Hotlink redirect lookups** — `idx_sales_hotlinks_token` exists, partial unique on `(contact_id, page_id)` is correct.
+
+---
+
+## Recommended pre-launch action list (rank order)
+
+**Days 1–2 (engineer with prod context):**
+
+1. B1 — Campaign send idempotency + mutex (`campaigns.ts:621-741`). Insert sends per-contact before pacing delay. Add `pg_try_advisory_xact_lock`. Disable button client-side. **Highest blast radius.**
+2. B2 — Remove hardcoded `UNSUB_SECRET` fallback (`campaigns.ts:35,61`). Throw at boot. `timingSafeEqual`. Add tenantId to HMAC payload.
+3. B3 — Resend webhook fail-closed (`resend-webhook.ts:17-18`). One-line fix.
+4. B6 — Marketo validation `throw` on empty (`notifications.ts:990`). One-line fix.
+
+**Day 3 (DBA + engineer):**
+
+5. B4 — `lp_integrations` tenant_id migration. New migration adds column, FK, composite unique.
+6. B5 — Snapshot prod schema as real `0000_baseline.sql`. Half-day.
+
+**Day 4–5 (engineer, lower stakes):**
+
+7. S2 — Turnstile fail-open guarded to non-prod. One-line.
+8. S3 — Static HTML title default. Neutral default + tenant-aware host branch.
+9. S4 — Hotlink token race retry. Wrap insert in try/catch on 23505.
+10. S5 — Marketo partial-batch error accumulation.
+11. S6 — Tenant FK constraints migration.
+
+**S1 (credential encryption)** is the largest gap and won't fit in five days. Either commit to a 1–2 week post-launch encryption sprint with explicit documented risk acceptance, or pull launch back and ship encryption first. My recommendation: ship with encryption as the first post-launch sprint (with risk acceptance documented internally), unless any prospect has explicit DPA language requiring encryption-at-rest beyond what Neon provides at the disk level.
+
+**S7 (test coverage on headline feature)** — add at least a smoke test for generate-microsite, hotlink redirect, and visits endpoint. 1 day. Skipping this means any regression in the demo flow is invisible until a customer reports it.
+
+Everything in 🟢 IMPORTANT is post-launch work. Schedule a 30-day hardening sprint covering CSP enforce-mode, Sentry traces, ghost-submit test re-enablement, schema drift cleanup, the rest of the test coverage gaps.
+
+---
+
+## Confidence read by surface
+
+| Surface | Confidence | Notes |
+|---|---|---|
+| Auth | High | Comprehensive test coverage, fail-fast config, proper scoping |
+| Billing | Medium-high | 401 fix is regression-untested but downgrade/dunning covered |
+| Tenant isolation (routes) | High | Consistent `getTenantId()` filter; spot-checks all clean |
+| Tenant isolation (schema) | Medium | FK constraints missing on core tables (S6) |
+| Marketo integration | Medium | Real Phase 1 shipped; validation bypass + partial-batch hole need fixing |
+| Page Detail / Visits | Low-medium | Visits broken in prod, zero test coverage, Heatmap layout bug |
+| Campaign send | Low | Race conditions + non-idempotency = highest-blast-radius bugs in codebase |
+| Branded subdomains | Medium | Self-serve only despite "auto-provision" naming; slug collision risk |
+| Database integrity | Medium-low | Schema drift acknowledged, `lp_integrations` broken, no real baseline |
+| Production config | High | Logging clean, PII scrubbing thorough, robots/CDN solid |
+| Frontend chrome | Medium | Static title is wrong for non-Dandy hosts |
+| Test coverage | Medium | Auth/brand/billing strong; headline microsite-gen feature has zero |
+
+---
+
+**Net read:** five focused engineering days closes everything that should block launch. Eighteen days closes everything I'd be embarrassed to ship with. After that the remaining gaps are reasonable for a 30-day post-launch hardening sprint.

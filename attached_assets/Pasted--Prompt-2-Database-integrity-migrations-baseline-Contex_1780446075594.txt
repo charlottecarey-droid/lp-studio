@@ -1,0 +1,324 @@
+# Prompt 2 — Database integrity (migrations + baseline)
+
+## Context
+
+Pre-launch DB integrity work surfaced by the audit. Four discrete pieces, all DB-only, can be done by one engineer (with DBA review for the baseline snapshot). Reference: `/outputs/pre-launch-audit.md` items B4, B5, S6, P13.
+
+**Branch:** work on `staging`.
+
+**Test order:** ALL migrations must be validated in a fresh staging DB before being applied to prod. Spin up a clean Neon branch, replay migrations from 0000 forward, verify the app boots and integration tests pass against the fresh schema.
+
+---
+
+## Fix 1 — `lp_integrations` tenant_id column (LAUNCH BLOCKER)
+
+### The bug
+
+`lib/db/migrations/0000_initial_schema.sql:167-174` creates the table:
+```sql
+CREATE TABLE lp_integrations (
+  id serial PRIMARY KEY,
+  provider text NOT NULL UNIQUE,
+  config jsonb,
+  enabled boolean,
+  ...
+);
+```
+
+No `tenant_id` column. But `artifacts/api-server/src/routes/lp/integrations.ts:11-26` and `artifacts/api-server/src/lib/exportDestinations.ts:46-50` both query/write `WHERE provider = X AND tenant_id = Y` and `ON CONFLICT (tenant_id, provider)`.
+
+The current prod DB was hand-patched (someone added the column directly). There is no migration to reproduce that state. Fresh installs (preview envs, DR rebuilds, new regions) will fail on first integration save with `column "tenant_id" does not exist`.
+
+### The fix
+
+New migration `lib/db/migrations/0071_lp_integrations_tenant_scoping.sql`:
+
+```sql
+-- 0071_lp_integrations_tenant_scoping.sql
+-- Closes the schema drift on lp_integrations:
+--   - prod was hand-patched to add tenant_id
+--   - this migration reproduces that state for fresh DBs
+--   - on prod, the IF NOT EXISTS guards make it a no-op for the column
+--     but still apply the constraint/index changes
+
+BEGIN;
+
+-- Add tenant_id column if missing
+ALTER TABLE lp_integrations 
+  ADD COLUMN IF NOT EXISTS tenant_id integer 
+  REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- For any pre-existing rows without tenant_id, attribute to Dandy (tenant 1)
+-- since the only tenant using integrations pre-fix was Dandy. Audit before
+-- running:
+--   SELECT COUNT(*) FROM lp_integrations WHERE tenant_id IS NULL;
+UPDATE lp_integrations SET tenant_id = 1 WHERE tenant_id IS NULL;
+
+-- Now enforce NOT NULL
+ALTER TABLE lp_integrations ALTER COLUMN tenant_id SET NOT NULL;
+
+-- Drop the old provider-only UNIQUE constraint
+ALTER TABLE lp_integrations DROP CONSTRAINT IF EXISTS lp_integrations_provider_key;
+
+-- Add composite UNIQUE on (tenant_id, provider)
+ALTER TABLE lp_integrations 
+  ADD CONSTRAINT lp_integrations_tenant_provider_unique 
+  UNIQUE (tenant_id, provider);
+
+-- Index for lookups
+CREATE INDEX IF NOT EXISTS idx_lp_integrations_tenant_provider 
+  ON lp_integrations (tenant_id, provider);
+
+COMMIT;
+```
+
+**Drizzle schema update:** `lib/db/src/schema/lpIntegrations.ts` (or wherever the schema lives — verify) — add the `tenantId` column with FK:
+```ts
+tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
+```
+
+### Pre-migration audit query
+
+Before running on prod, confirm no rows are orphaned:
+```sql
+SELECT id, provider, tenant_id, created_at FROM lp_integrations WHERE tenant_id IS NULL;
+```
+
+If any rows return with non-Dandy provenance, manually map them BEFORE running the migration.
+
+### Acceptance criteria
+- [ ] Migration applies cleanly to a fresh DB.
+- [ ] Migration applies cleanly to prod (hand-patched state).
+- [ ] `SELECT * FROM lp_integrations WHERE tenant_id IS NULL` returns zero rows after migration.
+- [ ] `INSERT INTO lp_integrations (provider, tenant_id, ...) VALUES (...)` succeeds for tenant 1; duplicate `(provider, tenant_id)` fails with 23505.
+- [ ] Drizzle schema matches the migrated state (`drizzle-kit check` or equivalent passes).
+- [ ] Integration test: as tenant A, create a Marketo integration. As tenant B, can't see or modify it. As tenant A, attempting to create a duplicate (same provider) fails.
+
+---
+
+## Fix 2 — Real `0000_baseline.sql` from pg_dump (LAUNCH BLOCKER)
+
+### The bug
+
+`lib/db/migrations/0000_initial_schema.sql:1` begins with `ALTER TABLE lp_sessions ADD COLUMN...` against tables it never creates. The file is a patch script, not a baseline. There is no checked-in DDL that creates `lp_pages`, `lp_sessions`, `tenants`, `sales_accounts`, `sfdc_*`, `lp_brand_settings`, etc.
+
+Preview environments, DR rebuilds, and any new region cannot bootstrap from migrations alone.
+
+### The fix
+
+Take a schema-only snapshot of current prod and check it in as the real baseline.
+
+**Steps (DBA + engineer):**
+
+1. From a clean prod replica (or a freshly-restored Neon branch), run:
+   ```bash
+   pg_dump \
+     --schema-only \
+     --no-owner \
+     --no-privileges \
+     --no-comments \
+     --exclude-schema=drizzle \
+     --exclude-table=__drizzle_migrations \
+     "${PROD_DATABASE_URL}" \
+     > 0000_baseline.sql
+   ```
+
+2. Review the dump carefully. Look for:
+   - Any sequence ownership statements that reference roles
+   - Any extensions (e.g. `CREATE EXTENSION IF NOT EXISTS pgcrypto`)
+   - Any default values that use functions defined in later migrations
+   - Any indexes added in later migrations that are already in prod (these should be removed from 0000 and stay in their original migration)
+
+3. Reorder the dump if needed so it's deterministic (tables before constraints, constraints before indexes).
+
+4. Replace the old `lib/db/migrations/0000_initial_schema.sql` with this new baseline.
+
+5. Reset `lib/db/migrations/meta/_journal.json` to reflect the new baseline (clear out any entries that are now subsumed; verify the journal hash for 0000 matches the new file).
+
+6. Apply migrations 0001 through current on a fresh DB. Verify the resulting schema matches prod exactly (use `pg_dump --schema-only` on both, diff).
+
+7. Verify all integration tests pass against the freshly-built DB.
+
+**Risk mitigation:** keep a tag on the previous state of master so the old migration history is preserved in git, in case rollback is needed.
+
+### Acceptance criteria
+- [ ] A fresh Neon DB bootstrapped from `lib/db/migrations/` produces a schema identical to prod (via pg_dump diff).
+- [ ] All integration tests pass against the fresh-built schema.
+- [ ] `meta/_journal.json` is internally consistent (hashes match files).
+- [ ] Old migration history is tagged in git for reference.
+- [ ] Doc updated in `replit.md` describing the new baseline approach and how to extend it.
+
+---
+
+## Fix 3 — Tenant FK constraints on core tables (CASCADE on delete)
+
+### The bug
+
+Several core tables have `tenant_id integer NOT NULL` declared in their Drizzle schema but WITHOUT `.references(tenants.id)`:
+
+- `lib/db/src/schema/lpPages.ts:7`
+- `lib/db/src/schema/salesAccounts.ts:11`
+- `lib/db/src/schema/salesContacts.ts:11`
+- `lib/db/src/schema/salesHotlinks.ts:17`
+- (verify) `lib/db/src/schema/lpForms.ts`
+- `lib/db/src/schema/lpLibraryItems.ts` (likely)
+- `lib/db/src/schema/lpCustomBlocks.ts` (likely)
+- `lib/db/src/schema/lpProofPoints.ts` (likely)
+- `lib/db/src/schema/lpPageAdCopyRuns.ts` (likely)
+- `lib/db/src/schema/salesOnePagerTemplates.ts` (likely — initial schema line 706)
+
+Compare with `tenantMembers.ts:10`, `tenantRoles.ts:30`, `tenantWebhookSecrets.ts:21` which DO have `onDelete: "cascade"`.
+
+**Consequence:** deleting a tenant leaves orphan rows in all the tables above. The cascade chain `tenant → page → leads/events/visits` works (via the page FK), but `tenant → accounts/contacts/hotlinks/library/proof-points` is broken.
+
+### The fix
+
+New migration `lib/db/migrations/0072_tenant_fk_constraints.sql`:
+
+```sql
+-- 0072_tenant_fk_constraints.sql
+-- Add ON DELETE CASCADE foreign key to tenants on every core tenant-scoped
+-- table that currently has tenant_id without an FK.
+--
+-- PRE-RUN AUDIT: confirm no orphan rows exist with bad tenant_ids:
+--   SELECT 'lp_pages' AS tbl, COUNT(*) FROM lp_pages p 
+--     LEFT JOIN tenants t ON t.id = p.tenant_id WHERE t.id IS NULL
+--   UNION ALL SELECT 'sales_accounts', COUNT(*) FROM sales_accounts ...
+--   (repeat for each table)
+--
+-- If any orphans exist, deal with them before applying this migration.
+
+BEGIN;
+
+-- lp_pages
+ALTER TABLE lp_pages 
+  ADD CONSTRAINT lp_pages_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- sales_accounts
+ALTER TABLE sales_accounts 
+  ADD CONSTRAINT sales_accounts_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- sales_contacts
+ALTER TABLE sales_contacts 
+  ADD CONSTRAINT sales_contacts_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- sales_hotlinks
+ALTER TABLE sales_hotlinks 
+  ADD CONSTRAINT sales_hotlinks_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- lp_forms
+ALTER TABLE lp_forms 
+  ADD CONSTRAINT lp_forms_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- lp_library_items
+ALTER TABLE lp_library_items 
+  ADD CONSTRAINT lp_library_items_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- lp_custom_blocks  
+ALTER TABLE lp_custom_blocks 
+  ADD CONSTRAINT lp_custom_blocks_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- lp_proof_points
+ALTER TABLE lp_proof_points 
+  ADD CONSTRAINT lp_proof_points_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- lp_page_ad_copy_runs
+ALTER TABLE lp_page_ad_copy_runs 
+  ADD CONSTRAINT lp_page_ad_copy_runs_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- sales_one_pager_templates
+ALTER TABLE sales_one_pager_templates 
+  ADD CONSTRAINT sales_one_pager_templates_tenant_id_fkey 
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+
+COMMIT;
+```
+
+**Drizzle schema updates:** for each file listed above, change:
+```ts
+tenantId: integer("tenant_id").notNull(),
+```
+to:
+```ts
+tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
+```
+
+### Pre-migration audit (CRITICAL — run before applying)
+
+For each table, find orphans:
+```sql
+SELECT 'lp_pages' AS table_name, COUNT(*) AS orphan_count 
+FROM lp_pages p LEFT JOIN tenants t ON t.id = p.tenant_id 
+WHERE t.id IS NULL
+UNION ALL
+SELECT 'sales_accounts', COUNT(*) 
+FROM sales_accounts s LEFT JOIN tenants t ON t.id = s.tenant_id 
+WHERE t.id IS NULL
+-- ... repeat for each table
+;
+```
+
+If any orphans exist, the ALTER will fail. Options: (a) delete the orphan rows, (b) reassign them to a valid tenant, (c) create a "deleted tenant" placeholder. Audit and resolve before applying.
+
+### Acceptance criteria
+- [ ] Pre-migration audit returns zero orphans across all tables.
+- [ ] Migration applies cleanly to staging.
+- [ ] Drizzle schemas updated to reflect the FK.
+- [ ] Integration test: create a tenant with pages/accounts/contacts/hotlinks, delete the tenant, verify all child rows are gone (no orphans).
+- [ ] Integration test: attempting to insert with a non-existent tenant_id fails with FK violation.
+
+---
+
+## Fix 4 — `lp_events` index on (page_id, created_at)
+
+### The bug
+
+`lib/db/migrations/0015_lp_events_page_form_id.sql:10-11` adds `page_id` and `form_id` columns. The only index on `lp_events.page_id` is a partial index for ghost-submit (line 16-19). The Page Detail dashboard's high-volume aggregation queries (`page_id = X` filters) seq-scan at scale.
+
+### The fix
+
+New migration `lib/db/migrations/0073_lp_events_page_id_index.sql`:
+
+```sql
+-- 0073_lp_events_page_id_index.sql
+-- Page Detail view aggregates events per page; without this index the queries
+-- seq-scan once event volume crosses ~100K rows.
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS lp_events_page_id_created_at_idx 
+  ON lp_events (page_id, created_at DESC);
+```
+
+`CONCURRENTLY` avoids locking the table during creation — important if `lp_events` is large in prod (and it should be).
+
+### Acceptance criteria
+- [ ] Index created on staging without locking.
+- [ ] EXPLAIN ANALYZE on `SELECT * FROM lp_events WHERE page_id = X ORDER BY created_at DESC LIMIT 50` shows index scan, not seq scan.
+- [ ] Migration runs on prod without blocking writes.
+
+---
+
+## Order of execution (recommended)
+
+1. Pre-migration audits for Fix 1 and Fix 3 (orphan checks).
+2. Fix 1 (lp_integrations) — small, isolated.
+3. Fix 4 (lp_events index) — non-blocking, fast.
+4. Fix 3 (tenant FK constraints) — bigger, needs orphan resolution first.
+5. Fix 2 (baseline snapshot) — biggest blast radius, do last and test exhaustively in staging.
+
+For Fix 2, **do not skip the staging test loop**. Reset a Neon branch, replay migrations from the new 0000, run the full integration test suite, dump the resulting schema, diff against prod. Only then apply to prod.
+
+## What NOT to do
+
+- **Don't** apply any of these to prod without running the orphan audits first.
+- **Don't** combine all four into one migration. Keep them isolated so each can be rolled back independently.
+- **Don't** modify existing migrations (0000–0070). New behavior goes in new migration files.
+- **Don't** drop the old migration history when checking in the new 0000 baseline — tag it in git first.
