@@ -1856,12 +1856,62 @@ export function buildGeneralSystemPrompt(opts?: {
   return out.join("\n\n");
 }
 
-const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
+/**
+ * Build the enterprise DSO system prompt.
+ *
+ * Task #871: the DSO generation path used to be hardwired to Dandy — it named
+ * Dandy products ("AI Scan Review", "Dandy Hub", "Dandy Pilot Program"), seeded
+ * the dso-comparison example with "Dandy Hub", and steered imagery toward
+ * dental-clinic photos. When a NON-Dandy tenant's prompt is classified DSO,
+ * those specifics leaked into the output. The Dandy-specific language is now
+ * gated behind `isDandyTenant`; every other tenant gets neutral, brand-aware
+ * copy (the selling brand is threaded through where a brand name is available).
+ * The real Dandy tenant still receives the original prompt verbatim.
+ */
+export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: string }): string {
+  const { isDandyTenant } = opts;
+  const brand = (opts.brandName ?? "").trim();
+  // Label for the SELLING brand used in instructions/examples. The real Dandy
+  // tenant keeps "Dandy"; every other tenant uses its own brand name, or a
+  // neutral phrase when no brand name is configured.
+  const sellingBrand = isDandyTenant ? "Dandy" : (brand || "the selling brand");
+
+  const intro = isDandyTenant
+    ? `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.`
+    : `You are an expert B2B landing page architect specialising in enterprise / multi-location (DSO-style) sales pages. You generate complete, premium page structures as JSON from an enterprise DSO block library for ${sellingBrand} (the brand described in the BRAND CONTEXT).`;
+
+  // dso-problem imagery steering — Dandy forces dental photos; others pick
+  // whatever fits the prompt from the tenant's own IMAGE LIBRARY.
+  const dsoProblemImagery = isDandyTenant
+    ? `pick clinical, dental-team, or in-practice photos that visually reinforce the pain points`
+    : `pick photos from the IMAGE LIBRARY that visually reinforce the pain points`;
+
+  // dso-comparison example row — neutralize the "Dandy Hub" product name.
+  const comparisonExample = isDandyTenant
+    ? `EXAMPLE ROW: { need: "Network-wide performance data", dandy: "Dandy Hub: real-time insights, benchmarking, alerts", traditional: "Siloed per-practice reporting or none" }`
+    : `EXAMPLE ROW: { need: "Network-wide performance data", dandy: "Real-time insights, benchmarking, and alerts in one dashboard", traditional: "Siloed per-practice reporting or none" }`;
+
+  const rule7 = isDandyTenant
+    ? `7. Use real Dandy product references: "AI Scan Review", "Dandy Pilot Program", "first-time fit rate", "remake reduction", "turnaround time".`
+    : `7. Use concrete, credible capability language for ${sellingBrand} — focus on measurable outcomes like first-time fit rate, remake reduction, and turnaround time. NEVER reference another company's product or brand names (do NOT mention any competitor or third-party vendor).`;
+
+  const rule10 = isDandyTenant
+    ? `10. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.`
+    : `10. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms and proper nouns. NEVER title-case or all-lowercase.`;
+
+  const rule15 = isDandyTenant
+    ? `15. dso-ai-feature VIDEO: If — and only if — the brand context lists an AI Scan Review video URL under "DANDY-INTERNAL VIDEO ASSETS", set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, scanner, or clinical close-up). NEVER invent a videoUrl.`
+    : `15. dso-ai-feature VIDEO: If — and only if — the brand context explicitly provides a product video URL, set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, or product close-up). NEVER invent a videoUrl.`;
+
+  const rule18Capability = isDandyTenant ? "a concrete Dandy capability" : `a concrete ${sellingBrand} capability`;
+  const rule19Imagery = isDandyTenant ? ` (prefer clinical, dental-team, or in-practice photos)` : "";
+
+  return `${intro}
 
 AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only types you may use):
 - "dso-heartland-hero": Hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), layout ("full-bleed"|"split" — use "split" when you have a clear hero image to showcase, otherwise "full-bleed"), backgroundImageUrl (string — for full-bleed layout: a wide landscape photo that overlays behind the hero), heroImageUrl (string — for split layout: a tall/portrait-friendly clinical or team photo; leave blank "" for full-bleed), heroImageSide ("left"|"right" — default "right"; flip to "left" for visual variety), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
 - "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), imagePosition ("left"|"right"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), chapters (array 2–4 of {headline, body, imageUrl})
-- "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array of EXACTLY 4 of {icon, title, desc} — render as a 4-panel grid). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[] — MANDATORY, EXACTLY 2 image URLs from the IMAGE LIBRARY; pick clinical, dental-team, or in-practice photos that visually reinforce the pain points. NEVER leave this empty — the block has two image slots that look broken when blank). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
+- "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array of EXACTLY 4 of {icon, title, desc} — render as a 4-panel grid). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[] — MANDATORY, EXACTLY 2 image URLs from the IMAGE LIBRARY; ${dsoProblemImagery}. NEVER leave this empty — the block has two image slots that look broken when blank). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-ai-feature": AI feature showcase with stats + visual. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string), videoUrl (string, OPTIONAL — see rule 15 below). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"). The visual area renders the videoUrl if set, otherwise the imageUrl, otherwise it collapses — so this block needs at least one of videoUrl or imageUrl to look right.
 - "dso-stat-showcase": Premium stats section rendered as a 3-column grid (2 rows of 3 on desktop). Props: eyebrow (string), headline (string), stats (array of EXACTLY 6 of {value, label, description} — MANDATORY, never 3, 4, or 5 — the layout is designed for a complete 6-tile grid and looks broken with fewer). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-scroll-story": Scroll-driven narrative with chapters. Props: eyebrow (string), chapters (array 3–5 of {headline, body, imageUrl})
@@ -1872,7 +1922,7 @@ AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only t
 - "dso-flow-canvas": Animated orb canvas with big stat + quote. Props: eyebrow (string), quote (string), attribution (string), stat (string), statLabel (string), imageUrl (string)
 - "dso-bento-outcomes": Bento grid of outcomes. Props: eyebrow (string), headline (string), tiles (array 4–6 of one of: {type:"stat",value,label,description} | {type:"photo",imageUrl,caption} | {type:"feature",headline,body} | {type:"quote",quote,author})
 - "dso-challenges": Challenge cards. Props: eyebrow (string), headline (string), layout ("4-col"|"2-col"), challenges (array 4–8 of {title, desc})
-- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string — use the SELLING brand's name from the BRAND CONTEXT section; if no brand name is given, leave it blank ""), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array of EXACTLY 5–7 of {need, dandy, traditional} — MANDATORY, NEVER empty, NEVER fewer than 5). Each row must be SUBSTANTIVE: the "need" field is a full requirement phrase (6–12 words like "Consistent quality across every location"), the "dandy" field is a specific capability + proof point (8–14 words like "AI-driven quality control: 96% first-time right"), the "traditional" field is a concrete pain point (6–12 words like "Variable — depends on lab & technician"). NEVER use 1–3 word stubs. EXAMPLE ROW: { need: "Network-wide performance data", dandy: "Dandy Hub: real-time insights, benchmarking, alerts", traditional: "Siloed per-practice reporting or none" }
+- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string — use the SELLING brand's name from the BRAND CONTEXT section; if no brand name is given, leave it blank ""), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array of EXACTLY 5–7 of {need, dandy, traditional} — MANDATORY, NEVER empty, NEVER fewer than 5). The "dandy" field is the data key for the SELLING brand's column (it is NOT a brand name — never put a vendor or brand name in its value). Each row must be SUBSTANTIVE: the "need" field is a full requirement phrase (6–12 words like "Consistent quality across every location"), the "dandy" field is a specific capability + proof point (8–14 words like "AI-driven quality control: 96% first-time right"), the "traditional" field is a concrete pain point (6–12 words like "Variable — depends on lab & technician"). NEVER use 1–3 word stubs. ${comparisonExample}
 - "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array of EXACTLY 3 of {name, stat, label, quote, author, image} — never 2, never 4). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
@@ -1885,29 +1935,70 @@ RULES:
 4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta".
 5. Recommended page flow: hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta
 6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
-7. Use real Dandy product references: "AI Scan Review", "Dandy Pilot Program", "first-time fit rate", "remake reduction", "turnaround time".
+${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
 9. IMAGES: Assign imageUrl props from the IMAGE LIBRARY where relevant. For chapters arrays, populate each chapter's imageUrl. Use lifestyle/clinic shots for heroes and split sections; leave imageUrl as "" if no suitable image exists.
-10. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.
+${rule10}
 11. When the user provides specific numbers or stats, use those EXACT numbers. Do not invent different statistics.
 12. Make backgroundStyle "dandy-green" or "black" for dramatic blocks (hero, cta, particle); use "white" or "light-gray" for lighter content blocks. Include backgroundStyle in props for blocks that support it.
 13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-pilot-steps, dso-network-map, dso-comparison, dso-scroll-story-hero). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl AND set primaryCtaMode: "chilipiper".
 14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.
-15. dso-ai-feature VIDEO: If — and only if — the brand context lists an AI Scan Review video URL under "DANDY-INTERNAL VIDEO ASSETS", set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, scanner, or clinical close-up). NEVER invent a videoUrl.
+${rule15}
 16. NO STANDALONE NAV BLOCK with dso-heartland-hero: dso-heartland-hero already renders its own sticky navigation bar at the top. NEVER prepend a separate nav block (no "nav-header", no other navbar block) on a page that starts with dso-heartland-hero. The page's first block should be the hero itself.
 17. CASE STUDIES = 3: When you use "dso-success-stories", the cases array MUST have EXACTLY 3 items — not 2, not 4. Pick the three strongest case studies for the segment and stop.
-18. NEVER SHIP AN EMPTY OR STUB COMPARISON: When you use "dso-comparison", you MUST populate the rows array with 5–7 fully written rows. An empty rows array, fewer than 5 rows, or rows with 1–3 word values is a FAILURE — the block will render blank or look broken. If you cannot think of 5 substantive rows for the segment, do NOT use this block at all; pick a different block instead. Each row needs a meaningful "need", a concrete Dandy capability with a proof point or stat in "dandy", and a real pain point in "traditional". Mirror the verbosity of the EXAMPLE ROW shown in the dso-comparison schema above.
-19. dso-problem IMAGES: When you use "dso-problem", you MUST populate imageUrls with EXACTLY 2 real URLs from the IMAGE LIBRARY (prefer clinical, dental-team, or in-practice photos). The block has two image slots that render placeholders when imageUrls is empty — never ship this block without images.
+18. NEVER SHIP AN EMPTY OR STUB COMPARISON: When you use "dso-comparison", you MUST populate the rows array with 5–7 fully written rows. An empty rows array, fewer than 5 rows, or rows with 1–3 word values is a FAILURE — the block will render blank or look broken. If you cannot think of 5 substantive rows for the segment, do NOT use this block at all; pick a different block instead. Each row needs a meaningful "need", ${rule18Capability} with a proof point or stat in "dandy", and a real pain point in "traditional". Mirror the verbosity of the EXAMPLE ROW shown in the dso-comparison schema above.
+19. dso-problem IMAGES: When you use "dso-problem", you MUST populate imageUrls with EXACTLY 2 real URLs from the IMAGE LIBRARY${rule19Imagery}. The block has two image slots that render placeholders when imageUrls is empty — never ship this block without images.
 20. dso-stat-showcase = 6 STATS: When you use "dso-stat-showcase", the stats array MUST have EXACTLY 6 entries — the block renders a 3-column × 2-row grid and looks broken with fewer. If you cannot write 6 substantive stats for the segment, do NOT use this block; pick a different block instead.`;
+}
 
-const DSO_PRACTICES_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in dental practice enablement pages for DSO networks. You generate complete page structures as JSON for Dandy's "DSO Practices" block library.
+/**
+ * Build the DSO Practices system prompt.
+ *
+ * Task #871: like the enterprise DSO prompt, this path was hardwired to Dandy —
+ * Dandy product references in rules, "The Dandy Way" / "AI Scan Review" in the
+ * dso-paradigm-shift example, and "× Dandy" / "already using Dandy" in the hero
+ * schema. The Dandy-specific language is gated behind `isDandyTenant`; every
+ * other tenant gets neutral, brand-aware copy. Dandy renders verbatim.
+ */
+export function buildDsoPracticesSystemPrompt(opts: { isDandyTenant: boolean; brandName: string }): string {
+  const { isDandyTenant } = opts;
+  const brand = (opts.brandName ?? "").trim();
+  const sellingBrand = isDandyTenant ? "Dandy" : (brand || "the selling brand");
+
+  const intro = isDandyTenant
+    ? `You generate complete page structures as JSON for Dandy's "DSO Practices" block library.`
+    : `You generate complete page structures as JSON from a "DSO Practices" block library for ${sellingBrand} (the brand described in the BRAND CONTEXT).`;
+
+  // dso-practice-hero schema examples — strip "× Dandy" / "using Dandy".
+  const heroEyebrowExample = isDandyTenant
+    ? `eyebrow (string — use DSO co-brand like "Heartland Dental × Dandy")`
+    : `eyebrow (string — use a DSO co-brand label, e.g. "[DSO Network] × [Brand]")`;
+  const heroTrustExample = isDandyTenant
+    ? `trustLine (string — e.g. "Join 200+ practices in your network already using Dandy")`
+    : `trustLine (string — e.g. "Join 200+ practices in your network")`;
+
+  // dso-paradigm-shift example — neutralize "The Dandy Way" / "AI Scan Review".
+  const paradigmNewWayLabelHint = isDandyTenant ? `newWayLabel (string, e.g. "Dandy")` : `newWayLabel (string, e.g. "The New Way")`;
+  const paradigmExample = isDandyTenant
+    ? `EXAMPLE (mirror this verbosity exactly): oldWayLabel: "The Old Way", oldWayItems: ["Multiple disconnected lab vendors", "Inconsistent quality across locations", "Remake costs absorbed by the practice", "No visibility into case performance", "Expensive scanner CAPEX per operatory"], newWayLabel: "The Dandy Way", newWayItems: ["One unified lab partner across all locations", "AI Scan Review catches issues before they happen", "96% first-time fit rate — guaranteed", "Real-time dashboard across every practice", "Premium scanners included at $0 CAPEX"]`
+    : `EXAMPLE (mirror this verbosity exactly): oldWayLabel: "The Old Way", oldWayItems: ["Multiple disconnected lab vendors", "Inconsistent quality across locations", "Remake costs absorbed by the practice", "No visibility into case performance", "Expensive scanner CAPEX per operatory"], newWayLabel: "The New Way", newWayItems: ["One unified lab partner across all locations", "Automated quality checks catch issues before they happen", "96% first-time fit rate — guaranteed", "Real-time dashboard across every practice", "Premium scanners included at $0 CAPEX"]`;
+
+  const rule7 = isDandyTenant
+    ? `7. Use real Dandy product references: "AI Scan Review", "first-time fit rate", "same-day delivery", "on-site training", "dedicated rep", "Dandy scanner".`
+    : `7. Use concrete, credible capability language for ${sellingBrand} — focus on outcomes like first-time fit rate, same-day delivery, on-site training, and a dedicated rep. NEVER reference another company's product or brand names (do NOT mention any competitor or third-party vendor).`;
+
+  const rule9 = isDandyTenant
+    ? `9. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.`
+    : `9. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms and proper nouns. NEVER title-case or all-lowercase.`;
+
+  return `You are an expert B2B landing page architect specialising in dental practice enablement pages for DSO networks. ${intro}
 
 These pages are shown to individual dental practices that are part of a DSO network — targeting practice owners, dentists, office managers, and clinical teams. Copy should be warm, specific, and ROI-focused at the practice level (chair-time savings, clinical quality, ease of onboarding, dedicated support). Avoid enterprise-level jargon (consolidation metrics, M&A, network KPIs).
 
 AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are the only types you may use):
 - "dso-practice-nav": Sticky dark-green co-branded navbar. Props: dsoName (string — e.g. "Heartland Dental"), links (array of {label, anchor} — use anchor IDs matching blockSettings.anchorId on the relevant blocks, e.g. "#steps", "#products", "#perks", "#team"), ctaText (string — "Book a Demo"), ctaUrl (string — use Chili Piper URL if available), ctaMode ("chilipiper"|"link"). ALWAYS include this block first.
-- "dso-practice-hero": Full-width centered hero for practice landing pages. Props: eyebrow (string — use DSO co-brand like "Heartland Dental × Dandy"), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl (string), secondaryCtaText (string, optional), secondaryCtaUrl (string, optional), trustLine (string — e.g. "Join 200+ practices in your network already using Dandy"), backgroundStyle ("dark"|"white"|"muted")
-- "dso-paradigm-shift": CRITICAL old-way vs new-way comparison — this block MUST always have FULLY POPULATED bullet arrays. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string, e.g. "Traditional Lab"), oldWayItems (string[] — MANDATORY, EXACTLY 4–5 specific pain-point strings of 6–12 words each, NEVER empty, NEVER 1–3 word stubs), newWayLabel (string, e.g. "Dandy"), newWayItems (string[] — MANDATORY, EXACTLY 4–5 specific benefit strings of 6–12 words each that directly counter each oldWayItem 1:1, NEVER empty, NEVER 1–3 word stubs), ctaText (string), ctaUrl (string), backgroundStyle ("dark"|"white"|"muted"). You MUST generate this block with real content tailored to the segment. EXAMPLE (mirror this verbosity exactly): oldWayLabel: "The Old Way", oldWayItems: ["Multiple disconnected lab vendors", "Inconsistent quality across locations", "Remake costs absorbed by the practice", "No visibility into case performance", "Expensive scanner CAPEX per operatory"], newWayLabel: "The Dandy Way", newWayItems: ["One unified lab partner across all locations", "AI Scan Review catches issues before they happen", "96% first-time fit rate — guaranteed", "Real-time dashboard across every practice", "Premium scanners included at $0 CAPEX"]
+- "dso-practice-hero": Full-width centered hero for practice landing pages. Props: ${heroEyebrowExample}, headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl (string), secondaryCtaText (string, optional), secondaryCtaUrl (string, optional), ${heroTrustExample}, backgroundStyle ("dark"|"white"|"muted")
+- "dso-paradigm-shift": CRITICAL old-way vs new-way comparison — this block MUST always have FULLY POPULATED bullet arrays. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string, e.g. "Traditional Lab"), oldWayItems (string[] — MANDATORY, EXACTLY 4–5 specific pain-point strings of 6–12 words each, NEVER empty, NEVER 1–3 word stubs), ${paradigmNewWayLabelHint}, newWayItems (string[] — MANDATORY, EXACTLY 4–5 specific benefit strings of 6–12 words each that directly counter each oldWayItem 1:1, NEVER empty, NEVER 1–3 word stubs), ctaText (string), ctaUrl (string), backgroundStyle ("dark"|"white"|"muted"). You MUST generate this block with real content tailored to the segment. ${paradigmExample}
 - "dso-stat-row": Bold impact metrics in a horizontal grid — 3–4 stats. Props: eyebrow (string), headline (string, optional), items (array of {value (e.g. "96%" or "2x" or "50+"), label (string), detail (string, optional)}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-partnership-perks": Icon grid of partnership benefits/perks. Props: eyebrow (string), headline (string), subheadline (string), perks (array of exactly 6 {icon, title, desc} — icon keys: "trophy","gift","zap","users","clock","star","shield","heart","check","target"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-products-grid": Product card grid with images/icons. Props: eyebrow (string), headline (string), subheadline (string), products (array of {name, detail, price, icon, imageKey} — imageKey options: "posterior-crowns","anterior-crowns","dentures","implants","guided-surgery","aligners","guards","sleep"), backgroundStyle ("white"|"muted"|"dark")
@@ -1926,12 +2017,13 @@ RULES:
 4. Generate 6–9 blocks per page. Always start with "dso-practice-hero". Always end with "dso-meet-team" or "dso-promises".
 5. Recommended page flow: practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team
 6. All copy must be practice-level B2B — warm, credible, specific. Mention chair-time savings, scanner support, fit rate, dedicated reps, onboarding speed.
-7. Use real Dandy product references: "AI Scan Review", "first-time fit rate", "same-day delivery", "on-site training", "dedicated rep", "Dandy scanner".
+${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
-9. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.
+${rule9}
 10. When the user provides specific numbers or stats, use those EXACT numbers.
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.
 12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.`;
+}
 
 interface SegmentStat { value: string; label: string; approvedForAi?: boolean; linkProofPointId?: number }
 // Same shape on the BrandConfig side; extracted to avoid a forward-reference
@@ -2350,6 +2442,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     ? `DANDY-INTERNAL VIDEO ASSETS (Dandy tenant only — safe to use):\n- AI Scan Review video URL: /videos/ai-scan-review.mp4 (use this for any dso-ai-feature videoUrl)`
     : "";
 
+  // Task #871 — the resolved SELLING-brand name threaded through the DSO prompt
+  // builders and post-processing. The real Dandy tenant (slug "dandy" or
+  // brandName "Dandy") resolves to "Dandy"; every other tenant resolves to its
+  // own brandName, or "" (neutral) when none is set — NEVER a "Dandy" fallback.
+  const resolvedBrandName =
+    (brand.brandName ?? "").trim() || (isDandyTenant ? "Dandy" : "");
+
   // ── Template-driven mode ──────────────────────────────────────────────
   // When the caller picks a template as the starting point, we skip the
   // "AI chooses block layout" path entirely. The template's block structure
@@ -2746,11 +2845,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   }
 
   // GENERAL path assembles its block library at request time, filtered by the
-  // superadmin AI-eligibility flag; DSO paths use their static prompts as-is.
+  // superadmin AI-eligibility flag; DSO paths build their prompts per-tenant so
+  // Dandy-specific product language only fires for the real Dandy tenant
+  // (task #871).
   const systemPrompt = useDsoPractices
-    ? DSO_PRACTICES_SYSTEM_PROMPT
+    ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
     : useDso
-      ? DSO_SYSTEM_PROMPT
+      ? buildDsoSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
       : buildGeneralSystemPrompt({
           aiDisabledTypes,
           includeContentSeries: isContentSeriesRequest(prompt),
@@ -2877,11 +2978,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
     // Subject-company name leak guard (task #863): the resolved selling-brand
     // name to thread into blocks that carry a `companyName` prop (dso-heartland-
-    // hero, dso-comparison). The real Dandy tenant (slug "dandy" or brandName
-    // "Dandy") resolves to "Dandy"; every other tenant resolves to its own
-    // brandName, or "" (neutral) when none is set — NEVER a "Dandy" fallback.
-    const resolvedCompanyName =
-      (brand.brandName ?? "").trim() || (isDandyTenant ? "Dandy" : "");
+    // hero, dso-comparison). Reuses the value computed up-front (task #871) so
+    // the prompt builders and post-processing always agree.
+    const resolvedCompanyName = resolvedBrandName;
 
     // DSO blocks that support optional ctaText/ctaUrl/ctaMode — ensure they get Chili Piper
     const DSO_CTA_BLOCKS = new Set([
@@ -3039,6 +3138,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
           props.oldWayItems = oldCandidates ?? fallbackOld;
           props.newWayItems = newCandidates ?? fallbackNew;
+
+          // Subject-company leak guard (task #871): the "new way" column header
+          // is a displayed label. The AI sometimes labels it "Dandy"/"The Dandy
+          // Way" from prompt saturation. For non-Dandy tenants that is a leak —
+          // rewrite it to the tenant's own brand ("The <Brand> Way") or a
+          // neutral "The new way" when no brand name is set. Dandy keeps Dandy.
+          const isDandyForCopy =
+            isDandyTenant || resolvedCompanyName.toLowerCase() === "dandy";
+          if (!isDandyForCopy && typeof props.newWayLabel === "string" && /dandy/i.test(props.newWayLabel)) {
+            props.newWayLabel = resolvedCompanyName ? `The ${resolvedCompanyName} way` : "The new way";
+          }
 
           // Clean up alternate key names
           delete props.oldWayBullets;
