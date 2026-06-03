@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2 } from "lucide-react";
+import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage } from "@/lib/block-types";
@@ -863,6 +863,42 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
   const def = getBlockDef(block.type);
   const [dsoRefreshing, setDsoRefreshing] = useState(false);
   const [bentoTilesRefreshing, setBentoTilesRefreshing] = useState(false);
+  const [storyApprovedForAi, setStoryApprovedForAi] = useState<Record<number, boolean>>({});
+  const [storySaveStatus, setStorySaveStatus] = useState<Record<number, "idle" | "saving" | "saved" | "error">>({});
+
+  const handleAddStoryToLibrary = async (
+    story: { name?: string; stat?: string; label?: string; quote?: string; author?: string; image?: string },
+    index: number,
+    approvedForAi: boolean,
+  ) => {
+    setStorySaveStatus(prev => ({ ...prev, [index]: "saving" }));
+    try {
+      const title = (story.name || story.label || "Success Story").trim();
+      // Map onto the case_study content shape best-effort (title/image) while
+      // preserving the full DSO story data so nothing is dropped.
+      const content = {
+        title,
+        image: story.image ?? "",
+        name: story.name ?? "",
+        stat: story.stat ?? "",
+        label: story.label ?? "",
+        quote: story.quote ?? "",
+        author: story.author ?? "",
+      };
+      const res = await fetch(`/api/lp/library/case_study`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: title, content, is_default: false, approved_for_ai: approvedForAi }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setStorySaveStatus(prev => ({ ...prev, [index]: "saved" }));
+      setTimeout(() => setStorySaveStatus(prev => ({ ...prev, [index]: "idle" })), 2500);
+    } catch (e) {
+      console.error("Add story to library failed", e);
+      setStorySaveStatus(prev => ({ ...prev, [index]: "error" }));
+      setTimeout(() => setStorySaveStatus(prev => ({ ...prev, [index]: "idle" })), 4000);
+    }
+  };
 
   const handleBentoTilesRefresh = async (currentTiles: DsoBentoTile[]) => {
     setBentoTilesRefreshing(true);
@@ -1692,7 +1728,22 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           onChange({ ...block, props: { ...p, cases: next } });
         };
         const addCase = () => onChange({ ...block, props: { ...p, cases: [...cases, { name: "", stat: "", label: "", quote: "", author: "", image: "" }] } });
-        const removeCase = (i: number) => onChange({ ...block, props: { ...p, cases: cases.filter((_, idx) => idx !== i) } });
+        // Index-keyed ephemeral UI state (approval + save status) must shift when a
+        // story is removed, or it would drift onto the wrong card.
+        const reindexAfterRemove = <T,>(m: Record<number, T>, removed: number): Record<number, T> => {
+          const next: Record<number, T> = {};
+          for (const key of Object.keys(m)) {
+            const idx = Number(key);
+            if (idx === removed) continue;
+            next[idx > removed ? idx - 1 : idx] = m[idx];
+          }
+          return next;
+        };
+        const removeCase = (i: number) => {
+          setStoryApprovedForAi(prev => reindexAfterRemove(prev, i));
+          setStorySaveStatus(prev => reindexAfterRemove(prev, i));
+          onChange({ ...block, props: { ...p, cases: cases.filter((_, idx) => idx !== i) } });
+        };
         return (
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "" }} />
@@ -1777,6 +1828,38 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <div>
                       <Label className="text-[11px] text-slate-400">Attribution</Label>
                       <Input value={c.author} onChange={e => updateCase(i, { author: e.target.value })} placeholder="VP Clinical Operations" className="h-8 text-xs mt-1" />
+                    </div>
+                    <div className="border-t border-slate-200 pt-2 mt-1 space-y-2">
+                      <label className="flex items-start gap-2 text-xs cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={storyApprovedForAi[i] ?? true}
+                          onChange={e => setStoryApprovedForAi(prev => ({ ...prev, [i]: e.target.checked }))}
+                          className="mt-0.5 h-3.5 w-3.5"
+                        />
+                        <span className="text-slate-600">
+                          Approved for AI use
+                          <span className="block text-[11px] text-slate-400">
+                            When Strict Facts Mode is on (Brand Settings), unapproved case studies will be hidden from AI generation.
+                          </span>
+                        </span>
+                      </label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-full text-xs gap-1.5"
+                        disabled={storySaveStatus[i] === "saving"}
+                        onClick={() => handleAddStoryToLibrary(c, i, storyApprovedForAi[i] ?? true)}
+                      >
+                        {storySaveStatus[i] === "saving"
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <BookmarkPlus className="w-3 h-3" />}
+                        {storySaveStatus[i] === "saved"
+                          ? "Added to library ✓"
+                          : storySaveStatus[i] === "error"
+                            ? "Failed — click to retry"
+                            : "Add to library"}
+                      </Button>
                     </div>
                   </div>
                 ))}
