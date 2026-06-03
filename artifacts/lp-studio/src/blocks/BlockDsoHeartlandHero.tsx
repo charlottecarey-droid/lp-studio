@@ -112,6 +112,19 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const isSplit = layout === "split";
   const isSplitVideo = layout === "split-video";
   const isStackedVideo = layout === "stacked-video";
+
+  // Uniform dimming overlay for the panel-based layouts (split / split-video /
+  // stacked-video). Unlike the full-bleed scrim, the asset here sits in its own
+  // column/showcase rather than behind the copy, so a flat black overlay is the
+  // right tool to tame busy or over-bright footage. Defaults to 0 (off) so the
+  // current look is preserved; only rendered when a real asset is present.
+  const assetDimming = Math.max(0, Math.min(100, p.assetDimming ?? 0)) / 100;
+  const assetDimmerEl = assetDimming > 0 ? (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{ background: `rgba(0,0,0,${assetDimming.toFixed(2)})`, zIndex: 5 }}
+    />
+  ) : null;
   const imageRight = (p.heroImageSide ?? "right") !== "left";
   const company = p.companyName?.trim() ?? "";
 
@@ -601,21 +614,24 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               }}
             >
               {p.heroImageUrl ? (
-                <img
-                  src={p.heroImageUrl}
-                  alt=""
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    inset: pad,
-                    width: `calc(100% - ${pad * 2}px)`,
-                    height: `calc(100% - ${pad * 2}px)`,
-                    objectFit: fit,
-                    objectPosition: objPos,
-                    transform: scale !== 1 ? `scale(${scale})` : undefined,
-                    transformOrigin: objPos,
-                  }}
-                />
+                <>
+                  <img
+                    src={p.heroImageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      inset: pad,
+                      width: `calc(100% - ${pad * 2}px)`,
+                      height: `calc(100% - ${pad * 2}px)`,
+                      objectFit: fit,
+                      objectPosition: objPos,
+                      transform: scale !== 1 ? `scale(${scale})` : undefined,
+                      transformOrigin: objPos,
+                    }}
+                  />
+                  {assetDimmerEl}
+                </>
               ) : (
                 <div
                   style={{
@@ -739,6 +755,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                       onPlay={() => setHeroVideoPlaying(true)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
+                    {assetDimmerEl}
                     {((p.videoAutoplay ?? true) || heroVideoPlaying) && (
                       <MuteToggleButton
                         muted={heroVideoMuted}
@@ -752,6 +769,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                         style={{
                           position: "absolute",
                           inset: 0,
+                          zIndex: 10,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -933,6 +951,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                       onPlay={() => setHeroVideoPlaying(true)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
+                    {assetDimmerEl}
                     {((p.videoAutoplay ?? true) || heroVideoPlaying) && (
                       <MuteToggleButton
                         muted={heroVideoMuted}
@@ -946,6 +965,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                         style={{
                           position: "absolute",
                           inset: 0,
+                          zIndex: 10,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",

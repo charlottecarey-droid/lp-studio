@@ -93,6 +93,13 @@ export interface DsoHeartlandHeroBlockProps {
    *  already read well, raise it for light/busy assets. Only applies to the
    *  asset-backed full-bleed layout; the curated gradient default is unaffected. */
   scrimStrength?: number;
+  /** Opacity (%) of a uniform black dimming overlay laid over the displayed
+   *  asset in the 2-column (`split`, `split-video`) and `stacked-video` layouts.
+   *  Unlike the full-bleed scrim (which sits behind the copy), the asset here is
+   *  shown in its own panel, so this is a flat scrim over the image/video to tame
+   *  busy or bright footage. 0 (the default) = no dimming, preserving the current
+   *  look. Only applies where a real hero image/video is present. */
+  assetDimming?: number;
   layout?: "full-bleed" | "split" | "split-video" | "stacked-video";
   heroImageUrl?: string;
   heroImageSide?: "left" | "right";

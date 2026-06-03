@@ -2787,6 +2787,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Label className="text-xs">Image zoom: {(p.heroImageScale ?? 1).toFixed(2)}×</Label>
                   <Slider value={[p.heroImageScale ?? 1]} min={0.5} max={3} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImageScale: v } })} />
                 </div>
+                {p.heroImageUrl && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Background dimming</Label>
+                      <span className="text-xs text-muted-foreground tabular-nums">{p.assetDimming ?? 0}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={p.assetDimming ?? 0}
+                      onChange={e => onChange({ ...block, props: { ...p, assetDimming: Number(e.target.value) } })}
+                      className="w-full accent-primary"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Darkens the hero image to keep any text or logos overlaid on it readable. 0% keeps the photo as-is; raise it for bright or busy shots.</p>
+                  </div>
+                )}
               </>
             )}
 
@@ -2810,6 +2828,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+                {p.heroVideoUrl && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Background dimming</Label>
+                      <span className="text-xs text-muted-foreground tabular-nums">{p.assetDimming ?? 0}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={p.assetDimming ?? 0}
+                      onChange={e => onChange({ ...block, props: { ...p, assetDimming: Number(e.target.value) } })}
+                      className="w-full accent-primary"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Darkens the hero video to keep any text or logos overlaid on it readable. 0% keeps the footage as-is; raise it for bright or busy clips.</p>
                   </div>
                 )}
               </>
