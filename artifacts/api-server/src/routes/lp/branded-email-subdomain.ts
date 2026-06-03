@@ -48,7 +48,7 @@ import {
   type ResendDomainVerificationState,
   type ResendDnsRecord,
 } from "../../lib/resendDomainStatus";
-import { CloudflareError, createDnsRecord, findDnsRecords, deleteDnsRecord } from "../../lib/cloudflare";
+import { CloudflareError, createDnsRecord, updateDnsRecord, findDnsRecords, deleteDnsRecord } from "../../lib/cloudflare";
 import {
   readBrandedSubdomainConfig,
   persistBrandedSubdomain,
@@ -81,50 +81,74 @@ function parseTtl(raw: string | undefined): number {
 }
 
 interface SyncOutcome {
-  /** Cloudflare record ids that now back the subdomain (reused + created). */
+  /** Cloudflare record ids that now back the subdomain (reused + created/updated). */
   ids: string[];
-  /** Human-readable "<TYPE> <name>" of records we had to (re-)create. */
-  created: string[];
+  /** Human-readable "<TYPE> <name>" of records we had to create or correct. */
+  repaired: string[];
 }
 
 /**
  * Reconcile a set of Resend-required DNS records against what's live in our
- * Cloudflare zone, creating any that are missing. Idempotent per record: if a
- * matching (name+type) record already exists with the SAME content we reuse it
- * instead of duplicating; otherwise we create it and record the repair. A
- * content mismatch (a record edited out-of-band) is treated as "missing the
- * required record" — we re-publish the correct one rather than mutating or
- * deleting the unknown existing record (non-destructive; Resend only needs the
- * required record present to verify). Throws on the first hard Cloudflare
- * failure so the provision path can roll back.
+ * Cloudflare zone, repairing any drift. Ownership-first and idempotent per
+ * record — we only ever reuse or modify a record we already OWN (its id is in
+ * `ownedIds`):
+ *
+ *   - we own a record of this name+type with the SAME content → reuse it, no-op;
+ *   - we own a record of this name+type with a CHANGED value (edited
+ *     out-of-band) → UPDATE it in place (Cloudflare PUT) to the correct value;
+ *   - we own no record of this name+type → CREATE our own.
+ *
+ * The last two cases are recorded as repairs. A record we don't own that merely
+ * shares the name+type (a stray/unrelated collision) is never touched — not
+ * mutated, and not even adopted by id (adopting it would let a later deprovision
+ * delete a record we didn't create). This keeps the guarantee that reconcile
+ * never touches records outside the tenant's required set. Throws on the first
+ * hard Cloudflare failure so the provision path can roll back.
  */
-async function syncRecords(records: ResendDnsRecord[]): Promise<SyncOutcome> {
+async function syncRecords(
+  records: ResendDnsRecord[],
+  ownedIds: string[] = [],
+): Promise<SyncOutcome> {
+  const owned = new Set(ownedIds);
   const ids: string[] = [];
-  const created: string[] = [];
+  const repaired: string[] = [];
   for (const rec of records) {
     const type = (rec.type ?? "").toUpperCase();
     const name = (rec.name ?? "").trim();
     const content = (rec.value ?? "").trim();
     if (!type || !name || !content) continue;
 
-    const existing = await findDnsRecords({ name, type });
-    const match = existing.find((e) => e.content === content);
-    if (match) {
-      ids.push(match.id);
-      continue;
-    }
-    const rec2 = await createDnsRecord({
+    const recordInput = {
       type,
       name,
       content,
       ttl: parseTtl(rec.ttl),
       ...(typeof rec.priority === "number" ? { priority: rec.priority } : {}),
       comment: "LP Studio branded email subdomain (auto-provisioned)",
-    });
+    };
+
+    // Only ever consider a record we own. An unowned same-name+type record is
+    // left entirely alone, even when its content is already correct.
+    const existing = await findDnsRecords({ name, type });
+    const ownedMatch = existing.find((e) => owned.has(e.id));
+    if (ownedMatch) {
+      if (ownedMatch.content === content) {
+        ids.push(ownedMatch.id);
+        continue;
+      }
+      // Value drift on our own record → correct it in place (no duplicate).
+      const updated = await updateDnsRecord(ownedMatch.id, recordInput);
+      ids.push(updated.id);
+      repaired.push(`${type} ${name}`);
+      continue;
+    }
+
+    // We own no record of this name+type → create our own correct record.
+    const rec2 = await createDnsRecord(recordInput);
     ids.push(rec2.id);
-    created.push(`${type} ${name}`);
+    repaired.push(`${type} ${name}`);
   }
-  return { ids, created };
+  return { ids, repaired };
 }
 
 /**
@@ -184,13 +208,13 @@ export async function reconcileBrandedSubdomainDns(
   }
 
   const required = live.domain.records ?? [];
-  const { ids, created } = await syncRecords(required);
+  const { ids, repaired } = await syncRecords(required, dnsRecordIds);
 
-  if (created.length > 0) {
+  if (repaired.length > 0) {
     console.warn(
       `[lp/branded-email-subdomain] DNS drift detected for tenant ${tenantId} ` +
-        `(${subdomain || live.domain.name}): re-published ${created.length} ` +
-        `missing/changed record(s): ${created.join(", ")}`,
+        `(${subdomain || live.domain.name}): repaired ${repaired.length} ` +
+        `missing/changed record(s): ${repaired.join(", ")}`,
     );
   }
 
@@ -211,8 +235,8 @@ export async function reconcileBrandedSubdomainDns(
     tenantId,
     provisioned: true,
     checked: ids.length,
-    repaired: created.length,
-    repairedRecords: created,
+    repaired: repaired.length,
+    repairedRecords: repaired,
   };
 }
 

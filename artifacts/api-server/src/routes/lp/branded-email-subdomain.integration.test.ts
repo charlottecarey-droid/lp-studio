@@ -129,6 +129,15 @@ const fetchMock = vi.fn(async (input: unknown, init?: RequestInit): Promise<Resp
       CF_RECORDS.set(id, rec);
       return cfOk(rec, 200);
     }
+    if (recById && method === "PUT") {
+      // updateDnsRecord — replace the editable fields in place (id preserved).
+      const id = recById[1];
+      const body = JSON.parse(String(init?.body ?? "{}")) as { type: string; name: string; content: string };
+      if (!CF_RECORDS.has(id)) return cfOk({ message: "Record not found" }, 404);
+      const rec = { id, type: body.type, name: body.name, content: body.content };
+      CF_RECORDS.set(id, rec);
+      return cfOk(rec);
+    }
     if (recById && method === "DELETE") {
       const id = recById[1];
       CF_RECORDS.delete(id);
@@ -365,6 +374,122 @@ describe("branded email subdomain — DNS drift reconcile", () => {
     expect(result.repaired).toBe(0);
     expect(result.checked).toBe(SAMPLE_RECORDS.length);
     expect(CF_RECORDS.size).toBe(before);
+  });
+
+  it("corrects a value-drifted record in place rather than duplicating", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // Simulate value drift: the DKIM/TXT record still exists with the same
+      // name+type but its content was edited out-of-band to a wrong value.
+      const txt = [...CF_RECORDS.values()].find((r) => r.type === "TXT");
+      expect(txt).toBeDefined();
+      const driftedId = txt!.id;
+      const correctValue = txt!.content;
+      CF_RECORDS.set(driftedId, { ...txt!, content: "p=WRONG-DRIFTED-KEY" });
+      const sizeBefore = CF_RECORDS.size;
+
+      const result = await reconcileBrandedSubdomainDns(growthTenantId);
+
+      // It was repaired (counted + named) and corrected in place — same id,
+      // correct value, no duplicate record stacked alongside it.
+      expect(result.repaired).toBe(1);
+      expect(result.repairedRecords[0]).toContain("TXT");
+      expect(CF_RECORDS.size).toBe(sizeBefore);
+      expect(CF_RECORDS.has(driftedId)).toBe(true);
+      expect(CF_RECORDS.get(driftedId)!.content).toBe(correctValue);
+
+      // Drift was logged loudly.
+      expect(warn).toHaveBeenCalled();
+      expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toContain("DNS drift detected");
+
+      // The id set is unchanged (we updated in place, didn't swap ids).
+      const persisted = await readPersisted(growthTenantId);
+      const ids = persisted.brandedEmailSubdomainDnsRecordIds as string[];
+      expect(ids).toContain(driftedId);
+      expect(new Set(ids).size).toBe(ids.length);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("never mutates an unowned same-name+type collision — creates its own record", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const STRAY_ID = "cf-stray-unowned";
+    try {
+      // Our owned TXT record vanished, and an unrelated record now sits at the
+      // SAME name+type (id NOT in our persisted set). Reconcile must NOT mutate
+      // the stray — it should create its own correct record instead.
+      const ownedTxt = [...CF_RECORDS.values()].find((r) => r.type === "TXT");
+      expect(ownedTxt).toBeDefined();
+      CF_RECORDS.delete(ownedTxt!.id);
+      CF_RECORDS.set(STRAY_ID, {
+        id: STRAY_ID,
+        type: ownedTxt!.type,
+        name: ownedTxt!.name,
+        content: "p=SOMEONE-ELSES-VALUE",
+      });
+      const sizeBefore = CF_RECORDS.size;
+
+      const result = await reconcileBrandedSubdomainDns(growthTenantId);
+
+      // Repaired by CREATING our own record (size grew by one), not mutating.
+      expect(result.repaired).toBe(1);
+      expect(result.repairedRecords[0]).toContain("TXT");
+      expect(CF_RECORDS.size).toBe(sizeBefore + 1);
+
+      // The stray collision was left completely untouched.
+      expect(CF_RECORDS.has(STRAY_ID)).toBe(true);
+      expect(CF_RECORDS.get(STRAY_ID)!.content).toBe("p=SOMEONE-ELSES-VALUE");
+
+      // Our newly created record (owned) carries the correct required value.
+      const persisted = await readPersisted(growthTenantId);
+      const ids = persisted.brandedEmailSubdomainDnsRecordIds as string[];
+      expect(ids).not.toContain(STRAY_ID);
+      const ourTxt = ids.map((id) => CF_RECORDS.get(id)).find((r) => r?.type === "TXT");
+      expect(ourTxt).toBeDefined();
+      expect(ourTxt!.content).not.toBe("p=SOMEONE-ELSES-VALUE");
+    } finally {
+      // Restore the invariant (CF_RECORDS == our owned set) for later tests.
+      CF_RECORDS.delete(STRAY_ID);
+      warn.mockRestore();
+    }
+  });
+
+  it("does not adopt an unowned record even when its content is already correct", async () => {
+    const STRAY_ID = "cf-stray-correct-unowned";
+    try {
+      // Our owned TXT vanished; a record we DON'T own sits at the same name+type
+      // and happens to already carry the correct value. We must not adopt its id
+      // (or a later deprovision would delete a record we never created) — we
+      // create our own owned copy instead and leave the stray alone.
+      const ownedTxt = [...CF_RECORDS.values()].find((r) => r.type === "TXT");
+      expect(ownedTxt).toBeDefined();
+      const correctValue = ownedTxt!.content;
+      CF_RECORDS.delete(ownedTxt!.id);
+      CF_RECORDS.set(STRAY_ID, {
+        id: STRAY_ID,
+        type: ownedTxt!.type,
+        name: ownedTxt!.name,
+        content: correctValue,
+      });
+      const sizeBefore = CF_RECORDS.size;
+
+      const result = await reconcileBrandedSubdomainDns(growthTenantId);
+
+      // Created our own record rather than adopting the stray.
+      expect(result.repaired).toBe(1);
+      expect(CF_RECORDS.size).toBe(sizeBefore + 1);
+      expect(CF_RECORDS.has(STRAY_ID)).toBe(true);
+
+      const persisted = await readPersisted(growthTenantId);
+      const ids = persisted.brandedEmailSubdomainDnsRecordIds as string[];
+      expect(ids).not.toContain(STRAY_ID);
+      const ourTxt = ids.map((id) => CF_RECORDS.get(id)).find((r) => r?.type === "TXT");
+      expect(ourTxt).toBeDefined();
+      expect(ourTxt!.content).toBe(correctValue);
+    } finally {
+      CF_RECORDS.delete(STRAY_ID);
+    }
   });
 
   it("skips (touches nothing) when Resend can't confirm the required records", async () => {

@@ -443,6 +443,33 @@ export async function createDnsRecord(input: DnsRecordInput): Promise<Cloudflare
 }
 
 /**
+ * Update an existing DNS record in place by id (Cloudflare PUT — full
+ * replacement of the editable fields). Used by the reconcile path to repair a
+ * record whose name+type still match a required record but whose content has
+ * drifted out-of-band: we correct the value rather than leaving the wrong one
+ * live or creating a duplicate. Returns the updated record.
+ */
+export async function updateDnsRecord(
+  id: string,
+  input: DnsRecordInput,
+): Promise<CloudflareDnsRecord> {
+  const { zoneId } = getConfig();
+  const body: Record<string, unknown> = {
+    type: input.type,
+    name: input.name,
+    content: input.content,
+    ttl: input.ttl ?? 1,
+    proxied: false,
+  };
+  if (typeof input.priority === "number") body.priority = input.priority;
+  if (input.comment) body.comment = input.comment;
+  return cfFetch<CloudflareDnsRecord>(`/zones/${zoneId}/dns_records/${id}`, {
+    method: "PUT",
+    body,
+  });
+}
+
+/**
  * Find DNS records on the zone matching the given exact name (and optionally
  * type). Used to make provisioning idempotent — if a record already exists
  * (e.g. a retried provision) we reuse it instead of creating a duplicate.
