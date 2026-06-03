@@ -59,10 +59,26 @@ function isOnePagerLayout(blocks: { type: string }[]): boolean {
   const lead = blocks.find((b) => !ONE_PAGER_LEADING_CHROME.has(b.type));
   return !!lead && ONE_PAGER_BLOCK_TYPES.has(lead.type);
 }
+// On the One Pager sheet, content blocks carry a generous fixed horizontal
+// padding (paddingX "md" = 40px) so they line up with the hero band's internal
+// text inset on desktop. That fixed inset is too tight on phones (40px + each
+// block's own ~24px inner padding eats most of a ~390px screen). This scoped
+// rule dials the block paddingX down on narrow viewports so content reads ~28px
+// from the edge — matching the hero's mobile inset — while desktop is untouched.
+// Scoped to `.one-pager-frame` so non-One-Pager landing pages keep their spacing.
+const ONE_PAGER_MOBILE_PADDING = `
+  @media (max-width: 768px) {
+    .one-pager-frame [data-blk-px] {
+      padding-left: 4px !important;
+      padding-right: 4px !important;
+    }
+  }
+`;
 function OnePagerFrame({ active, bg, children }: { active: boolean; bg?: string; children: ReactNode }) {
   if (!active) return <>{children}</>;
   return (
-    <div className="bg-muted/40 min-h-screen md:py-10">
+    <div className="one-pager-frame bg-muted/40 min-h-screen md:py-10">
+      <style>{ONE_PAGER_MOBILE_PADDING}</style>
       <div
         className="mx-auto w-full max-w-[960px] bg-background md:shadow-[0_10px_50px_-15px_rgba(0,0,0,0.25)] md:ring-1 md:ring-border/50"
         style={bg ? { background: bg } : undefined}

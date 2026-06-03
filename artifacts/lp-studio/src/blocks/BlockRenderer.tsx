@@ -259,6 +259,14 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
     ? { "data-blk-bg": "", style: { ...style, "--blk-bg": blkBgVar } as React.CSSProperties }
     : { style };
 
+  // Marker for the fixed horizontal padding so a media-query rule can dial it
+  // down on narrow screens (see the `.one-pager-frame [data-blk-px]` override in
+  // the viewer). The inline px value above keeps desktop spacing untouched; the
+  // attribute alone is inert on non-One-Pager pages (no scoped rule targets it).
+  const pxAttr = settings.paddingX && settings.paddingX !== "none"
+    ? { "data-blk-px": settings.paddingX }
+    : {};
+
   if (!hasBgImage && Object.keys(style).length === 0 && blkBgVar === null) {
     if (!anchorId) return children;
     return <div id={anchorId}>{children}</div>;
@@ -266,7 +274,7 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
 
   if (hasBgImage) {
     return (
-      <div id={anchorId} {...blkBgAttr} style={{ ...(blkBgAttr.style as React.CSSProperties), position: "relative" }}>
+      <div id={anchorId} {...blkBgAttr} {...pxAttr} style={{ ...(blkBgAttr.style as React.CSSProperties), position: "relative" }}>
         <BgImageLayer
           url={settings.bgImageUrl!}
           opacity={settings.bgImageOpacity ?? 100}
@@ -277,7 +285,7 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
     );
   }
 
-  return <div id={anchorId} {...blkBgAttr}>{children}</div>;
+  return <div id={anchorId} {...blkBgAttr} {...pxAttr}>{children}</div>;
 }
 
 function resolveCtaUrl(props: { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string }): string {
