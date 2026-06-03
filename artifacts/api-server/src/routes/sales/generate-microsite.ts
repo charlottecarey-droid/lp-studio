@@ -333,6 +333,49 @@ export function applyDandySupportingVariability(
   });
 }
 
+// ── Dandy-only supporting-section LAYOUT variability ──────────────────────
+// Sibling to applyDandySupportingVariability. Several supporting blocks ship
+// with more than one ALREADY-DESIGNED layout/variant preset that is otherwise
+// fixed on every page — e.g. dso-challenges' 4-col/2-col grid and
+// dso-insights-dashboard's light/dark dashboard theme. This pass picks one
+// deterministically per account so whole pages feel even more distinct,
+// building on the same hash-seed approach as the background pass.
+//
+// Invariants (keep these if you touch it — they mirror the other Dandy passes):
+//   • Only ALREADY-DESIGNED presets listed in DANDY_LAYOUT_VARIANTS are used.
+//     Each is a self-contained design the renderer already supports (the dark
+//     dashboard carries its own internal theme), so selection never touches
+//     legibility/contrast — that scope is handled separately.
+//   • The hero is varied by applyDandyHeroVariability and is never touched here.
+//   • Curated block ORDER is never changed — only the named layout/variant prop
+//     on a matching block varies.
+//   • Per-account deterministic, with a per-block-type-namespaced seed so the
+//     same account stays stable across regenerations, different accounts
+//     spread, and each knob varies independently of the others and of the
+//     hero / background passes.
+const DANDY_LAYOUT_VARIANTS: Record<string, { prop: string; options: readonly string[] }> = {
+  "dso-challenges": { prop: "layout", options: ["4-col", "2-col"] },
+  "dso-insights-dashboard": { prop: "dashboardVariant", options: ["light", "dark"] },
+};
+
+export function applyDandyLayoutVariability(
+  blocks: AiBlock[],
+  seedKey: string,
+): AiBlock[] {
+  return blocks.map(block => {
+    const type = block?.type as string;
+    const spec = DANDY_LAYOUT_VARIANTS[type];
+    if (!spec) return block;
+    const props = (block?.props ?? {}) as Record<string, unknown>;
+    // Per-block-type namespaced seed keeps each knob independent of the others
+    // and of the hero / background passes that share the same account key.
+    const seed = hashSeed(`${seedKey}::layout::${type}`);
+    const next = spec.options[seed % spec.options.length];
+    if (next === props[spec.prop]) return block;
+    return { ...block, props: { ...props, [spec.prop]: next } };
+  });
+}
+
 function getOpenAIClient(): OpenAI | null {
   const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -1602,6 +1645,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // only among already-designed light-neutral presets, leaves accent/dark
       // sections and the curated order untouched.
       normalizedBlocks = applyDandySupportingVariability(normalizedBlocks, seedKey);
+      // …and vary already-designed supporting-block LAYOUT knobs per account
+      // (dso-challenges grid columns, dso-insights-dashboard light/dark theme)
+      // so pages feel even more distinct. Same deterministic-per-account hash;
+      // only named layout/variant props change, order untouched.
+      normalizedBlocks = applyDandyLayoutVariability(normalizedBlocks, seedKey);
     }
 
     // AI image-gen / Unsplash fallback for slots the library couldn't fill —
