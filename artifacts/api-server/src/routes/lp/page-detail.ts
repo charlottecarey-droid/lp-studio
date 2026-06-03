@@ -70,10 +70,69 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
   const prevStart = new Date(now.getTime() - 2 * days * 86_400_000);
 
   try {
+    // De-anonymize the page overview the same way the Visits table does
+    // (Task #910 / #919): an anonymous tracking session that later (or earlier)
+    // submitted a lead form on this page is really a known visitor. Resolve each
+    // lead's identity via the shared lead-utils accessors (name/email/company
+    // live under arbitrary keys in the fields JSON, so they can only be
+    // extracted in JS), keeping a session's FIRST non-empty value per field so
+    // one visitor's identity stays stable across multiple submissions — exactly
+    // as the /visits query does. These sessions are then counted as "known"
+    // visitors instead of anonymous so the overview reads consistently with the
+    // Visits table. Hotlink (personalized) resolution is untouched.
+    const leadIdentityRows = await db
+      .select({ sessionId: lpLeadsTable.sessionId, fields: lpLeadsTable.fields })
+      .from(lpLeadsTable)
+      .where(
+        and(
+          eq(lpLeadsTable.pageId, pageId),
+          eq(lpLeadsTable.tenantId, tenantId),
+          isNotNull(lpLeadsTable.sessionId),
+        ),
+      );
+
+    const identityBySession = new Map<
+      string,
+      { name: string | null; company: string | null; email: string | null }
+    >();
+    for (const row of leadIdentityRows) {
+      const sid = row.sessionId;
+      if (!sid) continue;
+      const fields = (row.fields ?? {}) as Record<string, unknown>;
+      const get = fieldAccessor(fields as Record<string, string>);
+      const name = leadName(fields as Record<string, string>) || null;
+      const email = leadEmail(fields as Record<string, string>) || null;
+      const company = get("company", "companyName", "organization", "organisation", "businessName") || null;
+      if (!name && !email && !company) continue;
+      const prev = identityBySession.get(sid);
+      identityBySession.set(sid, {
+        name: prev?.name ?? name,
+        company: prev?.company ?? company,
+        email: prev?.email ?? email,
+      });
+    }
+
+    // A `lead_identity(session_id, identity_key)` VALUES table. The key mirrors
+    // the personalized "known visitors" key (email first, else name, else
+    // company) so the same person is counted once per distinct identity. A typed
+    // empty SELECT keeps the LEFT JOIN valid when nothing is resolvable.
+    const identityValues = Array.from(identityBySession.entries()).map(([sid, v]) => {
+      const key = (v.email && v.email.trim()) || v.name || v.company;
+      return sql`(${sid}::text, ${key}::text)`;
+    });
+    const leadIdentityCte =
+      identityValues.length > 0
+        ? sql`lead_identity(session_id, identity_key) AS (
+            VALUES ${sql.join(identityValues, sql`, `)}
+          )`
+        : sql`lead_identity(session_id, identity_key) AS (
+            SELECT NULL::text, NULL::text WHERE false
+          )`;
+
     const [
       anonVisits,
       persVisits,
-      anonUnique,
+      uniqueRows,
       anonConv,
       persConv,
       known,
@@ -96,12 +155,21 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
         JOIN lp_personalized_links pl ON pl.id = plv.link_id
         WHERE pl.page_id = ${pageId} AND pl.tenant_id = ${tenantId}
       `),
-      // anonymous unique visitors (distinct session_id)
+      // Unique visitors, split into still-anonymous sessions and de-anonymized
+      // (lead-resolved) sessions. A session that resolved to a lead identity is
+      // EXCLUDED from the anonymous count (anon_*) and counted instead as a
+      // distinct known visitor (deanon_*, distinct by identity_key), so it moves
+      // from "Anonymous" to "known" without being double-counted.
       db.execute(sql`
+        WITH ${leadIdentityCte}
         SELECT
-          count(DISTINCT session_id) FILTER (WHERE created_at > ${curStart}) AS cur,
-          count(DISTINCT session_id) FILTER (WHERE created_at > ${prevStart} AND created_at <= ${curStart}) AS prev
-        FROM lp_page_visits WHERE page_id = ${pageId} AND session_id IS NOT NULL
+          count(DISTINCT pv.session_id) FILTER (WHERE pv.created_at > ${curStart} AND li.session_id IS NULL) AS anon_cur,
+          count(DISTINCT pv.session_id) FILTER (WHERE pv.created_at > ${prevStart} AND pv.created_at <= ${curStart} AND li.session_id IS NULL) AS anon_prev,
+          count(DISTINCT li.identity_key) FILTER (WHERE pv.created_at > ${curStart} AND li.session_id IS NOT NULL) AS deanon_cur,
+          count(DISTINCT li.identity_key) FILTER (WHERE pv.created_at > ${prevStart} AND pv.created_at <= ${curStart} AND li.session_id IS NOT NULL) AS deanon_prev
+        FROM lp_page_visits pv
+        LEFT JOIN lead_identity li ON li.session_id = pv.session_id
+        WHERE pv.page_id = ${pageId} AND pv.session_id IS NOT NULL
       `),
       // anonymous conversions (lp_events.page_id)
       db.execute(sql`
@@ -165,9 +233,16 @@ router.get("/lp/analytics/pages/:pageId/summary", async (req, res): Promise<void
     const rateCur = visitsCur > 0 ? (convCur / visitsCur) * 100 : 0;
     const ratePrev = visitsPrev > 0 ? (convPrev / visitsPrev) * 100 : 0;
 
-    // Unique visitors = distinct anonymous sessions + distinct known contacts.
-    const uniqueCur = num(anonUnique.rows, "cur") + num(known.rows, "cur");
-    const uniquePrev = num(anonUnique.rows, "prev") + num(known.rows, "prev");
+    // Unique visitors = still-anonymous sessions + known visitors. "Known" spans
+    // personalized (hotlink) contacts AND anonymous sessions that submitted a
+    // lead form on this page (de-anonymized, Task #919), so a revealed visitor
+    // is classified consistently with the Visits table.
+    const u = (uniqueRows.rows[0] ?? {}) as Record<string, unknown>;
+    const toNum = (v: unknown): number => Number(v ?? 0) || 0;
+    const knownCur = num(known.rows, "cur") + toNum(u.deanon_cur);
+    const knownPrev = num(known.rows, "prev") + toNum(u.deanon_prev);
+    const uniqueCur = toNum(u.anon_cur) + knownCur;
+    const uniquePrev = toNum(u.anon_prev) + knownPrev;
 
     const scrollCur = num(scroll.rows, "cur");
     const scrollPrev = num(scroll.rows, "prev");

@@ -342,3 +342,64 @@ describe("GET /lp/analytics/pages/:pageId/visits", () => {
     expect(res.status).toBe(404);
   });
 });
+
+interface Metric {
+  value: number;
+  deltaPct: number | null;
+}
+interface SummaryBody {
+  page: { id: number; title: string; slug: string; status: string; updatedAt: string };
+  metrics: {
+    visits: Metric;
+    uniqueVisitors: Metric;
+    leads: Metric;
+    conversionRate: Metric;
+    avgScrollDepth: Metric;
+    clicksPerSession: Metric;
+  };
+}
+
+describe("GET /lp/analytics/pages/:pageId/summary — de-anonymized known visitors (Task #919)", () => {
+  it("classifies a lead-resolved session as a known visitor and dedupes sessions sharing one identity", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const pageId = await seedPage(tenantId);
+
+    // Same person across TWO anonymous sessions (e.g. two devices), each
+    // submitting the lead form with the same email — one known visitor.
+    const sessA = `it-sess-${randomUUID()}`;
+    const sessB = `it-sess-${randomUUID()}`;
+    await seedAnonVisit(pageId, sessA, 10);
+    await seedAnonVisit(pageId, sessB, 20);
+    await seedLead(tenantId, pageId, sessA, { firstName: "Sam", lastName: "Known", email: "sam@known.test" });
+    await seedLead(tenantId, pageId, sessB, { firstName: "Sam", lastName: "Known", email: "sam@known.test" });
+
+    // A separate, still-anonymous session that never submits a lead.
+    const sessC = `it-sess-${randomUUID()}`;
+    await seedAnonVisit(pageId, sessC, 30);
+
+    const res = await authed(sid, `/lp/analytics/pages/${pageId}/summary`);
+    expect(res.status).toBe(200);
+    const body = res.json as SummaryBody;
+
+    // 3 raw visits across 3 sessions...
+    expect(body.metrics.visits.value).toBe(3);
+    // ...but only 2 unique visitors: 1 known person (Sam, deduped across his
+    // two sessions) + 1 still-anonymous session. Before de-anonymization this
+    // counted 3 anonymous unique sessions.
+    expect(body.metrics.uniqueVisitors.value).toBe(2);
+  });
+
+  it("leaves a page with only unresolved anonymous sessions counting each session as unique", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const pageId = await seedPage(tenantId);
+    await seedAnonVisit(pageId, `it-sess-${randomUUID()}`, 10);
+    await seedAnonVisit(pageId, `it-sess-${randomUUID()}`, 20);
+
+    const res = await authed(sid, `/lp/analytics/pages/${pageId}/summary`);
+    expect(res.status).toBe(200);
+    const body = res.json as SummaryBody;
+
+    expect(body.metrics.visits.value).toBe(2);
+    expect(body.metrics.uniqueVisitors.value).toBe(2);
+  });
+});
