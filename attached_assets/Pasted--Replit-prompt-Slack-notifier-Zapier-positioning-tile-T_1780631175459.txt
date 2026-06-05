@@ -1,0 +1,112 @@
+# Replit prompt — Slack notifier + Zapier positioning tile
+
+Two integrations to add before the PH launch, both lightweight relative to HubSpot and Marketo Phase 2:
+
+1. **Slack** — outbound-only notifier. When a hot signal fires (form submit, hot visit, AI Briefing run, etc.) post a structured message to a tenant-configured Slack channel.
+2. **Zapier** — no real backend work needed; LP Studio already ships outbound Webhooks. This is purely an Integrations-grid tile that points users at the webhook docs so they understand they can wire LP Studio into 5,000+ Zapier-supported apps themselves.
+
+---
+
+## Step 0 — Read the Marketo Phase 2 pattern as your canonical reference
+
+Marketo Phase 2 was just merged and is the **cleanest reference** for how to add a first-class integration in this codebase: dedicated tables (not the generic `lp_integrations` row), credential encryption via `encryptCredential`, tenant-scoped from migration 1, HMAC-signed OAuth state, settings page under `artifacts/lp-studio/src/pages/sales/`. Slack is simpler than Marketo (outbound-only, no field mapping, no bulk import), but follow the same structural pattern for what overlaps.
+
+Files to skim:
+
+- `lib/db/src/schema/marketoIntegration.ts` (and adjacent `marketo_*` schema files)
+- `artifacts/api-server/src/lib/marketo-service.ts` — singleton service pattern (the OAuth + token-refresh shape is what you'll mirror)
+- `artifacts/api-server/src/routes/sales/marketo.ts` — REST surface (connect/disconnect, settings endpoints, mount point)
+- `artifacts/api-server/src/lib/encryption.ts` — `encryptCredential` / `decryptCredential` helper + `CREDENTIAL_FIELDS_BY_PROVIDER` whitelist at the top
+- `artifacts/api-server/src/middleware/requireAuth.ts` — `getTenantId(req, res)` helper used by every protected route
+- `artifacts/lp-studio/src/pages/sales/marketo-settings.tsx` — settings UI shape (connection status + Disconnect, per-feature toggles, test button)
+
+Also: SFDC's OAuth implementation (`artifacts/api-server/src/routes/sales/sfdc.ts`) has the **HMAC-signed state helper** (`signSfdcState` / `verifySfdcState`) — copy that helper for the Slack OAuth flow. Don't reinvent.
+
+**Do not invent a new pattern.** Slack's surface is smaller than Marketo's but the shape (singleton service + dedicated table + tenant-scoped routes + Sales-nav settings page) should match.
+
+---
+
+## Part 1 — Slack integration (real backend)
+
+### Backend
+
+- **OAuth app** — create a Slack OAuth app (`api.slack.com/apps`), single-workspace install flow. Scopes: `chat:write`, `chat:write.public`, `incoming-webhook`. Document the client ID + secret in `.env` and Replit Secrets.
+- **Schema (new migration)** — start at the next sequence number after Marketo Phase 2. Add a dedicated `slack_connections` table — **do NOT extend `lp_integrations`**. Columns: `id`, `tenantId NOT NULL` FK + index (from migration 1, don't retrofit), `teamId`, `teamName`, `accessToken` (encrypted), `botUserId`, `incomingWebhookUrl` (encrypted — it's a credential), `defaultChannelId`, `defaultChannelName`, `eventToggles` jsonb (form_submit/hot_visit/ai_briefing booleans), `status`, `connectedAt`, `connectedBy`.
+- **Encryption** — extend `CREDENTIAL_FIELDS_BY_PROVIDER` in `artifacts/api-server/src/lib/encryption.ts` to include `slack: ["accessToken", "incomingWebhookUrl"]`.
+- **OAuth callback** — `GET /api/sales/slack/oauth/callback` (mirror Marketo / SFDC paths). Use the **HMAC-signed state pattern** from `sfdc.ts` (10-min TTL, constant-time compare, `WORKER_HOST_SECRET`) — don't roll your own.
+- **Disconnect** — `POST /api/sales/slack/disconnect`. Wipe tokens to `""`, set `status='disconnected'`, keep row for audit (mirror Marketo + SFDC).
+- **Service singleton** — `slackService = new SlackService()` in `artifacts/api-server/src/lib/slack-service.ts`. Required methods: `getConnectionWithValidToken(connectionId)`, `postMessage(connectionId, channelId, blocks)`, `listChannels(connectionId)`. **`getActiveConnection(tenantId)` MUST require tenantId** (don't mirror SFDC's leaky overload).
+- **Event hooks** — fire fire-and-forget (mirror the Marketo + SFDC pattern of `.catch(() => {})` on the trigger sites):
+  - **Form submit** (new `lpLead` in `lp/leads.ts:452-508`): "🎯 New lead from `<page-name>`: `<name>` · `<company>` · `<email>`". Link to the contact detail view in LP Studio.
+  - **Hot visit** (existing `pageVisits` hot-signal check, look in `routes/sales/signals.ts` for the threshold logic): "🔥 Hot visit: `<contact-name>` from `<account>` is on `<page-name>` right now."
+  - **AI Briefing generated** (Sales Console event, look in `routes/sales/briefings.ts`): "🧠 AI Briefing ready for `<account>` — click to view."
+- Use the **Block Kit** message shape (header + section + button) so messages look native, not webhook-bot-spam.
+- Per-tenant **channel routing** — read `defaultChannelId` from the connection record; allow per-event-type override via `eventToggles` jsonb settings.
+- **Rate limiting** — Slack has 1 message/sec/channel; queue with a 250ms delay between consecutive messages from the same channel. Reuse the retry+backoff pattern from `marketo-service.ts`'s `queryMarketo` helper (429 exponential backoff, max 5 attempts).
+
+### Settings UI
+
+New page at `artifacts/lp-studio/src/pages/sales/slack-settings.tsx`. Wrap in `SalesLayout` + `SalesPageHeader`, link from the Sales nav. Mirror the Marketo settings page structurally — it's the closest analog (also OAuth-style auth + per-feature toggles + test button):
+
+- Connection state at the top (Connected to `<workspace>`, posting to `#<channel>`) with Disconnect button
+- "Connect Slack" CTA → OAuth flow (signed state)
+- Channel picker (calls `conversations.list`, filter to public + channels the bot is in) — endpoint `GET /api/sales/slack/discover/channels`, cached 1hr
+- Per-event-type toggles (`Form submit`, `Hot visit`, `AI Briefing ready`) — checkbox each, plus a "Send test" button per event that posts a sample of that event type to the chosen channel
+
+### Marketing-site updates
+
+In `artifacts/lp-studio/src/marketing/components/Integrations.tsx`:
+
+- Add a **Slack tile** to the `SCHEDULING_OPS` group (it fits the "notifications & ops" theme better than the lead-handoff group). Brand color `#4A154B`. Single-color SVG mark — the four-square Slack logo silhouette normalized to a 24×24 viewBox, drawn in the same simplified style as the other marks.
+- If the group already has 3 tiles (Chili Piper, Asana, Resend), bump the layout — either rename one of the groups or change `SCHEDULING_OPS` to allow 4 items. Verify the inline-grid (`grid-cols-2 md:grid-cols-4`) still looks good on desktop and mobile.
+
+---
+
+## Part 2 — Zapier positioning tile (marketing-only)
+
+Zapier doesn't need any backend code — LP Studio already ships outbound Webhooks, which is exactly what users wire into a Zap. This is purely about telling visitors "you can already use Zapier today" via the Integrations grid.
+
+### Backend: nothing
+
+### Marketing-site updates
+
+1. **`components/Integrations.tsx`** — Add a Zapier tile to the `LEAD_HANDOFF` group (sits naturally with Marketo + Google Sheets + Webhooks). Brand color `#FF4F00`. Single-color SVG mark — Zapier's four-petal asterisk silhouette normalized to a 24×24 viewBox, drawn in the same simplified single-color style as the other marks.
+2. **`components/Integrations.tsx` — file-level comment** — update the explainer at the top:
+   ```
+   // Note: Zapier appears as a tile not because we ship a native Zapier app,
+   // but because LP Studio's outbound Webhooks integration covers every
+   // Zapier scenario — users wire a Zap to a webhook URL and route LP Studio
+   // events to any of the 5,000+ Zapier-supported apps. This is documented
+   // at /docs/integrations/zapier.
+   ```
+3. **Documentation page** — add a short doc page at `/docs/integrations/zapier` (or wherever LP Studio docs live) explaining the webhooks → Zapier pattern with a 3-step setup walkthrough:
+   - Step 1: In Zapier, create a new Zap with "Webhooks by Zapier" → "Catch Hook" as the trigger. Copy the URL.
+   - Step 2: In LP Studio → Settings → Integrations → Webhooks, add a new endpoint with that URL.
+   - Step 3: Choose the event types to send (form submit, hot visit, etc.) and save. Trigger a test event and Zapier will see the payload, then map fields to any downstream app.
+
+---
+
+## Acceptance criteria
+
+- [ ] `slack_connections` table has `tenant_id NOT NULL` FK + index in the initial migration (no retrofit)
+- [ ] `getActiveConnection` requires `tenantId` as a non-optional parameter
+- [ ] Token + webhook URL encryption uses `encryptCredential`; whitelist updated to include `slack: ["accessToken", "incomingWebhookUrl"]`
+- [ ] HMAC-signed OAuth state matches the SFDC/Marketo pattern (10-min TTL, constant-time compare)
+- [ ] Slack OAuth connect flow works end-to-end against a real Slack workspace
+- [ ] All three event types (form submit, hot visit, AI Briefing ready) fire test messages successfully
+- [ ] Disconnecting Slack stops all event posting within the next request cycle
+- [ ] Slack rate limit guard prevents 429s under burst traffic (5+ events/sec) — verify with a smoke test
+- [ ] Marketo + SFDC code paths untouched
+- [ ] Slack tile + Zapier tile both render in the Integrations grid at the same visual weight as the existing tiles
+- [ ] Zapier docs page is reachable from the Integrations tile (clickable card → docs)
+- [ ] `pnpm typecheck` clean across all workspaces
+
+## Don't
+
+- Don't reuse `lp_integrations` (the generic provider table) — create a dedicated `slack_connections` table matching the Marketo Phase 2 shape.
+- Don't mirror SFDC's `getActiveConnection()` tenantId-less leak (`hotlinks.ts:673`, `campaigns.ts:854,1461`, `lp/leads.ts:454`). Every call site MUST pass `tenantId`.
+- Don't store Slack tokens or webhook URLs unencrypted. Reuse `encryptCredential` and update the whitelist.
+- Don't skip the HMAC-signed state — Marketo + SFDC use it; Slack must too (it's a security fix, not a stylistic choice).
+- Don't add the Zapier tile without the docs page — the tile must be backed by a real explainer so it doesn't read as vaporware.
+- Don't refactor the existing Webhooks integration as part of the Zapier work. It's already shipped; Zapier is purely a positioning + docs change.
+- Don't refactor Marketo, SFDC, or shared integration helpers as part of this PR. Stay scoped.
